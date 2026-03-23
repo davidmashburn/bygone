@@ -1,0 +1,9 @@
+declare module 'diff' {
+    export interface Change<T> {
+        value: T[];
+        added?: boolean;
+        removed?: boolean;
+    }
+
+    export function diffArrays<T>(oldArr: T[], newArr: T[]): Change<T>[];
+}

@@ -1,0 +1,91 @@
+{
+  "name": "melden",
+  "displayName": "Melden",
+  "description": "A meld clone for VS Code - visual diff and merge tool",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other",
+    "SCM Providers"
+  ],
+  "activationEvents": [
+    "onCommand:melden.compareFiles",
+    "onCommand:melden.compareWithSelected",
+    "onCommand:melden.threeWayMerge",
+    "onCommand:melden.compareTestFiles",
+    "onView:melden.diffView"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "melden.compareFiles",
+        "title": "Compare Files",
+        "category": "Melden"
+      },
+      {
+        "command": "melden.compareWithSelected",
+        "title": "Compare with Selected",
+        "category": "Melden"
+      },
+      {
+        "command": "melden.threeWayMerge",
+        "title": "Three Way Merge (Experimental)",
+        "category": "Melden"
+      },
+      {
+        "command": "melden.compareTestFiles",
+        "title": "Compare Test Files",
+        "category": "Melden"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "melden.compareWithSelected",
+          "group": "compare"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "melden.compareWithSelected",
+          "group": "compare"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "meldendiff",
+          "title": "Melden",
+          "icon": "$(compare-changes)"
+        }
+      ]
+    },
+    "views": {
+      "meldendiff": [
+        {
+          "id": "melden.diffView",
+          "name": "Diff View",
+          "type": "webview"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node ./test/runTests.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "diff": "^5.1.0"
+  }
+}
