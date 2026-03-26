@@ -4,7 +4,10 @@ import { ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
 
 export class DiffViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'melden.diffView';
+    private static readonly containerCommand = 'workbench.view.extension.meldendiff';
     private view?: vscode.WebviewView;
+    private isReady = false;
+    private pendingMessage: unknown;
 
     constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -14,24 +17,35 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         _token: vscode.CancellationToken
     ) {
         this.view = webviewView;
+        this.isReady = false;
 
         webviewView.webview.options = {
             enableScripts: true,
             localResourceRoots: [this.extensionUri]
         };
 
+        webviewView.webview.onDidReceiveMessage((message) => {
+            if (message?.type === 'ready') {
+                this.isReady = true;
+
+                if (this.pendingMessage) {
+                    void webviewView.webview.postMessage(this.pendingMessage);
+                    this.pendingMessage = undefined;
+                }
+            }
+        });
         webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
     }
 
-    public showDiff(file1: vscode.Uri, file2: vscode.Uri, diffModel: TwoWayDiffModel) {
-        if (!this.view) {
-            vscode.window.showWarningMessage('Diff view panel not found. Opening in a text tab instead.');
+    public async showDiff(file1: vscode.Uri, file2: vscode.Uri, diffModel: TwoWayDiffModel) {
+        const view = await this.revealView();
+        if (!view) {
+            vscode.window.showWarningMessage('Melden view is unavailable. Opening the diff in a text tab instead.');
             this.showDiffInNewTab(file1, file2, diffModel);
             return;
         }
 
-        this.view.show?.(true);
-        this.view.webview.postMessage({
+        this.postOrQueueMessage({
             type: 'showDiff',
             file1: path.basename(file1.path),
             file2: path.basename(file2.path),
@@ -39,14 +53,14 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    public showThreeWayMerge(base: vscode.Uri, left: vscode.Uri, right: vscode.Uri, mergeModel: ThreeWayMergeModel) {
-        if (!this.view) {
-            vscode.window.showErrorMessage('Diff view not available');
+    public async showThreeWayMerge(base: vscode.Uri, left: vscode.Uri, right: vscode.Uri, mergeModel: ThreeWayMergeModel) {
+        const view = await this.revealView();
+        if (!view) {
+            vscode.window.showErrorMessage('Melden view is unavailable');
             return;
         }
 
-        this.view.show?.(true);
-        this.view.webview.postMessage({
+        this.postOrQueueMessage({
             type: 'showThreeWayMerge',
             base: {
                 name: path.basename(base.path),
@@ -87,6 +101,29 @@ ${diffModel.rows.map((row) => `${renderCell(row.left.content)}    |    ${renderC
         }).then((doc) => {
             vscode.window.showTextDocument(doc);
         });
+    }
+
+    private async revealView(): Promise<vscode.WebviewView | undefined> {
+        if (this.view) {
+            return this.view;
+        }
+
+        await vscode.commands.executeCommand(DiffViewProvider.containerCommand);
+
+        return this.view;
+    }
+
+    private postOrQueueMessage(message: unknown): void {
+        if (!this.view) {
+            return;
+        }
+
+        if (!this.isReady) {
+            this.pendingMessage = message;
+            return;
+        }
+
+        void this.view.webview.postMessage(message);
     }
 
     private getHtmlForWebview(webview: vscode.Webview) {
