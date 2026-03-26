@@ -3,8 +3,10 @@ const vscode = acquireVsCodeApi();
 let currentMode = 'two-way';
 let connectionCanvas;
 let canvasContext;
-let connections = [];
+let diffBlocks = [];
 let scrollSyncBound = false;
+let isSyncingScroll = false;
+let drawScheduled = false;
 
 window.addEventListener('message', (event) => {
     const message = event.data;
@@ -27,12 +29,12 @@ window.addEventListener('load', () => {
 
 window.addEventListener('resize', () => {
     resizeCanvas();
-    drawConnections();
+    scheduleDrawConnections();
 });
 
 function showTwoWayDiff(file1, file2, diffModel) {
     currentMode = 'two-way';
-    connections = diffModel.connections || [];
+    diffBlocks = diffModel.blocks || [];
 
     toggleView('two-way-diff');
     setStatus('', false);
@@ -40,17 +42,17 @@ function showTwoWayDiff(file1, file2, diffModel) {
     document.getElementById('file1-header').textContent = file1;
     document.getElementById('file2-header').textContent = file2;
 
-    renderTwoWayRows(document.getElementById('file1-content'), diffModel.rows, 'left');
-    renderTwoWayRows(document.getElementById('file2-content'), diffModel.rows, 'right');
+    renderSideLines(document.getElementById('file1-content'), diffModel.leftLines || []);
+    renderSideLines(document.getElementById('file2-content'), diffModel.rightLines || []);
 
     resetScrollPositions();
     resizeCanvas();
-    drawConnections();
+    scheduleDrawConnections();
 }
 
 function showThreeWayMerge(message) {
     currentMode = 'three-way';
-    connections = [];
+    diffBlocks = [];
 
     toggleView('three-way-diff');
     document.getElementById('file-info').textContent = `Three-way merge for ${message.base.name}, ${message.left.name}, and ${message.right.name}`;
@@ -72,15 +74,13 @@ function showThreeWayMerge(message) {
 
     resetScrollPositions();
     resizeCanvas();
-    drawConnections();
+    scheduleDrawConnections();
 }
 
-function renderTwoWayRows(container, rows, side) {
-    container.innerHTML = rows.map((row, index) => {
-        const cell = row[side];
-        const lineNumber = cell.lineNumber === null ? '' : `<span class="line-number">${cell.lineNumber}</span>`;
-        const content = cell.content.length === 0 ? '&nbsp;' : escapeHtml(cell.content);
-        return `<div class="diff-line ${cell.kind}" data-row="${index}">${lineNumber}<span class="line-text">${content}</span></div>`;
+function renderSideLines(container, lines) {
+    container.innerHTML = lines.map((line, index) => {
+        const content = line.content.length === 0 ? '&nbsp;' : escapeHtml(line.content);
+        return `<div class="diff-line ${line.kind}" data-line="${index}"><span class="line-number">${line.lineNumber}</span><span class="line-text">${content}</span></div>`;
     }).join('');
 }
 
@@ -93,12 +93,9 @@ function renderPlainLines(container, lines) {
 
 function renderResultLines(container, lines) {
     container.innerHTML = lines.map((line, index) => {
-        let kind = 'context';
-
-        if (line === '<<<<<<< LEFT' || line === '=======' || line === '>>>>>>> RIGHT') {
-            kind = 'merge-marker';
-        }
-
+        const kind = line === '<<<<<<< LEFT' || line === '=======' || line === '>>>>>>> RIGHT'
+            ? 'merge-marker'
+            : 'context';
         const content = line.length === 0 ? '&nbsp;' : escapeHtml(line);
         return `<div class="diff-line ${kind}"><span class="line-number">${index + 1}</span><span class="line-text">${content}</span></div>`;
     }).join('');
@@ -125,18 +122,27 @@ function bindScrollSync() {
 
     containers.forEach((container) => {
         container.addEventListener('scroll', () => {
-            const source = container;
+            if (isSyncingScroll) {
+                scheduleDrawConnections();
+                return;
+            }
 
-            containers.forEach((other) => {
-                if (other === source) {
+            const visibleContainers = getVisibleScrollContainers();
+            const verticalRatio = getScrollRatio(container.scrollTop, container.scrollHeight - container.clientHeight);
+            const horizontalRatio = getScrollRatio(container.scrollLeft, container.scrollWidth - container.clientWidth);
+
+            isSyncingScroll = true;
+            visibleContainers.forEach((other) => {
+                if (other === container) {
                     return;
                 }
 
-                other.scrollTop = source.scrollTop;
-                other.scrollLeft = source.scrollLeft;
+                other.scrollTop = verticalRatio * Math.max(0, other.scrollHeight - other.clientHeight);
+                other.scrollLeft = horizontalRatio * Math.max(0, other.scrollWidth - other.clientWidth);
             });
+            isSyncingScroll = false;
 
-            drawConnections();
+            scheduleDrawConnections();
         });
     });
 }
@@ -193,64 +199,117 @@ function drawConnections() {
     const leftRect = leftPanel.getBoundingClientRect();
     const rightRect = rightPanel.getBoundingClientRect();
 
-    connections.forEach((connection) => {
-        if (connection.type === 'context') {
-            drawContextConnection(connection.row, leftPanel, rightPanel, leftRect, rightRect, containerRect);
-            return;
-        }
-
-        drawBoundaryConnection(connection, leftPanel, rightPanel, leftRect, rightRect, containerRect);
+    diffBlocks.forEach((block) => {
+        drawBlockRegion(block, leftPanel, rightPanel, leftRect, rightRect, containerRect);
     });
 }
 
-function drawContextConnection(row, leftPanel, rightPanel, leftRect, rightRect, containerRect) {
-    const leftLine = leftPanel.children[row];
-    const rightLine = rightPanel.children[row];
+function drawBlockRegion(block, leftPanel, rightPanel, leftRect, rightRect, containerRect) {
+    const leftBounds = getBlockBounds(leftPanel, block.leftStart, block.leftEnd, leftRect, containerRect, true);
+    const rightBounds = getBlockBounds(rightPanel, block.rightStart, block.rightEnd, rightRect, containerRect, false);
 
-    if (!leftLine || !rightLine) {
+    if (!leftBounds || !rightBounds) {
         return;
     }
 
-    const leftLineRect = leftLine.getBoundingClientRect();
-    const rightLineRect = rightLine.getBoundingClientRect();
+    const colors = {
+        insert: { fill: 'rgba(73, 190, 119, 0.18)', stroke: 'rgba(73, 190, 119, 0.85)' },
+        delete: { fill: 'rgba(225, 91, 79, 0.18)', stroke: 'rgba(225, 91, 79, 0.85)' },
+        replace: { fill: 'rgba(227, 167, 47, 0.18)', stroke: 'rgba(227, 167, 47, 0.85)' }
+    };
+    const cpOffset = (rightBounds.x - leftBounds.x) * 0.35;
+    const color = colors[block.kind] || colors.replace;
 
-    canvasContext.strokeStyle = 'rgba(128, 128, 128, 0.28)';
-    canvasContext.lineWidth = 1;
+    canvasContext.fillStyle = color.fill;
+    canvasContext.strokeStyle = color.stroke;
+    canvasContext.lineWidth = 1.5;
     canvasContext.beginPath();
-    canvasContext.moveTo(leftRect.right - containerRect.left, leftLineRect.top + leftLineRect.height / 2 - containerRect.top);
-    canvasContext.lineTo(rightRect.left - containerRect.left, rightLineRect.top + rightLineRect.height / 2 - containerRect.top);
+    canvasContext.moveTo(leftBounds.x, leftBounds.top);
+    canvasContext.bezierCurveTo(
+        leftBounds.x + cpOffset, leftBounds.top,
+        rightBounds.x - cpOffset, rightBounds.top,
+        rightBounds.x, rightBounds.top
+    );
+    canvasContext.lineTo(rightBounds.x, rightBounds.bottom);
+    canvasContext.bezierCurveTo(
+        rightBounds.x - cpOffset, rightBounds.bottom,
+        leftBounds.x + cpOffset, leftBounds.bottom,
+        leftBounds.x, leftBounds.bottom
+    );
+    canvasContext.closePath();
+    canvasContext.fill();
     canvasContext.stroke();
 }
 
-function drawBoundaryConnection(connection, leftPanel, rightPanel, leftRect, rightRect, containerRect) {
-    const startLine = leftPanel.children[connection.row];
-    const endLine = rightPanel.children[connection.targetRow];
+function getBlockBounds(panel, start, end, panelRect, containerRect, useRightEdge) {
+    const lineCount = panel.children.length;
+    const x = useRightEdge
+        ? panelRect.right - containerRect.left
+        : panelRect.left - containerRect.left;
 
-    if (!startLine || !endLine) {
+    if (lineCount === 0) {
+        const baseline = panelRect.top - containerRect.top + 12;
+        return { x, top: baseline - 4, bottom: baseline + 4 };
+    }
+
+    if (start === end) {
+        const anchorTop = getInsertionAnchorTop(panel, start, containerRect);
+        return { x, top: anchorTop - 4, bottom: anchorTop + 4 };
+    }
+
+    const firstLine = panel.children[Math.min(start, lineCount - 1)];
+    const lastLine = panel.children[Math.min(Math.max(end - 1, 0), lineCount - 1)];
+
+    if (!firstLine || !lastLine) {
+        return undefined;
+    }
+
+    return {
+        x,
+        top: firstLine.getBoundingClientRect().top - containerRect.top,
+        bottom: lastLine.getBoundingClientRect().bottom - containerRect.top
+    };
+}
+
+function getInsertionAnchorTop(panel, index, containerRect) {
+    const lineCount = panel.children.length;
+
+    if (index <= 0) {
+        return panel.children[0].getBoundingClientRect().top - containerRect.top;
+    }
+
+    if (index >= lineCount) {
+        return panel.children[lineCount - 1].getBoundingClientRect().bottom - containerRect.top;
+    }
+
+    return panel.children[index].getBoundingClientRect().top - containerRect.top;
+}
+
+function getVisibleScrollContainers() {
+    return Array.from(document.querySelectorAll('.file-content')).filter((container) => {
+        const view = container.closest('.diff-view');
+        return view && !view.classList.contains('hidden');
+    });
+}
+
+function getScrollRatio(value, extent) {
+    if (extent <= 0) {
+        return 0;
+    }
+
+    return value / extent;
+}
+
+function scheduleDrawConnections() {
+    if (drawScheduled) {
         return;
     }
 
-    const startRect = startLine.getBoundingClientRect();
-    const endRect = endLine.getBoundingClientRect();
-    const startX = leftRect.right - containerRect.left;
-    const endX = rightRect.left - containerRect.left;
-    const startY = connection.direction === 'start'
-        ? startRect.bottom - containerRect.top
-        : startRect.top + startRect.height / 2 - containerRect.top;
-    const endY = connection.direction === 'start'
-        ? endRect.top - containerRect.top
-        : endRect.top + endRect.height / 2 - containerRect.top;
-
-    canvasContext.strokeStyle = 'rgba(233, 144, 2, 0.75)';
-    canvasContext.lineWidth = 2;
-    canvasContext.beginPath();
-    canvasContext.moveTo(startX, startY);
-    canvasContext.bezierCurveTo(
-        startX + (endX - startX) * 0.35, startY,
-        startX + (endX - startX) * 0.65, endY,
-        endX, endY
-    );
-    canvasContext.stroke();
+    drawScheduled = true;
+    window.requestAnimationFrame(() => {
+        drawScheduled = false;
+        drawConnections();
+    });
 }
 
 function escapeHtml(text) {

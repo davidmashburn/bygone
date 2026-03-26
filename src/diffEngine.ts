@@ -13,6 +13,20 @@ export interface DiffRow {
     right: DiffCell;
 }
 
+export interface DiffLine {
+    kind: Exclude<DiffCellKind, 'placeholder'>;
+    content: string;
+    lineNumber: number;
+}
+
+export interface DiffBlock {
+    kind: 'insert' | 'delete' | 'replace';
+    leftStart: number;
+    leftEnd: number;
+    rightStart: number;
+    rightEnd: number;
+}
+
 export interface DiffConnection {
     type: 'context' | 'boundary';
     row: number;
@@ -22,6 +36,9 @@ export interface DiffConnection {
 
 export interface TwoWayDiffModel {
     rows: DiffRow[];
+    leftLines: DiffLine[];
+    rightLines: DiffLine[];
+    blocks: DiffBlock[];
     connections: DiffConnection[];
     hasChanges: boolean;
 }
@@ -47,6 +64,9 @@ export function buildTwoWayDiffModel(leftContent: string, rightContent: string):
     const changes = Diff.diffArrays(leftLines, rightLines);
 
     const rows: DiffRow[] = [];
+    const renderedLeftLines: DiffLine[] = [];
+    const renderedRightLines: DiffLine[] = [];
+    const blocks: DiffBlock[] = [];
     let leftLineNumber = 1;
     let rightLineNumber = 1;
 
@@ -57,6 +77,8 @@ export function buildTwoWayDiffModel(leftContent: string, rightContent: string):
 
         if (!change.added && !change.removed) {
             for (const line of change.value) {
+                renderedLeftLines.push({ kind: 'context', content: line, lineNumber: leftLineNumber });
+                renderedRightLines.push({ kind: 'context', content: line, lineNumber: rightLineNumber });
                 rows.push({
                     left: { kind: 'context', content: line, lineNumber: leftLineNumber++ },
                     right: { kind: 'context', content: line, lineNumber: rightLineNumber++ }
@@ -68,10 +90,20 @@ export function buildTwoWayDiffModel(leftContent: string, rightContent: string):
         if (change.removed && index + 1 < changes.length && changes[index + 1].added) {
             const nextChange = changes[index + 1];
             const pairedLength = Math.max(removedLines.length, nextChange.value.length);
+            const leftStart = renderedLeftLines.length;
+            const rightStart = renderedRightLines.length;
 
             for (let rowIndex = 0; rowIndex < pairedLength; rowIndex++) {
                 const removedLine = removedLines[rowIndex];
                 const addedLine = nextChange.value[rowIndex];
+
+                if (removedLine !== undefined) {
+                    renderedLeftLines.push({ kind: 'removed', content: removedLine, lineNumber: leftLineNumber });
+                }
+
+                if (addedLine !== undefined) {
+                    renderedRightLines.push({ kind: 'added', content: addedLine, lineNumber: rightLineNumber });
+                }
 
                 rows.push({
                     left: removedLine === undefined
@@ -83,32 +115,65 @@ export function buildTwoWayDiffModel(leftContent: string, rightContent: string):
                 });
             }
 
+            blocks.push({
+                kind: 'replace',
+                leftStart,
+                leftEnd: renderedLeftLines.length,
+                rightStart,
+                rightEnd: renderedRightLines.length
+            });
+
             index++;
             continue;
         }
 
         if (change.removed) {
+            const leftStart = renderedLeftLines.length;
+            const rightStart = renderedRightLines.length;
             for (const line of removedLines) {
+                renderedLeftLines.push({ kind: 'removed', content: line, lineNumber: leftLineNumber });
                 rows.push({
                     left: { kind: 'removed', content: line, lineNumber: leftLineNumber++ },
                     right: makePlaceholder()
                 });
             }
+
+            blocks.push({
+                kind: 'delete',
+                leftStart,
+                leftEnd: renderedLeftLines.length,
+                rightStart,
+                rightEnd: renderedRightLines.length
+            });
             continue;
         }
 
         if (change.added) {
+            const leftStart = renderedLeftLines.length;
+            const rightStart = renderedRightLines.length;
             for (const line of addedLines) {
+                renderedRightLines.push({ kind: 'added', content: line, lineNumber: rightLineNumber });
                 rows.push({
                     left: makePlaceholder(),
                     right: { kind: 'added', content: line, lineNumber: rightLineNumber++ }
                 });
             }
+
+            blocks.push({
+                kind: 'insert',
+                leftStart,
+                leftEnd: renderedLeftLines.length,
+                rightStart,
+                rightEnd: renderedRightLines.length
+            });
         }
     }
 
     return {
         rows,
+        leftLines: renderedLeftLines,
+        rightLines: renderedRightLines,
+        blocks,
         connections: buildConnections(rows),
         hasChanges: rows.some((row) => row.left.kind !== 'context' || row.right.kind !== 'context')
     };
