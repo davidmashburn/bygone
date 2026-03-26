@@ -79,8 +79,11 @@ function showThreeWayMerge(message) {
 
 function renderSideLines(container, lines) {
     container.innerHTML = lines.map((line, index) => {
-        const content = line.content.length === 0 ? '&nbsp;' : escapeHtml(line.content);
-        return `<div class="diff-line ${line.kind}" data-line="${index}"><span class="line-number">${line.lineNumber}</span><span class="line-text">${content}</span></div>`;
+        const content = renderLineContent(line);
+        const classes = ['diff-line', line.kind, line.segments && line.segments.length > 0 ? 'has-inline-highlight' : '']
+            .filter(Boolean)
+            .join(' ');
+        return `<div class="${classes}" data-line="${index}"><span class="line-number">${line.lineNumber}</span><span class="line-text">${content}</span></div>`;
     }).join('');
 }
 
@@ -213,48 +216,97 @@ function drawBlockRegion(block, leftPanel, rightPanel, leftRect, rightRect, cont
     }
 
     const colors = {
-        insert: { fill: 'rgba(73, 190, 119, 0.18)', stroke: 'rgba(73, 190, 119, 0.85)' },
-        delete: { fill: 'rgba(225, 91, 79, 0.18)', stroke: 'rgba(225, 91, 79, 0.85)' },
-        replace: { fill: 'rgba(227, 167, 47, 0.18)', stroke: 'rgba(227, 167, 47, 0.85)' }
+        insert: {
+            leftFill: 'rgba(73, 190, 119, 0.10)',
+            rightFill: 'rgba(73, 190, 119, 0.26)',
+            stroke: 'rgba(73, 190, 119, 0.92)'
+        },
+        delete: {
+            leftFill: 'rgba(73, 190, 119, 0.26)',
+            rightFill: 'rgba(73, 190, 119, 0.10)',
+            stroke: 'rgba(73, 190, 119, 0.92)'
+        },
+        replace: {
+            leftFill: 'rgba(79, 124, 255, 0.24)',
+            rightFill: 'rgba(79, 124, 255, 0.24)',
+            strokeLeft: 'rgba(79, 124, 255, 0.92)',
+            strokeRight: 'rgba(79, 124, 255, 0.92)'
+        }
     };
     const cpOffset = (rightBounds.x - leftBounds.x) * 0.35;
     const color = colors[block.kind] || colors.replace;
+    const gradient = canvasContext.createLinearGradient(leftBounds.x, 0, rightBounds.x, 0);
+    const collapsesLeft = block.kind === 'insert';
+    const collapsesRight = block.kind === 'delete';
 
-    canvasContext.fillStyle = color.fill;
-    canvasContext.strokeStyle = color.stroke;
-    canvasContext.lineWidth = 1.5;
-    canvasContext.beginPath();
-    canvasContext.moveTo(leftBounds.x, leftBounds.top);
-    canvasContext.bezierCurveTo(
+    if (collapsesLeft) {
+        const center = (leftBounds.top + leftBounds.bottom) / 2;
+        leftBounds.top = center;
+        leftBounds.bottom = center;
+    }
+
+    if (collapsesRight) {
+        const center = (rightBounds.top + rightBounds.bottom) / 2;
+        rightBounds.top = center;
+        rightBounds.bottom = center;
+    }
+
+    if (block.kind === 'replace') {
+        gradient.addColorStop(0, color.leftFill);
+        gradient.addColorStop(0.5, color.leftFill);
+        gradient.addColorStop(0.5, color.rightFill);
+        gradient.addColorStop(1, color.rightFill);
+    } else {
+        gradient.addColorStop(0, color.leftFill);
+        gradient.addColorStop(1, color.rightFill);
+    }
+
+    const path = new Path2D();
+    path.moveTo(leftBounds.x, leftBounds.top);
+    path.bezierCurveTo(
         leftBounds.x + cpOffset, leftBounds.top,
         rightBounds.x - cpOffset, rightBounds.top,
         rightBounds.x, rightBounds.top
     );
-    canvasContext.lineTo(rightBounds.x, rightBounds.bottom);
-    canvasContext.bezierCurveTo(
+    path.lineTo(rightBounds.x, rightBounds.bottom);
+    path.bezierCurveTo(
         rightBounds.x - cpOffset, rightBounds.bottom,
         leftBounds.x + cpOffset, leftBounds.bottom,
         leftBounds.x, leftBounds.bottom
     );
-    canvasContext.closePath();
-    canvasContext.fill();
-    canvasContext.stroke();
+    path.closePath();
+
+    canvasContext.fillStyle = gradient;
+    canvasContext.fill(path);
+
+    if (block.kind === 'replace') {
+        strokeReplaceBlockOutline(leftBounds, rightBounds, cpOffset, leftRect, rightRect, containerRect, color.strokeLeft);
+    } else {
+        strokeConnectorEdges(leftBounds, rightBounds, cpOffset, color.stroke);
+        strokeBlockOutline(color.stroke, leftBounds, rightBounds, leftRect, rightRect, containerRect);
+        if (collapsesLeft) {
+            drawBoundaryGuide(leftRect, containerRect, leftBounds.top, color.stroke);
+        }
+        if (collapsesRight) {
+            drawBoundaryGuide(rightRect, containerRect, rightBounds.top, color.stroke);
+        }
+    }
 }
 
 function getBlockBounds(panel, start, end, panelRect, containerRect, useRightEdge) {
     const lineCount = panel.children.length;
+    const gutterInset = -2;
     const x = useRightEdge
-        ? panelRect.right - containerRect.left
-        : panelRect.left - containerRect.left;
+        ? panelRect.right - containerRect.left + gutterInset
+        : panelRect.left - containerRect.left - gutterInset;
 
     if (lineCount === 0) {
         const baseline = panelRect.top - containerRect.top + 12;
-        return { x, top: baseline - 4, bottom: baseline + 4 };
+        return { x, top: baseline - 6, bottom: baseline + 6 };
     }
 
     if (start === end) {
-        const anchorTop = getInsertionAnchorTop(panel, start, containerRect);
-        return { x, top: anchorTop - 4, bottom: anchorTop + 4 };
+        return getInsertionBounds(panel, indexClamp(start, 0, lineCount), x, containerRect);
     }
 
     const firstLine = panel.children[Math.min(start, lineCount - 1)];
@@ -266,23 +318,45 @@ function getBlockBounds(panel, start, end, panelRect, containerRect, useRightEdg
 
     return {
         x,
-        top: firstLine.getBoundingClientRect().top - containerRect.top,
-        bottom: lastLine.getBoundingClientRect().bottom - containerRect.top
+        top: firstLine.getBoundingClientRect().top - containerRect.top + 1,
+        bottom: lastLine.getBoundingClientRect().bottom - containerRect.top - 1
     };
 }
 
-function getInsertionAnchorTop(panel, index, containerRect) {
+function getInsertionBounds(panel, index, x, containerRect) {
     const lineCount = panel.children.length;
+    const lineHeight = getLineHeight(panel);
+    const span = Math.max(6, Math.min(14, lineHeight * 0.45));
+    let center;
 
     if (index <= 0) {
-        return panel.children[0].getBoundingClientRect().top - containerRect.top;
+        center = panel.children[0].getBoundingClientRect().top - containerRect.top;
+        return { x, top: center - span, bottom: center + span };
     }
 
     if (index >= lineCount) {
-        return panel.children[lineCount - 1].getBoundingClientRect().bottom - containerRect.top;
+        center = panel.children[lineCount - 1].getBoundingClientRect().bottom - containerRect.top;
+        return { x, top: center - span, bottom: center + span };
     }
 
-    return panel.children[index].getBoundingClientRect().top - containerRect.top;
+    const previousRect = panel.children[index - 1].getBoundingClientRect();
+    const nextRect = panel.children[index].getBoundingClientRect();
+    center = previousRect.bottom + ((nextRect.top - previousRect.bottom) / 2) - containerRect.top;
+
+    return {
+        x,
+        top: center - span,
+        bottom: center + span
+    };
+}
+
+function getLineHeight(panel) {
+    const firstLine = panel.children[0];
+    return firstLine ? firstLine.getBoundingClientRect().height : 16;
+}
+
+function indexClamp(value, min, max) {
+    return Math.max(min, Math.min(value, max));
 }
 
 function getVisibleScrollContainers() {
@@ -312,8 +386,98 @@ function scheduleDrawConnections() {
     });
 }
 
+function strokeReplaceBlockOutline(leftBounds, rightBounds, cpOffset, leftRect, rightRect, containerRect, color) {
+    canvasContext.lineWidth = 1.5;
+    canvasContext.strokeStyle = color;
+    canvasContext.beginPath();
+    canvasContext.moveTo(leftBounds.x, leftBounds.top);
+    canvasContext.bezierCurveTo(
+        leftBounds.x + cpOffset, leftBounds.top,
+        rightBounds.x - cpOffset, rightBounds.top,
+        rightBounds.x, rightBounds.top
+    );
+    canvasContext.stroke();
+
+    canvasContext.beginPath();
+    canvasContext.moveTo(rightBounds.x, rightBounds.bottom);
+    canvasContext.bezierCurveTo(
+        rightBounds.x - cpOffset, rightBounds.bottom,
+        leftBounds.x + cpOffset, leftBounds.bottom,
+        leftBounds.x, leftBounds.bottom
+    );
+    canvasContext.stroke();
+
+    strokePaneOutline(leftRect, containerRect, leftBounds.top, leftBounds.bottom, color);
+    strokePaneOutline(rightRect, containerRect, rightBounds.top, rightBounds.bottom, color);
+}
+
+function drawBoundaryGuide(panelRect, containerRect, y, color) {
+    canvasContext.strokeStyle = color;
+    canvasContext.lineWidth = 1.5;
+    canvasContext.beginPath();
+    canvasContext.moveTo(panelRect.left - containerRect.left, y);
+    canvasContext.lineTo(panelRect.right - containerRect.left, y);
+    canvasContext.stroke();
+}
+
+function strokeBlockOutline(color, leftBounds, rightBounds, leftRect, rightRect, containerRect) {
+    strokePaneOutline(leftRect, containerRect, leftBounds.top, leftBounds.bottom, color);
+    strokePaneOutline(rightRect, containerRect, rightBounds.top, rightBounds.bottom, color);
+}
+
+function strokePaneOutline(panelRect, containerRect, top, bottom, color) {
+    canvasContext.strokeStyle = color;
+    canvasContext.lineWidth = 1.5;
+    canvasContext.beginPath();
+    canvasContext.moveTo(panelRect.left - containerRect.left, top);
+    canvasContext.lineTo(panelRect.right - containerRect.left, top);
+    canvasContext.moveTo(panelRect.left - containerRect.left, bottom);
+    canvasContext.lineTo(panelRect.right - containerRect.left, bottom);
+    canvasContext.stroke();
+}
+
+function strokeConnectorEdges(leftBounds, rightBounds, cpOffset, color) {
+    canvasContext.strokeStyle = color;
+    canvasContext.lineWidth = 1.5;
+    canvasContext.beginPath();
+    canvasContext.moveTo(leftBounds.x, leftBounds.top);
+    canvasContext.bezierCurveTo(
+        leftBounds.x + cpOffset, leftBounds.top,
+        rightBounds.x - cpOffset, rightBounds.top,
+        rightBounds.x, rightBounds.top
+    );
+    canvasContext.stroke();
+
+    canvasContext.beginPath();
+    canvasContext.moveTo(rightBounds.x, rightBounds.bottom);
+    canvasContext.bezierCurveTo(
+        rightBounds.x - cpOffset, rightBounds.bottom,
+        leftBounds.x + cpOffset, leftBounds.bottom,
+        leftBounds.x, leftBounds.bottom
+    );
+    canvasContext.stroke();
+}
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function renderLineContent(line) {
+    if (line.segments && line.segments.length > 0) {
+        const renderedSegments = line.segments.map((segment) => {
+            const classes = [
+                'inline-segment',
+                `${segment.kind}-segment`,
+                segment.emphasis ? 'emphasis' : ''
+            ].filter(Boolean).join(' ');
+            const text = segment.text.length === 0 ? '&nbsp;' : escapeHtml(segment.text);
+            return `<span class="${classes}">${text}</span>`;
+        }).join('');
+
+        return renderedSegments.length > 0 ? renderedSegments : '&nbsp;';
+    }
+
+    return line.content.length === 0 ? '&nbsp;' : escapeHtml(line.content);
 }

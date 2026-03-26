@@ -17,6 +17,13 @@ export interface DiffLine {
     kind: Exclude<DiffCellKind, 'placeholder'>;
     content: string;
     lineNumber: number;
+    segments?: DiffSegment[];
+}
+
+export interface DiffSegment {
+    kind: 'context' | 'removed' | 'added';
+    text: string;
+    emphasis: boolean;
 }
 
 export interface DiffBlock {
@@ -122,6 +129,7 @@ export function buildTwoWayDiffModel(leftContent: string, rightContent: string):
                 rightStart,
                 rightEnd: renderedRightLines.length
             });
+            applyInlineHighlights(renderedLeftLines, renderedRightLines, leftStart, renderedLeftLines.length, rightStart, renderedRightLines.length);
 
             index++;
             continue;
@@ -319,6 +327,89 @@ function normalizeLines(content: string): string[] {
     }
 
     return lines;
+}
+
+function applyInlineHighlights(
+    leftLines: DiffLine[],
+    rightLines: DiffLine[],
+    leftStart: number,
+    leftEnd: number,
+    rightStart: number,
+    rightEnd: number
+): void {
+    const pairCount = Math.min(leftEnd - leftStart, rightEnd - rightStart);
+
+    for (let index = 0; index < pairCount; index++) {
+        const leftLine = leftLines[leftStart + index];
+        const rightLine = rightLines[rightStart + index];
+
+        if (!leftLine || !rightLine) {
+            continue;
+        }
+
+        const { leftSegments, rightSegments, hasInlineChanges } = buildInlineSegments(leftLine.content, rightLine.content);
+
+        if (!hasInlineChanges) {
+            continue;
+        }
+
+        leftLine.segments = leftSegments;
+        rightLine.segments = rightSegments;
+    }
+}
+
+function buildInlineSegments(
+    leftContent: string,
+    rightContent: string
+): {
+    leftSegments: DiffSegment[];
+    rightSegments: DiffSegment[];
+    hasInlineChanges: boolean;
+} {
+    const changes = Diff.diffWordsWithSpace(leftContent, rightContent);
+    const leftSegments: DiffSegment[] = [];
+    const rightSegments: DiffSegment[] = [];
+    let hasInlineChanges = false;
+
+    for (const change of changes) {
+        const value = change.value;
+
+        if (!change.added && !change.removed) {
+            const contextSegment: DiffSegment = {
+                kind: 'context',
+                text: value,
+                emphasis: false
+            };
+            leftSegments.push(contextSegment);
+            rightSegments.push(contextSegment);
+            continue;
+        }
+
+        const emphasis = /[^\s]/.test(value);
+        hasInlineChanges = hasInlineChanges || emphasis;
+
+        if (change.removed) {
+            leftSegments.push({
+                kind: 'removed',
+                text: value,
+                emphasis
+            });
+        }
+
+        if (change.added) {
+            rightSegments.push({
+                kind: 'added',
+                text: value,
+                emphasis
+            });
+        }
+    }
+
+    return {
+        leftSegments,
+        rightSegments,
+        hasInlineChanges
+    };
 }
 
 function makePlaceholder(): DiffCell {

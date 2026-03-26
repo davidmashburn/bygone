@@ -47,7 +47,7 @@ body {
 .diff-view {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    gap: 28px;
     height: 100%;
     padding: 12px;
     box-sizing: border-box;
@@ -118,18 +118,47 @@ body {
     text-overflow: clip;
 }
 
-.context {
+.inline-segment {
+    border-radius: 2px;
+}
+
+.inline-segment.emphasis {
+    padding: 0 1px;
+}
+
+.removed-segment.emphasis {
+    background: rgba(79, 124, 255, 0.34);
+    color: inherit;
+}
+
+.added-segment.emphasis {
+    background: rgba(79, 124, 255, 0.34);
+    color: inherit;
+}
+
+.removed .line-text,
+.added .line-text {
+    color: inherit;
+}
+
+.removed {
+    background: rgba(73, 190, 119, 0.14);
     color: var(--vscode-foreground);
 }
 
 .added {
-    background: var(--vscode-diffEditor-insertedLineBackground);
-    color: var(--vscode-diffEditor-insertedTextForeground);
+    background: rgba(73, 190, 119, 0.14);
+    color: var(--vscode-foreground);
 }
 
-.removed {
-    background: var(--vscode-diffEditor-removedLineBackground);
-    color: var(--vscode-diffEditor-removedTextForeground);
+.has-inline-highlight.removed,
+.has-inline-highlight.added {
+    background: rgba(79, 124, 255, 0.14);
+    color: var(--vscode-foreground);
+}
+
+.context {
+    color: var(--vscode-foreground);
 }
 
 .placeholder {
