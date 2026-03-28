@@ -168,17 +168,60 @@ body {
     color: var(--vscode-foreground);
 }
 
-.monaco-editor .melden-one-sided-line {
+.monaco-editor .melden-one-sided-line,
+.monaco-editor .melden-one-sided-line-whole {
     background: rgba(73, 190, 119, 0.14);
 }
 
-.monaco-editor .melden-paired-line {
+.monaco-editor .melden-paired-line,
+.monaco-editor .melden-paired-line-whole {
     background: rgba(79, 124, 255, 0.14);
+}
+
+.monaco-editor .margin .melden-one-sided-line-gutter,
+.monaco-editor .lines-decoration .melden-one-sided-line-gutter {
+    background: rgba(73, 190, 119, 0.22);
+}
+
+.monaco-editor .margin .melden-paired-line-gutter,
+.monaco-editor .lines-decoration .melden-paired-line-gutter {
+    background: rgba(79, 124, 255, 0.22);
 }
 
 .monaco-editor .melden-inline-blue {
     background: rgba(79, 124, 255, 0.34);
     border-radius: 2px;
+}
+
+.monaco-editor .melden-one-sided-line-start,
+.monaco-editor .melden-one-sided-line-end,
+.monaco-editor .melden-paired-line-start,
+.monaco-editor .melden-paired-line-end {
+    box-sizing: border-box;
+}
+
+.monaco-editor .melden-one-sided-line-start {
+    border-top: 1.5px solid rgba(73, 190, 119, 0.92);
+}
+
+.monaco-editor .melden-one-sided-line-end {
+    border-bottom: 1.5px solid rgba(73, 190, 119, 0.92);
+}
+
+.monaco-editor .melden-one-sided-boundary-top {
+    border-top: 1.5px solid rgba(73, 190, 119, 0.92);
+}
+
+.monaco-editor .melden-one-sided-boundary-bottom {
+    border-bottom: 1.5px solid rgba(73, 190, 119, 0.92);
+}
+
+.monaco-editor .melden-paired-line-start {
+    border-top: 1.5px solid rgba(79, 124, 255, 0.92);
+}
+
+.monaco-editor .melden-paired-line-end {
+    border-bottom: 1.5px solid rgba(79, 124, 255, 0.92);
 }
 
 .context {

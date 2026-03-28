@@ -13,6 +13,7 @@ let rightDecorationIds = [];
 let suppressEditorEvents = false;
 let recomputeTimer;
 let pendingTwoWayPayload;
+let currentDiffRows = [];
 
 window.addEventListener('message', (event) => {
     const message = event.data;
@@ -78,6 +79,7 @@ async function initializeMonaco() {
 function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel) {
     currentMode = 'two-way';
     diffBlocks = diffModel.blocks || [];
+    currentDiffRows = diffModel.rows || [];
 
     toggleView('two-way-diff');
     setStatus('', false);
@@ -224,10 +226,16 @@ function applyDiffDecorations(diffModel) {
         if (block.kind === 'replace') {
             addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'melden-paired-line');
             addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'melden-paired-line');
+            addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'melden-paired-line');
+            addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'melden-paired-line');
         } else if (block.kind === 'delete') {
             addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'melden-one-sided-line');
+            addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'melden-one-sided-line');
+            addCollapsedBoundaryDecoration(rightDecorations, block.rightStart, leftEditor.getModel()?.getLineCount() ?? 0, rightEditor.getModel()?.getLineCount() ?? 0, 'melden-one-sided-boundary');
         } else if (block.kind === 'insert') {
             addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'melden-one-sided-line');
+            addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'melden-one-sided-line');
+            addCollapsedBoundaryDecoration(leftDecorations, block.leftStart, leftEditor.getModel()?.getLineCount() ?? 0, rightEditor.getModel()?.getLineCount() ?? 0, 'melden-one-sided-boundary');
         }
     }
 
@@ -244,10 +252,74 @@ function addLineDecorations(target, start, end, className) {
             range: new monacoInstance.Range(index + 1, 1, index + 1, 1),
             options: {
                 isWholeLine: true,
-                wholeLineClassName: className
+                wholeLineClassName: `${className}-whole`,
+                className,
+                linesDecorationsClassName: `${className}-gutter`,
+                marginClassName: `${className}-gutter`
             }
         });
     }
+}
+
+function addBlockEdgeDecorations(target, start, end, className) {
+    if (start >= end) {
+        return;
+    }
+
+    const firstLine = start + 1;
+    const lastLine = end;
+
+    target.push({
+        range: new monacoInstance.Range(firstLine, 1, firstLine, 1),
+        options: {
+            isWholeLine: true,
+            className: `${className}-start`
+        }
+    });
+
+    target.push({
+        range: new monacoInstance.Range(lastLine, 1, lastLine, 1),
+        options: {
+            isWholeLine: true,
+            className: `${className}-end`
+        }
+    });
+}
+
+function addCollapsedBoundaryDecoration(target, anchorIndex, targetLineCount, _otherLineCount, className) {
+    if (targetLineCount <= 0) {
+        return;
+    }
+
+    if (anchorIndex <= 0) {
+        target.push({
+            range: new monacoInstance.Range(1, 1, 1, 1),
+            options: {
+                isWholeLine: true,
+                className: `${className}-top`
+            }
+        });
+        return;
+    }
+
+    if (anchorIndex >= targetLineCount) {
+        target.push({
+            range: new monacoInstance.Range(targetLineCount, 1, targetLineCount, 1),
+            options: {
+                isWholeLine: true,
+                className: `${className}-bottom`
+            }
+        });
+        return;
+    }
+
+    target.push({
+        range: new monacoInstance.Range(anchorIndex + 1, 1, anchorIndex + 1, 1),
+        options: {
+            isWholeLine: true,
+            className: `${className}-top`
+        }
+    });
 }
 
 function addInlineDecorations(target, lines, expectedKind, className) {
@@ -282,13 +354,92 @@ function synchronizeEditorScroll(sourceEditor) {
     }
 
     const targetEditor = sourceEditor === leftEditor ? rightEditor : leftEditor;
-    const verticalRatio = getScrollRatio(sourceEditor.getScrollTop(), sourceEditor.getScrollHeight() - sourceEditor.getLayoutInfo().height);
     const horizontalRatio = getScrollRatio(sourceEditor.getScrollLeft(), sourceEditor.getScrollWidth() - sourceEditor.getLayoutInfo().contentWidth);
+    const targetScrollTop = mapScrollTopBetweenEditors(sourceEditor, targetEditor);
 
     suppressEditorEvents = true;
-    targetEditor.setScrollTop(verticalRatio * Math.max(0, targetEditor.getScrollHeight() - targetEditor.getLayoutInfo().height));
+    targetEditor.setScrollTop(targetScrollTop);
     targetEditor.setScrollLeft(horizontalRatio * Math.max(0, targetEditor.getScrollWidth() - targetEditor.getLayoutInfo().contentWidth));
     suppressEditorEvents = false;
+}
+
+function mapScrollTopBetweenEditors(sourceEditor, targetEditor) {
+    const sourceSide = sourceEditor === leftEditor ? 'left' : 'right';
+    const targetSide = sourceSide === 'left' ? 'right' : 'left';
+    const sourceLineHeight = sourceEditor.getOption(monacoInstance.editor.EditorOption.lineHeight);
+    const targetLineHeight = targetEditor.getOption(monacoInstance.editor.EditorOption.lineHeight);
+    const sourceLineCount = sourceEditor.getModel()?.getLineCount() ?? 0;
+    const targetLineCount = targetEditor.getModel()?.getLineCount() ?? 0;
+
+    if (sourceLineCount === 0 || targetLineCount === 0 || currentDiffRows.length === 0) {
+        return getScrollRatio(sourceEditor.getScrollTop(), sourceEditor.getScrollHeight() - sourceEditor.getLayoutInfo().height)
+            * Math.max(0, targetEditor.getScrollHeight() - targetEditor.getLayoutInfo().height);
+    }
+
+    const sourceMaps = buildScrollMaps(currentDiffRows, sourceSide);
+    const targetMaps = buildScrollMaps(currentDiffRows, targetSide);
+    const sourceLinePosition = clamp(sourceEditor.getScrollTop() / sourceLineHeight, 0, sourceLineCount);
+    const alignedRowPosition = linePositionToRowPosition(sourceLinePosition, sourceMaps, currentDiffRows.length);
+    const targetLinePosition = rowPositionToLinePosition(alignedRowPosition, targetMaps, currentDiffRows.length);
+    const maxTargetScrollTop = Math.max(0, targetEditor.getScrollHeight() - targetEditor.getLayoutInfo().height);
+
+    return clamp(targetLinePosition * targetLineHeight, 0, maxTargetScrollTop);
+}
+
+function buildScrollMaps(rows, side) {
+    const lineToRow = [];
+    const boundaryCounts = new Array(rows.length + 1).fill(0);
+    let seenLines = 0;
+
+    rows.forEach((row, index) => {
+        const cell = row[side];
+        boundaryCounts[index] = seenLines;
+
+        if (cell.kind !== 'placeholder' && cell.lineNumber !== null) {
+            lineToRow[cell.lineNumber - 1] = index;
+            seenLines++;
+        }
+    });
+
+    boundaryCounts[rows.length] = seenLines;
+
+    return {
+        lineToRow,
+        boundaryCounts
+    };
+}
+
+function linePositionToRowPosition(linePosition, maps, rowCount) {
+    const lineIndex = Math.floor(linePosition);
+    const fraction = linePosition - lineIndex;
+
+    if (lineIndex >= maps.lineToRow.length) {
+        return rowCount;
+    }
+
+    const rowIndex = maps.lineToRow[lineIndex];
+    if (rowIndex === undefined) {
+        return rowCount;
+    }
+
+    return clamp(rowIndex + fraction, 0, rowCount);
+}
+
+function rowPositionToLinePosition(rowPosition, maps, rowCount) {
+    if (rowPosition >= rowCount) {
+        return maps.boundaryCounts[rowCount];
+    }
+
+    const rowIndex = Math.floor(rowPosition);
+    const fraction = rowPosition - rowIndex;
+    const currentCount = maps.boundaryCounts[rowIndex];
+    const nextCount = maps.boundaryCounts[rowIndex + 1];
+
+    if (nextCount === currentCount) {
+        return currentCount;
+    }
+
+    return currentCount + fraction;
 }
 
 function scheduleRecompute() {
