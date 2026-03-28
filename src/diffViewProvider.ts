@@ -12,8 +12,13 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         file1: string;
         file2: string;
     };
+    private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
 
     constructor(private readonly extensionUri: vscode.Uri) {}
+
+    public setHistoryNavigationHandler(handler: (direction: 'back' | 'forward') => void): void {
+        this.historyNavigationHandler = handler;
+    }
 
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
@@ -41,6 +46,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             if (message?.type === 'recomputeDiff' && typeof message.leftContent === 'string' && typeof message.rightContent === 'string') {
                 this.handleRecomputeDiff(message.leftContent, message.rightContent);
             }
+
+            if ((message?.type === 'historyBack' || message?.type === 'historyForward') && this.historyNavigationHandler) {
+                this.historyNavigationHandler(message.type === 'historyBack' ? 'back' : 'forward');
+            }
         });
         webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
     }
@@ -64,7 +73,50 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             file2: this.currentTwoWayDiff.file2,
             leftContent,
             rightContent,
-            diffModel
+            diffModel,
+            history: null
+        });
+    }
+
+    public async showHistoryDiff(
+        file: vscode.Uri,
+        leftLabel: string,
+        rightLabel: string,
+        leftContent: string,
+        rightContent: string,
+        diffModel: TwoWayDiffModel,
+        history: {
+            canGoBack: boolean;
+            canGoForward: boolean;
+            positionLabel: string;
+            leftCommitLabel: string;
+            leftTimestamp: string;
+            rightCommitLabel: string;
+            rightTimestamp: string;
+        }
+    ) {
+        const view = await this.revealView();
+        if (!view) {
+            vscode.window.showErrorMessage('Melden view is unavailable');
+            return;
+        }
+
+        this.currentTwoWayDiff = {
+            file1: leftLabel,
+            file2: rightLabel
+        };
+
+        this.postOrQueueMessage({
+            type: 'showDiff',
+            file1: leftLabel,
+            file2: rightLabel,
+            leftContent,
+            rightContent,
+            diffModel,
+            history: {
+                ...history,
+                fileName: path.basename(file.path)
+            }
         });
     }
 
@@ -163,6 +215,21 @@ ${diffModel.rows.map((row) => `${renderCell(row.left.content)}    |    ${renderC
             <h1>Melden</h1>
             <div id="file-info">Choose a compare command to render a diff.</div>
             <div id="status-banner" class="status-banner" hidden></div>
+            <div id="history-toolbar" class="history-toolbar" hidden>
+                <div class="history-side history-side-left">
+                    <div id="history-left-commit" class="history-commit"></div>
+                    <div id="history-left-time" class="history-time"></div>
+                </div>
+                <div class="history-nav">
+                    <button id="history-back" class="history-button" type="button" title="Older commit">←</button>
+                    <div id="history-position" class="history-position"></div>
+                    <button id="history-forward" class="history-button" type="button" title="Newer commit">→</button>
+                </div>
+                <div class="history-side history-side-right">
+                    <div id="history-right-commit" class="history-commit"></div>
+                    <div id="history-right-time" class="history-time"></div>
+                </div>
+            </div>
         </div>
         <div id="diff-container">
             <div id="two-way-diff" class="diff-view">

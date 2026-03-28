@@ -31,11 +31,21 @@ export function activate(context: vscode.ExtensionContext) {
         fileComparator.compareTestFiles();
     });
 
+    const compareFileHistoryCommand = vscode.commands.registerCommand('melden.compareFileHistory', (resource?: vscode.Uri) => {
+        fileComparator.compareFileHistory(resource);
+    });
+
+    const compareActiveFileHistoryCommand = vscode.commands.registerCommand('melden.compareActiveFileHistory', () => {
+        fileComparator.compareFileHistory();
+    });
+
     context.subscriptions.push(
         compareFilesCommand,
         compareWithSelectedCommand,
         threeWayMergeCommand,
-        compareTestFilesCommand
+        compareTestFilesCommand,
+        compareFileHistoryCommand,
+        compareActiveFileHistoryCommand
     );
 }
 

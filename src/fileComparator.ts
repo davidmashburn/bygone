@@ -1,15 +1,36 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import { DiffViewProvider } from './diffViewProvider';
 import { buildTwoWayDiffModel, mergeText } from './diffEngine';
+
+interface FileHistoryEntry {
+    commit: string;
+    parentCommit: string;
+    shortCommit: string;
+    summary: string;
+    timestamp: string;
+    parentSummary: string;
+    parentTimestamp: string;
+    leftLabel: string;
+    rightLabel: string;
+    leftContent: string;
+    rightContent: string;
+}
 
 export class FileComparator {
     private selectedFile: vscode.Uri | undefined;
     private diffViewProvider: DiffViewProvider | undefined;
+    private fileHistoryEntries: FileHistoryEntry[] = [];
+    private fileHistoryIndex = 0;
+    private activeHistoryFile: vscode.Uri | undefined;
 
     public setDiffViewProvider(provider: DiffViewProvider) {
         this.diffViewProvider = provider;
+        this.diffViewProvider.setHistoryNavigationHandler((direction) => {
+            void this.navigateFileHistory(direction);
+        });
     }
 
     public async selectAndCompareFiles(): Promise<void> {
@@ -82,6 +103,30 @@ export class FileComparator {
             );
         } catch (error) {
             vscode.window.showErrorMessage(`Error creating test files: ${error}`);
+        }
+    }
+
+    public async compareFileHistory(resource?: vscode.Uri): Promise<void> {
+        try {
+            const targetFile = resource ?? vscode.window.activeTextEditor?.document.uri;
+            if (!targetFile || targetFile.scheme !== 'file') {
+                vscode.window.showErrorMessage('Select a file in the workspace to view its git history.');
+                return;
+            }
+
+            const history = this.buildFileHistory(targetFile);
+            if (history.length === 0) {
+                vscode.window.showWarningMessage('No git history with parents was found for that file.');
+                return;
+            }
+
+            this.activeHistoryFile = targetFile;
+            this.fileHistoryEntries = history;
+            this.fileHistoryIndex = 0;
+
+            await this.showCurrentHistoryEntry();
+        } catch (error) {
+            vscode.window.showErrorMessage(`Error loading file history: ${error}`);
         }
     }
 
@@ -252,6 +297,8 @@ module.exports = FileProcessor;
         const content1 = fs.readFileSync(file1.fsPath, 'utf8');
         const content2 = fs.readFileSync(file2.fsPath, 'utf8');
         const diffModel = buildTwoWayDiffModel(content1, content2);
+        this.fileHistoryEntries = [];
+        this.activeHistoryFile = undefined;
 
         if (this.diffViewProvider) {
             this.diffViewProvider.showDiff(file1, file2, content1, content2, diffModel);
@@ -271,6 +318,131 @@ module.exports = FileProcessor;
         } else {
             this.showMergeResult(base, left, right, mergeModel.resultLines.join('\n'));
         }
+    }
+
+    private async navigateFileHistory(direction: 'back' | 'forward'): Promise<void> {
+        if (this.fileHistoryEntries.length === 0) {
+            return;
+        }
+
+        if (direction === 'back' && this.fileHistoryIndex < this.fileHistoryEntries.length - 1) {
+            this.fileHistoryIndex++;
+        } else if (direction === 'forward' && this.fileHistoryIndex > 0) {
+            this.fileHistoryIndex--;
+        } else {
+            return;
+        }
+
+        await this.showCurrentHistoryEntry();
+    }
+
+    private async showCurrentHistoryEntry(): Promise<void> {
+        if (!this.diffViewProvider || !this.activeHistoryFile || this.fileHistoryEntries.length === 0) {
+            return;
+        }
+
+        const entry = this.fileHistoryEntries[this.fileHistoryIndex];
+        const diffModel = buildTwoWayDiffModel(entry.leftContent, entry.rightContent);
+
+        await this.diffViewProvider.showHistoryDiff(
+            this.activeHistoryFile,
+            entry.leftLabel,
+            entry.rightLabel,
+            entry.leftContent,
+            entry.rightContent,
+            diffModel,
+            {
+                canGoBack: this.fileHistoryIndex < this.fileHistoryEntries.length - 1,
+                canGoForward: this.fileHistoryIndex > 0,
+                positionLabel: `${this.fileHistoryIndex + 1} / ${this.fileHistoryEntries.length}`,
+                leftCommitLabel: `${entry.parentCommit.slice(0, 7)} ${entry.parentSummary}`.trim(),
+                leftTimestamp: entry.parentTimestamp,
+                rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
+                rightTimestamp: entry.timestamp
+            }
+        );
+    }
+
+    private buildFileHistory(file: vscode.Uri): FileHistoryEntry[] {
+        const repoRoot = this.runGitCommand(['rev-parse', '--show-toplevel'], path.dirname(file.fsPath));
+        const relativePath = path.relative(repoRoot, file.fsPath).replace(/\\/g, '/');
+        const logOutput = this.runGitCommand(
+            ['log', '--follow', '--format=%H%x09%h%x09%cI%x09%s', '--', relativePath],
+            repoRoot
+        );
+
+        const commits = logOutput
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0)
+            .map((line) => {
+                const [commit, shortCommit, timestamp, ...summaryParts] = line.split('\t');
+                return {
+                    commit,
+                    shortCommit,
+                    timestamp,
+                    summary: summaryParts.join('\t')
+                };
+            });
+
+        const historyEntries: FileHistoryEntry[] = [];
+
+        for (const commit of commits) {
+            const parents = this.runGitCommand(['rev-list', '--parents', '-n', '1', commit.commit], repoRoot)
+                .trim()
+                .split(' ')
+                .slice(1);
+
+            if (parents.length === 0) {
+                continue;
+            }
+
+            const parentCommit = parents[0];
+            const leftContent = this.readGitFile(repoRoot, parentCommit, relativePath);
+            const rightContent = this.readGitFile(repoRoot, commit.commit, relativePath);
+
+            historyEntries.push({
+                commit: commit.commit,
+                parentCommit,
+                shortCommit: commit.shortCommit,
+                summary: commit.summary,
+                timestamp: commit.timestamp,
+                parentSummary: this.readCommitSummary(repoRoot, parentCommit),
+                parentTimestamp: this.readCommitTimestamp(repoRoot, parentCommit),
+                leftLabel: `${path.basename(file.fsPath)} @ ${parentCommit.slice(0, 7)}`,
+                rightLabel: `${path.basename(file.fsPath)} @ ${commit.shortCommit}`,
+                leftContent,
+                rightContent
+            });
+        }
+
+        return historyEntries;
+    }
+
+    private runGitCommand(args: string[], cwd: string): string {
+        return execFileSync('git', args, {
+            cwd,
+            encoding: 'utf8'
+        }).trimEnd();
+    }
+
+    private readGitFile(repoRoot: string, commit: string, relativePath: string): string {
+        try {
+            return execFileSync('git', ['show', `${commit}:${relativePath}`], {
+                cwd: repoRoot,
+                encoding: 'utf8'
+            });
+        } catch {
+            return '';
+        }
+    }
+
+    private readCommitSummary(repoRoot: string, commit: string): string {
+        return this.runGitCommand(['show', '-s', '--format=%s', commit], repoRoot);
+    }
+
+    private readCommitTimestamp(repoRoot: string, commit: string): string {
+        return this.runGitCommand(['show', '-s', '--format=%cI', commit], repoRoot);
     }
 
     private showDiffInNewTab(
