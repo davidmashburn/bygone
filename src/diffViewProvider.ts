@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
+import { buildTwoWayDiffModel, ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
 
 export class DiffViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'melden.diffView';
@@ -8,6 +8,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     private view?: vscode.WebviewView;
     private isReady = false;
     private pendingMessage: unknown;
+    private currentTwoWayDiff?: {
+        file1: string;
+        file2: string;
+    };
 
     constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -33,11 +37,15 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                     this.pendingMessage = undefined;
                 }
             }
+
+            if (message?.type === 'recomputeDiff' && typeof message.leftContent === 'string' && typeof message.rightContent === 'string') {
+                this.handleRecomputeDiff(message.leftContent, message.rightContent);
+            }
         });
         webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
     }
 
-    public async showDiff(file1: vscode.Uri, file2: vscode.Uri, diffModel: TwoWayDiffModel) {
+    public async showDiff(file1: vscode.Uri, file2: vscode.Uri, leftContent: string, rightContent: string, diffModel: TwoWayDiffModel) {
         const view = await this.revealView();
         if (!view) {
             vscode.window.showWarningMessage('Melden view is unavailable. Opening the diff in a text tab instead.');
@@ -45,10 +53,17 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             return;
         }
 
+        this.currentTwoWayDiff = {
+            file1: path.basename(file1.path),
+            file2: path.basename(file2.path)
+        };
+
         this.postOrQueueMessage({
             type: 'showDiff',
-            file1: path.basename(file1.path),
-            file2: path.basename(file2.path),
+            file1: this.currentTwoWayDiff.file1,
+            file2: this.currentTwoWayDiff.file2,
+            leftContent,
+            rightContent,
             diffModel
         });
     }
@@ -129,6 +144,9 @@ ${diffModel.rows.map((row) => `${renderCell(row.left.content)}    |    ${renderC
     private getHtmlForWebview(webview: vscode.Webview) {
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'style.css'));
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'script.js'));
+        const monacoCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'node_modules', 'monaco-editor', 'min', 'vs', 'editor', 'editor.main.css'));
+        const monacoLoaderUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'node_modules', 'monaco-editor', 'min', 'vs', 'loader.js'));
+        const monacoBaseUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'node_modules', 'monaco-editor', 'min', 'vs'));
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -136,6 +154,7 @@ ${diffModel.rows.map((row) => `${renderCell(row.left.content)}    |    ${renderC
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="${styleUri}" rel="stylesheet">
+    <link href="${monacoCssUri}" rel="stylesheet">
     <title>Melden Diff View</title>
 </head>
 <body>
@@ -176,8 +195,27 @@ ${diffModel.rows.map((row) => `${renderCell(row.left.content)}    |    ${renderC
             </div>
         </div>
     </div>
+    <script>
+        window.__MELDEN_MONACO_BASE__ = ${JSON.stringify(monacoBaseUri.toString())};
+    </script>
+    <script src="${monacoLoaderUri}"></script>
     <script src="${scriptUri}"></script>
 </body>
 </html>`;
+    }
+
+    private handleRecomputeDiff(leftContent: string, rightContent: string): void {
+        if (!this.currentTwoWayDiff) {
+            return;
+        }
+
+        this.postOrQueueMessage({
+            type: 'showDiff',
+            file1: this.currentTwoWayDiff.file1,
+            file2: this.currentTwoWayDiff.file2,
+            leftContent,
+            rightContent,
+            diffModel: buildTwoWayDiffModel(leftContent, rightContent)
+        });
     }
 }

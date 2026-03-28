@@ -254,7 +254,7 @@ module.exports = FileProcessor;
         const diffModel = buildTwoWayDiffModel(content1, content2);
 
         if (this.diffViewProvider) {
-            this.diffViewProvider.showDiff(file1, file2, diffModel);
+            this.diffViewProvider.showDiff(file1, file2, content1, content2, diffModel);
         } else {
             this.showDiffInNewTab(file1, file2, diffModel);
         }

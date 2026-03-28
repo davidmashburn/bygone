@@ -4,15 +4,26 @@ let currentMode = 'two-way';
 let connectionCanvas;
 let canvasContext;
 let diffBlocks = [];
-let scrollSyncBound = false;
-let isSyncingScroll = false;
 let drawScheduled = false;
+let monacoInstance;
+let leftEditor;
+let rightEditor;
+let leftDecorationIds = [];
+let rightDecorationIds = [];
+let suppressEditorEvents = false;
+let recomputeTimer;
+let pendingTwoWayPayload;
 
 window.addEventListener('message', (event) => {
     const message = event.data;
 
     if (message.type === 'showDiff') {
-        showTwoWayDiff(message.file1, message.file2, message.diffModel);
+        if (!monacoInstance) {
+            pendingTwoWayPayload = message;
+            return;
+        }
+
+        showTwoWayDiff(message.file1, message.file2, message.leftContent, message.rightContent, message.diffModel);
         return;
     }
 
@@ -21,18 +32,50 @@ window.addEventListener('message', (event) => {
     }
 });
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
     initializeCanvas();
-    bindScrollSync();
+    await initializeMonaco();
     vscode.postMessage({ type: 'ready' });
+
+    if (pendingTwoWayPayload) {
+        showTwoWayDiff(
+            pendingTwoWayPayload.file1,
+            pendingTwoWayPayload.file2,
+            pendingTwoWayPayload.leftContent,
+            pendingTwoWayPayload.rightContent,
+            pendingTwoWayPayload.diffModel
+        );
+        pendingTwoWayPayload = undefined;
+    }
 });
 
 window.addEventListener('resize', () => {
+    layoutEditors();
     resizeCanvas();
     scheduleDrawConnections();
 });
 
-function showTwoWayDiff(file1, file2, diffModel) {
+async function initializeMonaco() {
+    await new Promise((resolve) => {
+        self.MonacoEnvironment = {
+            getWorkerUrl: () => {
+                const workerSource = `
+                    self.MonacoEnvironment = { baseUrl: ${JSON.stringify(window.__MELDEN_MONACO_BASE__)} };
+                    importScripts(${JSON.stringify(`${window.__MELDEN_MONACO_BASE__}/base/worker/workerMain.js`)});
+                `;
+                return `data:text/javascript;charset=utf-8,${encodeURIComponent(workerSource)}`;
+            }
+        };
+
+        window.require.config({ paths: { vs: window.__MELDEN_MONACO_BASE__ } });
+        window.require(['vs/editor/editor.main'], () => {
+            monacoInstance = window.monaco;
+            resolve();
+        });
+    });
+}
+
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel) {
     currentMode = 'two-way';
     diffBlocks = diffModel.blocks || [];
 
@@ -42,10 +85,15 @@ function showTwoWayDiff(file1, file2, diffModel) {
     document.getElementById('file1-header').textContent = file1;
     document.getElementById('file2-header').textContent = file2;
 
-    renderSideLines(document.getElementById('file1-content'), diffModel.leftLines || []);
-    renderSideLines(document.getElementById('file2-content'), diffModel.rightLines || []);
+    ensureTwoWayEditors();
+    updateEditorValues(leftContent, rightContent);
+    applyDiffDecorations(diffModel);
 
-    resetScrollPositions();
+    leftEditor.setScrollTop(0);
+    leftEditor.setScrollLeft(0);
+    rightEditor.setScrollTop(0);
+    rightEditor.setScrollLeft(0);
+    layoutEditors();
     resizeCanvas();
     scheduleDrawConnections();
 }
@@ -53,6 +101,7 @@ function showTwoWayDiff(file1, file2, diffModel) {
 function showThreeWayMerge(message) {
     currentMode = 'three-way';
     diffBlocks = [];
+    disposeTwoWayEditors();
 
     toggleView('three-way-diff');
     document.getElementById('file-info').textContent = `Three-way merge for ${message.base.name}, ${message.left.name}, and ${message.right.name}`;
@@ -77,14 +126,189 @@ function showThreeWayMerge(message) {
     scheduleDrawConnections();
 }
 
-function renderSideLines(container, lines) {
-    container.innerHTML = lines.map((line, index) => {
-        const content = renderLineContent(line);
-        const classes = ['diff-line', line.kind, line.segments && line.segments.length > 0 ? 'has-inline-highlight' : '']
-            .filter(Boolean)
-            .join(' ');
-        return `<div class="${classes}" data-line="${index}"><span class="line-number">${line.lineNumber}</span><span class="line-text">${content}</span></div>`;
-    }).join('');
+function ensureTwoWayEditors() {
+    if (leftEditor && rightEditor) {
+        return;
+    }
+
+    leftEditor = createEditor(document.getElementById('file1-content'));
+    rightEditor = createEditor(document.getElementById('file2-content'));
+}
+
+function createEditor(container) {
+    container.innerHTML = '<div class="editor-root"></div>';
+    container.classList.add('editor-host');
+
+    const editor = monacoInstance.editor.create(container.firstElementChild, {
+        value: '',
+        language: 'plaintext',
+        theme: 'vs',
+        automaticLayout: true,
+        minimap: { enabled: false },
+        glyphMargin: false,
+        folding: false,
+        lineNumbersMinChars: 3,
+        lineDecorationsWidth: 8,
+        scrollBeyondLastLine: false,
+        wordWrap: 'off',
+        renderWhitespace: 'selection',
+        overviewRulerLanes: 0,
+        scrollbar: {
+            verticalScrollbarSize: 10,
+            horizontalScrollbarSize: 10
+        }
+    });
+
+    editor.onDidChangeModelContent(() => {
+        if (suppressEditorEvents) {
+            return;
+        }
+
+        scheduleRecompute();
+        scheduleDrawConnections();
+    });
+
+    editor.onDidScrollChange(() => {
+        if (suppressEditorEvents) {
+            scheduleDrawConnections();
+            return;
+        }
+
+        synchronizeEditorScroll(editor);
+        scheduleDrawConnections();
+    });
+
+    editor.onDidContentSizeChange(() => {
+        scheduleDrawConnections();
+    });
+
+    return editor;
+}
+
+function disposeTwoWayEditors() {
+    if (leftEditor) {
+        leftEditor.dispose();
+        leftEditor = undefined;
+        leftDecorationIds = [];
+    }
+
+    if (rightEditor) {
+        rightEditor.dispose();
+        rightEditor = undefined;
+        rightDecorationIds = [];
+    }
+
+    document.getElementById('file1-content').classList.remove('editor-host');
+    document.getElementById('file2-content').classList.remove('editor-host');
+}
+
+function updateEditorValues(leftContent, rightContent) {
+    suppressEditorEvents = true;
+
+    if (leftEditor.getValue() !== leftContent) {
+        leftEditor.getModel().setValue(leftContent);
+    }
+
+    if (rightEditor.getValue() !== rightContent) {
+        rightEditor.getModel().setValue(rightContent);
+    }
+
+    suppressEditorEvents = false;
+}
+
+function applyDiffDecorations(diffModel) {
+    const leftDecorations = [];
+    const rightDecorations = [];
+
+    for (const block of diffModel.blocks || []) {
+        if (block.kind === 'replace') {
+            addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'melden-paired-line');
+            addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'melden-paired-line');
+        } else if (block.kind === 'delete') {
+            addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'melden-one-sided-line');
+        } else if (block.kind === 'insert') {
+            addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'melden-one-sided-line');
+        }
+    }
+
+    addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'melden-inline-blue');
+    addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'melden-inline-blue');
+
+    leftDecorationIds = leftEditor.deltaDecorations(leftDecorationIds, leftDecorations);
+    rightDecorationIds = rightEditor.deltaDecorations(rightDecorationIds, rightDecorations);
+}
+
+function addLineDecorations(target, start, end, className) {
+    for (let index = start; index < end; index++) {
+        target.push({
+            range: new monacoInstance.Range(index + 1, 1, index + 1, 1),
+            options: {
+                isWholeLine: true,
+                wholeLineClassName: className
+            }
+        });
+    }
+}
+
+function addInlineDecorations(target, lines, expectedKind, className) {
+    for (const line of lines) {
+        if (!line.segments) {
+            continue;
+        }
+
+        let column = 1;
+        for (const segment of line.segments) {
+            const segmentLength = segment.text.length;
+            const startColumn = column;
+            const endColumn = column + Math.max(segmentLength, 1);
+
+            if (segment.emphasis && segment.kind === expectedKind && segmentLength > 0) {
+                target.push({
+                    range: new monacoInstance.Range(line.lineNumber, startColumn, line.lineNumber, endColumn),
+                    options: {
+                        inlineClassName: className
+                    }
+                });
+            }
+
+            column += segmentLength;
+        }
+    }
+}
+
+function synchronizeEditorScroll(sourceEditor) {
+    if (!leftEditor || !rightEditor) {
+        return;
+    }
+
+    const targetEditor = sourceEditor === leftEditor ? rightEditor : leftEditor;
+    const verticalRatio = getScrollRatio(sourceEditor.getScrollTop(), sourceEditor.getScrollHeight() - sourceEditor.getLayoutInfo().height);
+    const horizontalRatio = getScrollRatio(sourceEditor.getScrollLeft(), sourceEditor.getScrollWidth() - sourceEditor.getLayoutInfo().contentWidth);
+
+    suppressEditorEvents = true;
+    targetEditor.setScrollTop(verticalRatio * Math.max(0, targetEditor.getScrollHeight() - targetEditor.getLayoutInfo().height));
+    targetEditor.setScrollLeft(horizontalRatio * Math.max(0, targetEditor.getScrollWidth() - targetEditor.getLayoutInfo().contentWidth));
+    suppressEditorEvents = false;
+}
+
+function scheduleRecompute() {
+    clearTimeout(recomputeTimer);
+    recomputeTimer = window.setTimeout(() => {
+        if (!leftEditor || !rightEditor) {
+            return;
+        }
+
+        vscode.postMessage({
+            type: 'recomputeDiff',
+            leftContent: leftEditor.getValue(),
+            rightContent: rightEditor.getValue()
+        });
+    }, 120);
+}
+
+function layoutEditors() {
+    leftEditor?.layout();
+    rightEditor?.layout();
 }
 
 function renderPlainLines(container, lines) {
@@ -113,41 +337,6 @@ function setStatus(text, visible) {
     const banner = document.getElementById('status-banner');
     banner.hidden = !visible;
     banner.textContent = text;
-}
-
-function bindScrollSync() {
-    if (scrollSyncBound) {
-        return;
-    }
-
-    scrollSyncBound = true;
-    const containers = Array.from(document.querySelectorAll('.file-content'));
-
-    containers.forEach((container) => {
-        container.addEventListener('scroll', () => {
-            if (isSyncingScroll) {
-                scheduleDrawConnections();
-                return;
-            }
-
-            const visibleContainers = getVisibleScrollContainers();
-            const verticalRatio = getScrollRatio(container.scrollTop, container.scrollHeight - container.clientHeight);
-            const horizontalRatio = getScrollRatio(container.scrollLeft, container.scrollWidth - container.clientWidth);
-
-            isSyncingScroll = true;
-            visibleContainers.forEach((other) => {
-                if (other === container) {
-                    return;
-                }
-
-                other.scrollTop = verticalRatio * Math.max(0, other.scrollHeight - other.clientHeight);
-                other.scrollLeft = horizontalRatio * Math.max(0, other.scrollWidth - other.clientWidth);
-            });
-            isSyncingScroll = false;
-
-            scheduleDrawConnections();
-        });
-    });
 }
 
 function resetScrollPositions() {
@@ -187,29 +376,22 @@ function drawConnections() {
 
     canvasContext.clearRect(0, 0, connectionCanvas.width, connectionCanvas.height);
 
-    if (currentMode !== 'two-way') {
-        return;
-    }
-
-    const leftPanel = document.getElementById('file1-content');
-    const rightPanel = document.getElementById('file2-content');
-
-    if (!leftPanel || !rightPanel) {
+    if (currentMode !== 'two-way' || !leftEditor || !rightEditor) {
         return;
     }
 
     const containerRect = connectionCanvas.getBoundingClientRect();
-    const leftRect = leftPanel.getBoundingClientRect();
-    const rightRect = rightPanel.getBoundingClientRect();
+    const leftRect = leftEditor.getDomNode().getBoundingClientRect();
+    const rightRect = rightEditor.getDomNode().getBoundingClientRect();
 
     diffBlocks.forEach((block) => {
-        drawBlockRegion(block, leftPanel, rightPanel, leftRect, rightRect, containerRect);
+        drawBlockRegion(block, leftEditor, rightEditor, leftRect, rightRect, containerRect);
     });
 }
 
-function drawBlockRegion(block, leftPanel, rightPanel, leftRect, rightRect, containerRect) {
-    const leftBounds = getBlockBounds(leftPanel, block.leftStart, block.leftEnd, leftRect, containerRect, true);
-    const rightBounds = getBlockBounds(rightPanel, block.rightStart, block.rightEnd, rightRect, containerRect, false);
+function drawBlockRegion(block, leftEditorRef, rightEditorRef, leftRect, rightRect, containerRect) {
+    const leftBounds = getBlockBounds(leftEditorRef, block.leftStart, block.leftEnd, leftRect, containerRect, true);
+    const rightBounds = getBlockBounds(rightEditorRef, block.rightStart, block.rightEnd, rightRect, containerRect, false);
 
     if (!leftBounds || !rightBounds) {
         return;
@@ -229,10 +411,10 @@ function drawBlockRegion(block, leftPanel, rightPanel, leftRect, rightRect, cont
         replace: {
             leftFill: 'rgba(79, 124, 255, 0.24)',
             rightFill: 'rgba(79, 124, 255, 0.24)',
-            strokeLeft: 'rgba(79, 124, 255, 0.92)',
-            strokeRight: 'rgba(79, 124, 255, 0.92)'
+            strokeLeft: 'rgba(79, 124, 255, 0.92)'
         }
     };
+
     const cpOffset = (rightBounds.x - leftBounds.x) * 0.35;
     const color = colors[block.kind] || colors.replace;
     const gradient = canvasContext.createLinearGradient(leftBounds.x, 0, rightBounds.x, 0);
@@ -253,8 +435,6 @@ function drawBlockRegion(block, leftPanel, rightPanel, leftRect, rightRect, cont
 
     if (block.kind === 'replace') {
         gradient.addColorStop(0, color.leftFill);
-        gradient.addColorStop(0.5, color.leftFill);
-        gradient.addColorStop(0.5, color.rightFill);
         gradient.addColorStop(1, color.rightFill);
     } else {
         gradient.addColorStop(0, color.leftFill);
@@ -293,55 +473,53 @@ function drawBlockRegion(block, leftPanel, rightPanel, leftRect, rightRect, cont
     }
 }
 
-function getBlockBounds(panel, start, end, panelRect, containerRect, useRightEdge) {
-    const lineCount = panel.children.length;
+function getBlockBounds(editor, start, end, editorRect, containerRect, useRightEdge) {
+    const model = editor.getModel();
+    const lineCount = model ? model.getLineCount() : 0;
     const gutterInset = -2;
     const x = useRightEdge
-        ? panelRect.right - containerRect.left + gutterInset
-        : panelRect.left - containerRect.left - gutterInset;
+        ? editorRect.right - containerRect.left + gutterInset
+        : editorRect.left - containerRect.left - gutterInset;
 
     if (lineCount === 0) {
-        const baseline = panelRect.top - containerRect.top + 12;
+        const baseline = editorRect.top - containerRect.top + 12;
         return { x, top: baseline - 6, bottom: baseline + 6 };
     }
 
     if (start === end) {
-        return getInsertionBounds(panel, indexClamp(start, 0, lineCount), x, containerRect);
+        return getInsertionBounds(editor, clamp(start, 0, lineCount), x, editorRect, containerRect);
     }
 
-    const firstLine = panel.children[Math.min(start, lineCount - 1)];
-    const lastLine = panel.children[Math.min(Math.max(end - 1, 0), lineCount - 1)];
-
-    if (!firstLine || !lastLine) {
-        return undefined;
-    }
+    const firstLine = Math.min(start + 1, lineCount);
+    const lastLine = Math.min(Math.max(end, 1), lineCount);
 
     return {
         x,
-        top: firstLine.getBoundingClientRect().top - containerRect.top + 1,
-        bottom: lastLine.getBoundingClientRect().bottom - containerRect.top - 1
+        top: getEditorTopForLine(editor, firstLine, editorRect, containerRect) + 1,
+        bottom: getEditorBottomForLine(editor, lastLine, editorRect, containerRect) - 1
     };
 }
 
-function getInsertionBounds(panel, index, x, containerRect) {
-    const lineCount = panel.children.length;
-    const lineHeight = getLineHeight(panel);
+function getInsertionBounds(editor, index, x, editorRect, containerRect) {
+    const model = editor.getModel();
+    const lineCount = model ? model.getLineCount() : 0;
+    const lineHeight = editor.getOption(monacoInstance.editor.EditorOption.lineHeight);
     const span = Math.max(6, Math.min(14, lineHeight * 0.45));
     let center;
 
     if (index <= 0) {
-        center = panel.children[0].getBoundingClientRect().top - containerRect.top;
+        center = getEditorTopForLine(editor, 1, editorRect, containerRect);
         return { x, top: center - span, bottom: center + span };
     }
 
     if (index >= lineCount) {
-        center = panel.children[lineCount - 1].getBoundingClientRect().bottom - containerRect.top;
+        center = getEditorBottomForLine(editor, lineCount, editorRect, containerRect);
         return { x, top: center - span, bottom: center + span };
     }
 
-    const previousRect = panel.children[index - 1].getBoundingClientRect();
-    const nextRect = panel.children[index].getBoundingClientRect();
-    center = previousRect.bottom + ((nextRect.top - previousRect.bottom) / 2) - containerRect.top;
+    const previousBottom = getEditorBottomForLine(editor, index, editorRect, containerRect);
+    const nextTop = getEditorTopForLine(editor, index + 1, editorRect, containerRect);
+    center = previousBottom + ((nextTop - previousBottom) / 2);
 
     return {
         x,
@@ -350,40 +528,13 @@ function getInsertionBounds(panel, index, x, containerRect) {
     };
 }
 
-function getLineHeight(panel) {
-    const firstLine = panel.children[0];
-    return firstLine ? firstLine.getBoundingClientRect().height : 16;
+function getEditorTopForLine(editor, lineNumber, editorRect, containerRect) {
+    return editorRect.top - containerRect.top + editor.getTopForLineNumber(lineNumber) - editor.getScrollTop();
 }
 
-function indexClamp(value, min, max) {
-    return Math.max(min, Math.min(value, max));
-}
-
-function getVisibleScrollContainers() {
-    return Array.from(document.querySelectorAll('.file-content')).filter((container) => {
-        const view = container.closest('.diff-view');
-        return view && !view.classList.contains('hidden');
-    });
-}
-
-function getScrollRatio(value, extent) {
-    if (extent <= 0) {
-        return 0;
-    }
-
-    return value / extent;
-}
-
-function scheduleDrawConnections() {
-    if (drawScheduled) {
-        return;
-    }
-
-    drawScheduled = true;
-    window.requestAnimationFrame(() => {
-        drawScheduled = false;
-        drawConnections();
-    });
+function getEditorBottomForLine(editor, lineNumber, editorRect, containerRect) {
+    return getEditorTopForLine(editor, lineNumber, editorRect, containerRect)
+        + editor.getOption(monacoInstance.editor.EditorOption.lineHeight);
 }
 
 function strokeReplaceBlockOutline(leftBounds, rightBounds, cpOffset, leftRect, rightRect, containerRect, color) {
@@ -458,26 +609,32 @@ function strokeConnectorEdges(leftBounds, rightBounds, cpOffset, color) {
     canvasContext.stroke();
 }
 
+function getScrollRatio(value, extent) {
+    if (extent <= 0) {
+        return 0;
+    }
+
+    return value / extent;
+}
+
+function scheduleDrawConnections() {
+    if (drawScheduled) {
+        return;
+    }
+
+    drawScheduled = true;
+    window.requestAnimationFrame(() => {
+        drawScheduled = false;
+        drawConnections();
+    });
+}
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(value, max));
+}
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-}
-
-function renderLineContent(line) {
-    if (line.segments && line.segments.length > 0) {
-        const renderedSegments = line.segments.map((segment) => {
-            const classes = [
-                'inline-segment',
-                `${segment.kind}-segment`,
-                segment.emphasis ? 'emphasis' : ''
-            ].filter(Boolean).join(' ');
-            const text = segment.text.length === 0 ? '&nbsp;' : escapeHtml(segment.text);
-            return `<span class="${classes}">${text}</span>`;
-        }).join('');
-
-        return renderedSegments.length > 0 ? renderedSegments : '&nbsp;';
-    }
-
-    return line.content.length === 0 ? '&nbsp;' : escapeHtml(line.content);
 }

@@ -98,6 +98,17 @@ body {
     white-space: pre;
 }
 
+.file-content.editor-host {
+    padding: 0;
+    overflow: hidden;
+    white-space: normal;
+}
+
+.editor-root {
+    width: 100%;
+    height: 100%;
+}
+
 .diff-line {
     display: grid;
     grid-template-columns: 48px minmax(0, 1fr);
@@ -155,6 +166,19 @@ body {
 .has-inline-highlight.added {
     background: rgba(79, 124, 255, 0.14);
     color: var(--vscode-foreground);
+}
+
+.monaco-editor .melden-one-sided-line {
+    background: rgba(73, 190, 119, 0.14);
+}
+
+.monaco-editor .melden-paired-line {
+    background: rgba(79, 124, 255, 0.14);
+}
+
+.monaco-editor .melden-inline-blue {
+    background: rgba(79, 124, 255, 0.34);
+    border-radius: 2px;
 }
 
 .context {

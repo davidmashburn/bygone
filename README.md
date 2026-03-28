@@ -2,6 +2,8 @@
 
 Melden is a VS Code extension prototype for side-by-side file comparison with a custom diff view.
 
+![Melden screenshot](./media/melden-screenshot.png)
+
 ## Current status
 
 - Two-way comparison is implemented and wired through a custom webview.
