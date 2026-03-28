@@ -14,6 +14,7 @@ let suppressEditorEvents = false;
 let recomputeTimer;
 let pendingTwoWayPayload;
 let currentDiffRows = [];
+let historyMode = false;
 
 window.addEventListener('message', (event) => {
     const message = event.data;
@@ -24,7 +25,7 @@ window.addEventListener('message', (event) => {
             return;
         }
 
-        showTwoWayDiff(message.file1, message.file2, message.leftContent, message.rightContent, message.diffModel);
+        showTwoWayDiff(message.file1, message.file2, message.leftContent, message.rightContent, message.diffModel, message.history || null);
         return;
     }
 
@@ -35,6 +36,7 @@ window.addEventListener('message', (event) => {
 
 window.addEventListener('load', async () => {
     initializeCanvas();
+    initializeHistoryToolbar();
     await initializeMonaco();
     vscode.postMessage({ type: 'ready' });
 
@@ -44,7 +46,8 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.file2,
             pendingTwoWayPayload.leftContent,
             pendingTwoWayPayload.rightContent,
-            pendingTwoWayPayload.diffModel
+            pendingTwoWayPayload.diffModel,
+            pendingTwoWayPayload.history || null
         );
         pendingTwoWayPayload = undefined;
     }
@@ -76,19 +79,23 @@ async function initializeMonaco() {
     });
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history) {
     currentMode = 'two-way';
     diffBlocks = diffModel.blocks || [];
     currentDiffRows = diffModel.rows || [];
+    historyMode = Boolean(history);
 
     toggleView('two-way-diff');
     setStatus('', false);
     document.getElementById('file-info').textContent = `Comparing ${file1} and ${file2}`;
     document.getElementById('file1-header').textContent = file1;
     document.getElementById('file2-header').textContent = file2;
+    updateHistoryToolbar(history);
 
     ensureTwoWayEditors();
     updateEditorValues(leftContent, rightContent);
+    leftEditor.updateOptions({ readOnly: historyMode });
+    rightEditor.updateOptions({ readOnly: historyMode });
     applyDiffDecorations(diffModel);
 
     leftEditor.setScrollTop(0);
@@ -103,7 +110,9 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel) {
 function showThreeWayMerge(message) {
     currentMode = 'three-way';
     diffBlocks = [];
+    historyMode = false;
     disposeTwoWayEditors();
+    updateHistoryToolbar(null);
 
     toggleView('three-way-diff');
     document.getElementById('file-info').textContent = `Three-way merge for ${message.base.name}, ${message.left.name}, and ${message.right.name}`;
@@ -162,7 +171,7 @@ function createEditor(container) {
     });
 
     editor.onDidChangeModelContent(() => {
-        if (suppressEditorEvents) {
+        if (suppressEditorEvents || historyMode) {
             return;
         }
 
@@ -361,6 +370,45 @@ function synchronizeEditorScroll(sourceEditor) {
     targetEditor.setScrollTop(targetScrollTop);
     targetEditor.setScrollLeft(horizontalRatio * Math.max(0, targetEditor.getScrollWidth() - targetEditor.getLayoutInfo().contentWidth));
     suppressEditorEvents = false;
+}
+
+function initializeHistoryToolbar() {
+    document.getElementById('history-back').addEventListener('click', () => {
+        vscode.postMessage({ type: 'historyBack' });
+    });
+    document.getElementById('history-forward').addEventListener('click', () => {
+        vscode.postMessage({ type: 'historyForward' });
+    });
+}
+
+function updateHistoryToolbar(history) {
+    const toolbar = document.getElementById('history-toolbar');
+    const backButton = document.getElementById('history-back');
+    const forwardButton = document.getElementById('history-forward');
+    const position = document.getElementById('history-position');
+    const leftCommit = document.getElementById('history-left-commit');
+    const leftTime = document.getElementById('history-left-time');
+    const rightCommit = document.getElementById('history-right-commit');
+    const rightTime = document.getElementById('history-right-time');
+
+    if (!history) {
+        toolbar.hidden = true;
+        position.textContent = '';
+        leftCommit.textContent = '';
+        leftTime.textContent = '';
+        rightCommit.textContent = '';
+        rightTime.textContent = '';
+        return;
+    }
+
+    toolbar.hidden = false;
+    backButton.disabled = !history.canGoBack;
+    forwardButton.disabled = !history.canGoForward;
+    position.textContent = history.positionLabel;
+    leftCommit.textContent = history.leftCommitLabel;
+    leftTime.textContent = history.leftTimestamp;
+    rightCommit.textContent = history.rightCommitLabel;
+    rightTime.textContent = history.rightTimestamp;
 }
 
 function mapScrollTopBetweenEditors(sourceEditor, targetEditor) {

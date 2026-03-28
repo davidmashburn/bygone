@@ -15,6 +15,8 @@
     "onCommand:melden.compareWithSelected",
     "onCommand:melden.threeWayMerge",
     "onCommand:melden.compareTestFiles",
+    "onCommand:melden.compareFileHistory",
+    "onCommand:melden.compareActiveFileHistory",
     "onView:melden.diffView"
   ],
   "main": "./out/extension.js",
@@ -39,6 +41,16 @@
         "command": "melden.compareTestFiles",
         "title": "Compare Test Files",
         "category": "Melden"
+      },
+      {
+        "command": "melden.compareFileHistory",
+        "title": "Compare File History",
+        "category": "Melden"
+      },
+      {
+        "command": "melden.compareActiveFileHistory",
+        "title": "Compare Active File History",
+        "category": "Melden"
       }
     ],
     "menus": {
@@ -46,12 +58,28 @@
         {
           "command": "melden.compareWithSelected",
           "group": "compare"
+        },
+        {
+          "command": "melden.compareFileHistory",
+          "group": "compare"
+        },
+        {
+          "command": "melden.compareActiveFileHistory",
+          "group": "navigation"
         }
       ],
       "editor/context": [
         {
           "command": "melden.compareWithSelected",
           "group": "compare"
+        },
+        {
+          "command": "melden.compareFileHistory",
+          "group": "compare"
+        },
+        {
+          "command": "melden.compareActiveFileHistory",
+          "group": "navigation"
         }
       ]
     },
