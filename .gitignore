@@ -3,3 +3,11 @@ out/
 *.vsix
 .DS_Store
 .vscode-test/
+media/*.prev.png
+media/*.pre-*.png
+media/webview.js
+media/webview.css
+media/webview.js.map
+media/editor.worker.js
+media/editor.worker.js.map
+media/*.ttf

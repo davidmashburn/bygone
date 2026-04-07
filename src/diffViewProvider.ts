@@ -1,13 +1,23 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { buildTwoWayDiffModel, ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
+import { openDiffPreview } from './fallbackViews';
+import {
+    HistoryViewState,
+    isHistoryNavigationMessage,
+    isReadyMessage,
+    isRecomputeDiffMessage,
+    ShowDiffMessage,
+    ShowThreeWayMergeMessage,
+    WebviewOutboundMessage
+} from './webviewMessages';
 
 export class DiffViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'melden.diffView';
     private static readonly containerCommand = 'workbench.view.extension.meldendiff';
     private view?: vscode.WebviewView;
     private isReady = false;
-    private pendingMessage: unknown;
+    private pendingMessage?: WebviewOutboundMessage;
     private currentTwoWayDiff?: {
         file1: string;
         file2: string;
@@ -34,7 +44,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         };
 
         webviewView.webview.onDidReceiveMessage((message) => {
-            if (message?.type === 'ready') {
+            if (isReadyMessage(message)) {
                 this.isReady = true;
 
                 if (this.pendingMessage) {
@@ -43,11 +53,11 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 }
             }
 
-            if (message?.type === 'recomputeDiff' && typeof message.leftContent === 'string' && typeof message.rightContent === 'string') {
+            if (isRecomputeDiffMessage(message)) {
                 this.handleRecomputeDiff(message.leftContent, message.rightContent);
             }
 
-            if ((message?.type === 'historyBack' || message?.type === 'historyForward') && this.historyNavigationHandler) {
+            if (isHistoryNavigationMessage(message) && this.historyNavigationHandler) {
                 this.historyNavigationHandler(message.type === 'historyBack' ? 'back' : 'forward');
             }
         });
@@ -58,7 +68,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         const view = await this.revealView();
         if (!view) {
             vscode.window.showWarningMessage('Melden view is unavailable. Opening the diff in a text tab instead.');
-            this.showDiffInNewTab(file1, file2, diffModel);
+            void openDiffPreview(file1, file2, diffModel);
             return;
         }
 
@@ -67,8 +77,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             file2: path.basename(file2.path)
         };
 
-        this.postOrQueueMessage({
-            type: 'showDiff',
+        this.postOrQueueDiffMessage({
             file1: this.currentTwoWayDiff.file1,
             file2: this.currentTwoWayDiff.file2,
             leftContent,
@@ -85,15 +94,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         leftContent: string,
         rightContent: string,
         diffModel: TwoWayDiffModel,
-        history: {
-            canGoBack: boolean;
-            canGoForward: boolean;
-            positionLabel: string;
-            leftCommitLabel: string;
-            leftTimestamp: string;
-            rightCommitLabel: string;
-            rightTimestamp: string;
-        }
+        history: HistoryViewState
     ) {
         const view = await this.revealView();
         if (!view) {
@@ -106,8 +107,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             file2: rightLabel
         };
 
-        this.postOrQueueMessage({
-            type: 'showDiff',
+        this.postOrQueueDiffMessage({
             file1: leftLabel,
             file2: rightLabel,
             leftContent,
@@ -149,25 +149,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 isExperimental: mergeModel.isExperimental,
                 conflictCount: mergeModel.conflictCount
             }
-        });
-    }
-
-    private showDiffInNewTab(file1: vscode.Uri, file2: vscode.Uri, diffModel: TwoWayDiffModel): void {
-        const renderCell = (content: string) => content.length === 0 ? '(empty)' : content;
-        const document = `
-# Diff: ${path.basename(file1.path)} ↔ ${path.basename(file2.path)}
-
-\`\`\`text
-${diffModel.rows.map((row) => `${renderCell(row.left.content)}    |    ${renderCell(row.right.content)}`).join('\n')}
-\`\`\`
-        `;
-
-        vscode.workspace.openTextDocument({
-            content: document,
-            language: 'markdown'
-        }).then((doc) => {
-            vscode.window.showTextDocument(doc);
-        });
+        } satisfies ShowThreeWayMergeMessage);
     }
 
     private async revealView(): Promise<vscode.WebviewView | undefined> {
@@ -180,7 +162,7 @@ ${diffModel.rows.map((row) => `${renderCell(row.left.content)}    |    ${renderC
         return this.view;
     }
 
-    private postOrQueueMessage(message: unknown): void {
+    private postOrQueueMessage(message: WebviewOutboundMessage): void {
         if (!this.view) {
             return;
         }
@@ -193,20 +175,26 @@ ${diffModel.rows.map((row) => `${renderCell(row.left.content)}    |    ${renderC
         void this.view.webview.postMessage(message);
     }
 
+    private postOrQueueDiffMessage(message: Omit<ShowDiffMessage, 'type'>): void {
+        this.postOrQueueMessage({
+            type: 'showDiff',
+            ...message
+        } satisfies ShowDiffMessage);
+    }
+
     private getHtmlForWebview(webview: vscode.Webview) {
-        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'style.css'));
-        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'script.js'));
-        const monacoCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'node_modules', 'monaco-editor', 'min', 'vs', 'editor', 'editor.main.css'));
-        const monacoLoaderUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'node_modules', 'monaco-editor', 'min', 'vs', 'loader.js'));
-        const monacoBaseUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'node_modules', 'monaco-editor', 'min', 'vs'));
+        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'webview.css'));
+        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'webview.js'));
+        const editorWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'editor.worker.js'));
+        const nonce = getNonce();
 
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; worker-src ${webview.cspSource} blob:;">
     <link href="${styleUri}" rel="stylesheet">
-    <link href="${monacoCssUri}" rel="stylesheet">
     <title>Melden Diff View</title>
 </head>
 <body>
@@ -262,11 +250,10 @@ ${diffModel.rows.map((row) => `${renderCell(row.left.content)}    |    ${renderC
             </div>
         </div>
     </div>
-    <script>
-        window.__MELDEN_MONACO_BASE__ = ${JSON.stringify(monacoBaseUri.toString())};
+    <script nonce="${nonce}">
+        window.__MELDEN_EDITOR_WORKER_URL__ = ${JSON.stringify(editorWorkerUri.toString())};
     </script>
-    <script src="${monacoLoaderUri}"></script>
-    <script src="${scriptUri}"></script>
+    <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
     }
@@ -276,13 +263,24 @@ ${diffModel.rows.map((row) => `${renderCell(row.left.content)}    |    ${renderC
             return;
         }
 
-        this.postOrQueueMessage({
-            type: 'showDiff',
+        this.postOrQueueDiffMessage({
             file1: this.currentTwoWayDiff.file1,
             file2: this.currentTwoWayDiff.file2,
             leftContent,
             rightContent,
-            diffModel: buildTwoWayDiffModel(leftContent, rightContent)
+            diffModel: buildTwoWayDiffModel(leftContent, rightContent),
+            history: null
         });
     }
+}
+
+function getNonce(): string {
+    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let nonce = '';
+
+    for (let index = 0; index < 32; index++) {
+        nonce += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+
+    return nonce;
 }
