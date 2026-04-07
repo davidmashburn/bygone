@@ -34,19 +34,11 @@ export interface DiffBlock {
     rightEnd: number;
 }
 
-export interface DiffConnection {
-    type: 'context' | 'boundary';
-    row: number;
-    targetRow?: number;
-    direction?: 'start' | 'end';
-}
-
 export interface TwoWayDiffModel {
     rows: DiffRow[];
     leftLines: DiffLine[];
     rightLines: DiffLine[];
     blocks: DiffBlock[];
-    connections: DiffConnection[];
     hasChanges: boolean;
 }
 
@@ -84,12 +76,12 @@ export function buildTwoWayDiffModel(leftContent: string, rightContent: string):
 
         if (!change.added && !change.removed) {
             for (const line of change.value) {
-                renderedLeftLines.push({ kind: 'context', content: line, lineNumber: leftLineNumber });
-                renderedRightLines.push({ kind: 'context', content: line, lineNumber: rightLineNumber });
-                rows.push({
-                    left: { kind: 'context', content: line, lineNumber: leftLineNumber++ },
-                    right: { kind: 'context', content: line, lineNumber: rightLineNumber++ }
-                });
+                renderedLeftLines.push(makeDiffLine('context', line, leftLineNumber));
+                renderedRightLines.push(makeDiffLine('context', line, rightLineNumber));
+                rows.push(makeDiffRow(
+                    makeDiffCell('context', line, leftLineNumber++),
+                    makeDiffCell('context', line, rightLineNumber++)
+                ));
             }
             continue;
         }
@@ -105,30 +97,24 @@ export function buildTwoWayDiffModel(leftContent: string, rightContent: string):
                 const addedLine = nextChange.value[rowIndex];
 
                 if (removedLine !== undefined) {
-                    renderedLeftLines.push({ kind: 'removed', content: removedLine, lineNumber: leftLineNumber });
+                    renderedLeftLines.push(makeDiffLine('removed', removedLine, leftLineNumber));
                 }
 
                 if (addedLine !== undefined) {
-                    renderedRightLines.push({ kind: 'added', content: addedLine, lineNumber: rightLineNumber });
+                    renderedRightLines.push(makeDiffLine('added', addedLine, rightLineNumber));
                 }
 
-                rows.push({
-                    left: removedLine === undefined
+                rows.push(makeDiffRow(
+                    removedLine === undefined
                         ? makePlaceholder()
-                        : { kind: 'removed', content: removedLine, lineNumber: leftLineNumber++ },
-                    right: addedLine === undefined
+                        : makeDiffCell('removed', removedLine, leftLineNumber++),
+                    addedLine === undefined
                         ? makePlaceholder()
-                        : { kind: 'added', content: addedLine, lineNumber: rightLineNumber++ }
-                });
+                        : makeDiffCell('added', addedLine, rightLineNumber++)
+                ));
             }
 
-            blocks.push({
-                kind: 'replace',
-                leftStart,
-                leftEnd: renderedLeftLines.length,
-                rightStart,
-                rightEnd: renderedRightLines.length
-            });
+            blocks.push(makeDiffBlock('replace', leftStart, renderedLeftLines.length, rightStart, renderedRightLines.length));
             applyInlineHighlights(renderedLeftLines, renderedRightLines, leftStart, renderedLeftLines.length, rightStart, renderedRightLines.length);
 
             index++;
@@ -139,20 +125,14 @@ export function buildTwoWayDiffModel(leftContent: string, rightContent: string):
             const leftStart = renderedLeftLines.length;
             const rightStart = renderedRightLines.length;
             for (const line of removedLines) {
-                renderedLeftLines.push({ kind: 'removed', content: line, lineNumber: leftLineNumber });
-                rows.push({
-                    left: { kind: 'removed', content: line, lineNumber: leftLineNumber++ },
-                    right: makePlaceholder()
-                });
+                renderedLeftLines.push(makeDiffLine('removed', line, leftLineNumber));
+                rows.push(makeDiffRow(
+                    makeDiffCell('removed', line, leftLineNumber++),
+                    makePlaceholder()
+                ));
             }
 
-            blocks.push({
-                kind: 'delete',
-                leftStart,
-                leftEnd: renderedLeftLines.length,
-                rightStart,
-                rightEnd: renderedRightLines.length
-            });
+            blocks.push(makeDiffBlock('delete', leftStart, renderedLeftLines.length, rightStart, renderedRightLines.length));
             continue;
         }
 
@@ -160,30 +140,25 @@ export function buildTwoWayDiffModel(leftContent: string, rightContent: string):
             const leftStart = renderedLeftLines.length;
             const rightStart = renderedRightLines.length;
             for (const line of addedLines) {
-                renderedRightLines.push({ kind: 'added', content: line, lineNumber: rightLineNumber });
-                rows.push({
-                    left: makePlaceholder(),
-                    right: { kind: 'added', content: line, lineNumber: rightLineNumber++ }
-                });
+                renderedRightLines.push(makeDiffLine('added', line, rightLineNumber));
+                rows.push(makeDiffRow(
+                    makePlaceholder(),
+                    makeDiffCell('added', line, rightLineNumber++)
+                ));
             }
 
-            blocks.push({
-                kind: 'insert',
-                leftStart,
-                leftEnd: renderedLeftLines.length,
-                rightStart,
-                rightEnd: renderedRightLines.length
-            });
+            blocks.push(makeDiffBlock('insert', leftStart, renderedLeftLines.length, rightStart, renderedRightLines.length));
         }
     }
+
+    const hasChanges = rows.some((row) => row.left.kind !== 'context' || row.right.kind !== 'context');
 
     return {
         rows,
         leftLines: renderedLeftLines,
         rightLines: renderedRightLines,
         blocks,
-        connections: buildConnections(rows),
-        hasChanges: rows.some((row) => row.left.kind !== 'context' || row.right.kind !== 'context')
+        hasChanges
     };
 }
 
@@ -420,40 +395,26 @@ function makePlaceholder(): DiffCell {
     };
 }
 
-function buildConnections(rows: DiffRow[]): DiffConnection[] {
-    const connections: DiffConnection[] = [];
-    let row = 0;
+function makeDiffCell(kind: DiffCellKind, content: string, lineNumber: number): DiffCell {
+    return { kind, content, lineNumber };
+}
 
-    while (row < rows.length) {
-        const isContextRow = rows[row].left.kind === 'context' && rows[row].right.kind === 'context';
-        const start = row;
+function makeDiffLine(kind: DiffLine['kind'], content: string, lineNumber: number): DiffLine {
+    return { kind, content, lineNumber };
+}
 
-        while (row < rows.length) {
-            const currentIsContext = rows[row].left.kind === 'context' && rows[row].right.kind === 'context';
-            if (currentIsContext !== isContextRow) {
-                break;
-            }
-            row++;
-        }
+function makeDiffRow(left: DiffCell, right: DiffCell): DiffRow {
+    return { left, right };
+}
 
-        const end = row - 1;
-
-        if (isContextRow) {
-            for (let marker = start; marker <= end; marker += 20) {
-                connections.push({ type: 'context', row: marker });
-            }
-        } else {
-            if (start > 0) {
-                connections.push({ type: 'boundary', direction: 'start', row: start - 1, targetRow: start });
-            }
-
-            if (end < rows.length - 1) {
-                connections.push({ type: 'boundary', direction: 'end', row: end, targetRow: end + 1 });
-            }
-        }
-    }
-
-    return connections;
+function makeDiffBlock(
+    kind: DiffBlock['kind'],
+    leftStart: number,
+    leftEnd: number,
+    rightStart: number,
+    rightEnd: number
+): DiffBlock {
+    return { kind, leftStart, leftEnd, rightStart, rightEnd };
 }
 
 function buildEdits(baseLines: string[], targetLines: string[]): Edit[] {

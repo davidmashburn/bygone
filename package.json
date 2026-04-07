@@ -2,10 +2,29 @@
   "name": "melden",
   "displayName": "Melden",
   "description": "A meld clone for VS Code - visual diff and merge tool",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "private": true,
+  "preview": true,
+  "icon": "media/icon.png",
   "engines": {
     "vscode": "^1.74.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/davidmashburn/melden.git"
+  },
+  "bugs": {
+    "url": "https://github.com/davidmashburn/melden/issues"
+  },
+  "homepage": "https://github.com/davidmashburn/melden",
+  "keywords": [
+    "diff",
+    "merge",
+    "git",
+    "compare",
+    "meld"
+  ],
   "categories": [
     "Other",
     "SCM Providers"
@@ -104,13 +123,17 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "clean": "rm -rf out *.vsix",
+    "typecheck": "tsc -p ./ --noEmit",
+    "compile": "npm run typecheck && node ./scripts/build.mjs",
+    "package:vsix": "npx @vscode/vsce package",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node ./test/runTests.js"
   },
   "devDependencies": {
     "@types/node": "16.x",
     "@types/vscode": "^1.74.0",
+    "esbuild": "^0.28.0",
     "typescript": "^4.9.4"
   },
   "dependencies": {
