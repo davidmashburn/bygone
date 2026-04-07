@@ -62,6 +62,10 @@ That produces a `.vsix` you can install with `Extensions: Install from VSIX...`.
 
 The current release checklist and remaining publication blockers are tracked in [RELEASE_PLAN.md](./RELEASE_PLAN.md).
 
+## Codebase Guide
+
+Architecture and implementation details are documented in [CODEBASE.md](./CODEBASE.md).
+
 ## Tests
 
 Run the current unit checks with:
