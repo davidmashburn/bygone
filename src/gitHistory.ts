@@ -1,6 +1,5 @@
 import { execFileSync } from 'child_process';
 import * as path from 'path';
-import * as vscode from 'vscode';
 
 export interface FileHistoryEntry {
     commit: string;
@@ -24,21 +23,21 @@ interface HistoryCommitRecord {
 }
 
 export class GitHistoryService {
-    public buildFileHistory(file: vscode.Uri): FileHistoryEntry[] {
-        const repoRoot = this.runGitCommand(['rev-parse', '--show-toplevel'], path.dirname(file.fsPath));
-        const relativePath = path.relative(repoRoot, file.fsPath).replace(/\\/g, '/');
+    public buildFileHistory(filePath: string): FileHistoryEntry[] {
+        const repoRoot = this.runGitCommand(['rev-parse', '--show-toplevel'], path.dirname(filePath));
+        const relativePath = path.relative(repoRoot, filePath).replace(/\\/g, '/');
         const commits = this.parseHistoryCommitRecords(this.runGitCommand(
             ['log', '--follow', '--format=%H%x09%h%x09%cI%x09%s', '--', relativePath],
             repoRoot
         ));
 
         return commits
-            .map((commit) => this.buildFileHistoryEntry(file, repoRoot, relativePath, commit))
+            .map((commit) => this.buildFileHistoryEntry(filePath, repoRoot, relativePath, commit))
             .filter((entry): entry is FileHistoryEntry => entry !== undefined);
     }
 
     private buildFileHistoryEntry(
-        file: vscode.Uri,
+        filePath: string,
         repoRoot: string,
         relativePath: string,
         commit: HistoryCommitRecord
@@ -48,7 +47,7 @@ export class GitHistoryService {
             return undefined;
         }
 
-        const fileName = path.basename(file.fsPath);
+        const fileName = path.basename(filePath);
         const leftContent = this.readGitFile(repoRoot, parentCommit, relativePath);
         const rightContent = this.readGitFile(repoRoot, commit.commit, relativePath);
 

@@ -14,6 +14,10 @@ await rm('media/webview.css', { force: true });
 await rm('media/webview.css.map', { force: true });
 await rm('media/editor.worker.js', { force: true });
 await rm('media/editor.worker.js.map', { force: true });
+await rm('out/standalone-main.js', { force: true });
+await rm('out/standalone-main.js.map', { force: true });
+await rm('out/standalone-preload.js', { force: true });
+await rm('out/standalone-preload.js.map', { force: true });
 
 await build({
     ...sharedOptions,
@@ -53,4 +57,24 @@ await build({
     platform: 'browser',
     format: 'iife',
     target: 'es2020'
+});
+
+await build({
+    ...sharedOptions,
+    entryPoints: ['standalone/main.js'],
+    outfile: 'out/standalone-main.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node18',
+    external: ['electron']
+});
+
+await build({
+    ...sharedOptions,
+    entryPoints: ['standalone/preload.js'],
+    outfile: 'out/standalone-preload.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node18',
+    external: ['electron']
 });

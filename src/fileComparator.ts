@@ -115,7 +115,7 @@ export class FileComparator {
                 return;
             }
 
-            const history = this.gitHistoryService.buildFileHistory(targetFile);
+            const history = this.gitHistoryService.buildFileHistory(targetFile.fsPath);
             if (history.length === 0) {
                 vscode.window.showWarningMessage('No git history with parents was found for that file.');
                 return;
@@ -128,6 +128,14 @@ export class FileComparator {
             await this.showCurrentHistoryEntry();
         } catch (error) {
             this.showErrorMessage('Error loading file history', error);
+        }
+    }
+
+    public async compareExplicitPaths(leftPath: string, rightPath: string): Promise<void> {
+        try {
+            await this.compareFiles(vscode.Uri.file(leftPath), vscode.Uri.file(rightPath));
+        } catch (error) {
+            this.showErrorMessage('Error comparing explicit paths', error);
         }
     }
 

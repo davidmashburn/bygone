@@ -1,12 +1,17 @@
 {
   "name": "melden",
+  "publisher": "davidmashburn",
   "displayName": "Melden",
   "description": "A meld clone for VS Code - visual diff and merge tool",
   "version": "0.1.0",
+  "author": "David Mashburn",
   "license": "UNLICENSED",
-  "private": true,
+  "private": false,
   "preview": true,
   "icon": "media/icon.png",
+  "bin": {
+    "melden": "./bin/melden.js"
+  },
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -30,6 +35,7 @@
     "SCM Providers"
   ],
   "activationEvents": [
+    "onUri",
     "onCommand:melden.compareFiles",
     "onCommand:melden.compareWithSelected",
     "onCommand:melden.threeWayMerge",
@@ -69,6 +75,11 @@
       {
         "command": "melden.compareActiveFileHistory",
         "title": "Compare Active File History",
+        "category": "Melden"
+      },
+      {
+        "command": "melden.openStandaloneDownloads",
+        "title": "Open Standalone App Downloads",
         "category": "Melden"
       }
     ],
@@ -127,17 +138,66 @@
     "typecheck": "tsc -p ./ --noEmit",
     "compile": "npm run typecheck && node ./scripts/build.mjs",
     "package:vsix": "npx @vscode/vsce package",
+    "standalone:start": "npm run compile && electron ./out/standalone-main.js",
+    "standalone:smoke": "npm run compile && electron ./out/standalone-main.js --smoke-test",
+    "package:desktop": "npm run compile && electron-builder --mac --win --linux AppImage",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node ./test/runTests.js"
+  },
+  "build": {
+    "appId": "com.davidmashburn.melden",
+    "productName": "Melden",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**",
+      "media/webview.css",
+      "media/webview.js",
+      "media/editor.worker.js",
+      "media/icon.png",
+      "standalone/**",
+      "package.json",
+      "README.md",
+      "LICENSE.txt",
+      "CHANGELOG.md"
+    ],
+    "extraMetadata": {
+      "main": "out/standalone-main.js"
+    },
+    "asarUnpack": [
+      "media/editor.worker.js"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Development"
+    }
   },
   "devDependencies": {
     "@types/node": "16.x",
     "@types/vscode": "^1.74.0",
+    "electron-builder": "^24.13.3",
     "esbuild": "^0.28.0",
     "typescript": "^4.9.4"
   },
   "dependencies": {
     "diff": "^5.1.0",
+    "electron": "^31.7.7",
     "monaco-editor": "^0.55.1"
   }
 }

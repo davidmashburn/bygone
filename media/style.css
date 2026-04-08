@@ -1,3 +1,23 @@
+:root {
+    --vscode-foreground: #d4d4d4;
+    --vscode-editor-background: #1e1e1e;
+    --vscode-font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", Menlo, monospace;
+    --vscode-font-size: 13px;
+    --vscode-sideBar-background: #252526;
+    --vscode-panel-border: #3c3c3c;
+    --vscode-descriptionForeground: #9da1a6;
+    --vscode-editorWarning-foreground: #cca700;
+    --vscode-button-border: #3c3c3c;
+    --vscode-button-secondaryBackground: #313131;
+    --vscode-button-background: #0e639c;
+    --vscode-button-secondaryForeground: #cccccc;
+    --vscode-button-foreground: #ffffff;
+    --vscode-panel-background: #2d2d2d;
+    --vscode-editor-font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", Menlo, monospace;
+    --vscode-editor-font-size: 13px;
+    --vscode-editorLineNumber-foreground: #858585;
+}
+
 body {
     margin: 0;
     padding: 0;
@@ -5,6 +25,23 @@ body {
     background: var(--vscode-editor-background);
     font-family: var(--vscode-font-family);
     font-size: var(--vscode-font-size);
+}
+
+body.drag-active::after {
+    content: "Drop 1 file for history, 2 for diff, 3 for merge";
+    position: fixed;
+    inset: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed rgba(79, 124, 255, 0.7);
+    background: rgba(18, 32, 56, 0.72);
+    color: #f3f7ff;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    pointer-events: none;
+    z-index: 20;
 }
 
 #container {

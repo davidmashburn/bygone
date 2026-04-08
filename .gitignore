@@ -1,5 +1,6 @@
 node_modules/
 out/
+dist/
 *.vsix
 .DS_Store
 .vscode-test/
@@ -8,6 +9,7 @@ media/*.pre-*.png
 media/webview.js
 media/webview.css
 media/webview.js.map
+media/webview.css.map
 media/editor.worker.js
 media/editor.worker.js.map
 media/*.ttf

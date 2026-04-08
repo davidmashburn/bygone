@@ -2,7 +2,7 @@
 
 ## Overview
 
-Melden is a VS Code extension that provides a custom side-by-side diff experience with:
+Melden is a VS Code extension and standalone Electron app that provides a custom side-by-side diff experience with:
 
 - editable two-way diffs
 - Meld-style connectors and contours
@@ -10,12 +10,13 @@ Melden is a VS Code extension that provides a custom side-by-side diff experienc
 - file-history stepping through git commits
 - an experimental three-way merge viewer
 
-The extension is split into two runtime halves:
+The codebase is split into three runtime halves:
 
 1. The extension host side in [`src/`](./src)
-2. The webview side in [`media/`](./media)
+2. The shared browser UI in [`media/`](./media)
+3. The standalone Electron host in [`standalone/`](./standalone)
 
-The extension host decides what to compare and computes structured diff data. The webview renders that data, manages the Monaco editors, and draws the connector geometry.
+The host decides what to compare and computes structured diff data. The browser UI renders that data, manages the Monaco editors, and draws the connector geometry. The VS Code host and Electron host now use the same bundled browser runtime through different host bridges.
 
 ## Top-Level Layout
 
@@ -88,6 +89,29 @@ The extension host decides what to compare and computes structured diff data. Th
 - [`build.mjs`](./scripts/build.mjs)
   Build pipeline using `esbuild` for both extension-host and webview assets.
 
+- [`melden-difftool.sh`](./scripts/melden-difftool.sh)
+  Shell wrapper for `git difftool` that launches Melden via VS Code URI handling.
+
+- [`configure-git-difftool.sh`](./scripts/configure-git-difftool.sh)
+  Convenience script that registers the VS Code URI launcher as a git difftool.
+
+- [`melden-standalone-difftool.sh`](./scripts/melden-standalone-difftool.sh)
+  Shell wrapper for `git difftool` that launches the standalone Melden app.
+
+- [`configure-git-difftool-standalone.sh`](./scripts/configure-git-difftool-standalone.sh)
+  Convenience script that registers the standalone launcher as a git difftool.
+
+### `standalone/`
+
+- [`main.js`](./standalone/main.js)
+  Electron main process. Owns menus, CLI launch parsing, file I/O, git history loading, save/reload, watch prompts, and bridge messages into the shared UI.
+
+- [`preload.js`](./standalone/preload.js)
+  Electron preload bridge. Exposes the same browser-host contract that the VS Code webview uses.
+
+- [`index.html`](./standalone/index.html)
+  Standalone window shell that mounts the same shared bundled UI used by the extension.
+
 ### `test/`
 
 - [`runTests.js`](./test/runTests.js)
@@ -104,6 +128,7 @@ The extension host decides what to compare and computes structured diff data. Th
 - wiring the provider into the comparator
 - registering all user commands
 - registering the `WebviewViewProvider`
+- registering a VS Code URI handler for external launches
 
 This file is intentionally thin. It should stay that way.
 
@@ -161,7 +186,7 @@ It handles:
 - message reception from the webview
 - recomputing diffs after live editor changes
 
-The message contracts are typed in [`webviewMessages.ts`](./src/webviewMessages.ts).
+The message contracts are typed in [`webviewMessages.ts`](./src/webviewMessages.ts). The webview HTML now injects a small host bridge object so the shared renderer can run without directly depending on `acquireVsCodeApi()`.
 
 Outbound message types:
 
@@ -175,9 +200,17 @@ Inbound message types:
 - `historyBack`
 - `historyForward`
 
+There is also an external launch path through [`uriHandler.ts`](./src/uriHandler.ts), which accepts:
+
+```text
+vscode://davidmashburn.melden/diff?left=...&right=...
+```
+
+That path is what the VS Code git difftool wrapper uses.
+
 ### 5. Webview Runtime
 
-The webview runtime is bundled from [`webview-entry.js`](./media/webview-entry.js).
+The shared browser runtime is bundled from [`webview-entry.js`](./media/webview-entry.js).
 
 That bundle:
 
@@ -195,11 +228,13 @@ Its responsibilities are:
 - initializing Monaco
 - creating the two editable editors
 - applying Monaco decorations from the diff model
-- sending debounced `recomputeDiff` messages back to the extension host
+- sending debounced `recomputeDiff` messages back to the active host
 - maintaining diff-row-based synchronized scrolling
 - driving the history toolbar
 
 The key design choice here is that scrolling is not purely proportional. It maps through the aligned diff rows so insert/delete blocks anchor correctly.
+
+The renderer talks to a generic `window.__MELDEN_HOST__` bridge when present, and falls back to a VS Code bridge if it is running inside the extension webview.
 
 ### 6. Connector Rendering
 

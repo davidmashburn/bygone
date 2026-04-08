@@ -1,4 +1,4 @@
-const vscode = acquireVsCodeApi();
+const host = createHostBridge();
 const {
     VIEW_IDS,
     getElement,
@@ -32,8 +32,10 @@ const connectorController = window.MeldenConnectors.createConnectorController({
     getMonaco: () => monacoInstance
 });
 
-window.addEventListener('message', (event) => {
-    const message = event.data;
+host.onMessage((message) => {
+    if (!message || typeof message !== 'object') {
+        return;
+    }
 
     if (message.type === 'showDiff') {
         if (!monacoInstance) {
@@ -53,8 +55,9 @@ window.addEventListener('message', (event) => {
 window.addEventListener('load', async () => {
     connectorController.initializeCanvas();
     initializeHistoryToolbar();
+    initializeStandaloneDropTarget();
     await initializeMonaco();
-    vscode.postMessage({ type: 'ready' });
+    host.postMessage({ type: 'ready' });
 
     if (pendingTwoWayPayload) {
         showTwoWayDiff(
@@ -77,7 +80,7 @@ window.addEventListener('resize', () => {
 
 async function initializeMonaco() {
     self.MonacoEnvironment = {
-        getWorker: () => new Worker(window.__MELDEN_EDITOR_WORKER_URL__)
+        getWorker: () => new Worker(host.editorWorkerUrl)
     };
 
     monacoInstance = window.monaco;
@@ -390,10 +393,45 @@ function synchronizeEditorScroll(sourceEditor) {
 
 function initializeHistoryToolbar() {
     getElement('history-back').addEventListener('click', () => {
-        vscode.postMessage({ type: 'historyBack' });
+        host.postMessage({ type: 'historyBack' });
     });
     getElement('history-forward').addEventListener('click', () => {
-        vscode.postMessage({ type: 'historyForward' });
+        host.postMessage({ type: 'historyForward' });
+    });
+}
+
+function initializeStandaloneDropTarget() {
+    if (host.environment !== 'standalone') {
+        return;
+    }
+
+    window.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        document.body.classList.add('drag-active');
+    });
+
+    window.addEventListener('dragleave', (event) => {
+        if (event.relatedTarget === null) {
+            document.body.classList.remove('drag-active');
+        }
+    });
+
+    window.addEventListener('drop', (event) => {
+        event.preventDefault();
+        document.body.classList.remove('drag-active');
+
+        const paths = Array.from(event.dataTransfer?.files || [])
+            .map((file) => file.path)
+            .filter((filePath) => typeof filePath === 'string' && filePath.length > 0);
+
+        if (paths.length === 0) {
+            return;
+        }
+
+        host.postMessage({
+            type: 'openDroppedFiles',
+            paths
+        });
     });
 }
 
@@ -504,7 +542,7 @@ function scheduleRecompute() {
             return;
         }
 
-        vscode.postMessage({
+        host.postMessage({
             type: 'recomputeDiff',
             leftContent: leftEditor.getValue(),
             rightContent: rightEditor.getValue()
@@ -534,4 +572,22 @@ function resetTwoWayScrollPositions() {
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(value, max));
+}
+
+function createHostBridge() {
+    if (window.__MELDEN_HOST__) {
+        return window.__MELDEN_HOST__;
+    }
+
+    const vscodeApi = acquireVsCodeApi();
+    return {
+        environment: 'vscode',
+        editorWorkerUrl: window.__MELDEN_EDITOR_WORKER_URL__,
+        postMessage(message) {
+            vscodeApi.postMessage(message);
+        },
+        onMessage(handler) {
+            window.addEventListener('message', (event) => handler(event.data));
+        }
+    };
 }
