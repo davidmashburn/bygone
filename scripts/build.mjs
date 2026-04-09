@@ -18,6 +18,8 @@ await rm('out/standalone-main.js', { force: true });
 await rm('out/standalone-main.js.map', { force: true });
 await rm('out/standalone-preload.js', { force: true });
 await rm('out/standalone-preload.js.map', { force: true });
+await rm('web/web-host.js', { force: true });
+await rm('web/web-host.js.map', { force: true });
 
 await build({
     ...sharedOptions,
@@ -67,6 +69,15 @@ await build({
     format: 'cjs',
     target: 'node18',
     external: ['electron']
+});
+
+await build({
+    ...sharedOptions,
+    entryPoints: ['web/host.js'],
+    outfile: 'web/web-host.js',
+    platform: 'browser',
+    format: 'iife',
+    target: 'es2020'
 });
 
 await build({

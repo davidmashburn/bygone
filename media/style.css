@@ -44,6 +44,46 @@ body.drag-active::after {
     z-index: 20;
 }
 
+body.web-host {
+    overflow: hidden;
+}
+
+.web-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    background: #1a1a1a;
+}
+
+.web-toolbar-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.web-toolbar button {
+    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+    background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+    border-radius: 4px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.web-toolbar button:hover {
+    filter: brightness(1.08);
+}
+
+.web-status {
+    color: var(--vscode-descriptionForeground);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
 #container {
     height: 100vh;
     display: flex;

@@ -140,6 +140,7 @@
     "package:vsix": "npx @vscode/vsce package",
     "standalone:start": "npm run compile && electron ./out/standalone-main.js",
     "standalone:smoke": "npm run compile && electron ./out/standalone-main.js --smoke-test",
+    "web:start": "npm run compile && node ./scripts/web-server.mjs",
     "package:desktop": "npm run compile && electron-builder --mac --win --linux AppImage",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node ./test/runTests.js"

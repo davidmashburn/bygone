@@ -257,11 +257,13 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             editorWorkerUrl: ${JSON.stringify(editorWorkerUri.toString())},
             postMessage(message) {
                 vscodeApi.postMessage(message);
-            },
-            onMessage(handler) {
-                window.addEventListener('message', (event) => handler(event.data));
             }
         };
+        window.addEventListener('message', (event) => {
+            window.dispatchEvent(new CustomEvent('melden:host-message', {
+                detail: event.data
+            }));
+        });
     </script>
     <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>

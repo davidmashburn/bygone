@@ -11,7 +11,14 @@ const HELP_URL = 'https://github.com/davidmashburn/melden';
 const gitHistoryService = new GitHistoryService();
 const launchArguments = parseLaunchArgs(getCliArgs());
 const smokeTestMode = launchArguments.kind === 'smoke';
-const singleInstanceLock = app.requestSingleInstanceLock();
+const shouldUseSingleInstanceLock = launchArguments.kind === 'empty';
+
+app.setName(APP_NAME);
+if (typeof app.setAppUserModelId === 'function') {
+    app.setAppUserModelId('com.davidmashburn.melden');
+}
+
+const singleInstanceLock = shouldUseSingleInstanceLock ? app.requestSingleInstanceLock() : true;
 
 let mainWindow;
 let hostReady = false;
@@ -46,16 +53,18 @@ app.on('activate', async () => {
     }
 });
 
-app.on('second-instance', (_event, argv) => {
-    if (mainWindow) {
-        if (mainWindow.isMinimized()) {
-            mainWindow.restore();
+if (shouldUseSingleInstanceLock) {
+    app.on('second-instance', (_event, argv) => {
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) {
+                mainWindow.restore();
+            }
+            mainWindow.focus();
         }
-        mainWindow.focus();
-    }
 
-    void routeLaunchTarget(parseLaunchArgs(getCliArgsFromArgv(argv)));
-});
+        void routeLaunchTarget(parseLaunchArgs(getCliArgsFromArgv(argv)));
+    });
+}
 
 app.on('open-file', (event, filePath) => {
     event.preventDefault();
@@ -354,11 +363,6 @@ async function handleRendererMessage(message) {
             postToRenderer(pendingMessage);
             pendingMessage = undefined;
         }
-
-        if (smokeTestMode) {
-            clearTimeout(smokeTimeout);
-            setTimeout(() => app.quit(), 250);
-        }
         return;
     }
 
@@ -586,6 +590,28 @@ async function sendCurrentDiff() {
 
     postOrQueue(message);
     updateWindowTitle(`${session.left.label} ↔ ${session.right.label}`);
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        setTimeout(() => {
+            void mainWindow.webContents.executeJavaScript(`(() => ({
+                fileInfo: document.getElementById('file-info')?.textContent,
+                file1: document.getElementById('file1-header')?.textContent,
+                file2: document.getElementById('file2-header')?.textContent
+            }))()`)
+                .then((snapshot) => {
+                    if (smokeTestMode) {
+                        finalizeSmokeTest(snapshot);
+                    }
+                })
+                .catch((error) => {
+                    if (smokeTestMode) {
+                        console.error(`Melden smoke test failed: ${getErrorMessage(error)}`);
+                        process.exitCode = 1;
+                        app.exit(1);
+                    }
+                });
+        }, 400);
+    }
 }
 
 async function sendCurrentHistoryEntry() {
@@ -849,4 +875,25 @@ async function showError(message) {
 
 function getErrorMessage(error) {
     return error instanceof Error ? error.message : String(error);
+}
+
+function finalizeSmokeTest(snapshot) {
+    clearTimeout(smokeTimeout);
+    smokeTimeout = undefined;
+
+    const passed = Boolean(
+        snapshot
+        && snapshot.fileInfo === 'Comparing test-file-1.js and test-file-2.js'
+        && snapshot.file1 === 'test-file-1.js'
+        && snapshot.file2 === 'test-file-2.js'
+    );
+
+    if (!passed) {
+        console.error(`Melden smoke test failed: unexpected diff DOM snapshot ${JSON.stringify(snapshot)}`);
+        process.exitCode = 1;
+        app.exit(1);
+        return;
+    }
+
+    app.quit();
 }

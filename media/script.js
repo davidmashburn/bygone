@@ -576,7 +576,19 @@ function clamp(value, min, max) {
 
 function createHostBridge() {
     if (window.__MELDEN_HOST__) {
-        return window.__MELDEN_HOST__;
+        return {
+            ...window.__MELDEN_HOST__,
+            onMessage(handler) {
+                window.addEventListener('melden:host-message', (event) => handler(event.detail));
+                window.addEventListener('message', (event) => {
+                    if (!event?.data || typeof event.data !== 'object' || !('__meldenHostMessage' in event.data)) {
+                        return;
+                    }
+
+                    handler(event.data.__meldenHostMessage);
+                });
+            }
+        };
     }
 
     const vscodeApi = acquireVsCodeApi();

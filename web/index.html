@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Melden Web</title>
+    <link href="/media/webview.css" rel="stylesheet">
+</head>
+<body class="web-host">
+    <div class="web-toolbar">
+        <div class="web-toolbar-group">
+            <button id="web-compare-test" type="button">Compare Test Files</button>
+            <button id="web-open-diff" type="button">Open 2 Files</button>
+            <button id="web-open-merge" type="button">Open 3-Way Merge</button>
+        </div>
+        <div id="web-status" class="web-status">Browser host ready.</div>
+    </div>
+
+    <input id="web-diff-input" type="file" multiple hidden>
+    <input id="web-merge-input" type="file" multiple hidden>
+
+    <div id="container">
+        <div id="header">
+            <h1>Melden</h1>
+            <div id="file-info">Choose a compare command to render a diff.</div>
+            <div id="status-banner" class="status-banner" hidden></div>
+            <div id="history-toolbar" class="history-toolbar" hidden>
+                <div class="history-side history-side-left">
+                    <div id="history-left-commit" class="history-commit"></div>
+                    <div id="history-left-time" class="history-time"></div>
+                </div>
+                <div class="history-nav">
+                    <button id="history-back" class="history-button" type="button" title="Older commit">←</button>
+                    <div id="history-position" class="history-position"></div>
+                    <button id="history-forward" class="history-button" type="button" title="Newer commit">→</button>
+                </div>
+                <div class="history-side history-side-right">
+                    <div id="history-right-commit" class="history-commit"></div>
+                    <div id="history-right-time" class="history-time"></div>
+                </div>
+            </div>
+        </div>
+        <div id="diff-container">
+            <div id="two-way-diff" class="diff-view">
+                <div class="file-panel">
+                    <div id="file1-header" class="file-header">File 1</div>
+                    <div id="file1-content" class="file-content"></div>
+                </div>
+                <div class="file-panel">
+                    <div id="file2-header" class="file-header">File 2</div>
+                    <div id="file2-content" class="file-content"></div>
+                </div>
+            </div>
+            <div id="three-way-diff" class="diff-view hidden">
+                <div class="file-panel">
+                    <div id="base-header" class="file-header">Base</div>
+                    <div id="base-content" class="file-content"></div>
+                </div>
+                <div class="file-panel">
+                    <div id="left-header" class="file-header">Left</div>
+                    <div id="left-content" class="file-content"></div>
+                </div>
+                <div class="file-panel">
+                    <div id="right-header" class="file-header">Right</div>
+                    <div id="right-content" class="file-content"></div>
+                </div>
+                <div class="file-panel">
+                    <div id="result-header" class="file-header">Result</div>
+                    <div id="result-content" class="file-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/web/web-host.js"></script>
+    <script src="/media/webview.js"></script>
+</body>
+</html>
