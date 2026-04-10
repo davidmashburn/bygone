@@ -9,7 +9,7 @@ const {
     toggleView,
     setStatus,
     resetScrollPositions
-} = window.MeldenDom;
+} = window.BygoneDom;
 
 let currentMode = 'two-way';
 let diffBlocks = [];
@@ -24,7 +24,7 @@ let pendingTwoWayPayload;
 let currentDiffRows = [];
 let scrollMaps = null;
 let historyMode = false;
-const connectorController = window.MeldenConnectors.createConnectorController({
+const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
     getEditors: () => ({ leftEditor, rightEditor }),
@@ -252,23 +252,23 @@ function applyDiffDecorations(diffModel) {
 
     for (const block of diffModel.blocks || []) {
         if (block.kind === 'replace') {
-            addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'melden-paired-line');
-            addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'melden-paired-line');
-            addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'melden-paired-line');
-            addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'melden-paired-line');
+            addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
+            addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
+            addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
+            addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
         } else if (block.kind === 'delete') {
-            addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'melden-one-sided-line');
-            addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'melden-one-sided-line');
-            addCollapsedBoundaryDecoration(rightDecorations, block.rightStart, rightEditor.getModel()?.getLineCount() ?? 0, 'melden-one-sided-boundary');
+            addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
+            addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
+            addCollapsedBoundaryDecoration(rightDecorations, block.rightStart, rightEditor.getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
         } else if (block.kind === 'insert') {
-            addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'melden-one-sided-line');
-            addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'melden-one-sided-line');
-            addCollapsedBoundaryDecoration(leftDecorations, block.leftStart, leftEditor.getModel()?.getLineCount() ?? 0, 'melden-one-sided-boundary');
+            addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
+            addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
+            addCollapsedBoundaryDecoration(leftDecorations, block.leftStart, leftEditor.getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
         }
     }
 
-    addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'melden-inline-blue');
-    addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'melden-inline-blue');
+    addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
+    addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
 
     leftDecorationIds = leftEditor.deltaDecorations(leftDecorationIds, leftDecorations);
     rightDecorationIds = rightEditor.deltaDecorations(rightDecorationIds, rightDecorations);
@@ -575,17 +575,17 @@ function clamp(value, min, max) {
 }
 
 function createHostBridge() {
-    if (window.__MELDEN_HOST__) {
+    if (window.__BYGONE_HOST__) {
         return {
-            ...window.__MELDEN_HOST__,
+            ...window.__BYGONE_HOST__,
             onMessage(handler) {
-                window.addEventListener('melden:host-message', (event) => handler(event.detail));
+                window.addEventListener('bygone:host-message', (event) => handler(event.detail));
                 window.addEventListener('message', (event) => {
-                    if (!event?.data || typeof event.data !== 'object' || !('__meldenHostMessage' in event.data)) {
+                    if (!event?.data || typeof event.data !== 'object' || !('__bygoneHostMessage' in event.data)) {
                         return;
                     }
 
-                    handler(event.data.__meldenHostMessage);
+                    handler(event.data.__bygoneHostMessage);
                 });
             }
         };
@@ -594,7 +594,7 @@ function createHostBridge() {
     const vscodeApi = acquireVsCodeApi();
     return {
         environment: 'vscode',
-        editorWorkerUrl: window.__MELDEN_EDITOR_WORKER_URL__,
+        editorWorkerUrl: window.__BYGONE_EDITOR_WORKER_URL__,
         postMessage(message) {
             vscodeApi.postMessage(message);
         },

@@ -310,59 +310,59 @@ body.web-host {
     color: var(--vscode-foreground);
 }
 
-.monaco-editor .melden-one-sided-line,
-.monaco-editor .melden-one-sided-line-whole {
+.monaco-editor .bygone-one-sided-line,
+.monaco-editor .bygone-one-sided-line-whole {
     background: rgba(73, 190, 119, 0.14);
 }
 
-.monaco-editor .melden-paired-line,
-.monaco-editor .melden-paired-line-whole {
+.monaco-editor .bygone-paired-line,
+.monaco-editor .bygone-paired-line-whole {
     background: rgba(79, 124, 255, 0.14);
 }
 
-.monaco-editor .margin .melden-one-sided-line-gutter,
-.monaco-editor .lines-decoration .melden-one-sided-line-gutter {
+.monaco-editor .margin .bygone-one-sided-line-gutter,
+.monaco-editor .lines-decoration .bygone-one-sided-line-gutter {
     background: rgba(73, 190, 119, 0.22);
 }
 
-.monaco-editor .margin .melden-paired-line-gutter,
-.monaco-editor .lines-decoration .melden-paired-line-gutter {
+.monaco-editor .margin .bygone-paired-line-gutter,
+.monaco-editor .lines-decoration .bygone-paired-line-gutter {
     background: rgba(79, 124, 255, 0.22);
 }
 
-.monaco-editor .melden-inline-blue {
+.monaco-editor .bygone-inline-blue {
     background: rgba(79, 124, 255, 0.34);
     border-radius: 2px;
 }
 
-.monaco-editor .melden-one-sided-line-start,
-.monaco-editor .melden-one-sided-line-end,
-.monaco-editor .melden-paired-line-start,
-.monaco-editor .melden-paired-line-end {
+.monaco-editor .bygone-one-sided-line-start,
+.monaco-editor .bygone-one-sided-line-end,
+.monaco-editor .bygone-paired-line-start,
+.monaco-editor .bygone-paired-line-end {
     box-sizing: border-box;
 }
 
-.monaco-editor .melden-one-sided-line-start {
+.monaco-editor .bygone-one-sided-line-start {
     border-top: 1.5px solid rgba(73, 190, 119, 0.92);
 }
 
-.monaco-editor .melden-one-sided-line-end {
+.monaco-editor .bygone-one-sided-line-end {
     border-bottom: 1.5px solid rgba(73, 190, 119, 0.92);
 }
 
-.monaco-editor .melden-one-sided-boundary-top {
+.monaco-editor .bygone-one-sided-boundary-top {
     border-top: 1.5px solid rgba(73, 190, 119, 0.92);
 }
 
-.monaco-editor .melden-one-sided-boundary-bottom {
+.monaco-editor .bygone-one-sided-boundary-bottom {
     border-bottom: 1.5px solid rgba(73, 190, 119, 0.92);
 }
 
-.monaco-editor .melden-paired-line-start {
+.monaco-editor .bygone-paired-line-start {
     border-top: 1.5px solid rgba(79, 124, 255, 0.92);
 }
 
-.monaco-editor .melden-paired-line-end {
+.monaco-editor .bygone-paired-line-end {
     border-bottom: 1.5px solid rgba(79, 124, 255, 0.92);
 }
 

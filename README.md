@@ -1,19 +1,28 @@
-# Melden
+# Bygone
 
-Melden is a VS Code extension and standalone desktop app for side-by-side comparison with a custom Meld-style diff view.
+Bygone is a VS Code extension and standalone desktop app for visual diff, merge, and file history.
 
-![Melden screenshot](./media/melden-screenshot.png)
+![Bygone screenshot](./media/bygone-screenshot.png)
 
 ## Features
 
 - Editable two-way side-by-side diff view
-- Meld-style connectors, block contours, and inline change highlighting
+- Flowing connectors, block contours, and inline change highlighting
 - Git file history viewer with commit-by-commit navigation
 - Experimental three-way merge visualization
 
 ## Status
 
 This project is usable as a local or private pre-release VS Code extension. The two-way diff and git history flows are the most complete. Three-way merge is still experimental and should not be treated as an apply-safe merge tool.
+
+## Migration Note
+
+This project was renamed from `Melden` to `Bygone`.
+
+- VS Code extension id changed from `davidmashburn.melden` to `davidmashburn.bygone`
+- CLI changed from `melden` to `bygone`
+- Git difftool names changed from `melden` / `melden-vscode` to `bygone` / `bygone-vscode`
+- Existing users should reinstall the extension and re-run the difftool setup scripts
 
 ## Install For Development
 
@@ -28,7 +37,7 @@ Run the extension in VS Code:
 
 1. Open this folder in VS Code.
 2. Press `F5`.
-3. In the Extension Development Host, run one of the Melden commands from the Command Palette.
+3. In the Extension Development Host, run one of the Bygone commands from the Command Palette.
 
 Run the standalone desktop app locally:
 
@@ -46,8 +55,8 @@ Or install the standalone launcher globally:
 
 ```bash
 npm install -g .
-melden --diff path/to/left path/to/right
-melden --help
+bygone --diff path/to/left path/to/right
+bygone --help
 ```
 
 ## Package For External Use
@@ -79,7 +88,7 @@ In the standalone window, you can also drag and drop:
 
 ## Git Difftool
 
-Melden can be launched from `git difftool` through either the standalone app or the VS Code extension.
+Bygone can be launched from `git difftool` through either the standalone app or the VS Code extension.
 
 Configure the standalone launcher:
 
@@ -90,7 +99,7 @@ Configure the standalone launcher:
 That registers:
 
 ```text
-git difftool -t melden
+git difftool -t bygone
 ```
 
 Configure the VS Code launcher:
@@ -102,30 +111,30 @@ Configure the VS Code launcher:
 That registers:
 
 ```text
-git difftool -t melden-vscode
+git difftool -t bygone-vscode
 ```
 
 The VS Code path launches:
 
 ```text
-vscode://davidmashburn.melden/diff?left=...&right=...
+vscode://davidmashburn.bygone/diff?left=...&right=...
 ```
 
 The wrapper scripts are:
 
 ```bash
-./scripts/melden-difftool.sh <left-file> <right-file>
-./scripts/melden-standalone-difftool.sh <left-file> <right-file>
+./scripts/bygone-difftool.sh <left-file> <right-file>
+./scripts/bygone-standalone-difftool.sh <left-file> <right-file>
 ```
 
 ## Commands
 
-- `Melden: Compare Files`
-- `Melden: Compare with Selected`
-- `Melden: Three Way Merge (Experimental)`
-- `Melden: Compare Test Files`
-- `Melden: Compare File History`
-- `Melden: Compare Active File History`
+- `Bygone: Compare Files`
+- `Bygone: Compare with Selected`
+- `Bygone: Three Way Merge (Experimental)`
+- `Bygone: Compare Test Files`
+- `Bygone: Compare File History`
+- `Bygone: Compare Active File History`
 
 ## Limitations
 
@@ -141,6 +150,16 @@ The current release checklist and remaining publication blockers are tracked in 
 ## Codebase Guide
 
 Architecture and implementation details are documented in [CODEBASE.md](./CODEBASE.md).
+
+## Why “Bygone”?
+
+**In short: this project is openly inspired by Meld, and Bygone is meant to carry that visual tradition into a more history-aware tool.**
+
+Meld was a direct inspiration for this project. Its visual diff metaphor is still one of the clearest and most human ways to understand change, and Bygone builds on that lineage while pushing further into revision history.
+
+The name also nods to the bygone era before vibe-coding, when people were at least pretending to read, understand, and take responsibility for the code they were writing. This tool is about looking directly at what changed, where it came from, and how the current state emerged.
+
+And yes, Codex, the irony is noted. Thanks for the assist.
 
 ## Tests
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Building and Installing Melden VS Code Extension..."
+echo "🚀 Building and Installing Bygone VS Code Extension..."
 
 # Step 1: Install dependencies
 echo "📦 Installing dependencies..."
@@ -47,7 +47,7 @@ echo "   1. Open this folder in VS Code"
 echo "   2. Press F5 to launch extension development host"
 echo ""
 echo "Option 3: Install globally (requires code CLI)"
-echo "   code --install-extension melden-*.vsix"
+echo "   code --install-extension bygone-*.vsix"
 echo ""
 
 # List created files

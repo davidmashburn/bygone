@@ -6,8 +6,8 @@ const { buildTwoWayDiffModel, mergeText } = require('../src/diffEngine.ts');
 const { GitHistoryService } = require('../src/gitHistory.ts');
 const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
 
-const APP_NAME = 'Melden';
-const HELP_URL = 'https://github.com/davidmashburn/melden';
+const APP_NAME = 'Bygone';
+const HELP_URL = 'https://github.com/davidmashburn/bygone';
 const gitHistoryService = new GitHistoryService();
 const launchArguments = parseLaunchArgs(getCliArgs());
 const smokeTestMode = launchArguments.kind === 'smoke';
@@ -15,7 +15,7 @@ const shouldUseSingleInstanceLock = launchArguments.kind === 'empty';
 
 app.setName(APP_NAME);
 if (typeof app.setAppUserModelId === 'function') {
-    app.setAppUserModelId('com.davidmashburn.melden');
+    app.setAppUserModelId('com.davidmashburn.bygone');
 }
 
 const singleInstanceLock = shouldUseSingleInstanceLock ? app.requestSingleInstanceLock() : true;
@@ -80,7 +80,7 @@ app.on('open-file', (event, filePath) => {
     }
 });
 
-ipcMain.on('melden:renderer-message', async (_event, message) => {
+ipcMain.on('bygone:renderer-message', async (_event, message) => {
     await handleRendererMessage(message);
 });
 
@@ -106,7 +106,7 @@ function createMainWindow() {
 
     if (smokeTestMode) {
         smokeTimeout = setTimeout(() => {
-            console.error('Melden smoke test timed out before renderer became ready.');
+            console.error('Bygone smoke test timed out before renderer became ready.');
             process.exitCode = 1;
             app.exit(1);
         }, 10000);
@@ -114,7 +114,7 @@ function createMainWindow() {
 
     mainWindow.webContents.on('did-finish-load', () => {
         if (smokeTestMode) {
-            console.log('Melden standalone window finished loading.');
+            console.log('Bygone standalone window finished loading.');
         }
     });
 
@@ -125,7 +125,7 @@ function createMainWindow() {
     });
 
     mainWindow.webContents.on('did-fail-load', (_event, code, description) => {
-        console.error(`Melden standalone load failed (${code}): ${description}`);
+        console.error(`Bygone standalone load failed (${code}): ${description}`);
         if (smokeTestMode) {
             process.exitCode = 1;
             app.exit(1);
@@ -133,7 +133,7 @@ function createMainWindow() {
     });
 
     mainWindow.webContents.on('render-process-gone', (_event, details) => {
-        console.error(`Melden renderer process exited: ${details.reason}`);
+        console.error(`Bygone renderer process exited: ${details.reason}`);
         if (smokeTestMode) {
             process.exitCode = 1;
             app.exit(1);
@@ -151,7 +151,7 @@ function createMainWindow() {
             buttons: ['Save All', 'Discard', 'Cancel'],
             defaultId: 0,
             cancelId: 2,
-            message: 'You have unsaved Melden edits.',
+            message: 'You have unsaved Bygone edits.',
             detail: 'Save both panes before closing, discard changes, or cancel.'
         });
 
@@ -259,13 +259,13 @@ function installApplicationMenu() {
             label: 'Help',
             submenu: [
                 {
-                    label: 'Melden on GitHub',
+                    label: 'Bygone on GitHub',
                     click: () => { void shell.openExternal(HELP_URL); }
                 },
                 {
                     label: 'Install VS Code Extension',
                     click: async () => {
-                        await shell.openExternal('vscode:extension/davidmashburn.melden');
+                        await shell.openExternal('vscode:extension/davidmashburn.bygone');
                     }
                 }
             ]
@@ -562,7 +562,7 @@ async function openThreeWayMerge(basePath, leftPath, rightPath) {
 
 async function compareTestFiles() {
     const sampleFiles = createJavaScriptSampleFilePair();
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'melden-'));
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-'));
     const leftPath = path.join(directory, sampleFiles.leftFileName);
     const rightPath = path.join(directory, sampleFiles.rightFileName);
 
@@ -605,7 +605,7 @@ async function sendCurrentDiff() {
                 })
                 .catch((error) => {
                     if (smokeTestMode) {
-                        console.error(`Melden smoke test failed: ${getErrorMessage(error)}`);
+                        console.error(`Bygone smoke test failed: ${getErrorMessage(error)}`);
                         process.exitCode = 1;
                         app.exit(1);
                     }
@@ -782,8 +782,8 @@ async function handleExternalFileChange(side) {
         cancelId: 1,
         message: `${target.label} changed on disk.`,
         detail: target.dirty
-            ? 'Reloading will discard unsaved Melden edits for this pane.'
-            : 'Reload the changed file into Melden?'
+            ? 'Reloading will discard unsaved Bygone edits for this pane.'
+            : 'Reload the changed file into Bygone?'
     });
 
     if (choice.response === 0) {
@@ -820,7 +820,7 @@ function postToRenderer(message) {
         return;
     }
 
-    mainWindow.webContents.send('melden:host-message', message);
+    mainWindow.webContents.send('bygone:host-message', message);
 }
 
 function hasUnsavedChanges() {
@@ -889,7 +889,7 @@ function finalizeSmokeTest(snapshot) {
     );
 
     if (!passed) {
-        console.error(`Melden smoke test failed: unexpected diff DOM snapshot ${JSON.stringify(snapshot)}`);
+        console.error(`Bygone smoke test failed: unexpected diff DOM snapshot ${JSON.stringify(snapshot)}`);
         process.exitCode = 1;
         app.exit(1);
         return;

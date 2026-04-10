@@ -294,7 +294,7 @@
         return Math.max(min, Math.min(value, max));
     }
 
-    window.MeldenConnectors = {
+    window.BygoneConnectors = {
         createConnectorController
     };
 })();

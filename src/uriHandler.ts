@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { FileComparator } from './fileComparator';
 
-export class MeldenUriHandler implements vscode.UriHandler {
+export class BygoneUriHandler implements vscode.UriHandler {
     constructor(private readonly fileComparator: FileComparator) {}
 
     public handleUri(uri: vscode.Uri): vscode.ProviderResult<void> {
@@ -14,7 +14,7 @@ export class MeldenUriHandler implements vscode.UriHandler {
         const rightPath = params.get('right');
 
         if (!leftPath || !rightPath) {
-            vscode.window.showErrorMessage('Melden URI is missing left/right file parameters.');
+            vscode.window.showErrorMessage('Bygone URI is missing left/right file parameters.');
             return;
         }
 

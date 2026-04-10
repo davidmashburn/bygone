@@ -8,7 +8,7 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
         right: null
     };
 
-    window.__MELDEN_HOST__ = {
+    window.__BYGONE_HOST__ = {
         environment: 'web',
         editorWorkerUrl: '/media/editor.worker.js',
         postMessage(message) {
@@ -22,7 +22,7 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
     });
 
     function emit(message) {
-        window.dispatchEvent(new window.CustomEvent('melden:host-message', {
+        window.dispatchEvent(new window.CustomEvent('bygone:host-message', {
             detail: message
         }));
     }

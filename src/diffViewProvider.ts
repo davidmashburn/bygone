@@ -13,8 +13,8 @@ import {
 } from './webviewMessages';
 
 export class DiffViewProvider implements vscode.WebviewViewProvider {
-    public static readonly viewType = 'melden.diffView';
-    private static readonly containerCommand = 'workbench.view.extension.meldendiff';
+    public static readonly viewType = 'bygone.diffView';
+    private static readonly containerCommand = 'workbench.view.extension.bygonediff';
     private view?: vscode.WebviewView;
     private isReady = false;
     private pendingMessage?: WebviewOutboundMessage;
@@ -67,7 +67,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     public async showDiff(file1: vscode.Uri, file2: vscode.Uri, leftContent: string, rightContent: string, diffModel: TwoWayDiffModel) {
         const view = await this.revealView();
         if (!view) {
-            vscode.window.showWarningMessage('Melden view is unavailable. Opening the diff in a text tab instead.');
+            vscode.window.showWarningMessage('Bygone view is unavailable. Opening the diff in a text tab instead.');
             void openDiffPreview(file1, file2, diffModel);
             return;
         }
@@ -98,7 +98,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     ) {
         const view = await this.revealView();
         if (!view) {
-            vscode.window.showErrorMessage('Melden view is unavailable');
+            vscode.window.showErrorMessage('Bygone view is unavailable');
             return;
         }
 
@@ -123,7 +123,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     public async showThreeWayMerge(base: vscode.Uri, left: vscode.Uri, right: vscode.Uri, mergeModel: ThreeWayMergeModel) {
         const view = await this.revealView();
         if (!view) {
-            vscode.window.showErrorMessage('Melden view is unavailable');
+            vscode.window.showErrorMessage('Bygone view is unavailable');
             return;
         }
 
@@ -195,12 +195,12 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; worker-src ${webview.cspSource} blob:;">
     <link href="${styleUri}" rel="stylesheet">
-    <title>Melden Diff View</title>
+    <title>Bygone Diff View</title>
 </head>
 <body>
     <div id="container">
         <div id="header">
-            <h1>Melden</h1>
+            <h1>Bygone</h1>
             <div id="file-info">Choose a compare command to render a diff.</div>
             <div id="status-banner" class="status-banner" hidden></div>
             <div id="history-toolbar" class="history-toolbar" hidden>
@@ -252,7 +252,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     </div>
     <script nonce="${nonce}">
         const vscodeApi = acquireVsCodeApi();
-        window.__MELDEN_HOST__ = {
+        window.__BYGONE_HOST__ = {
             environment: 'vscode',
             editorWorkerUrl: ${JSON.stringify(editorWorkerUri.toString())},
             postMessage(message) {
@@ -260,7 +260,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             }
         };
         window.addEventListener('message', (event) => {
-            window.dispatchEvent(new CustomEvent('melden:host-message', {
+            window.dispatchEvent(new CustomEvent('bygone:host-message', {
                 detail: event.data
             }));
         });

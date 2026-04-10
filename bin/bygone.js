@@ -7,14 +7,14 @@ const packageJson = require('../package.json');
 const args = process.argv.slice(2);
 
 if (args.includes('--help') || args.includes('-h')) {
-    process.stdout.write(`Melden ${packageJson.version}
+    process.stdout.write(`Bygone ${packageJson.version}
 
 Usage:
-  melden --diff <left> <right>
-  melden --history <file>
-  melden --merge <base> <left> <right>
-  melden --test
-  melden [<left> <right>]
+  bygone --diff <left> <right>
+  bygone --history <file>
+  bygone --merge <base> <left> <right>
+  bygone --test
+  bygone [<left> <right>]
 
 Notes:
   - Two positional file paths are treated as --diff.

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Ship Melden as a private or limited external VS Code extension release that is stable enough for real comparison work, while keeping the three-way merge path explicitly experimental.
+Ship Bygone as a private or limited external VS Code extension release that is stable enough for real comparison work, while keeping the three-way merge path explicitly experimental.
 
 ## Current Readiness
 
@@ -20,8 +20,8 @@ Ship Melden as a private or limited external VS Code extension release that is s
 
 ## Must-Fix Before Public Marketplace Release
 
-1. Decide publisher identity and extension branding.
-   The manifest still needs final publisher metadata and a proper extension icon.
+1. Decide publisher identity and final Marketplace branding.
+   The manifest still needs final publisher metadata and listing polish.
 
 2. Decide licensing.
    The repo is currently marked `UNLICENSED`. That is fine for private use, but not for an open/public release unless intentional.

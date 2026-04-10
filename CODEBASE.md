@@ -2,10 +2,10 @@
 
 ## Overview
 
-Melden is a VS Code extension and standalone Electron app that provides a custom side-by-side diff experience with:
+Bygone is a VS Code extension and standalone Electron app that provides a custom side-by-side diff experience with:
 
 - editable two-way diffs
-- Meld-style connectors and contours
+- flowing connectors and contours
 - inline and line-level highlighting
 - file-history stepping through git commits
 - an experimental three-way merge viewer
@@ -81,7 +81,7 @@ The host decides what to compare and computes structured diff data. The browser 
 - [`icon.png`](./media/icon.png)
   Extension icon used for packaging/listing.
 
-- [`melden-screenshot.png`](./media/melden-screenshot.png)
+- [`bygone-screenshot.png`](./media/bygone-screenshot.png)
   README screenshot.
 
 ### `scripts/`
@@ -89,14 +89,14 @@ The host decides what to compare and computes structured diff data. The browser 
 - [`build.mjs`](./scripts/build.mjs)
   Build pipeline using `esbuild` for both extension-host and webview assets.
 
-- [`melden-difftool.sh`](./scripts/melden-difftool.sh)
-  Shell wrapper for `git difftool` that launches Melden via VS Code URI handling.
+- [`bygone-difftool.sh`](./scripts/bygone-difftool.sh)
+  Shell wrapper for `git difftool` that launches Bygone via VS Code URI handling.
 
 - [`configure-git-difftool.sh`](./scripts/configure-git-difftool.sh)
   Convenience script that registers the VS Code URI launcher as a git difftool.
 
-- [`melden-standalone-difftool.sh`](./scripts/melden-standalone-difftool.sh)
-  Shell wrapper for `git difftool` that launches the standalone Melden app.
+- [`bygone-standalone-difftool.sh`](./scripts/bygone-standalone-difftool.sh)
+  Shell wrapper for `git difftool` that launches the standalone Bygone app.
 
 - [`configure-git-difftool-standalone.sh`](./scripts/configure-git-difftool-standalone.sh)
   Convenience script that registers the standalone launcher as a git difftool.
@@ -203,7 +203,7 @@ Inbound message types:
 There is also an external launch path through [`uriHandler.ts`](./src/uriHandler.ts), which accepts:
 
 ```text
-vscode://davidmashburn.melden/diff?left=...&right=...
+vscode://davidmashburn.bygone/diff?left=...&right=...
 ```
 
 That path is what the VS Code git difftool wrapper uses.
@@ -234,7 +234,7 @@ Its responsibilities are:
 
 The key design choice here is that scrolling is not purely proportional. It maps through the aligned diff rows so insert/delete blocks anchor correctly.
 
-The renderer talks to a generic `window.__MELDEN_HOST__` bridge when present, and falls back to a VS Code bridge if it is running inside the extension webview.
+The renderer talks to a generic `window.__BYGONE_HOST__` bridge when present, and falls back to a VS Code bridge if it is running inside the extension webview.
 
 ### 6. Connector Rendering
 

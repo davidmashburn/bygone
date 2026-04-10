@@ -46,7 +46,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, host, () => {
-    console.log(`Melden web host running at http://${host}:${port}`);
+    console.log(`Bygone web host running at http://${host}:${port}`);
 });
 
 function resolveRequestPath(requestPath) {

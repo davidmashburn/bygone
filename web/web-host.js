@@ -876,7 +876,7 @@ module.exports = FileProcessor;
       left: null,
       right: null
     };
-    window.__MELDEN_HOST__ = {
+    window.__BYGONE_HOST__ = {
       environment: "web",
       editorWorkerUrl: "/media/editor.worker.js",
       postMessage(message) {
@@ -888,7 +888,7 @@ module.exports = FileProcessor;
       setStatus("Browser host ready.");
     });
     function emit(message) {
-      window.dispatchEvent(new window.CustomEvent("melden:host-message", {
+      window.dispatchEvent(new window.CustomEvent("bygone:host-message", {
         detail: message
       }));
     }

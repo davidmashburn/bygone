@@ -1,8 +1,8 @@
 {
-  "name": "melden",
+  "name": "@davidmashburn/bygone",
   "publisher": "davidmashburn",
-  "displayName": "Melden",
-  "description": "A meld clone for VS Code - visual diff and merge tool",
+  "displayName": "Bygone",
+  "description": "See how change happened. Visual diff, merge, and file history for VS Code.",
   "version": "0.1.0",
   "author": "David Mashburn",
   "license": "UNLICENSED",
@@ -10,25 +10,26 @@
   "preview": true,
   "icon": "media/icon.png",
   "bin": {
-    "melden": "./bin/melden.js"
+    "bygone": "./bin/bygone.js"
   },
   "engines": {
     "vscode": "^1.74.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/davidmashburn/melden.git"
+    "url": "https://github.com/davidmashburn/bygone.git"
   },
   "bugs": {
-    "url": "https://github.com/davidmashburn/melden/issues"
+    "url": "https://github.com/davidmashburn/bygone/issues"
   },
-  "homepage": "https://github.com/davidmashburn/melden",
+  "homepage": "https://github.com/davidmashburn/bygone",
   "keywords": [
     "diff",
     "merge",
     "git",
     "compare",
-    "meld"
+    "history",
+    "visual"
   ],
   "categories": [
     "Other",
@@ -36,79 +37,79 @@
   ],
   "activationEvents": [
     "onUri",
-    "onCommand:melden.compareFiles",
-    "onCommand:melden.compareWithSelected",
-    "onCommand:melden.threeWayMerge",
-    "onCommand:melden.compareTestFiles",
-    "onCommand:melden.compareFileHistory",
-    "onCommand:melden.compareActiveFileHistory",
-    "onView:melden.diffView"
+    "onCommand:bygone.compareFiles",
+    "onCommand:bygone.compareWithSelected",
+    "onCommand:bygone.threeWayMerge",
+    "onCommand:bygone.compareTestFiles",
+    "onCommand:bygone.compareFileHistory",
+    "onCommand:bygone.compareActiveFileHistory",
+    "onView:bygone.diffView"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "melden.compareFiles",
+        "command": "bygone.compareFiles",
         "title": "Compare Files",
-        "category": "Melden"
+        "category": "Bygone"
       },
       {
-        "command": "melden.compareWithSelected",
+        "command": "bygone.compareWithSelected",
         "title": "Compare with Selected",
-        "category": "Melden"
+        "category": "Bygone"
       },
       {
-        "command": "melden.threeWayMerge",
+        "command": "bygone.threeWayMerge",
         "title": "Three Way Merge (Experimental)",
-        "category": "Melden"
+        "category": "Bygone"
       },
       {
-        "command": "melden.compareTestFiles",
+        "command": "bygone.compareTestFiles",
         "title": "Compare Test Files",
-        "category": "Melden"
+        "category": "Bygone"
       },
       {
-        "command": "melden.compareFileHistory",
+        "command": "bygone.compareFileHistory",
         "title": "Compare File History",
-        "category": "Melden"
+        "category": "Bygone"
       },
       {
-        "command": "melden.compareActiveFileHistory",
+        "command": "bygone.compareActiveFileHistory",
         "title": "Compare Active File History",
-        "category": "Melden"
+        "category": "Bygone"
       },
       {
-        "command": "melden.openStandaloneDownloads",
+        "command": "bygone.openStandaloneDownloads",
         "title": "Open Standalone App Downloads",
-        "category": "Melden"
+        "category": "Bygone"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "melden.compareWithSelected",
+          "command": "bygone.compareWithSelected",
           "group": "compare"
         },
         {
-          "command": "melden.compareFileHistory",
+          "command": "bygone.compareFileHistory",
           "group": "compare"
         },
         {
-          "command": "melden.compareActiveFileHistory",
+          "command": "bygone.compareActiveFileHistory",
           "group": "navigation"
         }
       ],
       "editor/context": [
         {
-          "command": "melden.compareWithSelected",
+          "command": "bygone.compareWithSelected",
           "group": "compare"
         },
         {
-          "command": "melden.compareFileHistory",
+          "command": "bygone.compareFileHistory",
           "group": "compare"
         },
         {
-          "command": "melden.compareActiveFileHistory",
+          "command": "bygone.compareActiveFileHistory",
           "group": "navigation"
         }
       ]
@@ -116,16 +117,16 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "meldendiff",
-          "title": "Melden",
+          "id": "bygonediff",
+          "title": "Bygone",
           "icon": "$(compare-changes)"
         }
       ]
     },
     "views": {
-      "meldendiff": [
+      "bygonediff": [
         {
-          "id": "melden.diffView",
+          "id": "bygone.diffView",
           "name": "Diff View",
           "type": "webview"
         }
@@ -146,8 +147,8 @@
     "test": "npm run compile && node ./test/runTests.js"
   },
   "build": {
-    "appId": "com.davidmashburn.melden",
-    "productName": "Melden",
+    "appId": "com.davidmashburn.bygone",
+    "productName": "Bygone",
     "directories": {
       "output": "dist"
     },

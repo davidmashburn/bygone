@@ -64,7 +64,7 @@
         return div.innerHTML;
     }
 
-    window.MeldenDom = {
+    window.BygoneDom = {
         VIEW_IDS,
         getElement,
         setTextContent,
