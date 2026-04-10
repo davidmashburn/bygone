@@ -5,7 +5,7 @@
   "description": "See how change happened. Visual diff, merge, and file history for VS Code.",
   "version": "0.1.0",
   "author": "David Mashburn",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": false,
   "preview": true,
   "icon": "media/icon.png",
