@@ -1,5 +1,5 @@
 {
-  "name": "@davidmashburn/bygone",
+  "name": "bygone",
   "publisher": "davidmashburn",
   "displayName": "Bygone",
   "description": "See how change happened. Visual diff, merge, and file history for VS Code.",
@@ -143,6 +143,7 @@
     "standalone:smoke": "npm run compile && electron ./out/standalone-main.js --smoke-test",
     "web:start": "npm run compile && node ./scripts/web-server.mjs",
     "package:desktop": "npm run compile && electron-builder --mac --win --linux AppImage",
+    "package:npm": "npm run compile && node ./scripts/package-npm.mjs",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node ./test/runTests.js"
   },

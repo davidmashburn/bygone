@@ -20,7 +20,7 @@ Success criterion:
 The code is ahead of the release surface.
 
 - choose a license
-- verify npm publishing flow with `@davidmashburn/bygone`
+- verify npm publishing flow from the staged `@davidmashburn/bygone` package
 - validate desktop artifacts on Windows and Linux, not just macOS
 - verify clean install paths for:
   - VS Code extension

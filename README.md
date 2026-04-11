@@ -51,7 +51,7 @@ Run a headless standalone smoke check:
 npm run standalone:smoke
 ```
 
-Or install the standalone launcher globally:
+For development only, you can install the repo-local launcher globally:
 
 ```bash
 npm install -g .
@@ -79,6 +79,16 @@ npm run package:desktop
 ```
 
 That produces desktop artifacts for macOS, Windows, and Linux AppImage in `dist/`.
+
+Stage the scoped npm standalone package:
+
+```bash
+npm install
+npm run package:npm
+npm pack --dry-run ./dist/npm-package
+```
+
+The root `package.json` is the VS Code extension manifest and intentionally keeps the unscoped extension name `bygone`. The npm distribution is staged separately as `@davidmashburn/bygone` so the global launcher can avoid the already-taken `bygone` package name while preserving the VS Code extension id `davidmashburn.bygone`.
 
 In the standalone window, you can also drag and drop:
 
