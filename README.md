@@ -90,6 +90,15 @@ npm pack --dry-run ./dist/npm-package
 
 The root `package.json` is the VS Code extension manifest and intentionally keeps the unscoped extension name `bygone`. The npm distribution is staged separately as `@davidmashburn/bygone` so the global launcher can avoid the already-taken `bygone` package name while preserving the VS Code extension id `davidmashburn.bygone`.
 
+Run the release checks:
+
+```bash
+npm run release:check
+npm run standalone:smoke
+```
+
+The standalone smoke check is intentionally run directly because Electron can abort on macOS when launched from a longer nested npm command chain, while the same smoke check passes as a direct release gate.
+
 In the standalone window, you can also drag and drop:
 
 - 1 file to open git history for that file
