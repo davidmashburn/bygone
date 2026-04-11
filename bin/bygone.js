@@ -28,10 +28,14 @@ if (args.includes('--version') || args.includes('-v')) {
     process.exit(0);
 }
 
-const electronCli = require.resolve('electron/cli.js');
-const appEntry = path.join(__dirname, '..', 'out', 'standalone-main.js');
+const packageRoot = path.join(__dirname, '..');
+const electronBinary = process.platform === 'win32'
+    ? '.\\node_modules\\.bin\\electron.cmd'
+    : './node_modules/.bin/electron';
+const appEntry = './out/standalone-main.js';
 
-const child = spawn(process.execPath, [electronCli, appEntry, ...args], {
+const child = spawn(electronBinary, [appEntry, ...args], {
+    cwd: packageRoot,
     stdio: 'inherit'
 });
 

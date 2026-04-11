@@ -1,4 +1,5 @@
 .vscode/**
+.github/**
 dist/**
 src/**
 test/**
@@ -25,6 +26,8 @@ media/webview-entry.js
 media/editor.worker.entry.js
 out/diffEngine.js
 out/diffEngine.js.map
+out/gitHistory.js
+out/gitHistory.js.map
 out/standalone-main.js
 out/standalone-main.js.map
 out/standalone-preload.js

@@ -1,4 +1,5 @@
 import { execFileSync } from 'child_process';
+import * as fs from 'fs';
 import * as path from 'path';
 
 export interface FileHistoryEntry {
@@ -24,16 +25,52 @@ interface HistoryCommitRecord {
 
 export class GitHistoryService {
     public buildFileHistory(filePath: string): FileHistoryEntry[] {
-        const repoRoot = this.runGitCommand(['rev-parse', '--show-toplevel'], path.dirname(filePath));
-        const relativePath = path.relative(repoRoot, filePath).replace(/\\/g, '/');
+        const canonicalFilePath = fs.realpathSync(filePath);
+        const repoRoot = fs.realpathSync(this.runGitCommand(['rev-parse', '--show-toplevel'], path.dirname(canonicalFilePath)));
+        const relativePath = path.relative(repoRoot, canonicalFilePath).replace(/\\/g, '/');
         const commits = this.parseHistoryCommitRecords(this.runGitCommand(
             ['log', '--follow', '--format=%H%x09%h%x09%cI%x09%s', '--', relativePath],
             repoRoot
         ));
-
-        return commits
-            .map((commit) => this.buildFileHistoryEntry(filePath, repoRoot, relativePath, commit))
+        const commitEntries = commits
+            .map((commit) => this.buildFileHistoryEntry(canonicalFilePath, repoRoot, relativePath, commit))
             .filter((entry): entry is FileHistoryEntry => entry !== undefined);
+        const workingTreeEntry = this.buildWorkingTreeHistoryEntry(canonicalFilePath, repoRoot, relativePath);
+
+        return workingTreeEntry ? [workingTreeEntry, ...commitEntries] : commitEntries;
+    }
+
+    private buildWorkingTreeHistoryEntry(
+        filePath: string,
+        repoRoot: string,
+        relativePath: string
+    ): FileHistoryEntry | undefined {
+        const headCommit = this.readHeadCommit(repoRoot);
+        if (!headCommit) {
+            return undefined;
+        }
+
+        const headContent = this.readGitFile(repoRoot, headCommit, relativePath);
+        const workingTreeContent = this.readWorkingTreeFile(filePath);
+        if (workingTreeContent === headContent) {
+            return undefined;
+        }
+
+        const fileName = path.basename(filePath);
+
+        return {
+            commit: 'WORKTREE',
+            parentCommit: headCommit,
+            shortCommit: 'Working Tree',
+            summary: '',
+            timestamp: '',
+            parentSummary: this.readCommitSummary(repoRoot, headCommit),
+            parentTimestamp: this.readCommitTimestamp(repoRoot, headCommit),
+            leftLabel: `${fileName} @ HEAD`,
+            rightLabel: `${fileName} @ Working Tree`,
+            leftContent: headContent,
+            rightContent: workingTreeContent
+        };
     }
 
     private buildFileHistoryEntry(
@@ -82,12 +119,28 @@ export class GitHistoryService {
         }).trimEnd();
     }
 
+    private readHeadCommit(repoRoot: string): string | undefined {
+        try {
+            return this.runGitCommand(['rev-parse', 'HEAD'], repoRoot);
+        } catch {
+            return undefined;
+        }
+    }
+
     private readGitFile(repoRoot: string, commit: string, relativePath: string): string {
         try {
             return execFileSync('git', ['show', `${commit}:${relativePath}`], {
                 cwd: repoRoot,
                 encoding: 'utf8'
             });
+        } catch {
+            return '';
+        }
+    }
+
+    private readWorkingTreeFile(filePath: string): string {
+        try {
+            return fs.readFileSync(filePath, 'utf8');
         } catch {
             return '';
         }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- Added working tree vs `HEAD` as the newest git file history step
+- Added GitHub Actions release checks
+- Added scoped npm packaging and dry-run validation
+- Added desktop app icons for packaged builds
+- Split desktop packaging targets and made macOS DMG packaging the default
+
 ## 0.1.0
 
 - Added editable two-way flowing diff rendering

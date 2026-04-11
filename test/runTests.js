@@ -1,5 +1,10 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const { buildTwoWayDiffModel, mergeText } = require('../out/diffEngine.js');
+const { GitHistoryService } = require('../out/gitHistory.js');
 
 function testTwoWayDiffAlignsInsertions() {
     const model = buildTwoWayDiffModel('a\nb\nc\n', 'a\nx\nb\nc\n');
@@ -99,6 +104,66 @@ function testMergeCreatesConflictForDivergentEdits() {
     ]);
 }
 
+function testHistoryOmitsCleanWorkingTree() {
+    const repo = createTempGitRepo();
+    const filePath = path.join(repo, 'example.txt');
+
+    fs.writeFileSync(filePath, 'one\n', 'utf8');
+    runGit(repo, ['add', 'example.txt']);
+    runGit(repo, ['commit', '-m', 'initial']);
+    fs.writeFileSync(filePath, 'two\n', 'utf8');
+    runGit(repo, ['commit', '-am', 'second']);
+
+    const history = new GitHistoryService().buildFileHistory(filePath);
+
+    assert.equal(history[0].shortCommit, shortCommit(repo, 'HEAD'));
+    assert.notEqual(history[0].commit, 'WORKTREE');
+}
+
+function testHistoryPrependsDirtyWorkingTree() {
+    const repo = createTempGitRepo();
+    const filePath = path.join(repo, 'example.txt');
+
+    fs.writeFileSync(filePath, 'one\n', 'utf8');
+    runGit(repo, ['add', 'example.txt']);
+    runGit(repo, ['commit', '-m', 'initial']);
+    fs.writeFileSync(filePath, 'two\n', 'utf8');
+    runGit(repo, ['commit', '-am', 'second']);
+    fs.writeFileSync(filePath, 'three\n', 'utf8');
+
+    const history = new GitHistoryService().buildFileHistory(filePath);
+
+    assert.equal(history[0].commit, 'WORKTREE');
+    assert.equal(history[0].shortCommit, 'Working Tree');
+    assert.equal(history[0].leftLabel, 'example.txt @ HEAD');
+    assert.equal(history[0].rightLabel, 'example.txt @ Working Tree');
+    assert.equal(history[0].leftContent, 'two\n');
+    assert.equal(history[0].rightContent, 'three\n');
+    assert.equal(history[1].shortCommit, shortCommit(repo, 'HEAD'));
+}
+
+function createTempGitRepo() {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-history-test-'));
+
+    runGit(repo, ['init']);
+    runGit(repo, ['config', 'user.name', 'Bygone Test']);
+    runGit(repo, ['config', 'user.email', 'bygone-test@example.com']);
+
+    return repo;
+}
+
+function runGit(cwd, args) {
+    return execFileSync('git', args, {
+        cwd,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+    }).trimEnd();
+}
+
+function shortCommit(repo, rev) {
+    return runGit(repo, ['rev-parse', '--short', rev]);
+}
+
 function run() {
     testTwoWayDiffAlignsInsertions();
     testInlineHighlightsSingleWordReplacement();
@@ -109,6 +174,8 @@ function run() {
     testMergeAcceptsOneSidedChange();
     testMergeAcceptsMatchingChanges();
     testMergeCreatesConflictForDivergentEdits();
+    testHistoryOmitsCleanWorkingTree();
+    testHistoryPrependsDirtyWorkingTree();
     console.log('All tests passed.');
 }
 

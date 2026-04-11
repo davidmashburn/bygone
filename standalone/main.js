@@ -314,7 +314,8 @@ function getCliArgs() {
 }
 
 function getCliArgsFromArgv(argv) {
-    return process.defaultApp ? argv.slice(2) : argv.slice(1);
+    const args = process.defaultApp ? argv.slice(2) : argv.slice(1);
+    return args[0]?.endsWith('standalone-main.js') ? args.slice(1) : args;
 }
 
 function parseLaunchArgs(args) {
