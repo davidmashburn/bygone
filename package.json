@@ -138,6 +138,7 @@
     "clean": "rm -rf out *.vsix",
     "typecheck": "tsc -p ./ --noEmit",
     "compile": "npm run typecheck && node ./scripts/build.mjs",
+    "icons:generate": "node ./scripts/generate-icons.mjs",
     "package:vsix": "vsce package",
     "standalone:start": "npm run compile && electron ./out/standalone-main.js",
     "standalone:smoke": "npm run compile && electron ./out/standalone-main.js --smoke-test",
@@ -183,7 +184,8 @@
         "dmg",
         "zip"
       ],
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "icon": "standalone/assets/Bygone.icns"
     },
     "dmg": {
       "writeUpdateInfo": false
@@ -192,13 +194,15 @@
       "target": [
         "nsis",
         "portable"
-      ]
+      ],
+      "icon": "standalone/assets/Bygone.ico"
     },
     "linux": {
       "target": [
         "AppImage"
       ],
-      "category": "Development"
+      "category": "Development",
+      "icon": "media/icon.png"
     }
   },
   "devDependencies": {
