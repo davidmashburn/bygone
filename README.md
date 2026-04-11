@@ -78,7 +78,14 @@ npm install
 npm run package:desktop
 ```
 
-That produces desktop artifacts for macOS, Windows, and Linux AppImage in `dist/`.
+That produces a macOS DMG in `dist/`. Cross-target packaging is split out because Windows and Linux builds may need additional Electron downloads or Wine support:
+
+```bash
+npm run package:desktop:mac:zip
+npm run package:desktop:linux
+npm run package:desktop:win
+npm run package:desktop:all
+```
 
 Stage the scoped npm standalone package:
 

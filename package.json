@@ -142,7 +142,12 @@
     "standalone:start": "npm run compile && electron ./out/standalone-main.js",
     "standalone:smoke": "npm run compile && electron ./out/standalone-main.js --smoke-test",
     "web:start": "npm run compile && node ./scripts/web-server.mjs",
-    "package:desktop": "npm run compile && electron-builder --mac --win --linux AppImage",
+    "package:desktop": "npm run package:desktop:mac",
+    "package:desktop:mac": "npm run compile && electron-builder --mac dmg",
+    "package:desktop:mac:zip": "npm run compile && electron-builder --mac zip",
+    "package:desktop:linux": "npm run compile && electron-builder --linux AppImage",
+    "package:desktop:win": "npm run compile && electron-builder --win",
+    "package:desktop:all": "npm run compile && electron-builder --mac --win --linux AppImage",
     "package:npm": "npm run compile && node ./scripts/package-npm.mjs",
     "package:npm:dry-run": "node ./scripts/pack-npm-dry-run.mjs",
     "release:check": "npm test && npm run package:vsix && npm run package:npm && npm run package:npm:dry-run",
@@ -180,6 +185,9 @@
       ],
       "category": "public.app-category.developer-tools"
     },
+    "dmg": {
+      "writeUpdateInfo": false
+    },
     "win": {
       "target": [
         "nsis",
@@ -197,13 +205,13 @@
     "@types/node": "16.x",
     "@types/vscode": "^1.74.0",
     "@vscode/vsce": "^3.7.1",
+    "electron": "^31.7.7",
     "electron-builder": "^24.13.3",
     "esbuild": "^0.28.0",
     "typescript": "^4.9.4"
   },
   "dependencies": {
     "diff": "^5.1.0",
-    "electron": "^31.7.7",
     "monaco-editor": "^0.55.1"
   }
 }

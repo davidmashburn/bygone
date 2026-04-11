@@ -37,7 +37,7 @@ const npmPackageJson = {
         'electron'
     ],
     dependencies: {
-        electron: rootPackageJson.dependencies.electron
+        electron: rootPackageJson.devDependencies.electron
     }
 };
 
