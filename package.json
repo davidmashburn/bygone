@@ -3,7 +3,7 @@
   "publisher": "davidmashburn",
   "displayName": "Bygone",
   "description": "See how change happened. Visual diff, merge, and file history for VS Code.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": "David Mashburn",
   "license": "MIT",
   "private": false,
