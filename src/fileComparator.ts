@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DiffViewProvider } from './diffViewProvider';
 import { buildTwoWayDiffModel, mergeText } from './diffEngine';
+import { buildDirectoryDiffInput } from './directoryDiff';
 import { openDiffPreview, openMergePreview } from './fallbackViews';
 import { FileHistoryEntry, GitHistoryService } from './gitHistory';
 import { createJavaScriptSampleFilePair } from './sampleFiles';
@@ -131,6 +132,24 @@ export class FileComparator {
         }
     }
 
+    public async selectAndCompareDirectories(): Promise<void> {
+        try {
+            const dir1 = await this.selectDirectory('Select left directory to compare');
+            if (!dir1) {
+                return;
+            }
+
+            const dir2 = await this.selectDirectory('Select right directory to compare');
+            if (!dir2) {
+                return;
+            }
+
+            await this.compareDirectories(dir1, dir2);
+        } catch (error) {
+            this.showErrorMessage('Error comparing directories', error);
+        }
+    }
+
     public async compareExplicitPaths(leftPath: string, rightPath: string): Promise<void> {
         try {
             await this.compareFiles(vscode.Uri.file(leftPath), vscode.Uri.file(rightPath));
@@ -148,6 +167,29 @@ export class FileComparator {
 
         const fileUri = await vscode.window.showOpenDialog(options);
         return fileUri?.[0];
+    }
+
+    private async selectDirectory(prompt: string): Promise<vscode.Uri | undefined> {
+        const options: vscode.OpenDialogOptions = {
+            canSelectMany: false,
+            canSelectFolders: true,
+            canSelectFiles: false,
+            openLabel: 'Compare',
+            title: prompt
+        };
+
+        const result = await vscode.window.showOpenDialog(options);
+        return result?.[0];
+    }
+
+    private async compareDirectories(dir1: vscode.Uri, dir2: vscode.Uri): Promise<void> {
+        const { leftText, rightText, directoryMap } = buildDirectoryDiffInput(dir1.fsPath, dir2.fsPath);
+        const diffModel = buildTwoWayDiffModel(leftText, rightText);
+        this.clearFileHistoryState();
+
+        if (this.diffViewProvider) {
+            this.diffViewProvider.showDirectoryDiff(dir1, dir2, leftText, rightText, diffModel, directoryMap);
+        }
     }
 
     private async compareFiles(file1: vscode.Uri, file2: vscode.Uri): Promise<void> {

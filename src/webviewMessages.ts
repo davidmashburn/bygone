@@ -1,4 +1,7 @@
 import { ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
+import { DirectoryMap } from './directoryDiff';
+
+export { DirectoryMap };
 
 export interface HistoryViewState {
     canGoBack: boolean;
@@ -18,6 +21,8 @@ export interface ShowDiffMessage {
     rightContent: string;
     diffModel: TwoWayDiffModel;
     history: (HistoryViewState & { fileName: string }) | null;
+    directoryMode?: boolean;
+    directoryMap?: DirectoryMap;
 }
 
 export interface ShowThreeWayMergeMessage {

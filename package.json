@@ -38,6 +38,7 @@
   "activationEvents": [
     "onUri",
     "onCommand:bygone.compareFiles",
+    "onCommand:bygone.compareDirectories",
     "onCommand:bygone.compareWithSelected",
     "onCommand:bygone.threeWayMerge",
     "onCommand:bygone.compareTestFiles",
@@ -51,6 +52,11 @@
       {
         "command": "bygone.compareFiles",
         "title": "Compare Files",
+        "category": "Bygone"
+      },
+      {
+        "command": "bygone.compareDirectories",
+        "title": "Compare Directories",
         "category": "Bygone"
       },
       {
@@ -88,6 +94,10 @@
       "explorer/context": [
         {
           "command": "bygone.compareWithSelected",
+          "group": "compare"
+        },
+        {
+          "command": "bygone.compareDirectories",
           "group": "compare"
         },
         {

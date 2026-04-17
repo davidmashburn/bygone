@@ -24,6 +24,8 @@ let pendingTwoWayPayload;
 let currentDiffRows = [];
 let scrollMaps = null;
 let historyMode = false;
+let directoryMode = false;
+let currentDirectoryMap = null;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -43,7 +45,7 @@ host.onMessage((message) => {
             return;
         }
 
-        showTwoWayDiff(message.file1, message.file2, message.leftContent, message.rightContent, message.diffModel, message.history || null);
+        showTwoWayDiff(message.file1, message.file2, message.leftContent, message.rightContent, message.diffModel, message.history || null, message.directoryMode || false, message.directoryMap || null);
         return;
     }
 
@@ -66,7 +68,9 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.leftContent,
             pendingTwoWayPayload.rightContent,
             pendingTwoWayPayload.diffModel,
-            pendingTwoWayPayload.history || null
+            pendingTwoWayPayload.history || null,
+            pendingTwoWayPayload.directoryMode || false,
+            pendingTwoWayPayload.directoryMap || null
         );
         pendingTwoWayPayload = undefined;
     }
@@ -86,14 +90,16 @@ async function initializeMonaco() {
     monacoInstance = window.monaco;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, isDirectory, directoryMap) {
     currentMode = 'two-way';
     setCurrentDiffModel(diffModel);
     historyMode = Boolean(history);
+    directoryMode = Boolean(isDirectory);
+    currentDirectoryMap = directoryMap || null;
 
     toggleView(VIEW_IDS.twoWay);
     setStatus('', false);
-    setTextContent('file-info', `Comparing ${file1} and ${file2}`);
+    setTextContent('file-info', directoryMode ? `Comparing directories ${file1} and ${file2}` : `Comparing ${file1} and ${file2}`);
     setTextContent('file1-header', file1);
     setTextContent('file2-header', file2);
     updateHistoryToolbar(history);
@@ -172,7 +178,7 @@ function createEditor(container) {
     });
 
     editor.onDidChangeModelContent(() => {
-        if (suppressEditorEvents || historyMode) {
+        if (suppressEditorEvents || historyMode || directoryMode) {
             return;
         }
 
@@ -231,8 +237,9 @@ function updateEditorValues(leftContent, rightContent) {
 }
 
 function updateTwoWayEditorOptions() {
-    leftEditor.updateOptions({ readOnly: historyMode });
-    rightEditor.updateOptions({ readOnly: historyMode });
+    const readOnly = historyMode || directoryMode;
+    leftEditor.updateOptions({ readOnly });
+    rightEditor.updateOptions({ readOnly });
 }
 
 function setCurrentDiffModel(diffModel) {

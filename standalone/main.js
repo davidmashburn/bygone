@@ -5,6 +5,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 const { buildTwoWayDiffModel, mergeText } = require('../src/diffEngine.ts');
 const { GitHistoryService } = require('../src/gitHistory.ts');
 const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
+const { buildDirectoryDiffInput } = require('../src/directoryDiff.ts');
 
 const APP_NAME = 'Bygone';
 const HELP_URL = 'https://github.com/davidmashburn/bygone';
@@ -193,6 +194,11 @@ function installApplicationMenu() {
                     click: () => { void openCompareFilesDialog(); }
                 },
                 {
+                    label: 'Compare Directories…',
+                    accelerator: 'CmdOrCtrl+Shift+O',
+                    click: () => { void openCompareDirectoriesDialog(); }
+                },
+                {
                     label: 'Compare File History…',
                     accelerator: 'CmdOrCtrl+Shift+H',
                     click: () => { void openHistoryDialog(); }
@@ -294,6 +300,11 @@ async function routeLaunchTarget(launchTarget) {
         return;
     }
 
+    if (launchTarget.kind === 'directory') {
+        await openDirectory(launchTarget.leftPath, launchTarget.rightPath);
+        return;
+    }
+
     if (launchTarget.kind === 'history') {
         await openHistory(launchTarget.filePath);
         return;
@@ -321,6 +332,10 @@ function getCliArgsFromArgv(argv) {
 function parseLaunchArgs(args) {
     if (args[0] === '--diff' && args.length >= 3) {
         return { kind: 'diff', leftPath: args[1], rightPath: args[2] };
+    }
+
+    if (args[0] === '--dir' && args.length >= 3) {
+        return { kind: 'directory', leftPath: args[1], rightPath: args[2] };
     }
 
     if (args[0] === '--history' && args.length >= 2) {
@@ -464,6 +479,73 @@ async function openThreeWayMergeDialog() {
     }
 
     await openThreeWayMerge(result.filePaths[0], result.filePaths[1], result.filePaths[2]);
+}
+
+async function openCompareDirectoriesDialog() {
+    if (!mainWindow) {
+        return;
+    }
+
+    const left = await dialog.showOpenDialog(mainWindow, {
+        title: 'Select left directory to compare',
+        properties: ['openDirectory']
+    });
+
+    if (left.canceled || left.filePaths.length === 0) {
+        return;
+    }
+
+    const right = await dialog.showOpenDialog(mainWindow, {
+        title: 'Select right directory to compare',
+        properties: ['openDirectory']
+    });
+
+    if (right.canceled || right.filePaths.length === 0) {
+        return;
+    }
+
+    await openDirectory(left.filePaths[0], right.filePaths[0]);
+}
+
+async function openDirectory(leftDir, rightDir) {
+    session = {
+        mode: 'directory',
+        left: createSideState(leftDir, ''),
+        right: createSideState(rightDir, ''),
+        history: null,
+        merge: null,
+        directory: { leftDir, rightDir }
+    };
+
+    clearWatchers();
+    await sendCurrentDirectoryDiff();
+}
+
+async function sendCurrentDirectoryDiff() {
+    if (session.mode !== 'directory' || !session.directory) {
+        return;
+    }
+
+    const { leftText, rightText, directoryMap } = buildDirectoryDiffInput(
+        session.directory.leftDir,
+        session.directory.rightDir
+    );
+
+    const diffModel = buildTwoWayDiffModel(leftText, rightText);
+
+    postOrQueue({
+        type: 'showDiff',
+        file1: session.left.label,
+        file2: session.right.label,
+        leftContent: leftText,
+        rightContent: rightText,
+        diffModel,
+        history: null,
+        directoryMode: true,
+        directoryMap
+    });
+
+    updateWindowTitle(`${session.left.label} ↔ ${session.right.label}`);
 }
 
 async function openDiff(leftPath, rightPath) {
@@ -834,7 +916,8 @@ function createEmptySession() {
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,
-        merge: null
+        merge: null,
+        directory: null
     };
 }
 

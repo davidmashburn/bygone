@@ -11,6 +11,7 @@ if (args.includes('--help') || args.includes('-h')) {
 
 Usage:
   bygone --diff <left> <right>
+  bygone --dir <left-dir> <right-dir>
   bygone --history <file>
   bygone --merge <base> <left> <right>
   bygone --test

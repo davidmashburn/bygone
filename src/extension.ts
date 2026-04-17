@@ -15,6 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.registerWebviewViewProvider(DiffViewProvider.viewType, diffViewProvider),
         vscode.window.registerUriHandler(uriHandler),
         registerCommand('bygone.compareFiles', () => fileComparator.selectAndCompareFiles()),
+        registerCommand('bygone.compareDirectories', () => fileComparator.selectAndCompareDirectories()),
         registerCommand('bygone.compareWithSelected', (resource: vscode.Uri) => fileComparator.compareWithSelected(resource)),
         registerCommand('bygone.threeWayMerge', () => fileComparator.threeWayMerge()),
         registerCommand('bygone.compareTestFiles', () => fileComparator.compareTestFiles()),

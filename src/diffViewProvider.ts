@@ -3,6 +3,7 @@ import * as path from 'path';
 import { buildTwoWayDiffModel, ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
 import { openDiffPreview } from './fallbackViews';
 import {
+    DirectoryMap,
     HistoryViewState,
     isHistoryNavigationMessage,
     isReadyMessage,
@@ -21,6 +22,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     private currentTwoWayDiff?: {
         file1: string;
         file2: string;
+        directoryMode?: boolean;
     };
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
 
@@ -117,6 +119,31 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 ...history,
                 fileName: path.basename(file.path)
             }
+        });
+    }
+
+    public async showDirectoryDiff(dir1: vscode.Uri, dir2: vscode.Uri, leftContent: string, rightContent: string, diffModel: TwoWayDiffModel, directoryMap: DirectoryMap) {
+        const view = await this.revealView();
+        if (!view) {
+            vscode.window.showWarningMessage('Bygone view is unavailable.');
+            return;
+        }
+
+        this.currentTwoWayDiff = {
+            file1: path.basename(dir1.path),
+            file2: path.basename(dir2.path),
+            directoryMode: true
+        };
+
+        this.postOrQueueDiffMessage({
+            file1: this.currentTwoWayDiff.file1,
+            file2: this.currentTwoWayDiff.file2,
+            leftContent,
+            rightContent,
+            diffModel,
+            history: null,
+            directoryMode: true,
+            directoryMap
         });
     }
 
@@ -271,7 +298,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     }
 
     private handleRecomputeDiff(leftContent: string, rightContent: string): void {
-        if (!this.currentTwoWayDiff) {
+        if (!this.currentTwoWayDiff || this.currentTwoWayDiff.directoryMode) {
             return;
         }
 
