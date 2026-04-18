@@ -26,6 +26,7 @@ let scrollMaps = null;
 let historyMode = false;
 let directoryMode = false;
 let currentDirectoryMap = null;
+let foldSync = null;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -90,12 +91,38 @@ async function initializeMonaco() {
     monacoInstance = window.monaco;
 }
 
+function disposeFoldSync() {
+    if (foldSync) {
+        foldSync.dispose();
+        foldSync = null;
+    }
+}
+
+function initializeFoldSync() {
+    disposeFoldSync();
+
+    if (!directoryMode || !currentDirectoryMap || !leftEditor || !rightEditor) {
+        return;
+    }
+
+    if (!window.BygoneFoldSync) {
+        return;
+    }
+
+    foldSync = window.BygoneFoldSync.createFoldSync({
+        leftEditor,
+        rightEditor,
+        directoryMap: currentDirectoryMap
+    });
+}
+
 function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, isDirectory, directoryMap) {
     currentMode = 'two-way';
     setCurrentDiffModel(diffModel);
     historyMode = Boolean(history);
     directoryMode = Boolean(isDirectory);
     currentDirectoryMap = directoryMap || null;
+    disposeFoldSync();
 
     toggleView(VIEW_IDS.twoWay);
     setStatus('', false);
@@ -109,12 +136,14 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     updateTwoWayEditorOptions();
     applyDiffDecorations(diffModel);
     resetTwoWayScrollPositions();
+    initializeFoldSync();
     layoutEditors();
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
 }
 
 function showThreeWayMerge(message) {
+    disposeFoldSync();
     currentMode = 'three-way';
     setCurrentDiffModel({ blocks: [], rows: [] });
     historyMode = false;
@@ -204,6 +233,8 @@ function createEditor(container) {
 }
 
 function disposeTwoWayEditors() {
+    disposeFoldSync();
+
     if (leftEditor) {
         leftEditor.dispose();
         leftEditor = undefined;
@@ -238,8 +269,10 @@ function updateEditorValues(leftContent, rightContent) {
 
 function updateTwoWayEditorOptions() {
     const readOnly = historyMode || directoryMode;
-    leftEditor.updateOptions({ readOnly });
-    rightEditor.updateOptions({ readOnly });
+    const folding = directoryMode;
+    const foldingStrategy = directoryMode ? 'indentation' : 'auto';
+    leftEditor.updateOptions({ readOnly, folding, foldingStrategy });
+    rightEditor.updateOptions({ readOnly, folding, foldingStrategy });
 }
 
 function setCurrentDiffModel(diffModel) {
@@ -463,11 +496,52 @@ function updateHistoryToolbar(history) {
     setTextContent('history-right-time', history.rightTimestamp);
 }
 
+function scrollTopToModelLinePosition(editor, scrollTop) {
+    const model = editor.getModel();
+    if (!model) {
+        return 0;
+    }
+
+    const lineCount = model.getLineCount();
+    const lineHeight = editor.getOption(monacoInstance.editor.EditorOption.lineHeight);
+
+    // Binary search: find the highest model line whose visual top <= scrollTop.
+    // getTopForLineNumber is view-aware and accounts for folded regions.
+    let lo = 1;
+    let hi = lineCount;
+
+    while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (editor.getTopForLineNumber(mid) <= scrollTop) {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+
+    const lineTop = editor.getTopForLineNumber(lo);
+    const fraction = Math.max(0, scrollTop - lineTop) / lineHeight;
+    return lo - 1 + fraction; // 0-based fractional position
+}
+
+function modelLinePositionToScrollTop(editor, linePosition) {
+    const model = editor.getModel();
+    if (!model) {
+        return 0;
+    }
+
+    const lineCount = model.getLineCount();
+    const lineHeight = editor.getOption(monacoInstance.editor.EditorOption.lineHeight);
+    const lineIndex = Math.floor(linePosition);
+    const fraction = linePosition - lineIndex;
+    const lineNumber = clamp(lineIndex + 1, 1, lineCount);
+
+    return editor.getTopForLineNumber(lineNumber) + fraction * lineHeight;
+}
+
 function mapScrollTopBetweenEditors(sourceEditor, targetEditor) {
     const sourceSide = sourceEditor === leftEditor ? 'left' : 'right';
     const targetSide = sourceSide === 'left' ? 'right' : 'left';
-    const sourceLineHeight = sourceEditor.getOption(monacoInstance.editor.EditorOption.lineHeight);
-    const targetLineHeight = targetEditor.getOption(monacoInstance.editor.EditorOption.lineHeight);
     const sourceLineCount = sourceEditor.getModel()?.getLineCount() ?? 0;
     const targetLineCount = targetEditor.getModel()?.getLineCount() ?? 0;
 
@@ -478,12 +552,16 @@ function mapScrollTopBetweenEditors(sourceEditor, targetEditor) {
 
     const sourceMaps = scrollMaps[sourceSide];
     const targetMaps = scrollMaps[targetSide];
-    const sourceLinePosition = clamp(sourceEditor.getScrollTop() / sourceLineHeight, 0, sourceLineCount);
+    const sourceLinePosition = clamp(
+        scrollTopToModelLinePosition(sourceEditor, sourceEditor.getScrollTop()),
+        0,
+        sourceLineCount
+    );
     const alignedRowPosition = linePositionToRowPosition(sourceLinePosition, sourceMaps, currentDiffRows.length);
     const targetLinePosition = rowPositionToLinePosition(alignedRowPosition, targetMaps, currentDiffRows.length);
     const maxTargetScrollTop = Math.max(0, targetEditor.getScrollHeight() - targetEditor.getLayoutInfo().height);
 
-    return clamp(targetLinePosition * targetLineHeight, 0, maxTargetScrollTop);
+    return clamp(modelLinePositionToScrollTop(targetEditor, targetLinePosition), 0, maxTargetScrollTop);
 }
 
 function buildScrollMaps(rows, side) {
