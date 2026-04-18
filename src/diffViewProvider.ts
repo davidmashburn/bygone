@@ -3,12 +3,13 @@ import * as path from 'path';
 import { buildTwoWayDiffModel, ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
 import { openDiffPreview } from './fallbackViews';
 import {
-    DirectoryMap,
+    DirectoryEntry,
     HistoryViewState,
     isHistoryNavigationMessage,
     isReadyMessage,
     isRecomputeDiffMessage,
     ShowDiffMessage,
+    ShowDirectoryDiffMessage,
     ShowThreeWayMergeMessage,
     WebviewOutboundMessage
 } from './webviewMessages';
@@ -22,7 +23,6 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     private currentTwoWayDiff?: {
         file1: string;
         file2: string;
-        directoryMode?: boolean;
     };
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
 
@@ -122,29 +122,21 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    public async showDirectoryDiff(dir1: vscode.Uri, dir2: vscode.Uri, leftContent: string, rightContent: string, diffModel: TwoWayDiffModel, directoryMap: DirectoryMap) {
+    public async showDirectoryDiff(dir1: vscode.Uri, dir2: vscode.Uri, entries: DirectoryEntry[]) {
         const view = await this.revealView();
         if (!view) {
             vscode.window.showWarningMessage('Bygone view is unavailable.');
             return;
         }
 
-        this.currentTwoWayDiff = {
-            file1: path.basename(dir1.path),
-            file2: path.basename(dir2.path),
-            directoryMode: true
-        };
+        this.currentTwoWayDiff = undefined;
 
-        this.postOrQueueDiffMessage({
-            file1: this.currentTwoWayDiff.file1,
-            file2: this.currentTwoWayDiff.file2,
-            leftContent,
-            rightContent,
-            diffModel,
-            history: null,
-            directoryMode: true,
-            directoryMap
-        });
+        this.postOrQueueMessage({
+            type: 'showDirectoryDiff',
+            leftLabel: path.basename(dir1.path),
+            rightLabel: path.basename(dir2.path),
+            entries
+        } satisfies ShowDirectoryDiffMessage);
     }
 
     public async showThreeWayMerge(base: vscode.Uri, left: vscode.Uri, right: vscode.Uri, mergeModel: ThreeWayMergeModel) {
@@ -257,6 +249,13 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                     <div id="file2-content" class="file-content"></div>
                 </div>
             </div>
+            <div id="directory-diff" class="dir-view hidden">
+                <div class="dir-headers">
+                    <div class="dir-col-header" id="dir-left-header">Left</div>
+                    <div class="dir-col-header" id="dir-right-header">Right</div>
+                </div>
+                <div id="dir-rows" class="dir-rows-container"></div>
+            </div>
             <div id="three-way-diff" class="diff-view hidden">
                 <div class="file-panel">
                     <div id="base-header" class="file-header">Base</div>
@@ -298,7 +297,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     }
 
     private handleRecomputeDiff(leftContent: string, rightContent: string): void {
-        if (!this.currentTwoWayDiff || this.currentTwoWayDiff.directoryMode) {
+        if (!this.currentTwoWayDiff) {
             return;
         }
 

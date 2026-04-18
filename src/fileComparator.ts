@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DiffViewProvider } from './diffViewProvider';
 import { buildTwoWayDiffModel, mergeText } from './diffEngine';
-import { buildDirectoryDiffInput } from './directoryDiff';
+import { buildDirectoryComparison } from './directoryDiff';
 import { openDiffPreview, openMergePreview } from './fallbackViews';
 import { FileHistoryEntry, GitHistoryService } from './gitHistory';
 import { createJavaScriptSampleFilePair } from './sampleFiles';
@@ -183,12 +183,11 @@ export class FileComparator {
     }
 
     private async compareDirectories(dir1: vscode.Uri, dir2: vscode.Uri): Promise<void> {
-        const { leftText, rightText, directoryMap } = buildDirectoryDiffInput(dir1.fsPath, dir2.fsPath);
-        const diffModel = buildTwoWayDiffModel(leftText, rightText);
+        const entries = buildDirectoryComparison(dir1.fsPath, dir2.fsPath);
         this.clearFileHistoryState();
 
         if (this.diffViewProvider) {
-            this.diffViewProvider.showDirectoryDiff(dir1, dir2, leftText, rightText, diffModel, directoryMap);
+            this.diffViewProvider.showDirectoryDiff(dir1, dir2, entries);
         }
     }
 

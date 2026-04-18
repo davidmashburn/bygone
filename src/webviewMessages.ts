@@ -1,7 +1,7 @@
 import { ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
-import { DirectoryMap } from './directoryDiff';
+import { DirectoryEntry, DirectoryEntryStatus } from './directoryDiff';
 
-export { DirectoryMap };
+export { DirectoryEntry, DirectoryEntryStatus };
 
 export interface HistoryViewState {
     canGoBack: boolean;
@@ -21,8 +21,13 @@ export interface ShowDiffMessage {
     rightContent: string;
     diffModel: TwoWayDiffModel;
     history: (HistoryViewState & { fileName: string }) | null;
-    directoryMode?: boolean;
-    directoryMap?: DirectoryMap;
+}
+
+export interface ShowDirectoryDiffMessage {
+    type: 'showDirectoryDiff';
+    leftLabel: string;
+    rightLabel: string;
+    entries: DirectoryEntry[];
 }
 
 export interface ShowThreeWayMergeMessage {
@@ -64,7 +69,7 @@ export interface HistoryNavigationMessage {
 }
 
 export type WebviewInboundMessage = ReadyMessage | RecomputeDiffMessage | HistoryNavigationMessage;
-export type WebviewOutboundMessage = ShowDiffMessage | ShowThreeWayMergeMessage;
+export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowThreeWayMergeMessage;
 
 export function isReadyMessage(message: unknown): message is ReadyMessage {
     return getMessageType(message) === 'ready';

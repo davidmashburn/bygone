@@ -1,103 +1,73 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-export interface DirectoryMap {
-    leftLineToPath: string[];
-    rightLineToPath: string[];
-    pathToLeftLine: Record<string, number>;
-    pathToRightLine: Record<string, number>;
-}
+export type DirectoryEntryStatus = 'same' | 'left-only' | 'right-only';
 
-export interface DirectoryDiffInput {
-    leftText: string;
-    rightText: string;
-    directoryMap: DirectoryMap;
-}
-
-interface TreeEntry {
+export interface DirectoryEntry {
     relativePath: string;
-    displayLine: string;
+    displayName: string;
+    depth: number;
+    isDirectory: boolean;
+    status: DirectoryEntryStatus;
 }
 
-function collectEntries(rootDir: string, relativeDir: string, depth: number, result: TreeEntry[]): void {
-    const absDir = path.join(rootDir, relativeDir);
-    let entries: fs.Dirent[];
-
+function safeReadDir(dir: string): fs.Dirent[] {
     try {
-        entries = fs.readdirSync(absDir, { withFileTypes: true });
+        return fs.readdirSync(dir, { withFileTypes: true });
     } catch {
-        return;
+        return [];
     }
+}
 
-    entries.sort((a, b) => {
-        const aIsDir = a.isDirectory();
-        const bIsDir = b.isDirectory();
-        if (aIsDir !== bIsDir) {
-            return aIsDir ? -1 : 1;
-        }
-        return a.name.localeCompare(b.name);
-    });
+function collectUnionEntries(
+    leftRoot: string,
+    rightRoot: string,
+    relativeDir: string,
+    depth: number,
+    result: DirectoryEntry[]
+): void {
+    const leftEntries = safeReadDir(path.join(leftRoot, relativeDir));
+    const rightEntries = safeReadDir(path.join(rightRoot, relativeDir));
 
-    const indent = '  '.repeat(depth);
+    const leftMap = new Map(leftEntries.map(e => [e.name, e]));
+    const rightMap = new Map(rightEntries.map(e => [e.name, e]));
 
-    for (const entry of entries) {
-        if (entry.name.startsWith('.')) {
-            continue;
-        }
+    const allNames = [...new Set([...leftMap.keys(), ...rightMap.keys()])]
+        .filter(name => !name.startsWith('.'))
+        .sort((a, b) => {
+            const aIsDir = leftMap.get(a)?.isDirectory() ?? rightMap.get(a)?.isDirectory() ?? false;
+            const bIsDir = leftMap.get(b)?.isDirectory() ?? rightMap.get(b)?.isDirectory() ?? false;
+            if (aIsDir !== bIsDir) {
+                return aIsDir ? -1 : 1;
+            }
+            return a.localeCompare(b);
+        });
 
-        const relPath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+    for (const name of allNames) {
+        const relPath = relativeDir ? `${relativeDir}/${name}` : name;
+        const leftEntry = leftMap.get(name);
+        const rightEntry = rightMap.get(name);
+        const isDirectory = leftEntry?.isDirectory() ?? rightEntry?.isDirectory() ?? false;
+        const status: DirectoryEntryStatus =
+            leftEntry && rightEntry ? 'same' :
+            leftEntry ? 'left-only' : 'right-only';
 
-        if (entry.isDirectory()) {
-            result.push({
-                relativePath: `${relPath}/`,
-                displayLine: `${indent}${entry.name}/`
-            });
-            collectEntries(rootDir, relPath, depth + 1, result);
-        } else {
-            result.push({
-                relativePath: relPath,
-                displayLine: `${indent}${entry.name}`
-            });
+        result.push({
+            relativePath: isDirectory ? `${relPath}/` : relPath,
+            displayName: name,
+            depth,
+            isDirectory,
+            status
+        });
+
+        if (isDirectory) {
+            collectUnionEntries(leftRoot, rightRoot, relPath, depth + 1, result);
         }
     }
 }
 
-function buildSide(entries: TreeEntry[]): {
-    text: string;
-    lineToPath: string[];
-    pathToLine: Record<string, number>;
-} {
-    const lineToPath: string[] = [];
-    const pathToLine: Record<string, number> = {};
-    const lines: string[] = [];
-
-    for (const entry of entries) {
-        pathToLine[entry.relativePath] = lines.length;
-        lineToPath.push(entry.relativePath);
-        lines.push(entry.displayLine);
-    }
-
-    return { text: lines.join('\n'), lineToPath, pathToLine };
-}
-
-export function buildDirectoryDiffInput(leftDir: string, rightDir: string): DirectoryDiffInput {
-    const leftEntries: TreeEntry[] = [];
-    const rightEntries: TreeEntry[] = [];
-
-    collectEntries(leftDir, '', 0, leftEntries);
-    collectEntries(rightDir, '', 0, rightEntries);
-
-    const left = buildSide(leftEntries);
-    const right = buildSide(rightEntries);
-
-    return {
-        leftText: left.text,
-        rightText: right.text,
-        directoryMap: {
-            leftLineToPath: left.lineToPath,
-            rightLineToPath: right.lineToPath,
-            pathToLeftLine: left.pathToLine,
-            pathToRightLine: right.pathToLine
-        }
-    };
+export function buildDirectoryComparison(leftDir: string, rightDir: string): DirectoryEntry[] {
+    const entries: DirectoryEntry[] = [];
+    collectUnionEntries(leftDir, rightDir, '', 0, entries);
+    return entries;
 }

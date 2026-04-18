@@ -8,7 +8,9 @@ const {
     renderResultLines,
     toggleView,
     setStatus,
-    resetScrollPositions
+    resetScrollPositions,
+    resetDirectoryView,
+    renderDirectoryView
 } = window.BygoneDom;
 
 let currentMode = 'two-way';
@@ -24,9 +26,6 @@ let pendingTwoWayPayload;
 let currentDiffRows = [];
 let scrollMaps = null;
 let historyMode = false;
-let directoryMode = false;
-let currentDirectoryMap = null;
-let foldSync = null;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -46,7 +45,12 @@ host.onMessage((message) => {
             return;
         }
 
-        showTwoWayDiff(message.file1, message.file2, message.leftContent, message.rightContent, message.diffModel, message.history || null, message.directoryMode || false, message.directoryMap || null);
+        showTwoWayDiff(message.file1, message.file2, message.leftContent, message.rightContent, message.diffModel, message.history || null);
+        return;
+    }
+
+    if (message.type === 'showDirectoryDiff') {
+        showDirectoryDiff(message.leftLabel, message.rightLabel, message.entries);
         return;
     }
 
@@ -69,9 +73,7 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.leftContent,
             pendingTwoWayPayload.rightContent,
             pendingTwoWayPayload.diffModel,
-            pendingTwoWayPayload.history || null,
-            pendingTwoWayPayload.directoryMode || false,
-            pendingTwoWayPayload.directoryMap || null
+            pendingTwoWayPayload.history || null
         );
         pendingTwoWayPayload = undefined;
     }
@@ -91,42 +93,14 @@ async function initializeMonaco() {
     monacoInstance = window.monaco;
 }
 
-function disposeFoldSync() {
-    if (foldSync) {
-        foldSync.dispose();
-        foldSync = null;
-    }
-}
-
-function initializeFoldSync() {
-    disposeFoldSync();
-
-    if (!directoryMode || !currentDirectoryMap || !leftEditor || !rightEditor) {
-        return;
-    }
-
-    if (!window.BygoneFoldSync) {
-        return;
-    }
-
-    foldSync = window.BygoneFoldSync.createFoldSync({
-        leftEditor,
-        rightEditor,
-        directoryMap: currentDirectoryMap
-    });
-}
-
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, isDirectory, directoryMap) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history) {
     currentMode = 'two-way';
     setCurrentDiffModel(diffModel);
     historyMode = Boolean(history);
-    directoryMode = Boolean(isDirectory);
-    currentDirectoryMap = directoryMap || null;
-    disposeFoldSync();
 
     toggleView(VIEW_IDS.twoWay);
     setStatus('', false);
-    setTextContent('file-info', directoryMode ? `Comparing directories ${file1} and ${file2}` : `Comparing ${file1} and ${file2}`);
+    setTextContent('file-info', `Comparing ${file1} and ${file2}`);
     setTextContent('file1-header', file1);
     setTextContent('file2-header', file2);
     updateHistoryToolbar(history);
@@ -136,14 +110,28 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     updateTwoWayEditorOptions();
     applyDiffDecorations(diffModel);
     resetTwoWayScrollPositions();
-    initializeFoldSync();
     layoutEditors();
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
 }
 
+function showDirectoryDiff(leftLabel, rightLabel, entries) {
+    currentMode = 'directory';
+    historyMode = false;
+    disposeTwoWayEditors();
+    updateHistoryToolbar(null);
+
+    toggleView(VIEW_IDS.directory);
+    setStatus('', false);
+    setTextContent('file-info', `Comparing directories ${leftLabel} and ${rightLabel}`);
+    setTextContent('dir-left-header', leftLabel);
+    setTextContent('dir-right-header', rightLabel);
+
+    resetDirectoryView();
+    renderDirectoryView(getElement('dir-rows'), entries);
+}
+
 function showThreeWayMerge(message) {
-    disposeFoldSync();
     currentMode = 'three-way';
     setCurrentDiffModel({ blocks: [], rows: [] });
     historyMode = false;
@@ -207,7 +195,7 @@ function createEditor(container) {
     });
 
     editor.onDidChangeModelContent(() => {
-        if (suppressEditorEvents || historyMode || directoryMode) {
+        if (suppressEditorEvents || historyMode) {
             return;
         }
 
@@ -233,8 +221,6 @@ function createEditor(container) {
 }
 
 function disposeTwoWayEditors() {
-    disposeFoldSync();
-
     if (leftEditor) {
         leftEditor.dispose();
         leftEditor = undefined;
@@ -268,11 +254,9 @@ function updateEditorValues(leftContent, rightContent) {
 }
 
 function updateTwoWayEditorOptions() {
-    const readOnly = historyMode || directoryMode;
-    const folding = directoryMode;
-    const foldingStrategy = directoryMode ? 'indentation' : 'auto';
-    leftEditor.updateOptions({ readOnly, folding, foldingStrategy });
-    rightEditor.updateOptions({ readOnly, folding, foldingStrategy });
+    const readOnly = historyMode;
+    leftEditor.updateOptions({ readOnly });
+    rightEditor.updateOptions({ readOnly });
 }
 
 function setCurrentDiffModel(diffModel) {

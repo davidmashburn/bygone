@@ -5,7 +5,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 const { buildTwoWayDiffModel, mergeText } = require('../src/diffEngine.ts');
 const { GitHistoryService } = require('../src/gitHistory.ts');
 const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
-const { buildDirectoryDiffInput } = require('../src/directoryDiff.ts');
+const { buildDirectoryComparison } = require('../src/directoryDiff.ts');
 
 const APP_NAME = 'Bygone';
 const HELP_URL = 'https://github.com/davidmashburn/bygone';
@@ -526,23 +526,16 @@ async function sendCurrentDirectoryDiff() {
         return;
     }
 
-    const { leftText, rightText, directoryMap } = buildDirectoryDiffInput(
+    const entries = buildDirectoryComparison(
         session.directory.leftDir,
         session.directory.rightDir
     );
 
-    const diffModel = buildTwoWayDiffModel(leftText, rightText);
-
     postOrQueue({
-        type: 'showDiff',
-        file1: session.left.label,
-        file2: session.right.label,
-        leftContent: leftText,
-        rightContent: rightText,
-        diffModel,
-        history: null,
-        directoryMode: true,
-        directoryMap
+        type: 'showDirectoryDiff',
+        leftLabel: session.left.label,
+        rightLabel: session.right.label,
+        entries
     });
 
     updateWindowTitle(`${session.left.label} ↔ ${session.right.label}`);
