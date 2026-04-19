@@ -30,6 +30,23 @@ export interface ShowDirectoryDiffMessage {
     entries: DirectoryEntry[];
 }
 
+export interface MultiDiffPanel {
+    label: string;
+    content: string;
+}
+
+export interface MultiDiffPair {
+    leftIndex: number;
+    rightIndex: number;
+    diffModel: TwoWayDiffModel;
+}
+
+export interface ShowMultiDiffMessage {
+    type: 'showMultiDiff';
+    panels: MultiDiffPanel[];
+    pairs: MultiDiffPair[];
+}
+
 export interface ShowThreeWayMergeMessage {
     type: 'showThreeWayMerge';
     base: {
@@ -69,7 +86,7 @@ export interface HistoryNavigationMessage {
 }
 
 export type WebviewInboundMessage = ReadyMessage | RecomputeDiffMessage | HistoryNavigationMessage;
-export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowThreeWayMergeMessage;
+export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
 
 export function isReadyMessage(message: unknown): message is ReadyMessage {
     return getMessageType(message) === 'ready';

@@ -199,6 +199,65 @@ body.web-host {
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.multi-view {
+    display: grid;
+    height: 100%;
+    padding: 12px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.multi-pane {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--vscode-panel-border);
+    border-right: none;
+    background: var(--vscode-editor-background);
+}
+
+.multi-pane:last-child {
+    border-right: 1px solid var(--vscode-panel-border);
+}
+
+.multi-pane-header,
+.multi-gutter-header {
+    height: 33px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    background: var(--vscode-panel-background);
+    font-size: 12px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.multi-pane-content {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    z-index: 2;
+}
+
+.multi-gutter {
+    min-width: 0;
+    min-height: 0;
+    border-top: 1px solid var(--vscode-panel-border);
+    border-bottom: 1px solid var(--vscode-panel-border);
+    background: color-mix(in srgb, var(--vscode-editor-background) 90%, var(--vscode-panel-border));
+}
+
+.multi-gutter-header {
+    justify-content: center;
+    padding: 0 6px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 10px;
+}
+
 .hidden {
     display: none;
 }
@@ -364,6 +423,29 @@ body.web-host {
 
 .monaco-editor .bygone-paired-line-end {
     border-bottom: 1.5px solid rgba(79, 124, 255, 0.92);
+}
+
+.monaco-editor .bygone-paired-edge-left,
+.monaco-editor .bygone-paired-edge-right,
+.monaco-editor .bygone-one-sided-edge-left,
+.monaco-editor .bygone-one-sided-edge-right {
+    box-sizing: border-box;
+}
+
+.monaco-editor .bygone-paired-edge-left {
+    border-left: 5px solid rgba(79, 124, 255, 0.92);
+}
+
+.monaco-editor .bygone-paired-edge-right {
+    border-right: 5px solid rgba(79, 124, 255, 0.92);
+}
+
+.monaco-editor .bygone-one-sided-edge-left {
+    border-left: 5px solid rgba(73, 190, 119, 0.92);
+}
+
+.monaco-editor .bygone-one-sided-edge-right {
+    border-right: 5px solid rgba(73, 190, 119, 0.92);
 }
 
 .context {

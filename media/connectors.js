@@ -80,6 +80,11 @@
                 return;
             }
 
+            if (options.getMode() === 'multi-way') {
+                drawMultiWayConnections();
+                return;
+            }
+
             if (options.getMode() !== 'two-way') {
                 return;
             }
@@ -96,6 +101,30 @@
 
             diffBlocks.forEach((block) => {
                 drawBlockRegion(block, leftEditor, rightEditor, leftRect, rightRect, containerRect);
+            });
+        }
+
+        function drawMultiWayConnections() {
+            const state = options.getMultiDiffState?.();
+            if (!state || state.editors.length < 2 || state.pairs.length === 0) {
+                return;
+            }
+
+            const containerRect = connectionCanvas.getBoundingClientRect();
+
+            state.pairs.forEach((pair) => {
+                const leftEditor = state.editors[pair.leftIndex];
+                const rightEditor = state.editors[pair.rightIndex];
+                if (!leftEditor || !rightEditor) {
+                    return;
+                }
+
+                const leftRect = leftEditor.getDomNode().getBoundingClientRect();
+                const rightRect = rightEditor.getDomNode().getBoundingClientRect();
+
+                for (const block of pair.diffModel.blocks || []) {
+                    drawBlockRegion(block, leftEditor, rightEditor, leftRect, rightRect, containerRect);
+                }
             });
         }
 

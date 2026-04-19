@@ -199,6 +199,10 @@ function installApplicationMenu() {
                     click: () => { void openCompareDirectoriesDialog(); }
                 },
                 {
+                    label: 'Compare Three Files (Prototype)…',
+                    click: () => { void openCompareThreeFilesDialog(); }
+                },
+                {
                     label: 'Compare File History…',
                     accelerator: 'CmdOrCtrl+Shift+H',
                     click: () => { void openHistoryDialog(); }
@@ -296,17 +300,27 @@ async function routeLaunchTarget(launchTarget) {
     }
 
     if (launchTarget.kind === 'diff') {
-        await openDiff(launchTarget.leftPath, launchTarget.rightPath);
+        await openPathPair(launchTarget.leftPath, launchTarget.rightPath, 'diff');
         return;
     }
 
     if (launchTarget.kind === 'directory') {
-        await openDirectory(launchTarget.leftPath, launchTarget.rightPath);
+        await openPathPair(launchTarget.leftPath, launchTarget.rightPath, 'directory');
+        return;
+    }
+
+    if (launchTarget.kind === 'pair') {
+        await openPathPair(launchTarget.leftPath, launchTarget.rightPath, 'auto');
         return;
     }
 
     if (launchTarget.kind === 'history') {
         await openHistory(launchTarget.filePath);
+        return;
+    }
+
+    if (launchTarget.kind === 'multi-diff') {
+        await openMultiDiff(launchTarget.paths);
         return;
     }
 
@@ -338,6 +352,10 @@ function parseLaunchArgs(args) {
         return { kind: 'directory', leftPath: args[1], rightPath: args[2] };
     }
 
+    if (args[0] === '--diff3' && args.length >= 4) {
+        return { kind: 'multi-diff', paths: args.slice(1, 4) };
+    }
+
     if (args[0] === '--history' && args.length >= 2) {
         return { kind: 'history', filePath: args[1] };
     }
@@ -355,7 +373,7 @@ function parseLaunchArgs(args) {
     }
 
     if (args.length >= 2 && !args[0].startsWith('--')) {
-        return { kind: 'diff', leftPath: args[0], rightPath: args[1] };
+        return { kind: 'pair', leftPath: args[0], rightPath: args[1] };
     }
 
     return { kind: 'empty' };
@@ -435,7 +453,7 @@ async function openDroppedFiles(paths) {
     }
 
     if (normalizedPaths.length === 2) {
-        await openDiff(normalizedPaths[0], normalizedPaths[1]);
+        await openPathPair(normalizedPaths[0], normalizedPaths[1], 'auto');
         return;
     }
 
@@ -481,6 +499,23 @@ async function openThreeWayMergeDialog() {
     await openThreeWayMerge(result.filePaths[0], result.filePaths[1], result.filePaths[2]);
 }
 
+async function openCompareThreeFilesDialog() {
+    if (!mainWindow) {
+        return;
+    }
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Select three files to compare',
+        properties: ['openFile', 'multiSelections']
+    });
+
+    if (result.canceled || result.filePaths.length < 3) {
+        return;
+    }
+
+    await openMultiDiff(result.filePaths.slice(0, 3));
+}
+
 async function openCompareDirectoriesDialog() {
     if (!mainWindow) {
         return;
@@ -508,13 +543,17 @@ async function openCompareDirectoriesDialog() {
 }
 
 async function openDirectory(leftDir, rightDir) {
+    const resolvedLeft = path.resolve(leftDir);
+    const resolvedRight = path.resolve(rightDir);
+
     session = {
         mode: 'directory',
-        left: createSideState(leftDir, ''),
-        right: createSideState(rightDir, ''),
+        left: createSideState(resolvedLeft, ''),
+        right: createSideState(resolvedRight, ''),
         history: null,
         merge: null,
-        directory: { leftDir, rightDir }
+        directory: { leftDir: resolvedLeft, rightDir: resolvedRight },
+        multi: null
     };
 
     clearWatchers();
@@ -542,15 +581,19 @@ async function sendCurrentDirectoryDiff() {
 }
 
 async function openDiff(leftPath, rightPath) {
-    const leftContent = readFileContent(leftPath);
-    const rightContent = readFileContent(rightPath);
+    const resolvedLeft = path.resolve(leftPath);
+    const resolvedRight = path.resolve(rightPath);
+    const leftContent = readFileContent(resolvedLeft);
+    const rightContent = readFileContent(resolvedRight);
 
     session = {
         mode: 'diff',
-        left: createSideState(leftPath, leftContent),
-        right: createSideState(rightPath, rightContent),
+        left: createSideState(resolvedLeft, leftContent),
+        right: createSideState(resolvedRight, rightContent),
         history: null,
-        merge: null
+        merge: null,
+        directory: null,
+        multi: null
     };
 
     updateWatchers();
@@ -558,10 +601,11 @@ async function openDiff(leftPath, rightPath) {
 }
 
 async function openHistory(filePath) {
+    const resolvedPath = path.resolve(filePath);
     let entries;
 
     try {
-        entries = gitHistoryService.buildFileHistory(filePath);
+        entries = gitHistoryService.buildFileHistory(resolvedPath);
     } catch (error) {
         await showError(`Error loading file history: ${getErrorMessage(error)}`);
         return;
@@ -577,15 +621,106 @@ async function openHistory(filePath) {
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: {
-            filePath,
+            filePath: resolvedPath,
             entries,
             index: 0
         },
-        merge: null
+        merge: null,
+        directory: null,
+        multi: null
     };
 
     clearWatchers();
     await sendCurrentHistoryEntry();
+}
+
+async function openPathPair(leftPath, rightPath, expectedMode) {
+    const resolvedLeft = path.resolve(leftPath);
+    const resolvedRight = path.resolve(rightPath);
+    const leftKind = getPathKind(resolvedLeft);
+    const rightKind = getPathKind(resolvedRight);
+
+    if (expectedMode === 'directory') {
+        if (leftKind === 'directory' && rightKind === 'directory') {
+            await openDirectory(resolvedLeft, resolvedRight);
+            return;
+        }
+
+        await showInfo('Directory compare requires two directories.');
+        return;
+    }
+
+    if (expectedMode === 'diff') {
+        if (leftKind === 'file' && rightKind === 'file') {
+            await openDiff(resolvedLeft, resolvedRight);
+            return;
+        }
+
+        await showInfo('File compare requires two files.');
+        return;
+    }
+
+    if (leftKind === 'directory' && rightKind === 'directory') {
+        await openDirectory(resolvedLeft, resolvedRight);
+        return;
+    }
+
+    if (leftKind === 'file' && rightKind === 'file') {
+        await openDiff(resolvedLeft, resolvedRight);
+        return;
+    }
+
+    await showInfo('Select two files for diff or two directories for directory compare.');
+}
+
+async function openMultiDiff(filePaths) {
+    const resolvedPaths = filePaths.map((filePath) => path.resolve(filePath));
+    if (resolvedPaths.length < 3 || !resolvedPaths.every((filePath) => getPathKind(filePath) === 'file')) {
+        await showInfo('Three-file compare requires three files.');
+        return;
+    }
+
+    session = {
+        mode: 'multi-diff',
+        left: createSideState('', ''),
+        right: createSideState('', ''),
+        history: null,
+        merge: null,
+        directory: null,
+        multi: {
+            files: resolvedPaths.map((filePath) => ({
+                path: filePath,
+                label: path.basename(filePath),
+                content: readFileContent(filePath)
+            }))
+        }
+    };
+
+    clearWatchers();
+    await sendCurrentMultiDiff();
+}
+
+async function sendCurrentMultiDiff() {
+    if (session.mode !== 'multi-diff' || !session.multi) {
+        return;
+    }
+
+    const panels = session.multi.files.map((file) => ({
+        label: file.label,
+        content: file.content
+    }));
+
+    postOrQueue({
+        type: 'showMultiDiff',
+        panels,
+        pairs: panels.slice(0, -1).map((panel, index) => ({
+            leftIndex: index,
+            rightIndex: index + 1,
+            diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
+        }))
+    });
+
+    updateWindowTitle(panels.map((panel) => panel.label).join(' ↔ '));
 }
 
 async function openThreeWayMerge(basePath, leftPath, rightPath) {
@@ -606,7 +741,9 @@ async function openThreeWayMerge(basePath, leftPath, rightPath) {
             baseName: path.basename(basePath),
             leftName: path.basename(leftPath),
             rightName: path.basename(rightPath)
-        }
+        },
+        directory: null,
+        multi: null
     };
 
     clearWatchers();
@@ -910,7 +1047,8 @@ function createEmptySession() {
         right: createSideState('', ''),
         history: null,
         merge: null,
-        directory: null
+        directory: null,
+        multi: null
     };
 }
 
@@ -926,6 +1064,22 @@ function createSideState(filePath, content) {
 
 function readFileContent(filePath) {
     return fs.readFileSync(filePath, 'utf8');
+}
+
+function getPathKind(filePath) {
+    try {
+        const stats = fs.statSync(filePath);
+        if (stats.isDirectory()) {
+            return 'directory';
+        }
+        if (stats.isFile()) {
+            return 'file';
+        }
+    } catch {
+        return 'missing';
+    }
+
+    return 'missing';
 }
 
 async function showInfo(message) {

@@ -13,7 +13,10 @@ const {
     renderDirectoryView
 } = window.BygoneDom;
 
-let currentMode = 'two-way';
+const MODE_TWO_WAY = 'two-way';
+const MODE_MULTI_WAY = 'multi-way';
+
+let currentMode = MODE_TWO_WAY;
 let diffBlocks = [];
 let monacoInstance;
 let leftEditor;
@@ -23,16 +26,21 @@ let rightDecorationIds = [];
 let suppressEditorEvents = false;
 let recomputeTimer;
 let pendingTwoWayPayload;
+let pendingMultiPayload;
 let currentDiffRows = [];
 let scrollMaps = null;
 let historyMode = false;
 let directoryEntries = [];
+let multiEditors = [];
+let multiDecorationIds = [];
+let multiDiffPairs = [];
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
     getEditors: () => ({ leftEditor, rightEditor }),
     getDiffBlocks: () => diffBlocks,
     getDirectoryEntries: () => directoryEntries,
+    getMultiDiffState: () => ({ editors: multiEditors, pairs: multiDiffPairs }),
     getMonaco: () => monacoInstance
 });
 
@@ -53,6 +61,16 @@ host.onMessage((message) => {
 
     if (message.type === 'showDirectoryDiff') {
         showDirectoryDiff(message.leftLabel, message.rightLabel, message.entries);
+        return;
+    }
+
+    if (message.type === 'showMultiDiff') {
+        if (!monacoInstance) {
+            pendingMultiPayload = message;
+            return;
+        }
+
+        showMultiDiff(message.panels, message.pairs);
         return;
     }
 
@@ -80,6 +98,11 @@ window.addEventListener('load', async () => {
         );
         pendingTwoWayPayload = undefined;
     }
+
+    if (pendingMultiPayload) {
+        showMultiDiff(pendingMultiPayload.panels, pendingMultiPayload.pairs);
+        pendingMultiPayload = undefined;
+    }
 });
 
 window.addEventListener('resize', () => {
@@ -97,10 +120,11 @@ async function initializeMonaco() {
 }
 
 function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history) {
-    currentMode = 'two-way';
+    currentMode = MODE_TWO_WAY;
     setCurrentDiffModel(diffModel);
     historyMode = Boolean(history);
     directoryEntries = [];
+    disposeMultiEditors();
 
     toggleView(VIEW_IDS.twoWay);
     setStatus('', false);
@@ -127,6 +151,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries) {
     scrollMaps = null;
     directoryEntries = entries || [];
     disposeTwoWayEditors();
+    disposeMultiEditors();
     updateHistoryToolbar(null);
 
     toggleView(VIEW_IDS.directory);
@@ -141,12 +166,48 @@ function showDirectoryDiff(leftLabel, rightLabel, entries) {
     connectorController.scheduleDrawConnections();
 }
 
+function showMultiDiff(panels, pairs) {
+    if (!Array.isArray(panels) || panels.length < 2) {
+        return;
+    }
+
+    currentMode = MODE_MULTI_WAY;
+    historyMode = false;
+    diffBlocks = [];
+    currentDiffRows = [];
+    scrollMaps = null;
+    directoryEntries = [];
+    multiDiffPairs = pairs || [];
+    disposeTwoWayEditors();
+    disposeMultiEditors();
+    updateHistoryToolbar(null);
+
+    toggleView(VIEW_IDS.multiWay);
+    setStatus('', false);
+    setTextContent('file-info', `Comparing ${panels.length} files`);
+
+    renderMultiDiffShell(panels);
+    multiEditors = panels.map((panel, index) => {
+        const editor = createEditor(getElement(`multi-pane-${index}-content`), MODE_MULTI_WAY);
+        editor.updateOptions({ readOnly: true });
+        editor.setValue(panel.content);
+        return editor;
+    });
+    multiDecorationIds = multiEditors.map(() => []);
+    applyMultiDiffDecorations(multiDiffPairs);
+    resetMultiScrollPositions();
+    layoutEditors();
+    connectorController.resizeCanvas();
+    connectorController.scheduleDrawConnections();
+}
+
 function showThreeWayMerge(message) {
     currentMode = 'three-way';
     setCurrentDiffModel({ blocks: [], rows: [] });
     historyMode = false;
     directoryEntries = [];
     disposeTwoWayEditors();
+    disposeMultiEditors();
     updateHistoryToolbar(null);
 
     toggleView(VIEW_IDS.threeWay);
@@ -177,11 +238,11 @@ function ensureTwoWayEditors() {
         return;
     }
 
-    leftEditor = createEditor(getElement('file1-content'));
-    rightEditor = createEditor(getElement('file2-content'));
+    leftEditor = createEditor(getElement('file1-content'), MODE_TWO_WAY);
+    rightEditor = createEditor(getElement('file2-content'), MODE_TWO_WAY);
 }
 
-function createEditor(container) {
+function createEditor(container, editorMode) {
     container.innerHTML = '<div class="editor-root"></div>';
     container.classList.add('editor-host');
 
@@ -206,7 +267,7 @@ function createEditor(container) {
     });
 
     editor.onDidChangeModelContent(() => {
-        if (suppressEditorEvents || historyMode) {
+        if (editorMode !== MODE_TWO_WAY || suppressEditorEvents || historyMode) {
             return;
         }
 
@@ -220,7 +281,11 @@ function createEditor(container) {
             return;
         }
 
-        synchronizeEditorScroll(editor);
+        if (editorMode === MODE_MULTI_WAY) {
+            synchronizeMultiScroll(editor);
+        } else {
+            synchronizeEditorScroll(editor);
+        }
         connectorController.scheduleDrawConnections();
     });
 
@@ -246,6 +311,45 @@ function disposeTwoWayEditors() {
 
     getElement('file1-content').classList.remove('editor-host');
     getElement('file2-content').classList.remove('editor-host');
+}
+
+function disposeMultiEditors() {
+    multiEditors.forEach((editor) => editor.dispose());
+    multiEditors = [];
+    multiDecorationIds = [];
+    multiDiffPairs = [];
+    const container = getElement(VIEW_IDS.multiWay);
+    if (container) {
+        container.innerHTML = '';
+    }
+}
+
+function renderMultiDiffShell(panels) {
+    const columns = [];
+    const children = [];
+
+    panels.forEach((panel, index) => {
+        columns.push('minmax(220px, 1fr)');
+        children.push(
+            `<div class="multi-pane" data-index="${index}">`
+            + `<div class="multi-pane-header">${escapeHtml(panel.label)}</div>`
+            + `<div id="multi-pane-${index}-content" class="multi-pane-content"></div>`
+            + '</div>'
+        );
+
+        if (index < panels.length - 1) {
+            columns.push('96px');
+            children.push(
+                `<div class="multi-gutter" data-pair-index="${index}">`
+                + `<div class="multi-gutter-header">${escapeHtml(panel.label)}:${escapeHtml(panels[index + 1].label)}</div>`
+                + '</div>'
+            );
+        }
+    });
+
+    const container = getElement(VIEW_IDS.multiWay);
+    container.style.gridTemplateColumns = columns.join(' ');
+    container.innerHTML = children.join('');
 }
 
 function updateEditorValues(leftContent, rightContent) {
@@ -309,6 +413,48 @@ function applyDiffDecorations(diffModel) {
     rightDecorationIds = rightEditor.deltaDecorations(rightDecorationIds, rightDecorations);
 }
 
+function applyMultiDiffDecorations(pairs) {
+    const decorations = multiEditors.map(() => []);
+
+    for (const pair of pairs || []) {
+        const leftDecorations = decorations[pair.leftIndex];
+        const rightDecorations = decorations[pair.rightIndex];
+        const diffModel = pair.diffModel;
+
+        if (!leftDecorations || !rightDecorations || !diffModel) {
+            continue;
+        }
+
+        for (const block of diffModel.blocks || []) {
+            if (block.kind === 'replace') {
+                addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
+                addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
+                addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
+                addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
+                addAdjacentEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'right', 'bygone-paired-edge');
+                addAdjacentEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'left', 'bygone-paired-edge');
+            } else if (block.kind === 'delete') {
+                addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
+                addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
+                addAdjacentEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'right', 'bygone-one-sided-edge');
+                addCollapsedBoundaryDecoration(rightDecorations, block.rightStart, multiEditors[pair.rightIndex].getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
+            } else if (block.kind === 'insert') {
+                addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
+                addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
+                addAdjacentEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'left', 'bygone-one-sided-edge');
+                addCollapsedBoundaryDecoration(leftDecorations, block.leftStart, multiEditors[pair.leftIndex].getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
+            }
+        }
+
+        addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
+        addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
+    }
+
+    multiDecorationIds = multiEditors.map((editor, index) => (
+        editor.deltaDecorations(multiDecorationIds[index] || [], decorations[index])
+    ));
+}
+
 function addLineDecorations(target, start, end, className) {
     for (let index = start; index < end; index++) {
         target.push({
@@ -347,6 +493,18 @@ function addBlockEdgeDecorations(target, start, end, className) {
             className: `${className}-end`
         }
     });
+}
+
+function addAdjacentEdgeDecorations(target, start, end, side, className) {
+    for (let index = start; index < end; index++) {
+        target.push({
+            range: new monacoInstance.Range(index + 1, 1, index + 1, 1),
+            options: {
+                isWholeLine: true,
+                className: `${className}-${side}`
+            }
+        });
+    }
 }
 
 function addCollapsedBoundaryDecoration(target, anchorIndex, targetLineCount, className) {
@@ -423,6 +581,26 @@ function synchronizeEditorScroll(sourceEditor) {
     suppressEditorEvents = true;
     targetEditor.setScrollTop(targetScrollTop);
     targetEditor.setScrollLeft(horizontalRatio * Math.max(0, targetEditor.getScrollWidth() - targetEditor.getLayoutInfo().contentWidth));
+    suppressEditorEvents = false;
+}
+
+function synchronizeMultiScroll(sourceEditor) {
+    if (multiEditors.length < 2) {
+        return;
+    }
+
+    const horizontalRatio = getScrollRatio(sourceEditor.getScrollLeft(), sourceEditor.getScrollWidth() - sourceEditor.getLayoutInfo().contentWidth);
+    const verticalRatio = getScrollRatio(sourceEditor.getScrollTop(), sourceEditor.getScrollHeight() - sourceEditor.getLayoutInfo().height);
+
+    suppressEditorEvents = true;
+    for (const editor of multiEditors) {
+        if (editor === sourceEditor) {
+            continue;
+        }
+
+        editor.setScrollTop(verticalRatio * Math.max(0, editor.getScrollHeight() - editor.getLayoutInfo().height));
+        editor.setScrollLeft(horizontalRatio * Math.max(0, editor.getScrollWidth() - editor.getLayoutInfo().contentWidth));
+    }
     suppressEditorEvents = false;
 }
 
@@ -643,6 +821,7 @@ function scheduleRecompute() {
 function layoutEditors() {
     leftEditor?.layout();
     rightEditor?.layout();
+    multiEditors.forEach((editor) => editor.layout());
 }
 
 function getScrollRatio(value, extent) {
@@ -660,8 +839,21 @@ function resetTwoWayScrollPositions() {
     rightEditor.setScrollLeft(0);
 }
 
+function resetMultiScrollPositions() {
+    multiEditors.forEach((editor) => {
+        editor.setScrollTop(0);
+        editor.setScrollLeft(0);
+    });
+}
+
 function clamp(value, min, max) {
     return Math.max(min, Math.min(value, max));
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function createHostBridge() {

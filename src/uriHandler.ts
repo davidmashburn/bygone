@@ -14,7 +14,7 @@ export class BygoneUriHandler implements vscode.UriHandler {
         const rightPath = params.get('right');
 
         if (!leftPath || !rightPath) {
-            vscode.window.showErrorMessage('Bygone URI is missing left/right file parameters.');
+            vscode.window.showErrorMessage('Bygone URI is missing left/right path parameters.');
             return;
         }
 

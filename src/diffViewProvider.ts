@@ -10,6 +10,7 @@ import {
     isRecomputeDiffMessage,
     ShowDiffMessage,
     ShowDirectoryDiffMessage,
+    ShowMultiDiffMessage,
     ShowThreeWayMergeMessage,
     WebviewOutboundMessage
 } from './webviewMessages';
@@ -139,6 +140,18 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         } satisfies ShowDirectoryDiffMessage);
     }
 
+    public async showMultiDiff(files: Array<{ uri: vscode.Uri; content: string }>) {
+        const view = await this.revealView();
+        if (!view) {
+            vscode.window.showWarningMessage('Bygone view is unavailable.');
+            return;
+        }
+
+        this.currentTwoWayDiff = undefined;
+
+        this.postOrQueueMessage(this.createMultiDiffMessage(files));
+    }
+
     public async showThreeWayMerge(base: vscode.Uri, left: vscode.Uri, right: vscode.Uri, mergeModel: ThreeWayMergeModel) {
         const view = await this.revealView();
         if (!view) {
@@ -201,6 +214,21 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         } satisfies ShowDiffMessage);
     }
 
+    private createMultiDiffMessage(files: Array<{ uri: vscode.Uri; content: string }>): ShowMultiDiffMessage {
+        return {
+            type: 'showMultiDiff',
+            panels: files.map((file) => ({
+                label: path.basename(file.uri.path),
+                content: file.content
+            })),
+            pairs: files.slice(0, -1).map((file, index) => ({
+                leftIndex: index,
+                rightIndex: index + 1,
+                diffModel: buildTwoWayDiffModel(file.content, files[index + 1].content)
+            }))
+        };
+    }
+
     private getHtmlForWebview(webview: vscode.Webview) {
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'webview.css'));
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'webview.js'));
@@ -257,6 +285,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 </div>
                 <div id="dir-rows" class="dir-rows-container"></div>
             </div>
+            <div id="multi-way-diff" class="multi-view hidden"></div>
             <div id="three-way-diff" class="diff-view hidden">
                 <div class="file-panel">
                     <div id="base-header" class="file-header">Base</div>

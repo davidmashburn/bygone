@@ -82,6 +82,19 @@ export class FileComparator {
         }
     }
 
+    public async compareThreeFiles(): Promise<void> {
+        try {
+            const files = await this.selectFiles('Select three files to compare', 3);
+            if (!files) {
+                return;
+            }
+
+            await this.compareMultipleFiles(files);
+        } catch (error) {
+            this.showErrorMessage('Error comparing three files', error);
+        }
+    }
+
     public async compareTestFiles(): Promise<void> {
         try {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -152,7 +165,20 @@ export class FileComparator {
 
     public async compareExplicitPaths(leftPath: string, rightPath: string): Promise<void> {
         try {
-            await this.compareFiles(vscode.Uri.file(leftPath), vscode.Uri.file(rightPath));
+            const leftKind = this.getPathKind(leftPath);
+            const rightKind = this.getPathKind(rightPath);
+
+            if (leftKind === 'file' && rightKind === 'file') {
+                await this.compareFiles(vscode.Uri.file(leftPath), vscode.Uri.file(rightPath));
+                return;
+            }
+
+            if (leftKind === 'directory' && rightKind === 'directory') {
+                await this.compareDirectories(vscode.Uri.file(leftPath), vscode.Uri.file(rightPath));
+                return;
+            }
+
+            throw new Error('Both paths must be files or both must be directories.');
         } catch (error) {
             this.showErrorMessage('Error comparing explicit paths', error);
         }
@@ -167,6 +193,17 @@ export class FileComparator {
 
         const fileUri = await vscode.window.showOpenDialog(options);
         return fileUri?.[0];
+    }
+
+    private async selectFiles(prompt: string, count: number): Promise<vscode.Uri[] | undefined> {
+        const options: vscode.OpenDialogOptions = {
+            canSelectMany: true,
+            openLabel: 'Compare',
+            title: prompt
+        };
+
+        const files = await vscode.window.showOpenDialog(options);
+        return files && files.length === count ? files : undefined;
     }
 
     private async selectDirectory(prompt: string): Promise<vscode.Uri | undefined> {
@@ -201,6 +238,17 @@ export class FileComparator {
             this.diffViewProvider.showDiff(file1, file2, content1, content2, diffModel);
         } else {
             void openDiffPreview(file1, file2, diffModel);
+        }
+    }
+
+    private async compareMultipleFiles(files: vscode.Uri[]): Promise<void> {
+        this.clearFileHistoryState();
+
+        if (this.diffViewProvider) {
+            await this.diffViewProvider.showMultiDiff(files.map((uri) => ({
+                uri,
+                content: this.readFileContent(uri)
+            })));
         }
     }
 
@@ -272,6 +320,23 @@ export class FileComparator {
 
     private readFileContent(file: vscode.Uri): string {
         return fs.readFileSync(file.fsPath, 'utf8');
+    }
+
+    private getPathKind(fsPath: string): 'file' | 'directory' | 'missing' {
+        try {
+            const stats = fs.statSync(fsPath);
+            if (stats.isFile()) {
+                return 'file';
+            }
+
+            if (stats.isDirectory()) {
+                return 'directory';
+            }
+        } catch {
+            return 'missing';
+        }
+
+        return 'missing';
     }
 
     private clearFileHistoryState(): void {

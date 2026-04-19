@@ -2,6 +2,7 @@
     const VIEW_IDS = {
         twoWay: 'two-way-diff',
         threeWay: 'three-way-diff',
+        multiWay: 'multi-way-diff',
         directory: 'directory-diff'
     };
 
@@ -48,6 +49,7 @@
     function toggleView(activeId) {
         getElement(VIEW_IDS.twoWay).classList.toggle('hidden', activeId !== VIEW_IDS.twoWay);
         getElement(VIEW_IDS.threeWay).classList.toggle('hidden', activeId !== VIEW_IDS.threeWay);
+        getElement(VIEW_IDS.multiWay).classList.toggle('hidden', activeId !== VIEW_IDS.multiWay);
         getElement(VIEW_IDS.directory).classList.toggle('hidden', activeId !== VIEW_IDS.directory);
     }
 

@@ -11,6 +11,7 @@ if (args.includes('--help') || args.includes('-h')) {
 
 Usage:
   bygone --diff <left> <right>
+  bygone --diff3 <left> <middle> <right>
   bygone --dir <left-dir> <right-dir>
   bygone --history <file>
   bygone --merge <base> <left> <right>
@@ -18,7 +19,7 @@ Usage:
   bygone [<left> <right>]
 
 Notes:
-  - Two positional file paths are treated as --diff.
+  - Two positional paths auto-select file diff or directory compare.
   - In the standalone app, drop 1 file for history, 2 for diff, or 3 for merge.
 `);
     process.exit(0);
