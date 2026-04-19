@@ -2,7 +2,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
-const { buildTwoWayDiffModel, mergeText } = require('../src/diffEngine.ts');
+const { buildTwoWayDiffModel } = require('../src/diffEngine.ts');
 const { GitHistoryService } = require('../src/gitHistory.ts');
 const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
 const { buildDirectoryComparison } = require('../src/directoryDiff.ts');
@@ -208,11 +208,6 @@ function installApplicationMenu() {
                     click: () => { void openHistoryDialog(); }
                 },
                 {
-                    label: 'Three Way Merge…',
-                    accelerator: 'CmdOrCtrl+Shift+M',
-                    click: () => { void openThreeWayMergeDialog(); }
-                },
-                {
                     label: 'Compare Test Files',
                     accelerator: 'CmdOrCtrl+Shift+T',
                     click: () => { void compareTestFiles(); }
@@ -324,11 +319,6 @@ async function routeLaunchTarget(launchTarget) {
         return;
     }
 
-    if (launchTarget.kind === 'merge') {
-        await openThreeWayMerge(launchTarget.basePath, launchTarget.leftPath, launchTarget.rightPath);
-        return;
-    }
-
     if (launchTarget.kind === 'test' || launchTarget.kind === 'smoke') {
         await compareTestFiles();
     }
@@ -358,10 +348,6 @@ function parseLaunchArgs(args) {
 
     if (args[0] === '--history' && args.length >= 2) {
         return { kind: 'history', filePath: args[1] };
-    }
-
-    if (args[0] === '--merge' && args.length >= 4) {
-        return { kind: 'merge', basePath: args[1], leftPath: args[2], rightPath: args[3] };
     }
 
     if (args[0] === '--test') {
@@ -458,11 +444,11 @@ async function openDroppedFiles(paths) {
     }
 
     if (normalizedPaths.length === 3) {
-        await openThreeWayMerge(normalizedPaths[0], normalizedPaths[1], normalizedPaths[2]);
+        await openMultiDiff(normalizedPaths);
         return;
     }
 
-    await showInfo('Drop one file for history, two files for diff, or three files for merge.');
+    await showInfo('Drop one file for history, two files for diff, or three files for 3-panel diff.');
 }
 
 async function openHistoryDialog() {
@@ -480,23 +466,6 @@ async function openHistoryDialog() {
     }
 
     await openHistory(result.filePaths[0]);
-}
-
-async function openThreeWayMergeDialog() {
-    if (!mainWindow) {
-        return;
-    }
-
-    const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Select base, left, and right files',
-        properties: ['openFile', 'multiSelections']
-    });
-
-    if (result.canceled || result.filePaths.length < 3) {
-        return;
-    }
-
-    await openThreeWayMerge(result.filePaths[0], result.filePaths[1], result.filePaths[2]);
 }
 
 async function openCompareThreeFilesDialog() {
@@ -551,7 +520,6 @@ async function openDirectory(leftDir, rightDir) {
         left: createSideState(resolvedLeft, ''),
         right: createSideState(resolvedRight, ''),
         history: null,
-        merge: null,
         directory: { leftDir: resolvedLeft, rightDir: resolvedRight },
         multi: null
     };
@@ -591,7 +559,6 @@ async function openDiff(leftPath, rightPath) {
         left: createSideState(resolvedLeft, leftContent),
         right: createSideState(resolvedRight, rightContent),
         history: null,
-        merge: null,
         directory: null,
         multi: null
     };
@@ -625,7 +592,6 @@ async function openHistory(filePath) {
             entries,
             index: 0
         },
-        merge: null,
         directory: null,
         multi: null
     };
@@ -685,7 +651,6 @@ async function openMultiDiff(filePaths) {
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,
-        merge: null,
         directory: null,
         multi: {
             files: resolvedPaths.map((filePath) => ({
@@ -721,56 +686,6 @@ async function sendCurrentMultiDiff() {
     });
 
     updateWindowTitle(panels.map((panel) => panel.label).join(' ↔ '));
-}
-
-async function openThreeWayMerge(basePath, leftPath, rightPath) {
-    const mergeModel = mergeText(
-        readFileContent(basePath),
-        readFileContent(leftPath),
-        readFileContent(rightPath)
-    );
-
-    session = {
-        mode: 'merge',
-        left: createSideState(leftPath, readFileContent(leftPath)),
-        right: createSideState(rightPath, readFileContent(rightPath)),
-        history: null,
-        merge: {
-            basePath,
-            mergeModel,
-            baseName: path.basename(basePath),
-            leftName: path.basename(leftPath),
-            rightName: path.basename(rightPath)
-        },
-        directory: null,
-        multi: null
-    };
-
-    clearWatchers();
-    postOrQueue({
-        type: 'showThreeWayMerge',
-        base: {
-            name: session.merge.baseName,
-            lines: mergeModel.baseLines
-        },
-        left: {
-            name: session.merge.leftName,
-            lines: mergeModel.leftLines
-        },
-        right: {
-            name: session.merge.rightName,
-            lines: mergeModel.rightLines
-        },
-        result: {
-            name: mergeModel.conflictCount > 0 ? `Result (${mergeModel.conflictCount} conflicts)` : 'Result',
-            lines: mergeModel.resultLines
-        },
-        meta: {
-            isExperimental: mergeModel.isExperimental,
-            conflictCount: mergeModel.conflictCount
-        }
-    });
-    updateWindowTitle('Three Way Merge');
 }
 
 async function compareTestFiles() {
@@ -1046,7 +961,6 @@ function createEmptySession() {
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,
-        merge: null,
         directory: null,
         multi: null
     };

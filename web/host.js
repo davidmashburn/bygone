@@ -1,4 +1,4 @@
-import { buildTwoWayDiffModel, mergeText } from '../src/diffEngine.ts';
+import { buildTwoWayDiffModel } from '../src/diffEngine.ts';
 import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 
 (function initializeWebHost() {
@@ -58,9 +58,9 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
     function bindControls() {
         const compareTestButton = document.getElementById('web-compare-test');
         const openDiffButton = document.getElementById('web-open-diff');
-        const openMergeButton = document.getElementById('web-open-merge');
+        const openDiff3Button = document.getElementById('web-open-diff3');
         const diffInput = document.getElementById('web-diff-input');
-        const mergeInput = document.getElementById('web-merge-input');
+        const diff3Input = document.getElementById('web-diff3-input');
 
         compareTestButton?.addEventListener('click', () => {
             compareTestFiles();
@@ -71,9 +71,9 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
             diffInput.click();
         });
 
-        openMergeButton?.addEventListener('click', () => {
-            mergeInput.value = '';
-            mergeInput.click();
+        openDiff3Button?.addEventListener('click', () => {
+            diff3Input.value = '';
+            diff3Input.click();
         });
 
         diffInput?.addEventListener('change', async () => {
@@ -86,14 +86,14 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
             await openDiffFiles(files);
         });
 
-        mergeInput?.addEventListener('change', async () => {
-            const files = Array.from(mergeInput.files || []);
+        diff3Input?.addEventListener('change', async () => {
+            const files = Array.from(diff3Input.files || []);
             if (files.length !== 3) {
-                setStatus('Select exactly 3 files for a three-way merge.');
+                setStatus('Select exactly 3 files for a 3-panel diff.');
                 return;
             }
 
-            await openMergeFiles(files);
+            await openThreeFileDiff(files);
         });
     }
 
@@ -150,39 +150,22 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
         });
     }
 
-    async function openMergeFiles(files) {
-        const [baseFile, leftFile, rightFile] = files;
-        const [baseContent, leftContent, rightContent] = await Promise.all([
-            baseFile.text(),
-            leftFile.text(),
-            rightFile.text()
-        ]);
-        const mergeModel = mergeText(baseContent, leftContent, rightContent);
+    async function openThreeFileDiff(files) {
+        const panels = await Promise.all(files.map(async (file) => ({
+            label: file.name,
+            content: await file.text()
+        })));
 
-        state.mode = 'merge';
-        setStatus(`Loaded merge view for ${baseFile.name}, ${leftFile.name}, and ${rightFile.name}.`);
+        state.mode = 'multi-diff';
+        setStatus(`Loaded 3-panel diff for ${panels.map((panel) => panel.label).join(', ')}.`);
         emit({
-            type: 'showThreeWayMerge',
-            base: {
-                name: baseFile.name,
-                lines: mergeModel.baseLines
-            },
-            left: {
-                name: leftFile.name,
-                lines: mergeModel.leftLines
-            },
-            right: {
-                name: rightFile.name,
-                lines: mergeModel.rightLines
-            },
-            result: {
-                name: mergeModel.conflictCount > 0 ? `Result (${mergeModel.conflictCount} conflicts)` : 'Result',
-                lines: mergeModel.resultLines
-            },
-            meta: {
-                isExperimental: mergeModel.isExperimental,
-                conflictCount: mergeModel.conflictCount
-            }
+            type: 'showMultiDiff',
+            panels,
+            pairs: panels.slice(0, -1).map((panel, index) => ({
+                leftIndex: index,
+                rightIndex: index + 1,
+                diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
+            }))
         });
     }
 

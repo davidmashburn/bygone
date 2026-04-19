@@ -18,7 +18,6 @@ export function activate(context: vscode.ExtensionContext) {
         registerCommand('bygone.compareDirectories', () => fileComparator.selectAndCompareDirectories()),
         registerCommand('bygone.compareThreeFiles', () => fileComparator.compareThreeFiles()),
         registerCommand('bygone.compareWithSelected', (resource: vscode.Uri) => fileComparator.compareWithSelected(resource)),
-        registerCommand('bygone.threeWayMerge', () => fileComparator.threeWayMerge()),
         registerCommand('bygone.compareTestFiles', () => fileComparator.compareTestFiles()),
         registerCommand('bygone.compareFileHistory', (resource?: vscode.Uri) => fileComparator.compareFileHistory(resource)),
         registerCommand('bygone.compareActiveFileHistory', () => fileComparator.compareFileHistory()),

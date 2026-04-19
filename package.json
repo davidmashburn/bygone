@@ -2,7 +2,7 @@
   "name": "bygone",
   "publisher": "davidmashburn",
   "displayName": "Bygone",
-  "description": "See how change happened. Visual diff, merge, and file history for VS Code.",
+  "description": "See how change happened. Visual diff and file history for VS Code.",
   "version": "0.2.1",
   "author": "David Mashburn",
   "license": "MIT",
@@ -25,7 +25,6 @@
   "homepage": "https://github.com/davidmashburn/bygone",
   "keywords": [
     "diff",
-    "merge",
     "git",
     "compare",
     "history",
@@ -41,7 +40,6 @@
     "onCommand:bygone.compareDirectories",
     "onCommand:bygone.compareThreeFiles",
     "onCommand:bygone.compareWithSelected",
-    "onCommand:bygone.threeWayMerge",
     "onCommand:bygone.compareTestFiles",
     "onCommand:bygone.compareFileHistory",
     "onCommand:bygone.compareActiveFileHistory",
@@ -68,11 +66,6 @@
       {
         "command": "bygone.compareWithSelected",
         "title": "Compare with Selected",
-        "category": "Bygone"
-      },
-      {
-        "command": "bygone.threeWayMerge",
-        "title": "Three Way Merge (Experimental)",
         "category": "Bygone"
       },
       {

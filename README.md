@@ -1,19 +1,19 @@
 # Bygone
 
-Bygone is a VS Code extension and standalone desktop app for visual diff, merge, and file history.
+Bygone is a VS Code extension and standalone desktop app for visual diff and file history.
 
 ![Bygone screenshot](./media/bygone-screenshot.png)
 
 ## Features
 
 - Editable two-way side-by-side diff view
+- Prototype three-file adjacent diff view
 - Flowing connectors, block contours, and inline change highlighting
 - Git file history viewer with commit-by-commit navigation
-- Experimental three-way merge visualization
 
 ## Status
 
-This project is usable as a local or private pre-release VS Code extension. The two-way diff and git history flows are the most complete. Three-way merge is still experimental and should not be treated as an apply-safe merge tool.
+This project is usable as a local or private pre-release VS Code extension. The two-way diff and git history flows are the most complete. The three-file view is a diff-focused N-panel prototype, not a merge tool.
 
 ## Migration Note
 
@@ -110,7 +110,7 @@ In the standalone window, you can also drag and drop:
 
 - 1 file to open git history for that file
 - 2 files to open a side-by-side diff
-- 3 files to open the experimental three-way merge view
+- 3 files to open a prototype three-panel diff
 
 ## Git Difftool
 
@@ -156,16 +156,17 @@ The wrapper scripts are:
 ## Commands
 
 - `Bygone: Compare Files`
+- `Bygone: Compare Directories`
+- `Bygone: Compare Three Files (Prototype)`
 - `Bygone: Compare with Selected`
-- `Bygone: Three Way Merge (Experimental)`
 - `Bygone: Compare Test Files`
 - `Bygone: Compare File History`
 - `Bygone: Compare Active File History`
 
 ## Limitations
 
-- Three-way merge is not a full `diff3` implementation.
-- Merge results are visualized only; they are not written back to disk.
+- Bygone is intentionally diff-focused; merge tooling is not exposed as a product feature.
+- Directory compare currently focuses on presence/absence and does not yet drill down into modified files.
 - The git history viewer currently steps through single-parent commit history for one file at a time.
 - Marketplace publishing metadata is not finalized yet.
 

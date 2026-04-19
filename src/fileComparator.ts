@@ -2,9 +2,9 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DiffViewProvider } from './diffViewProvider';
-import { buildTwoWayDiffModel, mergeText } from './diffEngine';
+import { buildTwoWayDiffModel } from './diffEngine';
 import { buildDirectoryComparison } from './directoryDiff';
-import { openDiffPreview, openMergePreview } from './fallbackViews';
+import { openDiffPreview } from './fallbackViews';
 import { FileHistoryEntry, GitHistoryService } from './gitHistory';
 import { createJavaScriptSampleFilePair } from './sampleFiles';
 import { HistoryViewState } from './webviewMessages';
@@ -54,31 +54,6 @@ export class FileComparator {
             this.selectedFile = undefined;
         } catch (error) {
             this.showErrorMessage('Error comparing files', error);
-        }
-    }
-
-    public async threeWayMerge(): Promise<void> {
-        try {
-            vscode.window.showWarningMessage('Three-way merge is experimental. Review the result before applying it.');
-
-            const baseFile = await this.selectFile('Select base file');
-            if (!baseFile) {
-                return;
-            }
-
-            const leftFile = await this.selectFile('Select left file (theirs)');
-            if (!leftFile) {
-                return;
-            }
-
-            const rightFile = await this.selectFile('Select right file (yours)');
-            if (!rightFile) {
-                return;
-            }
-
-            await this.performThreeWayMerge(baseFile, leftFile, rightFile);
-        } catch (error) {
-            this.showErrorMessage('Error in three-way merge', error);
         }
     }
 
@@ -249,19 +224,6 @@ export class FileComparator {
                 uri,
                 content: this.readFileContent(uri)
             })));
-        }
-    }
-
-    private async performThreeWayMerge(base: vscode.Uri, left: vscode.Uri, right: vscode.Uri): Promise<void> {
-        const baseContent = this.readFileContent(base);
-        const leftContent = this.readFileContent(left);
-        const rightContent = this.readFileContent(right);
-        const mergeModel = mergeText(baseContent, leftContent, rightContent);
-
-        if (this.diffViewProvider) {
-            this.diffViewProvider.showThreeWayMerge(base, left, right, mergeModel);
-        } else {
-            void openMergePreview(base, left, right, mergeModel.resultLines.join('\n'));
         }
     }
 

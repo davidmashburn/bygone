@@ -5,10 +5,10 @@
 Bygone is a VS Code extension and standalone Electron app that provides a custom side-by-side diff experience with:
 
 - editable two-way diffs
+- prototype adjacent N-panel diffs
 - flowing connectors and contours
 - inline and line-level highlighting
 - file-history stepping through git commits
-- an experimental three-way merge viewer
 
 The codebase is split into three runtime halves:
 
@@ -26,13 +26,13 @@ The host decides what to compare and computes structured diff data. The browser 
   Extension activation and command registration.
 
 - [`fileComparator.ts`](./src/fileComparator.ts)
-  Main orchestration layer for compare commands, history stepping, and merge requests.
+  Main orchestration layer for compare commands and history stepping.
 
 - [`diffViewProvider.ts`](./src/diffViewProvider.ts)
   Owns the VS Code `WebviewViewProvider`, webview HTML, CSP, and message transport.
 
 - [`diffEngine.ts`](./src/diffEngine.ts)
-  Core diff and merge logic. Produces the structured model used by the webview.
+  Core diff logic. It also contains a retained internal merge helper that is not exposed as a product feature.
 
 - [`gitHistory.ts`](./src/gitHistory.ts)
   Resolves file history from git and materializes commit-vs-parent diff inputs.
@@ -115,7 +115,7 @@ The host decides what to compare and computes structured diff data. The browser 
 ### `test/`
 
 - [`runTests.js`](./test/runTests.js)
-  Simple unit checks for diff/merge behavior.
+  Simple unit checks for diff behavior, plus narrow checks for the retained internal merge helper.
 
 ## Runtime Architecture
 
@@ -148,7 +148,7 @@ Its responsibilities are:
 
 It should not own rendering details or raw webview message parsing.
 
-### 3. Structured Diff / Merge Model
+### 3. Structured Diff Model
 
 [`diffEngine.ts`](./src/diffEngine.ts) is the core logic layer.
 
@@ -171,7 +171,7 @@ The two-way model is used in two different ways:
 - the extension host sends it to the webview
 - the webview uses `rows` for scroll anchoring and `blocks` for geometry/highlighting
 
-For three-way merges, `mergeText()` returns a conservative `ThreeWayMergeModel`. It is intentionally marked experimental. It is a view-oriented merge result, not a full production merge engine.
+`diffEngine.ts` still contains `mergeText()` from an earlier experiment. Bygone does not expose merge UI or CLI surfaces; the product is intentionally diff-focused.
 
 ### 4. Webview Transport
 
@@ -191,7 +191,8 @@ The message contracts are typed in [`webviewMessages.ts`](./src/webviewMessages.
 Outbound message types:
 
 - `showDiff`
-- `showThreeWayMerge`
+- `showDirectoryDiff`
+- `showMultiDiff`
 
 Inbound message types:
 
@@ -224,9 +225,10 @@ The main orchestration code lives in [`script.js`](./media/script.js).
 
 Its responsibilities are:
 
-- receiving `showDiff` / `showThreeWayMerge`
+- receiving `showDiff`, `showDirectoryDiff`, and `showMultiDiff`
 - initializing Monaco
 - creating the two editable editors
+- creating read-only adjacent multi-panel editors
 - applying Monaco decorations from the diff model
 - sending debounced `recomputeDiff` messages back to the active host
 - maintaining diff-row-based synchronized scrolling
@@ -253,14 +255,14 @@ This module is intentionally separate because it is the most geometry-heavy and 
 
 ### 7. DOM/Static Rendering Helpers
 
-[`dom.js`](./media/dom.js) owns small DOM helpers and the simple non-Monaco line rendering used by the three-way view.
+[`dom.js`](./media/dom.js) owns small DOM helpers and simple non-Monaco line rendering helpers retained for internal/unwired views.
 
 This includes:
 
 - element lookup helpers
 - toolbar clearing
 - plain line rendering
-- result-line rendering with merge markers
+- simple line rendering helpers
 - simple view toggling
 - status banner handling
 
@@ -337,7 +339,7 @@ It currently validates:
 - punctuation and whitespace behavior
 - replace-block pairing behavior
 - delete behavior
-- conservative three-way merge outcomes
+- narrow checks for the retained internal merge helper
 
 What it does not cover yet:
 
@@ -381,9 +383,9 @@ The webview was moved away from Monaco’s shipped AMD runtime tree and into bun
 
 ## Current Weak Spots
 
-### 1. Three-way merge
+### 1. Directory compare depth
 
-Still experimental. The merge model is intentionally conservative and should not be treated as a production-safe merge application engine.
+Directory compare currently models presence/absence well, but does not yet classify modified files or drill down from a directory row into a file diff.
 
 ### 2. Webview size
 
@@ -418,6 +420,6 @@ Good rule:
 If this codebase keeps growing, the best next improvements are:
 
 1. Add extension-host integration tests for command and provider flows.
-2. Add working-tree vs `HEAD` support to file history.
-3. Improve the three-way merge engine or isolate it behind a stricter experimental boundary.
+2. Add modified-file detection and file drill-down to directory compare.
+3. Add working-tree vs `HEAD` support to file history.
 4. Add release automation for build, package, and smoke validation.

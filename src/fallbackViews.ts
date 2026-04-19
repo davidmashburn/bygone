@@ -19,22 +19,3 @@ ${diffModel.rows.map((row) => `${renderCell(row.left.content)}    |    ${renderC
         language: 'markdown'
     }).then((doc) => vscode.window.showTextDocument(doc));
 }
-
-export function openMergePreview(base: vscode.Uri, left: vscode.Uri, right: vscode.Uri, result: string): Thenable<vscode.TextEditor> {
-    const document = `
-# Three-Way Merge Result
-
-Base: ${path.basename(base.path)}
-Left: ${path.basename(left.path)}
-Right: ${path.basename(right.path)}
-
-\`\`\`diff
-${result}
-\`\`\`
-        `;
-
-    return vscode.workspace.openTextDocument({
-        content: document,
-        language: 'markdown'
-    }).then((doc) => vscode.window.showTextDocument(doc));
-}

@@ -14,13 +14,12 @@ Usage:
   bygone --diff3 <left> <middle> <right>
   bygone --dir <left-dir> <right-dir>
   bygone --history <file>
-  bygone --merge <base> <left> <right>
   bygone --test
   bygone [<left> <right>]
 
 Notes:
   - Two positional paths auto-select file diff or directory compare.
-  - In the standalone app, drop 1 file for history, 2 for diff, or 3 for merge.
+  - In the standalone app, drop 1 file for history, 2 files for diff, or 3 files for 3-panel diff.
 `);
     process.exit(0);
 }

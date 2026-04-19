@@ -28,7 +28,7 @@ body {
 }
 
 body.drag-active::after {
-    content: "Drop 1 file for history, 2 for diff, 3 for merge";
+    content: "Drop 1 file for history, 2 for diff, 3 for 3-panel diff";
     position: fixed;
     inset: 18px;
     display: flex;

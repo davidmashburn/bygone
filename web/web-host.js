@@ -442,112 +442,6 @@
       hasChanges
     };
   }
-  function mergeText(baseContent, leftContent, rightContent) {
-    const baseLines = normalizeLines(baseContent);
-    const leftLines = normalizeLines(leftContent);
-    const rightLines = normalizeLines(rightContent);
-    const leftEdits = buildEdits(baseLines, leftLines);
-    const rightEdits = buildEdits(baseLines, rightLines);
-    const resultLines = [];
-    let conflictCount = 0;
-    let baseIndex = 0;
-    let leftIndex = 0;
-    let rightIndex = 0;
-    while (baseIndex <= baseLines.length) {
-      const leftEdit = leftEdits[leftIndex];
-      const rightEdit = rightEdits[rightIndex];
-      if (!leftEdit && !rightEdit) {
-        if (baseIndex < baseLines.length) {
-          resultLines.push(baseLines[baseIndex]);
-          baseIndex++;
-          continue;
-        }
-        break;
-      }
-      const nextEditStart = Math.min(
-        leftEdit ? leftEdit.start : Number.POSITIVE_INFINITY,
-        rightEdit ? rightEdit.start : Number.POSITIVE_INFINITY
-      );
-      if (baseIndex < nextEditStart) {
-        resultLines.push(...baseLines.slice(baseIndex, nextEditStart));
-        baseIndex = nextEditStart;
-        continue;
-      }
-      const leftStartsHere = leftEdit && leftEdit.start === baseIndex;
-      const rightStartsHere = rightEdit && rightEdit.start === baseIndex;
-      if (leftStartsHere && !rightStartsHere) {
-        const nextRightOverlaps = rightEdit && rightEdit.start < leftEdit.end;
-        if (!nextRightOverlaps) {
-          resultLines.push(...leftEdit.newLines);
-          leftIndex++;
-          baseIndex = leftEdit.end;
-          continue;
-        }
-      }
-      if (rightStartsHere && !leftStartsHere) {
-        const nextLeftOverlaps = leftEdit && leftEdit.start < rightEdit.end;
-        if (!nextLeftOverlaps) {
-          resultLines.push(...rightEdit.newLines);
-          rightIndex++;
-          baseIndex = rightEdit.end;
-          continue;
-        }
-      }
-      if (leftStartsHere && rightStartsHere && leftEdit.end === rightEdit.end && linesEqual(leftEdit.newLines, rightEdit.newLines)) {
-        resultLines.push(...leftEdit.newLines);
-        leftIndex++;
-        rightIndex++;
-        baseIndex = leftEdit.end;
-        continue;
-      }
-      if (leftStartsHere && rightStartsHere) {
-        const baseSlice2 = baseLines.slice(baseIndex, Math.max(leftEdit.end, rightEdit.end));
-        if (leftEdit.end === rightEdit.end && linesEqual(leftEdit.newLines, baseSlice2)) {
-          resultLines.push(...rightEdit.newLines);
-          leftIndex++;
-          rightIndex++;
-          baseIndex = rightEdit.end;
-          continue;
-        }
-        if (leftEdit.end === rightEdit.end && linesEqual(rightEdit.newLines, baseSlice2)) {
-          resultLines.push(...leftEdit.newLines);
-          leftIndex++;
-          rightIndex++;
-          baseIndex = leftEdit.end;
-          continue;
-        }
-      }
-      const region = collectConflictRegion(baseLines, leftEdits, rightEdits, leftIndex, rightIndex, baseIndex);
-      const baseSlice = baseLines.slice(region.start, region.end);
-      if (linesEqual(region.leftLines, region.rightLines)) {
-        resultLines.push(...region.leftLines);
-      } else if (linesEqual(region.leftLines, baseSlice)) {
-        resultLines.push(...region.rightLines);
-      } else if (linesEqual(region.rightLines, baseSlice)) {
-        resultLines.push(...region.leftLines);
-      } else {
-        conflictCount++;
-        resultLines.push(
-          "<<<<<<< LEFT",
-          ...region.leftLines,
-          "=======",
-          ...region.rightLines,
-          ">>>>>>> RIGHT"
-        );
-      }
-      leftIndex = region.nextLeftIndex;
-      rightIndex = region.nextRightIndex;
-      baseIndex = region.end;
-    }
-    return {
-      baseLines,
-      leftLines,
-      rightLines,
-      resultLines,
-      conflictCount,
-      isExperimental: true
-    };
-  }
   function normalizeLines(content) {
     if (content.length === 0) {
       return [];
@@ -632,87 +526,6 @@
   }
   function makeDiffBlock(kind, leftStart, leftEnd, rightStart, rightEnd) {
     return { kind, leftStart, leftEnd, rightStart, rightEnd };
-  }
-  function buildEdits(baseLines, targetLines) {
-    const changes = diffArrays(baseLines, targetLines);
-    const edits = [];
-    let baseIndex = 0;
-    for (let index = 0; index < changes.length; index++) {
-      const change = changes[index];
-      if (!change.added && !change.removed) {
-        baseIndex += change.value.length;
-        continue;
-      }
-      if (change.removed && index + 1 < changes.length && changes[index + 1].added) {
-        edits.push({
-          start: baseIndex,
-          end: baseIndex + change.value.length,
-          newLines: [...changes[index + 1].value]
-        });
-        baseIndex += change.value.length;
-        index++;
-        continue;
-      }
-      if (change.removed) {
-        edits.push({
-          start: baseIndex,
-          end: baseIndex + change.value.length,
-          newLines: []
-        });
-        baseIndex += change.value.length;
-        continue;
-      }
-      edits.push({
-        start: baseIndex,
-        end: baseIndex,
-        newLines: [...change.value]
-      });
-    }
-    return edits;
-  }
-  function collectConflictRegion(baseLines, leftEdits, rightEdits, leftIndex, rightIndex, baseIndex) {
-    let end = baseIndex;
-    let nextLeftIndex = leftIndex;
-    let nextRightIndex = rightIndex;
-    let changed = true;
-    while (changed) {
-      changed = false;
-      while (nextLeftIndex < leftEdits.length && leftEdits[nextLeftIndex].start <= end) {
-        end = Math.max(end, leftEdits[nextLeftIndex].end);
-        nextLeftIndex++;
-        changed = true;
-      }
-      while (nextRightIndex < rightEdits.length && rightEdits[nextRightIndex].start <= end) {
-        end = Math.max(end, rightEdits[nextRightIndex].end);
-        nextRightIndex++;
-        changed = true;
-      }
-    }
-    return {
-      start: baseIndex,
-      end,
-      leftLines: materializeRegion(baseLines, leftEdits.slice(leftIndex, nextLeftIndex), baseIndex, end),
-      rightLines: materializeRegion(baseLines, rightEdits.slice(rightIndex, nextRightIndex), baseIndex, end),
-      nextLeftIndex,
-      nextRightIndex
-    };
-  }
-  function materializeRegion(baseLines, edits, start, end) {
-    const lines = [];
-    let cursor = start;
-    for (const edit of edits) {
-      lines.push(...baseLines.slice(cursor, edit.start));
-      lines.push(...edit.newLines);
-      cursor = edit.end;
-    }
-    lines.push(...baseLines.slice(cursor, end));
-    return lines;
-  }
-  function linesEqual(left, right) {
-    if (left.length !== right.length) {
-      return false;
-    }
-    return left.every((line, index) => line === right[index]);
   }
 
   // src/sampleFiles.ts
@@ -919,9 +732,9 @@ module.exports = FileProcessor;
     function bindControls() {
       const compareTestButton = document.getElementById("web-compare-test");
       const openDiffButton = document.getElementById("web-open-diff");
-      const openMergeButton = document.getElementById("web-open-merge");
+      const openDiff3Button = document.getElementById("web-open-diff3");
       const diffInput = document.getElementById("web-diff-input");
-      const mergeInput = document.getElementById("web-merge-input");
+      const diff3Input = document.getElementById("web-diff3-input");
       compareTestButton?.addEventListener("click", () => {
         compareTestFiles();
       });
@@ -929,9 +742,9 @@ module.exports = FileProcessor;
         diffInput.value = "";
         diffInput.click();
       });
-      openMergeButton?.addEventListener("click", () => {
-        mergeInput.value = "";
-        mergeInput.click();
+      openDiff3Button?.addEventListener("click", () => {
+        diff3Input.value = "";
+        diff3Input.click();
       });
       diffInput?.addEventListener("change", async () => {
         const files = Array.from(diffInput.files || []);
@@ -941,13 +754,13 @@ module.exports = FileProcessor;
         }
         await openDiffFiles(files);
       });
-      mergeInput?.addEventListener("change", async () => {
-        const files = Array.from(mergeInput.files || []);
+      diff3Input?.addEventListener("change", async () => {
+        const files = Array.from(diff3Input.files || []);
         if (files.length !== 3) {
-          setStatus("Select exactly 3 files for a three-way merge.");
+          setStatus("Select exactly 3 files for a 3-panel diff.");
           return;
         }
-        await openMergeFiles(files);
+        await openThreeFileDiff(files);
       });
     }
     function compareTestFiles() {
@@ -998,38 +811,21 @@ module.exports = FileProcessor;
         history: null
       });
     }
-    async function openMergeFiles(files) {
-      const [baseFile, leftFile, rightFile] = files;
-      const [baseContent, leftContent, rightContent] = await Promise.all([
-        baseFile.text(),
-        leftFile.text(),
-        rightFile.text()
-      ]);
-      const mergeModel = mergeText(baseContent, leftContent, rightContent);
-      state.mode = "merge";
-      setStatus(`Loaded merge view for ${baseFile.name}, ${leftFile.name}, and ${rightFile.name}.`);
+    async function openThreeFileDiff(files) {
+      const panels = await Promise.all(files.map(async (file) => ({
+        label: file.name,
+        content: await file.text()
+      })));
+      state.mode = "multi-diff";
+      setStatus(`Loaded 3-panel diff for ${panels.map((panel) => panel.label).join(", ")}.`);
       emit({
-        type: "showThreeWayMerge",
-        base: {
-          name: baseFile.name,
-          lines: mergeModel.baseLines
-        },
-        left: {
-          name: leftFile.name,
-          lines: mergeModel.leftLines
-        },
-        right: {
-          name: rightFile.name,
-          lines: mergeModel.rightLines
-        },
-        result: {
-          name: mergeModel.conflictCount > 0 ? `Result (${mergeModel.conflictCount} conflicts)` : "Result",
-          lines: mergeModel.resultLines
-        },
-        meta: {
-          isExperimental: mergeModel.isExperimental,
-          conflictCount: mergeModel.conflictCount
-        }
+        type: "showMultiDiff",
+        panels,
+        pairs: panels.slice(0, -1).map((panel, index) => ({
+          leftIndex: index,
+          rightIndex: index + 1,
+          diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
+        }))
       });
     }
     function setStatus(message) {
