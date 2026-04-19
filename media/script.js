@@ -177,9 +177,9 @@ function showMultiDiff(panels, pairs) {
     currentDiffRows = [];
     scrollMaps = null;
     directoryEntries = [];
-    multiDiffPairs = pairs || [];
     disposeTwoWayEditors();
     disposeMultiEditors();
+    multiDiffPairs = pairs || [];
     updateHistoryToolbar(null);
 
     toggleView(VIEW_IDS.multiWay);

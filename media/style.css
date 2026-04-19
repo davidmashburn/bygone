@@ -259,7 +259,7 @@ body.web-host {
 }
 
 .hidden {
-    display: none;
+    display: none !important;
 }
 
 #connection-canvas {
