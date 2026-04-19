@@ -16,6 +16,11 @@
             stroke: 'rgba(79, 124, 255, 0.92)'
         }
     };
+    const DIRECTORY_ADD_COLOR = {
+        presentFill: 'rgba(73, 190, 119, 0.24)',
+        absentFill: 'rgba(73, 190, 119, 0.08)',
+        stroke: 'rgba(73, 190, 119, 0.92)'
+    };
 
     function createConnectorController(options) {
         let connectionCanvas;
@@ -70,6 +75,11 @@
 
             canvasContext.clearRect(0, 0, connectionCanvas.width, connectionCanvas.height);
 
+            if (options.getMode() === 'directory') {
+                drawDirectoryConnections();
+                return;
+            }
+
             if (options.getMode() !== 'two-way') {
                 return;
             }
@@ -87,6 +97,169 @@
             diffBlocks.forEach((block) => {
                 drawBlockRegion(block, leftEditor, rightEditor, leftRect, rightRect, containerRect);
             });
+        }
+
+        function drawDirectoryConnections() {
+            const entries = options.getDirectoryEntries?.() || [];
+            if (entries.length === 0) {
+                return;
+            }
+
+            const rowsContainer = options.getElement('dir-rows');
+            const leftColumn = rowsContainer.querySelector('.dir-column-left');
+            const rightColumn = rowsContainer.querySelector('.dir-column-right');
+            if (!leftColumn || !rightColumn) {
+                return;
+            }
+
+            const containerRect = connectionCanvas.getBoundingClientRect();
+            const rowsViewportRect = rowsContainer.getBoundingClientRect();
+            const leftRect = leftColumn.getBoundingClientRect();
+            const rightRect = rightColumn.getBoundingClientRect();
+
+            canvasContext.save();
+            canvasContext.beginPath();
+            canvasContext.rect(
+                rowsViewportRect.left - containerRect.left,
+                rowsViewportRect.top - containerRect.top,
+                rowsViewportRect.width,
+                rowsViewportRect.height
+            );
+            canvasContext.clip();
+
+            entries.forEach((entry, index) => {
+                if (entry.status !== 'left-only' && entry.status !== 'right-only') {
+                    return;
+                }
+
+                const presentSide = entry.status === 'left-only' ? 'left' : 'right';
+                const absentSide = presentSide === 'left' ? 'right' : 'left';
+                const presentRow = findDirectoryRow(rowsContainer, entry.relativePath, presentSide);
+
+                if (!isVisibleDirectoryRow(presentRow)) {
+                    return;
+                }
+
+                const boundaryY = getDirectoryBoundaryY(entries, index, absentSide, rowsContainer, absentSide === 'left' ? leftRect : rightRect, containerRect);
+                if (boundaryY === undefined) {
+                    return;
+                }
+
+                drawDirectoryAddConnector({
+                    presentSide,
+                    presentRect: presentRow.getBoundingClientRect(),
+                    absentY: boundaryY,
+                    leftRect,
+                    rightRect,
+                    containerRect
+                });
+            });
+
+            canvasContext.restore();
+        }
+
+        function drawDirectoryAddConnector({ presentSide, presentRect, absentY, leftRect, rightRect, containerRect }) {
+            const presentColumnRect = presentSide === 'left' ? leftRect : rightRect;
+            const absentColumnRect = presentSide === 'left' ? rightRect : leftRect;
+            const presentBounds = {
+                x: presentSide === 'left'
+                    ? presentColumnRect.right - containerRect.left + 2
+                    : presentColumnRect.left - containerRect.left - 2,
+                top: presentRect.top - containerRect.top + 1,
+                bottom: presentRect.bottom - containerRect.top - 1
+            };
+            const absentBounds = {
+                x: presentSide === 'left'
+                    ? absentColumnRect.left - containerRect.left - 2
+                    : absentColumnRect.right - containerRect.left + 2,
+                top: absentY,
+                bottom: absentY
+            };
+            const leftBounds = presentSide === 'left' ? presentBounds : absentBounds;
+            const rightBounds = presentSide === 'left' ? absentBounds : presentBounds;
+            const cpOffset = Math.abs(rightBounds.x - leftBounds.x) * 0.35;
+            const gradient = canvasContext.createLinearGradient(leftBounds.x, 0, rightBounds.x, 0);
+
+            if (presentSide === 'left') {
+                gradient.addColorStop(0, DIRECTORY_ADD_COLOR.presentFill);
+                gradient.addColorStop(1, DIRECTORY_ADD_COLOR.absentFill);
+            } else {
+                gradient.addColorStop(0, DIRECTORY_ADD_COLOR.absentFill);
+                gradient.addColorStop(1, DIRECTORY_ADD_COLOR.presentFill);
+            }
+
+            const path = new Path2D();
+            path.moveTo(leftBounds.x, leftBounds.top);
+            path.bezierCurveTo(
+                leftBounds.x + cpOffset, leftBounds.top,
+                rightBounds.x - cpOffset, rightBounds.top,
+                rightBounds.x, rightBounds.top
+            );
+            path.lineTo(rightBounds.x, rightBounds.bottom);
+            path.bezierCurveTo(
+                rightBounds.x - cpOffset, rightBounds.bottom,
+                leftBounds.x + cpOffset, leftBounds.bottom,
+                leftBounds.x, leftBounds.bottom
+            );
+            path.closePath();
+
+            canvasContext.fillStyle = gradient;
+            canvasContext.fill(path);
+            strokeConnectorEdges(leftBounds, rightBounds, cpOffset, DIRECTORY_ADD_COLOR.stroke);
+            strokePaneOutline(presentColumnRect, containerRect, presentBounds.top, presentBounds.bottom, DIRECTORY_ADD_COLOR.stroke);
+            drawBoundaryGuide(absentColumnRect, containerRect, absentY, DIRECTORY_ADD_COLOR.stroke);
+        }
+
+        function getDirectoryBoundaryY(entries, targetIndex, side, rowsContainer, sideRect, containerRect) {
+            const previousRow = findNearestDirectoryRow(entries, targetIndex, -1, side, rowsContainer);
+            const nextRow = findNearestDirectoryRow(entries, targetIndex, 1, side, rowsContainer);
+
+            if (previousRow && nextRow) {
+                const previousRect = previousRow.getBoundingClientRect();
+                const nextRect = nextRow.getBoundingClientRect();
+                return ((previousRect.bottom + nextRect.top) / 2) - containerRect.top;
+            }
+
+            if (previousRow) {
+                return previousRow.getBoundingClientRect().bottom - containerRect.top;
+            }
+
+            if (nextRow) {
+                return nextRow.getBoundingClientRect().top - containerRect.top;
+            }
+
+            return sideRect.top - containerRect.top + 12;
+        }
+
+        function findNearestDirectoryRow(entries, targetIndex, step, side, rowsContainer) {
+            for (let index = targetIndex + step; index >= 0 && index < entries.length; index += step) {
+                const entry = entries[index];
+                if (!directoryEntryExistsOnSide(entry, side)) {
+                    continue;
+                }
+
+                const row = findDirectoryRow(rowsContainer, entry.relativePath, side);
+                if (isVisibleDirectoryRow(row)) {
+                    return row;
+                }
+            }
+
+            return undefined;
+        }
+
+        function directoryEntryExistsOnSide(entry, side) {
+            return side === 'left'
+                ? entry.status !== 'right-only'
+                : entry.status !== 'left-only';
+        }
+
+        function findDirectoryRow(rowsContainer, relativePath, side) {
+            return Array.from(rowsContainer.querySelectorAll(`.dir-entry[data-side="${side}"]`))
+                .find((row) => row.dataset.path === relativePath);
+        }
+
+        function isVisibleDirectoryRow(row) {
+            return Boolean(row) && row.offsetParent !== null;
         }
 
         function drawBlockRegion(block, leftEditor, rightEditor, leftRect, rightRect, containerRect) {

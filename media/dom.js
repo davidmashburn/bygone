@@ -71,7 +71,34 @@
     }
 
     function renderDirectoryView(container, entries) {
-        const rows = entries.map((entry) => {
+        const leftRows = entries
+            .filter((entry) => entry.status !== 'right-only')
+            .map((entry) => renderDirectoryEntry(entry, 'left'));
+        const rightRows = entries
+            .filter((entry) => entry.status !== 'left-only')
+            .map((entry) => renderDirectoryEntry(entry, 'right'));
+
+        container.innerHTML = `<div class="dir-column dir-column-left">${leftRows.join('')}</div>`
+            + '<div class="dir-gutter" aria-hidden="true"></div>'
+            + `<div class="dir-column dir-column-right">${rightRows.join('')}</div>`;
+
+        // Wire up directory fold toggles
+        container.querySelectorAll('.dir-entry[data-is-dir="true"]').forEach((row) => {
+            row.addEventListener('click', (event) => {
+                const target = event.target;
+                if (target.closest('.dir-toggle') || target === row || target.closest('.dir-entry-content')) {
+                    const dirPath = row.dataset.path;
+                    if (dirPath) {
+                        toggleDirRow(container, dirPath);
+                    }
+                }
+            });
+        });
+
+        container.dispatchEvent(new CustomEvent('bygone:directory-layout-change'));
+    }
+
+    function renderDirectoryEntry(entry, side) {
             const indent = '\u00a0\u00a0'.repeat(entry.depth); // non-breaking spaces for indentation
             const isDir = entry.isDirectory;
             const nameClass = isDir ? 'dir-name dir-name--dir' : 'dir-name';
@@ -82,35 +109,14 @@
                 : `<span class="dir-toggle dir-toggle--spacer"></span>`;
 
             const cellContent = `${toggleHtml}<span class="dir-indent">${indent}</span><span class="${nameClass}">${escapeHtml(displayText)}</span>`;
-            const emptyCellContent = `<span class="dir-cell-absent"></span>`;
 
-            const leftCell = entry.status !== 'right-only' ? cellContent : emptyCellContent;
-            const rightCell = entry.status !== 'left-only' ? cellContent : emptyCellContent;
-
-            return `<div class="dir-row dir-row--${entry.status}" `
+            return `<div class="dir-entry dir-entry--${entry.status}" `
                 + `data-path="${escapeAttr(entry.relativePath)}" `
                 + `data-depth="${entry.depth}" `
+                + `data-side="${side}" `
                 + `data-is-dir="${isDir}">`
-                + `<div class="dir-cell dir-cell-left">${leftCell}</div>`
-                + `<div class="dir-cell dir-cell-right">${rightCell}</div>`
+                + `<div class="dir-entry-content">${cellContent}</div>`
                 + `</div>`;
-        });
-
-        container.innerHTML = rows.join('');
-
-        // Wire up directory fold toggles
-        container.querySelectorAll('.dir-row[data-is-dir="true"]').forEach((row) => {
-            row.addEventListener('click', (event) => {
-                // Only handle clicks on the row itself or the toggle, not propagated from children
-                const target = event.target;
-                if (target.closest('.dir-toggle') || target === row || target.closest('.dir-cell')) {
-                    const dirPath = row.dataset.path;
-                    if (dirPath) {
-                        toggleDirRow(container, dirPath);
-                    }
-                }
-            });
-        });
     }
 
     function toggleDirRow(container, dirPath) {
@@ -123,7 +129,7 @@
     }
 
     function applyDirectoryVisibility(container) {
-        const rows = container.querySelectorAll('.dir-row');
+        const rows = container.querySelectorAll('.dir-entry');
 
         rows.forEach((row) => {
             const rowPath = row.dataset.path;
@@ -138,6 +144,8 @@
                 });
             }
         });
+
+        container.dispatchEvent(new CustomEvent('bygone:directory-layout-change'));
     }
 
     function isHiddenByAncestor(rowPath) {

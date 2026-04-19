@@ -26,11 +26,13 @@ let pendingTwoWayPayload;
 let currentDiffRows = [];
 let scrollMaps = null;
 let historyMode = false;
+let directoryEntries = [];
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
     getEditors: () => ({ leftEditor, rightEditor }),
     getDiffBlocks: () => diffBlocks,
+    getDirectoryEntries: () => directoryEntries,
     getMonaco: () => monacoInstance
 });
 
@@ -62,6 +64,7 @@ host.onMessage((message) => {
 window.addEventListener('load', async () => {
     connectorController.initializeCanvas();
     initializeHistoryToolbar();
+    initializeDirectoryViewEvents();
     initializeStandaloneDropTarget();
     await initializeMonaco();
     host.postMessage({ type: 'ready' });
@@ -97,6 +100,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     currentMode = 'two-way';
     setCurrentDiffModel(diffModel);
     historyMode = Boolean(history);
+    directoryEntries = [];
 
     toggleView(VIEW_IDS.twoWay);
     setStatus('', false);
@@ -118,6 +122,10 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
 function showDirectoryDiff(leftLabel, rightLabel, entries) {
     currentMode = 'directory';
     historyMode = false;
+    diffBlocks = [];
+    currentDiffRows = [];
+    scrollMaps = null;
+    directoryEntries = entries || [];
     disposeTwoWayEditors();
     updateHistoryToolbar(null);
 
@@ -128,13 +136,16 @@ function showDirectoryDiff(leftLabel, rightLabel, entries) {
     setTextContent('dir-right-header', rightLabel);
 
     resetDirectoryView();
-    renderDirectoryView(getElement('dir-rows'), entries);
+    renderDirectoryView(getElement('dir-rows'), directoryEntries);
+    connectorController.resizeCanvas();
+    connectorController.scheduleDrawConnections();
 }
 
 function showThreeWayMerge(message) {
     currentMode = 'three-way';
     setCurrentDiffModel({ blocks: [], rows: [] });
     historyMode = false;
+    directoryEntries = [];
     disposeTwoWayEditors();
     updateHistoryToolbar(null);
 
@@ -421,6 +432,16 @@ function initializeHistoryToolbar() {
     });
     getElement('history-forward').addEventListener('click', () => {
         host.postMessage({ type: 'historyForward' });
+    });
+}
+
+function initializeDirectoryViewEvents() {
+    const container = getElement('dir-rows');
+    container.addEventListener('scroll', () => {
+        connectorController.scheduleDrawConnections();
+    });
+    container.addEventListener('bygone:directory-layout-change', () => {
+        connectorController.scheduleDrawConnections();
     });
 }
 
