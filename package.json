@@ -159,11 +159,11 @@
     "standalone:smoke": "npm run compile && electron ./out/standalone-main.js --smoke-test",
     "web:start": "npm run compile && node ./scripts/web-server.mjs",
     "package:desktop": "npm run package:desktop:mac",
-    "package:desktop:mac": "npm run compile && electron-builder --mac dmg",
-    "package:desktop:mac:zip": "npm run compile && electron-builder --mac zip",
-    "package:desktop:linux": "npm run compile && electron-builder --linux AppImage",
-    "package:desktop:win": "npm run compile && electron-builder --win",
-    "package:desktop:all": "npm run compile && electron-builder --mac --win --linux AppImage",
+    "package:desktop:mac": "npm run compile && electron-builder --mac dmg --publish never",
+    "package:desktop:mac:zip": "npm run compile && electron-builder --mac zip --publish never",
+    "package:desktop:linux": "npm run compile && electron-builder --linux AppImage --publish never",
+    "package:desktop:win": "npm run compile && electron-builder --win --publish never",
+    "package:desktop:all": "npm run compile && electron-builder --mac --win --linux AppImage --publish never",
     "package:npm": "npm run compile && node ./scripts/package-npm.mjs",
     "package:npm:dry-run": "node ./scripts/pack-npm-dry-run.mjs",
     "release:check": "npm test && npm run package:vsix && npm run package:npm && npm run package:npm:dry-run",
@@ -203,7 +203,7 @@
       "icon": "standalone/assets/Bygone.icns"
     },
     "dmg": {
-      "writeUpdateInfo": false
+      "writeUpdateInfo": true
     },
     "win": {
       "target": [
@@ -218,7 +218,14 @@
       ],
       "category": "Development",
       "icon": "media/icon.png"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "davidmashburn",
+        "repo": "bygone"
+      }
+    ]
   },
   "devDependencies": {
     "@types/node": "16.x",
@@ -231,6 +238,7 @@
   },
   "dependencies": {
     "diff": "^5.1.0",
+    "electron-updater": "^6.8.3",
     "monaco-editor": "^0.55.1"
   }
 }

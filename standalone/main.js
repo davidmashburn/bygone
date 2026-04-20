@@ -1,6 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const { buildTwoWayDiffModel } = require('../src/diffEngine.ts');
 const { GitHistoryService } = require('../src/gitHistory.ts');
@@ -9,6 +10,9 @@ const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
 
 const APP_NAME = 'Bygone';
 const HELP_URL = 'https://github.com/davidmashburn/bygone';
+const commandLineToolPath = process.platform === 'win32'
+    ? path.join(process.env.LOCALAPPDATA || os.homedir(), 'Microsoft', 'WindowsApps', 'bygone.cmd')
+    : '/usr/local/bin/bygone';
 const gitHistoryService = new GitHistoryService();
 const launchArguments = parseLaunchArgs(getCliArgs());
 const smokeTestMode = launchArguments.kind === 'smoke';
@@ -37,6 +41,7 @@ if (!singleInstanceLock) {
 app.whenReady().then(async () => {
     createMainWindow();
     installApplicationMenu();
+    initializeAutoUpdates();
     await openInitialLaunchTarget();
 });
 
@@ -276,12 +281,111 @@ function installApplicationMenu() {
                     click: async () => {
                         await shell.openExternal('vscode:extension/davidmashburn.bygone');
                     }
+                },
+                {
+                    label: 'Install Command Line Tools…',
+                    click: () => { void installCommandLineTools(); }
+                },
+                {
+                    label: 'Check for Updates…',
+                    click: () => { void checkForUpdates(true); }
                 }
             ]
         }
     ];
 
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+async function installCommandLineTools() {
+    const launcher = buildCommandLineLauncher();
+
+    try {
+        fs.mkdirSync(path.dirname(commandLineToolPath), { recursive: true });
+        fs.writeFileSync(commandLineToolPath, launcher.content, 'utf8');
+        fs.chmodSync(commandLineToolPath, 0o755);
+        await showInfo(`Installed command line tool at ${commandLineToolPath}`);
+    } catch (error) {
+        await showError(
+            `Could not install command line tool at ${commandLineToolPath}.\n\n`
+            + `Run this manually:\n${launcher.manualCommand}\n\n`
+            + getErrorMessage(error)
+        );
+    }
+}
+
+function buildCommandLineLauncher() {
+    if (process.platform === 'darwin') {
+        return {
+            content: '#!/usr/bin/env sh\nexec open -W -a "Bygone" --args --cwd "$PWD" "$@"\n',
+            manualCommand: `sudo tee ${shellQuote(commandLineToolPath)} >/dev/null <<'EOF'\n#!/usr/bin/env sh\nexec open -W -a "Bygone" --args --cwd "$PWD" "$@"\nEOF\nsudo chmod +x ${shellQuote(commandLineToolPath)}`
+        };
+    }
+
+    if (process.platform === 'win32') {
+        const exePath = process.execPath;
+        return {
+            content: `@echo off\r\n"${exePath}" --cwd "%CD%" %*\r\n`,
+            manualCommand: `Create ${commandLineToolPath} with:\r\n@echo off\r\n"${exePath}" --cwd "%CD%" %*`
+        };
+    }
+
+    const executablePath = process.env.APPIMAGE || process.execPath;
+    return {
+        content: `#!/usr/bin/env sh\nexec ${shellQuote(executablePath)} --cwd "$PWD" "$@"\n`,
+        manualCommand: `sudo tee ${shellQuote(commandLineToolPath)} >/dev/null <<'EOF'\n#!/usr/bin/env sh\nexec ${shellQuote(executablePath)} --cwd "$PWD" "$@"\nEOF\nsudo chmod +x ${shellQuote(commandLineToolPath)}`
+    };
+}
+
+function initializeAutoUpdates() {
+    if (!app.isPackaged || smokeTestMode) {
+        return;
+    }
+
+    void checkForUpdates(false);
+}
+
+async function checkForUpdates(showNoUpdateMessage) {
+    let updater;
+    try {
+        ({ autoUpdater: updater } = require('electron-updater'));
+    } catch {
+        if (showNoUpdateMessage) {
+            await showInfo('Auto-update support is not bundled in this build yet.');
+        }
+        return;
+    }
+
+    updater.autoDownload = true;
+    updater.on('update-downloaded', () => {
+        if (!mainWindow || mainWindow.isDestroyed()) {
+            return;
+        }
+
+        dialog.showMessageBox(mainWindow, {
+            type: 'info',
+            buttons: ['Restart Now', 'Later'],
+            defaultId: 0,
+            cancelId: 1,
+            message: 'A Bygone update is ready.',
+            detail: 'Restart Bygone to install the update.'
+        }).then((choice) => {
+            if (choice.response === 0) {
+                updater.quitAndInstall();
+            }
+        });
+    });
+
+    try {
+        const result = await updater.checkForUpdates();
+        if (showNoUpdateMessage && !result?.updateInfo) {
+            await showInfo('No update information was found.');
+        }
+    } catch (error) {
+        if (showNoUpdateMessage) {
+            await showError(`Could not check for updates: ${getErrorMessage(error)}`);
+        }
+    }
 }
 
 async function openInitialLaunchTarget() {
@@ -305,6 +409,11 @@ async function routeLaunchTarget(launchTarget) {
 
     if (launchTarget.kind === 'directory') {
         await openPathPair(launchTarget.leftPath, launchTarget.rightPath, 'directory');
+        return;
+    }
+
+    if (launchTarget.kind === 'directory-history') {
+        await openDirectoryHistory(launchTarget.dirPath);
         return;
     }
 
@@ -343,39 +452,73 @@ function getCliArgsFromArgv(argv) {
 }
 
 function parseLaunchArgs(args) {
-    if (args[0] === '--diff' && args.length >= 3) {
-        return { kind: 'diff', leftPath: args[1], rightPath: args[2] };
+    const { cwd, launchArgs } = normalizeLaunchArgs(args);
+
+    if (launchArgs.length === 0) {
+        return { kind: 'directory-history', dirPath: cwd };
     }
 
-    if (args[0] === '--dir' && args.length >= 3) {
-        return { kind: 'directory', leftPath: args[1], rightPath: args[2] };
+    if (launchArgs[0] === '--diff' && launchArgs.length >= 3) {
+        return { kind: 'diff', leftPath: resolveLaunchPath(launchArgs[1], cwd), rightPath: resolveLaunchPath(launchArgs[2], cwd) };
     }
 
-    if (args[0] === '--dir3' && args.length >= 4) {
-        return { kind: 'multi-directory', paths: args.slice(1, 4) };
+    if (launchArgs[0] === '--dir' && launchArgs.length >= 3) {
+        return { kind: 'directory', leftPath: resolveLaunchPath(launchArgs[1], cwd), rightPath: resolveLaunchPath(launchArgs[2], cwd) };
     }
 
-    if (args[0] === '--diff3' && args.length >= 4) {
-        return { kind: 'multi-diff', paths: args.slice(1, 4) };
+    if (launchArgs[0] === '--dir3' && launchArgs.length >= 4) {
+        return { kind: 'multi-directory', paths: launchArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)) };
     }
 
-    if (args[0] === '--history' && args.length >= 2) {
-        return { kind: 'history', filePath: args[1] };
+    if (launchArgs[0] === '--diff3' && launchArgs.length >= 4) {
+        return { kind: 'multi-diff', paths: launchArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)) };
     }
 
-    if (args[0] === '--test') {
+    if (launchArgs[0] === '--history' && launchArgs.length >= 2) {
+        return { kind: 'history', filePath: resolveLaunchPath(launchArgs[1], cwd) };
+    }
+
+    if (launchArgs[0] === '--dir-history' && launchArgs.length >= 2) {
+        return { kind: 'directory-history', dirPath: resolveLaunchPath(launchArgs[1], cwd) };
+    }
+
+    if (launchArgs[0] === '--test') {
         return { kind: 'test' };
     }
 
-    if (args[0] === '--smoke-test') {
+    if (launchArgs[0] === '--smoke-test') {
         return { kind: 'smoke' };
     }
 
-    if (args.length >= 2 && !args[0].startsWith('--')) {
-        return { kind: 'pair', leftPath: args[0], rightPath: args[1] };
+    if (launchArgs.length === 1 && !launchArgs[0].startsWith('--')) {
+        const targetPath = resolveLaunchPath(launchArgs[0], cwd);
+        return getPathKind(targetPath) === 'directory'
+            ? { kind: 'directory-history', dirPath: targetPath }
+            : { kind: 'history', filePath: targetPath };
     }
 
-    return { kind: 'empty' };
+    if (launchArgs.length >= 2 && !launchArgs[0].startsWith('--')) {
+        return { kind: 'pair', leftPath: resolveLaunchPath(launchArgs[0], cwd), rightPath: resolveLaunchPath(launchArgs[1], cwd) };
+    }
+
+    return { kind: 'directory-history', dirPath: cwd };
+}
+
+function normalizeLaunchArgs(args) {
+    const launchArgs = [...args];
+    let cwd = process.cwd();
+    const cwdIndex = launchArgs.indexOf('--cwd');
+
+    if (cwdIndex !== -1 && typeof launchArgs[cwdIndex + 1] === 'string') {
+        cwd = path.resolve(launchArgs[cwdIndex + 1]);
+        launchArgs.splice(cwdIndex, 2);
+    }
+
+    return { cwd, launchArgs };
+}
+
+function resolveLaunchPath(candidate, cwd) {
+    return path.isAbsolute(candidate) ? candidate : path.resolve(cwd, candidate);
 }
 
 async function routePendingOpenPaths() {
@@ -584,6 +727,93 @@ async function openDirectories(dirs) {
 
     clearWatchers();
     await sendCurrentDirectoryDiff();
+}
+
+async function openDirectoryHistory(dirPath) {
+    const resolvedDir = path.resolve(dirPath);
+    if (getPathKind(resolvedDir) !== 'directory') {
+        await showInfo('Directory history requires a directory.');
+        return;
+    }
+
+    let repoRoot;
+    try {
+        repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], resolvedDir));
+    } catch {
+        await showInfo('Directory history requires a Git repository.');
+        return;
+    }
+
+    const realDir = fs.realpathSync(resolvedDir);
+    const relativeDir = path.relative(repoRoot, realDir).replace(/\\/g, '/');
+    const headRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-head-'));
+    const workingRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-worktree-'));
+    const headDir = path.join(headRoot, relativeDir);
+    const workingDir = path.join(workingRoot, relativeDir);
+
+    try {
+        materializeGitTree(repoRoot, relativeDir, headRoot);
+        materializeWorkingTree(repoRoot, relativeDir, workingRoot);
+    } catch (error) {
+        await showError(`Error loading directory history: ${getErrorMessage(error)}`);
+        return;
+    }
+
+    session = {
+        mode: 'directory',
+        left: createSideState(headDir, ''),
+        right: createSideState(workingDir, ''),
+        history: null,
+        directory: {
+            dirs: [headDir, workingDir],
+            labels: [`${path.basename(realDir)} @ HEAD`, `${path.basename(realDir)} @ Working Tree`]
+        },
+        multi: null
+    };
+
+    clearWatchers();
+    await sendCurrentDirectoryDiff();
+}
+
+function materializeGitTree(repoRoot, relativeDir, targetRoot) {
+    const lsArgs = ['ls-tree', '-r', '--name-only', 'HEAD'];
+    if (relativeDir) {
+        lsArgs.push('--', relativeDir);
+    }
+
+    const files = runGit(lsArgs, repoRoot)
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    for (const relativeFile of files) {
+        const targetFile = path.join(targetRoot, relativeFile);
+        fs.mkdirSync(path.dirname(targetFile), { recursive: true });
+        fs.writeFileSync(targetFile, readGitBlob(repoRoot, 'HEAD', relativeFile));
+    }
+}
+
+function materializeWorkingTree(repoRoot, relativeDir, targetRoot) {
+    const lsArgs = ['ls-files', '-co', '--exclude-standard'];
+    if (relativeDir) {
+        lsArgs.push('--', relativeDir);
+    }
+
+    const files = runGit(lsArgs, repoRoot)
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    for (const relativeFile of files) {
+        const sourceFile = path.join(repoRoot, relativeFile);
+        if (getPathKind(sourceFile) !== 'file') {
+            continue;
+        }
+
+        const targetFile = path.join(targetRoot, relativeFile);
+        fs.mkdirSync(path.dirname(targetFile), { recursive: true });
+        fs.copyFileSync(sourceFile, targetFile);
+    }
 }
 
 async function sendCurrentDirectoryDiff() {
@@ -1079,6 +1309,19 @@ function readFileContent(filePath) {
     return fs.readFileSync(filePath, 'utf8');
 }
 
+function runGit(args, cwd) {
+    return execFileSync('git', args, {
+        cwd,
+        encoding: 'utf8'
+    }).trimEnd();
+}
+
+function readGitBlob(repoRoot, commit, relativePath) {
+    return execFileSync('git', ['show', `${commit}:${relativePath}`], {
+        cwd: repoRoot
+    });
+}
+
 function getPathKind(filePath) {
     try {
         const stats = fs.statSync(filePath);
@@ -1119,6 +1362,10 @@ async function showError(message) {
 
 function getErrorMessage(error) {
     return error instanceof Error ? error.message : String(error);
+}
+
+function shellQuote(value) {
+    return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
 
 function finalizeSmokeTest(snapshot) {

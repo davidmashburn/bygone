@@ -55,9 +55,26 @@ For development only, you can install the repo-local launcher globally:
 
 ```bash
 npm install -g .
+bygone
+bygone path/to/file-or-directory
 bygone --diff path/to/left path/to/right
+bygone --dir path/to/left-dir path/to/right-dir
+bygone --diff3 path/to/left path/to/middle path/to/right
+bygone --dir3 path/to/left-dir path/to/middle-dir path/to/right-dir
+bygone --history path/to/file
 bygone --help
 ```
+
+CLI defaults:
+
+- `bygone` opens Git directory history for the current directory.
+- `bygone <file>` opens file history.
+- `bygone <directory>` opens Git directory history for that directory.
+- `bygone <left> <right>` auto-selects file diff or directory compare.
+
+If the native desktop app is installed, the npm/source launcher prefers it and forwards the shell working directory. Set `BYGONE_FORCE_BUNDLED=1` to force the npm-bundled Electron runtime instead.
+
+The desktop app also includes `Help -> Install Command Line Tools...` for non-npm installs. Homebrew cask installs can provide the `bygone` command automatically.
 
 ## Package For External Use
 
@@ -96,6 +113,8 @@ npm pack --dry-run ./dist/npm-package
 ```
 
 The root `package.json` is the VS Code extension manifest and intentionally keeps the unscoped extension name `bygone`. The npm distribution is staged separately as `@davidmashburn/bygone` so the global launcher can avoid the already-taken `bygone` package name while preserving the VS Code extension id `davidmashburn.bygone`.
+
+Homebrew packaging templates live in `packaging/homebrew/`. They are staged for local validation only until release artifact URLs and checksums exist.
 
 Run the release checks:
 

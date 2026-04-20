@@ -9,7 +9,7 @@ const rootPackageJson = await readJson(path.join(repoRoot, 'package.json'));
 const npmPackageJson = {
     name: '@davidmashburn/bygone',
     version: rootPackageJson.version,
-    description: 'See how change happened. Visual diff, merge, and file history.',
+    description: 'See how change happened. Visual diff and file history.',
     author: rootPackageJson.author,
     license: rootPackageJson.license,
     homepage: rootPackageJson.homepage,
@@ -30,14 +30,14 @@ const npmPackageJson = {
     ],
     keywords: [
         'diff',
-        'merge',
         'git',
         'history',
         'visual',
         'electron'
     ],
     dependencies: {
-        electron: rootPackageJson.devDependencies.electron
+        electron: rootPackageJson.devDependencies.electron,
+        'electron-updater': rootPackageJson.dependencies['electron-updater']
     }
 };
 
