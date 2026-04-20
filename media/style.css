@@ -115,6 +115,29 @@ body.web-host {
     font-size: 12px;
 }
 
+.directory-return-toolbar {
+    margin-top: 10px;
+}
+
+.directory-return-toolbar[hidden] {
+    display: none;
+}
+
+.directory-return-button {
+    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+    background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+    border-radius: 4px;
+    min-height: 28px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.directory-return-button:hover {
+    filter: brightness(1.08);
+}
+
 .change-toolbar {
     margin-top: 10px;
     display: grid;

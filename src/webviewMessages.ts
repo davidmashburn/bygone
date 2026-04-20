@@ -21,6 +21,7 @@ export interface ShowDiffMessage {
     rightContent: string;
     diffModel: TwoWayDiffModel;
     history: (HistoryViewState & { fileName: string }) | null;
+    canReturnToDirectory?: boolean;
 }
 
 export interface ShowDirectoryDiffMessage {
@@ -92,7 +93,16 @@ export interface OpenDirectoryEntryMessage {
     relativePath: string;
 }
 
-export type WebviewInboundMessage = ReadyMessage | RecomputeDiffMessage | HistoryNavigationMessage | OpenDirectoryEntryMessage;
+export interface ReturnToDirectoryMessage {
+    type: 'returnToDirectory';
+}
+
+export type WebviewInboundMessage =
+    | ReadyMessage
+    | RecomputeDiffMessage
+    | HistoryNavigationMessage
+    | OpenDirectoryEntryMessage
+    | ReturnToDirectoryMessage;
 export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
 
 export function isReadyMessage(message: unknown): message is ReadyMessage {

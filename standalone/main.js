@@ -262,6 +262,12 @@ function installApplicationMenu() {
         {
             label: 'View',
             submenu: [
+                {
+                    label: 'Back to Directory',
+                    accelerator: 'CmdOrCtrl+[',
+                    click: () => { void returnToDirectoryView(); }
+                },
+                { type: 'separator' },
                 { role: 'reload' },
                 { role: 'toggleDevTools' },
                 { role: 'resetZoom' },
@@ -560,6 +566,11 @@ async function handleRendererMessage(message) {
 
     if (message.type === 'openDirectoryEntry' && typeof message.relativePath === 'string') {
         await openDirectoryEntry(message.relativePath);
+        return;
+    }
+
+    if (message.type === 'returnToDirectory') {
+        await returnToDirectoryView();
         return;
     }
 
@@ -935,6 +946,7 @@ async function sendCurrentDirectoryHistoryEntry() {
             leftContent,
             rightContent,
             diffModel: buildTwoWayDiffModel(leftContent, rightContent),
+            canReturnToDirectory: true,
             history: {
                 ...history,
                 fileName: relativePath
@@ -1146,11 +1158,47 @@ async function openDirectoryFileDiff(dirs, labels, relativePath) {
         history: null,
         directory: null,
         multi: null,
-        dirHistory: null
+        dirHistory: null,
+        returnDirectory: {
+            dirs: [...dirs],
+            labels: [...labels]
+        }
     };
 
     updateWatchers();
     await sendCurrentDiff();
+}
+
+async function returnToDirectoryView() {
+    if (session.mode === 'directory-history' && session.dirHistory?.viewRelativePath) {
+        session.dirHistory.viewRelativePath = null;
+        await sendCurrentDirectoryHistoryEntry();
+        return;
+    }
+
+    if (session.mode === 'diff' && session.returnDirectory) {
+        const { dirs, labels } = session.returnDirectory;
+
+        session = {
+            mode: 'directory',
+            left: createSideState(dirs[0], ''),
+            right: createSideState(dirs[1], ''),
+            history: null,
+            directory: {
+                dirs,
+                labels
+            },
+            multi: null,
+            dirHistory: null,
+            returnDirectory: null
+        };
+
+        clearWatchers();
+        await sendCurrentDirectoryDiff();
+        return;
+    }
+
+    await showInfo('No directory view to return to.');
 }
 
 async function sendCurrentMultiDiff() {
@@ -1227,7 +1275,8 @@ async function sendCurrentDiff() {
         leftContent: session.left.content,
         rightContent: session.right.content,
         diffModel,
-        history: null
+        history: null,
+        canReturnToDirectory: Boolean(session.returnDirectory)
     };
 
     postOrQueue(message);
@@ -1490,7 +1539,8 @@ function createEmptySession() {
         history: null,
         directory: null,
         multi: null,
-        dirHistory: null
+        dirHistory: null,
+        returnDirectory: null
     };
 }
 

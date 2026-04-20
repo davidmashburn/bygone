@@ -57,7 +57,15 @@ host.onMessage((message) => {
             return;
         }
 
-        showTwoWayDiff(message.file1, message.file2, message.leftContent, message.rightContent, message.diffModel, message.history || null);
+        showTwoWayDiff(
+            message.file1,
+            message.file2,
+            message.leftContent,
+            message.rightContent,
+            message.diffModel,
+            message.history || null,
+            Boolean(message.canReturnToDirectory)
+        );
         return;
     }
 
@@ -85,6 +93,7 @@ window.addEventListener('load', async () => {
     connectorController.initializeCanvas();
     initializeHistoryToolbar();
     initializeChangeToolbar();
+    initializeDirectoryReturnToolbar();
     initializeDirectoryViewEvents();
     initializeStandaloneDropTarget();
     await initializeMonaco();
@@ -97,7 +106,8 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.leftContent,
             pendingTwoWayPayload.rightContent,
             pendingTwoWayPayload.diffModel,
-            pendingTwoWayPayload.history || null
+            pendingTwoWayPayload.history || null,
+            Boolean(pendingTwoWayPayload.canReturnToDirectory)
         );
         pendingTwoWayPayload = undefined;
     }
@@ -122,7 +132,7 @@ async function initializeMonaco() {
     monacoInstance = window.monaco;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, canReturnToDirectory = false) {
     currentMode = MODE_TWO_WAY;
     historyMode = Boolean(history);
     setCurrentDiffModel(diffModel);
@@ -136,6 +146,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     setTextContent('file1-header', file1);
     setTextContent('file2-header', file2);
     updateHistoryToolbar(history);
+    updateDirectoryReturnToolbar(canReturnToDirectory);
 
     ensureTwoWayEditors();
     updateEditorValues(leftContent, rightContent);
@@ -161,6 +172,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(history);
+    updateDirectoryReturnToolbar(false);
     updateChangeToolbarState();
 
     const directoryLabels = Array.isArray(labels) && labels.length >= 2 ? labels : [leftLabel, rightLabel];
@@ -192,6 +204,7 @@ function showMultiDiff(panels, pairs) {
     disposeMultiEditors();
     multiDiffPairs = pairs || [];
     updateHistoryToolbar(null);
+    updateDirectoryReturnToolbar(false);
     updateChangeToolbarState();
 
     toggleView(VIEW_IDS.multiWay);
@@ -223,6 +236,7 @@ function showThreeWayMerge(message) {
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(null);
+    updateDirectoryReturnToolbar(false);
     updateChangeToolbarState();
 
     toggleView(VIEW_IDS.threeWay);
@@ -647,6 +661,10 @@ function initializeHistoryToolbar() {
     });
 }
 
+function initializeDirectoryReturnToolbar() {
+    getElement('back-to-directory').addEventListener('click', () => returnToDirectory());
+}
+
 function initializeChangeToolbar() {
     getElement('previous-change').addEventListener('click', () => navigateDiff(-1));
     getElement('next-change').addEventListener('click', () => navigateDiff(1));
@@ -664,6 +682,12 @@ function initializeChangeToolbar() {
             return;
         }
 
+        if ((event.metaKey || event.ctrlKey) && event.key === '[' && !getElement('directory-return-toolbar').hidden) {
+            event.preventDefault();
+            returnToDirectory();
+            return;
+        }
+
         if ((event.metaKey || event.ctrlKey) && event.altKey && event.key === 'ArrowRight') {
             event.preventDefault();
             copyCurrentChange('left-to-right');
@@ -675,6 +699,14 @@ function initializeChangeToolbar() {
             copyCurrentChange('right-to-left');
         }
     });
+}
+
+function returnToDirectory() {
+    host.postMessage({ type: 'returnToDirectory' });
+}
+
+function updateDirectoryReturnToolbar(canReturnToDirectory) {
+    getElement('directory-return-toolbar').hidden = !canReturnToDirectory;
 }
 
 function registerEditorKeybindings(editor, editorMode) {
