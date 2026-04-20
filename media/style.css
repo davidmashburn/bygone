@@ -138,6 +138,33 @@ body.web-host {
     filter: brightness(1.08);
 }
 
+.edit-mode-toolbar {
+    margin-top: 10px;
+}
+
+.edit-mode-toolbar[hidden] {
+    display: none;
+}
+
+.edit-mode-button {
+    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+    background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+    border-radius: 4px;
+    min-height: 28px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.edit-mode-button.is-readonly {
+    opacity: 0.82;
+}
+
+.edit-mode-button:hover {
+    filter: brightness(1.08);
+}
+
 .change-toolbar {
     margin-top: 10px;
     display: grid;

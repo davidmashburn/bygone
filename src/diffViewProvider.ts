@@ -266,6 +266,12 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             <h1>Bygone</h1>
             <div id="file-info">Choose a compare command to render a diff.</div>
             <div id="status-banner" class="status-banner" hidden></div>
+            <div id="directory-return-toolbar" class="directory-return-toolbar" hidden>
+                <button id="back-to-directory" class="directory-return-button" type="button" title="Back to directory view (Cmd/Ctrl+[)">← Back to Directory</button>
+            </div>
+            <div id="edit-mode-toolbar" class="edit-mode-toolbar" hidden>
+                <button id="toggle-readonly" class="edit-mode-button" type="button" title="Toggle read-only mode">Editing On</button>
+            </div>
             <div id="change-toolbar" class="change-toolbar" hidden>
                 <div class="change-copy">
                     <button id="copy-left-to-right" class="change-button change-button-primary" type="button" title="Copy current change from left to right (Cmd/Ctrl+Alt+Right)">Copy current →</button>

@@ -32,6 +32,8 @@ let pendingMultiPayload;
 let currentDiffRows = [];
 let scrollMaps = null;
 let historyMode = false;
+let hostEditableSides = { left: true, right: true };
+let userReadOnly = false;
 let directoryEntries = [];
 let multiEditors = [];
 let multiDecorationIds = [];
@@ -64,7 +66,8 @@ host.onMessage((message) => {
             message.rightContent,
             message.diffModel,
             message.history || null,
-            Boolean(message.canReturnToDirectory)
+            Boolean(message.canReturnToDirectory),
+            message.editableSides
         );
         return;
     }
@@ -94,6 +97,7 @@ window.addEventListener('load', async () => {
     initializeHistoryToolbar();
     initializeChangeToolbar();
     initializeDirectoryReturnToolbar();
+    initializeEditModeToolbar();
     initializeDirectoryViewEvents();
     initializeStandaloneDropTarget();
     await initializeMonaco();
@@ -107,7 +111,8 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.rightContent,
             pendingTwoWayPayload.diffModel,
             pendingTwoWayPayload.history || null,
-            Boolean(pendingTwoWayPayload.canReturnToDirectory)
+            Boolean(pendingTwoWayPayload.canReturnToDirectory),
+            pendingTwoWayPayload.editableSides
         );
         pendingTwoWayPayload = undefined;
     }
@@ -132,9 +137,10 @@ async function initializeMonaco() {
     monacoInstance = window.monaco;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, canReturnToDirectory = false) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, canReturnToDirectory = false, nextEditableSides = null) {
     currentMode = MODE_TWO_WAY;
     historyMode = Boolean(history);
+    hostEditableSides = normalizeEditableSides(nextEditableSides, historyMode);
     setCurrentDiffModel(diffModel);
     setActiveDiffIndex(diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1, false);
     directoryEntries = [];
@@ -147,6 +153,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     setTextContent('file2-header', file2);
     updateHistoryToolbar(history);
     updateDirectoryReturnToolbar(canReturnToDirectory);
+    updateEditModeToolbar();
 
     ensureTwoWayEditors();
     updateEditorValues(leftContent, rightContent);
@@ -173,6 +180,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     disposeMultiEditors();
     updateHistoryToolbar(history);
     updateDirectoryReturnToolbar(false);
+    updateEditModeToolbar();
     updateChangeToolbarState();
 
     const directoryLabels = Array.isArray(labels) && labels.length >= 2 ? labels : [leftLabel, rightLabel];
@@ -205,6 +213,7 @@ function showMultiDiff(panels, pairs) {
     multiDiffPairs = pairs || [];
     updateHistoryToolbar(null);
     updateDirectoryReturnToolbar(false);
+    updateEditModeToolbar();
     updateChangeToolbarState();
 
     toggleView(VIEW_IDS.multiWay);
@@ -237,6 +246,7 @@ function showThreeWayMerge(message) {
     disposeMultiEditors();
     updateHistoryToolbar(null);
     updateDirectoryReturnToolbar(false);
+    updateEditModeToolbar();
     updateChangeToolbarState();
 
     toggleView(VIEW_IDS.threeWay);
@@ -267,11 +277,11 @@ function ensureTwoWayEditors() {
         return;
     }
 
-    leftEditor = createEditor(getElement('file1-content'), MODE_TWO_WAY);
-    rightEditor = createEditor(getElement('file2-content'), MODE_TWO_WAY);
+    leftEditor = createEditor(getElement('file1-content'), MODE_TWO_WAY, 'left');
+    rightEditor = createEditor(getElement('file2-content'), MODE_TWO_WAY, 'right');
 }
 
-function createEditor(container, editorMode) {
+function createEditor(container, editorMode, side = null) {
     container.innerHTML = '<div class="editor-root"></div>';
     container.classList.add('editor-host');
 
@@ -296,7 +306,7 @@ function createEditor(container, editorMode) {
     });
 
     editor.onDidChangeModelContent(() => {
-        if (editorMode !== MODE_TWO_WAY || suppressEditorEvents || historyMode) {
+        if (editorMode !== MODE_TWO_WAY || suppressEditorEvents || !isSideEditable(side)) {
             return;
         }
 
@@ -400,9 +410,38 @@ function updateEditorValues(leftContent, rightContent) {
 }
 
 function updateTwoWayEditorOptions() {
-    const readOnly = historyMode;
-    leftEditor.updateOptions({ readOnly });
-    rightEditor.updateOptions({ readOnly });
+    leftEditor.updateOptions({ readOnly: !isSideEditable('left') });
+    rightEditor.updateOptions({ readOnly: !isSideEditable('right') });
+}
+
+function normalizeEditableSides(nextEditableSides, isHistoryMode) {
+    if (nextEditableSides && typeof nextEditableSides === 'object') {
+        return {
+            left: Boolean(nextEditableSides.left),
+            right: Boolean(nextEditableSides.right)
+        };
+    }
+
+    return {
+        left: !isHistoryMode,
+        right: !isHistoryMode
+    };
+}
+
+function isSideEditable(side) {
+    if (side === 'left') {
+        return hostEditableSides.left && !userReadOnly;
+    }
+
+    if (side === 'right') {
+        return hostEditableSides.right && !userReadOnly;
+    }
+
+    return false;
+}
+
+function hasHostEditableSide() {
+    return hostEditableSides.left || hostEditableSides.right;
 }
 
 function setCurrentDiffModel(diffModel) {
@@ -665,6 +704,19 @@ function initializeDirectoryReturnToolbar() {
     getElement('back-to-directory').addEventListener('click', () => returnToDirectory());
 }
 
+function initializeEditModeToolbar() {
+    getElement('toggle-readonly').addEventListener('click', () => {
+        if (!hasHostEditableSide()) {
+            return;
+        }
+
+        userReadOnly = !userReadOnly;
+        updateTwoWayEditorOptions();
+        updateEditModeToolbar();
+        updateChangeToolbarState();
+    });
+}
+
 function initializeChangeToolbar() {
     getElement('previous-change').addEventListener('click', () => navigateDiff(-1));
     getElement('next-change').addEventListener('click', () => navigateDiff(1));
@@ -707,6 +759,19 @@ function returnToDirectory() {
 
 function updateDirectoryReturnToolbar(canReturnToDirectory) {
     getElement('directory-return-toolbar').hidden = !canReturnToDirectory;
+}
+
+function updateEditModeToolbar() {
+    const toolbar = getElement('edit-mode-toolbar');
+    const button = getElement('toggle-readonly');
+    const hasEditableSide = currentMode === MODE_TWO_WAY && hasHostEditableSide();
+
+    toolbar.hidden = !hasEditableSide;
+    button.classList.toggle('is-readonly', userReadOnly);
+    button.textContent = userReadOnly ? 'Read-only' : 'Editing On';
+    button.title = userReadOnly
+        ? 'Allow editing for writable panes'
+        : 'Freeze writable panes';
 }
 
 function registerEditorKeybindings(editor, editorMode) {
@@ -756,12 +821,11 @@ function updateChangeToolbarState() {
     }
 
     const safeIndex = clamp(activeDiffIndex, 0, diffBlocks.length - 1);
-    const copyDisabled = historyMode;
     setTextContent('change-position', `${safeIndex + 1} / ${diffBlocks.length}`);
     getElement('previous-change').disabled = diffBlocks.length === 0;
     getElement('next-change').disabled = diffBlocks.length === 0;
-    getElement('copy-left-to-right').disabled = copyDisabled;
-    getElement('copy-right-to-left').disabled = copyDisabled;
+    getElement('copy-left-to-right').disabled = !isSideEditable('right');
+    getElement('copy-right-to-left').disabled = !isSideEditable('left');
 }
 
 function revealActiveDiff(smooth) {
@@ -797,7 +861,8 @@ function revealBlockSide(editor, start, end, smooth) {
 }
 
 function copyCurrentChange(direction) {
-    if (currentMode !== MODE_TWO_WAY || historyMode || activeDiffIndex < 0) {
+    const targetSide = direction === 'left-to-right' ? 'right' : 'left';
+    if (currentMode !== MODE_TWO_WAY || !isSideEditable(targetSide) || activeDiffIndex < 0) {
         return;
     }
 

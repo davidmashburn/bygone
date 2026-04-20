@@ -22,6 +22,10 @@ export interface ShowDiffMessage {
     diffModel: TwoWayDiffModel;
     history: (HistoryViewState & { fileName: string }) | null;
     canReturnToDirectory?: boolean;
+    editableSides?: {
+        left: boolean;
+        right: boolean;
+    };
 }
 
 export interface ShowDirectoryDiffMessage {

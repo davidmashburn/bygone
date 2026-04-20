@@ -559,6 +559,16 @@ async function handleRendererMessage(message) {
         return;
     }
 
+    if (message.type === 'recomputeDiff' && session.mode === 'history') {
+        await updateEditableHistoryDiff(message.leftContent, message.rightContent);
+        return;
+    }
+
+    if (message.type === 'recomputeDiff' && session.mode === 'directory-history') {
+        await updateEditableDirectoryHistoryDiff(message.leftContent, message.rightContent);
+        return;
+    }
+
     if (message.type === 'openDroppedFiles' && Array.isArray(message.paths)) {
         await openDroppedFiles(message.paths);
         return;
@@ -935,7 +945,7 @@ async function sendCurrentDirectoryHistoryEntry() {
         }
 
         const leftContent = leftExists ? readFileContent(files[0]) : '';
-        const rightContent = rightExists ? readFileContent(files[1]) : '';
+        const rightContent = entry.editedFiles?.[relativePath] ?? (rightExists ? readFileContent(files[1]) : '');
         const leftLabel = `${entry.labels[0]} / ${relativePath}${leftExists ? '' : ' (missing)'}`;
         const rightLabel = `${entry.labels[1]} / ${relativePath}${rightExists ? '' : ' (missing)'}`;
 
@@ -947,6 +957,7 @@ async function sendCurrentDirectoryHistoryEntry() {
             rightContent,
             diffModel: buildTwoWayDiffModel(leftContent, rightContent),
             canReturnToDirectory: true,
+            editableSides: buildHistoryEditableSides(entry),
             history: {
                 ...history,
                 fileName: relativePath
@@ -1276,6 +1287,10 @@ async function sendCurrentDiff() {
         rightContent: session.right.content,
         diffModel,
         history: null,
+        editableSides: {
+            left: true,
+            right: true
+        },
         canReturnToDirectory: Boolean(session.returnDirectory)
     };
 
@@ -1321,6 +1336,7 @@ async function sendCurrentHistoryEntry() {
         leftContent: entry.leftContent,
         rightContent: entry.rightContent,
         diffModel,
+        editableSides: buildHistoryEditableSides(entry),
         history: {
             fileName,
             canGoBack: session.history.index < session.history.entries.length - 1,
@@ -1334,6 +1350,49 @@ async function sendCurrentHistoryEntry() {
     });
 
     updateWindowTitle(`${fileName} History`);
+}
+
+function buildHistoryEditableSides(entry) {
+    return {
+        left: false,
+        right: entry.commit === 'WORKTREE'
+    };
+}
+
+async function updateEditableHistoryDiff(_leftContent, rightContent) {
+    if (session.mode !== 'history' || !session.history) {
+        return;
+    }
+
+    const entry = session.history.entries[session.history.index];
+    if (entry.commit !== 'WORKTREE') {
+        return;
+    }
+
+    entry.rightContent = rightContent;
+    entry.rightDirty = rightContent !== readFileContent(session.history.filePath);
+    await sendCurrentHistoryEntry();
+}
+
+async function updateEditableDirectoryHistoryDiff(_leftContent, rightContent) {
+    if (session.mode !== 'directory-history' || !session.dirHistory?.viewRelativePath) {
+        return;
+    }
+
+    const entry = session.dirHistory.entries[session.dirHistory.index];
+    if (entry.commit !== 'WORKTREE') {
+        return;
+    }
+
+    if (!entry.editedFiles) {
+        entry.editedFiles = {};
+    }
+
+    const relativePath = session.dirHistory.viewRelativePath;
+    const targetPath = path.join(session.dirHistory.dirPath, relativePath);
+    entry.editedFiles[relativePath] = rightContent;
+    entry.rightDirty = !fs.existsSync(targetPath) || rightContent !== readFileContent(targetPath);
+    await sendCurrentDirectoryHistoryEntry();
 }
 
 async function navigateHistory(direction) {
@@ -1366,6 +1425,14 @@ async function navigateHistory(direction) {
 }
 
 async function saveSide(side) {
+    if (session.mode === 'history') {
+        return saveHistorySide(side);
+    }
+
+    if (session.mode === 'directory-history') {
+        return saveDirectoryHistorySide(side);
+    }
+
     if (session.mode !== 'diff') {
         return;
     }
@@ -1400,7 +1467,55 @@ async function saveSide(side) {
     return true;
 }
 
+async function saveHistorySide(side) {
+    if (side !== 'right' || !session.history) {
+        return false;
+    }
+
+    const entry = session.history.entries[session.history.index];
+    if (entry.commit !== 'WORKTREE') {
+        return false;
+    }
+
+    fs.writeFileSync(session.history.filePath, entry.rightContent, 'utf8');
+    entry.rightDirty = false;
+    await sendCurrentHistoryEntry();
+    return true;
+}
+
+async function saveDirectoryHistorySide(side) {
+    if (side !== 'right' || !session.dirHistory?.viewRelativePath) {
+        return false;
+    }
+
+    const entry = session.dirHistory.entries[session.dirHistory.index];
+    if (entry.commit !== 'WORKTREE') {
+        return false;
+    }
+
+    const relativePath = session.dirHistory.viewRelativePath;
+    const content = entry.editedFiles?.[relativePath];
+    if (content === undefined) {
+        return true;
+    }
+
+    const targetPath = path.join(session.dirHistory.dirPath, relativePath);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.writeFileSync(targetPath, content, 'utf8');
+    entry.rightDirty = false;
+    await sendCurrentDirectoryHistoryEntry();
+    return true;
+}
+
 async function saveAllDirtySides() {
+    if (session.mode === 'history') {
+        return saveDirtyHistoryEntries();
+    }
+
+    if (session.mode === 'directory-history') {
+        return saveDirtyDirectoryHistoryEntries();
+    }
+
     if (session.mode !== 'diff') {
         return true;
     }
@@ -1419,6 +1534,45 @@ async function saveAllDirtySides() {
         }
     }
 
+    return true;
+}
+
+async function saveDirtyHistoryEntries() {
+    if (!session.history) {
+        return true;
+    }
+
+    for (const entry of session.history.entries) {
+        if (entry.commit === 'WORKTREE' && entry.rightDirty) {
+            fs.writeFileSync(session.history.filePath, entry.rightContent, 'utf8');
+            entry.rightDirty = false;
+        }
+    }
+
+    await sendCurrentHistoryEntry();
+    return true;
+}
+
+async function saveDirtyDirectoryHistoryEntries() {
+    if (!session.dirHistory) {
+        return true;
+    }
+
+    for (const entry of session.dirHistory.entries) {
+        if (entry.commit !== 'WORKTREE' || !entry.rightDirty || !entry.editedFiles) {
+            continue;
+        }
+
+        for (const [relativePath, content] of Object.entries(entry.editedFiles)) {
+            const targetPath = path.join(session.dirHistory.dirPath, relativePath);
+            fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+            fs.writeFileSync(targetPath, content, 'utf8');
+        }
+
+        entry.rightDirty = false;
+    }
+
+    await sendCurrentDirectoryHistoryEntry();
     return true;
 }
 
@@ -1528,7 +1682,19 @@ function postToRenderer(message) {
 }
 
 function hasUnsavedChanges() {
-    return session.mode === 'diff' && (session.left.dirty || session.right.dirty);
+    if (session.mode === 'diff') {
+        return session.left.dirty || session.right.dirty;
+    }
+
+    if (session.mode === 'history') {
+        return Boolean(session.history?.entries.some((entry) => entry.rightDirty));
+    }
+
+    if (session.mode === 'directory-history') {
+        return Boolean(session.dirHistory?.entries.some((entry) => entry.rightDirty));
+    }
+
+    return false;
 }
 
 function createEmptySession() {
