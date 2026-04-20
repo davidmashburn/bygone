@@ -13,15 +13,29 @@
             <h1>Bygone</h1>
             <div id="file-info">Choose a compare command to render a diff.</div>
             <div id="status-banner" class="status-banner" hidden></div>
+            <div id="change-toolbar" class="change-toolbar" hidden>
+                <div class="change-copy">
+                    <button id="copy-left-to-right" class="change-button change-button-primary" type="button" title="Copy current change from left to right (Cmd/Ctrl+Alt+Right)">Copy current →</button>
+                </div>
+                <div class="change-nav">
+                    <button id="previous-change" class="change-button" type="button" title="Previous difference (Shift+F7)">↑ Prev</button>
+                    <div id="change-position" class="change-position"></div>
+                    <button id="next-change" class="change-button change-button-primary" type="button" title="Next difference (F7)">↓ Next</button>
+                    <div class="change-hint">F7 / Shift+F7 to jump. Cmd/Ctrl+Alt+←/→ to copy the selected change.</div>
+                </div>
+                <div class="change-copy change-copy-right">
+                    <button id="copy-right-to-left" class="change-button change-button-primary" type="button" title="Copy current change from right to left (Cmd/Ctrl+Alt+Left)">← Copy current</button>
+                </div>
+            </div>
             <div id="history-toolbar" class="history-toolbar" hidden>
                 <div class="history-side history-side-left">
                     <div id="history-left-commit" class="history-commit"></div>
                     <div id="history-left-time" class="history-time"></div>
                 </div>
                 <div class="history-nav">
-                    <button id="history-back" class="history-button" type="button" title="Older commit">←</button>
+                    <button id="history-back" class="history-button" type="button" title="Older commit">← Older</button>
                     <div id="history-position" class="history-position"></div>
-                    <button id="history-forward" class="history-button" type="button" title="Newer commit">→</button>
+                    <button id="history-forward" class="history-button" type="button" title="Newer commit">Newer →</button>
                 </div>
                 <div class="history-side history-side-right">
                     <div id="history-right-commit" class="history-commit"></div>

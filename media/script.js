@@ -23,6 +23,8 @@ let leftEditor;
 let rightEditor;
 let leftDecorationIds = [];
 let rightDecorationIds = [];
+let activeDiffIndex = -1;
+let currentDiffModel = null;
 let suppressEditorEvents = false;
 let recomputeTimer;
 let pendingTwoWayPayload;
@@ -82,6 +84,7 @@ host.onMessage((message) => {
 window.addEventListener('load', async () => {
     connectorController.initializeCanvas();
     initializeHistoryToolbar();
+    initializeChangeToolbar();
     initializeDirectoryViewEvents();
     initializeStandaloneDropTarget();
     await initializeMonaco();
@@ -121,8 +124,9 @@ async function initializeMonaco() {
 
 function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history) {
     currentMode = MODE_TWO_WAY;
-    setCurrentDiffModel(diffModel);
     historyMode = Boolean(history);
+    setCurrentDiffModel(diffModel);
+    setActiveDiffIndex(diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1, false);
     directoryEntries = [];
     disposeMultiEditors();
 
@@ -137,8 +141,10 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     updateEditorValues(leftContent, rightContent);
     updateTwoWayEditorOptions();
     applyDiffDecorations(diffModel);
+    updateChangeToolbarState();
     resetTwoWayScrollPositions();
     layoutEditors();
+    revealActiveDiff(false);
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
 }
@@ -146,6 +152,8 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
 function showDirectoryDiff(leftLabel, rightLabel, entries, labels) {
     currentMode = 'directory';
     historyMode = false;
+    currentDiffModel = null;
+    activeDiffIndex = -1;
     diffBlocks = [];
     currentDiffRows = [];
     scrollMaps = null;
@@ -153,6 +161,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels) {
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(null);
+    updateChangeToolbarState();
 
     const directoryLabels = Array.isArray(labels) && labels.length >= 2 ? labels : [leftLabel, rightLabel];
 
@@ -173,6 +182,8 @@ function showMultiDiff(panels, pairs) {
 
     currentMode = MODE_MULTI_WAY;
     historyMode = false;
+    currentDiffModel = null;
+    activeDiffIndex = -1;
     diffBlocks = [];
     currentDiffRows = [];
     scrollMaps = null;
@@ -181,6 +192,7 @@ function showMultiDiff(panels, pairs) {
     disposeMultiEditors();
     multiDiffPairs = pairs || [];
     updateHistoryToolbar(null);
+    updateChangeToolbarState();
 
     toggleView(VIEW_IDS.multiWay);
     setStatus('', false);
@@ -203,12 +215,15 @@ function showMultiDiff(panels, pairs) {
 
 function showThreeWayMerge(message) {
     currentMode = 'three-way';
+    currentDiffModel = null;
+    activeDiffIndex = -1;
     setCurrentDiffModel({ blocks: [], rows: [] });
     historyMode = false;
     directoryEntries = [];
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(null);
+    updateChangeToolbarState();
 
     toggleView(VIEW_IDS.threeWay);
     setTextContent('file-info', `Three-way merge for ${message.base.name}, ${message.left.name}, and ${message.right.name}`);
@@ -293,6 +308,8 @@ function createEditor(container, editorMode) {
         connectorController.scheduleDrawConnections();
     });
 
+    registerEditorKeybindings(editor, editorMode);
+
     return editor;
 }
 
@@ -375,6 +392,7 @@ function updateTwoWayEditorOptions() {
 }
 
 function setCurrentDiffModel(diffModel) {
+    currentDiffModel = diffModel;
     diffBlocks = diffModel.blocks || [];
     currentDiffRows = diffModel.rows || [];
     scrollMaps = currentDiffRows.length === 0
@@ -406,11 +424,27 @@ function applyDiffDecorations(diffModel) {
         }
     }
 
+    const activeBlock = diffBlocks[activeDiffIndex];
+    if (activeBlock) {
+        addActiveBlockDecorations(leftDecorations, activeBlock.leftStart, activeBlock.leftEnd, leftEditor.getModel()?.getLineCount() ?? 0);
+        addActiveBlockDecorations(rightDecorations, activeBlock.rightStart, activeBlock.rightEnd, rightEditor.getModel()?.getLineCount() ?? 0);
+    }
+
     addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
     addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
 
     leftDecorationIds = leftEditor.deltaDecorations(leftDecorationIds, leftDecorations);
     rightDecorationIds = rightEditor.deltaDecorations(rightDecorationIds, rightDecorations);
+}
+
+function addActiveBlockDecorations(target, start, end, targetLineCount) {
+    if (start === end) {
+        addCollapsedBoundaryDecoration(target, start, targetLineCount, 'bygone-active-diff');
+        return;
+    }
+
+    addLineDecorations(target, start, end, 'bygone-active-diff');
+    addBlockEdgeDecorations(target, start, end, 'bygone-active-diff');
 }
 
 function applyMultiDiffDecorations(pairs) {
@@ -611,6 +645,202 @@ function initializeHistoryToolbar() {
     getElement('history-forward').addEventListener('click', () => {
         host.postMessage({ type: 'historyForward' });
     });
+}
+
+function initializeChangeToolbar() {
+    getElement('previous-change').addEventListener('click', () => navigateDiff(-1));
+    getElement('next-change').addEventListener('click', () => navigateDiff(1));
+    getElement('copy-left-to-right').addEventListener('click', () => copyCurrentChange('left-to-right'));
+    getElement('copy-right-to-left').addEventListener('click', () => copyCurrentChange('right-to-left'));
+
+    window.addEventListener('keydown', (event) => {
+        if (event.defaultPrevented || currentMode !== MODE_TWO_WAY) {
+            return;
+        }
+
+        if (event.key === 'F7') {
+            event.preventDefault();
+            navigateDiff(event.shiftKey ? -1 : 1);
+            return;
+        }
+
+        if ((event.metaKey || event.ctrlKey) && event.altKey && event.key === 'ArrowRight') {
+            event.preventDefault();
+            copyCurrentChange('left-to-right');
+            return;
+        }
+
+        if ((event.metaKey || event.ctrlKey) && event.altKey && event.key === 'ArrowLeft') {
+            event.preventDefault();
+            copyCurrentChange('right-to-left');
+        }
+    });
+}
+
+function registerEditorKeybindings(editor, editorMode) {
+    if (editorMode !== MODE_TWO_WAY) {
+        return;
+    }
+
+    editor.addCommand(monacoInstance.KeyCode.F7, () => navigateDiff(1));
+    editor.addCommand(monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.F7, () => navigateDiff(-1));
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.RightArrow, () => copyCurrentChange('left-to-right'));
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.LeftArrow, () => copyCurrentChange('right-to-left'));
+}
+
+function navigateDiff(direction) {
+    if (currentMode !== MODE_TWO_WAY || diffBlocks.length === 0) {
+        return;
+    }
+
+    const nextIndex = activeDiffIndex < 0
+        ? 0
+        : (activeDiffIndex + direction + diffBlocks.length) % diffBlocks.length;
+
+    setActiveDiffIndex(nextIndex, true);
+}
+
+function setActiveDiffIndex(index, shouldReveal) {
+    activeDiffIndex = index;
+    updateChangeToolbarState();
+
+    if (leftEditor && rightEditor && currentDiffModel) {
+        applyDiffDecorations(currentDiffModel);
+    }
+
+    if (shouldReveal) {
+        revealActiveDiff(true);
+    }
+}
+
+function updateChangeToolbarState() {
+    const toolbar = getElement('change-toolbar');
+    const hasDiffs = currentMode === MODE_TWO_WAY && diffBlocks.length > 0;
+    toolbar.hidden = !hasDiffs;
+
+    if (!hasDiffs) {
+        setTextContent('change-position', '');
+        return;
+    }
+
+    const safeIndex = clamp(activeDiffIndex, 0, diffBlocks.length - 1);
+    const copyDisabled = historyMode;
+    setTextContent('change-position', `${safeIndex + 1} / ${diffBlocks.length}`);
+    getElement('previous-change').disabled = diffBlocks.length === 0;
+    getElement('next-change').disabled = diffBlocks.length === 0;
+    getElement('copy-left-to-right').disabled = copyDisabled;
+    getElement('copy-right-to-left').disabled = copyDisabled;
+}
+
+function revealActiveDiff(smooth) {
+    if (!leftEditor || !rightEditor || activeDiffIndex < 0) {
+        return;
+    }
+
+    const block = diffBlocks[activeDiffIndex];
+    if (!block) {
+        return;
+    }
+
+    revealBlockSide(leftEditor, block.leftStart, block.leftEnd, smooth);
+    revealBlockSide(rightEditor, block.rightStart, block.rightEnd, smooth);
+    connectorController.scheduleDrawConnections();
+}
+
+function revealBlockSide(editor, start, end, smooth) {
+    const model = editor.getModel();
+    const lineCount = model?.getLineCount() ?? 0;
+    if (lineCount === 0) {
+        return;
+    }
+
+    const lineNumber = start === end
+        ? clamp(start + 1, 1, lineCount)
+        : clamp(start + 1, 1, lineCount);
+
+    editor.revealLineInCenterIfOutsideViewport(
+        lineNumber,
+        smooth ? monacoInstance.editor.ScrollType.Smooth : monacoInstance.editor.ScrollType.Immediate
+    );
+}
+
+function copyCurrentChange(direction) {
+    if (currentMode !== MODE_TWO_WAY || historyMode || activeDiffIndex < 0) {
+        return;
+    }
+
+    const block = diffBlocks[activeDiffIndex];
+    if (!block || !leftEditor || !rightEditor) {
+        return;
+    }
+
+    const sourceEditor = direction === 'left-to-right' ? leftEditor : rightEditor;
+    const targetEditor = direction === 'left-to-right' ? rightEditor : leftEditor;
+    const sourceStart = direction === 'left-to-right' ? block.leftStart : block.rightStart;
+    const sourceEnd = direction === 'left-to-right' ? block.leftEnd : block.rightEnd;
+    const targetStart = direction === 'left-to-right' ? block.rightStart : block.leftStart;
+    const targetEnd = direction === 'left-to-right' ? block.rightEnd : block.leftEnd;
+    const sourceLines = getEditorLines(sourceEditor).slice(sourceStart, sourceEnd);
+
+    replaceEditorLines(targetEditor, targetStart, targetEnd, sourceLines);
+    scheduleRecompute();
+    connectorController.scheduleDrawConnections();
+}
+
+function getEditorLines(editor) {
+    const value = editor.getValue().replace(/\r\n/g, '\n');
+    if (value.length === 0) {
+        return [];
+    }
+
+    const lines = value.split('\n');
+    if (lines[lines.length - 1] === '') {
+        lines.pop();
+    }
+    return lines;
+}
+
+function replaceEditorLines(editor, start, end, replacementLines) {
+    const model = editor.getModel();
+    if (!model) {
+        return;
+    }
+
+    const lineCount = model.getLineCount();
+    const isEmptyModel = lineCount === 1 && model.getValue().length === 0;
+    const effectiveLineCount = isEmptyModel ? 0 : lineCount;
+    const safeStart = clamp(start, 0, effectiveLineCount);
+    const safeEnd = clamp(end, safeStart, effectiveLineCount);
+    const replacementText = replacementLines.join('\n');
+    let range;
+    let text;
+
+    if (safeStart === safeEnd) {
+        if (replacementLines.length === 0) {
+            return;
+        }
+
+        if (isEmptyModel) {
+            range = new monacoInstance.Range(1, 1, 1, 1);
+            text = replacementText;
+        } else if (safeStart >= lineCount) {
+            const lastColumn = model.getLineMaxColumn(lineCount);
+            range = new monacoInstance.Range(lineCount, lastColumn, lineCount, lastColumn);
+            text = `\n${replacementText}`;
+        } else {
+            range = new monacoInstance.Range(safeStart + 1, 1, safeStart + 1, 1);
+            text = `${replacementText}\n`;
+        }
+    } else if (safeEnd < lineCount) {
+        range = new monacoInstance.Range(safeStart + 1, 1, safeEnd + 1, 1);
+        text = replacementLines.length > 0 ? `${replacementText}\n` : '';
+    } else {
+        range = new monacoInstance.Range(safeStart + 1, 1, lineCount, model.getLineMaxColumn(lineCount));
+        text = replacementText;
+    }
+
+    editor.executeEdits('bygone-copy-change', [{ range, text, forceMoveMarkers: true }]);
+    editor.pushUndoStop();
 }
 
 function initializeDirectoryViewEvents() {

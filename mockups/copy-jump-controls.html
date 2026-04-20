@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bygone Copy and Jump Controls Mockup</title>
+    <style>
+        :root {
+            --bg: #1e1e1e;
+            --panel: #252526;
+            --line: #3c3c3c;
+            --text: #d4d4d4;
+            --muted: #9da1a6;
+            --blue: #4f7cff;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 13px "SF Mono", Monaco, Consolas, monospace;
+        }
+
+        .shell {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 12px 14px 10px;
+            background: var(--panel);
+            border-bottom: 1px solid var(--line);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 15px;
+        }
+
+        .file-info {
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .change-toolbar {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+            align-items: center;
+            gap: 12px;
+        }
+
+        .copy-side {
+            display: flex;
+            gap: 8px;
+        }
+
+        .copy-side.right {
+            justify-content: flex-end;
+        }
+
+        button {
+            border: 1px solid #4b5563;
+            border-radius: 6px;
+            padding: 6px 10px;
+            background: #313131;
+            color: var(--text);
+            font: inherit;
+            cursor: pointer;
+        }
+
+        button.primary {
+            border-color: rgba(79, 124, 255, 0.75);
+            background: #313131;
+            color: var(--text);
+        }
+
+        .jump {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .position {
+            min-width: 76px;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        .hint {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 11px;
+            text-align: center;
+        }
+
+        .history-toolbar {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+            align-items: center;
+            gap: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .history-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .history-nav button {
+            min-width: 76px;
+        }
+
+        .commit {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .time {
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .right-meta {
+            text-align: right;
+        }
+
+        .diff {
+            position: relative;
+            flex: 1;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr);
+            gap: 0;
+            padding: 12px;
+        }
+
+        .pane {
+            border: 1px solid var(--line);
+            background: #1b1b1b;
+            overflow: hidden;
+        }
+
+        .pane h2 {
+            margin: 0;
+            padding: 9px 10px;
+            background: #2d2d2d;
+            border-bottom: 1px solid var(--line);
+            font-size: 12px;
+        }
+
+        pre {
+            margin: 0;
+            padding: 10px 0;
+            line-height: 22px;
+        }
+
+        .line {
+            padding: 0 12px;
+            white-space: pre;
+        }
+
+        .line.active {
+            background: rgba(79, 124, 255, 0.22);
+            box-shadow: inset 0 1px rgba(79, 124, 255, 0.9), inset 0 -1px rgba(79, 124, 255, 0.9);
+        }
+
+        .word {
+            background: rgba(79, 124, 255, 0.55);
+            border-radius: 3px;
+            padding: 1px 2px;
+        }
+
+        .gutter {
+            position: relative;
+        }
+
+        .connector {
+            position: absolute;
+            left: -1px;
+            right: -1px;
+            top: 76px;
+            height: 70px;
+            background: linear-gradient(90deg, rgba(79, 124, 255, 0.24), rgba(79, 124, 255, 0.24));
+            border-top: 1.5px solid rgba(79, 124, 255, 0.9);
+            border-bottom: 1.5px solid rgba(79, 124, 255, 0.9);
+            clip-path: polygon(0 0, 100% 18%, 100% 82%, 0 100%);
+        }
+
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <header>
+            <h1>Bygone</h1>
+            <div class="file-info">Comparing parser-old.ts and parser-new.ts</div>
+            <div class="history-toolbar">
+                <div>
+                    <div class="commit">a13f9de parser: keep strict mode explicit</div>
+                    <div class="time">Older revision</div>
+                </div>
+                <div class="history-nav">
+                    <button>← Older</button>
+                    <div class="position">3 / 9</div>
+                    <button class="primary">Newer →</button>
+                </div>
+                <div class="right-meta">
+                    <div class="commit">HEAD working copy</div>
+                    <div class="time">Current side</div>
+                </div>
+            </div>
+            <div class="change-toolbar">
+                <div class="copy-side">
+                    <button class="primary" title="Cmd+Alt+Right">Copy current →</button>
+                </div>
+                <div>
+                    <div class="jump">
+                        <button title="Shift+F7">↑ Prev</button>
+                        <div class="position">2 / 7</div>
+                        <button class="primary" title="F7">↓ Next</button>
+                    </div>
+                    <div class="hint">Current hunk is outlined; copy buttons operate on that hunk.</div>
+                </div>
+                <div class="copy-side right">
+                    <button class="primary" title="Cmd+Alt+Left">← Copy current</button>
+                </div>
+            </div>
+        </header>
+        <main class="diff">
+            <section class="pane">
+                <h2>parser-old.ts</h2>
+                <pre><div class="line">function parse(input) {</div><div class="line">    const mode = "strict";</div><div class="line active">    return scan(input, <span class="word">mode</span>);</div><div class="line active">}</div><div class="line">export { parse };</div></pre>
+            </section>
+            <div class="gutter">
+                <div class="connector"></div>
+            </div>
+            <section class="pane">
+                <h2>parser-new.ts</h2>
+                <pre><div class="line">function parse(input) {</div><div class="line">    const mode = "strict";</div><div class="line active">    return scan(input, <span class="word">options.mode</span>);</div><div class="line active">}</div><div class="line">export { parse };</div></pre>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

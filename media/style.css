@@ -115,6 +115,73 @@ body.web-host {
     font-size: 12px;
 }
 
+.change-toolbar {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+}
+
+.change-toolbar[hidden] {
+    display: none;
+}
+
+.change-copy {
+    display: flex;
+    gap: 8px;
+    min-width: 0;
+}
+
+.change-copy-right {
+    justify-content: flex-end;
+}
+
+.change-nav {
+    display: grid;
+    grid-template-columns: auto minmax(72px, auto) auto;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.change-button {
+    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+    background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+    border-radius: 4px;
+    min-height: 28px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.change-button-primary {
+    border-color: rgba(79, 124, 255, 0.72);
+    background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+}
+
+.change-button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.change-position {
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.change-hint {
+    grid-column: 1 / -1;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
+}
+
 .history-toolbar {
     margin-top: 8px;
     display: grid;
@@ -143,9 +210,11 @@ body.web-host {
     background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
     color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
     border-radius: 4px;
-    min-width: 28px;
-    height: 28px;
+    min-width: 76px;
+    height: 30px;
+    padding: 0 10px;
     cursor: pointer;
+    font: inherit;
 }
 
 .history-position {
@@ -423,6 +492,32 @@ body.web-host {
 
 .monaco-editor .bygone-paired-line-end {
     border-bottom: 1.5px solid rgba(79, 124, 255, 0.92);
+}
+
+.monaco-editor .bygone-active-diff,
+.monaco-editor .bygone-active-diff-whole {
+    background: rgba(79, 124, 255, 0.08);
+}
+
+.monaco-editor .margin .bygone-active-diff-gutter,
+.monaco-editor .lines-decoration .bygone-active-diff-gutter {
+    border-left: 3px solid rgba(79, 124, 255, 0.95);
+}
+
+.monaco-editor .bygone-active-diff-start {
+    border-top: 1.5px solid rgba(79, 124, 255, 0.95);
+}
+
+.monaco-editor .bygone-active-diff-end {
+    border-bottom: 1.5px solid rgba(79, 124, 255, 0.95);
+}
+
+.monaco-editor .bygone-active-diff-top {
+    border-top: 1.5px solid rgba(79, 124, 255, 0.95);
+}
+
+.monaco-editor .bygone-active-diff-bottom {
+    border-bottom: 1.5px solid rgba(79, 124, 255, 0.95);
 }
 
 .monaco-editor .bygone-paired-edge-left,
