@@ -3,7 +3,7 @@
   "publisher": "davidmashburn",
   "displayName": "Bygone",
   "description": "See how change happened. Visual diff and file history for VS Code.",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "author": "David Mashburn",
   "license": "MIT",
   "private": false,
@@ -167,6 +167,8 @@
     "package:npm": "npm run compile && node ./scripts/package-npm.mjs",
     "package:npm:dry-run": "node ./scripts/pack-npm-dry-run.mjs",
     "release:check": "npm test && npm run package:vsix && npm run package:npm && npm run package:npm:dry-run",
+    "release:build": "node ./scripts/release.mjs",
+    "release:publish": "node ./scripts/release.mjs --publish",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node ./test/runTests.js"
   },

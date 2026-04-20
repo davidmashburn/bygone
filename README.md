@@ -116,6 +116,22 @@ The root `package.json` is the VS Code extension manifest and intentionally keep
 
 Homebrew packaging templates live in `packaging/homebrew/`. They are staged for local validation only until release artifact URLs and checksums exist.
 
+Build the full local release artifact matrix:
+
+```bash
+npm run release:build
+```
+
+That runs tests, rebuilds the VSIX, stages and dry-run checks the npm package, builds desktop artifacts, and styles the Homebrew templates. If the local macOS DMG or Windows cross-build toolchain is unavailable, use `node ./scripts/release.mjs --skip-dmg` or `node ./scripts/release.mjs --skip-windows` while validating the rest of the matrix.
+
+Publishing is intentionally explicit:
+
+```bash
+npm run release:publish
+```
+
+`release:publish` publishes the npm package, publishes the VS Code package, creates a GitHub release for desktop artifacts, and updates a Homebrew tap. Set `BYGONE_HOMEBREW_TAP` to a local tap checkout before publishing Homebrew formulas.
+
 Run the release checks:
 
 ```bash
