@@ -22,6 +22,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     private view?: vscode.WebviewView;
     private isReady = false;
     private pendingMessage?: WebviewOutboundMessage;
+    private currentMessage?: WebviewOutboundMessage;
     private currentTwoWayDiff?: {
         file1: string;
         file2: string;
@@ -59,6 +60,8 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 if (this.pendingMessage) {
                     void webviewView.webview.postMessage(this.pendingMessage);
                     this.pendingMessage = undefined;
+                } else if (this.currentMessage) {
+                    void webviewView.webview.postMessage(this.currentMessage);
                 }
             }
 
@@ -206,6 +209,8 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     }
 
     private postOrQueueMessage(message: WebviewOutboundMessage): void {
+        this.currentMessage = message;
+
         if (!this.view) {
             return;
         }

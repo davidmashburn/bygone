@@ -395,6 +395,8 @@ async function handleRendererMessage(message) {
         if (pendingMessage) {
             postToRenderer(pendingMessage);
             pendingMessage = undefined;
+        } else {
+            await sendCurrentSession();
         }
         return;
     }
@@ -762,6 +764,27 @@ async function sendCurrentMultiDiff() {
     });
 
     updateWindowTitle(panels.map((panel) => panel.label).join(' ↔ '));
+}
+
+async function sendCurrentSession() {
+    if (session.mode === 'diff') {
+        await sendCurrentDiff();
+        return;
+    }
+
+    if (session.mode === 'history') {
+        await sendCurrentHistoryEntry();
+        return;
+    }
+
+    if (session.mode === 'directory') {
+        await sendCurrentDirectoryDiff();
+        return;
+    }
+
+    if (session.mode === 'multi-diff') {
+        await sendCurrentMultiDiff();
+    }
 }
 
 async function compareTestFiles() {
