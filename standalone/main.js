@@ -809,7 +809,8 @@ function buildDirectoryHistory(resolvedDir) {
         dirPath: realDir,
         displayName,
         entries,
-        index: 0
+        index: 0,
+        viewRelativePath: null
     };
 }
 
@@ -907,6 +908,40 @@ async function sendCurrentDirectoryHistoryEntry() {
     }
 
     const entry = session.dirHistory.entries[session.dirHistory.index];
+    const history = buildDirectoryHistoryViewState(session.dirHistory, entry);
+
+    if (session.dirHistory.viewRelativePath) {
+        const relativePath = session.dirHistory.viewRelativePath;
+        const files = entry.dirs.map((dir) => path.join(dir, relativePath));
+        const existingFiles = files.filter((filePath) => getPathKind(filePath) === 'file');
+
+        if (existingFiles.length < 2) {
+            session.dirHistory.viewRelativePath = null;
+            await showInfo('That entry only exists on one side for this history step.');
+            await sendCurrentDirectoryHistoryEntry();
+            return;
+        }
+
+        const leftContent = readFileContent(files[0]);
+        const rightContent = readFileContent(files[1]);
+
+        postOrQueue({
+            type: 'showDiff',
+            file1: `${entry.labels[0]} / ${relativePath}`,
+            file2: `${entry.labels[1]} / ${relativePath}`,
+            leftContent,
+            rightContent,
+            diffModel: buildTwoWayDiffModel(leftContent, rightContent),
+            history: {
+                ...history,
+                fileName: relativePath
+            }
+        });
+
+        updateWindowTitle(`${relativePath} Directory History`);
+        return;
+    }
+
     const entries = buildMultiDirectoryComparison(entry.dirs);
 
     postOrQueue({
@@ -915,19 +950,23 @@ async function sendCurrentDirectoryHistoryEntry() {
         rightLabel: entry.labels[1],
         labels: entry.labels,
         entries,
-        history: {
-            fileName: session.dirHistory.displayName,
-            canGoBack: session.dirHistory.index < session.dirHistory.entries.length - 1,
-            canGoForward: session.dirHistory.index > 0,
-            positionLabel: `${session.dirHistory.index + 1} / ${session.dirHistory.entries.length}`,
-            leftCommitLabel: `${entry.parentCommit.slice(0, 7)} ${entry.parentSummary}`.trim(),
-            leftTimestamp: entry.parentTimestamp,
-            rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
-            rightTimestamp: entry.timestamp
-        }
+        history
     });
 
     updateWindowTitle(`${session.dirHistory.displayName} Directory History`);
+}
+
+function buildDirectoryHistoryViewState(dirHistory, entry) {
+    return {
+        fileName: dirHistory.displayName,
+        canGoBack: dirHistory.index < dirHistory.entries.length - 1,
+        canGoForward: dirHistory.index > 0,
+        positionLabel: `${dirHistory.index + 1} / ${dirHistory.entries.length}`,
+        leftCommitLabel: `${entry.parentCommit.slice(0, 7)} ${entry.parentSummary}`.trim(),
+        leftTimestamp: entry.parentTimestamp,
+        rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
+        rightTimestamp: entry.timestamp
+    };
 }
 
 async function openDiff(leftPath, rightPath) {
@@ -1051,6 +1090,12 @@ async function openMultiDiff(filePaths) {
 }
 
 async function openDirectoryEntry(relativePath) {
+    if (session.mode === 'directory-history' && session.dirHistory && !relativePath.endsWith('/')) {
+        session.dirHistory.viewRelativePath = relativePath;
+        await sendCurrentDirectoryHistoryEntry();
+        return;
+    }
+
     if (session.mode !== 'directory' || !session.directory || relativePath.endsWith('/')) {
         return;
     }
