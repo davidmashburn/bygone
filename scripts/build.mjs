@@ -51,6 +51,15 @@ await build({
 
 await build({
     ...sharedOptions,
+    entryPoints: ['src/directoryDiff.ts'],
+    outfile: 'out/directoryDiff.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node16'
+});
+
+await build({
+    ...sharedOptions,
     entryPoints: ['media/webview-entry.js'],
     outfile: 'media/webview.js',
     platform: 'browser',

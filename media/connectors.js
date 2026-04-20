@@ -135,16 +135,13 @@
             }
 
             const rowsContainer = options.getElement('dir-rows');
-            const leftColumn = rowsContainer.querySelector('.dir-column-left');
-            const rightColumn = rowsContainer.querySelector('.dir-column-right');
-            if (!leftColumn || !rightColumn) {
+            const columns = Array.from(rowsContainer.querySelectorAll('.dir-column'));
+            if (columns.length < 2) {
                 return;
             }
 
             const containerRect = connectionCanvas.getBoundingClientRect();
             const rowsViewportRect = rowsContainer.getBoundingClientRect();
-            const leftRect = leftColumn.getBoundingClientRect();
-            const rightRect = rightColumn.getBoundingClientRect();
 
             canvasContext.save();
             canvasContext.beginPath();
@@ -156,60 +153,74 @@
             );
             canvasContext.clip();
 
-            entries.forEach((entry, index) => {
-                if (entry.status !== 'left-only' && entry.status !== 'right-only') {
-                    return;
-                }
+            for (let pairIndex = 0; pairIndex < columns.length - 1; pairIndex++) {
+                const leftRect = columns[pairIndex].getBoundingClientRect();
+                const rightRect = columns[pairIndex + 1].getBoundingClientRect();
 
-                const presentSide = entry.status === 'left-only' ? 'left' : 'right';
-                const absentSide = presentSide === 'left' ? 'right' : 'left';
-                const presentRow = findDirectoryRow(rowsContainer, entry.relativePath, presentSide);
+                entries.forEach((entry, index) => {
+                    const leftExists = directoryEntryExistsOnSide(entry, pairIndex);
+                    const rightExists = directoryEntryExistsOnSide(entry, pairIndex + 1);
+                    if (leftExists === rightExists) {
+                        return;
+                    }
 
-                if (!isVisibleDirectoryRow(presentRow)) {
-                    return;
-                }
+                    const presentSideIndex = leftExists ? pairIndex : pairIndex + 1;
+                    const absentSideIndex = leftExists ? pairIndex + 1 : pairIndex;
+                    const presentRow = findDirectoryRow(rowsContainer, entry.relativePath, presentSideIndex);
 
-                const boundaryY = getDirectoryBoundaryY(entries, index, absentSide, rowsContainer, absentSide === 'left' ? leftRect : rightRect, containerRect);
-                if (boundaryY === undefined) {
-                    return;
-                }
+                    if (!isVisibleDirectoryRow(presentRow)) {
+                        return;
+                    }
 
-                drawDirectoryAddConnector({
-                    presentSide,
-                    presentRect: presentRow.getBoundingClientRect(),
-                    absentY: boundaryY,
-                    leftRect,
-                    rightRect,
-                    containerRect
+                    const boundaryY = getDirectoryBoundaryY(
+                        entries,
+                        index,
+                        absentSideIndex,
+                        rowsContainer,
+                        leftExists ? rightRect : leftRect,
+                        containerRect
+                    );
+                    if (boundaryY === undefined) {
+                        return;
+                    }
+
+                    drawDirectoryAddConnector({
+                        presentIsLeft: leftExists,
+                        presentRect: presentRow.getBoundingClientRect(),
+                        absentY: boundaryY,
+                        leftRect,
+                        rightRect,
+                        containerRect
+                    });
                 });
-            });
+            }
 
             canvasContext.restore();
         }
 
-        function drawDirectoryAddConnector({ presentSide, presentRect, absentY, leftRect, rightRect, containerRect }) {
-            const presentColumnRect = presentSide === 'left' ? leftRect : rightRect;
-            const absentColumnRect = presentSide === 'left' ? rightRect : leftRect;
+        function drawDirectoryAddConnector({ presentIsLeft, presentRect, absentY, leftRect, rightRect, containerRect }) {
+            const presentColumnRect = presentIsLeft ? leftRect : rightRect;
+            const absentColumnRect = presentIsLeft ? rightRect : leftRect;
             const presentBounds = {
-                x: presentSide === 'left'
+                x: presentIsLeft
                     ? presentColumnRect.right - containerRect.left + 2
                     : presentColumnRect.left - containerRect.left - 2,
                 top: presentRect.top - containerRect.top + 1,
                 bottom: presentRect.bottom - containerRect.top - 1
             };
             const absentBounds = {
-                x: presentSide === 'left'
+                x: presentIsLeft
                     ? absentColumnRect.left - containerRect.left - 2
                     : absentColumnRect.right - containerRect.left + 2,
                 top: absentY,
                 bottom: absentY
             };
-            const leftBounds = presentSide === 'left' ? presentBounds : absentBounds;
-            const rightBounds = presentSide === 'left' ? absentBounds : presentBounds;
+            const leftBounds = presentIsLeft ? presentBounds : absentBounds;
+            const rightBounds = presentIsLeft ? absentBounds : presentBounds;
             const cpOffset = Math.abs(rightBounds.x - leftBounds.x) * 0.35;
             const gradient = canvasContext.createLinearGradient(leftBounds.x, 0, rightBounds.x, 0);
 
-            if (presentSide === 'left') {
+            if (presentIsLeft) {
                 gradient.addColorStop(0, DIRECTORY_ADD_COLOR.presentFill);
                 gradient.addColorStop(1, DIRECTORY_ADD_COLOR.absentFill);
             } else {
@@ -276,14 +287,18 @@
             return undefined;
         }
 
-        function directoryEntryExistsOnSide(entry, side) {
-            return side === 'left'
+        function directoryEntryExistsOnSide(entry, sideIndex) {
+            if (Array.isArray(entry.sides)) {
+                return Boolean(entry.sides[sideIndex]);
+            }
+
+            return sideIndex === 0
                 ? entry.status !== 'right-only'
                 : entry.status !== 'left-only';
         }
 
-        function findDirectoryRow(rowsContainer, relativePath, side) {
-            return Array.from(rowsContainer.querySelectorAll(`.dir-entry[data-side="${side}"]`))
+        function findDirectoryRow(rowsContainer, relativePath, sideIndex) {
+            return Array.from(rowsContainer.querySelectorAll(`.dir-entry[data-side-index="${sideIndex}"]`))
                 .find((row) => row.dataset.path === relativePath);
         }
 

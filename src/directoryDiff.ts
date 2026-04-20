@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-export type DirectoryEntryStatus = 'same' | 'left-only' | 'right-only';
+export type DirectoryEntryStatus = 'same' | 'modified' | 'left-only' | 'right-only' | 'partial';
 
 export interface DirectoryEntry {
     relativePath: string;
@@ -9,6 +9,7 @@ export interface DirectoryEntry {
     depth: number;
     isDirectory: boolean;
     status: DirectoryEntryStatus;
+    sides: boolean[];
 }
 
 function safeReadDir(dir: string): fs.Dirent[] {
@@ -20,23 +21,19 @@ function safeReadDir(dir: string): fs.Dirent[] {
 }
 
 function collectUnionEntries(
-    leftRoot: string,
-    rightRoot: string,
+    roots: string[],
     relativeDir: string,
     depth: number,
     result: DirectoryEntry[]
-): void {
-    const leftEntries = safeReadDir(path.join(leftRoot, relativeDir));
-    const rightEntries = safeReadDir(path.join(rightRoot, relativeDir));
+): boolean {
+    const maps = roots.map((root) => new Map(safeReadDir(path.join(root, relativeDir)).map(e => [e.name, e])));
+    let hasChanges = false;
 
-    const leftMap = new Map(leftEntries.map(e => [e.name, e]));
-    const rightMap = new Map(rightEntries.map(e => [e.name, e]));
-
-    const allNames = [...new Set([...leftMap.keys(), ...rightMap.keys()])]
+    const allNames = [...new Set(maps.flatMap((entryMap) => [...entryMap.keys()]))]
         .filter(name => !name.startsWith('.'))
         .sort((a, b) => {
-            const aIsDir = leftMap.get(a)?.isDirectory() ?? rightMap.get(a)?.isDirectory() ?? false;
-            const bIsDir = leftMap.get(b)?.isDirectory() ?? rightMap.get(b)?.isDirectory() ?? false;
+            const aIsDir = maps.some((entryMap) => entryMap.get(a)?.isDirectory() ?? false);
+            const bIsDir = maps.some((entryMap) => entryMap.get(b)?.isDirectory() ?? false);
             if (aIsDir !== bIsDir) {
                 return aIsDir ? -1 : 1;
             }
@@ -45,29 +42,77 @@ function collectUnionEntries(
 
     for (const name of allNames) {
         const relPath = relativeDir ? `${relativeDir}/${name}` : name;
-        const leftEntry = leftMap.get(name);
-        const rightEntry = rightMap.get(name);
-        const isDirectory = leftEntry?.isDirectory() ?? rightEntry?.isDirectory() ?? false;
-        const status: DirectoryEntryStatus =
-            leftEntry && rightEntry ? 'same' :
-            leftEntry ? 'left-only' : 'right-only';
+        const sideEntries = maps.map((entryMap) => entryMap.get(name));
+        const sides = sideEntries.map(Boolean);
+        const isDirectory = sideEntries.some((entry) => entry?.isDirectory() ?? false);
+        let childrenChanged = false;
 
         result.push({
             relativePath: isDirectory ? `${relPath}/` : relPath,
             displayName: name,
             depth,
             isDirectory,
-            status
+            status: 'same',
+            sides
         });
+        const entryIndex = result.length - 1;
 
         if (isDirectory) {
-            collectUnionEntries(leftRoot, rightRoot, relPath, depth + 1, result);
+            childrenChanged = collectUnionEntries(roots, relPath, depth + 1, result);
         }
+
+        const status = getEntryStatus(roots, relPath, sideEntries, sides, isDirectory, childrenChanged);
+        result[entryIndex].status = status;
+        hasChanges = hasChanges || status !== 'same';
+    }
+
+    return hasChanges;
+}
+
+function getEntryStatus(
+    roots: string[],
+    relativePath: string,
+    entries: Array<fs.Dirent | undefined>,
+    sides: boolean[],
+    isDirectory: boolean,
+    childrenChanged: boolean
+): DirectoryEntryStatus {
+    const presentCount = sides.filter(Boolean).length;
+
+    if (presentCount === 0) {
+        return 'same';
+    }
+
+    if (presentCount < roots.length) {
+        if (roots.length === 2) {
+            return sides[0] ? 'left-only' : 'right-only';
+        }
+        return 'partial';
+    }
+
+    if (isDirectory) {
+        const allDirectories = entries.every((entry) => entry?.isDirectory());
+        return allDirectories && !childrenChanged ? 'same' : 'modified';
+    }
+
+    return fileContentsEqual(roots.map((root) => path.join(root, relativePath))) ? 'same' : 'modified';
+}
+
+function fileContentsEqual(filePaths: string[]): boolean {
+    try {
+        const first = fs.readFileSync(filePaths[0]);
+        return filePaths.slice(1).every((filePath) => first.equals(fs.readFileSync(filePath)));
+    } catch {
+        return false;
     }
 }
 
 export function buildDirectoryComparison(leftDir: string, rightDir: string): DirectoryEntry[] {
+    return buildMultiDirectoryComparison([leftDir, rightDir]);
+}
+
+export function buildMultiDirectoryComparison(dirs: string[]): DirectoryEntry[] {
     const entries: DirectoryEntry[] = [];
-    collectUnionEntries(leftDir, rightDir, '', 0, entries);
+    collectUnionEntries(dirs, '', 0, entries);
     return entries;
 }

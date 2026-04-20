@@ -27,6 +27,7 @@ export interface ShowDirectoryDiffMessage {
     type: 'showDirectoryDiff';
     leftLabel: string;
     rightLabel: string;
+    labels?: string[];
     entries: DirectoryEntry[];
 }
 
@@ -85,7 +86,12 @@ export interface HistoryNavigationMessage {
     type: 'historyBack' | 'historyForward';
 }
 
-export type WebviewInboundMessage = ReadyMessage | RecomputeDiffMessage | HistoryNavigationMessage;
+export interface OpenDirectoryEntryMessage {
+    type: 'openDirectoryEntry';
+    relativePath: string;
+}
+
+export type WebviewInboundMessage = ReadyMessage | RecomputeDiffMessage | HistoryNavigationMessage | OpenDirectoryEntryMessage;
 export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
 
 export function isReadyMessage(message: unknown): message is ReadyMessage {
@@ -100,6 +106,11 @@ export function isRecomputeDiffMessage(message: unknown): message is RecomputeDi
 
 export function isHistoryNavigationMessage(message: unknown): message is HistoryNavigationMessage {
     return getMessageType(message) === 'historyBack' || getMessageType(message) === 'historyForward';
+}
+
+export function isOpenDirectoryEntryMessage(message: unknown): message is OpenDirectoryEntryMessage {
+    return getMessageType(message) === 'openDirectoryEntry'
+        && typeof (message as OpenDirectoryEntryMessage).relativePath === 'string';
 }
 
 function getMessageType(message: unknown): string | undefined {

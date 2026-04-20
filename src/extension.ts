@@ -16,6 +16,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.registerUriHandler(uriHandler),
         registerCommand('bygone.compareFiles', () => fileComparator.selectAndCompareFiles()),
         registerCommand('bygone.compareDirectories', () => fileComparator.selectAndCompareDirectories()),
+        registerCommand('bygone.compareThreeDirectories', () => fileComparator.selectAndCompareThreeDirectories()),
         registerCommand('bygone.compareThreeFiles', () => fileComparator.compareThreeFiles()),
         registerCommand('bygone.compareWithSelected', (resource: vscode.Uri) => fileComparator.compareWithSelected(resource)),
         registerCommand('bygone.compareTestFiles', () => fileComparator.compareTestFiles()),

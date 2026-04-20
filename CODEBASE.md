@@ -385,7 +385,7 @@ The webview was moved away from Monaco’s shipped AMD runtime tree and into bun
 
 ### 1. Directory compare depth
 
-Directory compare currently models presence/absence well, but does not yet classify modified files or drill down from a directory row into a file diff.
+Directory compare now classifies modified files and can drill down into file diffs, including adjacent multi-panel diffs from three-directory comparisons. Deep tree ergonomics and richer filtering are still early.
 
 ### 2. Webview size
 
@@ -420,6 +420,6 @@ Good rule:
 If this codebase keeps growing, the best next improvements are:
 
 1. Add extension-host integration tests for command and provider flows.
-2. Add modified-file detection and file drill-down to directory compare.
+2. Add filtering, search, and collapse-state persistence to directory compare.
 3. Add working-tree vs `HEAD` support to file history.
 4. Add release automation for build, package, and smoke validation.

@@ -6,6 +6,7 @@ import {
     DirectoryEntry,
     HistoryViewState,
     isHistoryNavigationMessage,
+    isOpenDirectoryEntryMessage,
     isReadyMessage,
     isRecomputeDiffMessage,
     ShowDiffMessage,
@@ -26,11 +27,16 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         file2: string;
     };
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
+    private directoryEntryOpenHandler?: (relativePath: string) => void;
 
     constructor(private readonly extensionUri: vscode.Uri) {}
 
     public setHistoryNavigationHandler(handler: (direction: 'back' | 'forward') => void): void {
         this.historyNavigationHandler = handler;
+    }
+
+    public setDirectoryEntryOpenHandler(handler: (relativePath: string) => void): void {
+        this.directoryEntryOpenHandler = handler;
     }
 
     public resolveWebviewView(
@@ -62,6 +68,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
             if (isHistoryNavigationMessage(message) && this.historyNavigationHandler) {
                 this.historyNavigationHandler(message.type === 'historyBack' ? 'back' : 'forward');
+            }
+
+            if (isOpenDirectoryEntryMessage(message) && this.directoryEntryOpenHandler) {
+                this.directoryEntryOpenHandler(message.relativePath);
             }
         });
         webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
@@ -123,7 +133,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    public async showDirectoryDiff(dir1: vscode.Uri, dir2: vscode.Uri, entries: DirectoryEntry[]) {
+    public async showDirectoryDiff(dirs: vscode.Uri[], entries: DirectoryEntry[]) {
         const view = await this.revealView();
         if (!view) {
             vscode.window.showWarningMessage('Bygone view is unavailable.');
@@ -134,8 +144,9 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
         this.postOrQueueMessage({
             type: 'showDirectoryDiff',
-            leftLabel: path.basename(dir1.path),
-            rightLabel: path.basename(dir2.path),
+            leftLabel: path.basename(dirs[0].path),
+            rightLabel: path.basename(dirs[1].path),
+            labels: dirs.map((dir) => path.basename(dir.path)),
             entries
         } satisfies ShowDirectoryDiffMessage);
     }

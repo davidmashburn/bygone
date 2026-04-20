@@ -4,6 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { buildTwoWayDiffModel, mergeText } = require('../out/diffEngine.js');
+const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
 
 function testTwoWayDiffAlignsInsertions() {
@@ -73,6 +74,66 @@ function testPureDeleteHasNoInlineSegments() {
 
     assert.equal(model.blocks[0].kind, 'delete');
     assert.equal(model.leftLines[1].segments, undefined);
+}
+
+function testDirectoryDiffDetectsModifiedFiles() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-directory-test-'));
+    const left = path.join(root, 'left');
+    const right = path.join(root, 'right');
+
+    fs.mkdirSync(path.join(left, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(right, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(left, 'src', 'app.js'), 'const value = 1;\n', 'utf8');
+    fs.writeFileSync(path.join(right, 'src', 'app.js'), 'const value = 2;\n', 'utf8');
+    fs.writeFileSync(path.join(left, 'only-left.txt'), 'left\n', 'utf8');
+
+    const entries = buildDirectoryComparison(left, right);
+    const appEntry = entries.find((entry) => entry.relativePath === 'src/app.js');
+    const srcEntry = entries.find((entry) => entry.relativePath === 'src/');
+    const leftOnlyEntry = entries.find((entry) => entry.relativePath === 'only-left.txt');
+
+    assert.equal(appEntry?.status, 'modified');
+    assert.deepEqual(appEntry?.sides, [true, true]);
+    assert.equal(srcEntry?.status, 'modified');
+    assert.equal(leftOnlyEntry?.status, 'left-only');
+}
+
+function testMultiDirectoryDiffDetectsPartialAndModifiedFiles() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-directory-test-'));
+    const dirs = ['left', 'middle', 'right'].map((name) => path.join(root, name));
+
+    for (const dir of dirs) {
+        fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    }
+
+    fs.writeFileSync(path.join(dirs[0], 'src', 'app.js'), 'const value = 1;\n', 'utf8');
+    fs.writeFileSync(path.join(dirs[1], 'src', 'app.js'), 'const value = 2;\n', 'utf8');
+    fs.writeFileSync(path.join(dirs[2], 'src', 'app.js'), 'const value = 3;\n', 'utf8');
+    fs.writeFileSync(path.join(dirs[0], 'left-only.txt'), 'left\n', 'utf8');
+
+    const entries = buildMultiDirectoryComparison(dirs);
+    const appEntry = entries.find((entry) => entry.relativePath === 'src/app.js');
+    const partialEntry = entries.find((entry) => entry.relativePath === 'left-only.txt');
+
+    assert.equal(appEntry?.status, 'modified');
+    assert.deepEqual(appEntry?.sides, [true, true, true]);
+    assert.equal(partialEntry?.status, 'partial');
+    assert.deepEqual(partialEntry?.sides, [true, false, false]);
+}
+
+function testDirectoryDiffLeavesIdenticalFilesSame() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-directory-test-'));
+    const left = path.join(root, 'left');
+    const right = path.join(root, 'right');
+
+    fs.mkdirSync(left, { recursive: true });
+    fs.mkdirSync(right, { recursive: true });
+    fs.writeFileSync(path.join(left, 'same.txt'), 'same\n', 'utf8');
+    fs.writeFileSync(path.join(right, 'same.txt'), 'same\n', 'utf8');
+
+    const entries = buildDirectoryComparison(left, right);
+
+    assert.equal(entries.find((entry) => entry.relativePath === 'same.txt')?.status, 'same');
 }
 
 function testMergeAcceptsOneSidedChange() {
@@ -171,6 +232,9 @@ function run() {
     testInlineHighlightsWhitespaceSensitiveChange();
     testInlineHighlightsOnlyPairedReplaceLines();
     testPureDeleteHasNoInlineSegments();
+    testDirectoryDiffDetectsModifiedFiles();
+    testMultiDirectoryDiffDetectsPartialAndModifiedFiles();
+    testDirectoryDiffLeavesIdenticalFilesSame();
     testMergeAcceptsOneSidedChange();
     testMergeAcceptsMatchingChanges();
     testMergeCreatesConflictForDivergentEdits();

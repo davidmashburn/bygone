@@ -60,7 +60,7 @@ host.onMessage((message) => {
     }
 
     if (message.type === 'showDirectoryDiff') {
-        showDirectoryDiff(message.leftLabel, message.rightLabel, message.entries);
+        showDirectoryDiff(message.leftLabel, message.rightLabel, message.entries, message.labels);
         return;
     }
 
@@ -143,7 +143,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     connectorController.scheduleDrawConnections();
 }
 
-function showDirectoryDiff(leftLabel, rightLabel, entries) {
+function showDirectoryDiff(leftLabel, rightLabel, entries, labels) {
     currentMode = 'directory';
     historyMode = false;
     diffBlocks = [];
@@ -154,14 +154,14 @@ function showDirectoryDiff(leftLabel, rightLabel, entries) {
     disposeMultiEditors();
     updateHistoryToolbar(null);
 
+    const directoryLabels = Array.isArray(labels) && labels.length >= 2 ? labels : [leftLabel, rightLabel];
+
     toggleView(VIEW_IDS.directory);
     setStatus('', false);
-    setTextContent('file-info', `Comparing directories ${leftLabel} and ${rightLabel}`);
-    setTextContent('dir-left-header', leftLabel);
-    setTextContent('dir-right-header', rightLabel);
+    setTextContent('file-info', `Comparing directories ${directoryLabels.join(' and ')}`);
 
     resetDirectoryView();
-    renderDirectoryView(getElement('dir-rows'), directoryEntries);
+    renderDirectoryView(getElement('dir-rows'), directoryEntries, directoryLabels);
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
 }
@@ -620,6 +620,17 @@ function initializeDirectoryViewEvents() {
     });
     container.addEventListener('bygone:directory-layout-change', () => {
         connectorController.scheduleDrawConnections();
+    });
+    container.addEventListener('bygone:directory-open-entry', (event) => {
+        const relativePath = event.detail?.relativePath;
+        if (typeof relativePath !== 'string') {
+            return;
+        }
+
+        host.postMessage({
+            type: 'openDirectoryEntry',
+            relativePath
+        });
     });
 }
 

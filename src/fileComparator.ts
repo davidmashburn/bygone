@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DiffViewProvider } from './diffViewProvider';
 import { buildTwoWayDiffModel } from './diffEngine';
-import { buildDirectoryComparison } from './directoryDiff';
+import { buildMultiDirectoryComparison } from './directoryDiff';
 import { openDiffPreview } from './fallbackViews';
 import { FileHistoryEntry, GitHistoryService } from './gitHistory';
 import { createJavaScriptSampleFilePair } from './sampleFiles';
@@ -15,12 +15,16 @@ export class FileComparator {
     private fileHistoryEntries: FileHistoryEntry[] = [];
     private fileHistoryIndex = 0;
     private activeHistoryFile: vscode.Uri | undefined;
+    private currentDirectoryRoots: vscode.Uri[] = [];
     private readonly gitHistoryService = new GitHistoryService();
 
     public setDiffViewProvider(provider: DiffViewProvider) {
         this.diffViewProvider = provider;
         this.diffViewProvider.setHistoryNavigationHandler((direction) => {
             void this.navigateFileHistory(direction);
+        });
+        this.diffViewProvider.setDirectoryEntryOpenHandler((relativePath) => {
+            void this.openDirectoryEntry(relativePath);
         });
     }
 
@@ -122,19 +126,32 @@ export class FileComparator {
 
     public async selectAndCompareDirectories(): Promise<void> {
         try {
-            const dir1 = await this.selectDirectory('Select left directory to compare');
-            if (!dir1) {
+            const leftDir = await this.selectDirectory('Select left directory to compare');
+            if (!leftDir) {
                 return;
             }
 
-            const dir2 = await this.selectDirectory('Select right directory to compare');
-            if (!dir2) {
+            const rightDir = await this.selectDirectory('Select right directory to compare');
+            if (!rightDir) {
                 return;
             }
 
-            await this.compareDirectories(dir1, dir2);
+            await this.compareDirectories([leftDir, rightDir]);
         } catch (error) {
             this.showErrorMessage('Error comparing directories', error);
+        }
+    }
+
+    public async selectAndCompareThreeDirectories(): Promise<void> {
+        try {
+            const dirs = await this.selectDirectories('Select three directories to compare', 3);
+            if (!dirs) {
+                return;
+            }
+
+            await this.compareDirectories(dirs);
+        } catch (error) {
+            this.showErrorMessage('Error comparing three directories', error);
         }
     }
 
@@ -149,7 +166,7 @@ export class FileComparator {
             }
 
             if (leftKind === 'directory' && rightKind === 'directory') {
-                await this.compareDirectories(vscode.Uri.file(leftPath), vscode.Uri.file(rightPath));
+                await this.compareDirectories([vscode.Uri.file(leftPath), vscode.Uri.file(rightPath)]);
                 return;
             }
 
@@ -194,12 +211,26 @@ export class FileComparator {
         return result?.[0];
     }
 
-    private async compareDirectories(dir1: vscode.Uri, dir2: vscode.Uri): Promise<void> {
-        const entries = buildDirectoryComparison(dir1.fsPath, dir2.fsPath);
+    private async selectDirectories(prompt: string, count: number): Promise<vscode.Uri[] | undefined> {
+        const options: vscode.OpenDialogOptions = {
+            canSelectMany: true,
+            canSelectFolders: true,
+            canSelectFiles: false,
+            openLabel: 'Compare',
+            title: prompt
+        };
+
+        const dirs = await vscode.window.showOpenDialog(options);
+        return dirs && dirs.length === count ? dirs : undefined;
+    }
+
+    private async compareDirectories(dirs: vscode.Uri[]): Promise<void> {
+        const entries = buildMultiDirectoryComparison(dirs.map((dir) => dir.fsPath));
+        this.currentDirectoryRoots = dirs;
         this.clearFileHistoryState();
 
         if (this.diffViewProvider) {
-            this.diffViewProvider.showDirectoryDiff(dir1, dir2, entries);
+            this.diffViewProvider.showDirectoryDiff(dirs, entries);
         }
     }
 
@@ -225,6 +256,28 @@ export class FileComparator {
                 content: this.readFileContent(uri)
             })));
         }
+    }
+
+    private async openDirectoryEntry(relativePath: string): Promise<void> {
+        if (this.currentDirectoryRoots.length < 2 || relativePath.endsWith('/')) {
+            return;
+        }
+
+        const files = this.currentDirectoryRoots
+            .map((root) => vscode.Uri.file(path.join(root.fsPath, relativePath)))
+            .filter((uri) => this.getPathKind(uri.fsPath) === 'file');
+
+        if (files.length < 2) {
+            vscode.window.showInformationMessage('That entry only exists on one side.');
+            return;
+        }
+
+        if (files.length === 2) {
+            await this.compareFiles(files[0], files[1]);
+            return;
+        }
+
+        await this.compareMultipleFiles(files);
     }
 
     private async navigateFileHistory(direction: 'back' | 'forward'): Promise<void> {

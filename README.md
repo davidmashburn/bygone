@@ -109,8 +109,8 @@ The standalone smoke check is intentionally run directly because Electron can ab
 In the standalone window, you can also drag and drop:
 
 - 1 file to open git history for that file
-- 2 files to open a side-by-side diff
-- 3 files to open a prototype three-panel diff
+- 2 files or directories to open a side-by-side compare
+- 3 files or directories to open a prototype three-panel compare
 
 ## Git Difftool
 
@@ -157,6 +157,7 @@ The wrapper scripts are:
 
 - `Bygone: Compare Files`
 - `Bygone: Compare Directories`
+- `Bygone: Compare Three Directories (Prototype)`
 - `Bygone: Compare Three Files (Prototype)`
 - `Bygone: Compare with Selected`
 - `Bygone: Compare Test Files`
@@ -166,7 +167,7 @@ The wrapper scripts are:
 ## Limitations
 
 - Bygone is intentionally diff-focused; merge tooling is not exposed as a product feature.
-- Directory compare currently focuses on presence/absence and does not yet drill down into modified files.
+- Directory compare supports modified-file detection and file drill-down; deep tree ergonomics are still early.
 - The git history viewer currently steps through single-parent commit history for one file at a time.
 - Marketplace publishing metadata is not finalized yet.
 

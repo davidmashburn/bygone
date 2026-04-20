@@ -514,14 +514,7 @@ body.web-host {
 
 .dir-column {
     min-width: 0;
-}
-
-.dir-column-left {
-    border-right: 1px solid color-mix(in srgb, var(--vscode-panel-border) 40%, transparent);
-}
-
-.dir-column-right {
-    border-left: 1px solid color-mix(in srgb, var(--vscode-panel-border) 40%, transparent);
+    border-inline: 1px solid color-mix(in srgb, var(--vscode-panel-border) 40%, transparent);
 }
 
 .dir-gutter {
@@ -544,13 +537,22 @@ body.web-host {
     cursor: pointer;
 }
 
-.dir-entry[data-is-dir="true"]:hover {
+.dir-entry[data-is-dir="false"] {
+    cursor: pointer;
+}
+
+.dir-entry:hover {
     background: color-mix(in srgb, var(--vscode-panel-border) 20%, transparent);
 }
 
 .dir-entry--left-only,
-.dir-entry--right-only {
+.dir-entry--right-only,
+.dir-entry--partial {
     background: rgba(73, 190, 119, 0.08);
+}
+
+.dir-entry--modified {
+    background: rgba(65, 132, 214, 0.08);
 }
 
 .dir-entry-content {
@@ -592,8 +594,13 @@ body.web-host {
 }
 
 .dir-entry--left-only .dir-name,
-.dir-entry--right-only .dir-name {
+.dir-entry--right-only .dir-name,
+.dir-entry--partial .dir-name {
     color: rgba(73, 190, 119, 0.92);
+}
+
+.dir-entry--modified .dir-name {
+    color: rgba(65, 132, 214, 0.95);
 }
 
 @media (max-width: 1200px) {

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added modified-file detection and drill-down for directory comparisons
+- Added prototype three-directory comparison with adjacent multi-panel file drill-down
+
 ## 0.2.0
 
 - Added working tree vs `HEAD` as the newest git file history step

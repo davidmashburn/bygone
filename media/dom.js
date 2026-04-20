@@ -72,17 +72,32 @@
         collapsedDirs.clear();
     }
 
-    function renderDirectoryView(container, entries) {
-        const leftRows = entries
-            .filter((entry) => entry.status !== 'right-only')
-            .map((entry) => renderDirectoryEntry(entry, 'left'));
-        const rightRows = entries
-            .filter((entry) => entry.status !== 'left-only')
-            .map((entry) => renderDirectoryEntry(entry, 'right'));
+    function renderDirectoryView(container, entries, labels = ['Left', 'Right']) {
+        const columnTemplate = labels.map(() => 'minmax(0, 1fr)').join(' 96px ');
+        const view = container.closest('.dir-view');
+        const headers = view?.querySelector('.dir-headers');
 
-        container.innerHTML = `<div class="dir-column dir-column-left">${leftRows.join('')}</div>`
-            + '<div class="dir-gutter" aria-hidden="true"></div>'
-            + `<div class="dir-column dir-column-right">${rightRows.join('')}</div>`;
+        if (headers) {
+            headers.style.gridTemplateColumns = columnTemplate;
+            headers.innerHTML = labels.map((label, index) => {
+                const header = `<div class="dir-col-header">${escapeHtml(label)}</div>`;
+                return index < labels.length - 1
+                    ? `${header}<div class="dir-header-gutter" aria-hidden="true"></div>`
+                    : header;
+            }).join('');
+        }
+
+        container.style.gridTemplateColumns = columnTemplate;
+        container.innerHTML = labels.map((_label, sideIndex) => {
+            const rows = entries
+                .filter((entry) => directoryEntryExistsOnSide(entry, sideIndex))
+                .map((entry) => renderDirectoryEntry(entry, sideIndex));
+
+            const column = `<div class="dir-column" data-side-index="${sideIndex}">${rows.join('')}</div>`;
+            return sideIndex < labels.length - 1
+                ? `${column}<div class="dir-gutter" aria-hidden="true"></div>`
+                : column;
+        }).join('');
 
         // Wire up directory fold toggles
         container.querySelectorAll('.dir-entry[data-is-dir="true"]').forEach((row) => {
@@ -97,28 +112,51 @@
             });
         });
 
+        container.querySelectorAll('.dir-entry[data-is-dir="false"]').forEach((row) => {
+            row.addEventListener('click', () => {
+                const relativePath = row.dataset.path;
+                if (!relativePath) {
+                    return;
+                }
+
+                container.dispatchEvent(new CustomEvent('bygone:directory-open-entry', {
+                    detail: { relativePath }
+                }));
+            });
+        });
+
         container.dispatchEvent(new CustomEvent('bygone:directory-layout-change'));
     }
 
-    function renderDirectoryEntry(entry, side) {
-            const indent = '\u00a0\u00a0'.repeat(entry.depth); // non-breaking spaces for indentation
-            const isDir = entry.isDirectory;
-            const nameClass = isDir ? 'dir-name dir-name--dir' : 'dir-name';
-            const displayText = isDir ? entry.displayName + '/' : entry.displayName;
+    function renderDirectoryEntry(entry, sideIndex) {
+        const indent = '\u00a0\u00a0'.repeat(entry.depth); // non-breaking spaces for indentation
+        const isDir = entry.isDirectory;
+        const nameClass = isDir ? 'dir-name dir-name--dir' : 'dir-name';
+        const displayText = isDir ? entry.displayName + '/' : entry.displayName;
 
-            const toggleHtml = isDir
-                ? `<span class="dir-toggle" aria-label="toggle">▼</span>`
-                : `<span class="dir-toggle dir-toggle--spacer"></span>`;
+        const toggleHtml = isDir
+            ? `<span class="dir-toggle" aria-label="toggle">▼</span>`
+            : `<span class="dir-toggle dir-toggle--spacer"></span>`;
 
-            const cellContent = `${toggleHtml}<span class="dir-indent">${indent}</span><span class="${nameClass}">${escapeHtml(displayText)}</span>`;
+        const cellContent = `${toggleHtml}<span class="dir-indent">${indent}</span><span class="${nameClass}">${escapeHtml(displayText)}</span>`;
 
-            return `<div class="dir-entry dir-entry--${entry.status}" `
-                + `data-path="${escapeAttr(entry.relativePath)}" `
-                + `data-depth="${entry.depth}" `
-                + `data-side="${side}" `
-                + `data-is-dir="${isDir}">`
-                + `<div class="dir-entry-content">${cellContent}</div>`
-                + `</div>`;
+        return `<div class="dir-entry dir-entry--${entry.status}" `
+            + `data-path="${escapeAttr(entry.relativePath)}" `
+            + `data-depth="${entry.depth}" `
+            + `data-side-index="${sideIndex}" `
+            + `data-is-dir="${isDir}">`
+            + `<div class="dir-entry-content">${cellContent}</div>`
+            + `</div>`;
+    }
+
+    function directoryEntryExistsOnSide(entry, sideIndex) {
+        if (Array.isArray(entry.sides)) {
+            return Boolean(entry.sides[sideIndex]);
+        }
+
+        return sideIndex === 0
+            ? entry.status !== 'right-only'
+            : entry.status !== 'left-only';
     }
 
     function toggleDirRow(container, dirPath) {
