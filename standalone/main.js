@@ -722,7 +722,8 @@ async function openDirectories(dirs) {
             dirs: resolvedDirs,
             labels: resolvedDirs.map((dir) => path.basename(dir))
         },
-        multi: null
+        multi: null,
+        dirHistory: null
     };
 
     clearWatchers();
@@ -736,47 +737,113 @@ async function openDirectoryHistory(dirPath) {
         return;
     }
 
-    let repoRoot;
+    let historyState;
     try {
-        repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], resolvedDir));
-    } catch {
-        await showInfo('Directory history requires a Git repository.');
-        return;
-    }
-
-    const realDir = fs.realpathSync(resolvedDir);
-    const relativeDir = path.relative(repoRoot, realDir).replace(/\\/g, '/');
-    const headRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-head-'));
-    const workingRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-worktree-'));
-    const headDir = path.join(headRoot, relativeDir);
-    const workingDir = path.join(workingRoot, relativeDir);
-
-    try {
-        materializeGitTree(repoRoot, relativeDir, headRoot);
-        materializeWorkingTree(repoRoot, relativeDir, workingRoot);
+        historyState = buildDirectoryHistory(resolvedDir);
     } catch (error) {
         await showError(`Error loading directory history: ${getErrorMessage(error)}`);
         return;
     }
 
+    if (historyState.entries.length === 0) {
+        await showInfo('No git history with parents was found for that directory.');
+        return;
+    }
+
     session = {
-        mode: 'directory',
-        left: createSideState(headDir, ''),
-        right: createSideState(workingDir, ''),
+        mode: 'directory-history',
+        left: createSideState('', ''),
+        right: createSideState('', ''),
         history: null,
-        directory: {
-            dirs: [headDir, workingDir],
-            labels: [`${path.basename(realDir)} @ HEAD`, `${path.basename(realDir)} @ Working Tree`]
-        },
-        multi: null
+        directory: null,
+        multi: null,
+        dirHistory: historyState
     };
 
     clearWatchers();
-    await sendCurrentDirectoryDiff();
+    await sendCurrentDirectoryHistoryEntry();
 }
 
-function materializeGitTree(repoRoot, relativeDir, targetRoot) {
-    const lsArgs = ['ls-tree', '-r', '--name-only', 'HEAD'];
+function buildDirectoryHistory(resolvedDir) {
+    const repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], resolvedDir));
+    const realDir = fs.realpathSync(resolvedDir);
+    const relativeDir = path.relative(repoRoot, realDir).replace(/\\/g, '/');
+    const displayName = path.basename(realDir) || path.basename(repoRoot);
+    const commitRecords = parseGitHistoryRecords(runGit(
+        ['log', '--format=%H%x09%h%x09%cI%x09%s', '--', relativeDir || '.'],
+        repoRoot
+    ));
+    const entries = [];
+    const workingTreeEntry = buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayName);
+
+    if (workingTreeEntry) {
+        entries.push(workingTreeEntry);
+    }
+
+    for (const commit of commitRecords) {
+        const parentCommit = readPrimaryParent(repoRoot, commit.commit);
+        if (!parentCommit) {
+            continue;
+        }
+
+        const parentRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-dir-parent-'));
+        const commitRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-dir-commit-'));
+
+        materializeGitTree(repoRoot, relativeDir, parentRoot, parentCommit);
+        materializeGitTree(repoRoot, relativeDir, commitRoot, commit.commit);
+
+        entries.push({
+            commit: commit.commit,
+            parentCommit,
+            shortCommit: commit.shortCommit,
+            summary: commit.summary,
+            timestamp: commit.timestamp,
+            parentSummary: readCommitSummary(repoRoot, parentCommit),
+            parentTimestamp: readCommitTimestamp(repoRoot, parentCommit),
+            dirs: [path.join(parentRoot, relativeDir), path.join(commitRoot, relativeDir)],
+            labels: [`${displayName} @ ${parentCommit.slice(0, 7)}`, `${displayName} @ ${commit.shortCommit}`]
+        });
+    }
+
+    return {
+        dirPath: realDir,
+        displayName,
+        entries,
+        index: 0
+    };
+}
+
+function buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayName) {
+    const headCommit = readHeadCommit(repoRoot);
+    if (!headCommit || !hasWorkingTreeDirectoryChanges(repoRoot, relativeDir)) {
+        return undefined;
+    }
+
+    const headRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-dir-head-'));
+    const workingRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-dir-worktree-'));
+
+    materializeGitTree(repoRoot, relativeDir, headRoot, headCommit);
+    materializeWorkingTree(repoRoot, relativeDir, workingRoot);
+
+    return {
+        commit: 'WORKTREE',
+        parentCommit: headCommit,
+        shortCommit: 'Working Tree',
+        summary: '',
+        timestamp: '',
+        parentSummary: readCommitSummary(repoRoot, headCommit),
+        parentTimestamp: readCommitTimestamp(repoRoot, headCommit),
+        dirs: [path.join(headRoot, relativeDir), path.join(workingRoot, relativeDir)],
+        labels: [`${displayName} @ HEAD`, `${displayName} @ Working Tree`]
+    };
+}
+
+function hasWorkingTreeDirectoryChanges(repoRoot, relativeDir) {
+    return runGit(['status', '--porcelain', '--', relativeDir || '.'], repoRoot).trim().length > 0;
+}
+
+function materializeGitTree(repoRoot, relativeDir, targetRoot, commit = 'HEAD') {
+    const lsArgs = ['ls-tree', '-r', '--name-only', commit];
     if (relativeDir) {
         lsArgs.push('--', relativeDir);
     }
@@ -789,7 +856,7 @@ function materializeGitTree(repoRoot, relativeDir, targetRoot) {
     for (const relativeFile of files) {
         const targetFile = path.join(targetRoot, relativeFile);
         fs.mkdirSync(path.dirname(targetFile), { recursive: true });
-        fs.writeFileSync(targetFile, readGitBlob(repoRoot, 'HEAD', relativeFile));
+        fs.writeFileSync(targetFile, readGitBlob(repoRoot, commit, relativeFile));
     }
 }
 
@@ -834,6 +901,35 @@ async function sendCurrentDirectoryDiff() {
     updateWindowTitle(session.directory.labels.join(' ↔ '));
 }
 
+async function sendCurrentDirectoryHistoryEntry() {
+    if (session.mode !== 'directory-history' || !session.dirHistory) {
+        return;
+    }
+
+    const entry = session.dirHistory.entries[session.dirHistory.index];
+    const entries = buildMultiDirectoryComparison(entry.dirs);
+
+    postOrQueue({
+        type: 'showDirectoryDiff',
+        leftLabel: entry.labels[0],
+        rightLabel: entry.labels[1],
+        labels: entry.labels,
+        entries,
+        history: {
+            fileName: session.dirHistory.displayName,
+            canGoBack: session.dirHistory.index < session.dirHistory.entries.length - 1,
+            canGoForward: session.dirHistory.index > 0,
+            positionLabel: `${session.dirHistory.index + 1} / ${session.dirHistory.entries.length}`,
+            leftCommitLabel: `${entry.parentCommit.slice(0, 7)} ${entry.parentSummary}`.trim(),
+            leftTimestamp: entry.parentTimestamp,
+            rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
+            rightTimestamp: entry.timestamp
+        }
+    });
+
+    updateWindowTitle(`${session.dirHistory.displayName} Directory History`);
+}
+
 async function openDiff(leftPath, rightPath) {
     const resolvedLeft = path.resolve(leftPath);
     const resolvedRight = path.resolve(rightPath);
@@ -846,7 +942,8 @@ async function openDiff(leftPath, rightPath) {
         right: createSideState(resolvedRight, rightContent),
         history: null,
         directory: null,
-        multi: null
+        multi: null,
+        dirHistory: null
     };
 
     updateWatchers();
@@ -879,7 +976,8 @@ async function openHistory(filePath) {
             index: 0
         },
         directory: null,
-        multi: null
+        multi: null,
+        dirHistory: null
     };
 
     clearWatchers();
@@ -944,7 +1042,8 @@ async function openMultiDiff(filePaths) {
                 label: path.basename(filePath),
                 content: readFileContent(filePath)
             }))
-        }
+        },
+        dirHistory: null
     };
 
     clearWatchers();
@@ -1009,6 +1108,11 @@ async function sendCurrentSession() {
 
     if (session.mode === 'directory') {
         await sendCurrentDirectoryDiff();
+        return;
+    }
+
+    if (session.mode === 'directory-history') {
+        await sendCurrentDirectoryHistoryEntry();
         return;
     }
 
@@ -1103,6 +1207,19 @@ async function sendCurrentHistoryEntry() {
 }
 
 async function navigateHistory(direction) {
+    if (session.mode === 'directory-history' && session.dirHistory) {
+        if (direction === 'back' && session.dirHistory.index < session.dirHistory.entries.length - 1) {
+            session.dirHistory.index += 1;
+        } else if (direction === 'forward' && session.dirHistory.index > 0) {
+            session.dirHistory.index -= 1;
+        } else {
+            return;
+        }
+
+        await sendCurrentDirectoryHistoryEntry();
+        return;
+    }
+
     if (session.mode !== 'history' || !session.history) {
         return;
     }
@@ -1291,7 +1408,8 @@ function createEmptySession() {
         right: createSideState('', ''),
         history: null,
         directory: null,
-        multi: null
+        multi: null,
+        dirHistory: null
     };
 }
 
@@ -1314,6 +1432,47 @@ function runGit(args, cwd) {
         cwd,
         encoding: 'utf8'
     }).trimEnd();
+}
+
+function readHeadCommit(repoRoot) {
+    try {
+        return runGit(['rev-parse', 'HEAD'], repoRoot);
+    } catch {
+        return undefined;
+    }
+}
+
+function readPrimaryParent(repoRoot, commit) {
+    const parents = runGit(['rev-list', '--parents', '-n', '1', commit], repoRoot)
+        .trim()
+        .split(' ')
+        .slice(1);
+
+    return parents[0];
+}
+
+function readCommitSummary(repoRoot, commit) {
+    return runGit(['show', '-s', '--format=%s', commit], repoRoot);
+}
+
+function readCommitTimestamp(repoRoot, commit) {
+    return runGit(['show', '-s', '--format=%cI', commit], repoRoot);
+}
+
+function parseGitHistoryRecords(logOutput) {
+    return logOutput
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .map((line) => {
+            const [commit, shortCommit, timestamp, ...summaryParts] = line.split('\t');
+            return {
+                commit,
+                shortCommit,
+                timestamp,
+                summary: summaryParts.join('\t')
+            };
+        });
 }
 
 function readGitBlob(repoRoot, commit, relativePath) {

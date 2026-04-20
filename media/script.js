@@ -62,7 +62,7 @@ host.onMessage((message) => {
     }
 
     if (message.type === 'showDirectoryDiff') {
-        showDirectoryDiff(message.leftLabel, message.rightLabel, message.entries, message.labels);
+        showDirectoryDiff(message.leftLabel, message.rightLabel, message.entries, message.labels, message.history || null);
         return;
     }
 
@@ -149,7 +149,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     connectorController.scheduleDrawConnections();
 }
 
-function showDirectoryDiff(leftLabel, rightLabel, entries, labels) {
+function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     currentMode = 'directory';
     historyMode = false;
     currentDiffModel = null;
@@ -160,7 +160,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels) {
     directoryEntries = entries || [];
     disposeTwoWayEditors();
     disposeMultiEditors();
-    updateHistoryToolbar(null);
+    updateHistoryToolbar(history);
     updateChangeToolbarState();
 
     const directoryLabels = Array.isArray(labels) && labels.length >= 2 ? labels : [leftLabel, rightLabel];

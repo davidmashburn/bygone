@@ -29,6 +29,7 @@ export interface ShowDirectoryDiffMessage {
     rightLabel: string;
     labels?: string[];
     entries: DirectoryEntry[];
+    history?: (HistoryViewState & { fileName: string }) | null;
 }
 
 export interface MultiDiffPanel {
