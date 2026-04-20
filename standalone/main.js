@@ -913,22 +913,25 @@ async function sendCurrentDirectoryHistoryEntry() {
     if (session.dirHistory.viewRelativePath) {
         const relativePath = session.dirHistory.viewRelativePath;
         const files = entry.dirs.map((dir) => path.join(dir, relativePath));
-        const existingFiles = files.filter((filePath) => getPathKind(filePath) === 'file');
+        const leftExists = getPathKind(files[0]) === 'file';
+        const rightExists = getPathKind(files[1]) === 'file';
 
-        if (existingFiles.length < 2) {
+        if (!leftExists && !rightExists) {
             session.dirHistory.viewRelativePath = null;
-            await showInfo('That entry only exists on one side for this history step.');
+            await showInfo('That entry does not exist on either side for this history step.');
             await sendCurrentDirectoryHistoryEntry();
             return;
         }
 
-        const leftContent = readFileContent(files[0]);
-        const rightContent = readFileContent(files[1]);
+        const leftContent = leftExists ? readFileContent(files[0]) : '';
+        const rightContent = rightExists ? readFileContent(files[1]) : '';
+        const leftLabel = `${entry.labels[0]} / ${relativePath}${leftExists ? '' : ' (missing)'}`;
+        const rightLabel = `${entry.labels[1]} / ${relativePath}${rightExists ? '' : ' (missing)'}`;
 
         postOrQueue({
             type: 'showDiff',
-            file1: `${entry.labels[0]} / ${relativePath}`,
-            file2: `${entry.labels[1]} / ${relativePath}`,
+            file1: leftLabel,
+            file2: rightLabel,
             leftContent,
             rightContent,
             diffModel: buildTwoWayDiffModel(leftContent, rightContent),
@@ -1100,14 +1103,14 @@ async function openDirectoryEntry(relativePath) {
         return;
     }
 
+    if (session.directory.dirs.length === 2) {
+        await openDirectoryFileDiff(session.directory.dirs, session.directory.labels, relativePath);
+        return;
+    }
+
     const files = session.directory.dirs
         .map((dir) => path.join(dir, relativePath))
         .filter((filePath) => getPathKind(filePath) === 'file');
-
-    if (files.length < 2) {
-        await showInfo('That entry only exists on one side.');
-        return;
-    }
 
     if (files.length === 2) {
         await openDiff(files[0], files[1]);
@@ -1115,6 +1118,39 @@ async function openDirectoryEntry(relativePath) {
     }
 
     await openMultiDiff(files);
+}
+
+async function openDirectoryFileDiff(dirs, labels, relativePath) {
+    const leftPath = path.join(dirs[0], relativePath);
+    const rightPath = path.join(dirs[1], relativePath);
+    const leftExists = getPathKind(leftPath) === 'file';
+    const rightExists = getPathKind(rightPath) === 'file';
+
+    if (!leftExists && !rightExists) {
+        await showInfo('That entry does not exist on either side.');
+        return;
+    }
+
+    const leftContent = leftExists ? readFileContent(leftPath) : '';
+    const rightContent = rightExists ? readFileContent(rightPath) : '';
+    const left = createSideState(leftExists ? leftPath : '', leftContent);
+    const right = createSideState(rightExists ? rightPath : '', rightContent);
+
+    left.label = `${labels[0]} / ${relativePath}${leftExists ? '' : ' (missing)'}`;
+    right.label = `${labels[1]} / ${relativePath}${rightExists ? '' : ' (missing)'}`;
+
+    session = {
+        mode: 'diff',
+        left,
+        right,
+        history: null,
+        directory: null,
+        multi: null,
+        dirHistory: null
+    };
+
+    updateWatchers();
+    await sendCurrentDiff();
 }
 
 async function sendCurrentMultiDiff() {
