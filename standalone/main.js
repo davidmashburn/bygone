@@ -10,6 +10,16 @@ const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
 
 const APP_NAME = 'Bygone';
 const HELP_URL = 'https://github.com/davidmashburn/bygone';
+const DEFAULT_GIT_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
+const parsedGitMaxBufferBytes = Number.parseInt(process.env.BYGONE_GIT_MAX_BUFFER_BYTES || '', 10);
+const GIT_MAX_BUFFER_BYTES = Number.isFinite(parsedGitMaxBufferBytes) && parsedGitMaxBufferBytes > 0
+    ? parsedGitMaxBufferBytes
+    : DEFAULT_GIT_MAX_BUFFER_BYTES;
+const DEFAULT_DIRECTORY_HISTORY_CACHE_SIZE = 3;
+const parsedDirectoryHistoryCacheSize = Number.parseInt(process.env.BYGONE_DIR_HISTORY_CACHE_SIZE || '', 10);
+const DIRECTORY_HISTORY_CACHE_SIZE = Number.isFinite(parsedDirectoryHistoryCacheSize) && parsedDirectoryHistoryCacheSize > 0
+    ? parsedDirectoryHistoryCacheSize
+    : DEFAULT_DIRECTORY_HISTORY_CACHE_SIZE;
 const commandLineToolPath = process.platform === 'win32'
     ? path.join(process.env.LOCALAPPDATA || os.homedir(), 'Microsoft', 'WindowsApps', 'bygone.cmd')
     : '/usr/local/bin/bygone';
@@ -807,12 +817,6 @@ function buildDirectoryHistory(resolvedDir) {
             continue;
         }
 
-        const parentRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-dir-parent-'));
-        const commitRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-dir-commit-'));
-
-        materializeGitTree(repoRoot, relativeDir, parentRoot, parentCommit);
-        materializeGitTree(repoRoot, relativeDir, commitRoot, commit.commit);
-
         entries.push({
             commit: commit.commit,
             parentCommit,
@@ -821,17 +825,19 @@ function buildDirectoryHistory(resolvedDir) {
             timestamp: commit.timestamp,
             parentSummary: readCommitSummary(repoRoot, parentCommit),
             parentTimestamp: readCommitTimestamp(repoRoot, parentCommit),
-            dirs: [path.join(parentRoot, relativeDir), path.join(commitRoot, relativeDir)],
             labels: [`${displayName} @ ${parentCommit.slice(0, 7)}`, `${displayName} @ ${commit.shortCommit}`]
         });
     }
 
     return {
+        repoRoot,
+        relativeDir,
         dirPath: realDir,
         displayName,
         entries,
         index: 0,
-        viewRelativePath: null
+        viewRelativePath: null,
+        materializedOrder: []
     };
 }
 
@@ -841,12 +847,6 @@ function buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayNam
         return undefined;
     }
 
-    const headRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-dir-head-'));
-    const workingRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-dir-worktree-'));
-
-    materializeGitTree(repoRoot, relativeDir, headRoot, headCommit);
-    materializeWorkingTree(repoRoot, relativeDir, workingRoot);
-
     return {
         commit: 'WORKTREE',
         parentCommit: headCommit,
@@ -855,7 +855,6 @@ function buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayNam
         timestamp: '',
         parentSummary: readCommitSummary(repoRoot, headCommit),
         parentTimestamp: readCommitTimestamp(repoRoot, headCommit),
-        dirs: [path.join(headRoot, relativeDir), path.join(workingRoot, relativeDir)],
         labels: [`${displayName} @ HEAD`, `${displayName} @ Working Tree`]
     };
 }
@@ -865,15 +864,18 @@ function hasWorkingTreeDirectoryChanges(repoRoot, relativeDir) {
 }
 
 function materializeGitTree(repoRoot, relativeDir, targetRoot, commit = 'HEAD') {
-    const lsArgs = ['ls-tree', '-r', '--name-only', commit];
+    const lsArgs = ['ls-tree', '-r', '-z', '--name-only', commit];
     if (relativeDir) {
         lsArgs.push('--', relativeDir);
     }
 
-    const files = runGit(lsArgs, repoRoot)
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean);
+    const files = execFileSync('git', lsArgs, {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        maxBuffer: GIT_MAX_BUFFER_BYTES
+    })
+        .split('\0')
+        .filter((filePath) => filePath.length > 0);
 
     for (const relativeFile of files) {
         const targetFile = path.join(targetRoot, relativeFile);
@@ -883,15 +885,18 @@ function materializeGitTree(repoRoot, relativeDir, targetRoot, commit = 'HEAD') 
 }
 
 function materializeWorkingTree(repoRoot, relativeDir, targetRoot) {
-    const lsArgs = ['ls-files', '-co', '--exclude-standard'];
+    const lsArgs = ['ls-files', '-co', '-z', '--exclude-standard'];
     if (relativeDir) {
         lsArgs.push('--', relativeDir);
     }
 
-    const files = runGit(lsArgs, repoRoot)
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean);
+    const files = execFileSync('git', lsArgs, {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        maxBuffer: GIT_MAX_BUFFER_BYTES
+    })
+        .split('\0')
+        .filter((filePath) => filePath.length > 0);
 
     for (const relativeFile of files) {
         const sourceFile = path.join(repoRoot, relativeFile);
@@ -928,7 +933,14 @@ async function sendCurrentDirectoryHistoryEntry() {
         return;
     }
 
-    const entry = session.dirHistory.entries[session.dirHistory.index];
+    let entry;
+    try {
+        entry = ensureDirectoryHistoryEntryMaterialized(session.dirHistory, session.dirHistory.index);
+    } catch (error) {
+        await showError(`Error loading directory history entry: ${getErrorMessage(error)}`);
+        return;
+    }
+
     const history = buildDirectoryHistoryViewState(session.dirHistory, entry);
 
     if (session.dirHistory.viewRelativePath) {
@@ -993,6 +1005,117 @@ function buildDirectoryHistoryViewState(dirHistory, entry) {
         rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
         rightTimestamp: entry.timestamp
     };
+}
+
+function ensureDirectoryHistoryEntryMaterialized(dirHistory, index) {
+    const entry = dirHistory.entries[index];
+    if (!entry) {
+        throw new Error(`No directory history entry at index ${index}`);
+    }
+
+    if (entry.dirs && entry.dirs.every((dirPath) => getPathKind(dirPath) === 'directory')) {
+        markDirectoryHistoryEntryUsed(dirHistory, index);
+        return entry;
+    }
+
+    const leftRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-dir-left-'));
+    const rightRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-dir-right-'));
+
+    if (entry.commit === 'WORKTREE') {
+        materializeGitTree(dirHistory.repoRoot, dirHistory.relativeDir, leftRoot, entry.parentCommit);
+        materializeWorkingTree(dirHistory.repoRoot, dirHistory.relativeDir, rightRoot);
+    } else {
+        materializeGitTree(dirHistory.repoRoot, dirHistory.relativeDir, leftRoot, entry.parentCommit);
+        materializeGitTree(dirHistory.repoRoot, dirHistory.relativeDir, rightRoot, entry.commit);
+    }
+
+    const leftDir = path.join(leftRoot, dirHistory.relativeDir);
+    const rightDir = path.join(rightRoot, dirHistory.relativeDir);
+
+    fs.mkdirSync(leftDir, { recursive: true });
+    fs.mkdirSync(rightDir, { recursive: true });
+
+    entry.dirs = [leftDir, rightDir];
+    entry.materializedRoots = [leftRoot, rightRoot];
+
+    markDirectoryHistoryEntryUsed(dirHistory, index);
+    evictDirectoryHistoryEntries(dirHistory, index);
+    return entry;
+}
+
+function markDirectoryHistoryEntryUsed(dirHistory, index) {
+    if (!Array.isArray(dirHistory.materializedOrder)) {
+        dirHistory.materializedOrder = [];
+    }
+
+    dirHistory.materializedOrder = dirHistory.materializedOrder.filter((value) => value !== index);
+    dirHistory.materializedOrder.push(index);
+}
+
+function evictDirectoryHistoryEntries(dirHistory, activeIndex) {
+    const keepIndexes = new Set([activeIndex]);
+    const materializedIndexes = [];
+
+    for (let index = 0; index < dirHistory.entries.length; index += 1) {
+        const entry = dirHistory.entries[index];
+        if (entry.dirs) {
+            materializedIndexes.push(index);
+        }
+
+        if (entry.commit === 'WORKTREE' && (entry.rightDirty || (entry.editedFiles && Object.keys(entry.editedFiles).length > 0))) {
+            keepIndexes.add(index);
+        }
+    }
+
+    if (materializedIndexes.length <= DIRECTORY_HISTORY_CACHE_SIZE) {
+        return;
+    }
+
+    for (const candidateIndex of [...(dirHistory.materializedOrder || [])]) {
+        if (materializedIndexes.length <= DIRECTORY_HISTORY_CACHE_SIZE) {
+            break;
+        }
+
+        if (keepIndexes.has(candidateIndex)) {
+            continue;
+        }
+
+        const candidate = dirHistory.entries[candidateIndex];
+        if (!candidate?.dirs) {
+            continue;
+        }
+
+        releaseDirectoryHistoryEntry(candidate);
+        const candidatePosition = materializedIndexes.indexOf(candidateIndex);
+        if (candidatePosition !== -1) {
+            materializedIndexes.splice(candidatePosition, 1);
+        }
+    }
+
+    dirHistory.materializedOrder = (dirHistory.materializedOrder || []).filter((index) => Boolean(dirHistory.entries[index]?.dirs));
+}
+
+function releaseDirectoryHistoryEntry(entry) {
+    if (Array.isArray(entry?.materializedRoots)) {
+        for (const rootPath of entry.materializedRoots) {
+            try {
+                fs.rmSync(rootPath, { recursive: true, force: true });
+            } catch {
+                // Best effort cleanup.
+            }
+        }
+    } else if (Array.isArray(entry?.dirs)) {
+        for (const dirPath of entry.dirs) {
+            try {
+                fs.rmSync(dirPath, { recursive: true, force: true });
+            } catch {
+                // Best effort cleanup.
+            }
+        }
+    }
+
+    delete entry.dirs;
+    delete entry.materializedRoots;
 }
 
 async function openDiff(leftPath, rightPath) {
@@ -1727,7 +1850,8 @@ function readFileContent(filePath) {
 function runGit(args, cwd) {
     return execFileSync('git', args, {
         cwd,
-        encoding: 'utf8'
+        encoding: 'utf8',
+        maxBuffer: GIT_MAX_BUFFER_BYTES
     }).trimEnd();
 }
 
@@ -1774,7 +1898,8 @@ function parseGitHistoryRecords(logOutput) {
 
 function readGitBlob(repoRoot, commit, relativePath) {
     return execFileSync('git', ['show', `${commit}:${relativePath}`], {
-        cwd: repoRoot
+        cwd: repoRoot,
+        maxBuffer: GIT_MAX_BUFFER_BYTES
     });
 }
 

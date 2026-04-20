@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [ "$#" -ne 2 ]; then
-  echo "usage: bygone-standalone-difftool.sh <left-file> <right-file>" >&2
+  echo "usage: bygone-standalone-difftool.sh <left-path> <right-path>" >&2
   exit 2
 fi
 
@@ -11,9 +11,9 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LAUNCHER="$REPO_DIR/bin/bygone.js"
 
 if command -v bygone >/dev/null 2>&1; then
-  exec bygone --diff "$1" "$2"
+  exec bygone "$1" "$2"
 elif [ -f "$LAUNCHER" ]; then
-  exec node "$LAUNCHER" --diff "$1" "$2"
+  exec node "$LAUNCHER" "$1" "$2"
 else
   echo "Bygone standalone launcher not found." >&2
   echo "Run 'npm install -g .' from $REPO_DIR or ensure bin/bygone.js exists." >&2

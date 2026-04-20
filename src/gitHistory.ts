@@ -2,6 +2,12 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const DEFAULT_GIT_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
+const parsedGitMaxBufferBytes = Number.parseInt(process.env.BYGONE_GIT_MAX_BUFFER_BYTES ?? '', 10);
+const GIT_MAX_BUFFER_BYTES = Number.isFinite(parsedGitMaxBufferBytes) && parsedGitMaxBufferBytes > 0
+    ? parsedGitMaxBufferBytes
+    : DEFAULT_GIT_MAX_BUFFER_BYTES;
+
 export interface FileHistoryEntry {
     commit: string;
     parentCommit: string;
@@ -115,7 +121,8 @@ export class GitHistoryService {
     private runGitCommand(args: string[], cwd: string): string {
         return execFileSync('git', args, {
             cwd,
-            encoding: 'utf8'
+            encoding: 'utf8',
+            maxBuffer: GIT_MAX_BUFFER_BYTES
         }).trimEnd();
     }
 
@@ -131,7 +138,8 @@ export class GitHistoryService {
         try {
             return execFileSync('git', ['show', `${commit}:${relativePath}`], {
                 cwd: repoRoot,
-                encoding: 'utf8'
+                encoding: 'utf8',
+                maxBuffer: GIT_MAX_BUFFER_BYTES
             });
         } catch {
             return '';
