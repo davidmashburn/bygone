@@ -22,6 +22,24 @@ export interface FileHistoryEntry {
     rightContent: string;
 }
 
+export interface FileHistoryEntryDescriptor {
+    commit: string;
+    parentCommit: string;
+    shortCommit: string;
+    summary: string;
+    timestamp: string;
+    parentSummary: string;
+    parentTimestamp: string;
+    leftLabel: string;
+    rightLabel: string;
+    filePath: string;
+    repoRoot: string;
+    relativePath: string;
+    leftContent?: string;
+    rightContent?: string;
+    rightDirty?: boolean;
+}
+
 interface HistoryCommitRecord {
     commit: string;
     shortCommit: string;
@@ -31,6 +49,10 @@ interface HistoryCommitRecord {
 
 export class GitHistoryService {
     public buildFileHistory(filePath: string): FileHistoryEntry[] {
+        return this.buildFileHistoryDescriptors(filePath).map((entry) => this.materializeFileHistoryEntry(entry));
+    }
+
+    public buildFileHistoryDescriptors(filePath: string): FileHistoryEntryDescriptor[] {
         const canonicalFilePath = fs.realpathSync(filePath);
         const repoRoot = fs.realpathSync(this.runGitCommand(['rev-parse', '--show-toplevel'], path.dirname(canonicalFilePath)));
         const relativePath = path.relative(repoRoot, canonicalFilePath).replace(/\\/g, '/');
@@ -39,18 +61,34 @@ export class GitHistoryService {
             repoRoot
         ));
         const commitEntries = commits
-            .map((commit) => this.buildFileHistoryEntry(canonicalFilePath, repoRoot, relativePath, commit))
-            .filter((entry): entry is FileHistoryEntry => entry !== undefined);
-        const workingTreeEntry = this.buildWorkingTreeHistoryEntry(canonicalFilePath, repoRoot, relativePath);
+            .map((commit) => this.buildFileHistoryDescriptor(canonicalFilePath, repoRoot, relativePath, commit))
+            .filter((entry): entry is FileHistoryEntryDescriptor => entry !== undefined);
+        const workingTreeEntry = this.buildWorkingTreeHistoryDescriptor(canonicalFilePath, repoRoot, relativePath);
 
         return workingTreeEntry ? [workingTreeEntry, ...commitEntries] : commitEntries;
     }
 
-    private buildWorkingTreeHistoryEntry(
+    public materializeFileHistoryEntry(entry: FileHistoryEntryDescriptor): FileHistoryEntry {
+        if (entry.commit === 'WORKTREE') {
+            return this.toFileHistoryEntry(
+                entry,
+                this.readGitFile(entry.repoRoot, entry.parentCommit, entry.relativePath),
+                this.readWorkingTreeFile(entry.filePath)
+            );
+        }
+
+        return this.toFileHistoryEntry(
+            entry,
+            this.readGitFile(entry.repoRoot, entry.parentCommit, entry.relativePath),
+            this.readGitFile(entry.repoRoot, entry.commit, entry.relativePath)
+        );
+    }
+
+    private buildWorkingTreeHistoryDescriptor(
         filePath: string,
         repoRoot: string,
         relativePath: string
-    ): FileHistoryEntry | undefined {
+    ): FileHistoryEntryDescriptor | undefined {
         const headCommit = this.readHeadCommit(repoRoot);
         if (!headCommit) {
             return undefined;
@@ -74,25 +112,24 @@ export class GitHistoryService {
             parentTimestamp: this.readCommitTimestamp(repoRoot, headCommit),
             leftLabel: `${fileName} @ HEAD`,
             rightLabel: `${fileName} @ Working Tree`,
-            leftContent: headContent,
-            rightContent: workingTreeContent
+            filePath,
+            repoRoot,
+            relativePath
         };
     }
 
-    private buildFileHistoryEntry(
+    private buildFileHistoryDescriptor(
         filePath: string,
         repoRoot: string,
         relativePath: string,
         commit: HistoryCommitRecord
-    ): FileHistoryEntry | undefined {
+    ): FileHistoryEntryDescriptor | undefined {
         const parentCommit = this.readPrimaryParent(repoRoot, commit.commit);
         if (!parentCommit) {
             return undefined;
         }
 
         const fileName = path.basename(filePath);
-        const leftContent = this.readGitFile(repoRoot, parentCommit, relativePath);
-        const rightContent = this.readGitFile(repoRoot, commit.commit, relativePath);
 
         return {
             commit: commit.commit,
@@ -104,6 +141,23 @@ export class GitHistoryService {
             parentTimestamp: this.readCommitTimestamp(repoRoot, parentCommit),
             leftLabel: `${fileName} @ ${parentCommit.slice(0, 7)}`,
             rightLabel: `${fileName} @ ${commit.shortCommit}`,
+            filePath,
+            repoRoot,
+            relativePath
+        };
+    }
+
+    private toFileHistoryEntry(entry: FileHistoryEntryDescriptor, leftContent: string, rightContent: string): FileHistoryEntry {
+        return {
+            commit: entry.commit,
+            parentCommit: entry.parentCommit,
+            shortCommit: entry.shortCommit,
+            summary: entry.summary,
+            timestamp: entry.timestamp,
+            parentSummary: entry.parentSummary,
+            parentTimestamp: entry.parentTimestamp,
+            leftLabel: entry.leftLabel,
+            rightLabel: entry.rightLabel,
             leftContent,
             rightContent
         };

@@ -203,6 +203,29 @@ function testHistoryPrependsDirtyWorkingTree() {
     assert.equal(history[1].shortCommit, shortCommit(repo, 'HEAD'));
 }
 
+function testHistoryDescriptorsMaterializeOnDemand() {
+    const repo = createTempGitRepo();
+    const filePath = path.join(repo, 'example.txt');
+
+    fs.writeFileSync(filePath, 'one\n', 'utf8');
+    runGit(repo, ['add', 'example.txt']);
+    runGit(repo, ['commit', '-m', 'initial']);
+    fs.writeFileSync(filePath, 'two\n', 'utf8');
+    runGit(repo, ['commit', '-am', 'second']);
+
+    const historyService = new GitHistoryService();
+    const descriptors = historyService.buildFileHistoryDescriptors(filePath);
+
+    assert.ok(descriptors.length > 0);
+    assert.notEqual(descriptors[0].commit, 'WORKTREE');
+    assert.equal(descriptors[0].leftContent, undefined);
+    assert.equal(descriptors[0].rightContent, undefined);
+
+    const entry = historyService.materializeFileHistoryEntry(descriptors[0]);
+    assert.equal(entry.leftContent, 'one\n');
+    assert.equal(entry.rightContent, 'two\n');
+}
+
 function createTempGitRepo() {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-history-test-'));
 
@@ -240,6 +263,7 @@ function run() {
     testMergeCreatesConflictForDivergentEdits();
     testHistoryOmitsCleanWorkingTree();
     testHistoryPrependsDirtyWorkingTree();
+    testHistoryDescriptorsMaterializeOnDemand();
     console.log('All tests passed.');
 }
 

@@ -138,6 +138,32 @@ body.web-host {
     filter: brightness(1.08);
 }
 
+.directory-tree-toolbar {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.directory-tree-toolbar[hidden] {
+    display: none;
+}
+
+.directory-tree-button {
+    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+    background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+    border-radius: 4px;
+    min-height: 28px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.directory-tree-button:hover {
+    filter: brightness(1.08);
+}
+
 .edit-mode-toolbar {
     margin-top: 10px;
 }

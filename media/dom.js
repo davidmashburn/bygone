@@ -142,6 +142,7 @@
 
         return `<div class="dir-entry dir-entry--${entry.status}" `
             + `data-path="${escapeAttr(entry.relativePath)}" `
+            + `data-status="${escapeAttr(entry.status)}" `
             + `data-depth="${entry.depth}" `
             + `data-side-index="${sideIndex}" `
             + `data-is-dir="${isDir}">`
@@ -186,6 +187,31 @@
         });
 
         container.dispatchEvent(new CustomEvent('bygone:directory-layout-change'));
+    }
+
+    function expandAllDirectories(container) {
+        collapsedDirs.clear();
+        applyDirectoryVisibility(container);
+    }
+
+    function collapseAllDirectories(container) {
+        collapsedDirs.clear();
+        listDirectoryPaths(container).forEach((dirPath) => collapsedDirs.add(dirPath));
+        applyDirectoryVisibility(container);
+    }
+
+    function collapseUnchangedDirectories(container) {
+        collapsedDirs.clear();
+        listDirectoryPaths(container, (row) => row.dataset.status === 'same')
+            .forEach((dirPath) => collapsedDirs.add(dirPath));
+        applyDirectoryVisibility(container);
+    }
+
+    function listDirectoryPaths(container, predicate = () => true) {
+        return Array.from(container.querySelectorAll('.dir-entry[data-is-dir="true"]'))
+            .filter((row) => predicate(row))
+            .map((row) => row.dataset.path)
+            .filter((dirPath) => typeof dirPath === 'string');
     }
 
     function isHiddenByAncestor(rowPath) {
@@ -235,6 +261,9 @@
         setStatus,
         resetScrollPositions,
         resetDirectoryView,
-        renderDirectoryView
+        renderDirectoryView,
+        expandAllDirectories,
+        collapseAllDirectories,
+        collapseUnchangedDirectories
     };
 }());

@@ -10,7 +10,10 @@ const {
     setStatus,
     resetScrollPositions,
     resetDirectoryView,
-    renderDirectoryView
+    renderDirectoryView,
+    expandAllDirectories,
+    collapseAllDirectories,
+    collapseUnchangedDirectories
 } = window.BygoneDom;
 
 const MODE_TWO_WAY = 'two-way';
@@ -97,6 +100,7 @@ window.addEventListener('load', async () => {
     initializeHistoryToolbar();
     initializeChangeToolbar();
     initializeDirectoryReturnToolbar();
+    initializeDirectoryTreeToolbar();
     initializeEditModeToolbar();
     initializeDirectoryViewEvents();
     initializeStandaloneDropTarget();
@@ -153,6 +157,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     setTextContent('file2-header', file2);
     updateHistoryToolbar(history);
     updateDirectoryReturnToolbar(canReturnToDirectory);
+    updateDirectoryTreeToolbar();
     updateEditModeToolbar();
 
     ensureTwoWayEditors();
@@ -180,6 +185,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     disposeMultiEditors();
     updateHistoryToolbar(history);
     updateDirectoryReturnToolbar(false);
+    updateDirectoryTreeToolbar();
     updateEditModeToolbar();
     updateChangeToolbarState();
 
@@ -213,6 +219,7 @@ function showMultiDiff(panels, pairs) {
     multiDiffPairs = pairs || [];
     updateHistoryToolbar(null);
     updateDirectoryReturnToolbar(false);
+    updateDirectoryTreeToolbar();
     updateEditModeToolbar();
     updateChangeToolbarState();
 
@@ -246,6 +253,7 @@ function showThreeWayMerge(message) {
     disposeMultiEditors();
     updateHistoryToolbar(null);
     updateDirectoryReturnToolbar(false);
+    updateDirectoryTreeToolbar();
     updateEditModeToolbar();
     updateChangeToolbarState();
 
@@ -704,6 +712,18 @@ function initializeDirectoryReturnToolbar() {
     getElement('back-to-directory').addEventListener('click', () => returnToDirectory());
 }
 
+function initializeDirectoryTreeToolbar() {
+    getElement('directory-expand-all')?.addEventListener('click', () => {
+        runDirectoryTreeAction(expandAllDirectories);
+    });
+    getElement('directory-collapse-all')?.addEventListener('click', () => {
+        runDirectoryTreeAction(collapseAllDirectories);
+    });
+    getElement('directory-collapse-unchanged')?.addEventListener('click', () => {
+        runDirectoryTreeAction(collapseUnchangedDirectories);
+    });
+}
+
 function initializeEditModeToolbar() {
     getElement('toggle-readonly').addEventListener('click', () => {
         if (!hasHostEditableSide()) {
@@ -761,6 +781,15 @@ function updateDirectoryReturnToolbar(canReturnToDirectory) {
     getElement('directory-return-toolbar').hidden = !canReturnToDirectory;
 }
 
+function updateDirectoryTreeToolbar() {
+    const toolbar = getElement('directory-tree-toolbar');
+    if (!toolbar) {
+        return;
+    }
+
+    toolbar.hidden = currentMode !== 'directory';
+}
+
 function updateEditModeToolbar() {
     const toolbar = getElement('edit-mode-toolbar');
     const button = getElement('toggle-readonly');
@@ -772,6 +801,20 @@ function updateEditModeToolbar() {
     button.title = userReadOnly
         ? 'Allow editing for writable panes'
         : 'Freeze writable panes';
+}
+
+function runDirectoryTreeAction(action) {
+    if (currentMode !== 'directory') {
+        return;
+    }
+
+    const container = getElement('dir-rows');
+    if (!container) {
+        return;
+    }
+
+    action(container);
+    connectorController.scheduleDrawConnections();
 }
 
 function registerEditorKeybindings(editor, editorMode) {

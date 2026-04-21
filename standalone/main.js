@@ -20,6 +20,11 @@ const parsedDirectoryHistoryCacheSize = Number.parseInt(process.env.BYGONE_DIR_H
 const DIRECTORY_HISTORY_CACHE_SIZE = Number.isFinite(parsedDirectoryHistoryCacheSize) && parsedDirectoryHistoryCacheSize > 0
     ? parsedDirectoryHistoryCacheSize
     : DEFAULT_DIRECTORY_HISTORY_CACHE_SIZE;
+const DEFAULT_FILE_HISTORY_CACHE_SIZE = 5;
+const parsedFileHistoryCacheSize = Number.parseInt(process.env.BYGONE_FILE_HISTORY_CACHE_SIZE || '', 10);
+const FILE_HISTORY_CACHE_SIZE = Number.isFinite(parsedFileHistoryCacheSize) && parsedFileHistoryCacheSize > 0
+    ? parsedFileHistoryCacheSize
+    : DEFAULT_FILE_HISTORY_CACHE_SIZE;
 const commandLineToolPath = process.platform === 'win32'
     ? path.join(process.env.LOCALAPPDATA || os.homedir(), 'Microsoft', 'WindowsApps', 'bygone.cmd')
     : '/usr/local/bin/bygone';
@@ -1118,6 +1123,86 @@ function releaseDirectoryHistoryEntry(entry) {
     delete entry.materializedRoots;
 }
 
+function ensureFileHistoryEntryMaterialized(history, index) {
+    const entry = history.entries[index];
+    if (!entry) {
+        throw new Error(`No file history entry at index ${index}`);
+    }
+
+    if (typeof entry.leftContent === 'string' && typeof entry.rightContent === 'string') {
+        markFileHistoryEntryUsed(history, index);
+        return entry;
+    }
+
+    const materialized = gitHistoryService.materializeFileHistoryEntry(entry);
+    entry.leftContent = materialized.leftContent;
+    entry.rightContent = materialized.rightContent;
+
+    markFileHistoryEntryUsed(history, index);
+    evictFileHistoryEntries(history, index);
+    return entry;
+}
+
+function markFileHistoryEntryUsed(history, index) {
+    if (!Array.isArray(history.materializedOrder)) {
+        history.materializedOrder = [];
+    }
+
+    history.materializedOrder = history.materializedOrder.filter((value) => value !== index);
+    history.materializedOrder.push(index);
+}
+
+function evictFileHistoryEntries(history, activeIndex) {
+    const keepIndexes = new Set([activeIndex]);
+    const materializedIndexes = [];
+
+    for (let index = 0; index < history.entries.length; index += 1) {
+        const entry = history.entries[index];
+        if (typeof entry.leftContent === 'string' && typeof entry.rightContent === 'string') {
+            materializedIndexes.push(index);
+        }
+
+        if (entry.commit === 'WORKTREE' && entry.rightDirty) {
+            keepIndexes.add(index);
+        }
+    }
+
+    if (materializedIndexes.length <= FILE_HISTORY_CACHE_SIZE) {
+        return;
+    }
+
+    for (const candidateIndex of [...(history.materializedOrder || [])]) {
+        if (materializedIndexes.length <= FILE_HISTORY_CACHE_SIZE) {
+            break;
+        }
+
+        if (keepIndexes.has(candidateIndex)) {
+            continue;
+        }
+
+        const candidate = history.entries[candidateIndex];
+        if (typeof candidate?.leftContent !== 'string' || typeof candidate?.rightContent !== 'string') {
+            continue;
+        }
+
+        releaseFileHistoryEntry(candidate);
+        const candidatePosition = materializedIndexes.indexOf(candidateIndex);
+        if (candidatePosition !== -1) {
+            materializedIndexes.splice(candidatePosition, 1);
+        }
+    }
+
+    history.materializedOrder = (history.materializedOrder || []).filter((index) => {
+        const entry = history.entries[index];
+        return typeof entry?.leftContent === 'string' && typeof entry?.rightContent === 'string';
+    });
+}
+
+function releaseFileHistoryEntry(entry) {
+    delete entry.leftContent;
+    delete entry.rightContent;
+}
+
 async function openDiff(leftPath, rightPath) {
     const resolvedLeft = path.resolve(leftPath);
     const resolvedRight = path.resolve(rightPath);
@@ -1143,7 +1228,7 @@ async function openHistory(filePath) {
     let entries;
 
     try {
-        entries = gitHistoryService.buildFileHistory(resolvedPath);
+        entries = gitHistoryService.buildFileHistoryDescriptors(resolvedPath);
     } catch (error) {
         await showError(`Error loading file history: ${getErrorMessage(error)}`);
         return;
@@ -1161,7 +1246,8 @@ async function openHistory(filePath) {
         history: {
             filePath: resolvedPath,
             entries,
-            index: 0
+            index: 0,
+            materializedOrder: []
         },
         directory: null,
         multi: null,
@@ -1448,7 +1534,14 @@ async function sendCurrentHistoryEntry() {
         return;
     }
 
-    const entry = session.history.entries[session.history.index];
+    let entry;
+    try {
+        entry = ensureFileHistoryEntryMaterialized(session.history, session.history.index);
+    } catch (error) {
+        await showError(`Error loading file history entry: ${getErrorMessage(error)}`);
+        return;
+    }
+
     const fileName = path.basename(session.history.filePath);
     const diffModel = buildTwoWayDiffModel(entry.leftContent, entry.rightContent);
 
@@ -1487,7 +1580,14 @@ async function updateEditableHistoryDiff(_leftContent, rightContent) {
         return;
     }
 
-    const entry = session.history.entries[session.history.index];
+    let entry;
+    try {
+        entry = ensureFileHistoryEntryMaterialized(session.history, session.history.index);
+    } catch (error) {
+        await showError(`Error updating history entry: ${getErrorMessage(error)}`);
+        return;
+    }
+
     if (entry.commit !== 'WORKTREE') {
         return;
     }
@@ -1665,8 +1765,10 @@ async function saveDirtyHistoryEntries() {
         return true;
     }
 
-    for (const entry of session.history.entries) {
+    for (let index = 0; index < session.history.entries.length; index += 1) {
+        const entry = session.history.entries[index];
         if (entry.commit === 'WORKTREE' && entry.rightDirty) {
+            ensureFileHistoryEntryMaterialized(session.history, index);
             fs.writeFileSync(session.history.filePath, entry.rightContent, 'utf8');
             entry.rightDirty = false;
         }

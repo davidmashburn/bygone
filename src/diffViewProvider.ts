@@ -269,6 +269,11 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             <div id="directory-return-toolbar" class="directory-return-toolbar" hidden>
                 <button id="back-to-directory" class="directory-return-button" type="button" title="Back to directory view (Cmd/Ctrl+[)">← Back to Directory</button>
             </div>
+            <div id="directory-tree-toolbar" class="directory-tree-toolbar" hidden>
+                <button id="directory-expand-all" class="directory-tree-button" type="button" title="Expand all folders in the directory tree">Expand All</button>
+                <button id="directory-collapse-all" class="directory-tree-button" type="button" title="Collapse all folders in the directory tree">Collapse All</button>
+                <button id="directory-collapse-unchanged" class="directory-tree-button" type="button" title="Collapse folders that have no changes">Collapse Unchanged</button>
+            </div>
             <div id="edit-mode-toolbar" class="edit-mode-toolbar" hidden>
                 <button id="toggle-readonly" class="edit-mode-button" type="button" title="Toggle read-only mode">Editing On</button>
             </div>
