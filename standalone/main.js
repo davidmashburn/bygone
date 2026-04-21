@@ -124,6 +124,7 @@ function createMainWindow() {
     hostReady = false;
     pendingMessage = undefined;
     void mainWindow.loadFile(path.join(__dirname, '..', 'standalone', 'index.html'));
+    installStandardContextMenu(mainWindow);
 
     if (smokeTestMode) {
         smokeTimeout = setTimeout(() => {
@@ -204,7 +205,9 @@ function createMainWindow() {
 }
 
 function installApplicationMenu() {
+    const isMac = process.platform === 'darwin';
     const template = [
+        ...(isMac ? [{ role: 'appMenu' }] : []),
         {
             label: 'File',
             submenu: [
@@ -256,9 +259,12 @@ function installApplicationMenu() {
                     click: () => { void reloadSide('right'); }
                 },
                 { type: 'separator' },
-                { role: 'quit' }
+                ...(isMac
+                    ? [{ role: 'close' }]
+                    : [{ role: 'quit' }])
             ]
         },
+        { role: 'editMenu' },
         {
             label: 'History',
             submenu: [
@@ -284,10 +290,14 @@ function installApplicationMenu() {
                 },
                 { type: 'separator' },
                 { role: 'reload' },
+                { role: 'forceReload' },
                 { role: 'toggleDevTools' },
+                { type: 'separator' },
                 { role: 'resetZoom' },
                 { role: 'zoomIn' },
-                { role: 'zoomOut' }
+                { role: 'zoomOut' },
+                { type: 'separator' },
+                { role: 'togglefullscreen' }
             ]
         },
         {
@@ -316,6 +326,35 @@ function installApplicationMenu() {
     ];
 
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function installStandardContextMenu(windowInstance) {
+    windowInstance.webContents.on('context-menu', (event, params) => {
+        const template = [];
+        const hasSelection = typeof params.selectionText === 'string' && params.selectionText.length > 0;
+
+        if (params.isEditable) {
+            template.push(
+                { role: 'undo' },
+                { role: 'redo' },
+                { type: 'separator' },
+                { role: 'cut' },
+                { role: 'copy' },
+                { role: 'paste' },
+                ...(process.platform === 'darwin' ? [{ role: 'pasteAndMatchStyle' }] : []),
+                { role: 'delete' },
+                { type: 'separator' },
+                { role: 'selectAll' }
+            );
+        } else if (hasSelection) {
+            template.push({ role: 'copy' }, { type: 'separator' }, { role: 'selectAll' });
+        } else {
+            template.push({ role: 'selectAll' });
+        }
+
+        event.preventDefault();
+        Menu.buildFromTemplate(template).popup({ window: windowInstance });
+    });
 }
 
 async function installCommandLineTools() {

@@ -297,6 +297,7 @@ function createEditor(container, editorMode, side = null) {
         value: '',
         language: 'plaintext',
         theme: 'vs',
+        contextmenu: host.environment !== 'standalone',
         automaticLayout: true,
         minimap: { enabled: false },
         glyphMargin: false,
