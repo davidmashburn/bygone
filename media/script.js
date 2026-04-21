@@ -197,6 +197,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
 
     resetDirectoryView();
     renderDirectoryView(getElement('dir-rows'), directoryEntries, directoryLabels);
+    runDirectoryTreeAction(collapseUnchangedDirectories);
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
 }
