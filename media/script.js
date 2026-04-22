@@ -45,6 +45,7 @@ let multiDiffPairs = [];
 let activeDirectoryFileChangeIndex = -1;
 let canReturnToDirectoryView = false;
 let currentDirectoryContext = null;
+let shouldPulseActiveDiff = false;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -154,6 +155,36 @@ function updateShellContext(modeLabel, title, breadcrumb = '') {
     setTextContent('breadcrumb-trail', breadcrumb);
 }
 
+function animateWorkspaceTransition(kind) {
+    const shell = getElement('workspace-shell');
+    if (!shell) {
+        return;
+    }
+
+    const transitionClass = kind === 'timeline'
+        ? 'workspace-shell--timeline-shift'
+        : 'workspace-shell--hierarchy-shift';
+
+    shell.classList.remove('workspace-shell--timeline-shift', 'workspace-shell--hierarchy-shift');
+    // Force a reflow so replaying the class reliably retriggers the animation.
+    void shell.offsetWidth;
+    shell.classList.add(transitionClass);
+    window.setTimeout(() => {
+        shell.classList.remove(transitionClass);
+    }, 240);
+}
+
+function pulseHistoryToolbar() {
+    const toolbar = getElement('history-toolbar');
+    if (!toolbar || toolbar.hidden) {
+        return;
+    }
+
+    toolbar.classList.remove('history-toolbar--refresh');
+    void toolbar.offsetWidth;
+    toolbar.classList.add('history-toolbar--refresh');
+}
+
 function showTwoWayDiff(
     file1,
     file2,
@@ -165,6 +196,8 @@ function showTwoWayDiff(
     nextEditableSides = null,
     nextDirectoryContext = null
 ) {
+    const previousMode = currentMode;
+    const previousHistoryMode = historyMode;
     currentMode = MODE_TWO_WAY;
     historyMode = Boolean(history);
     canReturnToDirectoryView = Boolean(canReturnToDirectory);
@@ -205,9 +238,18 @@ function showTwoWayDiff(
     revealActiveDiff(false);
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
+
+    if (canReturnToDirectoryView && previousMode === MODE_DIRECTORY) {
+        animateWorkspaceTransition('hierarchy');
+    } else if (historyMode || previousHistoryMode) {
+        animateWorkspaceTransition('timeline');
+    }
 }
 
 function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
+    const previousMode = currentMode;
+    const previousHistoryMode = historyMode;
+    const previousCanReturnToDirectory = canReturnToDirectoryView;
     currentMode = MODE_DIRECTORY;
     historyMode = Boolean(history);
     canReturnToDirectoryView = false;
@@ -244,6 +286,12 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     updateChangeToolbarState();
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
+
+    if (previousCanReturnToDirectory && previousMode === MODE_TWO_WAY) {
+        animateWorkspaceTransition('hierarchy');
+    } else if (historyMode || previousHistoryMode) {
+        animateWorkspaceTransition('timeline');
+    }
 }
 
 function showMultiDiff(panels, pairs) {
@@ -561,13 +609,21 @@ function applyDiffDecorations(diffModel) {
 }
 
 function addActiveBlockDecorations(target, start, end, targetLineCount) {
+    const pulseClassName = shouldPulseActiveDiff ? 'bygone-active-diff-pulse' : null;
     if (start === end) {
         addCollapsedBoundaryDecoration(target, start, targetLineCount, 'bygone-active-diff');
+        if (pulseClassName) {
+            addCollapsedBoundaryDecoration(target, start, targetLineCount, pulseClassName);
+        }
         return;
     }
 
     addLineDecorations(target, start, end, 'bygone-active-diff');
     addBlockEdgeDecorations(target, start, end, 'bygone-active-diff');
+    if (pulseClassName) {
+        addLineDecorations(target, start, end, pulseClassName);
+        addBlockEdgeDecorations(target, start, end, pulseClassName);
+    }
 }
 
 function applyMultiDiffDecorations(pairs) {
@@ -811,6 +867,34 @@ function initializeNavigatorRailEvents() {
             relativePath
         });
     });
+
+    list.addEventListener('keydown', (event) => {
+        const entry = event.target instanceof Element
+            ? event.target.closest('.navigator-entry')
+            : null;
+        if (!entry) {
+            return;
+        }
+
+        const entries = Array.from(list.querySelectorAll('.navigator-entry'));
+        const currentIndex = entries.indexOf(entry);
+        if (currentIndex < 0) {
+            return;
+        }
+
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            const step = event.key === 'ArrowDown' ? 1 : -1;
+            const nextIndex = (currentIndex + step + entries.length) % entries.length;
+            entries[nextIndex]?.focus();
+            return;
+        }
+
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            entry.click();
+        }
+    });
 }
 
 function normalizeDirectoryContext(nextDirectoryContext) {
@@ -861,10 +945,17 @@ function updateNavigatorRail() {
         return;
     }
 
+    const shouldPreserveFocus = list.contains(document.activeElement);
     const activeIndex = Math.max(0, currentDirectoryContext.changedFiles.indexOf(currentDirectoryContext.activeRelativePath));
     title.textContent = historyMode ? 'Snapshot Changes' : 'Changed Files';
     count.textContent = `${activeIndex + 1} / ${currentDirectoryContext.changedFiles.length}`;
     renderNavigatorRailEntries(list, currentDirectoryContext.changedFiles, currentDirectoryContext.activeRelativePath);
+    if (shouldPreserveFocus) {
+        const activeEntry = list.querySelector('.navigator-entry.is-active') || list.querySelector('.navigator-entry');
+        if (activeEntry instanceof HTMLElement) {
+            activeEntry.focus({ preventScroll: true });
+        }
+    }
 }
 
 function renderNavigatorRailEntries(container, changedFiles, activeRelativePath) {
@@ -878,6 +969,9 @@ function renderNavigatorRailEntries(container, changedFiles, activeRelativePath)
         button.title = relativePath;
         if (relativePath === activeRelativePath) {
             button.classList.add('is-active');
+            button.tabIndex = 0;
+        } else {
+            button.tabIndex = -1;
         }
 
         const entryIndex = document.createElement('span');
@@ -891,6 +985,18 @@ function renderNavigatorRailEntries(container, changedFiles, activeRelativePath)
         button.append(entryIndex, label);
         container.append(button);
     });
+}
+
+function focusNavigatorRail() {
+    const list = getElement('navigator-rail-list');
+    if (!list || list.childElementCount === 0) {
+        return;
+    }
+
+    const activeEntry = list.querySelector('.navigator-entry.is-active') || list.querySelector('.navigator-entry');
+    if (activeEntry instanceof HTMLElement) {
+        activeEntry.focus();
+    }
 }
 
 function initializeEditModeToolbar() {
@@ -936,6 +1042,12 @@ function initializeChangeToolbar() {
         if ((event.metaKey || event.ctrlKey) && event.key === '[' && !getElement('directory-return-toolbar').hidden) {
             event.preventDefault();
             returnToDirectory();
+            return;
+        }
+
+        if (event.key === 'F6' && currentMode === MODE_TWO_WAY && canReturnToDirectoryView) {
+            event.preventDefault();
+            focusNavigatorRail();
             return;
         }
 
@@ -1053,11 +1165,13 @@ function navigateDiff(direction) {
 
 function setActiveDiffIndex(index, shouldReveal) {
     activeDiffIndex = index;
+    shouldPulseActiveDiff = shouldReveal;
     updateChangeToolbarState();
 
     if (leftEditor && rightEditor && currentDiffModel) {
         applyDiffDecorations(currentDiffModel);
     }
+    shouldPulseActiveDiff = false;
 
     if (shouldReveal) {
         revealActiveDiff(true);
@@ -1124,7 +1238,7 @@ function updateChangeToolbarState() {
     if (hint) {
         hint.hidden = !hasLineNavigation;
         hint.textContent = hasFileNavigation
-            ? 'F7 / Shift+F7 jumps line changes. Use ←/→ file buttons for changed files. Cmd/Ctrl+Alt+←/→ copies the selected change.'
+            ? 'F7 / Shift+F7 jumps line changes. Use ←/→ file buttons for changed files. F6 focuses the changed-file rail. Cmd/Ctrl+Alt+←/→ copies the selected change.'
             : 'F7 / Shift+F7 to jump. Cmd/Ctrl+Alt+←/→ to copy the selected change.';
     }
 
@@ -1377,6 +1491,7 @@ function updateHistoryToolbar(history) {
 
     if (!history) {
         toolbar.hidden = true;
+        toolbar.classList.remove('history-toolbar--refresh');
         clearHistoryToolbar();
         return;
     }
@@ -1389,6 +1504,7 @@ function updateHistoryToolbar(history) {
     setTextContent('history-left-time', history.leftTimestamp);
     setTextContent('history-right-commit', history.rightCommitLabel);
     setTextContent('history-right-time', history.rightTimestamp);
+    pulseHistoryToolbar();
 }
 
 function scrollTopToModelLinePosition(editor, scrollTop) {

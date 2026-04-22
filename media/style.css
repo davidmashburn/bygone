@@ -96,10 +96,43 @@ body.web-host {
     min-height: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    transition: grid-template-columns 180ms ease;
 }
 
 .workspace-shell.navigator-rail-active {
     grid-template-columns: var(--navigator-rail-width) minmax(0, 1fr);
+}
+
+.workspace-shell--hierarchy-shift #diff-container {
+    animation: bygone-hierarchy-shift 200ms ease-out;
+}
+
+.workspace-shell--timeline-shift #diff-container {
+    animation: bygone-timeline-shift 190ms ease-out;
+}
+
+@keyframes bygone-hierarchy-shift {
+    0% {
+        opacity: 0.82;
+        transform: translateX(-7px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes bygone-timeline-shift {
+    0% {
+        opacity: 0.84;
+        transform: translateY(4px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 #header {
@@ -326,6 +359,20 @@ body.web-host {
     gap: 12px;
 }
 
+.history-toolbar--refresh {
+    animation: bygone-history-refresh 190ms ease-out;
+}
+
+@keyframes bygone-history-refresh {
+    0% {
+        opacity: 0.65;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
 .history-side {
     min-width: 0;
 }
@@ -464,6 +511,11 @@ body.web-host {
 .navigator-entry.is-active {
     border-color: color-mix(in srgb, rgba(79, 124, 255, 0.72) 78%, var(--vscode-panel-border));
     background: color-mix(in srgb, rgba(79, 124, 255, 0.2) 84%, transparent);
+}
+
+.navigator-entry:focus-visible {
+    outline: 2px solid var(--vscode-focusBorder, rgba(79, 124, 255, 0.95));
+    outline-offset: 1px;
 }
 
 .navigator-entry-index {
@@ -750,6 +802,58 @@ body.web-host {
     border-bottom: 1.5px solid rgba(79, 124, 255, 0.95);
 }
 
+.monaco-editor .bygone-active-diff-pulse,
+.monaco-editor .bygone-active-diff-pulse-whole {
+    animation: bygone-active-diff-pulse-fill 540ms ease-out 1;
+}
+
+.monaco-editor .margin .bygone-active-diff-pulse-gutter,
+.monaco-editor .lines-decoration .bygone-active-diff-pulse-gutter {
+    animation: bygone-active-diff-pulse-gutter 540ms ease-out 1;
+}
+
+.monaco-editor .bygone-active-diff-pulse-start,
+.monaco-editor .bygone-active-diff-pulse-top {
+    animation: bygone-active-diff-pulse-border 540ms ease-out 1;
+    border-top: 1.5px solid rgba(79, 124, 255, 0.95);
+}
+
+.monaco-editor .bygone-active-diff-pulse-end,
+.monaco-editor .bygone-active-diff-pulse-bottom {
+    animation: bygone-active-diff-pulse-border 540ms ease-out 1;
+    border-bottom: 1.5px solid rgba(79, 124, 255, 0.95);
+}
+
+@keyframes bygone-active-diff-pulse-fill {
+    0% {
+        background: rgba(79, 124, 255, 0.28);
+    }
+
+    100% {
+        background: rgba(79, 124, 255, 0.08);
+    }
+}
+
+@keyframes bygone-active-diff-pulse-gutter {
+    0% {
+        border-left: 3px solid rgba(79, 124, 255, 1);
+    }
+
+    100% {
+        border-left: 3px solid rgba(79, 124, 255, 0.95);
+    }
+}
+
+@keyframes bygone-active-diff-pulse-border {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.95;
+    }
+}
+
 .monaco-editor .bygone-paired-edge-left,
 .monaco-editor .bygone-paired-edge-right,
 .monaco-editor .bygone-one-sided-edge-left,
@@ -771,6 +875,15 @@ body.web-host {
 
 .monaco-editor .bygone-one-sided-edge-right {
     border-right: 5px solid rgba(73, 190, 119, 0.92);
+}
+
+.history-button:focus-visible,
+.change-button:focus-visible,
+.directory-return-button:focus-visible,
+.directory-tree-button:focus-visible,
+.edit-mode-button:focus-visible {
+    outline: 2px solid var(--vscode-focusBorder, rgba(79, 124, 255, 0.95));
+    outline-offset: 1px;
 }
 
 .context {
@@ -982,5 +1095,54 @@ body.web-host {
 
     #three-way-diff {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 960px) {
+    :root {
+        --navigator-rail-width: minmax(150px, 200px);
+    }
+
+    #header {
+        padding: 8px 10px 10px;
+        gap: 6px;
+    }
+
+    .context-bar {
+        grid-template-columns: auto minmax(90px, 1fr) minmax(150px, 1.5fr);
+        gap: 6px;
+    }
+
+    .change-nav {
+        grid-template-columns: auto auto minmax(56px, auto) auto auto;
+        gap: 6px;
+    }
+
+    .change-hint {
+        display: none;
+    }
+
+    .diff-view,
+    .multi-view,
+    .dir-view {
+        padding: 8px;
+    }
+
+    .diff-view {
+        gap: 16px;
+    }
+
+    .navigator-rail-list {
+        padding: 6px;
+        gap: 3px;
+    }
+
+    .navigator-entry {
+        min-height: 24px;
+        padding: 0 6px;
+    }
+
+    .file-header {
+        padding: 6px 8px;
     }
 }
