@@ -147,7 +147,7 @@ export class GitHistoryService {
                 entries.push({
                     commit: 'INDEX',
                     parentCommit: headCommit,
-                    shortCommit: 'Staged Area',
+                    shortCommit: 'Staged',
                     summary: '',
                     timestamp: '',
                     parentSummary: headMetadata.summary,

@@ -339,7 +339,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                     <button id="history-back" class="history-button" type="button" title="Older commit">← Older</button>
                     <div id="history-position" class="history-position"></div>
                     <button id="history-forward" class="history-button" type="button" title="Newer commit">Newer →</button>
-                    <button id="history-toggle-staged" class="history-button history-toggle-button" type="button" title="Toggle staged/index step in history">Staged Off</button>
+                    <button id="history-toggle-staged" class="history-button history-toggle-button" type="button" title="Toggle staged step in history">Staged Off</button>
                 </div>
                 <div class="history-side history-side-right">
                     <div id="history-right-commit" class="history-commit"></div>

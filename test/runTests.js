@@ -334,7 +334,7 @@ function testHistoryIncludesStagedEntryWhenRequested() {
 
     assert.equal(history[0].commit, 'INDEX');
     assert.equal(history[0].parentCommit, runGit(repo, ['rev-parse', 'HEAD']));
-    assert.equal(history[0].shortCommit, 'Staged Area');
+    assert.equal(history[0].shortCommit, 'Staged');
     assert.equal(history[0].leftLabel, 'example.txt @ HEAD');
     assert.equal(history[0].rightLabel, 'example.txt @ Staged');
     assert.equal(history[0].leftContent, 'one\n');

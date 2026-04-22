@@ -947,7 +947,7 @@ function buildStagedDirectoryHistoryEntry(repoRoot, relativeDir, displayName) {
     return {
         commit: 'INDEX',
         parentCommit: headCommit,
-        shortCommit: 'Staged Area',
+        shortCommit: 'Staged',
         summary: '',
         timestamp: '',
         parentSummary: headMetadata.summary,
@@ -1136,7 +1136,7 @@ function buildDirectoryHistoryViewState(dirHistory, entry) {
         canGoBack: dirHistory.index < dirHistory.entries.length - 1,
         canGoForward: dirHistory.index > 0,
         positionLabel: `${dirHistory.index + 1} / ${dirHistory.entries.length}`,
-        leftCommitLabel: `${entry.parentCommit?.slice(0, 7) ?? ''} ${entry.parentSummary}`.trim(),
+        leftCommitLabel: `${formatHistoryCommitRef(entry.parentCommit)} ${entry.parentSummary}`.trim(),
         leftTimestamp: entry.parentTimestamp,
         rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
         rightTimestamp: entry.timestamp,
@@ -1803,7 +1803,7 @@ async function sendCurrentHistoryEntry() {
             canGoBack: session.history.index < session.history.entries.length - 1,
             canGoForward: session.history.index > 0,
             positionLabel: `${session.history.index + 1} / ${session.history.entries.length}`,
-            leftCommitLabel: `${entry.parentCommit?.slice(0, 7) ?? ''} ${entry.parentSummary}`.trim(),
+            leftCommitLabel: `${formatHistoryCommitRef(entry.parentCommit)} ${entry.parentSummary}`.trim(),
             leftTimestamp: entry.parentTimestamp,
             rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
             rightTimestamp: entry.timestamp,
@@ -2324,6 +2324,22 @@ function readCommitMetadataMap(repoRoot, commits) {
             }
             return map;
         }, new Map());
+}
+
+function formatHistoryCommitRef(commit) {
+    if (!commit) {
+        return '';
+    }
+
+    if (commit === 'INDEX') {
+        return 'Staged';
+    }
+
+    if (commit === 'WORKTREE') {
+        return 'Working Tree';
+    }
+
+    return commit.slice(0, 7);
 }
 
 function parseGitHistoryRecords(logOutput) {

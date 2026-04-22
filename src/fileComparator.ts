@@ -393,7 +393,7 @@ export class FileComparator {
             canGoBack: this.fileHistoryIndex < this.fileHistoryEntries.length - 1,
             canGoForward: this.fileHistoryIndex > 0,
             positionLabel: `${this.fileHistoryIndex + 1} / ${this.fileHistoryEntries.length}`,
-            leftCommitLabel: `${entry.parentCommit?.slice(0, 7) ?? ''} ${entry.parentSummary}`.trim(),
+            leftCommitLabel: `${this.formatHistoryCommitRef(entry.parentCommit)} ${entry.parentSummary}`.trim(),
             leftTimestamp: entry.parentTimestamp,
             rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
             rightTimestamp: entry.timestamp,
@@ -414,6 +414,22 @@ export class FileComparator {
         this.fileHistoryIndex = 0;
 
         await this.showCurrentHistoryEntry();
+    }
+
+    private formatHistoryCommitRef(commit: string | undefined): string {
+        if (!commit) {
+            return '';
+        }
+
+        if (commit === 'INDEX') {
+            return 'Staged';
+        }
+
+        if (commit === 'WORKTREE') {
+            return 'Working Tree';
+        }
+
+        return commit.slice(0, 7);
     }
 
     private resolveHistoryTarget(resource?: vscode.Uri): vscode.Uri | undefined {
