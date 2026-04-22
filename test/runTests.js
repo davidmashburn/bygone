@@ -136,6 +136,33 @@ function testDirectoryDiffLeavesIdenticalFilesSame() {
     assert.equal(entries.find((entry) => entry.relativePath === 'same.txt')?.status, 'same');
 }
 
+function testDirectoryDiffHandlesLargeModifiedFiles() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-directory-test-'));
+    const left = path.join(root, 'left');
+    const right = path.join(root, 'right');
+    const largeLeft = 'a'.repeat(300000);
+    const largeRight = `${'a'.repeat(299999)}b`;
+
+    fs.mkdirSync(left, { recursive: true });
+    fs.mkdirSync(right, { recursive: true });
+    fs.writeFileSync(path.join(left, 'large.txt'), `${largeLeft}\n`, 'utf8');
+    fs.writeFileSync(path.join(right, 'large.txt'), `${largeRight}\n`, 'utf8');
+
+    const entries = buildDirectoryComparison(left, right);
+
+    assert.equal(entries.find((entry) => entry.relativePath === 'large.txt')?.status, 'modified');
+}
+
+function testInlineHighlightsSkipVeryLongLines() {
+    const left = `const value = ${'a'.repeat(520)};\n`;
+    const right = `const value = ${'a'.repeat(519)}b;\n`;
+    const model = buildTwoWayDiffModel(left, right);
+
+    assert.equal(model.blocks[0]?.kind, 'replace');
+    assert.equal(model.leftLines[0]?.segments, undefined);
+    assert.equal(model.rightLines[0]?.segments, undefined);
+}
+
 function testMergeAcceptsOneSidedChange() {
     const result = mergeText('a\nb\nc\n', 'a\nleft\nc\n', 'a\nb\nc\n');
 
@@ -258,6 +285,8 @@ function run() {
     testDirectoryDiffDetectsModifiedFiles();
     testMultiDirectoryDiffDetectsPartialAndModifiedFiles();
     testDirectoryDiffLeavesIdenticalFilesSame();
+    testDirectoryDiffHandlesLargeModifiedFiles();
+    testInlineHighlightsSkipVeryLongLines();
     testMergeAcceptsOneSidedChange();
     testMergeAcceptsMatchingChanges();
     testMergeCreatesConflictForDivergentEdits();

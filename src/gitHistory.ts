@@ -45,6 +45,12 @@ interface HistoryCommitRecord {
     shortCommit: string;
     timestamp: string;
     summary: string;
+    parentCommit?: string;
+}
+
+interface CommitMetadata {
+    summary: string;
+    timestamp: string;
 }
 
 export class GitHistoryService {
@@ -57,11 +63,21 @@ export class GitHistoryService {
         const repoRoot = fs.realpathSync(this.runGitCommand(['rev-parse', '--show-toplevel'], path.dirname(canonicalFilePath)));
         const relativePath = path.relative(repoRoot, canonicalFilePath).replace(/\\/g, '/');
         const commits = this.parseHistoryCommitRecords(this.runGitCommand(
-            ['log', '--follow', '--format=%H%x09%h%x09%cI%x09%s', '--', relativePath],
+            ['log', '--follow', '--format=%H%x09%h%x09%cI%x09%s%x09%P', '--', relativePath],
             repoRoot
         ));
+        const parentMetadataByCommit = this.readCommitMetadataMap(
+            repoRoot,
+            [...new Set(commits.map((commit) => commit.parentCommit).filter((commit): commit is string => Boolean(commit)))]
+        );
         const commitEntries = commits
-            .map((commit) => this.buildFileHistoryDescriptor(canonicalFilePath, repoRoot, relativePath, commit))
+            .map((commit) => this.buildFileHistoryDescriptor(
+                canonicalFilePath,
+                repoRoot,
+                relativePath,
+                commit,
+                parentMetadataByCommit
+            ))
             .filter((entry): entry is FileHistoryEntryDescriptor => entry !== undefined);
         const workingTreeEntry = this.buildWorkingTreeHistoryDescriptor(canonicalFilePath, repoRoot, relativePath);
 
@@ -99,6 +115,7 @@ export class GitHistoryService {
         if (workingTreeContent === headContent) {
             return undefined;
         }
+        const headMetadata = this.readCommitMetadata(repoRoot, headCommit);
 
         const fileName = path.basename(filePath);
 
@@ -108,8 +125,8 @@ export class GitHistoryService {
             shortCommit: 'Working Tree',
             summary: '',
             timestamp: '',
-            parentSummary: this.readCommitSummary(repoRoot, headCommit),
-            parentTimestamp: this.readCommitTimestamp(repoRoot, headCommit),
+            parentSummary: headMetadata.summary,
+            parentTimestamp: headMetadata.timestamp,
             leftLabel: `${fileName} @ HEAD`,
             rightLabel: `${fileName} @ Working Tree`,
             filePath,
@@ -122,14 +139,16 @@ export class GitHistoryService {
         filePath: string,
         repoRoot: string,
         relativePath: string,
-        commit: HistoryCommitRecord
+        commit: HistoryCommitRecord,
+        parentMetadataByCommit: Map<string, CommitMetadata>
     ): FileHistoryEntryDescriptor | undefined {
-        const parentCommit = this.readPrimaryParent(repoRoot, commit.commit);
+        const parentCommit = commit.parentCommit;
         if (!parentCommit) {
             return undefined;
         }
 
         const fileName = path.basename(filePath);
+        const parentMetadata = parentMetadataByCommit.get(parentCommit) ?? this.readCommitMetadata(repoRoot, parentCommit);
 
         return {
             commit: commit.commit,
@@ -137,8 +156,8 @@ export class GitHistoryService {
             shortCommit: commit.shortCommit,
             summary: commit.summary,
             timestamp: commit.timestamp,
-            parentSummary: this.readCommitSummary(repoRoot, parentCommit),
-            parentTimestamp: this.readCommitTimestamp(repoRoot, parentCommit),
+            parentSummary: parentMetadata.summary,
+            parentTimestamp: parentMetadata.timestamp,
             leftLabel: `${fileName} @ ${parentCommit.slice(0, 7)}`,
             rightLabel: `${fileName} @ ${commit.shortCommit}`,
             filePath,
@@ -161,15 +180,6 @@ export class GitHistoryService {
             leftContent,
             rightContent
         };
-    }
-
-    private readPrimaryParent(repoRoot: string, commit: string): string | undefined {
-        const parents = this.runGitCommand(['rev-list', '--parents', '-n', '1', commit], repoRoot)
-            .trim()
-            .split(' ')
-            .slice(1);
-
-        return parents[0];
     }
 
     private runGitCommand(args: string[], cwd: string): string {
@@ -208,12 +218,35 @@ export class GitHistoryService {
         }
     }
 
-    private readCommitSummary(repoRoot: string, commit: string): string {
-        return this.runGitCommand(['show', '-s', '--format=%s', commit], repoRoot);
+    private readCommitMetadata(repoRoot: string, commit: string): CommitMetadata {
+        const output = this.runGitCommand(['show', '-s', '--format=%cI%x09%s', commit], repoRoot);
+        const [timestamp = '', ...summaryParts] = output.split('\t');
+        return {
+            timestamp,
+            summary: summaryParts.join('\t')
+        };
     }
 
-    private readCommitTimestamp(repoRoot: string, commit: string): string {
-        return this.runGitCommand(['show', '-s', '--format=%cI', commit], repoRoot);
+    private readCommitMetadataMap(repoRoot: string, commits: string[]): Map<string, CommitMetadata> {
+        if (commits.length === 0) {
+            return new Map();
+        }
+
+        const output = this.runGitCommand(['show', '-s', '--format=%H%x09%cI%x09%s', ...commits], repoRoot);
+        return output
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0)
+            .reduce((map, line) => {
+                const [commit, timestamp = '', ...summaryParts] = line.split('\t');
+                if (commit) {
+                    map.set(commit, {
+                        timestamp,
+                        summary: summaryParts.join('\t')
+                    });
+                }
+                return map;
+            }, new Map<string, CommitMetadata>());
     }
 
     private parseHistoryCommitRecords(logOutput: string): HistoryCommitRecord[] {
@@ -222,12 +255,20 @@ export class GitHistoryService {
             .map((line) => line.trim())
             .filter((line) => line.length > 0)
             .map((line) => {
-                const [commit, shortCommit, timestamp, ...summaryParts] = line.split('\t');
+                const parts = line.split('\t');
+                const commit = parts[0];
+                const shortCommit = parts[1];
+                const timestamp = parts[2];
+                const hasParentField = parts.length >= 5;
+                const parentField = hasParentField ? (parts[parts.length - 1] || '') : '';
+                const summaryParts = hasParentField ? parts.slice(3, -1) : parts.slice(3);
+                const firstParentCommit = parentField.split(' ').find((candidate) => candidate.length > 0);
                 return {
                     commit,
                     shortCommit,
                     timestamp,
-                    summary: summaryParts.join('\t')
+                    summary: summaryParts.join('\t'),
+                    parentCommit: firstParentCommit
                 };
             });
     }
