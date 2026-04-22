@@ -7,10 +7,11 @@ const parsedGitMaxBufferBytes = Number.parseInt(process.env.BYGONE_GIT_MAX_BUFFE
 const GIT_MAX_BUFFER_BYTES = Number.isFinite(parsedGitMaxBufferBytes) && parsedGitMaxBufferBytes > 0
     ? parsedGitMaxBufferBytes
     : DEFAULT_GIT_MAX_BUFFER_BYTES;
+const DEFAULT_HISTORY_MAX_COMMITS = 250;
 
 export interface FileHistoryEntry {
     commit: string;
-    parentCommit: string;
+    parentCommit: string | undefined;
     shortCommit: string;
     summary: string;
     timestamp: string;
@@ -22,77 +23,158 @@ export interface FileHistoryEntry {
     rightContent: string;
 }
 
+export interface FileHistoryEntryDescriptor {
+    commit: string;
+    parentCommit: string | undefined;
+    shortCommit: string;
+    summary: string;
+    timestamp: string;
+    parentSummary: string;
+    parentTimestamp: string;
+    leftLabel: string;
+    rightLabel: string;
+    filePath: string;
+    repoRoot: string;
+    relativePath: string;
+    leftContent?: string;
+    rightContent?: string;
+    rightDirty?: boolean;
+}
+
 interface HistoryCommitRecord {
     commit: string;
     shortCommit: string;
     timestamp: string;
     summary: string;
+    parentCommit?: string;
+}
+
+interface CommitMetadata {
+    summary: string;
+    timestamp: string;
 }
 
 export class GitHistoryService {
     public buildFileHistory(filePath: string): FileHistoryEntry[] {
+        return this.buildFileHistoryDescriptors(filePath).map((entry) => this.materializeFileHistoryEntry(entry));
+    }
+
+    public buildFileHistoryDescriptors(filePath: string): FileHistoryEntryDescriptor[] {
         const canonicalFilePath = fs.realpathSync(filePath);
         const repoRoot = fs.realpathSync(this.runGitCommand(['rev-parse', '--show-toplevel'], path.dirname(canonicalFilePath)));
         const relativePath = path.relative(repoRoot, canonicalFilePath).replace(/\\/g, '/');
-        const commits = this.parseHistoryCommitRecords(this.runGitCommand(
-            ['log', '--follow', '--format=%H%x09%h%x09%cI%x09%s', '--', relativePath],
-            repoRoot
-        ));
+        const maxCommits = readPositiveIntegerEnv('BYGONE_HISTORY_MAX_COMMITS', DEFAULT_HISTORY_MAX_COMMITS);
+        const commits = this.readHistoryCommitRecords(repoRoot, relativePath, maxCommits);
+        const parentMetadataByCommit = this.readCommitMetadataMap(
+            repoRoot,
+            [...new Set(commits.map((commit) => commit.parentCommit).filter((commit): commit is string => Boolean(commit)))]
+        );
         const commitEntries = commits
-            .map((commit) => this.buildFileHistoryEntry(canonicalFilePath, repoRoot, relativePath, commit))
-            .filter((entry): entry is FileHistoryEntry => entry !== undefined);
-        const workingTreeEntry = this.buildWorkingTreeHistoryEntry(canonicalFilePath, repoRoot, relativePath);
+            .map((commit) => this.buildFileHistoryDescriptor(
+                canonicalFilePath,
+                repoRoot,
+                relativePath,
+                commit,
+                parentMetadataByCommit
+            ))
+            .filter((entry): entry is FileHistoryEntryDescriptor => entry !== undefined);
+        const topEntries = this.buildTopHistoryDescriptors(canonicalFilePath, repoRoot, relativePath);
 
-        return workingTreeEntry ? [workingTreeEntry, ...commitEntries] : commitEntries;
+        return [...topEntries, ...commitEntries];
     }
 
-    private buildWorkingTreeHistoryEntry(
+    public materializeFileHistoryEntry(entry: FileHistoryEntryDescriptor): FileHistoryEntry {
+        if (entry.commit === 'WORKTREE') {
+            const leftContent = entry.parentCommit === 'INDEX'
+                ? this.readGitFile(entry.repoRoot, '', entry.relativePath)
+                : this.readGitFile(entry.repoRoot, entry.parentCommit, entry.relativePath);
+            return this.toFileHistoryEntry(
+                entry,
+                leftContent,
+                this.readWorkingTreeFile(entry.filePath)
+            );
+        }
+
+        if (entry.commit === 'INDEX') {
+            return this.toFileHistoryEntry(
+                entry,
+                this.readGitFile(entry.repoRoot, entry.parentCommit, entry.relativePath),
+                this.readGitFile(entry.repoRoot, '', entry.relativePath)
+            );
+        }
+
+        return this.toFileHistoryEntry(
+            entry,
+            this.readGitFile(entry.repoRoot, entry.parentCommit, entry.relativePath),
+            this.readGitFile(entry.repoRoot, entry.commit, entry.relativePath)
+        );
+    }
+
+    private buildTopHistoryDescriptors(
         filePath: string,
         repoRoot: string,
         relativePath: string
-    ): FileHistoryEntry | undefined {
+    ): FileHistoryEntryDescriptor[] {
         const headCommit = this.readHeadCommit(repoRoot);
-        if (!headCommit) {
-            return undefined;
-        }
 
         const headContent = this.readGitFile(repoRoot, headCommit, relativePath);
+        const indexContent = this.readGitFile(repoRoot, '', relativePath);
         const workingTreeContent = this.readWorkingTreeFile(filePath);
-        if (workingTreeContent === headContent) {
-            return undefined;
-        }
+        const headMetadata = headCommit ? this.readCommitMetadata(repoRoot, headCommit) : { summary: '', timestamp: '' };
 
         const fileName = path.basename(filePath);
+        const entries: FileHistoryEntryDescriptor[] = [];
 
-        return {
-            commit: 'WORKTREE',
-            parentCommit: headCommit,
-            shortCommit: 'Working Tree',
-            summary: '',
-            timestamp: '',
-            parentSummary: this.readCommitSummary(repoRoot, headCommit),
-            parentTimestamp: this.readCommitTimestamp(repoRoot, headCommit),
-            leftLabel: `${fileName} @ HEAD`,
-            rightLabel: `${fileName} @ Working Tree`,
-            leftContent: headContent,
-            rightContent: workingTreeContent
-        };
+        if (workingTreeContent !== headContent) {
+            entries.push({
+                commit: 'WORKTREE',
+                parentCommit: headCommit,
+                shortCommit: 'Working Tree',
+                summary: '',
+                timestamp: '',
+                parentSummary: headMetadata.summary,
+                parentTimestamp: headMetadata.timestamp,
+                leftLabel: `${fileName} @ HEAD`,
+                rightLabel: `${fileName} @ Working Tree`,
+                filePath,
+                repoRoot,
+                relativePath
+            });
+        }
+        if (indexContent !== headContent) {
+            entries.push({
+                commit: 'INDEX',
+                parentCommit: headCommit,
+                shortCommit: 'Staged',
+                summary: '',
+                timestamp: '',
+                parentSummary: headMetadata.summary,
+                parentTimestamp: headMetadata.timestamp,
+                leftLabel: `${fileName} @ HEAD`,
+                rightLabel: `${fileName} @ Staged`,
+                filePath,
+                repoRoot,
+                relativePath
+            });
+        }
+
+        return entries;
     }
 
-    private buildFileHistoryEntry(
+    private buildFileHistoryDescriptor(
         filePath: string,
         repoRoot: string,
         relativePath: string,
-        commit: HistoryCommitRecord
-    ): FileHistoryEntry | undefined {
-        const parentCommit = this.readPrimaryParent(repoRoot, commit.commit);
+        commit: HistoryCommitRecord,
+        parentMetadataByCommit: Map<string, CommitMetadata>
+    ): FileHistoryEntryDescriptor | undefined {
+        const parentCommit = commit.parentCommit;
         if (!parentCommit) {
             return undefined;
         }
 
         const fileName = path.basename(filePath);
-        const leftContent = this.readGitFile(repoRoot, parentCommit, relativePath);
-        const rightContent = this.readGitFile(repoRoot, commit.commit, relativePath);
+        const parentMetadata = parentMetadataByCommit.get(parentCommit) ?? this.readCommitMetadata(repoRoot, parentCommit);
 
         return {
             commit: commit.commit,
@@ -100,22 +182,30 @@ export class GitHistoryService {
             shortCommit: commit.shortCommit,
             summary: commit.summary,
             timestamp: commit.timestamp,
-            parentSummary: this.readCommitSummary(repoRoot, parentCommit),
-            parentTimestamp: this.readCommitTimestamp(repoRoot, parentCommit),
+            parentSummary: parentMetadata.summary,
+            parentTimestamp: parentMetadata.timestamp,
             leftLabel: `${fileName} @ ${parentCommit.slice(0, 7)}`,
             rightLabel: `${fileName} @ ${commit.shortCommit}`,
-            leftContent,
-            rightContent
+            filePath,
+            repoRoot,
+            relativePath
         };
     }
 
-    private readPrimaryParent(repoRoot: string, commit: string): string | undefined {
-        const parents = this.runGitCommand(['rev-list', '--parents', '-n', '1', commit], repoRoot)
-            .trim()
-            .split(' ')
-            .slice(1);
-
-        return parents[0];
+    private toFileHistoryEntry(entry: FileHistoryEntryDescriptor, leftContent: string, rightContent: string): FileHistoryEntry {
+        return {
+            commit: entry.commit,
+            parentCommit: entry.parentCommit,
+            shortCommit: entry.shortCommit,
+            summary: entry.summary,
+            timestamp: entry.timestamp,
+            parentSummary: entry.parentSummary,
+            parentTimestamp: entry.parentTimestamp,
+            leftLabel: entry.leftLabel,
+            rightLabel: entry.rightLabel,
+            leftContent,
+            rightContent
+        };
     }
 
     private runGitCommand(args: string[], cwd: string): string {
@@ -126,20 +216,47 @@ export class GitHistoryService {
         }).trimEnd();
     }
 
+    private readHistoryCommitRecords(repoRoot: string, relativePath: string, maxCommits: number): HistoryCommitRecord[] {
+        try {
+            return this.parseHistoryCommitRecords(execFileSync('git', [
+                'log',
+                '--max-count',
+                String(maxCommits),
+                '--follow',
+                '--format=%H%x09%h%x09%cI%x09%s%x09%P',
+                '--',
+                relativePath
+            ], {
+                cwd: repoRoot,
+                encoding: 'utf8',
+                maxBuffer: GIT_MAX_BUFFER_BYTES,
+                stdio: ['ignore', 'pipe', 'ignore']
+            }).trimEnd());
+        } catch {
+            return [];
+        }
+    }
+
     private readHeadCommit(repoRoot: string): string | undefined {
         try {
-            return this.runGitCommand(['rev-parse', 'HEAD'], repoRoot);
+            return execFileSync('git', ['rev-parse', 'HEAD'], {
+                cwd: repoRoot,
+                encoding: 'utf8',
+                maxBuffer: GIT_MAX_BUFFER_BYTES,
+                stdio: ['ignore', 'pipe', 'ignore']
+            }).trimEnd();
         } catch {
             return undefined;
         }
     }
 
-    private readGitFile(repoRoot: string, commit: string, relativePath: string): string {
+    private readGitFile(repoRoot: string, commit: string | undefined, relativePath: string): string {
         try {
             return execFileSync('git', ['show', `${commit}:${relativePath}`], {
                 cwd: repoRoot,
                 encoding: 'utf8',
-                maxBuffer: GIT_MAX_BUFFER_BYTES
+                maxBuffer: GIT_MAX_BUFFER_BYTES,
+                stdio: ['ignore', 'pipe', 'ignore']
             });
         } catch {
             return '';
@@ -154,12 +271,35 @@ export class GitHistoryService {
         }
     }
 
-    private readCommitSummary(repoRoot: string, commit: string): string {
-        return this.runGitCommand(['show', '-s', '--format=%s', commit], repoRoot);
+    private readCommitMetadata(repoRoot: string, commit: string): CommitMetadata {
+        const output = this.runGitCommand(['show', '-s', '--format=%cI%x09%s', commit], repoRoot);
+        const [timestamp = '', ...summaryParts] = output.split('\t');
+        return {
+            timestamp,
+            summary: summaryParts.join('\t')
+        };
     }
 
-    private readCommitTimestamp(repoRoot: string, commit: string): string {
-        return this.runGitCommand(['show', '-s', '--format=%cI', commit], repoRoot);
+    private readCommitMetadataMap(repoRoot: string, commits: string[]): Map<string, CommitMetadata> {
+        if (commits.length === 0) {
+            return new Map();
+        }
+
+        const output = this.runGitCommand(['show', '-s', '--format=%H%x09%cI%x09%s', ...commits], repoRoot);
+        return output
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0)
+            .reduce((map, line) => {
+                const [commit, timestamp = '', ...summaryParts] = line.split('\t');
+                if (commit) {
+                    map.set(commit, {
+                        timestamp,
+                        summary: summaryParts.join('\t')
+                    });
+                }
+                return map;
+            }, new Map<string, CommitMetadata>());
     }
 
     private parseHistoryCommitRecords(logOutput: string): HistoryCommitRecord[] {
@@ -168,13 +308,26 @@ export class GitHistoryService {
             .map((line) => line.trim())
             .filter((line) => line.length > 0)
             .map((line) => {
-                const [commit, shortCommit, timestamp, ...summaryParts] = line.split('\t');
+                const parts = line.split('\t');
+                const commit = parts[0];
+                const shortCommit = parts[1];
+                const timestamp = parts[2];
+                const hasParentField = parts.length >= 5;
+                const parentField = hasParentField ? (parts[parts.length - 1] || '') : '';
+                const summaryParts = hasParentField ? parts.slice(3, -1) : parts.slice(3);
+                const firstParentCommit = parentField.split(' ').find((candidate) => candidate.length > 0);
                 return {
                     commit,
                     shortCommit,
                     timestamp,
-                    summary: summaryParts.join('\t')
+                    summary: summaryParts.join('\t'),
+                    parentCommit: firstParentCommit
                 };
             });
     }
+}
+
+function readPositiveIntegerEnv(name: string, fallback: number): number {
+    const parsed = Number.parseInt(process.env[name] ?? '', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }

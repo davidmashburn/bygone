@@ -57,6 +57,8 @@ interface Edit {
     newLines: string[];
 }
 
+const MAX_INLINE_HIGHLIGHT_LINE_LENGTH = 500;
+
 export function buildTwoWayDiffModel(leftContent: string, rightContent: string): TwoWayDiffModel {
     const leftLines = normalizeLines(leftContent);
     const rightLines = normalizeLines(rightContent);
@@ -319,6 +321,11 @@ function applyInlineHighlights(
         const rightLine = rightLines[rightStart + index];
 
         if (!leftLine || !rightLine) {
+            continue;
+        }
+
+        if (leftLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH
+            || rightLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH) {
             continue;
         }
 

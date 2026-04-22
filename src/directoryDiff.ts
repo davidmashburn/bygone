@@ -12,6 +12,9 @@ export interface DirectoryEntry {
     sides: boolean[];
 }
 
+const SMALL_FILE_COMPARE_BYTES = 256 * 1024;
+const CHUNK_COMPARE_BYTES = 64 * 1024;
+
 function safeReadDir(dir: string): fs.Dirent[] {
     try {
         return fs.readdirSync(dir, { withFileTypes: true });
@@ -99,11 +102,85 @@ function getEntryStatus(
 }
 
 function fileContentsEqual(filePaths: string[]): boolean {
+    const stats = filePaths
+        .map((filePath) => safeStat(filePath))
+        .filter((stat): stat is fs.Stats => Boolean(stat));
+    if (stats.length !== filePaths.length) {
+        return false;
+    }
+
+    const firstStat = stats[0];
+    if (!firstStat) {
+        return false;
+    }
+    if (stats.slice(1).some((stat) => stat.size !== firstStat.size)) {
+        return false;
+    }
+
+    if (firstStat.size === 0) {
+        return true;
+    }
+
+    if (stats.slice(1).every((stat) => stat.dev === firstStat.dev && stat.ino === firstStat.ino)) {
+        return true;
+    }
+
+    if (firstStat.size <= SMALL_FILE_COMPARE_BYTES) {
+        try {
+            const first = fs.readFileSync(filePaths[0]);
+            return filePaths.slice(1).every((filePath) => first.equals(fs.readFileSync(filePath)));
+        } catch {
+            return false;
+        }
+    }
+
+    return compareFilesByChunk(filePaths, firstStat.size);
+}
+
+function safeStat(filePath: string): fs.Stats | undefined {
     try {
-        const first = fs.readFileSync(filePaths[0]);
-        return filePaths.slice(1).every((filePath) => first.equals(fs.readFileSync(filePath)));
+        return fs.statSync(filePath);
+    } catch {
+        return undefined;
+    }
+}
+
+function compareFilesByChunk(filePaths: string[], fileSize: number): boolean {
+    const firstFd = fs.openSync(filePaths[0], 'r');
+    const otherFds = filePaths.slice(1).map((filePath) => fs.openSync(filePath, 'r'));
+    const firstBuffer = Buffer.allocUnsafe(CHUNK_COMPARE_BYTES);
+    const compareBuffer = Buffer.allocUnsafe(CHUNK_COMPARE_BYTES);
+
+    try {
+        let offset = 0;
+        while (offset < fileSize) {
+            const bytesToRead = Math.min(CHUNK_COMPARE_BYTES, fileSize - offset);
+            const firstRead = fs.readSync(firstFd, firstBuffer, 0, bytesToRead, offset);
+            if (firstRead !== bytesToRead) {
+                return false;
+            }
+
+            for (const fd of otherFds) {
+                const compareRead = fs.readSync(fd, compareBuffer, 0, bytesToRead, offset);
+                if (compareRead !== bytesToRead) {
+                    return false;
+                }
+                if (!firstBuffer.subarray(0, bytesToRead).equals(compareBuffer.subarray(0, bytesToRead))) {
+                    return false;
+                }
+            }
+
+            offset += bytesToRead;
+        }
+
+        return true;
     } catch {
         return false;
+    } finally {
+        fs.closeSync(firstFd);
+        for (const fd of otherFds) {
+            fs.closeSync(fd);
+        }
     }
 }
 
