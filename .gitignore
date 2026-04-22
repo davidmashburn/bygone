@@ -3,6 +3,7 @@ out/
 dist/
 *.vsix
 .DS_Store
+.claude/
 .vscode-test/
 media/*.prev.png
 media/*.pre-*.png
