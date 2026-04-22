@@ -18,6 +18,8 @@ import {
     WebviewOutboundMessage
 } from './webviewMessages';
 
+const PROFILE_UI = parseBooleanEnv(process.env.BYGONE_PROFILE_UI);
+
 export class DiffViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'bygone.diffView';
     private static readonly containerCommand = 'workbench.view.extension.bygonediff';
@@ -413,6 +415,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         window.__BYGONE_HOST__ = {
             environment: 'vscode',
             editorWorkerUrl: ${JSON.stringify(editorWorkerUri.toString())},
+            profileUi: ${JSON.stringify(PROFILE_UI)},
             postMessage(message) {
                 vscodeApi.postMessage(message);
             }
@@ -455,4 +458,13 @@ function getNonce(): string {
     }
 
     return nonce;
+}
+
+function parseBooleanEnv(value: string | undefined): boolean {
+    if (typeof value !== 'string') {
+        return false;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }

@@ -358,7 +358,11 @@
   }
 
   // src/diffEngine.ts
-  var MAX_INLINE_HIGHLIGHT_LINE_LENGTH = 500;
+  var DEFAULT_MAX_INLINE_HIGHLIGHT_LINE_LENGTH = 500;
+  var MAX_INLINE_HIGHLIGHT_LINE_LENGTH = readPositiveIntegerEnv(
+    "BYGONE_MAX_INLINE_HIGHLIGHT_LINE_LENGTH",
+    DEFAULT_MAX_INLINE_HIGHLIGHT_LINE_LENGTH
+  );
   function buildTwoWayDiffModel(leftContent, rightContent) {
     const leftLines = normalizeLines(leftContent);
     const rightLines = normalizeLines(rightContent);
@@ -531,6 +535,11 @@
   function makeDiffBlock(kind, leftStart, leftEnd, rightStart, rightEnd) {
     return { kind, leftStart, leftEnd, rightStart, rightEnd };
   }
+  function readPositiveIntegerEnv(name, fallback) {
+    const value = typeof process !== "undefined" ? process.env?.[name] : void 0;
+    const parsed = Number.parseInt(value ?? "", 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  }
 
   // src/sampleFiles.ts
   function createJavaScriptSampleFilePair() {
@@ -688,6 +697,7 @@ module.exports = FileProcessor;
 
   // web/host.js
   (function initializeWebHost() {
+    const profileUi = new URLSearchParams(window.location.search).get("profileUi") === "1";
     const state = {
       mode: "empty",
       left: null,
@@ -696,6 +706,7 @@ module.exports = FileProcessor;
     window.__BYGONE_HOST__ = {
       environment: "web",
       editorWorkerUrl: "/media/editor.worker.js",
+      profileUi,
       postMessage(message) {
         void handleRendererMessage(message);
       }

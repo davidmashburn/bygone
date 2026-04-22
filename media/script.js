@@ -21,6 +21,7 @@ const MODE_MULTI_WAY = 'multi-way';
 const MODE_DIRECTORY = 'directory';
 const NAVIGATOR_SCOPE_CHANGED = 'changed-files';
 const NAVIGATOR_SCOPE_TREE = 'tree';
+const UI_PROFILE_FLUSH_INTERVAL_MS = 1000;
 
 let currentMode = MODE_TWO_WAY;
 let diffBlocks = [];
@@ -49,6 +50,9 @@ let canReturnToDirectoryView = false;
 let currentDirectoryContext = null;
 let shouldPulseActiveDiff = false;
 let navigatorRailScope = NAVIGATOR_SCOPE_CHANGED;
+const uiProfileEnabled = Boolean(host.profileUi);
+const uiProfileStats = new Map();
+let uiProfileFlushTimer = null;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -586,37 +590,39 @@ function setCurrentDiffModel(diffModel) {
 }
 
 function applyDiffDecorations(diffModel) {
-    const leftDecorations = [];
-    const rightDecorations = [];
+    profileUiPhase('applyDiffDecorations', () => {
+        const leftDecorations = [];
+        const rightDecorations = [];
 
-    for (const block of diffModel.blocks || []) {
-        if (block.kind === 'replace') {
-            addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
-            addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
-            addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
-            addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
-        } else if (block.kind === 'delete') {
-            addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
-            addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
-            addCollapsedBoundaryDecoration(rightDecorations, block.rightStart, rightEditor.getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
-        } else if (block.kind === 'insert') {
-            addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
-            addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
-            addCollapsedBoundaryDecoration(leftDecorations, block.leftStart, leftEditor.getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
+        for (const block of diffModel.blocks || []) {
+            if (block.kind === 'replace') {
+                addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
+                addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
+                addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
+                addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
+            } else if (block.kind === 'delete') {
+                addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
+                addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
+                addCollapsedBoundaryDecoration(rightDecorations, block.rightStart, rightEditor.getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
+            } else if (block.kind === 'insert') {
+                addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
+                addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
+                addCollapsedBoundaryDecoration(leftDecorations, block.leftStart, leftEditor.getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
+            }
         }
-    }
 
-    const activeBlock = diffBlocks[activeDiffIndex];
-    if (activeBlock) {
-        addActiveBlockDecorations(leftDecorations, activeBlock.leftStart, activeBlock.leftEnd, leftEditor.getModel()?.getLineCount() ?? 0);
-        addActiveBlockDecorations(rightDecorations, activeBlock.rightStart, activeBlock.rightEnd, rightEditor.getModel()?.getLineCount() ?? 0);
-    }
+        const activeBlock = diffBlocks[activeDiffIndex];
+        if (activeBlock) {
+            addActiveBlockDecorations(leftDecorations, activeBlock.leftStart, activeBlock.leftEnd, leftEditor.getModel()?.getLineCount() ?? 0);
+            addActiveBlockDecorations(rightDecorations, activeBlock.rightStart, activeBlock.rightEnd, rightEditor.getModel()?.getLineCount() ?? 0);
+        }
 
-    addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
-    addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
+        addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
+        addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
 
-    leftDecorationIds = leftEditor.deltaDecorations(leftDecorationIds, leftDecorations);
-    rightDecorationIds = rightEditor.deltaDecorations(rightDecorationIds, rightDecorations);
+        leftDecorationIds = leftEditor.deltaDecorations(leftDecorationIds, leftDecorations);
+        rightDecorationIds = rightEditor.deltaDecorations(rightDecorationIds, rightDecorations);
+    });
 }
 
 function addActiveBlockDecorations(target, start, end, targetLineCount) {
@@ -638,45 +644,47 @@ function addActiveBlockDecorations(target, start, end, targetLineCount) {
 }
 
 function applyMultiDiffDecorations(pairs) {
-    const decorations = multiEditors.map(() => []);
+    profileUiPhase('applyMultiDiffDecorations', () => {
+        const decorations = multiEditors.map(() => []);
 
-    for (const pair of pairs || []) {
-        const leftDecorations = decorations[pair.leftIndex];
-        const rightDecorations = decorations[pair.rightIndex];
-        const diffModel = pair.diffModel;
+        for (const pair of pairs || []) {
+            const leftDecorations = decorations[pair.leftIndex];
+            const rightDecorations = decorations[pair.rightIndex];
+            const diffModel = pair.diffModel;
 
-        if (!leftDecorations || !rightDecorations || !diffModel) {
-            continue;
-        }
-
-        for (const block of diffModel.blocks || []) {
-            if (block.kind === 'replace') {
-                addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
-                addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
-                addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
-                addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
-                addAdjacentEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'right', 'bygone-paired-edge');
-                addAdjacentEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'left', 'bygone-paired-edge');
-            } else if (block.kind === 'delete') {
-                addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
-                addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
-                addAdjacentEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'right', 'bygone-one-sided-edge');
-                addCollapsedBoundaryDecoration(rightDecorations, block.rightStart, multiEditors[pair.rightIndex].getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
-            } else if (block.kind === 'insert') {
-                addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
-                addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
-                addAdjacentEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'left', 'bygone-one-sided-edge');
-                addCollapsedBoundaryDecoration(leftDecorations, block.leftStart, multiEditors[pair.leftIndex].getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
+            if (!leftDecorations || !rightDecorations || !diffModel) {
+                continue;
             }
+
+            for (const block of diffModel.blocks || []) {
+                if (block.kind === 'replace') {
+                    addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
+                    addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
+                    addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
+                    addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
+                    addAdjacentEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'right', 'bygone-paired-edge');
+                    addAdjacentEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'left', 'bygone-paired-edge');
+                } else if (block.kind === 'delete') {
+                    addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
+                    addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
+                    addAdjacentEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'right', 'bygone-one-sided-edge');
+                    addCollapsedBoundaryDecoration(rightDecorations, block.rightStart, multiEditors[pair.rightIndex].getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
+                } else if (block.kind === 'insert') {
+                    addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
+                    addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
+                    addAdjacentEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'left', 'bygone-one-sided-edge');
+                    addCollapsedBoundaryDecoration(leftDecorations, block.leftStart, multiEditors[pair.leftIndex].getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
+                }
+            }
+
+            addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
+            addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
         }
 
-        addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
-        addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
-    }
-
-    multiDecorationIds = multiEditors.map((editor, index) => (
-        editor.deltaDecorations(multiDecorationIds[index] || [], decorations[index])
-    ));
+        multiDecorationIds = multiEditors.map((editor, index) => (
+            editor.deltaDecorations(multiDecorationIds[index] || [], decorations[index])
+        ));
+    });
 }
 
 function addLineDecorations(target, start, end, className) {
@@ -1010,131 +1018,137 @@ function normalizeDirectoryContext(nextDirectoryContext) {
 }
 
 function updateNavigatorRail() {
-    const rail = getElement('navigator-rail');
-    const title = getElement('navigator-rail-title');
-    const count = getElement('navigator-rail-count');
-    const list = getElement('navigator-rail-list');
-    const tabs = getElement('navigator-rail-tabs');
+    profileUiPhase('updateNavigatorRail', () => {
+        const rail = getElement('navigator-rail');
+        const title = getElement('navigator-rail-title');
+        const count = getElement('navigator-rail-count');
+        const list = getElement('navigator-rail-list');
+        const tabs = getElement('navigator-rail-tabs');
 
-    if (!rail || !title || !count || !list || !tabs) {
-        return;
-    }
-
-    const shouldShow = currentMode === MODE_TWO_WAY && canReturnToDirectoryView
-        && currentDirectoryContext
-        && currentDirectoryContext.changedFiles.length > 0;
-
-    rail.hidden = !shouldShow;
-    document.body.classList.toggle('navigator-rail-open', Boolean(shouldShow));
-    getElement('workspace-shell')?.classList.toggle('navigator-rail-active', Boolean(shouldShow));
-    tabs.hidden = !shouldShow;
-
-    if (!shouldShow) {
-        title.textContent = '';
-        count.textContent = '';
-        list.innerHTML = '';
-        updateNavigatorRailTabs(null);
-        return;
-    }
-
-    const shouldPreserveFocus = list.contains(document.activeElement);
-    updateNavigatorRailTabs(currentDirectoryContext);
-
-    if (navigatorRailScope === NAVIGATOR_SCOPE_TREE && isNavigatorTreeScopeAvailable(currentDirectoryContext)) {
-        title.textContent = 'Directory Tree';
-        count.textContent = `${currentDirectoryContext.treeEntries.length} entries`;
-        list.setAttribute('aria-label', 'Directory tree');
-        renderNavigatorRailTreeEntries(list, currentDirectoryContext.treeEntries, currentDirectoryContext.activeRelativePath);
-    } else {
-        const activeIndex = Math.max(0, currentDirectoryContext.changedFiles.indexOf(currentDirectoryContext.activeRelativePath));
-        title.textContent = historyMode ? 'Snapshot Changes' : 'Changed Files';
-        count.textContent = `${activeIndex + 1} / ${currentDirectoryContext.changedFiles.length}`;
-        list.setAttribute('aria-label', 'Changed files');
-        renderNavigatorRailChangedEntries(list, currentDirectoryContext.changedFiles, currentDirectoryContext.activeRelativePath);
-    }
-
-    if (shouldPreserveFocus) {
-        const activeEntry = list.querySelector('.navigator-entry.is-active') || list.querySelector('.navigator-entry');
-        if (activeEntry instanceof HTMLElement) {
-            activeEntry.focus({ preventScroll: true });
+        if (!rail || !title || !count || !list || !tabs) {
+            return;
         }
-    }
+
+        const shouldShow = currentMode === MODE_TWO_WAY && canReturnToDirectoryView
+            && currentDirectoryContext
+            && currentDirectoryContext.changedFiles.length > 0;
+
+        rail.hidden = !shouldShow;
+        document.body.classList.toggle('navigator-rail-open', Boolean(shouldShow));
+        getElement('workspace-shell')?.classList.toggle('navigator-rail-active', Boolean(shouldShow));
+        tabs.hidden = !shouldShow;
+
+        if (!shouldShow) {
+            title.textContent = '';
+            count.textContent = '';
+            list.innerHTML = '';
+            updateNavigatorRailTabs(null);
+            return;
+        }
+
+        const shouldPreserveFocus = list.contains(document.activeElement);
+        updateNavigatorRailTabs(currentDirectoryContext);
+
+        if (navigatorRailScope === NAVIGATOR_SCOPE_TREE && isNavigatorTreeScopeAvailable(currentDirectoryContext)) {
+            title.textContent = 'Directory Tree';
+            count.textContent = `${currentDirectoryContext.treeEntries.length} entries`;
+            list.setAttribute('aria-label', 'Directory tree');
+            renderNavigatorRailTreeEntries(list, currentDirectoryContext.treeEntries, currentDirectoryContext.activeRelativePath);
+        } else {
+            const activeIndex = Math.max(0, currentDirectoryContext.changedFiles.indexOf(currentDirectoryContext.activeRelativePath));
+            title.textContent = historyMode ? 'Snapshot Changes' : 'Changed Files';
+            count.textContent = `${activeIndex + 1} / ${currentDirectoryContext.changedFiles.length}`;
+            list.setAttribute('aria-label', 'Changed files');
+            renderNavigatorRailChangedEntries(list, currentDirectoryContext.changedFiles, currentDirectoryContext.activeRelativePath);
+        }
+
+        if (shouldPreserveFocus) {
+            const activeEntry = list.querySelector('.navigator-entry.is-active') || list.querySelector('.navigator-entry');
+            if (activeEntry instanceof HTMLElement) {
+                activeEntry.focus({ preventScroll: true });
+            }
+        }
+    });
 }
 
 function renderNavigatorRailChangedEntries(container, changedFiles, activeRelativePath) {
-    container.innerHTML = '';
+    profileUiPhase('renderNavigatorRailChangedEntries', () => {
+        container.innerHTML = '';
 
-    changedFiles.forEach((relativePath, index) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'navigator-entry';
-        button.dataset.relativePath = relativePath;
-        button.title = relativePath;
-        if (relativePath === activeRelativePath) {
-            button.classList.add('is-active');
-            button.tabIndex = 0;
-        } else {
-            button.tabIndex = -1;
-        }
+        changedFiles.forEach((relativePath, index) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'navigator-entry';
+            button.dataset.relativePath = relativePath;
+            button.title = relativePath;
+            if (relativePath === activeRelativePath) {
+                button.classList.add('is-active');
+                button.tabIndex = 0;
+            } else {
+                button.tabIndex = -1;
+            }
 
-        const entryIndex = document.createElement('span');
-        entryIndex.className = 'navigator-entry-index';
-        entryIndex.textContent = String(index + 1);
+            const entryIndex = document.createElement('span');
+            entryIndex.className = 'navigator-entry-index';
+            entryIndex.textContent = String(index + 1);
 
-        const label = document.createElement('span');
-        label.className = 'navigator-entry-label';
-        label.textContent = relativePath;
+            const label = document.createElement('span');
+            label.className = 'navigator-entry-label';
+            label.textContent = relativePath;
 
-        button.append(entryIndex, label);
-        container.append(button);
+            button.append(entryIndex, label);
+            container.append(button);
+        });
     });
 }
 
 function renderNavigatorRailTreeEntries(container, treeEntries, activeRelativePath) {
-    container.innerHTML = '';
-    let hasFocusableEntry = false;
+    profileUiPhase('renderNavigatorRailTreeEntries', () => {
+        container.innerHTML = '';
+        let hasFocusableEntry = false;
 
-    treeEntries.forEach((entry) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `navigator-entry navigator-entry--tree navigator-entry--${entry.status}`;
-        button.dataset.relativePath = entry.relativePath;
-        button.style.setProperty('--navigator-tree-depth', String(entry.depth));
-        button.title = entry.relativePath;
+        treeEntries.forEach((entry) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `navigator-entry navigator-entry--tree navigator-entry--${entry.status}`;
+            button.dataset.relativePath = entry.relativePath;
+            button.style.setProperty('--navigator-tree-depth', String(entry.depth));
+            button.title = entry.relativePath;
 
-        const hasBothSides = Array.isArray(entry.sides) && entry.sides.filter(Boolean).length >= 2;
-        const isNavigable = !entry.isDirectory && hasBothSides;
-        if (!isNavigable) {
-            button.disabled = true;
-            button.classList.add('is-disabled');
+            const hasBothSides = Array.isArray(entry.sides) && entry.sides.filter(Boolean).length >= 2;
+            const isNavigable = !entry.isDirectory && hasBothSides;
+            if (!isNavigable) {
+                button.disabled = true;
+                button.classList.add('is-disabled');
+            }
+
+            if (isNavigable && entry.relativePath === activeRelativePath) {
+                button.classList.add('is-active');
+                button.tabIndex = 0;
+                hasFocusableEntry = true;
+            } else {
+                button.tabIndex = -1;
+            }
+
+            const treeKind = document.createElement('span');
+            treeKind.className = 'navigator-tree-kind';
+            treeKind.textContent = entry.isDirectory ? '▸' : '';
+
+            const label = document.createElement('span');
+            label.className = `navigator-entry-label${entry.isDirectory ? ' navigator-entry-label--dir' : ''}`;
+            label.textContent = entry.isDirectory ? `${entry.displayName}/` : entry.displayName;
+
+            button.append(treeKind, label);
+            container.append(button);
+        });
+
+        if (!hasFocusableEntry) {
+            const firstFocusableEntry = container.querySelector('.navigator-entry:not([disabled])');
+            if (firstFocusableEntry instanceof HTMLElement) {
+                firstFocusableEntry.tabIndex = 0;
+            }
         }
-
-        if (isNavigable && entry.relativePath === activeRelativePath) {
-            button.classList.add('is-active');
-            button.tabIndex = 0;
-            hasFocusableEntry = true;
-        } else {
-            button.tabIndex = -1;
-        }
-
-        const treeKind = document.createElement('span');
-        treeKind.className = 'navigator-tree-kind';
-        treeKind.textContent = entry.isDirectory ? '▸' : '';
-
-        const label = document.createElement('span');
-        label.className = `navigator-entry-label${entry.isDirectory ? ' navigator-entry-label--dir' : ''}`;
-        label.textContent = entry.isDirectory ? `${entry.displayName}/` : entry.displayName;
-
-        button.append(treeKind, label);
-        container.append(button);
     });
-
-    if (!hasFocusableEntry) {
-        const firstFocusableEntry = container.querySelector('.navigator-entry:not([disabled])');
-        if (firstFocusableEntry instanceof HTMLElement) {
-            firstFocusableEntry.tabIndex = 0;
-        }
-    }
 }
 
 function focusNavigatorRail() {
@@ -1286,7 +1300,7 @@ function runDirectoryTreeAction(action) {
         return;
     }
 
-    action(container);
+    profileUiPhase('runDirectoryTreeAction', () => action(container));
     updateChangeToolbarState();
     connectorController.scheduleDrawConnections();
 }
@@ -1835,6 +1849,63 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function profileUiPhase(label, work) {
+    if (!uiProfileEnabled) {
+        return work();
+    }
+
+    const startedAt = performance.now();
+    try {
+        return work();
+    } finally {
+        recordUiProfileStat(label, performance.now() - startedAt);
+    }
+}
+
+function recordUiProfileStat(label, durationMs) {
+    const existing = uiProfileStats.get(label) || {
+        count: 0,
+        totalMs: 0,
+        maxMs: 0
+    };
+
+    existing.count += 1;
+    existing.totalMs += durationMs;
+    existing.maxMs = Math.max(existing.maxMs, durationMs);
+    uiProfileStats.set(label, existing);
+    scheduleUiProfileFlush();
+}
+
+function scheduleUiProfileFlush() {
+    if (uiProfileFlushTimer !== null) {
+        return;
+    }
+
+    uiProfileFlushTimer = window.setTimeout(() => {
+        uiProfileFlushTimer = null;
+        flushUiProfileStats();
+    }, UI_PROFILE_FLUSH_INTERVAL_MS);
+}
+
+function flushUiProfileStats() {
+    if (!uiProfileEnabled || uiProfileStats.size === 0) {
+        return;
+    }
+
+    const summary = Array.from(uiProfileStats.entries())
+        .map(([label, stat]) => {
+            const avgMs = stat.totalMs / Math.max(stat.count, 1);
+            return `${label}: avg=${formatProfileDuration(avgMs)} max=${formatProfileDuration(stat.maxMs)} n=${stat.count}`;
+        })
+        .join(' | ');
+    console.info(`[Bygone UI profile] ${summary}`);
+    uiProfileStats.clear();
+}
+
+function formatProfileDuration(durationMs) {
+    return `${durationMs.toFixed(2)}ms`;
+}
+
 function createHostBridge() {
     if (window.__BYGONE_HOST__) {
         return {
@@ -1856,6 +1927,7 @@ function createHostBridge() {
     return {
         environment: 'vscode',
         editorWorkerUrl: window.__BYGONE_EDITOR_WORKER_URL__,
+        profileUi: false,
         postMessage(message) {
             vscodeApi.postMessage(message);
         },

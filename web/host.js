@@ -2,6 +2,7 @@ import { buildTwoWayDiffModel } from '../src/diffEngine.ts';
 import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 
 (function initializeWebHost() {
+    const profileUi = new URLSearchParams(window.location.search).get('profileUi') === '1';
     const state = {
         mode: 'empty',
         left: null,
@@ -11,6 +12,7 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
     window.__BYGONE_HOST__ = {
         environment: 'web',
         editorWorkerUrl: '/media/editor.worker.js',
+        profileUi,
         postMessage(message) {
             void handleRendererMessage(message);
         }
