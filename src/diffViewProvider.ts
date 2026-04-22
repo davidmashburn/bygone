@@ -5,6 +5,7 @@ import { openDiffPreview } from './fallbackViews';
 import {
     DirectoryEntry,
     HistoryViewState,
+    isHistoryToggleStagedMessage,
     isHistoryNavigationMessage,
     isNavigateDirectoryEntryMessage,
     isOpenDirectoryEntryMessage,
@@ -34,6 +35,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         directoryContext?: ShowDiffMessage['directoryContext'];
     };
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
+    private historyStagedToggleHandler?: (includeStaged: boolean) => void;
     private directoryEntryOpenHandler?: (relativePath: string) => void;
     private directoryEntryNavigationHandler?: (direction: 'previous' | 'next') => void;
     private returnToDirectoryHandler?: () => void;
@@ -42,6 +44,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
     public setHistoryNavigationHandler(handler: (direction: 'back' | 'forward') => void): void {
         this.historyNavigationHandler = handler;
+    }
+
+    public setHistoryStagedToggleHandler(handler: (includeStaged: boolean) => void): void {
+        this.historyStagedToggleHandler = handler;
     }
 
     public setDirectoryEntryOpenHandler(handler: (relativePath: string) => void): void {
@@ -87,6 +93,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
             if (isHistoryNavigationMessage(message) && this.historyNavigationHandler) {
                 this.historyNavigationHandler(message.type === 'historyBack' ? 'back' : 'forward');
+            }
+
+            if (isHistoryToggleStagedMessage(message) && this.historyStagedToggleHandler) {
+                this.historyStagedToggleHandler(message.includeStaged);
             }
 
             if (isOpenDirectoryEntryMessage(message) && this.directoryEntryOpenHandler) {
@@ -329,6 +339,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                     <button id="history-back" class="history-button" type="button" title="Older commit">← Older</button>
                     <div id="history-position" class="history-position"></div>
                     <button id="history-forward" class="history-button" type="button" title="Newer commit">Newer →</button>
+                    <button id="history-toggle-staged" class="history-button history-toggle-button" type="button" title="Toggle staged/index step in history">Staged Off</button>
                 </div>
                 <div class="history-side history-side-right">
                     <div id="history-right-commit" class="history-commit"></div>

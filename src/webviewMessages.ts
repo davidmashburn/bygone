@@ -11,6 +11,7 @@ export interface HistoryViewState {
     leftTimestamp: string;
     rightCommitLabel: string;
     rightTimestamp: string;
+    includeStaged: boolean;
 }
 
 export interface ShowDiffMessage {
@@ -111,13 +112,19 @@ export interface ReturnToDirectoryMessage {
     type: 'returnToDirectory';
 }
 
+export interface HistoryToggleStagedMessage {
+    type: 'historyToggleStaged';
+    includeStaged: boolean;
+}
+
 export type WebviewInboundMessage =
     | ReadyMessage
     | RecomputeDiffMessage
     | HistoryNavigationMessage
     | OpenDirectoryEntryMessage
     | NavigateDirectoryEntryMessage
-    | ReturnToDirectoryMessage;
+    | ReturnToDirectoryMessage
+    | HistoryToggleStagedMessage;
 export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
 
 export function isReadyMessage(message: unknown): message is ReadyMessage {
@@ -146,6 +153,11 @@ export function isNavigateDirectoryEntryMessage(message: unknown): message is Na
 
 export function isReturnToDirectoryMessage(message: unknown): message is ReturnToDirectoryMessage {
     return getMessageType(message) === 'returnToDirectory';
+}
+
+export function isHistoryToggleStagedMessage(message: unknown): message is HistoryToggleStagedMessage {
+    return getMessageType(message) === 'historyToggleStaged'
+        && typeof (message as HistoryToggleStagedMessage).includeStaged === 'boolean';
 }
 
 function getMessageType(message: unknown): string | undefined {

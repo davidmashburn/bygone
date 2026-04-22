@@ -320,6 +320,68 @@ function testHistoryPrependsDirtyWorkingTree() {
     assert.equal(history[1].shortCommit, shortCommit(repo, 'HEAD'));
 }
 
+function testHistoryIncludesStagedEntryWhenRequested() {
+    const repo = createTempGitRepo();
+    const filePath = path.join(repo, 'example.txt');
+
+    fs.writeFileSync(filePath, 'one\n', 'utf8');
+    runGit(repo, ['add', 'example.txt']);
+    runGit(repo, ['commit', '-m', 'initial']);
+    fs.writeFileSync(filePath, 'two\n', 'utf8');
+    runGit(repo, ['add', 'example.txt']);
+
+    const history = new GitHistoryService().buildFileHistory(filePath, true);
+
+    assert.equal(history[0].commit, 'INDEX');
+    assert.equal(history[0].parentCommit, runGit(repo, ['rev-parse', 'HEAD']));
+    assert.equal(history[0].shortCommit, 'Staged Area');
+    assert.equal(history[0].leftLabel, 'example.txt @ HEAD');
+    assert.equal(history[0].rightLabel, 'example.txt @ Staged');
+    assert.equal(history[0].leftContent, 'one\n');
+    assert.equal(history[0].rightContent, 'two\n');
+}
+
+function testHistorySplitsStagedAndUnstagedChangesWhenRequested() {
+    const repo = createTempGitRepo();
+    const filePath = path.join(repo, 'example.txt');
+
+    fs.writeFileSync(filePath, 'one\n', 'utf8');
+    runGit(repo, ['add', 'example.txt']);
+    runGit(repo, ['commit', '-m', 'initial']);
+    fs.writeFileSync(filePath, 'two\n', 'utf8');
+    runGit(repo, ['add', 'example.txt']);
+    fs.writeFileSync(filePath, 'three\n', 'utf8');
+
+    const history = new GitHistoryService().buildFileHistory(filePath, true);
+
+    assert.equal(history[0].commit, 'WORKTREE');
+    assert.equal(history[0].parentCommit, 'INDEX');
+    assert.equal(history[0].leftLabel, 'example.txt @ Staged');
+    assert.equal(history[0].rightLabel, 'example.txt @ Working Tree');
+    assert.equal(history[0].leftContent, 'two\n');
+    assert.equal(history[0].rightContent, 'three\n');
+
+    assert.equal(history[1].commit, 'INDEX');
+    assert.equal(history[1].leftContent, 'one\n');
+    assert.equal(history[1].rightContent, 'two\n');
+}
+
+function testHistorySupportsStagedEntryWithoutHeadCommit() {
+    const repo = createTempGitRepo();
+    const filePath = path.join(repo, 'example.txt');
+
+    fs.writeFileSync(filePath, 'one\n', 'utf8');
+    runGit(repo, ['add', 'example.txt']);
+
+    const history = new GitHistoryService().buildFileHistory(filePath, true);
+
+    assert.equal(history.length, 1);
+    assert.equal(history[0].commit, 'INDEX');
+    assert.equal(history[0].parentCommit, undefined);
+    assert.equal(history[0].leftContent, '');
+    assert.equal(history[0].rightContent, 'one\n');
+}
+
 function testHistoryDescriptorsMaterializeOnDemand() {
     const repo = createTempGitRepo();
     const filePath = path.join(repo, 'example.txt');
@@ -415,6 +477,9 @@ function run() {
     testMergeCreatesConflictForDivergentEdits();
     testHistoryOmitsCleanWorkingTree();
     testHistoryPrependsDirtyWorkingTree();
+    testHistoryIncludesStagedEntryWhenRequested();
+    testHistorySplitsStagedAndUnstagedChangesWhenRequested();
+    testHistorySupportsStagedEntryWithoutHeadCommit();
     testHistoryDescriptorsMaterializeOnDemand();
     testHistoryHonorsMaxCommitLimit();
     console.log('All tests passed.');

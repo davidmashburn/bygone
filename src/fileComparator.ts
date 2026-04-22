@@ -15,6 +15,7 @@ export class FileComparator {
     private fileHistoryEntries: FileHistoryEntry[] = [];
     private fileHistoryIndex = 0;
     private activeHistoryFile: vscode.Uri | undefined;
+    private historyIncludeStaged = false;
     private currentDirectoryRoots: vscode.Uri[] = [];
     private currentDirectoryEntries: DirectoryEntry[] = [];
     private currentDirectoryRelativePath: string | undefined;
@@ -24,6 +25,9 @@ export class FileComparator {
         this.diffViewProvider = provider;
         this.diffViewProvider.setHistoryNavigationHandler((direction) => {
             void this.navigateFileHistory(direction);
+        });
+        this.diffViewProvider.setHistoryStagedToggleHandler((includeStaged) => {
+            void this.toggleHistoryStaged(includeStaged);
         });
         this.diffViewProvider.setDirectoryEntryOpenHandler((relativePath) => {
             void this.openDirectoryEntry(relativePath);
@@ -116,17 +120,7 @@ export class FileComparator {
                 return;
             }
 
-            const history = this.gitHistoryService.buildFileHistory(targetFile.fsPath);
-            if (history.length === 0) {
-                vscode.window.showWarningMessage('No git history with parents was found for that file.');
-                return;
-            }
-
-            this.activeHistoryFile = targetFile;
-            this.fileHistoryEntries = history;
-            this.fileHistoryIndex = 0;
-
-            await this.showCurrentHistoryEntry();
+            await this.loadFileHistory(targetFile, this.historyIncludeStaged);
         } catch (error) {
             this.showErrorMessage('Error loading file history', error);
         }
@@ -362,6 +356,18 @@ export class FileComparator {
         await this.showCurrentHistoryEntry();
     }
 
+    private async toggleHistoryStaged(includeStaged: boolean): Promise<void> {
+        if (!this.activeHistoryFile || this.historyIncludeStaged === includeStaged) {
+            return;
+        }
+
+        try {
+            await this.loadFileHistory(this.activeHistoryFile, includeStaged);
+        } catch (error) {
+            this.showErrorMessage('Error updating file history', error);
+        }
+    }
+
     private async showCurrentHistoryEntry(): Promise<void> {
         if (!this.diffViewProvider || !this.activeHistoryFile || this.fileHistoryEntries.length === 0) {
             return;
@@ -387,11 +393,27 @@ export class FileComparator {
             canGoBack: this.fileHistoryIndex < this.fileHistoryEntries.length - 1,
             canGoForward: this.fileHistoryIndex > 0,
             positionLabel: `${this.fileHistoryIndex + 1} / ${this.fileHistoryEntries.length}`,
-            leftCommitLabel: `${entry.parentCommit.slice(0, 7)} ${entry.parentSummary}`.trim(),
+            leftCommitLabel: `${entry.parentCommit?.slice(0, 7) ?? ''} ${entry.parentSummary}`.trim(),
             leftTimestamp: entry.parentTimestamp,
             rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
-            rightTimestamp: entry.timestamp
+            rightTimestamp: entry.timestamp,
+            includeStaged: this.historyIncludeStaged
         };
+    }
+
+    private async loadFileHistory(targetFile: vscode.Uri, includeStaged: boolean): Promise<void> {
+        const history = this.gitHistoryService.buildFileHistory(targetFile.fsPath, includeStaged);
+        if (history.length === 0) {
+            vscode.window.showWarningMessage('No git history with parents was found for that file.');
+            return;
+        }
+
+        this.activeHistoryFile = targetFile;
+        this.historyIncludeStaged = includeStaged;
+        this.fileHistoryEntries = history;
+        this.fileHistoryIndex = 0;
+
+        await this.showCurrentHistoryEntry();
     }
 
     private resolveHistoryTarget(resource?: vscode.Uri): vscode.Uri | undefined {
@@ -430,6 +452,7 @@ export class FileComparator {
         this.fileHistoryEntries = [];
         this.fileHistoryIndex = 0;
         this.activeHistoryFile = undefined;
+        this.historyIncludeStaged = false;
     }
 
     private showErrorMessage(prefix: string, error: unknown): void {

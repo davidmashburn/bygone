@@ -408,6 +408,10 @@ body.web-host {
     white-space: nowrap;
 }
 
+.history-toggle-button {
+    min-width: 92px;
+}
+
 .history-button:disabled {
     opacity: 0.45;
     cursor: default;

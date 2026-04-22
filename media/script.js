@@ -844,6 +844,11 @@ function initializeHistoryToolbar() {
     getElement('history-forward').addEventListener('click', () => {
         host.postMessage({ type: 'historyForward' });
     });
+    getElement('history-toggle-staged').addEventListener('click', (event) => {
+        const button = event.currentTarget;
+        const nextIncludeStaged = button.getAttribute('aria-pressed') !== 'true';
+        host.postMessage({ type: 'historyToggleStaged', includeStaged: nextIncludeStaged });
+    });
 }
 
 function initializeDirectoryReturnToolbar() {
@@ -1689,17 +1694,22 @@ function updateHistoryToolbar(history) {
     const toolbar = getElement('history-toolbar');
     const backButton = getElement('history-back');
     const forwardButton = getElement('history-forward');
+    const stagedButton = getElement('history-toggle-staged');
 
     if (!history) {
         toolbar.hidden = true;
         toolbar.classList.remove('history-toolbar--refresh');
         clearHistoryToolbar();
+        stagedButton.setAttribute('aria-pressed', 'false');
+        stagedButton.textContent = 'Staged Off';
         return;
     }
 
     toolbar.hidden = false;
     backButton.disabled = !history.canGoBack;
     forwardButton.disabled = !history.canGoForward;
+    stagedButton.setAttribute('aria-pressed', history.includeStaged ? 'true' : 'false');
+    stagedButton.textContent = history.includeStaged ? 'Staged On' : 'Staged Off';
     setTextContent('history-position', history.positionLabel);
     setTextContent('history-left-commit', history.leftCommitLabel);
     setTextContent('history-left-time', history.leftTimestamp);
