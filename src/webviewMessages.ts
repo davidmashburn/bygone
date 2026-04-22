@@ -26,6 +26,10 @@ export interface ShowDiffMessage {
         left: boolean;
         right: boolean;
     };
+    directoryContext?: {
+        changedFiles: string[];
+        activeRelativePath: string;
+    };
 }
 
 export interface ShowDirectoryDiffMessage {

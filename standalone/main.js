@@ -1012,6 +1012,17 @@ async function sendCurrentDirectoryHistoryEntry() {
             return;
         }
 
+        let directoryContext = {
+            changedFiles: [relativePath],
+            activeRelativePath: relativePath
+        };
+        try {
+            const materializedEntry = ensureDirectoryHistoryEntryMaterialized(session.dirHistory, session.dirHistory.index);
+            directoryContext = buildDirectoryContext(materializedEntry.dirs, relativePath, false) || directoryContext;
+        } catch {
+            // Best-effort; keep the focused path available in the rail.
+        }
+
         postOrQueue({
             type: 'showDiff',
             file1: view.leftLabel,
@@ -1020,6 +1031,7 @@ async function sendCurrentDirectoryHistoryEntry() {
             rightContent: view.rightContent,
             diffModel: buildTwoWayDiffModel(view.leftContent, view.rightContent),
             canReturnToDirectory: true,
+            directoryContext,
             editableSides: buildHistoryEditableSides(entry),
             history: {
                 ...history,
@@ -1447,6 +1459,23 @@ function getChangedFilePaths(entries, requireBothSides) {
         .map((entry) => entry.relativePath);
 }
 
+function buildDirectoryContext(dirs, activeRelativePath, requireBothSides) {
+    const entries = buildMultiDirectoryComparison(dirs);
+    const changedFiles = getChangedFilePaths(entries, requireBothSides);
+    if (changedFiles.length === 0) {
+        return null;
+    }
+
+    const activePath = typeof activeRelativePath === 'string' && changedFiles.includes(activeRelativePath)
+        ? activeRelativePath
+        : changedFiles[0];
+
+    return {
+        changedFiles,
+        activeRelativePath: activePath
+    };
+}
+
 function getNextRelativePath(changedPaths, currentPath, direction) {
     if (!Array.isArray(changedPaths) || changedPaths.length === 0) {
         return null;
@@ -1632,6 +1661,9 @@ async function sendCurrentDiff() {
     }
 
     const diffModel = buildTwoWayDiffModel(session.left.content, session.right.content);
+    const directoryContext = session.returnDirectory
+        ? buildDirectoryContext(session.returnDirectory.dirs, session.returnDirectory.relativePath, false)
+        : null;
     const message = {
         type: 'showDiff',
         file1: session.left.label,
@@ -1644,7 +1676,8 @@ async function sendCurrentDiff() {
             left: true,
             right: true
         },
-        canReturnToDirectory: Boolean(session.returnDirectory)
+        canReturnToDirectory: Boolean(session.returnDirectory),
+        directoryContext: directoryContext || undefined
     };
 
     postOrQueue(message);

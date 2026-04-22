@@ -16,6 +16,7 @@
     --vscode-editor-font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", Menlo, monospace;
     --vscode-editor-font-size: 13px;
     --vscode-editorLineNumber-foreground: #858585;
+    --navigator-rail-width: minmax(220px, 280px);
 }
 
 body {
@@ -88,6 +89,17 @@ body.web-host {
     height: 100vh;
     display: flex;
     flex-direction: column;
+}
+
+.workspace-shell {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace-shell.navigator-rail-active {
+    grid-template-columns: var(--navigator-rail-width) minmax(0, 1fr);
 }
 
 #header {
@@ -384,9 +396,92 @@ body.web-host {
     display: none;
 }
 
+.navigator-rail {
+    min-height: 0;
+    border-right: 1px solid var(--vscode-panel-border);
+    background: color-mix(in srgb, var(--vscode-sideBar-background) 84%, var(--vscode-editor-background));
+    display: flex;
+    flex-direction: column;
+}
+
+.navigator-rail[hidden] {
+    display: none;
+}
+
+.navigator-rail-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 33px;
+    padding: 0 10px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    background: color-mix(in srgb, var(--vscode-panel-background) 78%, transparent);
+}
+
+.navigator-rail-title {
+    color: var(--vscode-foreground);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.navigator-rail-count {
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.navigator-rail-list {
+    min-height: 0;
+    overflow: auto;
+    padding: 8px;
+    display: grid;
+    gap: 4px;
+}
+
+.navigator-entry {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--vscode-foreground);
+    border-radius: 4px;
+    min-height: 26px;
+    padding: 0 8px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+}
+
+.navigator-entry:hover {
+    border-color: color-mix(in srgb, rgba(79, 124, 255, 0.55) 52%, var(--vscode-panel-border));
+    background: color-mix(in srgb, rgba(79, 124, 255, 0.14) 78%, transparent);
+}
+
+.navigator-entry.is-active {
+    border-color: color-mix(in srgb, rgba(79, 124, 255, 0.72) 78%, var(--vscode-panel-border));
+    background: color-mix(in srgb, rgba(79, 124, 255, 0.2) 84%, transparent);
+}
+
+.navigator-entry-index {
+    color: var(--vscode-descriptionForeground);
+    font-size: 10px;
+    text-align: right;
+}
+
+.navigator-entry-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 #diff-container {
     position: relative;
-    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -881,6 +976,10 @@ body.web-host {
 }
 
 @media (max-width: 1200px) {
+    :root {
+        --navigator-rail-width: minmax(180px, 230px);
+    }
+
     #three-way-diff {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }

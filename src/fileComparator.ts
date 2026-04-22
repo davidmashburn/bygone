@@ -248,13 +248,27 @@ export class FileComparator {
         const content1 = this.readFileContent(file1);
         const content2 = this.readFileContent(file2);
         const diffModel = buildTwoWayDiffModel(content1, content2);
+        const directoryContext = canReturnToDirectory
+            ? {
+                changedFiles: this.getDrillDownChangedFilePaths(),
+                activeRelativePath: this.currentDirectoryRelativePath ?? ''
+            }
+            : undefined;
         this.clearFileHistoryState();
         if (!canReturnToDirectory) {
             this.currentDirectoryRelativePath = undefined;
         }
 
         if (this.diffViewProvider) {
-            this.diffViewProvider.showDiff(file1, file2, content1, content2, diffModel, canReturnToDirectory);
+            this.diffViewProvider.showDiff(
+                file1,
+                file2,
+                content1,
+                content2,
+                diffModel,
+                canReturnToDirectory,
+                directoryContext
+            );
         } else {
             void openDiffPreview(file1, file2, diffModel);
         }
@@ -299,9 +313,7 @@ export class FileComparator {
             return;
         }
 
-        const changedFilePaths = this.currentDirectoryEntries
-            .filter((entry) => !entry.isDirectory && entry.status !== 'same' && entry.sides.filter(Boolean).length >= 2)
-            .map((entry) => entry.relativePath);
+        const changedFilePaths = this.getDrillDownChangedFilePaths();
         if (changedFilePaths.length === 0) {
             return;
         }
@@ -388,6 +400,12 @@ export class FileComparator {
 
     private readFileContent(file: vscode.Uri): string {
         return fs.readFileSync(file.fsPath, 'utf8');
+    }
+
+    private getDrillDownChangedFilePaths(): string[] {
+        return this.currentDirectoryEntries
+            .filter((entry) => !entry.isDirectory && entry.status !== 'same' && entry.sides.filter(Boolean).length >= 2)
+            .map((entry) => entry.relativePath);
     }
 
     private getPathKind(fsPath: string): 'file' | 'directory' | 'missing' {

@@ -44,6 +44,7 @@ let multiDecorationIds = [];
 let multiDiffPairs = [];
 let activeDirectoryFileChangeIndex = -1;
 let canReturnToDirectoryView = false;
+let currentDirectoryContext = null;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -73,7 +74,8 @@ host.onMessage((message) => {
             message.diffModel,
             message.history || null,
             Boolean(message.canReturnToDirectory),
-            message.editableSides
+            message.editableSides,
+            message.directoryContext || null
         );
         return;
     }
@@ -104,6 +106,7 @@ window.addEventListener('load', async () => {
     initializeChangeToolbar();
     initializeDirectoryReturnToolbar();
     initializeDirectoryTreeToolbar();
+    initializeNavigatorRailEvents();
     initializeEditModeToolbar();
     initializeDirectoryViewEvents();
     initializeStandaloneDropTarget();
@@ -119,7 +122,8 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.diffModel,
             pendingTwoWayPayload.history || null,
             Boolean(pendingTwoWayPayload.canReturnToDirectory),
-            pendingTwoWayPayload.editableSides
+            pendingTwoWayPayload.editableSides,
+            pendingTwoWayPayload.directoryContext || null
         );
         pendingTwoWayPayload = undefined;
     }
@@ -150,10 +154,23 @@ function updateShellContext(modeLabel, title, breadcrumb = '') {
     setTextContent('breadcrumb-trail', breadcrumb);
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, canReturnToDirectory = false, nextEditableSides = null) {
+function showTwoWayDiff(
+    file1,
+    file2,
+    leftContent,
+    rightContent,
+    diffModel,
+    history,
+    canReturnToDirectory = false,
+    nextEditableSides = null,
+    nextDirectoryContext = null
+) {
     currentMode = MODE_TWO_WAY;
     historyMode = Boolean(history);
     canReturnToDirectoryView = Boolean(canReturnToDirectory);
+    currentDirectoryContext = canReturnToDirectoryView
+        ? normalizeDirectoryContext(nextDirectoryContext)
+        : null;
     hostEditableSides = normalizeEditableSides(nextEditableSides, historyMode);
     setCurrentDiffModel(diffModel);
     setActiveDiffIndex(diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1, false);
@@ -174,6 +191,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     setTextContent('file2-header', file2);
     updateHistoryToolbar(history);
     updateDirectoryReturnToolbar(canReturnToDirectory);
+    updateNavigatorRail();
     updateDirectoryTreeToolbar();
     updateEditModeToolbar();
 
@@ -193,6 +211,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     currentMode = MODE_DIRECTORY;
     historyMode = Boolean(history);
     canReturnToDirectoryView = false;
+    currentDirectoryContext = null;
     currentDiffModel = null;
     activeDiffIndex = -1;
     diffBlocks = [];
@@ -204,6 +223,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     disposeMultiEditors();
     updateHistoryToolbar(history);
     updateDirectoryReturnToolbar(false);
+    updateNavigatorRail();
     updateDirectoryTreeToolbar();
     updateEditModeToolbar();
     updateChangeToolbarState();
@@ -234,6 +254,7 @@ function showMultiDiff(panels, pairs) {
     currentMode = MODE_MULTI_WAY;
     historyMode = false;
     canReturnToDirectoryView = false;
+    currentDirectoryContext = null;
     currentDiffModel = null;
     activeDiffIndex = -1;
     diffBlocks = [];
@@ -246,6 +267,7 @@ function showMultiDiff(panels, pairs) {
     multiDiffPairs = pairs || [];
     updateHistoryToolbar(null);
     updateDirectoryReturnToolbar(false);
+    updateNavigatorRail();
     updateDirectoryTreeToolbar();
     updateEditModeToolbar();
     updateChangeToolbarState();
@@ -280,12 +302,14 @@ function showThreeWayMerge(message) {
     setCurrentDiffModel({ blocks: [], rows: [] });
     historyMode = false;
     canReturnToDirectoryView = false;
+    currentDirectoryContext = null;
     directoryEntries = [];
     clearDirectoryJumpSelection();
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(null);
     updateDirectoryReturnToolbar(false);
+    updateNavigatorRail();
     updateDirectoryTreeToolbar();
     updateEditModeToolbar();
     updateChangeToolbarState();
@@ -762,6 +786,113 @@ function initializeDirectoryTreeToolbar() {
     });
 }
 
+function initializeNavigatorRailEvents() {
+    const list = getElement('navigator-rail-list');
+    if (!list) {
+        return;
+    }
+
+    list.addEventListener('click', (event) => {
+        const button = event.target instanceof Element
+            ? event.target.closest('.navigator-entry')
+            : null;
+        const relativePath = button?.dataset?.relativePath;
+        if (typeof relativePath !== 'string' || relativePath.length === 0) {
+            return;
+        }
+
+        if (currentDirectoryContext) {
+            currentDirectoryContext.activeRelativePath = relativePath;
+            updateNavigatorRail();
+        }
+
+        host.postMessage({
+            type: 'openDirectoryEntry',
+            relativePath
+        });
+    });
+}
+
+function normalizeDirectoryContext(nextDirectoryContext) {
+    if (!nextDirectoryContext || typeof nextDirectoryContext !== 'object') {
+        return null;
+    }
+
+    const changedFiles = Array.isArray(nextDirectoryContext.changedFiles)
+        ? nextDirectoryContext.changedFiles.filter((relativePath) => typeof relativePath === 'string' && relativePath.length > 0)
+        : [];
+    if (changedFiles.length === 0) {
+        return null;
+    }
+
+    const activeRelativePath = typeof nextDirectoryContext.activeRelativePath === 'string'
+        && changedFiles.includes(nextDirectoryContext.activeRelativePath)
+        ? nextDirectoryContext.activeRelativePath
+        : changedFiles[0];
+
+    return {
+        changedFiles,
+        activeRelativePath
+    };
+}
+
+function updateNavigatorRail() {
+    const rail = getElement('navigator-rail');
+    const title = getElement('navigator-rail-title');
+    const count = getElement('navigator-rail-count');
+    const list = getElement('navigator-rail-list');
+
+    if (!rail || !title || !count || !list) {
+        return;
+    }
+
+    const shouldShow = currentMode === MODE_TWO_WAY && canReturnToDirectoryView
+        && currentDirectoryContext
+        && currentDirectoryContext.changedFiles.length > 0;
+
+    rail.hidden = !shouldShow;
+    document.body.classList.toggle('navigator-rail-open', Boolean(shouldShow));
+    getElement('workspace-shell')?.classList.toggle('navigator-rail-active', Boolean(shouldShow));
+
+    if (!shouldShow) {
+        title.textContent = '';
+        count.textContent = '';
+        list.innerHTML = '';
+        return;
+    }
+
+    const activeIndex = Math.max(0, currentDirectoryContext.changedFiles.indexOf(currentDirectoryContext.activeRelativePath));
+    title.textContent = historyMode ? 'Snapshot Changes' : 'Changed Files';
+    count.textContent = `${activeIndex + 1} / ${currentDirectoryContext.changedFiles.length}`;
+    renderNavigatorRailEntries(list, currentDirectoryContext.changedFiles, currentDirectoryContext.activeRelativePath);
+}
+
+function renderNavigatorRailEntries(container, changedFiles, activeRelativePath) {
+    container.innerHTML = '';
+
+    changedFiles.forEach((relativePath, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'navigator-entry';
+        button.dataset.relativePath = relativePath;
+        button.title = relativePath;
+        if (relativePath === activeRelativePath) {
+            button.classList.add('is-active');
+        }
+
+        const entryIndex = document.createElement('span');
+        entryIndex.className = 'navigator-entry-index';
+        entryIndex.textContent = String(index + 1);
+
+        const label = document.createElement('span');
+        label.className = 'navigator-entry-label';
+        label.textContent = relativePath;
+
+        button.append(entryIndex, label);
+        container.append(button);
+    });
+}
+
 function initializeEditModeToolbar() {
     getElement('toggle-readonly').addEventListener('click', () => {
         if (!hasHostEditableSide()) {
@@ -844,6 +975,9 @@ function returnToDirectory() {
 
 function navigateDirectoryFileChange(direction) {
     if (currentMode !== MODE_TWO_WAY || !canReturnToDirectoryView) {
+        return;
+    }
+    if (!currentDirectoryContext || currentDirectoryContext.changedFiles.length < 2) {
         return;
     }
 
@@ -938,7 +1072,10 @@ function updateChangeToolbarState() {
     const nextFileButton = getElement('next-file-change');
     const hint = toolbar.querySelector('.change-hint');
     const hasDiffs = currentMode === MODE_TWO_WAY && diffBlocks.length > 0;
-    const hasFileNavigation = currentMode === MODE_TWO_WAY && canReturnToDirectoryView;
+    const drillDownFileCount = currentMode === MODE_TWO_WAY && canReturnToDirectoryView && currentDirectoryContext
+        ? currentDirectoryContext.changedFiles.length
+        : 0;
+    const hasFileNavigation = drillDownFileCount > 0;
     const directoryChangeRows = currentMode === MODE_DIRECTORY ? getVisibleChangedFileRows() : [];
     const hasDirectoryFileChanges = currentMode === MODE_DIRECTORY && directoryChangeRows.length > 0;
     const hasLineNavigation = currentMode === MODE_TWO_WAY && hasDiffs;
@@ -977,9 +1114,9 @@ function updateChangeToolbarState() {
     }
 
     previousFileButton.hidden = !hasFileNavigation;
-    previousFileButton.disabled = !hasFileNavigation;
+    previousFileButton.disabled = !hasFileNavigation || drillDownFileCount < 2;
     nextFileButton.hidden = !hasFileNavigation;
-    nextFileButton.disabled = !hasFileNavigation;
+    nextFileButton.disabled = !hasFileNavigation || drillDownFileCount < 2;
     previousButton.hidden = !hasLineNavigation;
     nextButton.hidden = !hasLineNavigation;
     previousButton.textContent = '↑ Prev';

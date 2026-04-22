@@ -28,6 +28,8 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     private currentTwoWayDiff?: {
         file1: string;
         file2: string;
+        canReturnToDirectory: boolean;
+        directoryContext?: ShowDiffMessage['directoryContext'];
     };
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
     private directoryEntryOpenHandler?: (relativePath: string) => void;
@@ -106,7 +108,11 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         leftContent: string,
         rightContent: string,
         diffModel: TwoWayDiffModel,
-        canReturnToDirectory = false
+        canReturnToDirectory = false,
+        directoryContext?: {
+            changedFiles: string[];
+            activeRelativePath: string;
+        }
     ) {
         const view = await this.revealView();
         if (!view) {
@@ -117,7 +123,9 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
         this.currentTwoWayDiff = {
             file1: path.basename(file1.path),
-            file2: path.basename(file2.path)
+            file2: path.basename(file2.path),
+            canReturnToDirectory,
+            directoryContext
         };
 
         this.postOrQueueDiffMessage({
@@ -127,7 +135,8 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             rightContent,
             diffModel,
             history: null,
-            canReturnToDirectory
+            canReturnToDirectory,
+            directoryContext
         });
     }
 
@@ -148,7 +157,9 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
         this.currentTwoWayDiff = {
             file1: leftLabel,
-            file2: rightLabel
+            file2: rightLabel,
+            canReturnToDirectory: false,
+            directoryContext: undefined
         };
 
         this.postOrQueueDiffMessage({
@@ -347,42 +358,51 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 </div>
             </div>
         </div>
-        <div id="diff-container">
-            <div id="two-way-diff" class="diff-view">
-                <div class="file-panel">
-                    <div id="file1-header" class="file-header">File 1</div>
-                    <div id="file1-content" class="file-content"></div>
+        <div id="workspace-shell" class="workspace-shell">
+            <aside id="navigator-rail" class="navigator-rail" hidden>
+                <div class="navigator-rail-header">
+                    <div id="navigator-rail-title" class="navigator-rail-title"></div>
+                    <div id="navigator-rail-count" class="navigator-rail-count"></div>
                 </div>
-                <div class="file-panel">
-                    <div id="file2-header" class="file-header">File 2</div>
-                    <div id="file2-content" class="file-content"></div>
+                <div id="navigator-rail-list" class="navigator-rail-list" aria-label="Changed files"></div>
+            </aside>
+            <div id="diff-container">
+                <div id="two-way-diff" class="diff-view">
+                    <div class="file-panel">
+                        <div id="file1-header" class="file-header">File 1</div>
+                        <div id="file1-content" class="file-content"></div>
+                    </div>
+                    <div class="file-panel">
+                        <div id="file2-header" class="file-header">File 2</div>
+                        <div id="file2-content" class="file-content"></div>
+                    </div>
                 </div>
-            </div>
-            <div id="directory-diff" class="dir-view hidden">
-                <div class="dir-headers">
-                    <div class="dir-col-header" id="dir-left-header">Left</div>
-                    <div class="dir-header-gutter" aria-hidden="true"></div>
-                    <div class="dir-col-header" id="dir-right-header">Right</div>
+                <div id="directory-diff" class="dir-view hidden">
+                    <div class="dir-headers">
+                        <div class="dir-col-header" id="dir-left-header">Left</div>
+                        <div class="dir-header-gutter" aria-hidden="true"></div>
+                        <div class="dir-col-header" id="dir-right-header">Right</div>
+                    </div>
+                    <div id="dir-rows" class="dir-rows-container"></div>
                 </div>
-                <div id="dir-rows" class="dir-rows-container"></div>
-            </div>
-            <div id="multi-way-diff" class="multi-view hidden"></div>
-            <div id="three-way-diff" class="diff-view hidden">
-                <div class="file-panel">
-                    <div id="base-header" class="file-header">Base</div>
-                    <div id="base-content" class="file-content"></div>
-                </div>
-                <div class="file-panel">
-                    <div id="left-header" class="file-header">Left</div>
-                    <div id="left-content" class="file-content"></div>
-                </div>
-                <div class="file-panel">
-                    <div id="right-header" class="file-header">Right</div>
-                    <div id="right-content" class="file-content"></div>
-                </div>
-                <div class="file-panel">
-                    <div id="result-header" class="file-header">Result</div>
-                    <div id="result-content" class="file-content"></div>
+                <div id="multi-way-diff" class="multi-view hidden"></div>
+                <div id="three-way-diff" class="diff-view hidden">
+                    <div class="file-panel">
+                        <div id="base-header" class="file-header">Base</div>
+                        <div id="base-content" class="file-content"></div>
+                    </div>
+                    <div class="file-panel">
+                        <div id="left-header" class="file-header">Left</div>
+                        <div id="left-content" class="file-content"></div>
+                    </div>
+                    <div class="file-panel">
+                        <div id="right-header" class="file-header">Right</div>
+                        <div id="right-content" class="file-content"></div>
+                    </div>
+                    <div class="file-panel">
+                        <div id="result-header" class="file-header">Result</div>
+                        <div id="result-content" class="file-content"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -418,7 +438,9 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             leftContent,
             rightContent,
             diffModel: buildTwoWayDiffModel(leftContent, rightContent),
-            history: null
+            history: null,
+            canReturnToDirectory: this.currentTwoWayDiff.canReturnToDirectory,
+            directoryContext: this.currentTwoWayDiff.directoryContext
         });
     }
 }
