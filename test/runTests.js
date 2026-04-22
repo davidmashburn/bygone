@@ -153,6 +153,96 @@ function testDirectoryDiffHandlesLargeModifiedFiles() {
     assert.equal(entries.find((entry) => entry.relativePath === 'large.txt')?.status, 'modified');
 }
 
+function testDirectoryDiffKeepsLargeIdenticalFilesSame() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-directory-test-'));
+    const left = path.join(root, 'left');
+    const right = path.join(root, 'right');
+    const largeContent = `${'z'.repeat(420000)}\n`;
+
+    fs.mkdirSync(left, { recursive: true });
+    fs.mkdirSync(right, { recursive: true });
+    fs.writeFileSync(path.join(left, 'large-same.txt'), largeContent, 'utf8');
+    fs.writeFileSync(path.join(right, 'large-same.txt'), largeContent, 'utf8');
+
+    const entries = buildDirectoryComparison(left, right);
+    assert.equal(entries.find((entry) => entry.relativePath === 'large-same.txt')?.status, 'same');
+}
+
+function testDirectoryDiffUsesSameInodeShortcut() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-directory-test-'));
+    const left = path.join(root, 'left');
+    const right = path.join(root, 'right');
+    const shared = path.join(root, 'shared.bin');
+    const leftFile = path.join(left, 'hardlink.bin');
+    const rightFile = path.join(right, 'hardlink.bin');
+
+    fs.mkdirSync(left, { recursive: true });
+    fs.mkdirSync(right, { recursive: true });
+    fs.writeFileSync(shared, `${'k'.repeat(320000)}\n`, 'utf8');
+
+    try {
+        fs.linkSync(shared, leftFile);
+        fs.linkSync(shared, rightFile);
+    } catch (error) {
+        const code = error && typeof error === 'object' && 'code' in error ? error.code : '';
+        if (code === 'EPERM' || code === 'EXDEV' || code === 'EACCES' || code === 'ENOTSUP') {
+            return;
+        }
+        throw error;
+    }
+
+    const originalReadFileSync = fs.readFileSync;
+    const originalReadSync = fs.readSync;
+
+    fs.readFileSync = () => {
+        throw new Error('readFileSync should not run for same-inode comparison');
+    };
+    fs.readSync = () => {
+        throw new Error('readSync should not run for same-inode comparison');
+    };
+
+    try {
+        const entries = buildDirectoryComparison(left, right);
+        assert.equal(entries.find((entry) => entry.relativePath === 'hardlink.bin')?.status, 'same');
+    } finally {
+        fs.readFileSync = originalReadFileSync;
+        fs.readSync = originalReadSync;
+    }
+}
+
+function testDirectoryDiffHandlesLargeTreeComparisons() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-directory-test-'));
+    const left = path.join(root, 'left');
+    const right = path.join(root, 'right');
+
+    for (let directoryIndex = 0; directoryIndex < 14; directoryIndex += 1) {
+        for (let fileIndex = 0; fileIndex < 12; fileIndex += 1) {
+            const relativeDir = path.join(`module-${directoryIndex}`, `segment-${fileIndex % 3}`);
+            const fileName = `item-${fileIndex}.txt`;
+            const leftPath = path.join(left, relativeDir, fileName);
+            const rightPath = path.join(right, relativeDir, fileName);
+            fs.mkdirSync(path.dirname(leftPath), { recursive: true });
+            fs.mkdirSync(path.dirname(rightPath), { recursive: true });
+
+            const base = `dir=${directoryIndex} file=${fileIndex}\n${'a'.repeat(1024)}\n`;
+            fs.writeFileSync(leftPath, base, 'utf8');
+            fs.writeFileSync(
+                rightPath,
+                (directoryIndex + fileIndex) % 11 === 0 ? `${base}delta\n` : base,
+                'utf8'
+            );
+        }
+    }
+
+    const entries = buildDirectoryComparison(left, right);
+    const modifiedFiles = entries.filter((entry) => !entry.isDirectory && entry.status === 'modified');
+    const sameFiles = entries.filter((entry) => !entry.isDirectory && entry.status === 'same');
+
+    assert.ok(modifiedFiles.length > 0);
+    assert.ok(sameFiles.length > modifiedFiles.length);
+    assert.equal(entries.find((entry) => entry.relativePath === 'module-0/segment-0/item-0.txt')?.status, 'modified');
+}
+
 function testInlineHighlightsSkipVeryLongLines() {
     const left = `const value = ${'a'.repeat(520)};\n`;
     const right = `const value = ${'a'.repeat(519)}b;\n`;
@@ -286,6 +376,9 @@ function run() {
     testMultiDirectoryDiffDetectsPartialAndModifiedFiles();
     testDirectoryDiffLeavesIdenticalFilesSame();
     testDirectoryDiffHandlesLargeModifiedFiles();
+    testDirectoryDiffKeepsLargeIdenticalFilesSame();
+    testDirectoryDiffUsesSameInodeShortcut();
+    testDirectoryDiffHandlesLargeTreeComparisons();
     testInlineHighlightsSkipVeryLongLines();
     testMergeAcceptsOneSidedChange();
     testMergeAcceptsMatchingChanges();

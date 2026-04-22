@@ -57,7 +57,11 @@ interface Edit {
     newLines: string[];
 }
 
-const MAX_INLINE_HIGHLIGHT_LINE_LENGTH = 500;
+const DEFAULT_MAX_INLINE_HIGHLIGHT_LINE_LENGTH = 500;
+const MAX_INLINE_HIGHLIGHT_LINE_LENGTH = readPositiveIntegerEnv(
+    'BYGONE_MAX_INLINE_HIGHLIGHT_LINE_LENGTH',
+    DEFAULT_MAX_INLINE_HIGHLIGHT_LINE_LENGTH
+);
 
 export function buildTwoWayDiffModel(leftContent: string, rightContent: string): TwoWayDiffModel {
     const leftLines = normalizeLines(leftContent);
@@ -534,4 +538,10 @@ function linesEqual(left: string[], right: string[]): boolean {
     }
 
     return left.every((line, index) => line === right[index]);
+}
+
+function readPositiveIntegerEnv(name: string, fallback: number): number {
+    const value = typeof process !== 'undefined' ? process.env?.[name] : undefined;
+    const parsed = Number.parseInt(value ?? '', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }

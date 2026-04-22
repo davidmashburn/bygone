@@ -12,8 +12,16 @@ export interface DirectoryEntry {
     sides: boolean[];
 }
 
-const SMALL_FILE_COMPARE_BYTES = 256 * 1024;
-const CHUNK_COMPARE_BYTES = 64 * 1024;
+const DEFAULT_SMALL_FILE_COMPARE_BYTES = 256 * 1024;
+const DEFAULT_CHUNK_COMPARE_BYTES = 64 * 1024;
+const SMALL_FILE_COMPARE_BYTES = readPositiveIntegerEnv(
+    'BYGONE_SMALL_FILE_COMPARE_BYTES',
+    DEFAULT_SMALL_FILE_COMPARE_BYTES
+);
+const CHUNK_COMPARE_BYTES = readPositiveIntegerEnv(
+    'BYGONE_CHUNK_COMPARE_BYTES',
+    DEFAULT_CHUNK_COMPARE_BYTES
+);
 
 function safeReadDir(dir: string): fs.Dirent[] {
     try {
@@ -192,4 +200,10 @@ export function buildMultiDirectoryComparison(dirs: string[]): DirectoryEntry[] 
     const entries: DirectoryEntry[] = [];
     collectUnionEntries(dirs, '', 0, entries);
     return entries;
+}
+
+function readPositiveIntegerEnv(name: string, fallback: number): number {
+    const value = typeof process !== 'undefined' ? process.env?.[name] : undefined;
+    const parsed = Number.parseInt(value ?? '', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
