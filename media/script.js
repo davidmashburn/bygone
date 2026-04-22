@@ -50,6 +50,7 @@ let canReturnToDirectoryView = false;
 let currentDirectoryContext = null;
 let shouldPulseActiveDiff = false;
 let navigatorRailScope = NAVIGATOR_SCOPE_CHANGED;
+let navigatorRailRenderKey = null;
 const uiProfileEnabled = Boolean(host.profileUi);
 const uiProfileStats = new Map();
 let uiProfileFlushTimer = null;
@@ -1009,11 +1010,23 @@ function normalizeDirectoryContext(nextDirectoryContext) {
             }))
             .filter((entry) => entry.relativePath.length > 0 && entry.displayName.length > 0)
         : [];
+    const changedFilesSignature = changedFiles.join('\u001f');
+    const treeEntriesSignature = treeEntries
+        .map((entry) => [
+            entry.relativePath,
+            entry.status,
+            entry.isDirectory ? '1' : '0',
+            String(entry.depth),
+            entry.sides.map((value) => (value ? '1' : '0')).join('')
+        ].join('\u001e'))
+        .join('\u001f');
 
     return {
         changedFiles,
         activeRelativePath,
-        treeEntries
+        treeEntries,
+        changedFilesSignature,
+        treeEntriesSignature
     };
 }
 
@@ -1029,9 +1042,32 @@ function updateNavigatorRail() {
             return;
         }
 
+        const treeEnabled = isNavigatorTreeScopeAvailable(currentDirectoryContext);
+        const effectiveScope = navigatorRailScope === NAVIGATOR_SCOPE_TREE && treeEnabled
+            ? NAVIGATOR_SCOPE_TREE
+            : NAVIGATOR_SCOPE_CHANGED;
+        if (navigatorRailScope !== effectiveScope) {
+            navigatorRailScope = effectiveScope;
+        }
+
         const shouldShow = currentMode === MODE_TWO_WAY && canReturnToDirectoryView
             && currentDirectoryContext
             && currentDirectoryContext.changedFiles.length > 0;
+        const nextRenderKey = shouldShow
+            ? [
+                'visible',
+                historyMode ? 'history' : 'diff',
+                navigatorRailScope,
+                currentDirectoryContext.activeRelativePath,
+                currentDirectoryContext.changedFilesSignature,
+                currentDirectoryContext.treeEntriesSignature
+            ].join('\u001d')
+            : 'hidden';
+
+        if (nextRenderKey === navigatorRailRenderKey) {
+            return;
+        }
+        navigatorRailRenderKey = nextRenderKey;
 
         rail.hidden = !shouldShow;
         document.body.classList.toggle('navigator-rail-open', Boolean(shouldShow));

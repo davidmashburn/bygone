@@ -231,3 +231,26 @@ Run the current unit checks with:
 ```bash
 npm test
 ```
+
+## Performance Checks
+
+Run the local benchmark harness:
+
+```bash
+npm run perf:bench
+npm run perf:bench -- --json
+```
+
+Run the CI-style perf regression gate locally:
+
+```bash
+npm run perf:check
+```
+
+Useful performance tuning env vars:
+
+- `BYGONE_HISTORY_MAX_COMMITS` (default `250`) limits git history entries loaded for file and directory history.
+- `BYGONE_MAX_INLINE_HIGHLIGHT_LINE_LENGTH` (default `500`) caps inline word-level highlighting work for very long lines.
+- `BYGONE_SMALL_FILE_COMPARE_BYTES` (default `262144`) controls when directory compare switches from whole-file reads to chunked reads.
+- `BYGONE_CHUNK_COMPARE_BYTES` (default `65536`) controls chunk size for large-file comparisons.
+- `BYGONE_PROFILE_UI=1` enables renderer timing summaries in the console.

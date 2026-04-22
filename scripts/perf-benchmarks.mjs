@@ -7,6 +7,8 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { buildDirectoryComparison } = require('../out/directoryDiff.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
+const cliOptions = parseArgs(process.argv.slice(2));
+const jsonOutput = cliOptions.json;
 
 const BENCH_ITERATIONS = readPositiveIntegerEnv('BYGONE_PERF_BENCH_ITERATIONS', 8);
 const BENCH_WARMUP = readPositiveIntegerEnv('BYGONE_PERF_BENCH_WARMUP', 2);
@@ -21,9 +23,11 @@ function main() {
     const historyFixture = createHistoryFixture();
 
     try {
-        console.log('Bygone performance benchmarks');
-        console.log(`Iterations: ${BENCH_ITERATIONS} (warmup: ${BENCH_WARMUP})`);
-        console.log('');
+        if (!jsonOutput) {
+            console.log('Bygone performance benchmarks');
+            console.log(`Iterations: ${BENCH_ITERATIONS} (warmup: ${BENCH_WARMUP})`);
+            console.log('');
+        }
 
         const directoryLegacy = runBenchmark('Directory compare (legacy full-read)', () => {
             const entries = buildDirectoryComparisonLegacy(directoryFixture.leftDir, directoryFixture.rightDir);
@@ -44,14 +48,30 @@ function main() {
             consumeResult(descriptors);
         });
 
-        printSection('Directory compare', directoryLegacy, directoryCurrent, {
+        const directoryFixtureSummary = {
             files: DIRECTORY_FILE_COUNT,
             largeFileBytes: DIRECTORY_LARGE_FILE_BYTES
-        });
-        printSection('History descriptors', historyLegacy, historyCurrent, {
+        };
+        const historyFixtureSummary = {
             commits: HISTORY_COMMIT_COUNT
-        });
+        };
 
+        const report = buildReport(
+            directoryLegacy,
+            directoryCurrent,
+            historyLegacy,
+            historyCurrent,
+            directoryFixtureSummary,
+            historyFixtureSummary
+        );
+
+        if (jsonOutput) {
+            process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+            return;
+        }
+
+        printSection('Directory compare', directoryLegacy, directoryCurrent, directoryFixtureSummary);
+        printSection('History descriptors', historyLegacy, historyCurrent, historyFixtureSummary);
         console.log(`Benchmark sink: ${benchmarkSink}`);
     } finally {
         safeRm(directoryFixture.rootDir);
@@ -143,12 +163,53 @@ function runBenchmark(label, fn) {
     };
 }
 
+function buildReport(
+    directoryLegacy,
+    directoryCurrent,
+    historyLegacy,
+    historyCurrent,
+    directoryFixtureSummary,
+    historyFixtureSummary
+) {
+    return {
+        meta: {
+            iterations: BENCH_ITERATIONS,
+            warmup: BENCH_WARMUP,
+            benchmarkSink
+        },
+        sections: {
+            directory: {
+                fixture: directoryFixtureSummary,
+                legacy: summarizeResult(directoryLegacy),
+                current: summarizeResult(directoryCurrent),
+                speedup: calculateSpeedup(directoryLegacy.avg, directoryCurrent.avg)
+            },
+            history: {
+                fixture: historyFixtureSummary,
+                legacy: summarizeResult(historyLegacy),
+                current: summarizeResult(historyCurrent),
+                speedup: calculateSpeedup(historyLegacy.avg, historyCurrent.avg)
+            }
+        }
+    };
+}
+
+function summarizeResult(result) {
+    return {
+        label: result.label,
+        avgMs: result.avg,
+        p95Ms: result.p95,
+        minMs: result.min,
+        maxMs: result.max
+    };
+}
+
 function printSection(section, legacy, current, fixtureSummary) {
     console.log(`${section}:`);
     console.log(`  Fixture: ${formatFixtureSummary(fixtureSummary)}`);
     console.log(`  ${legacy.label.padEnd(48)} avg=${formatDuration(legacy.avg)} p95=${formatDuration(legacy.p95)} min=${formatDuration(legacy.min)} max=${formatDuration(legacy.max)}`);
     console.log(`  ${current.label.padEnd(48)} avg=${formatDuration(current.avg)} p95=${formatDuration(current.p95)} min=${formatDuration(current.min)} max=${formatDuration(current.max)}`);
-    console.log(`  Speedup: ${formatSpeedup(legacy.avg, current.avg)}`);
+    console.log(`  Speedup: ${formatSpeedup(calculateSpeedup(legacy.avg, current.avg))}`);
     console.log('');
 }
 
@@ -158,12 +219,10 @@ function formatFixtureSummary(summary) {
         .join(', ');
 }
 
-function formatSpeedup(legacyAvg, currentAvg) {
-    if (currentAvg <= 0) {
-        return 'n/a';
-    }
-
-    return `${(legacyAvg / currentAvg).toFixed(2)}x`;
+function formatSpeedup(speedup) {
+    return Number.isFinite(speedup) && speedup > 0
+        ? `${speedup.toFixed(2)}x`
+        : 'n/a';
 }
 
 function formatDuration(value) {
@@ -353,6 +412,20 @@ function safeRm(targetPath) {
 function readPositiveIntegerEnv(name, fallback) {
     const parsed = Number.parseInt(process.env[name] || '', 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function calculateSpeedup(legacyAvg, currentAvg) {
+    if (currentAvg <= 0) {
+        return Number.NaN;
+    }
+
+    return legacyAvg / currentAvg;
+}
+
+function parseArgs(args) {
+    return {
+        json: args.includes('--json')
+    };
 }
 
 main();

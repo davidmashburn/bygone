@@ -25,6 +25,11 @@ const parsedFileHistoryCacheSize = Number.parseInt(process.env.BYGONE_FILE_HISTO
 const FILE_HISTORY_CACHE_SIZE = Number.isFinite(parsedFileHistoryCacheSize) && parsedFileHistoryCacheSize > 0
     ? parsedFileHistoryCacheSize
     : DEFAULT_FILE_HISTORY_CACHE_SIZE;
+const DEFAULT_HISTORY_MAX_COMMITS = 250;
+const parsedHistoryMaxCommits = Number.parseInt(process.env.BYGONE_HISTORY_MAX_COMMITS || '', 10);
+const HISTORY_MAX_COMMITS = Number.isFinite(parsedHistoryMaxCommits) && parsedHistoryMaxCommits > 0
+    ? parsedHistoryMaxCommits
+    : DEFAULT_HISTORY_MAX_COMMITS;
 const commandLineToolPath = process.platform === 'win32'
     ? path.join(process.env.LOCALAPPDATA || os.homedir(), 'Microsoft', 'WindowsApps', 'bygone.cmd')
     : '/usr/local/bin/bygone';
@@ -853,7 +858,7 @@ function buildDirectoryHistory(resolvedDir) {
     const relativeDir = path.relative(repoRoot, realDir).replace(/\\/g, '/');
     const displayName = path.basename(realDir) || path.basename(repoRoot);
     const commitRecords = parseGitHistoryRecords(runGit(
-        ['log', '--format=%H%x09%h%x09%cI%x09%s%x09%P', '--', relativeDir || '.'],
+        ['log', '--max-count', String(HISTORY_MAX_COMMITS), '--format=%H%x09%h%x09%cI%x09%s%x09%P', '--', relativeDir || '.'],
         repoRoot
     ));
     const parentMetadataByCommit = readCommitMetadataMap(

@@ -7,6 +7,7 @@ const parsedGitMaxBufferBytes = Number.parseInt(process.env.BYGONE_GIT_MAX_BUFFE
 const GIT_MAX_BUFFER_BYTES = Number.isFinite(parsedGitMaxBufferBytes) && parsedGitMaxBufferBytes > 0
     ? parsedGitMaxBufferBytes
     : DEFAULT_GIT_MAX_BUFFER_BYTES;
+const DEFAULT_HISTORY_MAX_COMMITS = 250;
 
 export interface FileHistoryEntry {
     commit: string;
@@ -62,8 +63,9 @@ export class GitHistoryService {
         const canonicalFilePath = fs.realpathSync(filePath);
         const repoRoot = fs.realpathSync(this.runGitCommand(['rev-parse', '--show-toplevel'], path.dirname(canonicalFilePath)));
         const relativePath = path.relative(repoRoot, canonicalFilePath).replace(/\\/g, '/');
+        const maxCommits = readPositiveIntegerEnv('BYGONE_HISTORY_MAX_COMMITS', DEFAULT_HISTORY_MAX_COMMITS);
         const commits = this.parseHistoryCommitRecords(this.runGitCommand(
-            ['log', '--follow', '--format=%H%x09%h%x09%cI%x09%s%x09%P', '--', relativePath],
+            ['log', '--max-count', String(maxCommits), '--follow', '--format=%H%x09%h%x09%cI%x09%s%x09%P', '--', relativePath],
             repoRoot
         ));
         const parentMetadataByCommit = this.readCommitMetadataMap(
@@ -272,4 +274,9 @@ export class GitHistoryService {
                 };
             });
     }
+}
+
+function readPositiveIntegerEnv(name: string, fallback: number): number {
+    const parsed = Number.parseInt(process.env[name] ?? '', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }

@@ -343,6 +343,36 @@ function testHistoryDescriptorsMaterializeOnDemand() {
     assert.equal(entry.rightContent, 'two\n');
 }
 
+function testHistoryHonorsMaxCommitLimit() {
+    const originalHistoryLimit = process.env.BYGONE_HISTORY_MAX_COMMITS;
+    process.env.BYGONE_HISTORY_MAX_COMMITS = '3';
+
+    try {
+        const repo = createTempGitRepo();
+        const filePath = path.join(repo, 'example.txt');
+
+        fs.writeFileSync(filePath, 'line 0\n', 'utf8');
+        runGit(repo, ['add', 'example.txt']);
+        runGit(repo, ['commit', '-m', 'commit 0']);
+
+        for (let index = 1; index <= 8; index += 1) {
+            fs.writeFileSync(filePath, `line ${index}\n`, 'utf8');
+            runGit(repo, ['add', 'example.txt']);
+            runGit(repo, ['commit', '-m', `commit ${index}`]);
+        }
+
+        const descriptors = new GitHistoryService().buildFileHistoryDescriptors(filePath);
+
+        assert.equal(descriptors.length, 3);
+    } finally {
+        if (originalHistoryLimit === undefined) {
+            delete process.env.BYGONE_HISTORY_MAX_COMMITS;
+        } else {
+            process.env.BYGONE_HISTORY_MAX_COMMITS = originalHistoryLimit;
+        }
+    }
+}
+
 function createTempGitRepo() {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-history-test-'));
 
@@ -386,6 +416,7 @@ function run() {
     testHistoryOmitsCleanWorkingTree();
     testHistoryPrependsDirtyWorkingTree();
     testHistoryDescriptorsMaterializeOnDemand();
+    testHistoryHonorsMaxCommitLimit();
     console.log('All tests passed.');
 }
 

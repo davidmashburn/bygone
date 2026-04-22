@@ -167,6 +167,7 @@
     "package:npm": "npm run compile && node ./scripts/package-npm.mjs",
     "package:npm:dry-run": "node ./scripts/pack-npm-dry-run.mjs",
     "perf:bench": "npm run compile && node ./scripts/perf-benchmarks.mjs",
+    "perf:check": "npm run compile && node ./scripts/perf-check.mjs",
     "release:check": "npm test && npm run package:vsix && npm run package:npm && npm run package:npm:dry-run",
     "release:build": "node ./scripts/release.mjs",
     "release:publish": "node ./scripts/release.mjs --publish",

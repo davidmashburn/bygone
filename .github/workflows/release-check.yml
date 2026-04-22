@@ -44,3 +44,29 @@ jobs:
 
       - name: Run standalone smoke check
         run: npm run standalone:smoke
+
+  perf-check:
+    name: Perf Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run perf regression check
+        env:
+          BYGONE_PERF_BENCH_ITERATIONS: 5
+          BYGONE_PERF_BENCH_WARMUP: 1
+          BYGONE_PERF_BENCH_DIR_FILES: 220
+          BYGONE_PERF_BENCH_HISTORY_COMMITS: 100
+          BYGONE_PERF_CHECK_MIN_DIRECTORY_SPEEDUP: 0.95
+          BYGONE_PERF_CHECK_MIN_HISTORY_SPEEDUP: 4.00
+        run: npm run perf:check
