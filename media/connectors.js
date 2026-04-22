@@ -21,6 +21,11 @@
         absentFill: 'rgba(73, 190, 119, 0.08)',
         stroke: 'rgba(73, 190, 119, 0.92)'
     };
+    const DIRECTORY_MODIFIED_COLOR = {
+        leftFill: 'rgba(79, 124, 255, 0.16)',
+        rightFill: 'rgba(79, 124, 255, 0.16)',
+        stroke: 'rgba(79, 124, 255, 0.88)'
+    };
 
     function createConnectorController(options) {
         let connectionCanvas;
@@ -135,6 +140,7 @@
             }
 
             const rowsContainer = options.getElement('dir-rows');
+            const rowLookupBySide = buildDirectoryRowLookup(rowsContainer);
             const columns = Array.from(rowsContainer.querySelectorAll('.dir-column'));
             if (columns.length < 2) {
                 return;
@@ -160,13 +166,35 @@
                 entries.forEach((entry, index) => {
                     const leftExists = directoryEntryExistsOnSide(entry, pairIndex);
                     const rightExists = directoryEntryExistsOnSide(entry, pairIndex + 1);
+                    if (entry.isDirectory) {
+                        return;
+                    }
+
+                    if (leftExists && rightExists && entry.status === 'modified') {
+                        const leftRow = findDirectoryRow(rowLookupBySide, entry.relativePath, pairIndex);
+                        const rightRow = findDirectoryRow(rowLookupBySide, entry.relativePath, pairIndex + 1);
+
+                        if (!isVisibleDirectoryRow(leftRow) || !isVisibleDirectoryRow(rightRow)) {
+                            return;
+                        }
+
+                        drawDirectoryModifiedConnector({
+                            leftRowRect: leftRow.getBoundingClientRect(),
+                            rightRowRect: rightRow.getBoundingClientRect(),
+                            leftRect,
+                            rightRect,
+                            containerRect
+                        });
+                        return;
+                    }
+
                     if (leftExists === rightExists) {
                         return;
                     }
 
                     const presentSideIndex = leftExists ? pairIndex : pairIndex + 1;
                     const absentSideIndex = leftExists ? pairIndex + 1 : pairIndex;
-                    const presentRow = findDirectoryRow(rowsContainer, entry.relativePath, presentSideIndex);
+                    const presentRow = findDirectoryRow(rowLookupBySide, entry.relativePath, presentSideIndex);
 
                     if (!isVisibleDirectoryRow(presentRow)) {
                         return;
@@ -176,7 +204,7 @@
                         entries,
                         index,
                         absentSideIndex,
-                        rowsContainer,
+                        rowLookupBySide,
                         leftExists ? rightRect : leftRect,
                         containerRect
                     );
@@ -250,9 +278,48 @@
             drawBoundaryGuide(absentColumnRect, containerRect, absentY, DIRECTORY_ADD_COLOR.stroke);
         }
 
-        function getDirectoryBoundaryY(entries, targetIndex, side, rowsContainer, sideRect, containerRect) {
-            const previousRow = findNearestDirectoryRow(entries, targetIndex, -1, side, rowsContainer);
-            const nextRow = findNearestDirectoryRow(entries, targetIndex, 1, side, rowsContainer);
+        function drawDirectoryModifiedConnector({ leftRowRect, rightRowRect, leftRect, rightRect, containerRect }) {
+            const leftBounds = {
+                x: leftRect.right - containerRect.left + 2,
+                top: leftRowRect.top - containerRect.top + 1,
+                bottom: leftRowRect.bottom - containerRect.top - 1
+            };
+            const rightBounds = {
+                x: rightRect.left - containerRect.left - 2,
+                top: rightRowRect.top - containerRect.top + 1,
+                bottom: rightRowRect.bottom - containerRect.top - 1
+            };
+            const cpOffset = Math.abs(rightBounds.x - leftBounds.x) * 0.35;
+            const gradient = canvasContext.createLinearGradient(leftBounds.x, 0, rightBounds.x, 0);
+
+            gradient.addColorStop(0, DIRECTORY_MODIFIED_COLOR.leftFill);
+            gradient.addColorStop(1, DIRECTORY_MODIFIED_COLOR.rightFill);
+
+            const path = new Path2D();
+            path.moveTo(leftBounds.x, leftBounds.top);
+            path.bezierCurveTo(
+                leftBounds.x + cpOffset, leftBounds.top,
+                rightBounds.x - cpOffset, rightBounds.top,
+                rightBounds.x, rightBounds.top
+            );
+            path.lineTo(rightBounds.x, rightBounds.bottom);
+            path.bezierCurveTo(
+                rightBounds.x - cpOffset, rightBounds.bottom,
+                leftBounds.x + cpOffset, leftBounds.bottom,
+                leftBounds.x, leftBounds.bottom
+            );
+            path.closePath();
+
+            canvasContext.fillStyle = gradient;
+            canvasContext.fill(path);
+            strokeConnectorEdges(leftBounds, rightBounds, cpOffset, DIRECTORY_MODIFIED_COLOR.stroke);
+            strokePaneOutline(leftRect, containerRect, leftBounds.top, leftBounds.bottom, DIRECTORY_MODIFIED_COLOR.stroke);
+            strokePaneOutline(rightRect, containerRect, rightBounds.top, rightBounds.bottom, DIRECTORY_MODIFIED_COLOR.stroke);
+        }
+
+        function getDirectoryBoundaryY(entries, targetIndex, side, rowLookupBySide, sideRect, containerRect) {
+            const previousRow = findNearestDirectoryRow(entries, targetIndex, -1, side, rowLookupBySide);
+            const nextRow = findNearestDirectoryRow(entries, targetIndex, 1, side, rowLookupBySide);
 
             if (previousRow && nextRow) {
                 const previousRect = previousRow.getBoundingClientRect();
@@ -271,14 +338,14 @@
             return sideRect.top - containerRect.top + 12;
         }
 
-        function findNearestDirectoryRow(entries, targetIndex, step, side, rowsContainer) {
+        function findNearestDirectoryRow(entries, targetIndex, step, side, rowLookupBySide) {
             for (let index = targetIndex + step; index >= 0 && index < entries.length; index += step) {
                 const entry = entries[index];
                 if (!directoryEntryExistsOnSide(entry, side)) {
                     continue;
                 }
 
-                const row = findDirectoryRow(rowsContainer, entry.relativePath, side);
+                const row = findDirectoryRow(rowLookupBySide, entry.relativePath, side);
                 if (isVisibleDirectoryRow(row)) {
                     return row;
                 }
@@ -297,9 +364,25 @@
                 : entry.status !== 'left-only';
         }
 
-        function findDirectoryRow(rowsContainer, relativePath, sideIndex) {
-            return Array.from(rowsContainer.querySelectorAll(`.dir-entry[data-side-index="${sideIndex}"]`))
-                .find((row) => row.dataset.path === relativePath);
+        function buildDirectoryRowLookup(rowsContainer) {
+            const bySide = new Map();
+            Array.from(rowsContainer.querySelectorAll('.dir-entry')).forEach((row) => {
+                const sideIndex = Number.parseInt(row.dataset.sideIndex || '', 10);
+                const relativePath = row.dataset.path;
+                if (!Number.isInteger(sideIndex) || typeof relativePath !== 'string') {
+                    return;
+                }
+
+                if (!bySide.has(sideIndex)) {
+                    bySide.set(sideIndex, new Map());
+                }
+                bySide.get(sideIndex).set(relativePath, row);
+            });
+            return bySide;
+        }
+
+        function findDirectoryRow(rowLookupBySide, relativePath, sideIndex) {
+            return rowLookupBySide.get(sideIndex)?.get(relativePath);
         }
 
         function isVisibleDirectoryRow(row) {

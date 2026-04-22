@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DiffViewProvider } from './diffViewProvider';
 import { buildTwoWayDiffModel } from './diffEngine';
-import { buildMultiDirectoryComparison } from './directoryDiff';
+import { buildMultiDirectoryComparison, DirectoryEntry } from './directoryDiff';
 import { openDiffPreview } from './fallbackViews';
 import { FileHistoryEntry, GitHistoryService } from './gitHistory';
 import { createJavaScriptSampleFilePair } from './sampleFiles';
@@ -16,6 +16,8 @@ export class FileComparator {
     private fileHistoryIndex = 0;
     private activeHistoryFile: vscode.Uri | undefined;
     private currentDirectoryRoots: vscode.Uri[] = [];
+    private currentDirectoryEntries: DirectoryEntry[] = [];
+    private currentDirectoryRelativePath: string | undefined;
     private readonly gitHistoryService = new GitHistoryService();
 
     public setDiffViewProvider(provider: DiffViewProvider) {
@@ -25,6 +27,12 @@ export class FileComparator {
         });
         this.diffViewProvider.setDirectoryEntryOpenHandler((relativePath) => {
             void this.openDirectoryEntry(relativePath);
+        });
+        this.diffViewProvider.setDirectoryEntryNavigationHandler((direction) => {
+            void this.navigateDirectoryEntry(direction);
+        });
+        this.diffViewProvider.setReturnToDirectoryHandler(() => {
+            void this.returnToDirectoryView();
         });
     }
 
@@ -227,6 +235,8 @@ export class FileComparator {
     private async compareDirectories(dirs: vscode.Uri[]): Promise<void> {
         const entries = buildMultiDirectoryComparison(dirs.map((dir) => dir.fsPath));
         this.currentDirectoryRoots = dirs;
+        this.currentDirectoryEntries = entries;
+        this.currentDirectoryRelativePath = undefined;
         this.clearFileHistoryState();
 
         if (this.diffViewProvider) {
@@ -234,14 +244,17 @@ export class FileComparator {
         }
     }
 
-    private async compareFiles(file1: vscode.Uri, file2: vscode.Uri): Promise<void> {
+    private async compareFiles(file1: vscode.Uri, file2: vscode.Uri, canReturnToDirectory = false): Promise<void> {
         const content1 = this.readFileContent(file1);
         const content2 = this.readFileContent(file2);
         const diffModel = buildTwoWayDiffModel(content1, content2);
         this.clearFileHistoryState();
+        if (!canReturnToDirectory) {
+            this.currentDirectoryRelativePath = undefined;
+        }
 
         if (this.diffViewProvider) {
-            this.diffViewProvider.showDiff(file1, file2, content1, content2, diffModel);
+            this.diffViewProvider.showDiff(file1, file2, content1, content2, diffModel, canReturnToDirectory);
         } else {
             void openDiffPreview(file1, file2, diffModel);
         }
@@ -272,12 +285,52 @@ export class FileComparator {
             return;
         }
 
+        this.currentDirectoryRelativePath = relativePath;
         if (files.length === 2) {
-            await this.compareFiles(files[0], files[1]);
+            await this.compareFiles(files[0], files[1], true);
             return;
         }
 
         await this.compareMultipleFiles(files);
+    }
+
+    private async navigateDirectoryEntry(direction: 'previous' | 'next'): Promise<void> {
+        if (this.currentDirectoryRoots.length < 2 || this.currentDirectoryEntries.length === 0) {
+            return;
+        }
+
+        const changedFilePaths = this.currentDirectoryEntries
+            .filter((entry) => !entry.isDirectory && entry.status !== 'same' && entry.sides.filter(Boolean).length >= 2)
+            .map((entry) => entry.relativePath);
+        if (changedFilePaths.length === 0) {
+            return;
+        }
+
+        const currentIndex = this.currentDirectoryRelativePath
+            ? changedFilePaths.indexOf(this.currentDirectoryRelativePath)
+            : -1;
+        const step = direction === 'next' ? 1 : -1;
+        const startIndex = currentIndex >= 0
+            ? currentIndex
+            : (direction === 'next' ? -1 : 0);
+        const nextIndex = (startIndex + step + changedFilePaths.length) % changedFilePaths.length;
+        const nextRelativePath = changedFilePaths[nextIndex];
+        if (!nextRelativePath) {
+            return;
+        }
+
+        await this.openDirectoryEntry(nextRelativePath);
+    }
+
+    private async returnToDirectoryView(): Promise<void> {
+        if (this.currentDirectoryRoots.length < 2 || !this.diffViewProvider) {
+            return;
+        }
+
+        const entries = buildMultiDirectoryComparison(this.currentDirectoryRoots.map((dir) => dir.fsPath));
+        this.currentDirectoryEntries = entries;
+        this.currentDirectoryRelativePath = undefined;
+        await this.diffViewProvider.showDirectoryDiff(this.currentDirectoryRoots, entries);
     }
 
     private async navigateFileHistory(direction: 'back' | 'forward'): Promise<void> {

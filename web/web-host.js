@@ -358,6 +358,7 @@
   }
 
   // src/diffEngine.ts
+  var MAX_INLINE_HIGHLIGHT_LINE_LENGTH = 500;
   function buildTwoWayDiffModel(leftContent, rightContent) {
     const leftLines = normalizeLines(leftContent);
     const rightLines = normalizeLines(rightContent);
@@ -458,6 +459,9 @@
       const leftLine = leftLines[leftStart + index];
       const rightLine = rightLines[rightStart + index];
       if (!leftLine || !rightLine) {
+        continue;
+      }
+      if (leftLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH || rightLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH) {
         continue;
       }
       const { leftSegments, rightSegments, hasInlineChanges } = buildInlineSegments(leftLine.content, rightLine.content);

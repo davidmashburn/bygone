@@ -6,9 +6,11 @@ import {
     DirectoryEntry,
     HistoryViewState,
     isHistoryNavigationMessage,
+    isNavigateDirectoryEntryMessage,
     isOpenDirectoryEntryMessage,
     isReadyMessage,
     isRecomputeDiffMessage,
+    isReturnToDirectoryMessage,
     ShowDiffMessage,
     ShowDirectoryDiffMessage,
     ShowMultiDiffMessage,
@@ -29,6 +31,8 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     };
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
     private directoryEntryOpenHandler?: (relativePath: string) => void;
+    private directoryEntryNavigationHandler?: (direction: 'previous' | 'next') => void;
+    private returnToDirectoryHandler?: () => void;
 
     constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -38,6 +42,14 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
     public setDirectoryEntryOpenHandler(handler: (relativePath: string) => void): void {
         this.directoryEntryOpenHandler = handler;
+    }
+
+    public setDirectoryEntryNavigationHandler(handler: (direction: 'previous' | 'next') => void): void {
+        this.directoryEntryNavigationHandler = handler;
+    }
+
+    public setReturnToDirectoryHandler(handler: () => void): void {
+        this.returnToDirectoryHandler = handler;
     }
 
     public resolveWebviewView(
@@ -76,11 +88,26 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             if (isOpenDirectoryEntryMessage(message) && this.directoryEntryOpenHandler) {
                 this.directoryEntryOpenHandler(message.relativePath);
             }
+
+            if (isNavigateDirectoryEntryMessage(message) && this.directoryEntryNavigationHandler) {
+                this.directoryEntryNavigationHandler(message.direction);
+            }
+
+            if (isReturnToDirectoryMessage(message) && this.returnToDirectoryHandler) {
+                this.returnToDirectoryHandler();
+            }
         });
         webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
     }
 
-    public async showDiff(file1: vscode.Uri, file2: vscode.Uri, leftContent: string, rightContent: string, diffModel: TwoWayDiffModel) {
+    public async showDiff(
+        file1: vscode.Uri,
+        file2: vscode.Uri,
+        leftContent: string,
+        rightContent: string,
+        diffModel: TwoWayDiffModel,
+        canReturnToDirectory = false
+    ) {
         const view = await this.revealView();
         if (!view) {
             vscode.window.showWarningMessage('Bygone view is unavailable. Opening the diff in a text tab instead.');
@@ -99,7 +126,8 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             leftContent,
             rightContent,
             diffModel,
-            history: null
+            history: null,
+            canReturnToDirectory
         });
     }
 
@@ -263,34 +291,25 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 <body>
     <div id="container">
         <div id="header">
-            <h1>Bygone</h1>
-            <div id="file-info">Choose a compare command to render a diff.</div>
+            <div id="app-header" class="app-header">
+                <div class="app-header-left">
+                    <h1>Bygone</h1>
+                    <span id="mode-chip" class="mode-chip">Diff</span>
+                </div>
+                <div class="app-header-right">
+                    <div id="edit-mode-toolbar" class="edit-mode-toolbar" hidden>
+                        <button id="toggle-readonly" class="edit-mode-button" type="button" title="Toggle read-only mode">Editing On</button>
+                    </div>
+                </div>
+            </div>
+            <div id="context-bar" class="context-bar">
+                <div id="directory-return-toolbar" class="directory-return-toolbar" hidden>
+                    <button id="back-to-directory" class="directory-return-button" type="button" title="Back to directory view (Cmd/Ctrl+[)">← Back to Directory</button>
+                </div>
+                <div id="breadcrumb-trail" class="breadcrumb-trail"></div>
+                <div id="file-info" class="context-title">Choose a compare command to render a diff.</div>
+            </div>
             <div id="status-banner" class="status-banner" hidden></div>
-            <div id="directory-return-toolbar" class="directory-return-toolbar" hidden>
-                <button id="back-to-directory" class="directory-return-button" type="button" title="Back to directory view (Cmd/Ctrl+[)">← Back to Directory</button>
-            </div>
-            <div id="directory-tree-toolbar" class="directory-tree-toolbar" hidden>
-                <button id="directory-expand-all" class="directory-tree-button" type="button" title="Expand all folders in the directory tree">Expand All</button>
-                <button id="directory-collapse-all" class="directory-tree-button" type="button" title="Collapse all folders in the directory tree">Collapse All</button>
-                <button id="directory-collapse-unchanged" class="directory-tree-button" type="button" title="Collapse folders that have no changes (default view)">Collapse Unchanged (Default)</button>
-            </div>
-            <div id="edit-mode-toolbar" class="edit-mode-toolbar" hidden>
-                <button id="toggle-readonly" class="edit-mode-button" type="button" title="Toggle read-only mode">Editing On</button>
-            </div>
-            <div id="change-toolbar" class="change-toolbar" hidden>
-                <div class="change-copy">
-                    <button id="copy-left-to-right" class="change-button change-button-primary" type="button" title="Copy current change from left to right (Cmd/Ctrl+Alt+Right)">Copy current →</button>
-                </div>
-                <div class="change-nav">
-                    <button id="previous-change" class="change-button" type="button" title="Previous difference (Shift+F7)">↑ Prev</button>
-                    <div id="change-position" class="change-position"></div>
-                    <button id="next-change" class="change-button change-button-primary" type="button" title="Next difference (F7)">↓ Next</button>
-                    <div class="change-hint">F7 / Shift+F7 to jump. Cmd/Ctrl+Alt+←/→ to copy the selected change.</div>
-                </div>
-                <div class="change-copy change-copy-right">
-                    <button id="copy-right-to-left" class="change-button change-button-primary" type="button" title="Copy current change from right to left (Cmd/Ctrl+Alt+Left)">← Copy current</button>
-                </div>
-            </div>
             <div id="history-toolbar" class="history-toolbar" hidden>
                 <div class="history-side history-side-left">
                     <div id="history-left-commit" class="history-commit"></div>
@@ -304,6 +323,27 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 <div class="history-side history-side-right">
                     <div id="history-right-commit" class="history-commit"></div>
                     <div id="history-right-time" class="history-time"></div>
+                </div>
+            </div>
+            <div id="header-controls" class="header-controls">
+                <div id="directory-tree-toolbar" class="directory-tree-toolbar" hidden>
+                    <button id="directory-expand-all" class="directory-tree-button" type="button" title="Expand all folders in the directory tree">Expand All</button>
+                    <button id="directory-collapse-all" class="directory-tree-button" type="button" title="Collapse all folders in the directory tree">Collapse All</button>
+                    <button id="directory-collapse-unchanged" class="directory-tree-button" type="button" title="Collapse folders that have no changes (default view)">Collapse Unchanged (Default)</button>
+                </div>
+                <div id="change-toolbar" class="change-toolbar" hidden>
+                    <div class="change-nav">
+                        <button id="previous-file-change" class="change-button" type="button" title="Previous changed file in drill-down view">← Prev File</button>
+                        <button id="previous-change" class="change-button" type="button" title="Previous difference (Shift+F7)">↑ Prev</button>
+                        <div id="change-position" class="change-position"></div>
+                        <button id="next-change" class="change-button change-button-primary" type="button" title="Next difference (F7)">↓ Next</button>
+                        <button id="next-file-change" class="change-button" type="button" title="Next changed file in drill-down view">Next File →</button>
+                    </div>
+                    <div class="change-hint">F7 / Shift+F7 to jump hunks. Use Prev/Next File for sibling changed files.</div>
+                </div>
+                <div id="action-toolbar" class="action-toolbar" hidden>
+                    <button id="copy-right-to-left" class="change-button" type="button" title="Copy current change from right to left (Cmd/Ctrl+Alt+Left)">← Copy current</button>
+                    <button id="copy-left-to-right" class="change-button change-button-primary" type="button" title="Copy current change from left to right (Cmd/Ctrl+Alt+Right)">Copy current →</button>
                 </div>
             </div>
         </div>

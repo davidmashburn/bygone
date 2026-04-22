@@ -18,6 +18,7 @@ const {
 
 const MODE_TWO_WAY = 'two-way';
 const MODE_MULTI_WAY = 'multi-way';
+const MODE_DIRECTORY = 'directory';
 
 let currentMode = MODE_TWO_WAY;
 let diffBlocks = [];
@@ -41,6 +42,8 @@ let directoryEntries = [];
 let multiEditors = [];
 let multiDecorationIds = [];
 let multiDiffPairs = [];
+let activeDirectoryFileChangeIndex = -1;
+let canReturnToDirectoryView = false;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -141,18 +144,32 @@ async function initializeMonaco() {
     monacoInstance = window.monaco;
 }
 
+function updateShellContext(modeLabel, title, breadcrumb = '') {
+    setTextContent('mode-chip', modeLabel);
+    setTextContent('file-info', title);
+    setTextContent('breadcrumb-trail', breadcrumb);
+}
+
 function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, canReturnToDirectory = false, nextEditableSides = null) {
     currentMode = MODE_TWO_WAY;
     historyMode = Boolean(history);
+    canReturnToDirectoryView = Boolean(canReturnToDirectory);
     hostEditableSides = normalizeEditableSides(nextEditableSides, historyMode);
     setCurrentDiffModel(diffModel);
     setActiveDiffIndex(diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1, false);
     directoryEntries = [];
+    clearDirectoryJumpSelection();
     disposeMultiEditors();
 
     toggleView(VIEW_IDS.twoWay);
     setStatus('', false);
-    setTextContent('file-info', `Comparing ${file1} and ${file2}`);
+    updateShellContext(
+        history
+            ? (canReturnToDirectory ? 'Directory History File' : 'File History')
+            : (canReturnToDirectory ? 'Directory Drill-down' : 'Diff'),
+        `Comparing ${file1} and ${file2}`,
+        `${file1} ↔ ${file2}`
+    );
     setTextContent('file1-header', file1);
     setTextContent('file2-header', file2);
     updateHistoryToolbar(history);
@@ -173,14 +190,16 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
 }
 
 function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
-    currentMode = 'directory';
-    historyMode = false;
+    currentMode = MODE_DIRECTORY;
+    historyMode = Boolean(history);
+    canReturnToDirectoryView = false;
     currentDiffModel = null;
     activeDiffIndex = -1;
     diffBlocks = [];
     currentDiffRows = [];
     scrollMaps = null;
     directoryEntries = entries || [];
+    activeDirectoryFileChangeIndex = -1;
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(history);
@@ -193,11 +212,16 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
 
     toggleView(VIEW_IDS.directory);
     setStatus('', false);
-    setTextContent('file-info', `Comparing directories ${directoryLabels.join(' and ')}`);
+    updateShellContext(
+        history ? 'Directory History' : 'Directory Compare',
+        `Comparing directories ${directoryLabels.join(' and ')}`,
+        directoryLabels.join(' ↔ ')
+    );
 
     resetDirectoryView();
     renderDirectoryView(getElement('dir-rows'), directoryEntries, directoryLabels);
     runDirectoryTreeAction(collapseUnchangedDirectories);
+    updateChangeToolbarState();
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
 }
@@ -209,12 +233,14 @@ function showMultiDiff(panels, pairs) {
 
     currentMode = MODE_MULTI_WAY;
     historyMode = false;
+    canReturnToDirectoryView = false;
     currentDiffModel = null;
     activeDiffIndex = -1;
     diffBlocks = [];
     currentDiffRows = [];
     scrollMaps = null;
     directoryEntries = [];
+    clearDirectoryJumpSelection();
     disposeTwoWayEditors();
     disposeMultiEditors();
     multiDiffPairs = pairs || [];
@@ -226,7 +252,11 @@ function showMultiDiff(panels, pairs) {
 
     toggleView(VIEW_IDS.multiWay);
     setStatus('', false);
-    setTextContent('file-info', `Comparing ${panels.length} files`);
+    updateShellContext(
+        'Multi Diff',
+        `Comparing ${panels.length} files`,
+        panels.map((panel) => panel.label).join(' ↔ ')
+    );
 
     renderMultiDiffShell(panels);
     multiEditors = panels.map((panel, index) => {
@@ -249,7 +279,9 @@ function showThreeWayMerge(message) {
     activeDiffIndex = -1;
     setCurrentDiffModel({ blocks: [], rows: [] });
     historyMode = false;
+    canReturnToDirectoryView = false;
     directoryEntries = [];
+    clearDirectoryJumpSelection();
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(null);
@@ -259,7 +291,11 @@ function showThreeWayMerge(message) {
     updateChangeToolbarState();
 
     toggleView(VIEW_IDS.threeWay);
-    setTextContent('file-info', `Three-way merge for ${message.base.name}, ${message.left.name}, and ${message.right.name}`);
+    updateShellContext(
+        'Three-Way Merge',
+        `Three-way merge for ${message.base.name}, ${message.left.name}, and ${message.right.name}`,
+        `${message.base.name} · ${message.left.name} · ${message.right.name}`
+    );
     setTextContent('base-header', message.base.name);
     setTextContent('left-header', message.left.name);
     setTextContent('right-header', message.right.name);
@@ -740,25 +776,52 @@ function initializeEditModeToolbar() {
 }
 
 function initializeChangeToolbar() {
-    getElement('previous-change').addEventListener('click', () => navigateDiff(-1));
-    getElement('next-change').addEventListener('click', () => navigateDiff(1));
+    getElement('previous-file-change').addEventListener('click', () => {
+        navigateDirectoryFileChange('previous');
+    });
+    getElement('next-file-change').addEventListener('click', () => {
+        navigateDirectoryFileChange('next');
+    });
+    getElement('previous-change').addEventListener('click', () => {
+        if (currentMode === MODE_TWO_WAY) {
+            navigateDiff(-1);
+        }
+    });
+    getElement('next-change').addEventListener('click', () => {
+        if (currentMode === MODE_DIRECTORY) {
+            jumpToNextDirectoryFileChange();
+            return;
+        }
+        navigateDiff(1);
+    });
     getElement('copy-left-to-right').addEventListener('click', () => copyCurrentChange('left-to-right'));
     getElement('copy-right-to-left').addEventListener('click', () => copyCurrentChange('right-to-left'));
 
     window.addEventListener('keydown', (event) => {
-        if (event.defaultPrevented || currentMode !== MODE_TWO_WAY) {
-            return;
-        }
-
-        if (event.key === 'F7') {
-            event.preventDefault();
-            navigateDiff(event.shiftKey ? -1 : 1);
+        if (event.defaultPrevented) {
             return;
         }
 
         if ((event.metaKey || event.ctrlKey) && event.key === '[' && !getElement('directory-return-toolbar').hidden) {
             event.preventDefault();
             returnToDirectory();
+            return;
+        }
+
+        if (event.key === 'F7') {
+            event.preventDefault();
+            if (currentMode === MODE_DIRECTORY) {
+                jumpToNextDirectoryFileChange();
+                return;
+            }
+            if (currentMode !== MODE_TWO_WAY) {
+                return;
+            }
+            navigateDiff(event.shiftKey ? -1 : 1);
+            return;
+        }
+
+        if (currentMode !== MODE_TWO_WAY) {
             return;
         }
 
@@ -777,6 +840,17 @@ function initializeChangeToolbar() {
 
 function returnToDirectory() {
     host.postMessage({ type: 'returnToDirectory' });
+}
+
+function navigateDirectoryFileChange(direction) {
+    if (currentMode !== MODE_TWO_WAY || !canReturnToDirectoryView) {
+        return;
+    }
+
+    host.postMessage({
+        type: 'navigateDirectoryEntry',
+        direction
+    });
 }
 
 function updateDirectoryReturnToolbar(canReturnToDirectory) {
@@ -806,7 +880,7 @@ function updateEditModeToolbar() {
 }
 
 function runDirectoryTreeAction(action) {
-    if (currentMode !== 'directory') {
+    if (currentMode !== MODE_DIRECTORY) {
         return;
     }
 
@@ -816,6 +890,7 @@ function runDirectoryTreeAction(action) {
     }
 
     action(container);
+    updateChangeToolbarState();
     connectorController.scheduleDrawConnections();
 }
 
@@ -857,20 +932,137 @@ function setActiveDiffIndex(index, shouldReveal) {
 
 function updateChangeToolbarState() {
     const toolbar = getElement('change-toolbar');
+    const previousFileButton = getElement('previous-file-change');
+    const previousButton = getElement('previous-change');
+    const nextButton = getElement('next-change');
+    const nextFileButton = getElement('next-file-change');
+    const hint = toolbar.querySelector('.change-hint');
     const hasDiffs = currentMode === MODE_TWO_WAY && diffBlocks.length > 0;
-    toolbar.hidden = !hasDiffs;
+    const hasFileNavigation = currentMode === MODE_TWO_WAY && canReturnToDirectoryView;
+    const directoryChangeRows = currentMode === MODE_DIRECTORY ? getVisibleChangedFileRows() : [];
+    const hasDirectoryFileChanges = currentMode === MODE_DIRECTORY && directoryChangeRows.length > 0;
+    const hasLineNavigation = currentMode === MODE_TWO_WAY && hasDiffs;
 
-    if (!hasDiffs) {
+    toolbar.hidden = !hasLineNavigation && !hasDirectoryFileChanges && !hasFileNavigation;
+
+    if (currentMode === MODE_DIRECTORY) {
+        previousFileButton.hidden = true;
+        previousFileButton.disabled = true;
+        nextFileButton.hidden = true;
+        nextFileButton.disabled = true;
+        previousButton.hidden = true;
+        if (hint) {
+            hint.hidden = true;
+        }
+        nextButton.hidden = false;
+        nextButton.textContent = 'Next File Change';
+        nextButton.disabled = directoryChangeRows.length === 0;
+
+        if (activeDirectoryFileChangeIndex >= directoryChangeRows.length) {
+            activeDirectoryFileChangeIndex = -1;
+        }
+
+        directoryChangeRows.forEach((row, index) => {
+            row.classList.toggle('dir-entry--jump-target', index === activeDirectoryFileChangeIndex);
+        });
+
+        setTextContent(
+            'change-position',
+            directoryChangeRows.length === 0
+                ? ''
+                : `${Math.max(activeDirectoryFileChangeIndex + 1, 0)} / ${directoryChangeRows.length}`
+        );
+        updateActionToolbarState(false);
+        return;
+    }
+
+    previousFileButton.hidden = !hasFileNavigation;
+    previousFileButton.disabled = !hasFileNavigation;
+    nextFileButton.hidden = !hasFileNavigation;
+    nextFileButton.disabled = !hasFileNavigation;
+    previousButton.hidden = !hasLineNavigation;
+    nextButton.hidden = !hasLineNavigation;
+    previousButton.textContent = '↑ Prev';
+    nextButton.textContent = '↓ Next';
+    if (hint) {
+        hint.hidden = !hasLineNavigation;
+        hint.textContent = hasFileNavigation
+            ? 'F7 / Shift+F7 jumps line changes. Use ←/→ file buttons for changed files. Cmd/Ctrl+Alt+←/→ copies the selected change.'
+            : 'F7 / Shift+F7 to jump. Cmd/Ctrl+Alt+←/→ to copy the selected change.';
+    }
+
+    if (!hasLineNavigation) {
         setTextContent('change-position', '');
+        previousButton.disabled = true;
+        nextButton.disabled = true;
+        updateActionToolbarState(false);
         return;
     }
 
     const safeIndex = clamp(activeDiffIndex, 0, diffBlocks.length - 1);
     setTextContent('change-position', `${safeIndex + 1} / ${diffBlocks.length}`);
-    getElement('previous-change').disabled = diffBlocks.length === 0;
-    getElement('next-change').disabled = diffBlocks.length === 0;
-    getElement('copy-left-to-right').disabled = !isSideEditable('right');
-    getElement('copy-right-to-left').disabled = !isSideEditable('left');
+    previousButton.disabled = diffBlocks.length === 0;
+    nextButton.disabled = diffBlocks.length === 0;
+    updateActionToolbarState(true);
+}
+
+function updateActionToolbarState(hasActiveDiff) {
+    const toolbar = getElement('action-toolbar');
+    const copyLeftButton = getElement('copy-left-to-right');
+    const copyRightButton = getElement('copy-right-to-left');
+    const hasCopyActions = currentMode === MODE_TWO_WAY;
+
+    toolbar.hidden = !hasCopyActions;
+    if (!hasCopyActions) {
+        return;
+    }
+
+    copyLeftButton.disabled = !hasActiveDiff || !isSideEditable('right');
+    copyRightButton.disabled = !hasActiveDiff || !isSideEditable('left');
+}
+
+function jumpToNextDirectoryFileChange() {
+    if (currentMode !== MODE_DIRECTORY) {
+        return;
+    }
+
+    const rows = getVisibleChangedFileRows();
+    if (rows.length === 0) {
+        activeDirectoryFileChangeIndex = -1;
+        updateChangeToolbarState();
+        return;
+    }
+
+    activeDirectoryFileChangeIndex = (activeDirectoryFileChangeIndex + 1 + rows.length) % rows.length;
+    const target = rows[activeDirectoryFileChangeIndex];
+    if (target) {
+        target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+
+    updateChangeToolbarState();
+    connectorController.scheduleDrawConnections();
+}
+
+function getVisibleChangedFileRows() {
+    const container = getElement('dir-rows');
+    if (!container) {
+        return [];
+    }
+
+    return Array.from(container.querySelectorAll('.dir-entry[data-is-dir="false"]'))
+        .filter((row) => row.dataset.status !== 'same' && row.offsetParent !== null);
+}
+
+function clearDirectoryJumpSelection() {
+    activeDirectoryFileChangeIndex = -1;
+    const container = getElement('dir-rows');
+    if (!container) {
+        return;
+    }
+
+    container.querySelectorAll('.dir-entry--jump-target').forEach((row) => {
+        row.classList.remove('dir-entry--jump-target');
+    });
 }
 
 function revealActiveDiff(smooth) {

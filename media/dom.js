@@ -133,12 +133,13 @@
         const isDir = entry.isDirectory;
         const nameClass = isDir ? 'dir-name dir-name--dir' : 'dir-name';
         const displayText = isDir ? entry.displayName + '/' : entry.displayName;
+        const folderIconHtml = isDir ? '<span class="dir-folder-icon" aria-hidden="true"></span>' : '';
 
         const toggleHtml = isDir
             ? `<span class="dir-toggle" aria-label="toggle">▼</span>`
             : `<span class="dir-toggle dir-toggle--spacer"></span>`;
 
-        const cellContent = `${toggleHtml}<span class="dir-indent">${indent}</span><span class="${nameClass}">${escapeHtml(displayText)}</span>`;
+        const cellContent = `${toggleHtml}<span class="dir-indent">${indent}</span>${folderIconHtml}<span class="${nameClass}">${escapeHtml(displayText)}</span>`;
 
         return `<div class="dir-entry dir-entry--${entry.status}" `
             + `data-path="${escapeAttr(entry.relativePath)}" `

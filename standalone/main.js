@@ -633,6 +633,14 @@ async function handleRendererMessage(message) {
         return;
     }
 
+    if (
+        message.type === 'navigateDirectoryEntry'
+        && (message.direction === 'previous' || message.direction === 'next')
+    ) {
+        await navigateDirectoryEntry(message.direction);
+        return;
+    }
+
     if (message.type === 'returnToDirectory') {
         await returnToDirectoryView();
         return;
@@ -845,9 +853,13 @@ function buildDirectoryHistory(resolvedDir) {
     const relativeDir = path.relative(repoRoot, realDir).replace(/\\/g, '/');
     const displayName = path.basename(realDir) || path.basename(repoRoot);
     const commitRecords = parseGitHistoryRecords(runGit(
-        ['log', '--format=%H%x09%h%x09%cI%x09%s', '--', relativeDir || '.'],
+        ['log', '--format=%H%x09%h%x09%cI%x09%s%x09%P', '--', relativeDir || '.'],
         repoRoot
     ));
+    const parentMetadataByCommit = readCommitMetadataMap(
+        repoRoot,
+        [...new Set(commitRecords.map((commit) => commit.parentCommit).filter((commit) => typeof commit === 'string'))]
+    );
     const entries = [];
     const workingTreeEntry = buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayName);
 
@@ -856,10 +868,11 @@ function buildDirectoryHistory(resolvedDir) {
     }
 
     for (const commit of commitRecords) {
-        const parentCommit = readPrimaryParent(repoRoot, commit.commit);
+        const parentCommit = commit.parentCommit;
         if (!parentCommit) {
             continue;
         }
+        const parentMetadata = parentMetadataByCommit.get(parentCommit) ?? readCommitMetadata(repoRoot, parentCommit);
 
         entries.push({
             commit: commit.commit,
@@ -867,8 +880,8 @@ function buildDirectoryHistory(resolvedDir) {
             shortCommit: commit.shortCommit,
             summary: commit.summary,
             timestamp: commit.timestamp,
-            parentSummary: readCommitSummary(repoRoot, parentCommit),
-            parentTimestamp: readCommitTimestamp(repoRoot, parentCommit),
+            parentSummary: parentMetadata.summary,
+            parentTimestamp: parentMetadata.timestamp,
             labels: [`${displayName} @ ${parentCommit.slice(0, 7)}`, `${displayName} @ ${commit.shortCommit}`]
         });
     }
@@ -890,6 +903,7 @@ function buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayNam
     if (!headCommit || !hasWorkingTreeDirectoryChanges(repoRoot, relativeDir)) {
         return undefined;
     }
+    const headMetadata = readCommitMetadata(repoRoot, headCommit);
 
     return {
         commit: 'WORKTREE',
@@ -897,8 +911,8 @@ function buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayNam
         shortCommit: 'Working Tree',
         summary: '',
         timestamp: '',
-        parentSummary: readCommitSummary(repoRoot, headCommit),
-        parentTimestamp: readCommitTimestamp(repoRoot, headCommit),
+        parentSummary: headMetadata.summary,
+        parentTimestamp: headMetadata.timestamp,
         labels: [`${displayName} @ HEAD`, `${displayName} @ Working Tree`]
     };
 }
@@ -977,11 +991,9 @@ async function sendCurrentDirectoryHistoryEntry() {
         return;
     }
 
-    let entry;
-    try {
-        entry = ensureDirectoryHistoryEntryMaterialized(session.dirHistory, session.dirHistory.index);
-    } catch (error) {
-        await showError(`Error loading directory history entry: ${getErrorMessage(error)}`);
+    const entry = session.dirHistory.entries[session.dirHistory.index];
+    if (!entry) {
+        await showError(`Error loading directory history entry: no entry at index ${session.dirHistory.index}`);
         return;
     }
 
@@ -989,9 +1001,9 @@ async function sendCurrentDirectoryHistoryEntry() {
 
     if (session.dirHistory.viewRelativePath) {
         const relativePath = session.dirHistory.viewRelativePath;
-        const files = entry.dirs.map((dir) => path.join(dir, relativePath));
-        const leftExists = getPathKind(files[0]) === 'file';
-        const rightExists = getPathKind(files[1]) === 'file';
+        const view = buildDirectoryHistoryFileView(session.dirHistory, entry, relativePath);
+        const leftExists = view.leftExists;
+        const rightExists = view.rightExists;
 
         if (!leftExists && !rightExists) {
             session.dirHistory.viewRelativePath = null;
@@ -1000,18 +1012,13 @@ async function sendCurrentDirectoryHistoryEntry() {
             return;
         }
 
-        const leftContent = leftExists ? readFileContent(files[0]) : '';
-        const rightContent = entry.editedFiles?.[relativePath] ?? (rightExists ? readFileContent(files[1]) : '');
-        const leftLabel = `${entry.labels[0]} / ${relativePath}${leftExists ? '' : ' (missing)'}`;
-        const rightLabel = `${entry.labels[1]} / ${relativePath}${rightExists ? '' : ' (missing)'}`;
-
         postOrQueue({
             type: 'showDiff',
-            file1: leftLabel,
-            file2: rightLabel,
-            leftContent,
-            rightContent,
-            diffModel: buildTwoWayDiffModel(leftContent, rightContent),
+            file1: view.leftLabel,
+            file2: view.rightLabel,
+            leftContent: view.leftContent,
+            rightContent: view.rightContent,
+            diffModel: buildTwoWayDiffModel(view.leftContent, view.rightContent),
             canReturnToDirectory: true,
             editableSides: buildHistoryEditableSides(entry),
             history: {
@@ -1024,13 +1031,21 @@ async function sendCurrentDirectoryHistoryEntry() {
         return;
     }
 
-    const entries = buildMultiDirectoryComparison(entry.dirs);
+    let materializedEntry;
+    try {
+        materializedEntry = ensureDirectoryHistoryEntryMaterialized(session.dirHistory, session.dirHistory.index);
+    } catch (error) {
+        await showError(`Error loading directory history entry: ${getErrorMessage(error)}`);
+        return;
+    }
+
+    const entries = buildMultiDirectoryComparison(materializedEntry.dirs);
 
     postOrQueue({
         type: 'showDirectoryDiff',
-        leftLabel: entry.labels[0],
-        rightLabel: entry.labels[1],
-        labels: entry.labels,
+        leftLabel: materializedEntry.labels[0],
+        rightLabel: materializedEntry.labels[1],
+        labels: materializedEntry.labels,
         entries,
         history
     });
@@ -1049,6 +1064,37 @@ function buildDirectoryHistoryViewState(dirHistory, entry) {
         rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
         rightTimestamp: entry.timestamp
     };
+}
+
+function buildDirectoryHistoryFileView(dirHistory, entry, relativePath) {
+    const repoRelativePath = joinRepoRelativePath(dirHistory.relativeDir, relativePath);
+    const leftContent = readGitBlobText(dirHistory.repoRoot, entry.parentCommit, repoRelativePath);
+
+    let rightContent;
+    if (entry.commit === 'WORKTREE') {
+        rightContent = entry.editedFiles?.[relativePath];
+        if (rightContent === undefined) {
+            rightContent = readFileContentSafe(path.join(dirHistory.dirPath, relativePath));
+        }
+    } else {
+        rightContent = readGitBlobText(dirHistory.repoRoot, entry.commit, repoRelativePath);
+    }
+
+    const leftExists = typeof leftContent === 'string';
+    const rightExists = typeof rightContent === 'string';
+
+    return {
+        leftExists,
+        rightExists,
+        leftContent: leftContent ?? '',
+        rightContent: rightContent ?? '',
+        leftLabel: `${entry.labels[0]} / ${relativePath}${leftExists ? '' : ' (missing)'}`,
+        rightLabel: `${entry.labels[1]} / ${relativePath}${rightExists ? '' : ' (missing)'}`
+    };
+}
+
+function joinRepoRelativePath(relativeDir, relativePath) {
+    return relativeDir ? `${relativeDir}/${relativePath}` : relativePath;
 }
 
 function ensureDirectoryHistoryEntryMaterialized(dirHistory, index) {
@@ -1391,6 +1437,64 @@ async function openDirectoryEntry(relativePath) {
     await openMultiDiff(files);
 }
 
+function getChangedFilePaths(entries, requireBothSides) {
+    return entries
+        .filter((entry) => (
+            !entry.isDirectory
+            && entry.status !== 'same'
+            && (!requireBothSides || entry.sides.filter(Boolean).length >= 2)
+        ))
+        .map((entry) => entry.relativePath);
+}
+
+function getNextRelativePath(changedPaths, currentPath, direction) {
+    if (!Array.isArray(changedPaths) || changedPaths.length === 0) {
+        return null;
+    }
+
+    const step = direction === 'next' ? 1 : -1;
+    const currentIndex = typeof currentPath === 'string' ? changedPaths.indexOf(currentPath) : -1;
+    const startIndex = currentIndex >= 0
+        ? currentIndex
+        : (direction === 'next' ? -1 : 0);
+    const nextIndex = (startIndex + step + changedPaths.length) % changedPaths.length;
+    return changedPaths[nextIndex] || null;
+}
+
+async function navigateDirectoryEntry(direction) {
+    if (session.mode === 'diff' && session.returnDirectory) {
+        const entries = buildMultiDirectoryComparison(session.returnDirectory.dirs);
+        const changedPaths = getChangedFilePaths(entries, false);
+        const nextRelativePath = getNextRelativePath(changedPaths, session.returnDirectory.relativePath, direction);
+        if (!nextRelativePath) {
+            return;
+        }
+
+        await openDirectoryFileDiff(session.returnDirectory.dirs, session.returnDirectory.labels, nextRelativePath);
+        return;
+    }
+
+    if (session.mode === 'directory-history' && session.dirHistory?.viewRelativePath) {
+        let materializedEntry;
+        try {
+            materializedEntry = ensureDirectoryHistoryEntryMaterialized(session.dirHistory, session.dirHistory.index);
+        } catch (error) {
+            await showError(`Error loading directory history entry: ${getErrorMessage(error)}`);
+            return;
+        }
+
+        const entries = buildMultiDirectoryComparison(materializedEntry.dirs);
+        const changedPaths = getChangedFilePaths(entries, false);
+        const nextRelativePath = getNextRelativePath(changedPaths, session.dirHistory.viewRelativePath, direction);
+        if (!nextRelativePath) {
+            return;
+        }
+
+        session.dirHistory.viewRelativePath = nextRelativePath;
+        await sendCurrentDirectoryHistoryEntry();
+    }
+}
+
 async function openDirectoryFileDiff(dirs, labels, relativePath) {
     const leftPath = path.join(dirs[0], relativePath);
     const rightPath = path.join(dirs[1], relativePath);
@@ -1420,7 +1524,8 @@ async function openDirectoryFileDiff(dirs, labels, relativePath) {
         dirHistory: null,
         returnDirectory: {
             dirs: [...dirs],
-            labels: [...labels]
+            labels: [...labels],
+            relativePath
         }
     };
 
@@ -1988,6 +2093,14 @@ function readFileContent(filePath) {
     return fs.readFileSync(filePath, 'utf8');
 }
 
+function readFileContentSafe(filePath) {
+    try {
+        return readFileContent(filePath);
+    } catch {
+        return undefined;
+    }
+}
+
 function runGit(args, cwd) {
     return execFileSync('git', args, {
         cwd,
@@ -2004,21 +2117,35 @@ function readHeadCommit(repoRoot) {
     }
 }
 
-function readPrimaryParent(repoRoot, commit) {
-    const parents = runGit(['rev-list', '--parents', '-n', '1', commit], repoRoot)
-        .trim()
-        .split(' ')
-        .slice(1);
-
-    return parents[0];
+function readCommitMetadata(repoRoot, commit) {
+    const output = runGit(['show', '-s', '--format=%cI%x09%s', commit], repoRoot);
+    const [timestamp = '', ...summaryParts] = output.split('\t');
+    return {
+        timestamp,
+        summary: summaryParts.join('\t')
+    };
 }
 
-function readCommitSummary(repoRoot, commit) {
-    return runGit(['show', '-s', '--format=%s', commit], repoRoot);
-}
+function readCommitMetadataMap(repoRoot, commits) {
+    if (!Array.isArray(commits) || commits.length === 0) {
+        return new Map();
+    }
 
-function readCommitTimestamp(repoRoot, commit) {
-    return runGit(['show', '-s', '--format=%cI', commit], repoRoot);
+    const output = runGit(['show', '-s', '--format=%H%x09%cI%x09%s', ...commits], repoRoot);
+    return output
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .reduce((map, line) => {
+            const [commit, timestamp = '', ...summaryParts] = line.split('\t');
+            if (commit) {
+                map.set(commit, {
+                    timestamp,
+                    summary: summaryParts.join('\t')
+                });
+            }
+            return map;
+        }, new Map());
 }
 
 function parseGitHistoryRecords(logOutput) {
@@ -2027,12 +2154,20 @@ function parseGitHistoryRecords(logOutput) {
         .map((line) => line.trim())
         .filter((line) => line.length > 0)
         .map((line) => {
-            const [commit, shortCommit, timestamp, ...summaryParts] = line.split('\t');
+            const parts = line.split('\t');
+            const commit = parts[0];
+            const shortCommit = parts[1];
+            const timestamp = parts[2];
+            const hasParentField = parts.length >= 5;
+            const parentField = hasParentField ? (parts[parts.length - 1] || '') : '';
+            const summaryParts = hasParentField ? parts.slice(3, -1) : parts.slice(3);
+            const parentCommit = parentField.split(' ').find((candidate) => candidate.length > 0);
             return {
                 commit,
                 shortCommit,
                 timestamp,
-                summary: summaryParts.join('\t')
+                summary: summaryParts.join('\t'),
+                parentCommit
             };
         });
 }
@@ -2042,6 +2177,18 @@ function readGitBlob(repoRoot, commit, relativePath) {
         cwd: repoRoot,
         maxBuffer: GIT_MAX_BUFFER_BYTES
     });
+}
+
+function readGitBlobText(repoRoot, commit, relativePath) {
+    try {
+        return execFileSync('git', ['show', `${commit}:${relativePath}`], {
+            cwd: repoRoot,
+            encoding: 'utf8',
+            maxBuffer: GIT_MAX_BUFFER_BYTES
+        });
+    } catch {
+        return undefined;
+    }
 }
 
 function getPathKind(filePath) {
