@@ -1472,7 +1472,8 @@ function buildDirectoryContext(dirs, activeRelativePath, requireBothSides) {
 
     return {
         changedFiles,
-        activeRelativePath: activePath
+        activeRelativePath: activePath,
+        treeEntries: entries
     };
 }
 

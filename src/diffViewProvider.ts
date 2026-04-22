@@ -109,10 +109,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         rightContent: string,
         diffModel: TwoWayDiffModel,
         canReturnToDirectory = false,
-        directoryContext?: {
-            changedFiles: string[];
-            activeRelativePath: string;
-        }
+        directoryContext?: ShowDiffMessage['directoryContext']
     ) {
         const view = await this.revealView();
         if (!view) {
@@ -363,6 +360,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 <div class="navigator-rail-header">
                     <div id="navigator-rail-title" class="navigator-rail-title"></div>
                     <div id="navigator-rail-count" class="navigator-rail-count"></div>
+                </div>
+                <div id="navigator-rail-tabs" class="navigator-rail-tabs" role="tablist" aria-label="Navigator scope">
+                    <button id="navigator-tab-changed" class="navigator-rail-tab is-active" type="button" role="tab" aria-selected="true">Changed Files</button>
+                    <button id="navigator-tab-tree" class="navigator-rail-tab" type="button" role="tab" aria-selected="false">Tree</button>
                 </div>
                 <div id="navigator-rail-list" class="navigator-rail-list" aria-label="Changed files"></div>
             </aside>

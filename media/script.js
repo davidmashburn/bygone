@@ -19,6 +19,8 @@ const {
 const MODE_TWO_WAY = 'two-way';
 const MODE_MULTI_WAY = 'multi-way';
 const MODE_DIRECTORY = 'directory';
+const NAVIGATOR_SCOPE_CHANGED = 'changed-files';
+const NAVIGATOR_SCOPE_TREE = 'tree';
 
 let currentMode = MODE_TWO_WAY;
 let diffBlocks = [];
@@ -46,6 +48,7 @@ let activeDirectoryFileChangeIndex = -1;
 let canReturnToDirectoryView = false;
 let currentDirectoryContext = null;
 let shouldPulseActiveDiff = false;
+let navigatorRailScope = NAVIGATOR_SCOPE_CHANGED;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -204,6 +207,11 @@ function showTwoWayDiff(
     currentDirectoryContext = canReturnToDirectoryView
         ? normalizeDirectoryContext(nextDirectoryContext)
         : null;
+    if (!currentDirectoryContext) {
+        navigatorRailScope = NAVIGATOR_SCOPE_CHANGED;
+    } else if (navigatorRailScope === NAVIGATOR_SCOPE_TREE && !isNavigatorTreeScopeAvailable(currentDirectoryContext)) {
+        navigatorRailScope = NAVIGATOR_SCOPE_CHANGED;
+    }
     hostEditableSides = normalizeEditableSides(nextEditableSides, historyMode);
     setCurrentDiffModel(diffModel);
     setActiveDiffIndex(diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1, false);
@@ -254,6 +262,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     historyMode = Boolean(history);
     canReturnToDirectoryView = false;
     currentDirectoryContext = null;
+    navigatorRailScope = NAVIGATOR_SCOPE_CHANGED;
     currentDiffModel = null;
     activeDiffIndex = -1;
     diffBlocks = [];
@@ -303,6 +312,7 @@ function showMultiDiff(panels, pairs) {
     historyMode = false;
     canReturnToDirectoryView = false;
     currentDirectoryContext = null;
+    navigatorRailScope = NAVIGATOR_SCOPE_CHANGED;
     currentDiffModel = null;
     activeDiffIndex = -1;
     diffBlocks = [];
@@ -351,6 +361,7 @@ function showThreeWayMerge(message) {
     historyMode = false;
     canReturnToDirectoryView = false;
     currentDirectoryContext = null;
+    navigatorRailScope = NAVIGATOR_SCOPE_CHANGED;
     directoryEntries = [];
     clearDirectoryJumpSelection();
     disposeTwoWayEditors();
@@ -844,14 +855,27 @@ function initializeDirectoryTreeToolbar() {
 
 function initializeNavigatorRailEvents() {
     const list = getElement('navigator-rail-list');
+    const changedTab = getElement('navigator-tab-changed');
+    const treeTab = getElement('navigator-tab-tree');
     if (!list) {
         return;
     }
+
+    changedTab?.addEventListener('click', () => {
+        setNavigatorRailScope(NAVIGATOR_SCOPE_CHANGED);
+    });
+
+    treeTab?.addEventListener('click', () => {
+        setNavigatorRailScope(NAVIGATOR_SCOPE_TREE);
+    });
 
     list.addEventListener('click', (event) => {
         const button = event.target instanceof Element
             ? event.target.closest('.navigator-entry')
             : null;
+        if (!button || button.disabled) {
+            return;
+        }
         const relativePath = button?.dataset?.relativePath;
         if (typeof relativePath !== 'string' || relativePath.length === 0) {
             return;
@@ -876,7 +900,7 @@ function initializeNavigatorRailEvents() {
             return;
         }
 
-        const entries = Array.from(list.querySelectorAll('.navigator-entry'));
+        const entries = Array.from(list.querySelectorAll('.navigator-entry:not([disabled])'));
         const currentIndex = entries.indexOf(entry);
         if (currentIndex < 0) {
             return;
@@ -897,6 +921,56 @@ function initializeNavigatorRailEvents() {
     });
 }
 
+function setNavigatorRailScope(nextScope) {
+    if (nextScope !== NAVIGATOR_SCOPE_CHANGED && nextScope !== NAVIGATOR_SCOPE_TREE) {
+        return;
+    }
+
+    if (!currentDirectoryContext || !canReturnToDirectoryView || currentMode !== MODE_TWO_WAY) {
+        navigatorRailScope = NAVIGATOR_SCOPE_CHANGED;
+        return;
+    }
+
+    const normalizedScope = nextScope === NAVIGATOR_SCOPE_TREE && !isNavigatorTreeScopeAvailable(currentDirectoryContext)
+        ? NAVIGATOR_SCOPE_CHANGED
+        : nextScope;
+
+    if (navigatorRailScope === normalizedScope) {
+        return;
+    }
+
+    navigatorRailScope = normalizedScope;
+    updateNavigatorRail();
+    focusNavigatorRail();
+}
+
+function isNavigatorTreeScopeAvailable(directoryContext) {
+    return Array.isArray(directoryContext?.treeEntries) && directoryContext.treeEntries.length > 0;
+}
+
+function updateNavigatorRailTabs(directoryContext) {
+    const changedTab = getElement('navigator-tab-changed');
+    const treeTab = getElement('navigator-tab-tree');
+    if (!changedTab || !treeTab) {
+        return;
+    }
+
+    const treeEnabled = isNavigatorTreeScopeAvailable(directoryContext);
+    if (!treeEnabled && navigatorRailScope === NAVIGATOR_SCOPE_TREE) {
+        navigatorRailScope = NAVIGATOR_SCOPE_CHANGED;
+    }
+
+    const changedSelected = navigatorRailScope !== NAVIGATOR_SCOPE_TREE;
+    changedTab.classList.toggle('is-active', changedSelected);
+    changedTab.setAttribute('aria-selected', changedSelected ? 'true' : 'false');
+    changedTab.tabIndex = changedSelected ? 0 : -1;
+
+    treeTab.disabled = !treeEnabled;
+    treeTab.classList.toggle('is-active', !changedSelected);
+    treeTab.setAttribute('aria-selected', !changedSelected ? 'true' : 'false');
+    treeTab.tabIndex = !changedSelected ? 0 : -1;
+}
+
 function normalizeDirectoryContext(nextDirectoryContext) {
     if (!nextDirectoryContext || typeof nextDirectoryContext !== 'object') {
         return null;
@@ -914,9 +988,24 @@ function normalizeDirectoryContext(nextDirectoryContext) {
         ? nextDirectoryContext.activeRelativePath
         : changedFiles[0];
 
+    const treeEntries = Array.isArray(nextDirectoryContext.treeEntries)
+        ? nextDirectoryContext.treeEntries
+            .filter((entry) => entry && typeof entry === 'object')
+            .map((entry) => ({
+                relativePath: typeof entry.relativePath === 'string' ? entry.relativePath : '',
+                displayName: typeof entry.displayName === 'string' ? entry.displayName : '',
+                status: typeof entry.status === 'string' ? entry.status : 'same',
+                isDirectory: Boolean(entry.isDirectory),
+                depth: Number.isFinite(entry.depth) ? Math.max(0, Number(entry.depth)) : 0,
+                sides: Array.isArray(entry.sides) ? entry.sides.map((value) => Boolean(value)) : []
+            }))
+            .filter((entry) => entry.relativePath.length > 0 && entry.displayName.length > 0)
+        : [];
+
     return {
         changedFiles,
-        activeRelativePath
+        activeRelativePath,
+        treeEntries
     };
 }
 
@@ -925,8 +1014,9 @@ function updateNavigatorRail() {
     const title = getElement('navigator-rail-title');
     const count = getElement('navigator-rail-count');
     const list = getElement('navigator-rail-list');
+    const tabs = getElement('navigator-rail-tabs');
 
-    if (!rail || !title || !count || !list) {
+    if (!rail || !title || !count || !list || !tabs) {
         return;
     }
 
@@ -937,19 +1027,32 @@ function updateNavigatorRail() {
     rail.hidden = !shouldShow;
     document.body.classList.toggle('navigator-rail-open', Boolean(shouldShow));
     getElement('workspace-shell')?.classList.toggle('navigator-rail-active', Boolean(shouldShow));
+    tabs.hidden = !shouldShow;
 
     if (!shouldShow) {
         title.textContent = '';
         count.textContent = '';
         list.innerHTML = '';
+        updateNavigatorRailTabs(null);
         return;
     }
 
     const shouldPreserveFocus = list.contains(document.activeElement);
-    const activeIndex = Math.max(0, currentDirectoryContext.changedFiles.indexOf(currentDirectoryContext.activeRelativePath));
-    title.textContent = historyMode ? 'Snapshot Changes' : 'Changed Files';
-    count.textContent = `${activeIndex + 1} / ${currentDirectoryContext.changedFiles.length}`;
-    renderNavigatorRailEntries(list, currentDirectoryContext.changedFiles, currentDirectoryContext.activeRelativePath);
+    updateNavigatorRailTabs(currentDirectoryContext);
+
+    if (navigatorRailScope === NAVIGATOR_SCOPE_TREE && isNavigatorTreeScopeAvailable(currentDirectoryContext)) {
+        title.textContent = 'Directory Tree';
+        count.textContent = `${currentDirectoryContext.treeEntries.length} entries`;
+        list.setAttribute('aria-label', 'Directory tree');
+        renderNavigatorRailTreeEntries(list, currentDirectoryContext.treeEntries, currentDirectoryContext.activeRelativePath);
+    } else {
+        const activeIndex = Math.max(0, currentDirectoryContext.changedFiles.indexOf(currentDirectoryContext.activeRelativePath));
+        title.textContent = historyMode ? 'Snapshot Changes' : 'Changed Files';
+        count.textContent = `${activeIndex + 1} / ${currentDirectoryContext.changedFiles.length}`;
+        list.setAttribute('aria-label', 'Changed files');
+        renderNavigatorRailChangedEntries(list, currentDirectoryContext.changedFiles, currentDirectoryContext.activeRelativePath);
+    }
+
     if (shouldPreserveFocus) {
         const activeEntry = list.querySelector('.navigator-entry.is-active') || list.querySelector('.navigator-entry');
         if (activeEntry instanceof HTMLElement) {
@@ -958,7 +1061,7 @@ function updateNavigatorRail() {
     }
 }
 
-function renderNavigatorRailEntries(container, changedFiles, activeRelativePath) {
+function renderNavigatorRailChangedEntries(container, changedFiles, activeRelativePath) {
     container.innerHTML = '';
 
     changedFiles.forEach((relativePath, index) => {
@@ -987,13 +1090,61 @@ function renderNavigatorRailEntries(container, changedFiles, activeRelativePath)
     });
 }
 
+function renderNavigatorRailTreeEntries(container, treeEntries, activeRelativePath) {
+    container.innerHTML = '';
+    let hasFocusableEntry = false;
+
+    treeEntries.forEach((entry) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `navigator-entry navigator-entry--tree navigator-entry--${entry.status}`;
+        button.dataset.relativePath = entry.relativePath;
+        button.style.setProperty('--navigator-tree-depth', String(entry.depth));
+        button.title = entry.relativePath;
+
+        const hasBothSides = Array.isArray(entry.sides) && entry.sides.filter(Boolean).length >= 2;
+        const isNavigable = !entry.isDirectory && hasBothSides;
+        if (!isNavigable) {
+            button.disabled = true;
+            button.classList.add('is-disabled');
+        }
+
+        if (isNavigable && entry.relativePath === activeRelativePath) {
+            button.classList.add('is-active');
+            button.tabIndex = 0;
+            hasFocusableEntry = true;
+        } else {
+            button.tabIndex = -1;
+        }
+
+        const treeKind = document.createElement('span');
+        treeKind.className = 'navigator-tree-kind';
+        treeKind.textContent = entry.isDirectory ? '▸' : '';
+
+        const label = document.createElement('span');
+        label.className = `navigator-entry-label${entry.isDirectory ? ' navigator-entry-label--dir' : ''}`;
+        label.textContent = entry.isDirectory ? `${entry.displayName}/` : entry.displayName;
+
+        button.append(treeKind, label);
+        container.append(button);
+    });
+
+    if (!hasFocusableEntry) {
+        const firstFocusableEntry = container.querySelector('.navigator-entry:not([disabled])');
+        if (firstFocusableEntry instanceof HTMLElement) {
+            firstFocusableEntry.tabIndex = 0;
+        }
+    }
+}
+
 function focusNavigatorRail() {
     const list = getElement('navigator-rail-list');
     if (!list || list.childElementCount === 0) {
         return;
     }
 
-    const activeEntry = list.querySelector('.navigator-entry.is-active') || list.querySelector('.navigator-entry');
+    const activeEntry = list.querySelector('.navigator-entry.is-active')
+        || list.querySelector('.navigator-entry:not([disabled])');
     if (activeEntry instanceof HTMLElement) {
         activeEntry.focus();
     }
@@ -1238,7 +1389,7 @@ function updateChangeToolbarState() {
     if (hint) {
         hint.hidden = !hasLineNavigation;
         hint.textContent = hasFileNavigation
-            ? 'F7 / Shift+F7 jumps line changes. Use ←/→ file buttons for changed files. F6 focuses the changed-file rail. Cmd/Ctrl+Alt+←/→ copies the selected change.'
+            ? 'F7 / Shift+F7 jumps line changes. Use ←/→ file buttons for changed files. F6 focuses the rail (Tree or Changed Files). Cmd/Ctrl+Alt+←/→ copies the selected change.'
             : 'F7 / Shift+F7 to jump. Cmd/Ctrl+Alt+←/→ to copy the selected change.';
     }
 

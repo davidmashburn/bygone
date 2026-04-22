@@ -251,7 +251,8 @@ export class FileComparator {
         const directoryContext = canReturnToDirectory
             ? {
                 changedFiles: this.getDrillDownChangedFilePaths(),
-                activeRelativePath: this.currentDirectoryRelativePath ?? ''
+                activeRelativePath: this.currentDirectoryRelativePath ?? '',
+                treeEntries: this.currentDirectoryEntries
             }
             : undefined;
         this.clearFileHistoryState();

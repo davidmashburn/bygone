@@ -466,6 +466,48 @@ body.web-host {
     background: color-mix(in srgb, var(--vscode-panel-background) 78%, transparent);
 }
 
+.navigator-rail-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 72%, transparent);
+    background: color-mix(in srgb, var(--vscode-panel-background) 62%, transparent);
+}
+
+.navigator-rail-tabs[hidden] {
+    display: none;
+}
+
+.navigator-rail-tab {
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
+    background: color-mix(in srgb, var(--vscode-button-secondaryBackground) 88%, transparent);
+    color: var(--vscode-descriptionForeground);
+    border-radius: 4px;
+    min-height: 24px;
+    padding: 0 8px;
+    cursor: pointer;
+    text-align: center;
+    font: inherit;
+    font-size: 11px;
+}
+
+.navigator-rail-tab.is-active {
+    color: var(--vscode-foreground);
+    border-color: color-mix(in srgb, rgba(79, 124, 255, 0.72) 74%, var(--vscode-panel-border));
+    background: color-mix(in srgb, rgba(79, 124, 255, 0.2) 78%, var(--vscode-button-secondaryBackground));
+}
+
+.navigator-rail-tab:disabled {
+    opacity: 0.48;
+    cursor: default;
+}
+
+.navigator-rail-tab:focus-visible {
+    outline: 2px solid var(--vscode-focusBorder, rgba(79, 124, 255, 0.95));
+    outline-offset: 1px;
+}
+
 .navigator-rail-title {
     color: var(--vscode-foreground);
     font-size: 12px;
@@ -529,6 +571,41 @@ body.web-host {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.navigator-entry-label--dir {
+    color: color-mix(in srgb, var(--vscode-foreground) 88%, var(--vscode-descriptionForeground));
+}
+
+.navigator-entry--tree {
+    grid-template-columns: 16px minmax(0, 1fr);
+    padding-left: calc(8px + var(--navigator-tree-depth, 0) * 12px);
+}
+
+.navigator-tree-kind {
+    width: 14px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 10px;
+    text-align: center;
+}
+
+.navigator-entry.is-disabled {
+    opacity: 0.52;
+}
+
+.navigator-entry.is-disabled:hover {
+    border-color: transparent;
+    background: transparent;
+}
+
+.navigator-entry--modified .navigator-entry-label {
+    color: rgba(79, 124, 255, 0.95);
+}
+
+.navigator-entry--left-only .navigator-entry-label,
+.navigator-entry--right-only .navigator-entry-label,
+.navigator-entry--partial .navigator-entry-label {
+    color: rgba(73, 190, 119, 0.95);
 }
 
 #diff-container {

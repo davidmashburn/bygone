@@ -1,7 +1,7 @@
 ---
 author: David Mashburn
 created_at: 2026-04-22T02:49:44Z
-modified_at: 2026-04-22T02:49:44Z
+modified_at: 2026-04-22T15:34:00Z
 generated_by: Codex
 generated_for: David Mashburn
 reviewed_by:
@@ -9,7 +9,7 @@ approved_by:
 repo: https://github.com/davidmashburn/bygone
 branch: main
 repo_branch_url: https://github.com/davidmashburn/bygone/tree/main
-repo_head_commit_url: https://github.com/davidmashburn/bygone/commit/6b0452b28f01ec99a0adb2f299414e78c9515e76
+repo_head_commit_url: https://github.com/davidmashburn/bygone/commit/75f6a83afcc2d5785ca122e0a9fb0ab58fd68fb3
 ---
 
 # Bygone Navigation Shell Implementation Spec
@@ -540,15 +540,24 @@ Success criteria:
 - Navigation layers feel distinct.
 - Users can predict motion by action type.
 
+## Completion Status
+
+As of 2026-04-22, nav UX implementation is complete:
+
+- Phase 1 (`9b8d2eb`): Shell reframe and traversal control organization.
+- Phase 2 (`6437e70` + follow-up): Changed-files rail plus explicit `Tree | Changed Files` drill-down scope switch.
+- Phase 3 (`75f6a83`): Motion/haptics polish and keyboard focus improvements.
+- Verification: `npm run standalone:smoke` and `npm test` both pass.
+
 ## Acceptance Checklist
 
-- `Back` always means hierarchy up, never previous file or previous commit.
-- `Older/Newer` appears only for history traversal.
-- `Prev/Next File` appears only when file sibling traversal is valid.
-- `Prev/Next Change` never changes history or hierarchy.
-- Copy and edit actions are never grouped with time controls.
-- The same shell DOM is shared between extension and standalone.
-- Directory drill-down keeps visible context about sibling changed files.
+- [x] `Back` always means hierarchy up, never previous file or previous commit.
+- [x] `Older/Newer` appears only for history traversal.
+- [x] `Prev/Next File` appears only when file sibling traversal is valid.
+- [x] `Prev/Next Change` never changes history or hierarchy.
+- [x] Copy and edit actions are never grouped with time controls.
+- [x] The same shell DOM is shared between extension and standalone.
+- [x] Directory drill-down keeps visible context about sibling changed files.
 
 ## Recommended First Build Order
 

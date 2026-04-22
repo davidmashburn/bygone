@@ -29,6 +29,7 @@ export interface ShowDiffMessage {
     directoryContext?: {
         changedFiles: string[];
         activeRelativePath: string;
+        treeEntries?: DirectoryEntry[];
     };
 }
 
