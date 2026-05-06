@@ -358,6 +358,11 @@
   }
 
   // src/diffEngine.ts
+  var DEFAULT_MAX_INLINE_HIGHLIGHT_LINE_LENGTH = 500;
+  var MAX_INLINE_HIGHLIGHT_LINE_LENGTH = readPositiveIntegerEnv(
+    "BYGONE_MAX_INLINE_HIGHLIGHT_LINE_LENGTH",
+    DEFAULT_MAX_INLINE_HIGHLIGHT_LINE_LENGTH
+  );
   function buildTwoWayDiffModel(leftContent, rightContent) {
     const leftLines = normalizeLines(leftContent);
     const rightLines = normalizeLines(rightContent);
@@ -460,6 +465,9 @@
       if (!leftLine || !rightLine) {
         continue;
       }
+      if (leftLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH || rightLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH) {
+        continue;
+      }
       const { leftSegments, rightSegments, hasInlineChanges } = buildInlineSegments(leftLine.content, rightLine.content);
       if (!hasInlineChanges) {
         continue;
@@ -526,6 +534,11 @@
   }
   function makeDiffBlock(kind, leftStart, leftEnd, rightStart, rightEnd) {
     return { kind, leftStart, leftEnd, rightStart, rightEnd };
+  }
+  function readPositiveIntegerEnv(name, fallback) {
+    const value = typeof process !== "undefined" ? process.env?.[name] : void 0;
+    const parsed = Number.parseInt(value ?? "", 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
 
   // src/sampleFiles.ts

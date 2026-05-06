@@ -317,11 +317,15 @@ export class FileComparator {
     }
 
     private createHistoryEntryMeta(entry: FileHistoryEntry): HistoryViewState {
+        const leftCommitLabel = entry.parentCommit
+            ? `${entry.parentCommit.slice(0, 7)} ${entry.parentSummary}`.trim()
+            : entry.parentSummary;
+
         return {
             canGoBack: this.fileHistoryIndex < this.fileHistoryEntries.length - 1,
             canGoForward: this.fileHistoryIndex > 0,
             positionLabel: `${this.fileHistoryIndex + 1} / ${this.fileHistoryEntries.length}`,
-            leftCommitLabel: `${entry.parentCommit.slice(0, 7)} ${entry.parentSummary}`.trim(),
+            leftCommitLabel,
             leftTimestamp: entry.parentTimestamp,
             rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
             rightTimestamp: entry.timestamp
