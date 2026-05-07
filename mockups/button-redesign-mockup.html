@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bygone Button Redesign Mockup</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #101216;
+            --panel: #1b1f26;
+            --panel-2: #232832;
+            --panel-3: #2b3140;
+            --border: rgba(255, 255, 255, 0.09);
+            --border-strong: rgba(255, 255, 255, 0.16);
+            --text: #f0f2f6;
+            --muted: #a6adba;
+            --blue: #5f86ff;
+            --blue-fill: rgba(95, 134, 255, 0.16);
+            --green: #4dbd74;
+            --green-fill: rgba(77, 189, 116, 0.16);
+            --amber: #dca04a;
+            --amber-fill: rgba(220, 160, 74, 0.14);
+            --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+            --radius: 16px;
+            font-family: Inter, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            width: 100%;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 8% 0%, rgba(95, 134, 255, 0.18), transparent 30%),
+                radial-gradient(circle at 90% 0%, rgba(77, 189, 116, 0.10), transparent 26%),
+                linear-gradient(180deg, #0f1115 0%, #13161c 60%, #0e1014 100%);
+        }
+
+        .page {
+            padding: 18px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 18px;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .page > div {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: rgba(23, 26, 32, 0.92);
+            box-shadow: var(--shadow);
+            width: 100%;
+        }
+
+        .intro {
+            padding: 18px 20px;
+            margin-bottom: 16px;
+        }
+
+        .eyebrow {
+            color: var(--muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            margin-bottom: 8px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            line-height: 1.12;
+            letter-spacing: -0.03em;
+        }
+
+        .intro p {
+            margin: 10px 0 0;
+            max-width: 900px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .mode-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .tab {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--muted);
+            font: inherit;
+            cursor: pointer;
+        }
+
+        .tab.active {
+            color: var(--text);
+            border-color: rgba(95, 134, 255, 0.6);
+            background: rgba(95, 134, 255, 0.12);
+        }
+
+        .shell {
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100vh - 48px);
+            overflow: hidden;
+        }
+
+        .shell-header,
+        .shell-footer {
+            padding: 14px 16px;
+            background: var(--panel);
+        }
+
+        .shell-header {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .shell-footer {
+            border-top: 1px solid var(--border);
+        }
+
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .app-title {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .mode-chip {
+            border: 1px solid rgba(95, 134, 255, 0.25);
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: rgba(95, 134, 255, 0.12);
+            color: #dfe7ff;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .button {
+            border: 1px solid var(--border-strong);
+            border-radius: 10px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+            color: var(--text);
+            font: inherit;
+            min-height: 32px;
+            padding: 0 11px;
+        }
+
+        .button.primary {
+            border-color: rgba(95, 134, 255, 0.6);
+            background: rgba(95, 134, 255, 0.12);
+        }
+
+        .button.green {
+            border-color: rgba(77, 189, 116, 0.55);
+            background: rgba(77, 189, 116, 0.12);
+        }
+
+        .button.back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 0 12px 0 10px;
+        }
+
+        .button.back-button svg {
+            width: 15px;
+            height: 15px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0.9;
+            flex: 0 0 auto;
+        }
+
+        .icon-button {
+            width: 38px;
+            min-width: 38px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-button svg {
+            width: 17px;
+            height: 17px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .row {
+            display: grid;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 11px 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .context-row {
+            grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .timeline-row,
+        .canvas-row {
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+            align-items: center;
+        }
+
+        .label,
+        .breadcrumb {
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--muted);
+        }
+
+        .label.right {
+            text-align: right;
+        }
+
+        .timeline-meta {
+            min-width: 0;
+        }
+
+        .commit {
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .time,
+        .hint {
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 220px minmax(0, 1fr);
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+            background: var(--bg);
+        }
+
+        .workspace.workspace--no-rail {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .rail {
+            border-right: 1px solid var(--border);
+            background: rgba(17, 19, 24, 0.85);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .rail-header {
+            padding: 14px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .scope-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .scope-tab {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 6px 9px;
+            background: transparent;
+            color: var(--muted);
+            font: inherit;
+            font-size: 12px;
+        }
+
+        .scope-tab.active {
+            color: var(--text);
+            border-color: rgba(95, 134, 255, 0.55);
+            background: rgba(95, 134, 255, 0.1);
+        }
+
+        .list {
+            padding: 10px;
+            display: grid;
+            gap: 8px;
+            align-content: start;
+        }
+
+        .entry {
+            display: grid;
+            grid-template-columns: 14px minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+            min-height: 34px;
+            padding: 0 10px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.015);
+        }
+
+        .entry.active {
+            border-color: rgba(95, 134, 255, 0.45);
+            background: rgba(95, 134, 255, 0.10);
+        }
+
+        .entry.status-changed {
+            background: rgba(95, 134, 255, 0.10);
+        }
+
+        .entry.status-left-only {
+            background: rgba(222, 95, 95, 0.10);
+        }
+
+        .entry.status-right-only {
+            background: rgba(77, 189, 116, 0.10);
+        }
+
+        .bullet {
+            width: 14px;
+            min-width: 14px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1;
+            color: rgba(255, 255, 255, 0.28);
+        }
+
+        .entry.status-changed .bullet {
+            color: var(--blue);
+        }
+
+        .entry.status-left-only .bullet {
+            color: #de5f5f;
+        }
+
+        .entry.status-right-only .bullet {
+            color: var(--green);
+        }
+
+        .entry.status-left-only .meta {
+            color: #f1b5b5;
+        }
+
+        .entry.status-right-only .meta {
+            color: #bfe2c8;
+        }
+
+        .bullet.bullet-dot {
+            width: 8px;
+            min-width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.28);
+            color: transparent;
+            font-size: 0;
+        }
+
+        .entry.active .bullet.bullet-dot {
+            background: var(--blue);
+        }
+
+        .name {
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .meta {
+            color: var(--muted);
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .canvas {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            flex: 1 1 auto;
+            width: 100%;
+            background: var(--bg);
+        }
+
+        .canvas-stage {
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px 10px 8px;
+        }
+
+        .canvas-stage > .canvas-row,
+        .canvas-stage > .pane-shell,
+        .canvas-stage > .canvas-note,
+        .canvas-stage > .directory-shell {
+            width: 100%;
+            max-width: 1280px;
+        }
+
+        .canvas-stage > #canvas-controls {
+            width: 100%;
+            max-width: 1280px;
+        }
+
+        .pane-shell {
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .pane {
+            min-width: 0;
+            background: rgba(255, 255, 255, 0.015);
+            border-right: 1px solid var(--border);
+        }
+
+        .pane:last-child {
+            border-right: 0;
+        }
+
+        .pane-title,
+        .gutter-title {
+            min-height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 0 10px;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel-2);
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .pane-body {
+            padding: 10px 0;
+        }
+
+        .pane--left .pane-body {
+            max-width: 260px;
+        }
+
+        .pane--right .pane-body {
+            max-width: 100%;
+        }
+
+        .line {
+            min-height: 25px;
+            display: grid;
+            grid-template-columns: 42px minmax(0, 1fr);
+            align-items: center;
+            padding: 0 10px 0 0;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .line .num {
+            color: #808692;
+            text-align: right;
+            padding-right: 10px;
+            user-select: none;
+        }
+
+        .line .code {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .line.same { color: #dfe2e7; }
+        .line.mod { background: var(--blue-fill); }
+        .line.add { background: var(--green-fill); }
+
+        .token {
+            border-radius: 3px;
+            padding: 0 2px;
+        }
+
+        .token.blue { background: rgba(95, 134, 255, 0.32); }
+        .token.green { background: rgba(77, 189, 116, 0.28); }
+
+        .gutter {
+            position: relative;
+            background: #171a20;
+        }
+
+        .gutter svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .gutter path {
+            fill: rgba(95, 134, 255, 0.14);
+            stroke: rgba(95, 134, 255, 0.95);
+            stroke-width: 1.4;
+        }
+
+        .gutter.green path {
+            fill: rgba(77, 189, 116, 0.16);
+            stroke: rgba(77, 189, 116, 0.95);
+        }
+
+        .canvas-note {
+            margin: 0;
+            padding-top: 4px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .directory-shell {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .directory-head {
+            display: grid;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel-2);
+        }
+
+        .directory-title {
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .directory-title + .directory-title {
+            border-left: 1px solid var(--border);
+        }
+
+        .directory-body {
+            min-height: 360px;
+        }
+
+        .directory-pane {
+            min-width: 0;
+            padding: 8px 0;
+            background: rgba(255, 255, 255, 0.015);
+        }
+
+        .directory-pane + .directory-pane {
+            border-left: 1px solid var(--border);
+        }
+
+        .directory-pane .directory-title {
+            min-height: 34px;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 0 10px;
+        }
+
+        .directory-pane .directory-body {
+            padding: 8px 0;
+        }
+
+        .dir-row {
+            min-height: 34px;
+            display: grid;
+            grid-template-columns: 26px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px;
+            color: #dfe2e7;
+        }
+
+        .dir-row.same {
+            color: #b8bec9;
+        }
+
+        .dir-row.modified {
+            background: rgba(95, 134, 255, 0.12);
+        }
+
+        .dir-row.added {
+            background: rgba(77, 189, 116, 0.12);
+        }
+
+        .dir-row.active {
+            box-shadow: inset 3px 0 0 var(--blue);
+        }
+
+        .dir-row.changed {
+            background: var(--blue-fill);
+        }
+
+        .dir-row.added-active {
+            background: var(--green-fill);
+        }
+
+        .dir-icon {
+            color: var(--muted);
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .dir-name {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .dir-meta {
+            color: var(--muted);
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .directory-history-banner {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(220, 160, 74, 0.08);
+            color: #d8c19b;
+            font-size: 12px;
+        }
+
+        .canvas-nav {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+            gap: 12px;
+            align-items: center;
+            margin: 14px;
+            padding: 11px 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .canvas-controls-row {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 42px;
+            margin: 0 0 14px;
+            width: 100%;
+        }
+
+        .canvas-controls-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .canvas-controls-center {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: grid;
+            grid-template-columns: 96px auto 96px;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .copy-button {
+            width: 96px;
+            justify-content: center;
+        }
+
+        .sidecard {
+            padding: 16px;
+            position: static;
+            height: fit-content;
+        }
+
+        .sidecard h2 {
+            margin: 0 0 10px;
+            font-size: 15px;
+        }
+
+        .sidecard p {
+            margin: 0 0 12px;
+            color: var(--muted);
+            line-height: 1.5;
+            font-size: 13px;
+        }
+
+        .legend {
+            display: grid;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .legend-item {
+            display: grid;
+            grid-template-columns: 18px minmax(0, 1fr);
+            gap: 10px;
+            align-items: start;
+        }
+
+        .legend-swatch {
+            width: 18px;
+            height: 18px;
+            border-radius: 5px;
+            border: 1px solid var(--border-strong);
+            margin-top: 2px;
+        }
+
+        .legend-swatch.blue { background: var(--blue-fill); }
+        .legend-swatch.green { background: var(--green-fill); }
+        .legend-swatch.amber { background: var(--amber-fill); }
+
+        .legend-item strong {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+
+        .legend-item span {
+            color: var(--muted);
+            line-height: 1.45;
+            font-size: 12px;
+        }
+
+        .matrix {
+            margin-top: 16px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .matrix-row {
+            display: grid;
+            grid-template-columns: 98px minmax(0, 1fr);
+            gap: 10px;
+            align-items: start;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .matrix-row .kicker {
+            color: #dfe7ff;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .matrix-row .value {
+            color: var(--muted);
+            line-height: 1.45;
+            font-size: 12px;
+        }
+
+        .states {
+            margin-top: 16px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .state-pill {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+            font-size: 12px;
+        }
+
+        .state-pill.active {
+            border-color: rgba(95, 134, 255, 0.5);
+            background: rgba(95, 134, 255, 0.1);
+        }
+
+        .state-pill span {
+            color: var(--muted);
+        }
+
+        [hidden] { display: none !important; }
+
+        @media (max-width: 860px) {
+            .workspace { grid-template-columns: 1fr; }
+            .rail { border-right: 0; border-bottom: 1px solid var(--border); }
+            .pane-shell { grid-template-columns: 1fr; }
+            .gutter { min-height: 92px; }
+            .context-row,
+            .timeline-row,
+            .canvas-row,
+            .canvas-nav { grid-template-columns: 1fr; }
+            .label.right { text-align: left; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div>
+            <section class="card intro">
+                <h1>UI Redesign</h1>
+                <div class="mode-tabs" id="mode-tabs"></div>
+            </section>
+
+            <section class="card shell">
+                <header class="shell-header">
+                    <div class="row context-row">
+                        <button class="button primary back-button" id="back-button">Back to Directory</button>
+                        <div class="breadcrumb" id="breadcrumb">repo / src / parser.ts</div>
+                    </div>
+
+                    <div class="row timeline-row" id="timeline-bar" hidden>
+                        <div class="timeline-meta">
+                            <div class="commit" id="history-left-commit">a13f9de parser: keep strict mode explicit</div>
+                            <div class="time" id="history-left-time">Older revision</div>
+                        </div>
+                        <div class="group" style="justify-content: center;">
+                            <button class="button icon-button" id="older-commit-button" title="Older commit" aria-label="Older commit"></button>
+                            <div class="mode-chip" style="background: rgba(220, 160, 74, 0.12); border-color: rgba(220, 160, 74, 0.30); color: #f1d8af;">3 / 9</div>
+                            <button class="button primary icon-button" id="newer-commit-button" title="Newer commit" aria-label="Newer commit"></button>
+                        </div>
+                        <div class="timeline-meta" style="text-align: right;">
+                            <div class="commit" id="history-right-commit">HEAD working copy</div>
+                            <div class="time" id="history-right-time">Current side</div>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="workspace">
+                    <aside class="rail" id="navigator-rail">
+                        <div class="rail-header">
+                            <div class="scope-tabs" id="scope-tabs"></div>
+                        </div>
+                        <div class="list" id="rail-list"></div>
+                    </aside>
+
+                    <main class="canvas">
+                        <div class="canvas-stage">
+                            <div id="canvas-controls"></div>
+                            <div id="canvas-content"></div>
+                            <div class="canvas-note" id="canvas-note"></div>
+                        </div>
+                    </main>
+                </div>
+
+                <footer class="shell-footer">
+                    <div class="group" style="justify-content: space-between;">
+                        <div class="group" id="copy-actions">
+                            <button class="button green" id="copy-left-button">Copy Left</button>
+                            <button class="button primary" id="copy-right-button">Copy Right</button>
+                        </div>
+                        <div class="group">
+                            <button class="button">Save</button>
+                            <button class="button">Help</button>
+                        </div>
+                    </div>
+                </footer>
+            </section>
+        </div>
+
+        <aside class="card sidecard">
+            <h2>Interpretation guide</h2>
+            <p>
+                This page shows the shell as a labeled system rather than a polished app screen.
+                The intent is to make the button groups and their scope obvious.
+            </p>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-swatch blue"></div>
+                    <div>
+                        <strong>File / directory axis</strong>
+                        <span>Context bar and navigator rail shift between file drill-down and directory browsing.</span>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch amber"></div>
+                    <div>
+                        <strong>Git / non-git axis</strong>
+                        <span>Timeline only appears in git-backed views and handles commit stepping.</span>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch green"></div>
+                    <div>
+                        <strong>Copy and save</strong>
+                        <span>Mutation actions stay in the footer so they do not compete with traversal.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="matrix">
+                <div class="matrix-row">
+                    <div class="kicker">Context</div>
+                    <div class="value">Back to directory, breadcrumb trail, current file or directory label</div>
+                </div>
+                <div class="matrix-row">
+                    <div class="kicker">Timeline</div>
+                    <div class="value">Previous / next commit, commit position, left and right commit labels</div>
+                </div>
+                <div class="matrix-row">
+                    <div class="kicker">Rail</div>
+                    <div class="value">Directory tree, changed files, or history list depending on mode</div>
+                </div>
+                <div class="matrix-row">
+                    <div class="kicker">Canvas</div>
+                    <div class="value">Previous / next change and previous / next file within the current compare</div>
+                </div>
+                <div class="matrix-row">
+                    <div class="kicker">Action bar</div>
+                    <div class="value">Copy left / right, save, open external, palette, help</div>
+                </div>
+            </div>
+
+            <div class="states">
+                <div class="state-pill active"><strong>Standalone file diff</strong><span>Rail hidden, no directory context</span></div>
+                <div class="state-pill"><strong>File drill-down diff</strong><span>Back visible, rail is changed files</span></div>
+                <div class="state-pill"><strong>Directory diff</strong><span>Rail is tree</span></div>
+                <div class="state-pill"><strong>File history</strong><span>Timeline visible, rail is history list</span></div>
+                <div class="state-pill"><strong>Directory history</strong><span>Timeline visible, rail can switch tree / changed files</span></div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        const modes = {
+            standaloneFileDiff: {
+                label: 'Standalone File Diff',
+                chip: 'File Diff',
+                railTitle: 'Changed files',
+                showRail: false,
+                showTimeline: false,
+                back: 'Back to Directory',
+                showBack: false,
+                scopeTabs: [],
+                breadcrumb: '/tmp/parser-old.ts ↔ /tmp/parser-new.ts',
+                context: 'Standalone compare',
+                note: 'Standalone file diff has no directory parent. There is no back action and no sibling-file rail.',
+                fileNavEnabled: false,
+                railItems: [
+                    { name: 'parser.ts', meta: '±', active: true, status: 'changed' },
+                    { name: 'scanner.ts', meta: '-', status: 'left-only' },
+                    { name: 'lexer.ts', meta: '+', status: 'right-only' }
+                ]
+            },
+            fileDrilldownDiff: {
+                label: 'File Drill-down Diff',
+                chip: 'File Diff',
+                railTitle: 'Changed files',
+                showRail: true,
+                showTimeline: false,
+                back: 'Back',
+                showBack: true,
+                scopeTabs: ['Changed files'],
+                defaultScopeTab: 'Changed files',
+                breadcrumb: 'repo / src / parser.ts',
+                context: 'Parser diff',
+                note: 'Directory drill-down file diff keeps directory context alive. Back returns to the tree and prev/next file steps sibling changed files.',
+                fileNavEnabled: true,
+                railItems: [
+                    { name: 'parser.ts', meta: '±', active: true, status: 'changed' },
+                    { name: 'scanner.ts', meta: '-', status: 'left-only' },
+                    { name: 'lexer.ts', meta: '+', status: 'right-only' }
+                ]
+            },
+            directoryDiff: {
+                label: 'Directory Diff',
+                chip: 'Directory Diff',
+                railTitle: 'Changed files',
+                showRail: true,
+                showTimeline: false,
+                back: 'Back to Directory',
+                showBack: false,
+                scopeTabs: ['Changed files'],
+                defaultScopeTab: 'Changed files',
+                breadcrumb: 'repo / src',
+                context: 'Directory comparison',
+                note: 'Directory diff now uses the same changed-files rail as drill-down, while the canvas shows the full two-sided directory compare with gutter geometry.',
+                railItems: [
+                    { name: 'parser.ts', meta: '±', active: true, status: 'changed' },
+                    { name: 'scanner.ts', meta: '-', status: 'left-only' },
+                    { name: 'tokens.ts', meta: '+', status: 'right-only' }
+                ]
+            },
+            fileHistory: {
+                label: 'File History',
+                chip: 'File History',
+                railTitle: 'History list',
+                showRail: true,
+                showTimeline: true,
+                back: 'Back',
+                showBack: true,
+                scopeTabs: ['History', 'Changed files'],
+                defaultScopeTab: 'History',
+                breadcrumb: 'repo / src / parser.ts / history',
+                context: 'History entry',
+                note: 'History mode makes commit navigation primary. The timeline owns older/newer, while the canvas still carries prev/next change.',
+                railItems: [
+                    { name: 'Working Tree', meta: 'latest', active: true },
+                    { name: 'Staged', meta: 'index' },
+                    { name: 'a13f9de', meta: 'parser: strict mode' },
+                    { name: '8b3c2f1', meta: 'parser: split scan pass' }
+                ]
+            },
+            directoryHistory: {
+                label: 'Directory History',
+                chip: 'Directory History',
+                railTitle: 'Tree / changed files',
+                showRail: true,
+                showTimeline: true,
+                back: 'Back',
+                showBack: true,
+                scopeTabs: ['History', 'Changed files'],
+                defaultScopeTab: 'History',
+                breadcrumb: 'repo / src / parser.ts / history',
+                context: 'History drill-down',
+                note: 'Directory history combines hierarchy and time. The rail can flip between the tree and the changed-files list, while the back button exits drill-down.',
+                railItems: [
+                    { name: 'parser.ts', meta: '±', active: true, status: 'changed' },
+                    { name: 'scanner.ts', meta: '-', status: 'left-only' },
+                    { name: 'tokens.ts', meta: '+', status: 'right-only' }
+                ]
+            }
+        };
+
+        const modeTabs = document.getElementById('mode-tabs');
+        const modeOrder = [
+            'standaloneFileDiff',
+            'directoryDiff',
+            'fileDrilldownDiff',
+            'directoryHistory',
+            'fileHistory'
+        ];
+        const timelineBar = document.getElementById('timeline-bar');
+        const navigatorRail = document.getElementById('navigator-rail');
+        const scopeTabs = document.getElementById('scope-tabs');
+        const railList = document.getElementById('rail-list');
+        const olderCommitButton = document.getElementById('older-commit-button');
+        const newerCommitButton = document.getElementById('newer-commit-button');
+        const backButton = document.getElementById('back-button');
+        const breadcrumb = document.getElementById('breadcrumb');
+        const stateNote = document.querySelector('.sidecard > p');
+        const copyActions = document.getElementById('copy-actions');
+        const copyLeftButton = document.getElementById('copy-left-button');
+        const copyRightButton = document.getElementById('copy-right-button');
+        const canvasControls = document.getElementById('canvas-controls');
+        const canvasContent = document.getElementById('canvas-content');
+        const canvasNote = document.getElementById('canvas-note');
+        const iconBackToDirectory = `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6"></path>
+                <path d="M9 12h10"></path>
+            </svg>
+        `;
+        const iconPrevFile = `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 15l6-6 6 6"></path>
+                <path d="M6 20l6-6 6 6" opacity="0.65"></path>
+            </svg>
+        `;
+        const iconNextFile = `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9l6 6 6-6"></path>
+                <path d="M6 4l6 6 6-6" opacity="0.65"></path>
+            </svg>
+        `;
+        const iconPrevChange = `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 19V5"></path>
+                <path d="M6 11l6-6 6 6"></path>
+            </svg>
+        `;
+        const iconNextChange = `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14"></path>
+                <path d="M18 13l-6 6-6-6"></path>
+            </svg>
+        `;
+        const iconOlderCommit = `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15 6l-6 6 6 6"></path>
+                <path d="M10 6l-6 6 6 6" opacity="0.65"></path>
+            </svg>
+        `;
+        const iconNewerCommit = `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 6l6 6-6 6"></path>
+                <path d="M14 6l6 6-6 6" opacity="0.65"></path>
+            </svg>
+        `;
+        const iconCopyLeft = `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 5v14"></path>
+                <path d="M18 12H8"></path>
+                <path d="M12 8l-4 4 4 4"></path>
+            </svg>
+        `;
+        const iconCopyRight = `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18 5v14"></path>
+                <path d="M6 12h10"></path>
+                <path d="M12 8l4 4-4 4"></path>
+            </svg>
+        `;
+
+        function renderCanvasControls({
+            fileNavEnabled,
+            copyLeftEnabled,
+            copyRightEnabled,
+            changeNavEnabled,
+            positionLabel
+        }) {
+            const leftButtons = changeNavEnabled
+                ? `
+                    <button class="button icon-button" title="Previous file" aria-label="Previous file" ${fileNavEnabled ? '' : 'disabled'}>${iconPrevFile}</button>
+                    <button class="button primary icon-button" title="Next file" aria-label="Next file" ${fileNavEnabled ? '' : 'disabled'}>${iconNextFile}</button>
+                    <button class="button icon-button" title="Previous change" aria-label="Previous change" ${changeNavEnabled ? '' : 'disabled'}>${iconPrevChange}</button>
+                    <button class="button primary icon-button" title="Next change" aria-label="Next change" ${changeNavEnabled ? '' : 'disabled'}>${iconNextChange}</button>
+                `
+                : `
+                    <button class="button icon-button" title="Previous file" aria-label="Previous file" ${fileNavEnabled ? '' : 'disabled'}>${iconPrevFile}</button>
+                    <button class="button primary icon-button" title="Next file" aria-label="Next file" ${fileNavEnabled ? '' : 'disabled'}>${iconNextFile}</button>
+                `;
+
+            canvasControls.innerHTML = `
+                <div class="canvas-controls-row">
+                    <div class="canvas-controls-nav">
+                        ${leftButtons}
+                    </div>
+                    <div class="canvas-controls-center">
+                        <button class="button copy-button icon-button" title="Copy to left" aria-label="Copy to left" ${copyLeftEnabled ? '' : 'disabled'}>${iconCopyLeft}</button>
+                        <div class="mode-chip" style="background: rgba(95, 134, 255, 0.11); border-color: rgba(95, 134, 255, 0.26);">${positionLabel}</div>
+                        <button class="button primary copy-button icon-button" title="Copy to right" aria-label="Copy to right" ${copyRightEnabled ? '' : 'disabled'}>${iconCopyRight}</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderFileCanvas(isHistory, fileNavEnabled) {
+            renderCanvasControls({
+                fileNavEnabled,
+                copyLeftEnabled: !isHistory,
+                copyRightEnabled: true,
+                changeNavEnabled: true,
+                positionLabel: '2 / 7'
+            });
+
+            canvasContent.innerHTML = `
+                <div class="pane-shell">
+                    <section class="pane pane--left">
+                        <div class="pane-title">
+                            <span>Left pane</span>
+                            <span style="color: var(--muted);">${isHistory ? 'HEAD' : 'Left file'}</span>
+                        </div>
+                        <div class="pane-body">
+                            <div class="line same"><div class="num">1</div><div class="code">function parse(input) {</div></div>
+                            <div class="line same"><div class="num">2</div><div class="code">    const mode = "strict";</div></div>
+                            <div class="line mod"><div class="num">3</div><div class="code">    return scan(input, <span class="token blue">mode</span>);</div></div>
+                            <div class="line mod"><div class="num">4</div><div class="code">}</div></div>
+                            <div class="line same"><div class="num">5</div><div class="code">export { parse };</div></div>
+                        </div>
+                    </section>
+
+                    <div class="gutter">
+                        <svg viewBox="0 0 92 330" preserveAspectRatio="none" aria-hidden="true">
+                            <path d="M 6 92 C 32 92, 38 88, 46 88 C 54 88, 60 72, 86 72 L 86 156 C 60 156, 54 172, 46 172 C 38 172, 32 168, 6 168 Z"></path>
+                        </svg>
+                    </div>
+
+                    <section class="pane pane--right">
+                        <div class="pane-title">
+                            <span>Right pane</span>
+                            <span style="color: var(--muted);">${isHistory ? 'Working Tree' : 'Right file'}</span>
+                        </div>
+                        <div class="pane-body">
+                            <div class="line same"><div class="num">1</div><div class="code">function parse(input) {</div></div>
+                            <div class="line same"><div class="num">2</div><div class="code">    const mode = "strict";</div></div>
+                            <div class="line mod"><div class="num">3</div><div class="code">    return scan(input, <span class="token blue">options.mode</span>);</div></div>
+                            <div class="line mod"><div class="num">4</div><div class="code">}</div></div>
+                            <div class="line same"><div class="num">5</div><div class="code">export { parse };</div></div>
+                        </div>
+                    </section>
+                </div>
+            `;
+
+            canvasNote.innerHTML = '<strong>Canvas navigation.</strong> Prev/next change belongs here. Prev/next file belongs to the rail. Prev/next commit belongs to the timeline. Copy stays in the action bar.';
+        }
+
+        function renderDirectoryCanvas(isHistory) {
+            renderCanvasControls({
+                fileNavEnabled: true,
+                copyLeftEnabled: false,
+                copyRightEnabled: false,
+                changeNavEnabled: false,
+                positionLabel: isHistory ? '4 files' : '4 files'
+            });
+
+            canvasContent.innerHTML = `
+                <div class="directory-shell">
+                    <section class="directory-pane">
+                        <div class="directory-title">
+                            <span>Left directory</span>
+                            <span style="color: var(--muted);">${isHistory ? 'Commit tree' : 'Left tree'}</span>
+                        </div>
+                        <div class="directory-body">
+                            <div class="dir-row same"><div class="dir-icon">▸</div><div class="dir-name">src/</div><div class="dir-meta">folder</div></div>
+                            <div class="dir-row changed active"><div class="dir-icon">•</div><div class="dir-name">parser.ts</div><div class="dir-meta">modified</div></div>
+                            <div class="dir-row same"><div class="dir-icon">•</div><div class="dir-name">scanner.ts</div><div class="dir-meta">same</div></div>
+                            <div class="dir-row same"><div class="dir-icon">•</div><div class="dir-name">tokens.ts</div><div class="dir-meta">missing</div></div>
+                            <div class="dir-row same"><div class="dir-icon">▸</div><div class="dir-name">tests/</div><div class="dir-meta">folder</div></div>
+                        </div>
+                    </section>
+                    <div class="gutter green">
+                        <div class="gutter-title"><span>Directory gutter</span></div>
+                        <svg viewBox="0 0 92 330" preserveAspectRatio="none" aria-hidden="true">
+                            <path d="M 6 92 C 32 92, 38 88, 46 88 C 54 88, 60 72, 86 72 L 86 156 C 60 156, 54 172, 46 172 C 38 172, 32 168, 6 168 Z"></path>
+                            <path d="M 6 200 C 32 200, 38 200, 46 200 C 54 200, 60 216, 86 216 L 86 248 C 60 248, 54 248, 46 248 C 38 248, 32 248, 6 248 Z"></path>
+                        </svg>
+                    </div>
+                    <section class="directory-pane">
+                        <div class="directory-title">
+                            <span>Right directory</span>
+                            <span style="color: var(--muted);">${isHistory ? 'Working tree' : 'Right tree'}</span>
+                        </div>
+                        <div class="directory-body">
+                            <div class="dir-row same"><div class="dir-icon">▸</div><div class="dir-name">src/</div><div class="dir-meta">folder</div></div>
+                            <div class="dir-row changed active"><div class="dir-icon">•</div><div class="dir-name">parser.ts</div><div class="dir-meta">modified</div></div>
+                            <div class="dir-row same"><div class="dir-icon">•</div><div class="dir-name">scanner.ts</div><div class="dir-meta">same</div></div>
+                            <div class="dir-row added-active"><div class="dir-icon">•</div><div class="dir-name">tokens.ts</div><div class="dir-meta">added</div></div>
+                            <div class="dir-row same"><div class="dir-icon">▸</div><div class="dir-name">tests/</div><div class="dir-meta">folder</div></div>
+                        </div>
+                    </section>
+                </div>
+            `;
+
+            canvasNote.innerHTML = isHistory
+                ? '<strong>Directory history.</strong> Timeline chooses the snapshot pair, the rail chooses the active file, and the canvas shows the structural tree compare for that step.'
+                : '<strong>Directory diff.</strong> The rail matches drill-down changed-files navigation. The canvas shows the actual directory comparison, not a file diff until you drill down.';
+        }
+
+        function renderMode(key) {
+            const mode = modes[key];
+            timelineBar.hidden = !mode.showTimeline;
+            navigatorRail.hidden = !mode.showRail;
+            document.querySelector('.workspace').classList.toggle('workspace--no-rail', !mode.showRail);
+            backButton.hidden = !mode.showBack;
+            backButton.innerHTML = `${iconBackToDirectory}<span>${mode.back}</span>`;
+            olderCommitButton.innerHTML = iconOlderCommit;
+            newerCommitButton.innerHTML = iconNewerCommit;
+            scopeTabs.hidden = mode.scopeTabs.length === 0;
+            scopeTabs.innerHTML = mode.scopeTabs
+                .map((label) => `<button class="scope-tab${label === (mode.defaultScopeTab ?? mode.scopeTabs[0]) ? ' active' : ''}">${label}</button>`)
+                .join('');
+            breadcrumb.textContent = mode.breadcrumb;
+            stateNote.textContent = mode.note;
+            const copyEnabled = key === 'standaloneFileDiff' || key === 'fileDrilldownDiff' || key === 'fileHistory';
+            copyActions.style.opacity = copyEnabled ? '1' : '0.45';
+            copyLeftButton.disabled = !copyEnabled;
+            copyRightButton.disabled = !copyEnabled;
+
+            railList.innerHTML = '';
+            mode.railItems.forEach((item) => {
+                const row = document.createElement('div');
+                row.className = 'entry'
+                    + (item.active ? ' active' : '')
+                    + (item.status ? ` status-${item.status}` : '');
+
+                const bullet = document.createElement('div');
+                bullet.className = 'bullet';
+                bullet.textContent = item.status ? item.meta : '';
+
+                if (!item.status) {
+                    bullet.classList.add('bullet-dot');
+                }
+
+                const name = document.createElement('div');
+                name.className = 'name';
+                name.textContent = item.name;
+
+                row.append(bullet, name);
+
+                if (!item.status) {
+                    const meta = document.createElement('div');
+                    meta.className = 'meta';
+                    meta.textContent = item.meta;
+                    row.append(meta);
+                }
+                railList.append(row);
+            });
+
+            if (key === 'standaloneFileDiff') {
+                renderFileCanvas(false, false);
+            } else if (key === 'fileDrilldownDiff') {
+                renderFileCanvas(false, true);
+            } else if (key === 'fileHistory') {
+                renderFileCanvas(true, true);
+            } else if (key === 'directoryDiff') {
+                renderDirectoryCanvas(false);
+            } else if (key === 'directoryHistory') {
+                renderDirectoryCanvas(true);
+            }
+
+            modeTabs.querySelectorAll('button').forEach((button) => {
+                button.classList.toggle('active', button.dataset.mode === key);
+            });
+        }
+
+        modeOrder.forEach((key) => {
+            const mode = modes[key];
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'tab';
+            button.dataset.mode = key;
+            button.textContent = mode.label;
+            button.addEventListener('click', () => renderMode(key));
+            modeTabs.append(button);
+        });
+
+        renderMode('standaloneFileDiff');
+    </script>
+</body>
+</html>
