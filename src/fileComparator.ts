@@ -7,7 +7,7 @@ import { buildMultiDirectoryComparison } from './directoryDiff';
 import { openDiffPreview } from './fallbackViews';
 import { FileHistoryEntry, GitHistoryService } from './gitHistory';
 import { createJavaScriptSampleFilePair } from './sampleFiles';
-import { HistoryViewState } from './webviewMessages';
+import { HistoryRailItem, HistoryRailState, HistoryViewState } from './webviewMessages';
 
 export class FileComparator {
     private selectedFile: vscode.Uri | undefined;
@@ -22,6 +22,9 @@ export class FileComparator {
         this.diffViewProvider = provider;
         this.diffViewProvider.setHistoryNavigationHandler((direction) => {
             void this.navigateFileHistory(direction);
+        });
+        this.diffViewProvider.setHistorySelectionHandler((index) => {
+            void this.selectFileHistoryEntry(index);
         });
         this.diffViewProvider.setDirectoryEntryOpenHandler((relativePath) => {
             void this.openDirectoryEntry(relativePath);
@@ -320,6 +323,7 @@ export class FileComparator {
         const leftCommitLabel = entry.parentCommit
             ? `${entry.parentCommit.slice(0, 7)} ${entry.parentSummary}`.trim()
             : entry.parentSummary;
+        const rail = this.buildHistoryRail();
 
         return {
             canGoBack: this.fileHistoryIndex < this.fileHistoryEntries.length - 1,
@@ -328,8 +332,40 @@ export class FileComparator {
             leftCommitLabel,
             leftTimestamp: entry.parentTimestamp,
             rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
-            rightTimestamp: entry.timestamp
+            rightTimestamp: entry.timestamp,
+            rail
         };
+    }
+
+    private buildHistoryRail(): HistoryRailState | undefined {
+        if (this.fileHistoryEntries.length === 0) {
+            return undefined;
+        }
+
+        const items: HistoryRailItem[] = this.fileHistoryEntries.map((historyEntry, index) => ({
+            label: `${historyEntry.shortCommit} ${historyEntry.summary}`.trim() || historyEntry.shortCommit,
+            meta: historyEntry.timestamp,
+            active: index === this.fileHistoryIndex,
+            kind: 'history-entry',
+            index
+        }));
+
+        return {
+            activeTabId: 'history',
+            tabs: [{ id: 'history', label: 'History' }],
+            itemsByTab: {
+                history: items
+            }
+        };
+    }
+
+    private async selectFileHistoryEntry(index: number): Promise<void> {
+        if (index < 0 || index >= this.fileHistoryEntries.length || index === this.fileHistoryIndex) {
+            return;
+        }
+
+        this.fileHistoryIndex = index;
+        await this.showCurrentHistoryEntry();
     }
 
     private resolveHistoryTarget(resource?: vscode.Uri): vscode.Uri | undefined {

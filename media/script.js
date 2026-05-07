@@ -4,6 +4,7 @@ const {
     getElement,
     setTextContent,
     clearHistoryToolbar,
+    escapeAttr,
     renderPlainLines,
     renderResultLines,
     toggleView,
@@ -38,6 +39,8 @@ let directoryEntries = [];
 let multiEditors = [];
 let multiDecorationIds = [];
 let multiDiffPairs = [];
+let historyRailState = null;
+let activeHistoryRailTabId = null;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -94,6 +97,7 @@ host.onMessage((message) => {
 
 window.addEventListener('load', async () => {
     connectorController.initializeCanvas();
+    initializeHistoryRail();
     initializeHistoryToolbar();
     initializeChangeToolbar();
     initializeDirectoryReturnToolbar();
@@ -152,6 +156,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     setTextContent('file1-header', file1);
     setTextContent('file2-header', file2);
     updateHistoryToolbar(history);
+    updateHistoryRail(history?.rail || null);
     updateDirectoryReturnToolbar(canReturnToDirectory);
     updateEditModeToolbar();
 
@@ -179,6 +184,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(history);
+    updateHistoryRail(history?.rail || null);
     updateDirectoryReturnToolbar(false);
     updateEditModeToolbar();
     updateChangeToolbarState();
@@ -212,6 +218,7 @@ function showMultiDiff(panels, pairs) {
     disposeMultiEditors();
     multiDiffPairs = pairs || [];
     updateHistoryToolbar(null);
+    updateHistoryRail(null);
     updateDirectoryReturnToolbar(false);
     updateEditModeToolbar();
     updateChangeToolbarState();
@@ -245,6 +252,7 @@ function showThreeWayMerge(message) {
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(null);
+    updateHistoryRail(null);
     updateDirectoryReturnToolbar(false);
     updateEditModeToolbar();
     updateChangeToolbarState();
@@ -700,6 +708,44 @@ function initializeHistoryToolbar() {
     });
 }
 
+function initializeHistoryRail() {
+    const rail = getElement('history-rail');
+
+    rail.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target.closest('[data-rail-tab], [data-rail-item]') : null;
+        if (!target) {
+            return;
+        }
+
+        if (target.hasAttribute('data-rail-item')) {
+            const tabId = target.getAttribute('data-rail-tab');
+            const itemIndex = Number.parseInt(target.getAttribute('data-rail-index') || '', 10);
+            const item = getHistoryRailItems(tabId).find((candidate) => candidate.index === itemIndex || candidate.relativePath === target.getAttribute('data-rail-path'));
+            if (!item) {
+                return;
+            }
+
+            if (item.kind === 'history-entry' && Number.isInteger(item.index)) {
+                host.postMessage({ type: 'selectHistoryEntry', index: item.index });
+                return;
+            }
+
+            if (item.kind === 'directory-entry' && typeof item.relativePath === 'string') {
+                host.postMessage({ type: 'openDirectoryEntry', relativePath: item.relativePath });
+            }
+            return;
+        }
+
+        if (target.hasAttribute('data-rail-tab')) {
+            const tabId = target.getAttribute('data-rail-tab');
+            if (tabId && historyRailState?.tabs?.some((tab) => tab.id === tabId)) {
+                activeHistoryRailTabId = tabId;
+                renderHistoryRail();
+            }
+        }
+    });
+}
+
 function initializeDirectoryReturnToolbar() {
     getElement('back-to-directory').addEventListener('click', () => returnToDirectory());
 }
@@ -1015,6 +1061,92 @@ function updateHistoryToolbar(history) {
     setTextContent('history-left-time', history.leftTimestamp);
     setTextContent('history-right-commit', history.rightCommitLabel);
     setTextContent('history-right-time', history.rightTimestamp);
+}
+
+function updateHistoryRail(historyRail) {
+    historyRailState = historyRail;
+
+    if (!historyRail) {
+        activeHistoryRailTabId = null;
+        renderHistoryRail();
+        return;
+    }
+
+    if (!activeHistoryRailTabId || !historyRail.tabs.some((tab) => tab.id === activeHistoryRailTabId)) {
+        activeHistoryRailTabId = historyRail.activeTabId || historyRail.tabs[0]?.id || null;
+    }
+
+    renderHistoryRail();
+}
+
+function renderHistoryRail() {
+    const rail = getElement('history-rail');
+
+    if (!historyRailState) {
+        rail.hidden = true;
+        rail.classList.add('hidden');
+        rail.innerHTML = '';
+        return;
+    }
+
+    const tabs = historyRailState.tabs || [];
+    const activeTabId = activeHistoryRailTabId || historyRailState.activeTabId || tabs[0]?.id || null;
+    const activeTab = tabs.find((tab) => tab.id === activeTabId) || tabs[0];
+    const items = activeTab ? (historyRailState.itemsByTab[activeTab.id] || []) : [];
+
+    rail.hidden = false;
+    rail.classList.remove('hidden');
+    rail.innerHTML = [
+        '<div class="history-rail-tabs">',
+        ...tabs.map((tab) => {
+            const isActive = tab.id === (activeTab?.id || null);
+            return `<button class="history-rail-tab${isActive ? ' active' : ''}" type="button" data-rail-tab="${escapeAttr(tab.id)}">${escapeHtml(tab.label)}</button>`;
+        }),
+        '</div>',
+        '<div class="history-rail-list">',
+        ...(items.length > 0
+            ? items.map((item, index) => renderHistoryRailItem(item, activeTab?.id || '', index))
+            : ['<div class="history-rail-empty">No entries</div>']),
+        '</div>'
+    ].join('');
+}
+
+function renderHistoryRailItem(item, tabId, index) {
+    const statusClass = item.status ? ` status-${item.status}` : '';
+    const marker = item.status ? historyRailStatusGlyph(item.status) : '•';
+    const meta = item.meta ? `<span class="history-rail-meta">${escapeHtml(item.meta)}</span>` : '';
+    const activeClass = item.active ? ' active' : '';
+    const kindAttr = item.kind ? ` data-rail-kind="${escapeAttr(item.kind)}"` : '';
+    const indexAttr = Number.isInteger(item.index) ? ` data-rail-index="${String(item.index)}"` : ` data-rail-index="${String(index)}"`;
+    const pathAttr = typeof item.relativePath === 'string' ? ` data-rail-path="${escapeAttr(item.relativePath)}"` : '';
+
+    return `<button class="history-rail-item${activeClass}${statusClass}" type="button" data-rail-item="true" data-rail-tab="${escapeAttr(tabId)}"${kindAttr}${indexAttr}${pathAttr}>`
+        + `<span class="history-rail-marker">${escapeHtml(marker)}</span>`
+        + `<span class="history-rail-text">`
+        + `<span class="history-rail-label">${escapeHtml(item.label)}</span>`
+        + meta
+        + `</span>`
+        + `</button>`;
+}
+
+function getHistoryRailItems(tabId) {
+    return historyRailState?.itemsByTab?.[tabId] || [];
+}
+
+function historyRailStatusGlyph(status) {
+    if (status === 'modified' || status === 'partial') {
+        return '±';
+    }
+
+    if (status === 'left-only') {
+        return '-';
+    }
+
+    if (status === 'right-only') {
+        return '+';
+    }
+
+    return '•';
 }
 
 function scrollTopToModelLinePosition(editor, scrollTop) {

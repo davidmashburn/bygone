@@ -44,8 +44,10 @@ const electronBinary = process.platform === 'win32'
 const appEntry = './out/standalone-main.js';
 const forwardedArgs = ['--cwd', cliCwd, ...args];
 const installedApp = findInstalledApp();
+const preferBundledApp = fs.existsSync(path.join(packageRoot, '.git'));
 
 const child = installedApp && process.env.BYGONE_FORCE_BUNDLED !== '1'
+    && !preferBundledApp
     ? spawnInstalledApp(installedApp, forwardedArgs)
     : spawn(electronBinary, [appEntry, ...forwardedArgs], {
     cwd: packageRoot,

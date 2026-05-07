@@ -26,7 +26,7 @@ const commandLineToolPath = process.platform === 'win32'
 const gitHistoryService = new GitHistoryService();
 const launchArguments = parseLaunchArgs(getCliArgs());
 const smokeTestMode = launchArguments.kind === 'smoke';
-const shouldUseSingleInstanceLock = launchArguments.kind === 'empty';
+const shouldUseSingleInstanceLock = app.isPackaged && launchArguments.kind === 'empty';
 
 app.setName(APP_NAME);
 if (typeof app.setAppUserModelId === 'function') {
@@ -589,6 +589,11 @@ async function handleRendererMessage(message) {
         return;
     }
 
+    if (message.type === 'selectHistoryEntry' && Number.isInteger(message.index)) {
+        await selectHistoryEntry(message.index);
+        return;
+    }
+
     if (message.type === 'returnToDirectory') {
         await returnToDirectoryView();
         return;
@@ -1003,7 +1008,57 @@ function buildDirectoryHistoryViewState(dirHistory, entry) {
         leftCommitLabel: `${entry.parentCommit.slice(0, 7)} ${entry.parentSummary}`.trim(),
         leftTimestamp: entry.parentTimestamp,
         rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
-        rightTimestamp: entry.timestamp
+        rightTimestamp: entry.timestamp,
+        rail: buildDirectoryHistoryRailState(dirHistory, entry)
+    };
+}
+
+function buildDirectoryHistoryRailState(dirHistory, entry) {
+    if (!dirHistory || !entry?.dirs) {
+        return undefined;
+    }
+
+    const historyItems = dirHistory.entries.map((historyEntry, index) => ({
+        label: `${historyEntry.shortCommit} ${historyEntry.summary}`.trim() || historyEntry.shortCommit,
+        meta: historyEntry.timestamp,
+        active: index === dirHistory.index,
+        kind: 'history-entry',
+        index
+    }));
+
+    const changedFiles = buildMultiDirectoryComparison(entry.dirs)
+        .filter((directoryEntry) => directoryEntry.status !== 'same' && !directoryEntry.isDirectory)
+        .map((directoryEntry) => ({
+            label: directoryEntry.relativePath,
+            meta: directoryEntry.status === 'modified'
+                ? 'modified'
+                : directoryEntry.status === 'left-only'
+                    ? 'left only'
+                    : directoryEntry.status === 'right-only'
+                        ? 'right only'
+                        : directoryEntry.status,
+            active: dirHistory.viewRelativePath === directoryEntry.relativePath,
+            status: directoryEntry.status === 'modified'
+                ? 'modified'
+                : directoryEntry.status === 'left-only'
+                    ? 'left-only'
+                    : directoryEntry.status === 'right-only'
+                        ? 'right-only'
+                        : undefined,
+            kind: 'directory-entry',
+            relativePath: directoryEntry.relativePath
+        }));
+
+    return {
+        activeTabId: 'history',
+        tabs: [
+            { id: 'history', label: 'History' },
+            { id: 'changed-files', label: 'Changed Files' }
+        ],
+        itemsByTab: {
+            history: historyItems,
+            'changed-files': changedFiles
+        }
     };
 }
 
@@ -1451,6 +1506,7 @@ async function sendCurrentHistoryEntry() {
     const entry = session.history.entries[session.history.index];
     const fileName = path.basename(session.history.filePath);
     const diffModel = buildTwoWayDiffModel(entry.leftContent, entry.rightContent);
+    const rail = buildFileHistoryRailState(session.history.entries, session.history.index);
 
     postOrQueue({
         type: 'showDiff',
@@ -1468,7 +1524,8 @@ async function sendCurrentHistoryEntry() {
             leftCommitLabel: `${entry.parentCommit.slice(0, 7)} ${entry.parentSummary}`.trim(),
             leftTimestamp: entry.parentTimestamp,
             rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
-            rightTimestamp: entry.timestamp
+            rightTimestamp: entry.timestamp,
+            rail
         }
     });
 
@@ -1479,6 +1536,26 @@ function buildHistoryEditableSides(entry) {
     return {
         left: false,
         right: entry.commit === 'WORKTREE'
+    };
+}
+
+function buildFileHistoryRailState(entries, activeIndex) {
+    if (!Array.isArray(entries) || entries.length === 0) {
+        return undefined;
+    }
+
+    return {
+        activeTabId: 'history',
+        tabs: [{ id: 'history', label: 'History' }],
+        itemsByTab: {
+            history: entries.map((entry, index) => ({
+                label: `${entry.shortCommit} ${entry.summary}`.trim() || entry.shortCommit,
+                meta: entry.timestamp,
+                active: index === activeIndex,
+                kind: 'history-entry',
+                index
+            }))
+        }
     };
 }
 
@@ -1545,6 +1622,27 @@ async function navigateHistory(direction) {
     }
 
     await sendCurrentHistoryEntry();
+}
+
+async function selectHistoryEntry(index) {
+    if (session.mode === 'history' && session.history) {
+        if (index < 0 || index >= session.history.entries.length) {
+            return;
+        }
+
+        session.history.index = index;
+        await sendCurrentHistoryEntry();
+        return;
+    }
+
+    if (session.mode === 'directory-history' && session.dirHistory) {
+        if (index < 0 || index >= session.dirHistory.entries.length) {
+            return;
+        }
+
+        session.dirHistory.index = index;
+        await sendCurrentDirectoryHistoryEntry();
+    }
 }
 
 async function saveSide(side) {

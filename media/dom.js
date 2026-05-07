@@ -229,6 +229,8 @@
         getElement,
         setTextContent,
         clearHistoryToolbar,
+        escapeHtml,
+        escapeAttr,
         renderPlainLines,
         renderResultLines,
         toggleView,

@@ -97,12 +97,13 @@ body.web-host {
 }
 
 #header h1 {
-    margin: 0;
-    font-size: 15px;
+    display: none;
 }
 
 #file-info {
-    margin-top: 4px;
+    margin-top: 0;
+    min-height: 18px;
+    font-weight: 600;
     color: var(--vscode-descriptionForeground);
     font-size: 12px;
 }
@@ -129,13 +130,26 @@ body.web-host {
     color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
     border-radius: 4px;
     min-height: 28px;
-    padding: 4px 10px;
+    padding: 4px 10px 4px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     cursor: pointer;
     font: inherit;
 }
 
 .directory-return-button:hover {
     filter: brightness(1.08);
+}
+
+.directory-return-button svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .edit-mode-toolbar {
@@ -183,13 +197,15 @@ body.web-host {
     min-width: 0;
 }
 
-.change-copy-right {
-    justify-content: flex-end;
+.change-copy-center {
+    justify-content: center;
+    align-items: center;
 }
 
 .change-nav {
-    display: grid;
-    grid-template-columns: auto minmax(72px, auto) auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     align-items: center;
     justify-content: center;
     gap: 8px;
@@ -204,6 +220,24 @@ body.web-host {
     padding: 4px 10px;
     cursor: pointer;
     font: inherit;
+}
+
+.change-button.icon-button {
+    min-width: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.change-button.icon-button svg {
+    width: 15px;
+    height: 15px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .change-button-primary {
@@ -225,7 +259,7 @@ body.web-host {
 }
 
 .change-hint {
-    grid-column: 1 / -1;
+    flex-basis: 100%;
     color: var(--vscode-descriptionForeground);
     font-size: 11px;
     text-align: center;
@@ -253,6 +287,24 @@ body.web-host {
     align-items: center;
     justify-content: center;
     gap: 8px;
+}
+
+.history-button.icon-button {
+    min-width: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.history-button.icon-button svg {
+    width: 15px;
+    height: 15px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .history-button {
@@ -299,9 +351,139 @@ body.web-host {
     font-size: 11px;
 }
 
+#diff-workspace {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+}
+
+#history-rail {
+    width: 282px;
+    flex: 0 0 282px;
+    min-width: 242px;
+    max-width: 340px;
+    border-right: 1px solid var(--vscode-panel-border);
+    background: var(--vscode-sideBar-background);
+    overflow: auto;
+    padding: 10px 10px 12px;
+    box-sizing: border-box;
+}
+
+#history-rail.hidden {
+    display: none;
+}
+
+.history-rail-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.history-rail-tab {
+    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+    background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+    border-radius: 999px;
+    min-height: 26px;
+    padding: 3px 10px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+}
+
+.history-rail-tab.active {
+    border-color: rgba(79, 124, 255, 0.7);
+    background: color-mix(in srgb, var(--vscode-button-background) 34%, var(--vscode-button-secondaryBackground));
+}
+
+.history-rail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.history-rail-empty {
+    color: var(--vscode-descriptionForeground);
+    font-size: 12px;
+    padding: 8px 4px;
+}
+
+.history-rail-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    border: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+    border-radius: 6px;
+    padding: 8px 9px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+}
+
+.history-rail-item:hover {
+    background: color-mix(in srgb, var(--vscode-editor-background) 84%, var(--vscode-panel-border));
+}
+
+.history-rail-item.active {
+    border-color: rgba(79, 124, 255, 0.52);
+    background: color-mix(in srgb, var(--vscode-button-background) 18%, transparent);
+}
+
+.history-rail-item .history-rail-marker {
+    width: 16px;
+    min-width: 16px;
+    height: 16px;
+    margin-top: 1px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.history-rail-item.status-modified .history-rail-marker {
+    color: #73b0ff;
+}
+
+.history-rail-item.status-left-only .history-rail-marker {
+    color: #e06c75;
+}
+
+.history-rail-item.status-right-only .history-rail-marker {
+    color: #98c379;
+}
+
+.history-rail-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.history-rail-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--vscode-foreground);
+}
+
+.history-rail-meta {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+}
+
 #diff-container {
     position: relative;
     flex: 1;
+    min-width: 0;
     overflow: hidden;
 }
 

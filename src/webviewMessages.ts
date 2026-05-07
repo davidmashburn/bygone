@@ -11,6 +11,26 @@ export interface HistoryViewState {
     leftTimestamp: string;
     rightCommitLabel: string;
     rightTimestamp: string;
+    rail?: HistoryRailState;
+}
+
+export interface HistoryRailItem {
+    label: string;
+    meta?: string;
+    active?: boolean;
+    status?: string;
+    kind?: 'history-entry' | 'directory-entry';
+    index?: number;
+    relativePath?: string;
+}
+
+export interface HistoryRailState {
+    activeTabId: string;
+    tabs: Array<{
+        id: string;
+        label: string;
+    }>;
+    itemsByTab: Record<string, HistoryRailItem[]>;
 }
 
 export interface ShowDiffMessage {
@@ -97,6 +117,11 @@ export interface OpenDirectoryEntryMessage {
     relativePath: string;
 }
 
+export interface SelectHistoryEntryMessage {
+    type: 'selectHistoryEntry';
+    index: number;
+}
+
 export interface ReturnToDirectoryMessage {
     type: 'returnToDirectory';
 }
@@ -106,6 +131,7 @@ export type WebviewInboundMessage =
     | RecomputeDiffMessage
     | HistoryNavigationMessage
     | OpenDirectoryEntryMessage
+    | SelectHistoryEntryMessage
     | ReturnToDirectoryMessage;
 export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
 
@@ -126,6 +152,11 @@ export function isHistoryNavigationMessage(message: unknown): message is History
 export function isOpenDirectoryEntryMessage(message: unknown): message is OpenDirectoryEntryMessage {
     return getMessageType(message) === 'openDirectoryEntry'
         && typeof (message as OpenDirectoryEntryMessage).relativePath === 'string';
+}
+
+export function isSelectHistoryEntryMessage(message: unknown): message is SelectHistoryEntryMessage {
+    return getMessageType(message) === 'selectHistoryEntry'
+        && Number.isInteger((message as SelectHistoryEntryMessage).index);
 }
 
 function getMessageType(message: unknown): string | undefined {
