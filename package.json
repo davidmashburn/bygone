@@ -157,6 +157,7 @@
     "package:vsix": "vsce package",
     "standalone:start": "npm run compile && electron ./out/standalone-main.js",
     "standalone:smoke": "npm run compile && electron ./out/standalone-main.js --smoke-test",
+    "walkthrough:refresh": "node ./scripts/refresh-walkthrough-screenshots.mjs",
     "web:start": "npm run compile && node ./scripts/web-server.mjs",
     "package:desktop": "npm run package:desktop:mac",
     "package:desktop:mac": "npm run compile && electron-builder --mac dmg --publish never",

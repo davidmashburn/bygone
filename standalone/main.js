@@ -26,6 +26,8 @@ const commandLineToolPath = process.platform === 'win32'
 const gitHistoryService = new GitHistoryService();
 const launchArguments = parseLaunchArgs(getCliArgs());
 const smokeTestMode = launchArguments.kind === 'smoke';
+const captureOutputPath = launchArguments.capturePath ? path.resolve(launchArguments.capturePath) : null;
+const captureMode = Boolean(captureOutputPath);
 const shouldUseSingleInstanceLock = app.isPackaged && launchArguments.kind === 'empty';
 
 app.setName(APP_NAME);
@@ -44,6 +46,7 @@ let session = createEmptySession();
 let smokeTimeout;
 let pendingOpenPaths = [];
 let historyIncludeStagedPreference = false;
+let captureScheduled = false;
 
 if (!singleInstanceLock) {
     app.quit();
@@ -107,7 +110,7 @@ function createMainWindow() {
         height: 960,
         minWidth: 960,
         minHeight: 640,
-        show: !smokeTestMode,
+        show: !(smokeTestMode || captureMode),
         title: APP_NAME,
         webPreferences: {
             sandbox: false,
@@ -121,29 +124,29 @@ function createMainWindow() {
     pendingMessage = undefined;
     void mainWindow.loadFile(path.join(__dirname, '..', 'standalone', 'index.html'));
 
-    if (smokeTestMode) {
+    if (smokeTestMode || captureMode) {
         smokeTimeout = setTimeout(() => {
-            console.error('Bygone smoke test timed out before renderer became ready.');
+            console.error(`Bygone ${captureMode ? 'capture' : 'smoke test'} timed out before renderer became ready.`);
             process.exitCode = 1;
             app.exit(1);
         }, 10000);
     }
 
     mainWindow.webContents.on('did-finish-load', () => {
-        if (smokeTestMode) {
+        if (smokeTestMode || captureMode) {
             console.log('Bygone standalone window finished loading.');
         }
     });
 
     mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
-        if (smokeTestMode) {
+        if (smokeTestMode || captureMode) {
             console.log(`Renderer console [${level}] ${sourceId}:${line} ${message}`);
         }
     });
 
     mainWindow.webContents.on('did-fail-load', (_event, code, description) => {
         console.error(`Bygone standalone load failed (${code}): ${description}`);
-        if (smokeTestMode) {
+        if (smokeTestMode || captureMode) {
             process.exitCode = 1;
             app.exit(1);
         }
@@ -151,7 +154,7 @@ function createMainWindow() {
 
     mainWindow.webContents.on('render-process-gone', (_event, details) => {
         console.error(`Bygone renderer process exited: ${details.reason}`);
-        if (smokeTestMode) {
+        if (smokeTestMode || captureMode) {
             process.exitCode = 1;
             app.exit(1);
         }
@@ -196,6 +199,7 @@ function createMainWindow() {
         closingForSave = false;
         clearTimeout(smokeTimeout);
         smokeTimeout = undefined;
+        captureScheduled = false;
     });
 }
 
@@ -471,56 +475,70 @@ function getCliArgsFromArgv(argv) {
 function parseLaunchArgs(args) {
     const { cwd, launchArgs } = normalizeLaunchArgs(args);
     const includeStaged = launchArgs.includes('--include-staged') || launchArgs.includes('--staged');
-    const filteredArgs = launchArgs.filter((arg) => arg !== '--include-staged' && arg !== '--staged');
+    let capturePath = null;
+    const filteredArgs = [];
+
+    for (let index = 0; index < launchArgs.length; index += 1) {
+        const arg = launchArgs[index];
+        if (arg === '--include-staged' || arg === '--staged') {
+            continue;
+        }
+        if (arg === '--capture' && typeof launchArgs[index + 1] === 'string') {
+            capturePath = resolveLaunchPath(launchArgs[index + 1], cwd);
+            index += 1;
+            continue;
+        }
+        filteredArgs.push(arg);
+    }
 
     if (filteredArgs.length === 0) {
-        return { kind: 'directory-history', dirPath: cwd, includeStaged };
+        return { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath };
     }
 
     if (filteredArgs[0] === '--diff' && filteredArgs.length >= 3) {
-        return { kind: 'diff', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd) };
+        return { kind: 'diff', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd), capturePath };
     }
 
     if (filteredArgs[0] === '--dir' && filteredArgs.length >= 3) {
-        return { kind: 'directory', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd) };
+        return { kind: 'directory', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd), capturePath };
     }
 
     if (filteredArgs[0] === '--dir3' && filteredArgs.length >= 4) {
-        return { kind: 'multi-directory', paths: filteredArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)) };
+        return { kind: 'multi-directory', paths: filteredArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath };
     }
 
     if (filteredArgs[0] === '--diff3' && filteredArgs.length >= 4) {
-        return { kind: 'multi-diff', paths: filteredArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)) };
+        return { kind: 'multi-diff', paths: filteredArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath };
     }
 
     if (filteredArgs[0] === '--history' && filteredArgs.length >= 2) {
-        return { kind: 'history', filePath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged };
+        return { kind: 'history', filePath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged, capturePath };
     }
 
     if (filteredArgs[0] === '--dir-history' && filteredArgs.length >= 2) {
-        return { kind: 'directory-history', dirPath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged };
+        return { kind: 'directory-history', dirPath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged, capturePath };
     }
 
     if (filteredArgs[0] === '--test') {
-        return { kind: 'test' };
+        return { kind: 'test', capturePath };
     }
 
     if (filteredArgs[0] === '--smoke-test') {
-        return { kind: 'smoke' };
+        return { kind: 'smoke', capturePath };
     }
 
     if (filteredArgs.length === 1 && !filteredArgs[0].startsWith('--')) {
         const targetPath = resolveLaunchPath(filteredArgs[0], cwd);
         return getPathKind(targetPath) === 'directory'
-            ? { kind: 'directory-history', dirPath: targetPath, includeStaged }
-            : { kind: 'history', filePath: targetPath, includeStaged };
+            ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath }
+            : { kind: 'history', filePath: targetPath, includeStaged, capturePath };
     }
 
     if (filteredArgs.length >= 2 && !filteredArgs[0].startsWith('--')) {
-        return { kind: 'pair', leftPath: resolveLaunchPath(filteredArgs[0], cwd), rightPath: resolveLaunchPath(filteredArgs[1], cwd) };
+        return { kind: 'pair', leftPath: resolveLaunchPath(filteredArgs[0], cwd), rightPath: resolveLaunchPath(filteredArgs[1], cwd), capturePath };
     }
 
-    return { kind: 'directory-history', dirPath: cwd, includeStaged };
+    return { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath };
 }
 
 function normalizeLaunchArgs(args) {
@@ -1008,6 +1026,7 @@ async function sendCurrentDirectoryDiff() {
     });
 
     updateWindowTitle(session.directory.labels.join(' ↔ '));
+    scheduleCaptureIfNeeded();
 }
 
 async function sendCurrentDirectoryHistoryEntry() {
@@ -1060,6 +1079,7 @@ async function sendCurrentDirectoryHistoryEntry() {
         });
 
         updateWindowTitle(`${relativePath} Directory History`);
+        scheduleCaptureIfNeeded();
         return;
     }
 
@@ -1075,6 +1095,7 @@ async function sendCurrentDirectoryHistoryEntry() {
     });
 
     updateWindowTitle(`${session.dirHistory.displayName} Directory History`);
+    scheduleCaptureIfNeeded();
 }
 
 function buildDirectoryHistoryViewState(dirHistory, entry) {
@@ -1640,11 +1661,15 @@ async function sendCurrentDiff() {
                 .then((snapshot) => {
                     if (smokeTestMode) {
                         finalizeSmokeTest(snapshot);
+                        return;
+                    }
+                    if (captureMode) {
+                        scheduleCaptureIfNeeded();
                     }
                 })
                 .catch((error) => {
-                    if (smokeTestMode) {
-                        console.error(`Bygone smoke test failed: ${getErrorMessage(error)}`);
+                    if (smokeTestMode || captureMode) {
+                        console.error(`Bygone ${captureMode ? 'capture' : 'smoke test'} failed: ${getErrorMessage(error)}`);
                         process.exitCode = 1;
                         app.exit(1);
                     }
@@ -1686,6 +1711,7 @@ async function sendCurrentHistoryEntry() {
     });
 
     updateWindowTitle(`${fileName} History`);
+    scheduleCaptureIfNeeded();
 }
 
 function buildHistoryEditableSides(entry) {
@@ -2256,4 +2282,29 @@ function finalizeSmokeTest(snapshot) {
     }
 
     app.quit();
+}
+
+function scheduleCaptureIfNeeded() {
+    if (!captureMode || !mainWindow || mainWindow.isDestroyed() || captureScheduled) {
+        return;
+    }
+
+    captureScheduled = true;
+    setTimeout(() => {
+        if (!mainWindow || mainWindow.isDestroyed() || !captureOutputPath) {
+            return;
+        }
+
+        mainWindow.webContents.capturePage()
+            .then((image) => {
+                fs.mkdirSync(path.dirname(captureOutputPath), { recursive: true });
+                fs.writeFileSync(captureOutputPath, image.toPNG());
+                app.quit();
+            })
+            .catch((error) => {
+                console.error(`Bygone capture failed: ${getErrorMessage(error)}`);
+                process.exitCode = 1;
+                app.exit(1);
+            });
+    }, 700);
 }
