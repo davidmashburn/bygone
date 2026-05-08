@@ -599,6 +599,11 @@ async function handleRendererMessage(message) {
         return;
     }
 
+    if (message.type === 'navigateFile' && (message.direction === 'previous' || message.direction === 'next')) {
+        await navigateSiblingFile(message.direction);
+        return;
+    }
+
     if (message.type === 'historyBack') {
         await navigateHistory('back');
         return;
@@ -973,6 +978,7 @@ async function sendCurrentDirectoryHistoryEntry() {
             leftContent,
             rightContent,
             diffModel: buildTwoWayDiffModel(leftContent, rightContent),
+            fileNavigation: buildDirectoryHistoryFileNavigationState(session.dirHistory, entry),
             canReturnToDirectory: true,
             editableSides: buildHistoryEditableSides(entry),
             history: {
@@ -1350,7 +1356,8 @@ async function openDirectoryFileDiff(dirs, labels, relativePath) {
         dirHistory: null,
         returnDirectory: {
             dirs: [...dirs],
-            labels: [...labels]
+            labels: [...labels],
+            relativePath
         }
     };
 
@@ -1388,6 +1395,75 @@ async function returnToDirectoryView() {
     }
 
     await showInfo('No directory view to return to.');
+}
+
+function buildChangedFileEntries(entries) {
+    return entries.filter((directoryEntry) => directoryEntry.status !== 'same' && !directoryEntry.isDirectory);
+}
+
+function buildStandaloneFileNavigationState() {
+    if (session.mode !== 'diff' || !session.returnDirectory?.relativePath) {
+        return {
+            canGoPrevious: false,
+            canGoNext: false
+        };
+    }
+
+    const entries = buildChangedFileEntries(buildMultiDirectoryComparison(session.returnDirectory.dirs));
+    const currentIndex = entries.findIndex((entry) => entry.relativePath === session.returnDirectory.relativePath);
+
+    return {
+        canGoPrevious: currentIndex > 0,
+        canGoNext: currentIndex >= 0 && currentIndex < entries.length - 1
+    };
+}
+
+function buildDirectoryHistoryFileNavigationState(dirHistory, entry) {
+    if (!dirHistory?.viewRelativePath) {
+        return {
+            canGoPrevious: false,
+            canGoNext: false
+        };
+    }
+
+    const entries = buildChangedFileEntries(buildMultiDirectoryComparison(entry.dirs));
+    const currentIndex = entries.findIndex((directoryEntry) => directoryEntry.relativePath === dirHistory.viewRelativePath);
+
+    return {
+        canGoPrevious: currentIndex > 0,
+        canGoNext: currentIndex >= 0 && currentIndex < entries.length - 1
+    };
+}
+
+async function navigateSiblingFile(direction) {
+    if (session.mode === 'directory-history' && session.dirHistory?.viewRelativePath) {
+        const entry = ensureDirectoryHistoryEntryMaterialized(session.dirHistory, session.dirHistory.index);
+        const entries = buildChangedFileEntries(buildMultiDirectoryComparison(entry.dirs));
+        const currentIndex = entries.findIndex((directoryEntry) => directoryEntry.relativePath === session.dirHistory.viewRelativePath);
+        const nextIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
+        const nextEntry = entries[nextIndex];
+
+        if (!nextEntry) {
+            return;
+        }
+
+        session.dirHistory.viewRelativePath = nextEntry.relativePath;
+        await sendCurrentDirectoryHistoryEntry();
+        return;
+    }
+
+    if (session.mode === 'diff' && session.returnDirectory?.relativePath) {
+        const entries = buildChangedFileEntries(buildMultiDirectoryComparison(session.returnDirectory.dirs));
+        const currentIndex = entries.findIndex((directoryEntry) => directoryEntry.relativePath === session.returnDirectory.relativePath);
+        const nextIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
+        const nextEntry = entries[nextIndex];
+
+        if (!nextEntry) {
+            return;
+        }
+
+        await openDirectoryFileDiff(session.returnDirectory.dirs, session.returnDirectory.labels, nextEntry.relativePath);
+    }
 }
 
 async function sendCurrentMultiDiff() {
@@ -1465,6 +1541,7 @@ async function sendCurrentDiff() {
         rightContent: session.right.content,
         diffModel,
         history: null,
+        fileNavigation: buildStandaloneFileNavigationState(),
         editableSides: {
             left: true,
             right: true

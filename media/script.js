@@ -41,6 +41,7 @@ let multiDecorationIds = [];
 let multiDiffPairs = [];
 let historyRailState = null;
 let activeHistoryRailTabId = null;
+let currentFileNavigation = { canGoPrevious: false, canGoNext: false };
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -69,6 +70,7 @@ host.onMessage((message) => {
             message.rightContent,
             message.diffModel,
             message.history || null,
+            message.fileNavigation || null,
             Boolean(message.canReturnToDirectory),
             message.editableSides
         );
@@ -115,6 +117,7 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.rightContent,
             pendingTwoWayPayload.diffModel,
             pendingTwoWayPayload.history || null,
+            pendingTwoWayPayload.fileNavigation || null,
             Boolean(pendingTwoWayPayload.canReturnToDirectory),
             pendingTwoWayPayload.editableSides
         );
@@ -141,7 +144,7 @@ async function initializeMonaco() {
     monacoInstance = window.monaco;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, canReturnToDirectory = false, nextEditableSides = null) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null) {
     currentMode = MODE_TWO_WAY;
     historyMode = Boolean(history);
     hostEditableSides = normalizeEditableSides(nextEditableSides, historyMode);
@@ -157,6 +160,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     setTextContent('file2-header', file2);
     updateHistoryToolbar(history);
     updateHistoryRail(history?.rail || null);
+    updateFileNavigationState(fileNavigation || null, canReturnToDirectory);
     updateDirectoryReturnToolbar(canReturnToDirectory);
     updateEditModeToolbar();
 
@@ -185,6 +189,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     disposeMultiEditors();
     updateHistoryToolbar(history);
     updateHistoryRail(history?.rail || null);
+    updateFileNavigationState(null, false);
     updateDirectoryReturnToolbar(false);
     updateEditModeToolbar();
     updateChangeToolbarState();
@@ -219,6 +224,7 @@ function showMultiDiff(panels, pairs) {
     multiDiffPairs = pairs || [];
     updateHistoryToolbar(null);
     updateHistoryRail(null);
+    updateFileNavigationState(null, false);
     updateDirectoryReturnToolbar(false);
     updateEditModeToolbar();
     updateChangeToolbarState();
@@ -253,6 +259,7 @@ function showThreeWayMerge(message) {
     disposeMultiEditors();
     updateHistoryToolbar(null);
     updateHistoryRail(null);
+    updateFileNavigationState(null, false);
     updateDirectoryReturnToolbar(false);
     updateEditModeToolbar();
     updateChangeToolbarState();
@@ -764,6 +771,8 @@ function initializeEditModeToolbar() {
 }
 
 function initializeChangeToolbar() {
+    getElement('previous-file').addEventListener('click', () => navigateFile('previous'));
+    getElement('next-file').addEventListener('click', () => navigateFile('next'));
     getElement('previous-change').addEventListener('click', () => navigateDiff(-1));
     getElement('next-change').addEventListener('click', () => navigateDiff(1));
     getElement('copy-left-to-right').addEventListener('click', () => copyCurrentChange('left-to-right'));
@@ -774,9 +783,15 @@ function initializeChangeToolbar() {
             return;
         }
 
-        if (event.key === 'F7') {
+        if ((event.metaKey || event.ctrlKey) && event.altKey && event.key === 'ArrowUp') {
             event.preventDefault();
-            navigateDiff(event.shiftKey ? -1 : 1);
+            navigateDiff(-1);
+            return;
+        }
+
+        if ((event.metaKey || event.ctrlKey) && event.altKey && event.key === 'ArrowDown') {
+            event.preventDefault();
+            navigateDiff(1);
             return;
         }
 
@@ -796,6 +811,18 @@ function initializeChangeToolbar() {
             event.preventDefault();
             copyCurrentChange('right-to-left');
         }
+    });
+}
+
+function navigateFile(direction) {
+    if ((direction === 'previous' && !currentFileNavigation.canGoPrevious)
+        || (direction === 'next' && !currentFileNavigation.canGoNext)) {
+        return;
+    }
+
+    host.postMessage({
+        type: 'navigateFile',
+        direction
     });
 }
 
@@ -825,8 +852,8 @@ function registerEditorKeybindings(editor, editorMode) {
         return;
     }
 
-    editor.addCommand(monacoInstance.KeyCode.F7, () => navigateDiff(1));
-    editor.addCommand(monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.F7, () => navigateDiff(-1));
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.UpArrow, () => navigateDiff(-1));
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.DownArrow, () => navigateDiff(1));
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.RightArrow, () => copyCurrentChange('left-to-right'));
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.LeftArrow, () => copyCurrentChange('right-to-left'));
 }
@@ -870,8 +897,24 @@ function updateChangeToolbarState() {
     setTextContent('change-position', `${safeIndex + 1} / ${diffBlocks.length}`);
     getElement('previous-change').disabled = diffBlocks.length === 0;
     getElement('next-change').disabled = diffBlocks.length === 0;
+    getElement('previous-file').disabled = !currentFileNavigation.canGoPrevious;
+    getElement('next-file').disabled = !currentFileNavigation.canGoNext;
     getElement('copy-left-to-right').disabled = !isSideEditable('right');
     getElement('copy-right-to-left').disabled = !isSideEditable('left');
+}
+
+function updateFileNavigationState(fileNavigation, canReturnToDirectory) {
+    currentFileNavigation = fileNavigation || {
+        canGoPrevious: false,
+        canGoNext: false
+    };
+
+    if (!canReturnToDirectory && !fileNavigation) {
+        currentFileNavigation = {
+            canGoPrevious: false,
+            canGoNext: false
+        };
+    }
 }
 
 function revealActiveDiff(smooth) {
@@ -1081,11 +1124,13 @@ function updateHistoryRail(historyRail) {
 
 function renderHistoryRail() {
     const rail = getElement('history-rail');
+    const container = getElement('container');
 
     if (!historyRailState) {
         rail.hidden = true;
         rail.classList.add('hidden');
         rail.innerHTML = '';
+        container.classList.remove('history-rail-visible');
         return;
     }
 
@@ -1096,6 +1141,7 @@ function renderHistoryRail() {
 
     rail.hidden = false;
     rail.classList.remove('hidden');
+    container.classList.add('history-rail-visible');
     rail.innerHTML = [
         '<div class="history-rail-tabs">',
         ...tabs.map((tab) => {

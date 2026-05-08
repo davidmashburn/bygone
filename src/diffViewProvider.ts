@@ -7,6 +7,7 @@ import {
     HistoryViewState,
     isHistoryNavigationMessage,
     isOpenDirectoryEntryMessage,
+    isNavigateFileMessage,
     isReadyMessage,
     isRecomputeDiffMessage,
     isSelectHistoryEntryMessage,
@@ -31,6 +32,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
     private historySelectionHandler?: (index: number) => void;
     private directoryEntryOpenHandler?: (relativePath: string) => void;
+    private fileNavigationHandler?: (direction: 'previous' | 'next') => void;
 
     constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -44,6 +46,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
     public setDirectoryEntryOpenHandler(handler: (relativePath: string) => void): void {
         this.directoryEntryOpenHandler = handler;
+    }
+
+    public setFileNavigationHandler(handler: (direction: 'previous' | 'next') => void): void {
+        this.fileNavigationHandler = handler;
     }
 
     public resolveWebviewView(
@@ -85,6 +91,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
             if (isOpenDirectoryEntryMessage(message) && this.directoryEntryOpenHandler) {
                 this.directoryEntryOpenHandler(message.relativePath);
+            }
+
+            if (isNavigateFileMessage(message) && this.fileNavigationHandler) {
+                this.fileNavigationHandler(message.direction);
             }
         });
         webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
@@ -273,9 +283,9 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 <body>
     <div id="container">
         <div id="header">
-            <div id="file-info">Choose a compare command to render a diff.</div>
-            <div id="status-banner" class="status-banner" hidden></div>
-            <div id="directory-return-toolbar" class="directory-return-toolbar" hidden>
+            <div id="file-info" class="header-align-diff">Choose a compare command to render a diff.</div>
+            <div id="status-banner" class="status-banner header-align-diff" hidden></div>
+            <div id="directory-return-toolbar" class="directory-return-toolbar header-align-diff" hidden>
                 <button id="back-to-directory" class="directory-return-button" type="button" title="Back to directory view (Cmd/Ctrl+[)">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M15 18l-6-6 6-6"></path>
@@ -284,27 +294,32 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                     <span>Back</span>
                 </button>
             </div>
-            <div id="edit-mode-toolbar" class="edit-mode-toolbar" hidden>
+            <div id="edit-mode-toolbar" class="edit-mode-toolbar header-align-diff" hidden>
                 <button id="toggle-readonly" class="edit-mode-button" type="button" title="Toggle read-only mode">Editing On</button>
             </div>
-            <div id="change-toolbar" class="change-toolbar" hidden>
-                <div class="change-nav">
-                    <button id="previous-change" class="change-button icon-button" type="button" title="Previous difference (Shift+F7)" aria-label="Previous difference">
+            <div id="change-toolbar" class="change-toolbar header-align-diff" hidden>
+                <div class="change-toolbar-main">
+                    <div class="change-toolbar-nav">
+                        <button id="previous-file" class="change-button icon-button" type="button" title="Previous file" aria-label="Previous file">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M17 11l-5-5-5 5"></path>
+                                <path d="M17 18l-5-5-5 5" opacity="0.7"></path>
+                            </svg>
+                        </button>
+                        <button id="next-file" class="change-button change-button-primary icon-button" type="button" title="Next file" aria-label="Next file">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M7 13l5 5 5-5"></path>
+                                <path d="M7 6l5 5 5-5" opacity="0.7"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="change-toolbar-center">
+                    <button id="previous-change" class="change-button icon-button" type="button" title="Previous difference (Cmd/Ctrl+Alt+Up)" aria-label="Previous difference">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 19V5"></path>
                             <path d="M6 11l6-6 6 6"></path>
                         </svg>
                     </button>
-                    <div id="change-position" class="change-position"></div>
-                    <button id="next-change" class="change-button change-button-primary icon-button" type="button" title="Next difference (F7)" aria-label="Next difference">
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 5v14"></path>
-                            <path d="M6 13l6 6 6-6"></path>
-                        </svg>
-                    </button>
-                    <div class="change-hint">F7 / Shift+F7 to jump.</div>
-                </div>
-                <div class="change-copy change-copy-center">
                     <button id="copy-left-to-right" class="change-button change-button-primary icon-button" type="button" title="Copy current change from left to right (Cmd/Ctrl+Alt+Right)" aria-label="Copy current change from left to right">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M5 12h10"></path>
@@ -320,9 +335,17 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                             <path d="M5 5v14"></path>
                         </svg>
                     </button>
+                    <button id="next-change" class="change-button change-button-primary icon-button" type="button" title="Next difference (Cmd/Ctrl+Alt+Down)" aria-label="Next difference">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5v14"></path>
+                            <path d="M6 13l6 6 6-6"></path>
+                        </svg>
+                    </button>
+                    </div>
                 </div>
+                <div class="change-hint">Cmd/Ctrl+Alt+Up/Down to jump.</div>
             </div>
-            <div id="history-toolbar" class="history-toolbar" hidden>
+            <div id="history-toolbar" class="history-toolbar header-align-diff" hidden>
                 <div class="history-side history-side-left">
                     <div id="history-left-commit" class="history-commit"></div>
                     <div id="history-left-time" class="history-time"></div>

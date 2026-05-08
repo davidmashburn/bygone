@@ -14,6 +14,11 @@ export interface HistoryViewState {
     rail?: HistoryRailState;
 }
 
+export interface FileNavigationState {
+    canGoPrevious: boolean;
+    canGoNext: boolean;
+}
+
 export interface HistoryRailItem {
     label: string;
     meta?: string;
@@ -42,6 +47,7 @@ export interface ShowDiffMessage {
     diffModel: TwoWayDiffModel;
     history: (HistoryViewState & { fileName: string }) | null;
     canReturnToDirectory?: boolean;
+    fileNavigation?: FileNavigationState | null;
     editableSides?: {
         left: boolean;
         right: boolean;
@@ -126,13 +132,19 @@ export interface ReturnToDirectoryMessage {
     type: 'returnToDirectory';
 }
 
+export interface NavigateFileMessage {
+    type: 'navigateFile';
+    direction: 'previous' | 'next';
+}
+
 export type WebviewInboundMessage =
     | ReadyMessage
     | RecomputeDiffMessage
     | HistoryNavigationMessage
     | OpenDirectoryEntryMessage
     | SelectHistoryEntryMessage
-    | ReturnToDirectoryMessage;
+    | ReturnToDirectoryMessage
+    | NavigateFileMessage;
 export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
 
 export function isReadyMessage(message: unknown): message is ReadyMessage {
@@ -157,6 +169,12 @@ export function isOpenDirectoryEntryMessage(message: unknown): message is OpenDi
 export function isSelectHistoryEntryMessage(message: unknown): message is SelectHistoryEntryMessage {
     return getMessageType(message) === 'selectHistoryEntry'
         && Number.isInteger((message as SelectHistoryEntryMessage).index);
+}
+
+export function isNavigateFileMessage(message: unknown): message is NavigateFileMessage {
+    return getMessageType(message) === 'navigateFile'
+        && (((message as NavigateFileMessage).direction) === 'previous'
+            || ((message as NavigateFileMessage).direction) === 'next');
 }
 
 function getMessageType(message: unknown): string | undefined {
