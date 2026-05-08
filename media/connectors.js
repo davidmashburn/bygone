@@ -160,7 +160,28 @@
                 entries.forEach((entry, index) => {
                     const leftExists = directoryEntryExistsOnSide(entry, pairIndex);
                     const rightExists = directoryEntryExistsOnSide(entry, pairIndex + 1);
-                    if (leftExists === rightExists) {
+                    if (!leftExists && !rightExists) {
+                        return;
+                    }
+
+                    if (leftExists && rightExists) {
+                        if (entry.status !== 'modified' && entry.status !== 'partial') {
+                            return;
+                        }
+
+                        const leftRow = findDirectoryRow(rowsContainer, entry.relativePath, pairIndex);
+                        const rightRow = findDirectoryRow(rowsContainer, entry.relativePath, pairIndex + 1);
+                        if (!isVisibleDirectoryRow(leftRow) || !isVisibleDirectoryRow(rightRow)) {
+                            return;
+                        }
+
+                        drawDirectoryModifiedConnector({
+                            leftRect,
+                            rightRect,
+                            containerRect,
+                            leftRowRect: leftRow.getBoundingClientRect(),
+                            rightRowRect: rightRow.getBoundingClientRect()
+                        });
                         return;
                     }
 
@@ -196,6 +217,44 @@
             }
 
             canvasContext.restore();
+        }
+
+        function drawDirectoryModifiedConnector({ leftRect, rightRect, containerRect, leftRowRect, rightRowRect }) {
+            const leftBounds = {
+                x: leftRect.right - containerRect.left + 2,
+                top: leftRowRect.top - containerRect.top + 1,
+                bottom: leftRowRect.bottom - containerRect.top - 1
+            };
+            const rightBounds = {
+                x: rightRect.left - containerRect.left - 2,
+                top: rightRowRect.top - containerRect.top + 1,
+                bottom: rightRowRect.bottom - containerRect.top - 1
+            };
+            const cpOffset = Math.abs(rightBounds.x - leftBounds.x) * 0.35;
+            const color = BLOCK_COLORS.replace;
+            const gradient = canvasContext.createLinearGradient(leftBounds.x, 0, rightBounds.x, 0);
+
+            gradient.addColorStop(0, color.leftFill);
+            gradient.addColorStop(1, color.rightFill);
+
+            const path = new Path2D();
+            path.moveTo(leftBounds.x, leftBounds.top);
+            path.bezierCurveTo(
+                leftBounds.x + cpOffset, leftBounds.top,
+                rightBounds.x - cpOffset, rightBounds.top,
+                rightBounds.x, rightBounds.top
+            );
+            path.lineTo(rightBounds.x, rightBounds.bottom);
+            path.bezierCurveTo(
+                rightBounds.x - cpOffset, rightBounds.bottom,
+                leftBounds.x + cpOffset, leftBounds.bottom,
+                leftBounds.x, leftBounds.bottom
+            );
+            path.closePath();
+
+            canvasContext.fillStyle = gradient;
+            canvasContext.fill(path);
+            strokeReplaceBlockOutline(leftBounds, rightBounds, cpOffset, leftRect, rightRect, containerRect, color.stroke);
         }
 
         function drawDirectoryAddConnector({ presentIsLeft, presentRect, absentY, leftRect, rightRect, containerRect }) {

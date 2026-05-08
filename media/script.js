@@ -46,6 +46,7 @@ let historyRailState = null;
 let activeHistoryRailTabId = null;
 let currentFileNavigation = { canGoPrevious: false, canGoNext: false };
 let activePaneSide = 'right';
+let activeDirectoryEntryPath = null;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -152,6 +153,7 @@ async function initializeMonaco() {
 function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null) {
     currentMode = MODE_TWO_WAY;
     historyMode = Boolean(history);
+    activeDirectoryEntryPath = null;
     hostEditableSides = normalizeEditableSides(nextEditableSides, historyMode);
     if (hostEditableSides.left && !hostEditableSides.right) {
         activePaneSide = 'left';
@@ -197,6 +199,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     currentDiffRows = [];
     scrollMaps = null;
     directoryEntries = entries || [];
+    activeDirectoryEntryPath = getDefaultDirectoryEntryPath(directoryEntries);
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(history);
@@ -890,6 +893,11 @@ function initializeChangeToolbar() {
 }
 
 function navigateFile(direction) {
+    if (currentMode === 'directory') {
+        navigateDirectoryEntry(direction);
+        return;
+    }
+
     if ((direction === 'previous' && !currentFileNavigation.canGoPrevious)
         || (direction === 'next' && !currentFileNavigation.canGoNext)) {
         return;
@@ -960,11 +968,26 @@ function setActiveDiffIndex(index, shouldReveal) {
 
 function updateChangeToolbarState() {
     const toolbar = getElement('change-toolbar');
-    const hasDiffs = currentMode === MODE_TWO_WAY && diffBlocks.length > 0;
-    toolbar.hidden = !hasDiffs;
+    const hasTwoWayDiffs = currentMode === MODE_TWO_WAY && diffBlocks.length > 0;
+    const directoryTargets = getNavigableDirectoryEntries();
+    const hasDirectoryTargets = currentMode === 'directory' && directoryTargets.length > 0;
+    toolbar.hidden = !(hasTwoWayDiffs || hasDirectoryTargets);
 
-    if (!hasDiffs) {
+    if (!(hasTwoWayDiffs || hasDirectoryTargets)) {
         setTextContent('change-position', '');
+        return;
+    }
+
+    if (hasDirectoryTargets) {
+        const currentIndex = getActiveDirectoryEntryIndex(directoryTargets);
+        setTextContent('change-position', `${currentIndex + 1} / ${directoryTargets.length}`);
+        getElement('previous-change').disabled = true;
+        getElement('next-change').disabled = true;
+        getElement('previous-file').disabled = currentIndex <= 0;
+        getElement('next-file').disabled = currentIndex >= directoryTargets.length - 1;
+        getElement('copy-left-to-right').disabled = true;
+        getElement('copy-right-to-left').disabled = true;
+        updateDirectoryEntrySelection();
         return;
     }
 
@@ -976,6 +999,59 @@ function updateChangeToolbarState() {
     getElement('next-file').disabled = !currentFileNavigation.canGoNext;
     getElement('copy-left-to-right').disabled = !isSideEditable('right');
     getElement('copy-right-to-left').disabled = !isSideEditable('left');
+}
+
+function getNavigableDirectoryEntries() {
+    return directoryEntries.filter((entry) => !entry.isDirectory && entry.status !== 'same');
+}
+
+function getDefaultDirectoryEntryPath(entries) {
+    return entries.find((entry) => !entry.isDirectory && entry.status !== 'same')?.relativePath ?? null;
+}
+
+function getActiveDirectoryEntryIndex(entries = getNavigableDirectoryEntries()) {
+    const currentIndex = entries.findIndex((entry) => entry.relativePath === activeDirectoryEntryPath);
+    if (currentIndex >= 0) {
+        return currentIndex;
+    }
+
+    if (entries.length === 0) {
+        return -1;
+    }
+
+    activeDirectoryEntryPath = entries[0].relativePath;
+    return 0;
+}
+
+function navigateDirectoryEntry(direction) {
+    const entries = getNavigableDirectoryEntries();
+    if (entries.length === 0) {
+        return;
+    }
+
+    const currentIndex = getActiveDirectoryEntryIndex(entries);
+    const nextIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
+    if (nextIndex < 0 || nextIndex >= entries.length) {
+        return;
+    }
+
+    activeDirectoryEntryPath = entries[nextIndex].relativePath;
+    updateChangeToolbarState();
+}
+
+function updateDirectoryEntrySelection() {
+    const container = getElement('dir-rows');
+    container.querySelectorAll('.dir-entry').forEach((row) => {
+        row.classList.toggle('is-active-directory-entry', row.dataset.path === activeDirectoryEntryPath);
+    });
+
+    if (!activeDirectoryEntryPath) {
+        return;
+    }
+
+    const activeRow = container.querySelector(`.dir-entry[data-path="${CSS.escape(activeDirectoryEntryPath)}"][data-side-index="0"]`)
+        || container.querySelector(`.dir-entry[data-path="${CSS.escape(activeDirectoryEntryPath)}"][data-side-index="1"]`);
+    activeRow?.scrollIntoView({ block: 'nearest' });
 }
 
 function updateFileNavigationState(fileNavigation, canReturnToDirectory) {
@@ -1118,10 +1194,23 @@ function initializeDirectoryViewEvents() {
             return;
         }
 
+        activeDirectoryEntryPath = relativePath;
+        updateChangeToolbarState();
         host.postMessage({
             type: 'openDirectoryEntry',
             relativePath
         });
+    });
+
+    container.addEventListener('click', (event) => {
+        const row = event.target instanceof Element ? event.target.closest('.dir-entry[data-is-dir="false"]') : null;
+        const relativePath = row?.getAttribute('data-path');
+        if (!relativePath || relativePath === activeDirectoryEntryPath) {
+            return;
+        }
+
+        activeDirectoryEntryPath = relativePath;
+        updateChangeToolbarState();
     });
 }
 

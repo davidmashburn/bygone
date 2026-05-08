@@ -949,6 +949,11 @@ body.web-host {
     background: color-mix(in srgb, var(--vscode-panel-border) 20%, transparent);
 }
 
+.dir-entry.is-active-directory-entry {
+    box-shadow: inset 0 0 0 1px rgba(79, 124, 255, 0.85);
+    background: color-mix(in srgb, rgba(79, 124, 255, 0.18) 70%, transparent);
+}
+
 .dir-entry--left-only,
 .dir-entry--right-only,
 .dir-entry--partial {
