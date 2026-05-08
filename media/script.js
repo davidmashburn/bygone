@@ -42,6 +42,7 @@ let multiDiffPairs = [];
 let historyRailState = null;
 let activeHistoryRailTabId = null;
 let currentFileNavigation = { canGoPrevious: false, canGoNext: false };
+let activePaneSide = 'right';
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -148,6 +149,11 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     currentMode = MODE_TWO_WAY;
     historyMode = Boolean(history);
     hostEditableSides = normalizeEditableSides(nextEditableSides, historyMode);
+    if (hostEditableSides.left && !hostEditableSides.right) {
+        activePaneSide = 'left';
+    } else if (hostEditableSides.right) {
+        activePaneSide = 'right';
+    }
     setCurrentDiffModel(diffModel);
     setActiveDiffIndex(diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1, false);
     directoryEntries = [];
@@ -165,6 +171,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     updateEditModeToolbar();
 
     ensureTwoWayEditors();
+    updateActivePaneHeader();
     updateEditorValues(leftContent, rightContent);
     updateTwoWayEditorOptions();
     applyDiffDecorations(diffModel);
@@ -294,6 +301,7 @@ function ensureTwoWayEditors() {
 
     leftEditor = createEditor(getElement('file1-content'), MODE_TWO_WAY, 'left');
     rightEditor = createEditor(getElement('file2-content'), MODE_TWO_WAY, 'right');
+    updateActivePaneHeader();
 }
 
 function createEditor(container, editorMode, side = null) {
@@ -347,6 +355,14 @@ function createEditor(container, editorMode, side = null) {
         connectorController.scheduleDrawConnections();
     });
 
+    editor.onDidFocusEditorText(() => {
+        if (editorMode !== MODE_TWO_WAY || !side) {
+            return;
+        }
+
+        setActivePane(side, false);
+    });
+
     registerEditorKeybindings(editor, editorMode);
 
     return editor;
@@ -367,6 +383,7 @@ function disposeTwoWayEditors() {
 
     getElement('file1-content').classList.remove('editor-host');
     getElement('file2-content').classList.remove('editor-host');
+    updateActivePaneHeader();
 }
 
 function disposeMultiEditors() {
@@ -758,6 +775,8 @@ function initializeDirectoryReturnToolbar() {
 }
 
 function initializeEditModeToolbar() {
+    getElement('file1-header')?.addEventListener('click', () => setActivePane('left', true));
+    getElement('file2-header')?.addEventListener('click', () => setActivePane('right', true));
     getElement('toggle-readonly').addEventListener('click', () => {
         if (!hasHostEditableSide()) {
             return;
@@ -768,6 +787,34 @@ function initializeEditModeToolbar() {
         updateEditModeToolbar();
         updateChangeToolbarState();
     });
+}
+
+function setActivePane(side, focusEditor) {
+    if (side !== 'left' && side !== 'right') {
+        return;
+    }
+
+    activePaneSide = side;
+    updateActivePaneHeader();
+
+    if (!focusEditor || currentMode !== MODE_TWO_WAY) {
+        return;
+    }
+
+    const editor = side === 'left' ? leftEditor : rightEditor;
+    editor?.focus();
+}
+
+function updateActivePaneHeader() {
+    const leftHeader = getElement('file1-header');
+    const rightHeader = getElement('file2-header');
+    if (!leftHeader || !rightHeader) {
+        return;
+    }
+
+    const isTwoWay = currentMode === MODE_TWO_WAY;
+    leftHeader.classList.toggle('is-active-pane', isTwoWay && activePaneSide === 'left');
+    rightHeader.classList.toggle('is-active-pane', isTwoWay && activePaneSide === 'right');
 }
 
 function initializeChangeToolbar() {
