@@ -214,6 +214,10 @@ The current release checklist and remaining publication blockers are tracked in 
 
 Architecture and implementation details are documented in [CODEBASE.md](./CODEBASE.md).
 
+## Walkthrough
+
+A screenshot-based walkthrough using Bygone on its own source tree lives in [docs/walkthrough.md](./docs/walkthrough.md).
+
 ## Why “Bygone”?
 
 **In short: this project is openly inspired by Meld, and Bygone is meant to carry that visual tradition into a more history-aware tool.**
