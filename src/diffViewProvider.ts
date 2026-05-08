@@ -91,6 +91,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 this.historyNavigationHandler(message.type === 'historyBack' ? 'back' : 'forward');
             }
 
+            if (isHistoryToggleStagedMessage(message) && this.historyStagedToggleHandler) {
+                this.historyStagedToggleHandler(message.includeStaged);
+            }
+
             if (isSelectHistoryEntryMessage(message) && this.historySelectionHandler) {
                 this.historySelectionHandler(message.index);
             }
@@ -370,11 +374,19 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                             <path d="M14 18l6-6-6-6" opacity="0.7"></path>
                         </svg>
                     </button>
+                    <button id="history-toggle-staged" class="history-button history-toggle-button" type="button" title="Include staged changes in history" aria-label="Include staged changes in history" aria-pressed="false">
+                        Staged
+                    </button>
                 </div>
                 <div class="history-side history-side-right">
                     <div id="history-right-commit" class="history-commit"></div>
                     <div id="history-right-time" class="history-time"></div>
                 </div>
+            </div>
+            <div id="directory-tree-toolbar" class="directory-tree-toolbar header-align-diff" hidden>
+                <button id="directory-expand-all" class="directory-tree-button" type="button" title="Expand all folders">Expand all</button>
+                <button id="directory-collapse-all" class="directory-tree-button" type="button" title="Collapse all folders">Collapse all</button>
+                <button id="directory-collapse-unchanged" class="directory-tree-button" type="button" title="Collapse unchanged folders">Collapse unchanged</button>
             </div>
         </div>
         <div id="diff-workspace">

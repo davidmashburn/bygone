@@ -168,6 +168,31 @@
         applyDirectoryVisibility(container);
     }
 
+    function expandAllDirectories(container) {
+        collapsedDirs.clear();
+        applyDirectoryVisibility(container);
+    }
+
+    function collapseAllDirectories(container, entries) {
+        collapsedDirs.clear();
+        for (const entry of entries || []) {
+            if (entry?.isDirectory && typeof entry.relativePath === 'string') {
+                collapsedDirs.add(entry.relativePath);
+            }
+        }
+        applyDirectoryVisibility(container);
+    }
+
+    function collapseUnchangedDirectories(container, entries) {
+        collapsedDirs.clear();
+        for (const entry of entries || []) {
+            if (entry?.isDirectory && entry.status === 'same' && typeof entry.relativePath === 'string') {
+                collapsedDirs.add(entry.relativePath);
+            }
+        }
+        applyDirectoryVisibility(container);
+    }
+
     function applyDirectoryVisibility(container) {
         const rows = container.querySelectorAll('.dir-entry');
 
@@ -237,6 +262,9 @@
         setStatus,
         resetScrollPositions,
         resetDirectoryView,
-        renderDirectoryView
+        renderDirectoryView,
+        expandAllDirectories,
+        collapseAllDirectories,
+        collapseUnchangedDirectories
     };
 }());

@@ -11,7 +11,10 @@ const {
     setStatus,
     resetScrollPositions,
     resetDirectoryView,
-    renderDirectoryView
+    renderDirectoryView,
+    expandAllDirectories,
+    collapseAllDirectories,
+    collapseUnchangedDirectories
 } = window.BygoneDom;
 
 const MODE_TWO_WAY = 'two-way';
@@ -102,6 +105,7 @@ window.addEventListener('load', async () => {
     connectorController.initializeCanvas();
     initializeHistoryRail();
     initializeHistoryToolbar();
+    initializeDirectoryTreeToolbar();
     initializeChangeToolbar();
     initializeDirectoryReturnToolbar();
     initializeEditModeToolbar();
@@ -169,6 +173,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     updateFileNavigationState(fileNavigation || null, canReturnToDirectory);
     updateDirectoryReturnToolbar(canReturnToDirectory);
     updateEditModeToolbar();
+    updateDirectoryTreeToolbar();
 
     ensureTwoWayEditors();
     updateActivePaneHeader();
@@ -199,6 +204,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     updateFileNavigationState(null, false);
     updateDirectoryReturnToolbar(false);
     updateEditModeToolbar();
+    updateDirectoryTreeToolbar();
     updateChangeToolbarState();
 
     const directoryLabels = Array.isArray(labels) && labels.length >= 2 ? labels : [leftLabel, rightLabel];
@@ -234,6 +240,7 @@ function showMultiDiff(panels, pairs) {
     updateFileNavigationState(null, false);
     updateDirectoryReturnToolbar(false);
     updateEditModeToolbar();
+    updateDirectoryTreeToolbar();
     updateChangeToolbarState();
 
     toggleView(VIEW_IDS.multiWay);
@@ -269,6 +276,7 @@ function showThreeWayMerge(message) {
     updateFileNavigationState(null, false);
     updateDirectoryReturnToolbar(false);
     updateEditModeToolbar();
+    updateDirectoryTreeToolbar();
     updateChangeToolbarState();
 
     toggleView(VIEW_IDS.threeWay);
@@ -730,6 +738,26 @@ function initializeHistoryToolbar() {
     getElement('history-forward').addEventListener('click', () => {
         host.postMessage({ type: 'historyForward' });
     });
+    getElement('history-toggle-staged').addEventListener('click', (event) => {
+        const button = event.currentTarget;
+        const nextIncludeStaged = button.getAttribute('aria-pressed') !== 'true';
+        host.postMessage({
+            type: 'historyToggleStaged',
+            includeStaged: nextIncludeStaged
+        });
+    });
+}
+
+function initializeDirectoryTreeToolbar() {
+    getElement('directory-expand-all').addEventListener('click', () => {
+        expandAllDirectories(getElement('dir-rows'));
+    });
+    getElement('directory-collapse-all').addEventListener('click', () => {
+        collapseAllDirectories(getElement('dir-rows'), directoryEntries);
+    });
+    getElement('directory-collapse-unchanged').addEventListener('click', () => {
+        collapseUnchangedDirectories(getElement('dir-rows'), directoryEntries);
+    });
 }
 
 function initializeHistoryRail() {
@@ -1136,21 +1164,30 @@ function updateHistoryToolbar(history) {
     const toolbar = getElement('history-toolbar');
     const backButton = getElement('history-back');
     const forwardButton = getElement('history-forward');
+    const stagedButton = getElement('history-toggle-staged');
 
     if (!history) {
         toolbar.hidden = true;
         clearHistoryToolbar();
+        stagedButton.setAttribute('aria-pressed', 'false');
+        stagedButton.classList.remove('is-active');
         return;
     }
 
     toolbar.hidden = false;
     backButton.disabled = !history.canGoBack;
     forwardButton.disabled = !history.canGoForward;
+    stagedButton.setAttribute('aria-pressed', history.includeStaged ? 'true' : 'false');
+    stagedButton.classList.toggle('is-active', Boolean(history.includeStaged));
     setTextContent('history-position', history.positionLabel);
     setTextContent('history-left-commit', history.leftCommitLabel);
     setTextContent('history-left-time', history.leftTimestamp);
     setTextContent('history-right-commit', history.rightCommitLabel);
     setTextContent('history-right-time', history.rightTimestamp);
+}
+
+function updateDirectoryTreeToolbar() {
+    getElement('directory-tree-toolbar').hidden = currentMode !== 'directory';
 }
 
 function updateHistoryRail(historyRail) {
