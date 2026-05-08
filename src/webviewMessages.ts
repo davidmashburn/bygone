@@ -11,6 +11,7 @@ export interface HistoryViewState {
     leftTimestamp: string;
     rightCommitLabel: string;
     rightTimestamp: string;
+    includeStaged?: boolean;
     rail?: HistoryRailState;
 }
 
@@ -137,6 +138,11 @@ export interface NavigateFileMessage {
     direction: 'previous' | 'next';
 }
 
+export interface HistoryToggleStagedMessage {
+    type: 'historyToggleStaged';
+    includeStaged: boolean;
+}
+
 export type WebviewInboundMessage =
     | ReadyMessage
     | RecomputeDiffMessage
@@ -144,7 +150,8 @@ export type WebviewInboundMessage =
     | OpenDirectoryEntryMessage
     | SelectHistoryEntryMessage
     | ReturnToDirectoryMessage
-    | NavigateFileMessage;
+    | NavigateFileMessage
+    | HistoryToggleStagedMessage;
 export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
 
 export function isReadyMessage(message: unknown): message is ReadyMessage {
@@ -175,6 +182,11 @@ export function isNavigateFileMessage(message: unknown): message is NavigateFile
     return getMessageType(message) === 'navigateFile'
         && (((message as NavigateFileMessage).direction) === 'previous'
             || ((message as NavigateFileMessage).direction) === 'next');
+}
+
+export function isHistoryToggleStagedMessage(message: unknown): message is HistoryToggleStagedMessage {
+    return getMessageType(message) === 'historyToggleStaged'
+        && typeof (message as HistoryToggleStagedMessage).includeStaged === 'boolean';
 }
 
 function getMessageType(message: unknown): string | undefined {

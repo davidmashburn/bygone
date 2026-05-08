@@ -15,6 +15,7 @@ export class FileComparator {
     private fileHistoryEntries: FileHistoryEntry[] = [];
     private fileHistoryIndex = 0;
     private activeHistoryFile: vscode.Uri | undefined;
+    private historyIncludeStaged = false;
     private currentDirectoryRoots: vscode.Uri[] = [];
     private readonly gitHistoryService = new GitHistoryService();
 
@@ -22,6 +23,9 @@ export class FileComparator {
         this.diffViewProvider = provider;
         this.diffViewProvider.setHistoryNavigationHandler((direction) => {
             void this.navigateFileHistory(direction);
+        });
+        this.diffViewProvider.setHistoryStagedToggleHandler((includeStaged) => {
+            void this.toggleHistoryStaged(includeStaged);
         });
         this.diffViewProvider.setHistorySelectionHandler((index) => {
             void this.selectFileHistoryEntry(index);
@@ -111,17 +115,7 @@ export class FileComparator {
                 return;
             }
 
-            const history = this.gitHistoryService.buildFileHistory(targetFile.fsPath);
-            if (history.length === 0) {
-                vscode.window.showWarningMessage('No git history with parents was found for that file.');
-                return;
-            }
-
-            this.activeHistoryFile = targetFile;
-            this.fileHistoryEntries = history;
-            this.fileHistoryIndex = 0;
-
-            await this.showCurrentHistoryEntry();
+            await this.loadFileHistory(targetFile, this.historyIncludeStaged);
         } catch (error) {
             this.showErrorMessage('Error loading file history', error);
         }
@@ -333,6 +327,7 @@ export class FileComparator {
             leftTimestamp: entry.parentTimestamp,
             rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
             rightTimestamp: entry.timestamp,
+            includeStaged: this.historyIncludeStaged,
             rail
         };
     }
@@ -365,6 +360,29 @@ export class FileComparator {
         }
 
         this.fileHistoryIndex = index;
+        await this.showCurrentHistoryEntry();
+    }
+
+    private async toggleHistoryStaged(includeStaged: boolean): Promise<void> {
+        if (!this.activeHistoryFile || this.historyIncludeStaged === includeStaged) {
+            return;
+        }
+
+        await this.loadFileHistory(this.activeHistoryFile, includeStaged);
+    }
+
+    private async loadFileHistory(targetFile: vscode.Uri, includeStaged: boolean): Promise<void> {
+        const history = this.gitHistoryService.buildFileHistory(targetFile.fsPath, includeStaged);
+        if (history.length === 0) {
+            vscode.window.showWarningMessage('No git history with parents was found for that file.');
+            return;
+        }
+
+        this.activeHistoryFile = targetFile;
+        this.historyIncludeStaged = includeStaged;
+        this.fileHistoryEntries = history;
+        this.fileHistoryIndex = 0;
+
         await this.showCurrentHistoryEntry();
     }
 

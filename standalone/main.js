@@ -43,6 +43,7 @@ let fileWatchers = [];
 let session = createEmptySession();
 let smokeTimeout;
 let pendingOpenPaths = [];
+let historyIncludeStagedPreference = false;
 
 if (!singleInstanceLock) {
     app.quit();
@@ -429,7 +430,7 @@ async function routeLaunchTarget(launchTarget) {
     }
 
     if (launchTarget.kind === 'directory-history') {
-        await openDirectoryHistory(launchTarget.dirPath);
+        await openDirectoryHistory(launchTarget.dirPath, Boolean(launchTarget.includeStaged));
         return;
     }
 
@@ -444,7 +445,7 @@ async function routeLaunchTarget(launchTarget) {
     }
 
     if (launchTarget.kind === 'history') {
-        await openHistory(launchTarget.filePath);
+        await openHistory(launchTarget.filePath, Boolean(launchTarget.includeStaged));
         return;
     }
 
@@ -469,55 +470,57 @@ function getCliArgsFromArgv(argv) {
 
 function parseLaunchArgs(args) {
     const { cwd, launchArgs } = normalizeLaunchArgs(args);
+    const includeStaged = launchArgs.includes('--include-staged') || launchArgs.includes('--staged');
+    const filteredArgs = launchArgs.filter((arg) => arg !== '--include-staged' && arg !== '--staged');
 
-    if (launchArgs.length === 0) {
-        return { kind: 'directory-history', dirPath: cwd };
+    if (filteredArgs.length === 0) {
+        return { kind: 'directory-history', dirPath: cwd, includeStaged };
     }
 
-    if (launchArgs[0] === '--diff' && launchArgs.length >= 3) {
-        return { kind: 'diff', leftPath: resolveLaunchPath(launchArgs[1], cwd), rightPath: resolveLaunchPath(launchArgs[2], cwd) };
+    if (filteredArgs[0] === '--diff' && filteredArgs.length >= 3) {
+        return { kind: 'diff', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd) };
     }
 
-    if (launchArgs[0] === '--dir' && launchArgs.length >= 3) {
-        return { kind: 'directory', leftPath: resolveLaunchPath(launchArgs[1], cwd), rightPath: resolveLaunchPath(launchArgs[2], cwd) };
+    if (filteredArgs[0] === '--dir' && filteredArgs.length >= 3) {
+        return { kind: 'directory', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd) };
     }
 
-    if (launchArgs[0] === '--dir3' && launchArgs.length >= 4) {
-        return { kind: 'multi-directory', paths: launchArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)) };
+    if (filteredArgs[0] === '--dir3' && filteredArgs.length >= 4) {
+        return { kind: 'multi-directory', paths: filteredArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)) };
     }
 
-    if (launchArgs[0] === '--diff3' && launchArgs.length >= 4) {
-        return { kind: 'multi-diff', paths: launchArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)) };
+    if (filteredArgs[0] === '--diff3' && filteredArgs.length >= 4) {
+        return { kind: 'multi-diff', paths: filteredArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)) };
     }
 
-    if (launchArgs[0] === '--history' && launchArgs.length >= 2) {
-        return { kind: 'history', filePath: resolveLaunchPath(launchArgs[1], cwd) };
+    if (filteredArgs[0] === '--history' && filteredArgs.length >= 2) {
+        return { kind: 'history', filePath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged };
     }
 
-    if (launchArgs[0] === '--dir-history' && launchArgs.length >= 2) {
-        return { kind: 'directory-history', dirPath: resolveLaunchPath(launchArgs[1], cwd) };
+    if (filteredArgs[0] === '--dir-history' && filteredArgs.length >= 2) {
+        return { kind: 'directory-history', dirPath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged };
     }
 
-    if (launchArgs[0] === '--test') {
+    if (filteredArgs[0] === '--test') {
         return { kind: 'test' };
     }
 
-    if (launchArgs[0] === '--smoke-test') {
+    if (filteredArgs[0] === '--smoke-test') {
         return { kind: 'smoke' };
     }
 
-    if (launchArgs.length === 1 && !launchArgs[0].startsWith('--')) {
-        const targetPath = resolveLaunchPath(launchArgs[0], cwd);
+    if (filteredArgs.length === 1 && !filteredArgs[0].startsWith('--')) {
+        const targetPath = resolveLaunchPath(filteredArgs[0], cwd);
         return getPathKind(targetPath) === 'directory'
-            ? { kind: 'directory-history', dirPath: targetPath }
-            : { kind: 'history', filePath: targetPath };
+            ? { kind: 'directory-history', dirPath: targetPath, includeStaged }
+            : { kind: 'history', filePath: targetPath, includeStaged };
     }
 
-    if (launchArgs.length >= 2 && !launchArgs[0].startsWith('--')) {
-        return { kind: 'pair', leftPath: resolveLaunchPath(launchArgs[0], cwd), rightPath: resolveLaunchPath(launchArgs[1], cwd) };
+    if (filteredArgs.length >= 2 && !filteredArgs[0].startsWith('--')) {
+        return { kind: 'pair', leftPath: resolveLaunchPath(filteredArgs[0], cwd), rightPath: resolveLaunchPath(filteredArgs[1], cwd) };
     }
 
-    return { kind: 'directory-history', dirPath: cwd };
+    return { kind: 'directory-history', dirPath: cwd, includeStaged };
 }
 
 function normalizeLaunchArgs(args) {
@@ -611,6 +614,11 @@ async function handleRendererMessage(message) {
 
     if (message.type === 'historyForward') {
         await navigateHistory('forward');
+        return;
+    }
+
+    if (message.type === 'historyToggleStaged' && typeof message.includeStaged === 'boolean') {
+        await updateHistoryIncludeStaged(message.includeStaged);
     }
 }
 
@@ -638,7 +646,12 @@ async function openDroppedFiles(paths) {
         .filter((candidate, index, all) => all.indexOf(candidate) === index);
 
     if (normalizedPaths.length === 1) {
-        await openHistory(normalizedPaths[0]);
+        const targetPath = normalizedPaths[0];
+        if (getPathKind(targetPath) === 'directory') {
+            await openDirectoryHistory(targetPath, historyIncludeStagedPreference);
+        } else {
+            await openHistory(targetPath, historyIncludeStagedPreference);
+        }
         return;
     }
 
@@ -680,7 +693,7 @@ async function openHistoryDialog() {
         return;
     }
 
-    await openHistory(result.filePaths[0]);
+    await openHistory(result.filePaths[0], historyIncludeStagedPreference);
 }
 
 async function openCompareThreeFilesDialog() {
@@ -771,7 +784,7 @@ async function openDirectories(dirs) {
     await sendCurrentDirectoryDiff();
 }
 
-async function openDirectoryHistory(dirPath) {
+async function openDirectoryHistory(dirPath, includeStaged = historyIncludeStagedPreference) {
     const resolvedDir = path.resolve(dirPath);
     if (getPathKind(resolvedDir) !== 'directory') {
         await showInfo('Directory history requires a directory.');
@@ -780,7 +793,7 @@ async function openDirectoryHistory(dirPath) {
 
     let historyState;
     try {
-        historyState = buildDirectoryHistory(resolvedDir);
+        historyState = buildDirectoryHistory(resolvedDir, includeStaged);
     } catch (error) {
         await showError(`Error loading directory history: ${getErrorMessage(error)}`);
         return;
@@ -802,10 +815,11 @@ async function openDirectoryHistory(dirPath) {
     };
 
     clearWatchers();
+    historyIncludeStagedPreference = Boolean(includeStaged);
     await sendCurrentDirectoryHistoryEntry();
 }
 
-function buildDirectoryHistory(resolvedDir) {
+function buildDirectoryHistory(resolvedDir, includeStaged = false) {
     const repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], resolvedDir));
     const realDir = fs.realpathSync(resolvedDir);
     const relativeDir = path.relative(repoRoot, realDir).replace(/\\/g, '/');
@@ -815,10 +829,21 @@ function buildDirectoryHistory(resolvedDir) {
         repoRoot
     ));
     const entries = [];
-    const workingTreeEntry = buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayName);
 
-    if (workingTreeEntry) {
-        entries.push(workingTreeEntry);
+    if (includeStaged) {
+        const workingTreeEntry = buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayName, true);
+        if (workingTreeEntry) {
+            entries.push(workingTreeEntry);
+        }
+        const stagedEntry = buildStagedDirectoryHistoryEntry(repoRoot, relativeDir, displayName);
+        if (stagedEntry) {
+            entries.push(stagedEntry);
+        }
+    } else {
+        const workingTreeEntry = buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayName, false);
+        if (workingTreeEntry) {
+            entries.push(workingTreeEntry);
+        }
     }
 
     for (const commit of commitRecords) {
@@ -844,6 +869,7 @@ function buildDirectoryHistory(resolvedDir) {
         relativeDir,
         dirPath: realDir,
         displayName,
+        includeStaged,
         entries,
         index: 0,
         viewRelativePath: null,
@@ -851,21 +877,42 @@ function buildDirectoryHistory(resolvedDir) {
     };
 }
 
-function buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayName) {
+function buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayName, includeStaged) {
     const headCommit = readHeadCommit(repoRoot);
-    if (!headCommit || !hasWorkingTreeDirectoryChanges(repoRoot, relativeDir)) {
+    const hasChanges = includeStaged
+        ? hasUnstagedDirectoryChanges(repoRoot, relativeDir)
+        : hasWorkingTreeDirectoryChanges(repoRoot, relativeDir);
+    if (!hasChanges) {
         return undefined;
     }
 
     return {
         commit: 'WORKTREE',
-        parentCommit: headCommit,
+        parentCommit: includeStaged ? 'INDEX' : headCommit,
         shortCommit: 'Working Tree',
         summary: '',
         timestamp: '',
-        parentSummary: readCommitSummary(repoRoot, headCommit),
-        parentTimestamp: readCommitTimestamp(repoRoot, headCommit),
-        labels: [`${displayName} @ HEAD`, `${displayName} @ Working Tree`]
+        parentSummary: includeStaged || !headCommit ? '' : readCommitSummary(repoRoot, headCommit),
+        parentTimestamp: includeStaged || !headCommit ? '' : readCommitTimestamp(repoRoot, headCommit),
+        labels: [`${displayName} @ ${includeStaged ? 'Staged' : 'HEAD'}`, `${displayName} @ Working Tree`]
+    };
+}
+
+function buildStagedDirectoryHistoryEntry(repoRoot, relativeDir, displayName) {
+    const headCommit = readHeadCommit(repoRoot);
+    if (!hasStagedDirectoryChanges(repoRoot, relativeDir)) {
+        return undefined;
+    }
+
+    return {
+        commit: 'INDEX',
+        parentCommit: headCommit,
+        shortCommit: 'Staged',
+        summary: '',
+        timestamp: '',
+        parentSummary: headCommit ? readCommitSummary(repoRoot, headCommit) : '',
+        parentTimestamp: headCommit ? readCommitTimestamp(repoRoot, headCommit) : '',
+        labels: [`${displayName} @ HEAD`, `${displayName} @ Staged`]
     };
 }
 
@@ -873,24 +920,49 @@ function hasWorkingTreeDirectoryChanges(repoRoot, relativeDir) {
     return runGit(['status', '--porcelain', '--', relativeDir || '.'], repoRoot).trim().length > 0;
 }
 
-function materializeGitTree(repoRoot, relativeDir, targetRoot, commit = 'HEAD') {
-    const lsArgs = ['ls-tree', '-r', '-z', '--name-only', commit];
-    if (relativeDir) {
-        lsArgs.push('--', relativeDir);
-    }
+function hasStagedDirectoryChanges(repoRoot, relativeDir) {
+    const output = runGit(['status', '--porcelain', '--', relativeDir || '.'], repoRoot);
+    return output.split('\n').some((line) => line.length >= 1 && line[0] !== ' ' && line[0] !== '?');
+}
 
-    const files = execFileSync('git', lsArgs, {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        maxBuffer: GIT_MAX_BUFFER_BYTES
-    })
-        .split('\0')
-        .filter((filePath) => filePath.length > 0);
+function hasUnstagedDirectoryChanges(repoRoot, relativeDir) {
+    const output = runGit(['status', '--porcelain', '--', relativeDir || '.'], repoRoot);
+    return output.split('\n').some((line) => line.length >= 2 && line[1] !== ' ');
+}
+
+function materializeGitTree(repoRoot, relativeDir, targetRoot, commit = 'HEAD') {
+    let files;
+    if (commit === 'INDEX') {
+        const lsArgs = ['ls-files', '-z', '--'];
+        if (relativeDir) {
+            lsArgs.push(relativeDir);
+        }
+        files = execFileSync('git', lsArgs, {
+            cwd: repoRoot,
+            encoding: 'utf8',
+            maxBuffer: GIT_MAX_BUFFER_BYTES
+        })
+            .split('\0')
+            .filter((filePath) => filePath.length > 0);
+    } else {
+        const lsArgs = ['ls-tree', '-r', '-z', '--name-only', commit];
+        if (relativeDir) {
+            lsArgs.push('--', relativeDir);
+        }
+
+        files = execFileSync('git', lsArgs, {
+            cwd: repoRoot,
+            encoding: 'utf8',
+            maxBuffer: GIT_MAX_BUFFER_BYTES
+        })
+            .split('\0')
+            .filter((filePath) => filePath.length > 0);
+    }
 
     for (const relativeFile of files) {
         const targetFile = path.join(targetRoot, relativeFile);
         fs.mkdirSync(path.dirname(targetFile), { recursive: true });
-        fs.writeFileSync(targetFile, readGitBlob(repoRoot, commit, relativeFile));
+        fs.writeFileSync(targetFile, readGitBlob(repoRoot, commit === 'INDEX' ? '' : commit, relativeFile));
     }
 }
 
@@ -1011,10 +1083,11 @@ function buildDirectoryHistoryViewState(dirHistory, entry) {
         canGoBack: dirHistory.index < dirHistory.entries.length - 1,
         canGoForward: dirHistory.index > 0,
         positionLabel: `${dirHistory.index + 1} / ${dirHistory.entries.length}`,
-        leftCommitLabel: `${entry.parentCommit.slice(0, 7)} ${entry.parentSummary}`.trim(),
+        leftCommitLabel: `${entry.parentCommit?.slice(0, 7) ?? ''} ${entry.parentSummary}`.trim(),
         leftTimestamp: entry.parentTimestamp,
         rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
         rightTimestamp: entry.timestamp,
+        includeStaged: Boolean(dirHistory.includeStaged),
         rail: buildDirectoryHistoryRailState(dirHistory, entry)
     };
 }
@@ -1085,6 +1158,9 @@ function ensureDirectoryHistoryEntryMaterialized(dirHistory, index) {
     if (entry.commit === 'WORKTREE') {
         materializeGitTree(dirHistory.repoRoot, dirHistory.relativeDir, leftRoot, entry.parentCommit);
         materializeWorkingTree(dirHistory.repoRoot, dirHistory.relativeDir, rightRoot);
+    } else if (entry.commit === 'INDEX') {
+        materializeGitTree(dirHistory.repoRoot, dirHistory.relativeDir, leftRoot, entry.parentCommit);
+        materializeGitTree(dirHistory.repoRoot, dirHistory.relativeDir, rightRoot, 'INDEX');
     } else {
         materializeGitTree(dirHistory.repoRoot, dirHistory.relativeDir, leftRoot, entry.parentCommit);
         materializeGitTree(dirHistory.repoRoot, dirHistory.relativeDir, rightRoot, entry.commit);
@@ -1199,12 +1275,12 @@ async function openDiff(leftPath, rightPath) {
     await sendCurrentDiff();
 }
 
-async function openHistory(filePath) {
+async function openHistory(filePath, includeStaged = historyIncludeStagedPreference) {
     const resolvedPath = path.resolve(filePath);
     let entries;
 
     try {
-        entries = gitHistoryService.buildFileHistory(resolvedPath);
+        entries = gitHistoryService.buildFileHistory(resolvedPath, includeStaged);
     } catch (error) {
         await showError(`Error loading file history: ${getErrorMessage(error)}`);
         return;
@@ -1222,7 +1298,8 @@ async function openHistory(filePath) {
         history: {
             filePath: resolvedPath,
             entries,
-            index: 0
+            index: 0,
+            includeStaged: Boolean(includeStaged)
         },
         directory: null,
         multi: null,
@@ -1230,6 +1307,7 @@ async function openHistory(filePath) {
     };
 
     clearWatchers();
+    historyIncludeStagedPreference = Boolean(includeStaged);
     await sendCurrentHistoryEntry();
 }
 
@@ -1598,10 +1676,11 @@ async function sendCurrentHistoryEntry() {
             canGoBack: session.history.index < session.history.entries.length - 1,
             canGoForward: session.history.index > 0,
             positionLabel: `${session.history.index + 1} / ${session.history.entries.length}`,
-            leftCommitLabel: `${entry.parentCommit.slice(0, 7)} ${entry.parentSummary}`.trim(),
+            leftCommitLabel: `${entry.parentCommit?.slice(0, 7) ?? ''} ${entry.parentSummary}`.trim(),
             leftTimestamp: entry.parentTimestamp,
             rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
             rightTimestamp: entry.timestamp,
+            includeStaged: Boolean(session.history.includeStaged),
             rail
         }
     });
@@ -1699,6 +1778,40 @@ async function navigateHistory(direction) {
     }
 
     await sendCurrentHistoryEntry();
+}
+
+async function updateHistoryIncludeStaged(includeStaged) {
+    historyIncludeStagedPreference = includeStaged;
+
+    if (session.mode === 'history' && session.history) {
+        if (Boolean(session.history.includeStaged) === includeStaged) {
+            return;
+        }
+        if (session.history.entries.some((entry) => entry.rightDirty)) {
+            await showInfo('Save or reload your history edits before changing staged view.');
+            return;
+        }
+
+        await openHistory(session.history.filePath, includeStaged);
+        return;
+    }
+
+    if (session.mode === 'directory-history' && session.dirHistory) {
+        if (Boolean(session.dirHistory.includeStaged) === includeStaged) {
+            return;
+        }
+        if (session.dirHistory.entries.some((entry) => entry.rightDirty)) {
+            await showInfo('Save or reload your directory history edits before changing staged view.');
+            return;
+        }
+
+        const viewRelativePath = session.dirHistory.viewRelativePath;
+        await openDirectoryHistory(session.dirHistory.dirPath, includeStaged);
+        if (session.mode === 'directory-history' && session.dirHistory) {
+            session.dirHistory.viewRelativePath = viewRelativePath;
+            await sendCurrentDirectoryHistoryEntry();
+        }
+    }
 }
 
 async function selectHistoryEntry(index) {

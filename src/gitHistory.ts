@@ -55,11 +55,11 @@ interface CommitMetadata {
 }
 
 export class GitHistoryService {
-    public buildFileHistory(filePath: string): FileHistoryEntry[] {
-        return this.buildFileHistoryDescriptors(filePath).map((entry) => this.materializeFileHistoryEntry(entry));
+    public buildFileHistory(filePath: string, includeStaged = false): FileHistoryEntry[] {
+        return this.buildFileHistoryDescriptors(filePath, includeStaged).map((entry) => this.materializeFileHistoryEntry(entry));
     }
 
-    public buildFileHistoryDescriptors(filePath: string): FileHistoryEntryDescriptor[] {
+    public buildFileHistoryDescriptors(filePath: string, includeStaged = false): FileHistoryEntryDescriptor[] {
         const canonicalFilePath = fs.realpathSync(filePath);
         const repoRoot = fs.realpathSync(this.runGitCommand(['rev-parse', '--show-toplevel'], path.dirname(canonicalFilePath)));
         const relativePath = path.relative(repoRoot, canonicalFilePath).replace(/\\/g, '/');
@@ -78,7 +78,7 @@ export class GitHistoryService {
                 parentMetadataByCommit
             ))
             .filter((entry): entry is FileHistoryEntryDescriptor => entry !== undefined);
-        const topEntries = this.buildTopHistoryDescriptors(canonicalFilePath, repoRoot, relativePath);
+        const topEntries = this.buildTopHistoryDescriptors(canonicalFilePath, repoRoot, relativePath, includeStaged);
 
         return [...topEntries, ...commitEntries];
     }
@@ -113,7 +113,8 @@ export class GitHistoryService {
     private buildTopHistoryDescriptors(
         filePath: string,
         repoRoot: string,
-        relativePath: string
+        relativePath: string,
+        includeStaged: boolean
     ): FileHistoryEntryDescriptor[] {
         const headCommit = this.readHeadCommit(repoRoot);
 
@@ -125,7 +126,41 @@ export class GitHistoryService {
         const fileName = path.basename(filePath);
         const entries: FileHistoryEntryDescriptor[] = [];
 
-        if (workingTreeContent !== headContent) {
+        if (includeStaged) {
+            if (workingTreeContent !== indexContent) {
+                entries.push({
+                    commit: 'WORKTREE',
+                    parentCommit: 'INDEX',
+                    shortCommit: 'Working Tree',
+                    summary: '',
+                    timestamp: '',
+                    parentSummary: '',
+                    parentTimestamp: '',
+                    leftLabel: `${fileName} @ Staged`,
+                    rightLabel: `${fileName} @ Working Tree`,
+                    filePath,
+                    repoRoot,
+                    relativePath
+                });
+            }
+
+            if (indexContent !== headContent) {
+                entries.push({
+                    commit: 'INDEX',
+                    parentCommit: headCommit,
+                    shortCommit: 'Staged',
+                    summary: '',
+                    timestamp: '',
+                    parentSummary: headMetadata.summary,
+                    parentTimestamp: headMetadata.timestamp,
+                    leftLabel: `${fileName} @ HEAD`,
+                    rightLabel: `${fileName} @ Staged`,
+                    filePath,
+                    repoRoot,
+                    relativePath
+                });
+            }
+        } else if (workingTreeContent !== headContent) {
             entries.push({
                 commit: 'WORKTREE',
                 parentCommit: headCommit,
@@ -136,22 +171,6 @@ export class GitHistoryService {
                 parentTimestamp: headMetadata.timestamp,
                 leftLabel: `${fileName} @ HEAD`,
                 rightLabel: `${fileName} @ Working Tree`,
-                filePath,
-                repoRoot,
-                relativePath
-            });
-        }
-        if (indexContent !== headContent) {
-            entries.push({
-                commit: 'INDEX',
-                parentCommit: headCommit,
-                shortCommit: 'Staged',
-                summary: '',
-                timestamp: '',
-                parentSummary: headMetadata.summary,
-                parentTimestamp: headMetadata.timestamp,
-                leftLabel: `${fileName} @ HEAD`,
-                rightLabel: `${fileName} @ Staged`,
                 filePath,
                 repoRoot,
                 relativePath

@@ -6,6 +6,7 @@ import {
     DirectoryEntry,
     HistoryViewState,
     isHistoryNavigationMessage,
+    isHistoryToggleStagedMessage,
     isOpenDirectoryEntryMessage,
     isNavigateFileMessage,
     isReadyMessage,
@@ -30,6 +31,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         file2: string;
     };
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
+    private historyStagedToggleHandler?: (includeStaged: boolean) => void;
     private historySelectionHandler?: (index: number) => void;
     private directoryEntryOpenHandler?: (relativePath: string) => void;
     private fileNavigationHandler?: (direction: 'previous' | 'next') => void;
@@ -38,6 +40,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
     public setHistoryNavigationHandler(handler: (direction: 'back' | 'forward') => void): void {
         this.historyNavigationHandler = handler;
+    }
+
+    public setHistoryStagedToggleHandler(handler: (includeStaged: boolean) => void): void {
+        this.historyStagedToggleHandler = handler;
     }
 
     public setHistorySelectionHandler(handler: (index: number) => void): void {

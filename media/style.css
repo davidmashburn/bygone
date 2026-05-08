@@ -318,6 +318,7 @@ body.web-host {
     align-items: center;
     justify-content: center;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .history-button.icon-button {
@@ -348,6 +349,16 @@ body.web-host {
     padding: 0 10px;
     cursor: pointer;
     font: inherit;
+}
+
+.history-button.is-active,
+.history-button[aria-pressed="true"] {
+    border-color: rgba(79, 124, 255, 0.78);
+    background: color-mix(in srgb, rgba(79, 124, 255, 0.18) 68%, var(--vscode-button-secondaryBackground, var(--vscode-button-background)));
+}
+
+.history-toggle-button {
+    min-width: 78px;
 }
 
 .history-position {
