@@ -2213,7 +2213,29 @@ async function sendCurrentHistoryEntry() {
     });
 
     updateWindowTitle(`${fileName} History`);
-    scheduleCaptureIfNeeded();
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        setTimeout(() => {
+            void mainWindow.webContents.executeJavaScript(`(() => ({
+                fileInfo: document.getElementById('file-info')?.textContent,
+                file1: document.getElementById('file1-header')?.textContent,
+                file2: document.getElementById('file2-header')?.textContent,
+                historyPosition: document.getElementById('history-position')?.textContent
+            }))()`)
+                .then((_snapshot) => {
+                    if (captureMode) {
+                        scheduleCaptureIfNeeded();
+                    }
+                })
+                .catch((error) => {
+                    if (captureMode) {
+                        console.error(`Bygone capture failed: ${getErrorMessage(error)}`);
+                        process.exitCode = 1;
+                        app.exit(1);
+                    }
+                });
+        }, 400);
+    }
 }
 
 function buildHistoryEditableSides(entry) {
@@ -2788,11 +2810,13 @@ function updateWindowTitle(title) {
 }
 
 function postOrQueue(message) {
-    pendingMessage = message;
-
     if (hostReady) {
+        pendingMessage = undefined;
         postToRenderer(message);
+        return;
     }
+
+    pendingMessage = message;
 }
 
 function postToRenderer(message) {
@@ -3041,8 +3065,13 @@ function scheduleCaptureIfNeeded() {
     }
 
     captureScheduled = true;
-    setTimeout(() => {
+    const attemptCapture = () => {
         if (!mainWindow || mainWindow.isDestroyed() || !captureOutputPath) {
+            return;
+        }
+
+        if (!hostReady || mainWindow.webContents.isLoadingMainFrame()) {
+            setTimeout(attemptCapture, 120);
             return;
         }
 
@@ -3057,5 +3086,7 @@ function scheduleCaptureIfNeeded() {
                 process.exitCode = 1;
                 app.exit(1);
             });
-    }, 700);
+    };
+
+    setTimeout(attemptCapture, 700);
 }
