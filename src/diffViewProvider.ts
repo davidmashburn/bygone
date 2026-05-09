@@ -266,7 +266,8 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             panels: files.map((file) => ({
                 id: file.uri.toString(),
                 label: path.basename(file.uri.path),
-                content: file.content
+                content: file.content,
+                editable: false
             })),
             pairs: files.slice(0, -1).map((file, index) => ({
                 leftIndex: index,

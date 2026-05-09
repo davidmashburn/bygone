@@ -68,6 +68,7 @@ export interface MultiDiffPanel {
     id: string;
     label: string;
     content: string;
+    editable?: boolean;
 }
 
 export interface MultiDiffPair {
@@ -167,6 +168,12 @@ export interface MultiRemovePanelMessage {
     panelId: string;
 }
 
+export interface MultiUpdatePanelContentMessage {
+    type: 'multiUpdatePanelContent';
+    panelId: string;
+    content: string;
+}
+
 export type WebviewInboundMessage =
     | ReadyMessage
     | RecomputeDiffMessage
@@ -179,7 +186,8 @@ export type WebviewInboundMessage =
     | MultiSetActivePanelMessage
     | MultiSetActivePairMessage
     | MultiAddPanelMessage
-    | MultiRemovePanelMessage;
+    | MultiRemovePanelMessage
+    | MultiUpdatePanelContentMessage;
 export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
 
 export function isReadyMessage(message: unknown): message is ReadyMessage {
@@ -237,6 +245,12 @@ export function isMultiAddPanelMessage(message: unknown): message is MultiAddPan
 export function isMultiRemovePanelMessage(message: unknown): message is MultiRemovePanelMessage {
     return getMessageType(message) === 'multiRemovePanel'
         && typeof (message as MultiRemovePanelMessage).panelId === 'string';
+}
+
+export function isMultiUpdatePanelContentMessage(message: unknown): message is MultiUpdatePanelContentMessage {
+    return getMessageType(message) === 'multiUpdatePanelContent'
+        && typeof (message as MultiUpdatePanelContentMessage).panelId === 'string'
+        && typeof (message as MultiUpdatePanelContentMessage).content === 'string';
 }
 
 function getMessageType(message: unknown): string | undefined {

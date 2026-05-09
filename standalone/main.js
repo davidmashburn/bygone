@@ -694,6 +694,20 @@ async function handleRendererMessage(message) {
         return;
     }
 
+    if (message.type === 'multiUpdatePanelContent'
+        && typeof message.panelId === 'string'
+        && typeof message.content === 'string'
+        && session.mode === 'multi-diff'
+        && session.multi) {
+        const panel = session.multi.files.find((entry) => entry.id === message.panelId);
+        if (panel) {
+            panel.content = message.content;
+            panel.dirty = panel.content !== panel.savedContent;
+            updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
+        }
+        return;
+    }
+
     if (message.type === 'historyBack') {
         await navigateHistory('back');
         return;
@@ -1798,7 +1812,8 @@ async function sendCurrentMultiDiff() {
     const panels = session.multi.files.map((file) => ({
         id: file.id,
         label: file.label,
-        content: file.content
+        content: file.content,
+        editable: file.editable !== false
     }));
 
     const activePanelId = session.multi.activePanelId
@@ -2132,6 +2147,10 @@ async function saveSide(side) {
         return saveDirectoryHistorySide(side);
     }
 
+    if (session.mode === 'multi-diff') {
+        return saveActiveMultiPanel();
+    }
+
     if (session.mode !== 'diff') {
         return;
     }
@@ -2215,6 +2234,10 @@ async function saveAllDirtySides() {
         return saveDirtyDirectoryHistoryEntries();
     }
 
+    if (session.mode === 'multi-diff') {
+        return saveDirtyMultiPanels();
+    }
+
     if (session.mode !== 'diff') {
         return true;
     }
@@ -2233,6 +2256,42 @@ async function saveAllDirtySides() {
         }
     }
 
+    return true;
+}
+
+async function saveActiveMultiPanel() {
+    if (session.mode !== 'multi-diff' || !session.multi?.activePanelId) {
+        return false;
+    }
+
+    const panel = session.multi.files.find((entry) => entry.id === session.multi.activePanelId);
+    if (!panel?.path) {
+        return false;
+    }
+
+    fs.writeFileSync(panel.path, panel.content, 'utf8');
+    panel.savedContent = panel.content;
+    panel.dirty = false;
+    updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
+    return true;
+}
+
+async function saveDirtyMultiPanels() {
+    if (session.mode !== 'multi-diff' || !session.multi) {
+        return true;
+    }
+
+    for (const panel of session.multi.files) {
+        if (!panel.dirty || !panel.path) {
+            continue;
+        }
+
+        fs.writeFileSync(panel.path, panel.content, 'utf8');
+        panel.savedContent = panel.content;
+        panel.dirty = false;
+    }
+
+    updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
     return true;
 }
 
@@ -2385,6 +2444,10 @@ function hasUnsavedChanges() {
         return session.left.dirty || session.right.dirty;
     }
 
+    if (session.mode === 'multi-diff') {
+        return Boolean(session.multi?.files.some((file) => file.dirty));
+    }
+
     if (session.mode === 'history') {
         return Boolean(session.history?.entries.some((entry) => entry.rightDirty));
     }
@@ -2420,11 +2483,15 @@ function createSideState(filePath, content) {
 }
 
 function createMultiPanelState(filePath) {
+    const content = readFileContent(filePath);
     return {
         id: `panel-${nextMultiPanelId++}`,
         path: filePath,
         label: path.basename(filePath),
-        content: readFileContent(filePath)
+        content,
+        savedContent: content,
+        dirty: false,
+        editable: true
     };
 }
 

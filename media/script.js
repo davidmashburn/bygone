@@ -275,12 +275,14 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     setTextContent('file-info', `Comparing ${panels.length} file${panels.length === 1 ? '' : 's'}`);
 
     renderMultiDiffShell(panels);
+    suppressEditorEvents = true;
     multiEditors = panels.map((panel, index) => {
-        const editor = createEditor(getElement(`multi-pane-${index}-content`), MODE_MULTI_WAY);
-        editor.updateOptions({ readOnly: true });
+        const editor = createEditor(getElement(`multi-pane-${index}-content`), MODE_MULTI_WAY, panel.id);
+        editor.updateOptions({ readOnly: panel.editable === false });
         editor.setValue(panel.content);
         return editor;
     });
+    suppressEditorEvents = false;
     multiDecorationIds = multiEditors.map(() => []);
     updateMultiActivePairModel(false);
     resetMultiScrollPositions();
@@ -364,12 +366,29 @@ function createEditor(container, editorMode, side = null) {
     });
 
     editor.onDidChangeModelContent(() => {
-        if (editorMode !== MODE_TWO_WAY || suppressEditorEvents || !isSideEditable(side)) {
+        if (suppressEditorEvents) {
             return;
         }
 
-        scheduleRecompute();
-        connectorController.scheduleDrawConnections();
+        if (editorMode === MODE_TWO_WAY) {
+            if (!isSideEditable(side)) {
+                return;
+            }
+
+            scheduleRecompute();
+            connectorController.scheduleDrawConnections();
+            return;
+        }
+
+        if (editorMode === MODE_MULTI_WAY && side) {
+            recomputeMultiDiffState();
+            host.postMessage({
+                type: 'multiUpdatePanelContent',
+                panelId: side,
+                content: editor.getValue().replace(/\r\n/g, '\n')
+            });
+            connectorController.scheduleDrawConnections();
+        }
     });
 
     editor.onDidScrollChange(() => {
