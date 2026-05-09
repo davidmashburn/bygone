@@ -208,6 +208,49 @@ function createMainWindow() {
 }
 
 function installApplicationMenu() {
+    const isMultiDiff = session.mode === 'multi-diff';
+    const fileActionItems = isMultiDiff
+        ? [
+            {
+                label: 'Save Active File',
+                accelerator: 'CmdOrCtrl+S',
+                click: () => { void saveSide('left'); }
+            },
+            {
+                label: 'Save All',
+                accelerator: 'CmdOrCtrl+Shift+S',
+                click: () => { void saveAllDirtySides(); }
+            },
+            {
+                label: 'Reload Active File',
+                click: () => { void reloadSide('left'); }
+            }
+        ]
+        : [
+            {
+                label: 'Save Left',
+                accelerator: 'CmdOrCtrl+S',
+                click: () => { void saveSide('left'); }
+            },
+            {
+                label: 'Save Right',
+                accelerator: 'CmdOrCtrl+Shift+S',
+                click: () => { void saveSide('right'); }
+            },
+            {
+                label: 'Save All',
+                click: () => { void saveAllDirtySides(); }
+            },
+            {
+                label: 'Reload Left',
+                click: () => { void reloadSide('left'); }
+            },
+            {
+                label: 'Reload Right',
+                click: () => { void reloadSide('right'); }
+            }
+        ];
+
     const template = [
         {
             label: 'File',
@@ -254,24 +297,7 @@ function installApplicationMenu() {
                     click: () => { void compareTestFiles(); }
                 },
                 { type: 'separator' },
-                {
-                    label: 'Save Left',
-                    accelerator: 'CmdOrCtrl+S',
-                    click: () => { void saveSide('left'); }
-                },
-                {
-                    label: 'Save Right',
-                    accelerator: 'CmdOrCtrl+Shift+S',
-                    click: () => { void saveSide('right'); }
-                },
-                {
-                    label: 'Reload Left',
-                    click: () => { void reloadSide('left'); }
-                },
-                {
-                    label: 'Reload Right',
-                    click: () => { void reloadSide('right'); }
-                },
+                ...fileActionItems,
                 { type: 'separator' },
                 { role: 'quit' }
             ]
@@ -1869,6 +1895,8 @@ async function sendCurrentMultiDiff() {
 }
 
 async function sendCurrentSession() {
+    installApplicationMenu();
+
     if (session.mode === 'diff') {
         await sendCurrentDiff();
         return;
