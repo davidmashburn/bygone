@@ -574,7 +574,10 @@ body.web-host {
     height: 100%;
     padding: 12px;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+    align-content: stretch;
+    justify-content: start;
 }
 
 .multi-pane {
@@ -596,6 +599,8 @@ body.web-host {
     height: 33px;
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 0 10px;
     border-bottom: 1px solid var(--vscode-panel-border);
     background: var(--vscode-panel-background);
@@ -604,6 +609,47 @@ body.web-host {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.multi-pane.is-active-pane {
+    border-color: color-mix(in srgb, rgba(79, 124, 255, 0.72) 72%, var(--vscode-panel-border));
+}
+
+.multi-pane.is-active-pane .multi-pane-header {
+    background: color-mix(in srgb, rgba(79, 124, 255, 0.18) 68%, var(--vscode-panel-background));
+    box-shadow: inset 0 2px 0 color-mix(in srgb, rgba(79, 124, 255, 0.85) 72%, transparent);
+}
+
+.multi-pane-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.multi-pane-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+
+.multi-pane-action {
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+    background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+    line-height: 1;
+    padding: 0;
+}
+
+.multi-pane-action:disabled {
+    opacity: 0.45;
+    cursor: default;
 }
 
 .multi-pane-content {
@@ -619,6 +665,11 @@ body.web-host {
     border-top: 1px solid var(--vscode-panel-border);
     border-bottom: 1px solid var(--vscode-panel-border);
     background: color-mix(in srgb, var(--vscode-editor-background) 90%, var(--vscode-panel-border));
+}
+
+.multi-gutter.is-active-pair {
+    border-color: color-mix(in srgb, rgba(79, 124, 255, 0.72) 72%, var(--vscode-panel-border));
+    background: color-mix(in srgb, rgba(79, 124, 255, 0.08) 55%, var(--vscode-editor-background));
 }
 
 .multi-gutter-header {
@@ -907,7 +958,7 @@ body.web-host {
     flex: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr);
-    overflow-y: auto;
+    overflow: hidden;
     border: 1px solid var(--vscode-panel-border);
     background: var(--vscode-editor-background);
     font-family: var(--vscode-editor-font-family);
@@ -919,6 +970,9 @@ body.web-host {
 .dir-column {
     min-width: 0;
     border-inline: 1px solid color-mix(in srgb, var(--vscode-panel-border) 40%, transparent);
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
 }
 
 .dir-gutter {

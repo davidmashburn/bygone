@@ -47,6 +47,7 @@ let smokeTimeout;
 let pendingOpenPaths = [];
 let historyIncludeStagedPreference = false;
 let captureScheduled = false;
+let nextMultiPanelId = 1;
 
 if (!singleInstanceLock) {
     app.quit();
@@ -110,12 +111,13 @@ function createMainWindow() {
         height: 960,
         minWidth: 960,
         minHeight: 640,
-        show: !(smokeTestMode || captureMode),
+        show: !smokeTestMode,
         title: APP_NAME,
         webPreferences: {
             sandbox: false,
             contextIsolation: true,
             nodeIntegration: false,
+            backgroundThrottling: false,
             preload: path.join(__dirname, 'standalone-preload.js')
         }
     });
@@ -219,8 +221,21 @@ function installApplicationMenu() {
                     click: () => { void openCompareDirectoriesDialog(); }
                 },
                 {
-                    label: 'Compare Three Files (Prototype)…',
-                    click: () => { void openCompareThreeFilesDialog(); }
+                    label: 'Compare Multiple Files…',
+                    click: () => { void openCompareMultiFilesDialog(); }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Add Panel to Left…',
+                    click: () => { void addPanelFromMenu('left'); }
+                },
+                {
+                    label: 'Add Panel to Right…',
+                    click: () => { void addPanelFromMenu('right'); }
+                },
+                {
+                    label: 'Remove Active Panel',
+                    click: () => { void removeActivePanelFromMenu(); }
                 },
                 {
                     label: 'Compare Three Directories (Prototype)…',
@@ -495,8 +510,16 @@ function parseLaunchArgs(args) {
         return { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath };
     }
 
-    if (filteredArgs[0] === '--diff' && filteredArgs.length >= 3) {
-        return { kind: 'diff', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd), capturePath };
+    if (filteredArgs[0] === '--diff' && filteredArgs.length >= 2) {
+        if (filteredArgs.length === 2) {
+            return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath };
+        }
+
+        if (filteredArgs.length === 3) {
+            return { kind: 'diff', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd), capturePath };
+        }
+
+        return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath };
     }
 
     if (filteredArgs[0] === '--dir' && filteredArgs.length >= 3) {
@@ -535,7 +558,11 @@ function parseLaunchArgs(args) {
     }
 
     if (filteredArgs.length >= 2 && !filteredArgs[0].startsWith('--')) {
-        return { kind: 'pair', leftPath: resolveLaunchPath(filteredArgs[0], cwd), rightPath: resolveLaunchPath(filteredArgs[1], cwd), capturePath };
+        if (filteredArgs.length === 2) {
+            return { kind: 'pair', leftPath: resolveLaunchPath(filteredArgs[0], cwd), rightPath: resolveLaunchPath(filteredArgs[1], cwd), capturePath };
+        }
+
+        return { kind: 'multi-diff', paths: filteredArgs.map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath };
     }
 
     return { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath };
@@ -625,6 +652,28 @@ async function handleRendererMessage(message) {
         return;
     }
 
+    if (message.type === 'multiSetActivePanel' && typeof message.panelId === 'string') {
+        setActiveMultiPanel(message.panelId);
+        return;
+    }
+
+    if (message.type === 'multiSetActivePair' && Number.isInteger(message.pairIndex)) {
+        setActiveMultiPair(message.pairIndex);
+        return;
+    }
+
+    if (message.type === 'multiAddPanel'
+        && typeof message.anchorPanelId === 'string'
+        && (message.side === 'left' || message.side === 'right')) {
+        await addMultiPanel(message.anchorPanelId, message.side);
+        return;
+    }
+
+    if (message.type === 'multiRemovePanel' && typeof message.panelId === 'string') {
+        await removeMultiPanel(message.panelId);
+        return;
+    }
+
     if (message.type === 'historyBack') {
         await navigateHistory('back');
         return;
@@ -678,10 +727,14 @@ async function openDroppedFiles(paths) {
         return;
     }
 
-    if (normalizedPaths.length === 3) {
+    if (normalizedPaths.length >= 3) {
         const kinds = normalizedPaths.map((candidate) => getPathKind(candidate));
         if (kinds.every((kind) => kind === 'directory')) {
-            await openDirectories(normalizedPaths);
+            if (normalizedPaths.length === 3) {
+                await openDirectories(normalizedPaths);
+            } else {
+                await showInfo('Directory compare currently supports two or three directories.');
+            }
             return;
         }
 
@@ -690,11 +743,11 @@ async function openDroppedFiles(paths) {
             return;
         }
 
-        await showInfo('Drop three files for 3-panel diff or three directories for directory compare.');
+        await showInfo('Drop only files for multi-panel diff, or only directories for directory compare.');
         return;
     }
 
-    await showInfo('Drop one file for history, two files or directories for compare, or three files/directories for 3-panel compare.');
+    await showInfo('Drop one file for history, two files or directories for compare, or three or more files for multi-panel compare.');
 }
 
 async function openHistoryDialog() {
@@ -714,21 +767,26 @@ async function openHistoryDialog() {
     await openHistory(result.filePaths[0], historyIncludeStagedPreference);
 }
 
-async function openCompareThreeFilesDialog() {
+async function openCompareMultiFilesDialog() {
     if (!mainWindow) {
         return;
     }
 
     const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Select three files to compare',
+        title: 'Select files to compare',
         properties: ['openFile', 'multiSelections']
     });
 
-    if (result.canceled || result.filePaths.length < 3) {
+    if (result.canceled || result.filePaths.length < 1) {
         return;
     }
 
-    await openMultiDiff(result.filePaths.slice(0, 3));
+    if (result.filePaths.length === 2) {
+        await openDiff(result.filePaths[0], result.filePaths[1]);
+        return;
+    }
+
+    await openMultiDiff(result.filePaths);
 }
 
 async function openCompareThreeDirectoriesDialog() {
@@ -1373,10 +1431,12 @@ async function openPathPair(leftPath, rightPath, expectedMode) {
 
 async function openMultiDiff(filePaths) {
     const resolvedPaths = filePaths.map((filePath) => path.resolve(filePath));
-    if (resolvedPaths.length < 3 || !resolvedPaths.every((filePath) => getPathKind(filePath) === 'file')) {
-        await showInfo('Three-file compare requires three files.');
+    if (resolvedPaths.length < 1 || !resolvedPaths.every((filePath) => getPathKind(filePath) === 'file')) {
+        await showInfo('Multi-file compare requires one or more files.');
         return;
     }
+
+    const files = resolvedPaths.map((filePath) => createMultiPanelState(filePath));
 
     session = {
         mode: 'multi-diff',
@@ -1385,17 +1445,141 @@ async function openMultiDiff(filePaths) {
         history: null,
         directory: null,
         multi: {
-            files: resolvedPaths.map((filePath) => ({
-                path: filePath,
-                label: path.basename(filePath),
-                content: readFileContent(filePath)
-            }))
+            files,
+            activePanelId: files[0]?.id ?? null,
+            activePairIndex: files.length > 1 ? 0 : null
         },
         dirHistory: null
     };
 
     clearWatchers();
     await sendCurrentMultiDiff();
+}
+
+function normalizeMultiPairIndex(activePairIndex, panelCount) {
+    if (panelCount < 2) {
+        return null;
+    }
+
+    if (!Number.isInteger(activePairIndex)) {
+        return 0;
+    }
+
+    return Math.max(0, Math.min(activePairIndex, panelCount - 2));
+}
+
+function getMultiPanelIndexById(panelId) {
+    if (session.mode !== 'multi-diff' || !session.multi) {
+        return -1;
+    }
+
+    return session.multi.files.findIndex((file) => file.id === panelId);
+}
+
+function setActiveMultiPanel(panelId) {
+    if (session.mode !== 'multi-diff' || !session.multi) {
+        return false;
+    }
+
+    const panelIndex = getMultiPanelIndexById(panelId);
+    if (panelIndex < 0) {
+        return false;
+    }
+
+    session.multi.activePanelId = session.multi.files[panelIndex].id;
+    if (session.multi.files.length > 1) {
+        session.multi.activePairIndex = normalizeMultiPairIndex(
+            session.multi.activePairIndex ?? Math.max(0, panelIndex - 1),
+            session.multi.files.length
+        );
+    } else {
+        session.multi.activePairIndex = null;
+    }
+    return true;
+}
+
+function setActiveMultiPair(pairIndex) {
+    if (session.mode !== 'multi-diff' || !session.multi) {
+        return false;
+    }
+
+    const normalizedIndex = normalizeMultiPairIndex(pairIndex, session.multi.files.length);
+    if (normalizedIndex === null) {
+        session.multi.activePairIndex = null;
+        return false;
+    }
+
+    session.multi.activePairIndex = normalizedIndex;
+    if (!session.multi.activePanelId || getMultiPanelIndexById(session.multi.activePanelId) < 0) {
+        session.multi.activePanelId = session.multi.files[normalizedIndex].id;
+    }
+    return true;
+}
+
+async function addMultiPanel(anchorPanelId, side) {
+    if (!mainWindow || session.mode !== 'multi-diff' || !session.multi) {
+        return;
+    }
+
+    const anchorIndex = getMultiPanelIndexById(anchorPanelId);
+    if (anchorIndex < 0) {
+        return;
+    }
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: side === 'left' ? 'Add panel to the left' : 'Add panel to the right',
+        properties: ['openFile']
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+        return;
+    }
+
+    const panel = createMultiPanelState(path.resolve(result.filePaths[0]));
+    const insertIndex = side === 'left' ? anchorIndex : anchorIndex + 1;
+    session.multi.files.splice(insertIndex, 0, panel);
+    session.multi.activePanelId = panel.id;
+    session.multi.activePairIndex = normalizeMultiPairIndex(
+        side === 'left' ? insertIndex : insertIndex - 1,
+        session.multi.files.length
+    );
+    await sendCurrentMultiDiff();
+}
+
+async function removeMultiPanel(panelId) {
+    if (session.mode !== 'multi-diff' || !session.multi || session.multi.files.length <= 1) {
+        return;
+    }
+
+    const panelIndex = getMultiPanelIndexById(panelId);
+    if (panelIndex < 0) {
+        return;
+    }
+
+    session.multi.files.splice(panelIndex, 1);
+    const nextPanelIndex = Math.min(panelIndex, session.multi.files.length - 1);
+    session.multi.activePanelId = session.multi.files[nextPanelIndex]?.id ?? null;
+    session.multi.activePairIndex = normalizeMultiPairIndex(
+        session.multi.activePairIndex ?? Math.max(0, nextPanelIndex - 1),
+        session.multi.files.length
+    );
+    await sendCurrentMultiDiff();
+}
+
+async function addPanelFromMenu(side) {
+    if (session.mode !== 'multi-diff' || !session.multi?.activePanelId) {
+        return;
+    }
+
+    await addMultiPanel(session.multi.activePanelId, side);
+}
+
+async function removeActivePanelFromMenu() {
+    if (session.mode !== 'multi-diff' || !session.multi?.activePanelId) {
+        return;
+    }
+
+    await removeMultiPanel(session.multi.activePanelId);
 }
 
 async function openDirectoryEntry(relativePath) {
@@ -1535,6 +1719,27 @@ function buildDirectoryHistoryFileNavigationState(dirHistory, entry) {
 }
 
 async function navigateSiblingFile(direction) {
+    if (session.mode === 'multi-diff' && session.multi) {
+        const currentIndex = getMultiPanelIndexById(session.multi.activePanelId || '');
+        if (currentIndex < 0) {
+            return;
+        }
+
+        const nextIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
+        const nextPanel = session.multi.files[nextIndex];
+        if (!nextPanel) {
+            return;
+        }
+
+        session.multi.activePanelId = nextPanel.id;
+        const pairIndex = direction === 'previous'
+            ? Math.max(0, nextIndex)
+            : Math.max(0, nextIndex - 1);
+        session.multi.activePairIndex = normalizeMultiPairIndex(pairIndex, session.multi.files.length);
+        await sendCurrentMultiDiff();
+        return;
+    }
+
     if (session.mode === 'directory-history' && session.dirHistory?.viewRelativePath) {
         const entry = ensureDirectoryHistoryEntryMaterialized(session.dirHistory, session.dirHistory.index);
         const entries = buildChangedFileEntries(buildMultiDirectoryComparison(entry.dirs));
@@ -1571,9 +1776,18 @@ async function sendCurrentMultiDiff() {
     }
 
     const panels = session.multi.files.map((file) => ({
+        id: file.id,
         label: file.label,
         content: file.content
     }));
+
+    const activePanelId = session.multi.activePanelId
+        && panels.some((panel) => panel.id === session.multi.activePanelId)
+        ? session.multi.activePanelId
+        : (panels[0]?.id ?? null);
+    const activePairIndex = normalizeMultiPairIndex(session.multi.activePairIndex, panels.length);
+    session.multi.activePanelId = activePanelId;
+    session.multi.activePairIndex = activePairIndex;
 
     postOrQueue({
         type: 'showMultiDiff',
@@ -1582,10 +1796,38 @@ async function sendCurrentMultiDiff() {
             leftIndex: index,
             rightIndex: index + 1,
             diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
-        }))
+        })),
+        activePanelId,
+        activePairIndex
     });
 
-    updateWindowTitle(panels.map((panel) => panel.label).join(' ↔ '));
+    updateWindowTitle(panels.map((panel) => panel.label).join(' ↔ ') || 'Multi-Panel Compare');
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        setTimeout(() => {
+            void mainWindow.webContents.executeJavaScript(`(() => ({
+                fileInfo: document.getElementById('file-info')?.textContent,
+                panelCount: document.querySelectorAll('.multi-pane').length,
+                gutterCount: document.querySelectorAll('.multi-gutter').length
+            }))()`)
+                .then((snapshot) => {
+                    if (smokeTestMode) {
+                        finalizeSmokeTest(snapshot);
+                        return;
+                    }
+                    if (captureMode) {
+                        scheduleCaptureIfNeeded();
+                    }
+                })
+                .catch((error) => {
+                    if (smokeTestMode || captureMode) {
+                        console.error(`Bygone ${captureMode ? 'capture' : 'smoke test'} failed: ${getErrorMessage(error)}`);
+                        process.exitCode = 1;
+                        app.exit(1);
+                    }
+                });
+        }, 400);
+    }
 }
 
 async function sendCurrentSession() {
@@ -2154,6 +2396,15 @@ function createSideState(filePath, content) {
         content,
         savedContent: content,
         dirty: false
+    };
+}
+
+function createMultiPanelState(filePath) {
+    return {
+        id: `panel-${nextMultiPanelId++}`,
+        path: filePath,
+        label: path.basename(filePath),
+        content: readFileContent(filePath)
     };
 }
 

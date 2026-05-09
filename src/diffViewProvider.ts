@@ -264,6 +264,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         return {
             type: 'showMultiDiff',
             panels: files.map((file) => ({
+                id: file.uri.toString(),
                 label: path.basename(file.uri.path),
                 content: file.content
             })),
@@ -271,7 +272,9 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 leftIndex: index,
                 rightIndex: index + 1,
                 diffModel: buildTwoWayDiffModel(file.content, files[index + 1].content)
-            }))
+            })),
+            activePanelId: files[0]?.uri.toString() ?? null,
+            activePairIndex: files.length > 1 ? 0 : null
         };
     }
 

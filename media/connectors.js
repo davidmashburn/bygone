@@ -158,6 +158,10 @@
                 const rightRect = columns[pairIndex + 1].getBoundingClientRect();
 
                 entries.forEach((entry, index) => {
+                    if (entry.isDirectory) {
+                        return;
+                    }
+
                     const leftExists = directoryEntryExistsOnSide(entry, pairIndex);
                     const rightExists = directoryEntryExistsOnSide(entry, pairIndex + 1);
                     if (!leftExists && !rightExists) {

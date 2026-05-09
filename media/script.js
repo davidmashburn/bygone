@@ -19,6 +19,8 @@ const {
 
 const MODE_TWO_WAY = 'two-way';
 const MODE_MULTI_WAY = 'multi-way';
+const MULTI_PANEL_WIDTH = 470;
+const MULTI_GUTTER_WIDTH = 96;
 
 let currentMode = MODE_TWO_WAY;
 let diffBlocks = [];
@@ -42,11 +44,16 @@ let directoryEntries = [];
 let multiEditors = [];
 let multiDecorationIds = [];
 let multiDiffPairs = [];
+let multiPanels = [];
+let activeMultiPanelId = null;
+let activeMultiPairIndex = null;
+let multiPanelMutationEnabled = false;
 let historyRailState = null;
 let activeHistoryRailTabId = null;
 let currentFileNavigation = { canGoPrevious: false, canGoNext: false };
 let activePaneSide = 'right';
 let activeDirectoryEntryPath = null;
+let suppressDirectoryScrollSync = false;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -93,7 +100,7 @@ host.onMessage((message) => {
             return;
         }
 
-        showMultiDiff(message.panels, message.pairs);
+        showMultiDiff(message.panels, message.pairs, message.activePanelId ?? null, message.activePairIndex ?? null);
         return;
     }
 
@@ -111,6 +118,7 @@ window.addEventListener('load', async () => {
     initializeDirectoryReturnToolbar();
     initializeEditModeToolbar();
     initializeDirectoryViewEvents();
+    initializeMultiDiffInteractions();
     initializeStandaloneDropTarget();
     await initializeMonaco();
     host.postMessage({ type: 'ready' });
@@ -131,7 +139,12 @@ window.addEventListener('load', async () => {
     }
 
     if (pendingMultiPayload) {
-        showMultiDiff(pendingMultiPayload.panels, pendingMultiPayload.pairs);
+        showMultiDiff(
+            pendingMultiPayload.panels,
+            pendingMultiPayload.pairs,
+            pendingMultiPayload.activePanelId ?? null,
+            pendingMultiPayload.activePairIndex ?? null
+        );
         pendingMultiPayload = undefined;
     }
 });
@@ -218,12 +231,15 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
 
     resetDirectoryView();
     renderDirectoryView(getElement('dir-rows'), directoryEntries, directoryLabels);
+    attachDirectoryScrollSync();
+    resetDirectoryScrollPositions();
+    updateDirectoryEntrySelection();
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
 }
 
-function showMultiDiff(panels, pairs) {
-    if (!Array.isArray(panels) || panels.length < 2) {
+function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null) {
+    if (!Array.isArray(panels) || panels.length < 1) {
         return;
     }
 
@@ -236,8 +252,12 @@ function showMultiDiff(panels, pairs) {
     scrollMaps = null;
     directoryEntries = [];
     disposeTwoWayEditors();
-    disposeMultiEditors();
+    disposeMultiEditors(false);
+    multiPanels = panels;
     multiDiffPairs = pairs || [];
+    activeMultiPanelId = resolveActiveMultiPanelId(panels, nextActivePanelId);
+    activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, nextActivePairIndex, activeMultiPanelId, panels);
+    multiPanelMutationEnabled = host.environment === 'standalone';
     updateHistoryToolbar(null);
     updateHistoryRail(null);
     updateFileNavigationState(null, false);
@@ -248,7 +268,7 @@ function showMultiDiff(panels, pairs) {
 
     toggleView(VIEW_IDS.multiWay);
     setStatus('', false);
-    setTextContent('file-info', `Comparing ${panels.length} files`);
+    setTextContent('file-info', `Comparing ${panels.length} file${panels.length === 1 ? '' : 's'}`);
 
     renderMultiDiffShell(panels);
     multiEditors = panels.map((panel, index) => {
@@ -258,7 +278,7 @@ function showMultiDiff(panels, pairs) {
         return editor;
     });
     multiDecorationIds = multiEditors.map(() => []);
-    applyMultiDiffDecorations(multiDiffPairs);
+    updateMultiActivePairModel(false);
     resetMultiScrollPositions();
     layoutEditors();
     connectorController.resizeCanvas();
@@ -397,11 +417,17 @@ function disposeTwoWayEditors() {
     updateActivePaneHeader();
 }
 
-function disposeMultiEditors() {
+function disposeMultiEditors(resetState = true) {
     multiEditors.forEach((editor) => editor.dispose());
     multiEditors = [];
     multiDecorationIds = [];
     multiDiffPairs = [];
+    if (resetState) {
+        multiPanels = [];
+        activeMultiPanelId = null;
+        activeMultiPairIndex = null;
+        multiPanelMutationEnabled = false;
+    }
     const container = getElement(VIEW_IDS.multiWay);
     if (container) {
         container.innerHTML = '';
@@ -411,18 +437,28 @@ function disposeMultiEditors() {
 function renderMultiDiffShell(panels) {
     const columns = [];
     const children = [];
+    let totalWidth = 0;
 
     panels.forEach((panel, index) => {
-        columns.push('minmax(220px, 1fr)');
+        columns.push(`${MULTI_PANEL_WIDTH}px`);
+        totalWidth += MULTI_PANEL_WIDTH;
         children.push(
-            `<div class="multi-pane" data-index="${index}">`
-            + `<div class="multi-pane-header">${escapeHtml(panel.label)}</div>`
+            `<div class="multi-pane" data-index="${index}" data-panel-id="${escapeAttr(panel.id)}">`
+            + `<div class="multi-pane-header" data-panel-id="${escapeAttr(panel.id)}">`
+            + `<span class="multi-pane-title">${escapeHtml(panel.label)}</span>`
+            + `<span class="multi-pane-actions${multiPanelMutationEnabled ? '' : ' hidden'}">`
+            + `<button class="multi-pane-action" type="button" data-multi-add-side="left" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the left" aria-label="Add panel to the left">+</button>`
+            + `<button class="multi-pane-action" type="button" data-multi-remove-panel="${escapeAttr(panel.id)}" title="Remove panel" aria-label="Remove panel">−</button>`
+            + `<button class="multi-pane-action" type="button" data-multi-add-side="right" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the right" aria-label="Add panel to the right">+</button>`
+            + `</span>`
+            + `</div>`
             + `<div id="multi-pane-${index}-content" class="multi-pane-content"></div>`
             + '</div>'
         );
 
         if (index < panels.length - 1) {
-            columns.push('96px');
+            columns.push(`${MULTI_GUTTER_WIDTH}px`);
+            totalWidth += MULTI_GUTTER_WIDTH;
             children.push(
                 `<div class="multi-gutter" data-pair-index="${index}">`
                 + `<div class="multi-gutter-header">${escapeHtml(panel.label)}:${escapeHtml(panels[index + 1].label)}</div>`
@@ -433,7 +469,47 @@ function renderMultiDiffShell(panels) {
 
     const container = getElement(VIEW_IDS.multiWay);
     container.style.gridTemplateColumns = columns.join(' ');
+    container.style.minWidth = `${Math.max(totalWidth, container.parentElement?.clientWidth || 0)}px`;
     container.innerHTML = children.join('');
+}
+
+function resolveActiveMultiPanelId(panels, nextActivePanelId) {
+    if (nextActivePanelId && panels.some((panel) => panel.id === nextActivePanelId)) {
+        return nextActivePanelId;
+    }
+
+    return panels[0]?.id ?? null;
+}
+
+function resolveActiveMultiPairIndex(pairs, nextActivePairIndex, nextActivePanelId, panels) {
+    if (!Array.isArray(pairs) || pairs.length === 0) {
+        return null;
+    }
+
+    if (Number.isInteger(nextActivePairIndex) && nextActivePairIndex >= 0 && nextActivePairIndex < pairs.length) {
+        return nextActivePairIndex;
+    }
+
+    const panelIndex = panels.findIndex((panel) => panel.id === nextActivePanelId);
+    if (panelIndex < 0) {
+        return 0;
+    }
+
+    return Math.max(0, Math.min(panelIndex, pairs.length - 1));
+}
+
+function updateActiveMultiShellState() {
+    const container = getElement(VIEW_IDS.multiWay);
+    container.querySelectorAll('.multi-pane').forEach((pane) => {
+        pane.classList.toggle('is-active-pane', pane.getAttribute('data-panel-id') === activeMultiPanelId);
+    });
+    container.querySelectorAll('.multi-gutter').forEach((gutter) => {
+        const pairIndex = Number.parseInt(gutter.getAttribute('data-pair-index') || '', 10);
+        gutter.classList.toggle('is-active-pair', Number.isInteger(pairIndex) && pairIndex === activeMultiPairIndex);
+    });
+    container.querySelectorAll('[data-multi-remove-panel]').forEach((button) => {
+        button.disabled = multiPanels.length <= 1;
+    });
 }
 
 function updateEditorValues(leftContent, rightContent) {
@@ -546,13 +622,13 @@ function addActiveBlockDecorations(target, start, end, targetLineCount) {
 function applyMultiDiffDecorations(pairs) {
     const decorations = multiEditors.map(() => []);
 
-    for (const pair of pairs || []) {
+    (pairs || []).forEach((pair, pairIndex) => {
         const leftDecorations = decorations[pair.leftIndex];
         const rightDecorations = decorations[pair.rightIndex];
         const diffModel = pair.diffModel;
 
         if (!leftDecorations || !rightDecorations || !diffModel) {
-            continue;
+            return;
         }
 
         for (const block of diffModel.blocks || []) {
@@ -578,7 +654,15 @@ function applyMultiDiffDecorations(pairs) {
 
         addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
         addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
-    }
+
+        if (pairIndex === activeMultiPairIndex) {
+            const activeBlock = diffModel.blocks?.[activeDiffIndex];
+            if (activeBlock) {
+                addActiveBlockDecorations(leftDecorations, activeBlock.leftStart, activeBlock.leftEnd, multiEditors[pair.leftIndex].getModel()?.getLineCount() ?? 0);
+                addActiveBlockDecorations(rightDecorations, activeBlock.rightStart, activeBlock.rightEnd, multiEditors[pair.rightIndex].getModel()?.getLineCount() ?? 0);
+            }
+        }
+    });
 
     multiDecorationIds = multiEditors.map((editor, index) => (
         editor.deltaDecorations(multiDecorationIds[index] || [], decorations[index])
@@ -805,6 +889,60 @@ function initializeDirectoryReturnToolbar() {
     getElement('back-to-directory').addEventListener('click', () => returnToDirectory());
 }
 
+function initializeMultiDiffInteractions() {
+    const container = getElement(VIEW_IDS.multiWay);
+
+    container.addEventListener('scroll', () => {
+        if (currentMode === MODE_MULTI_WAY) {
+            connectorController.scheduleDrawConnections();
+        }
+    });
+
+    container.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target.closest('[data-panel-id], [data-pair-index], [data-multi-add-side], [data-multi-remove-panel]') : null;
+        if (!target) {
+            return;
+        }
+
+        const addSide = target.getAttribute('data-multi-add-side');
+        const addPanelId = target.getAttribute('data-panel-id');
+        if (addSide && addPanelId) {
+            event.stopPropagation();
+            if (multiPanelMutationEnabled) {
+                host.postMessage({
+                    type: 'multiAddPanel',
+                    anchorPanelId: addPanelId,
+                    side: addSide
+                });
+            }
+            return;
+        }
+
+        const removePanelId = target.getAttribute('data-multi-remove-panel');
+        if (removePanelId) {
+            event.stopPropagation();
+            if (multiPanelMutationEnabled) {
+                host.postMessage({
+                    type: 'multiRemovePanel',
+                    panelId: removePanelId
+                });
+            }
+            return;
+        }
+
+        const pairIndex = Number.parseInt(target.getAttribute('data-pair-index') || '', 10);
+        if (Number.isInteger(pairIndex)) {
+            setActiveMultiPair(pairIndex, true);
+            return;
+        }
+
+        const panelId = target.getAttribute('data-panel-id');
+        if (panelId) {
+            setActiveMultiPanel(panelId, true);
+        }
+    });
+}
+
 function initializeEditModeToolbar() {
     getElement('file1-header')?.addEventListener('click', () => setActivePane('left', true));
     getElement('file2-header')?.addEventListener('click', () => setActivePane('right', true));
@@ -848,6 +986,92 @@ function updateActivePaneHeader() {
     rightHeader.classList.toggle('is-active-pane', isTwoWay && activePaneSide === 'right');
 }
 
+function setActiveMultiPanel(panelId, notifyHost) {
+    if (currentMode !== MODE_MULTI_WAY) {
+        return;
+    }
+
+    const panelIndex = multiPanels.findIndex((panel) => panel.id === panelId);
+    if (panelIndex < 0) {
+        return;
+    }
+
+    activeMultiPanelId = panelId;
+    if (multiDiffPairs.length > 0) {
+        const currentPair = getActiveMultiPair();
+        const pairStillFits = currentPair
+            && (currentPair.leftIndex === panelIndex || currentPair.rightIndex === panelIndex);
+        if (!pairStillFits) {
+            const preferredPairIndex = panelIndex === 0 ? 0 : Math.min(panelIndex - 1, multiDiffPairs.length - 1);
+            activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, preferredPairIndex, activeMultiPanelId, multiPanels);
+        }
+    } else {
+        activeMultiPairIndex = null;
+    }
+    updateMultiActivePairModel(false);
+    updateActiveMultiShellState();
+
+    if (notifyHost) {
+        host.postMessage({
+            type: 'multiSetActivePanel',
+            panelId
+        });
+    }
+}
+
+function setActiveMultiPair(pairIndex, notifyHost) {
+    if (currentMode !== MODE_MULTI_WAY || pairIndex < 0 || pairIndex >= multiDiffPairs.length) {
+        return;
+    }
+
+    activeMultiPairIndex = pairIndex;
+    updateMultiActivePairModel(false);
+    updateActiveMultiShellState();
+
+    if (notifyHost) {
+        host.postMessage({
+            type: 'multiSetActivePair',
+            pairIndex
+        });
+    }
+}
+
+function updateMultiActivePairModel(shouldReveal) {
+    const activePair = getActiveMultiPair();
+    if (!activePair) {
+        setCurrentDiffModel({ blocks: [], rows: [] });
+        setActiveDiffIndex(-1, false);
+        updateActiveMultiShellState();
+        return;
+    }
+
+    setCurrentDiffModel(activePair.diffModel);
+    if (diffBlocks.length === 0) {
+        setActiveDiffIndex(-1, false);
+    } else if (activeDiffIndex < 0 || activeDiffIndex >= diffBlocks.length) {
+        setActiveDiffIndex(0, false);
+    } else {
+        updateChangeToolbarState();
+    }
+
+    applyMultiDiffDecorations(multiDiffPairs);
+    updateActiveMultiShellState();
+
+    if (shouldReveal && diffBlocks.length > 0) {
+        revealActiveDiff(true);
+    } else {
+        connectorController.scheduleDrawConnections();
+    }
+}
+
+function getActiveMultiPair() {
+    if (!Number.isInteger(activeMultiPairIndex) || activeMultiPairIndex < 0 || activeMultiPairIndex >= multiDiffPairs.length) {
+        return null;
+    }
+
+    return multiDiffPairs[activeMultiPairIndex];
+}
+
 function initializeChangeToolbar() {
     getElement('previous-file').addEventListener('click', () => navigateFile('previous'));
     getElement('next-file').addEventListener('click', () => navigateFile('next'));
@@ -857,7 +1081,7 @@ function initializeChangeToolbar() {
     getElement('copy-right-to-left').addEventListener('click', () => copyCurrentChange('right-to-left'));
 
     window.addEventListener('keydown', (event) => {
-        if (event.defaultPrevented || currentMode !== MODE_TWO_WAY) {
+        if (event.defaultPrevented || (currentMode !== MODE_TWO_WAY && currentMode !== MODE_MULTI_WAY)) {
             return;
         }
 
@@ -898,6 +1122,26 @@ function navigateFile(direction) {
         return;
     }
 
+    if (currentMode === MODE_MULTI_WAY) {
+        const currentIndex = multiPanels.findIndex((panel) => panel.id === activeMultiPanelId);
+        if (currentIndex < 0) {
+            return;
+        }
+
+        const nextIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
+        const nextPanel = multiPanels[nextIndex];
+        if (!nextPanel) {
+            return;
+        }
+
+        setActiveMultiPanel(nextPanel.id, true);
+        const pairIndex = direction === 'previous'
+            ? Math.max(0, nextIndex)
+            : Math.max(0, nextIndex - 1);
+        setActiveMultiPair(pairIndex, true);
+        return;
+    }
+
     if ((direction === 'previous' && !currentFileNavigation.canGoPrevious)
         || (direction === 'next' && !currentFileNavigation.canGoNext)) {
         return;
@@ -931,7 +1175,7 @@ function updateEditModeToolbar() {
 }
 
 function registerEditorKeybindings(editor, editorMode) {
-    if (editorMode !== MODE_TWO_WAY) {
+    if (editorMode !== MODE_TWO_WAY && editorMode !== MODE_MULTI_WAY) {
         return;
     }
 
@@ -942,7 +1186,7 @@ function registerEditorKeybindings(editor, editorMode) {
 }
 
 function navigateDiff(direction) {
-    if (currentMode !== MODE_TWO_WAY || diffBlocks.length === 0) {
+    if ((currentMode !== MODE_TWO_WAY && currentMode !== MODE_MULTI_WAY) || diffBlocks.length === 0) {
         return;
     }
 
@@ -959,6 +1203,8 @@ function setActiveDiffIndex(index, shouldReveal) {
 
     if (leftEditor && rightEditor && currentDiffModel) {
         applyDiffDecorations(currentDiffModel);
+    } else if (currentMode === MODE_MULTI_WAY) {
+        applyMultiDiffDecorations(multiDiffPairs);
     }
 
     if (shouldReveal) {
@@ -968,12 +1214,14 @@ function setActiveDiffIndex(index, shouldReveal) {
 
 function updateChangeToolbarState() {
     const toolbar = getElement('change-toolbar');
-    const hasTwoWayDiffs = currentMode === MODE_TWO_WAY && diffBlocks.length > 0;
+    const isCompareMode = currentMode === MODE_TWO_WAY || currentMode === 'directory' || currentMode === MODE_MULTI_WAY || currentMode === 'three-way';
+    const hasTwoWayMode = currentMode === MODE_TWO_WAY;
+    const hasTwoWayDiffs = hasTwoWayMode && diffBlocks.length > 0;
     const directoryTargets = getNavigableDirectoryEntries();
     const hasDirectoryTargets = currentMode === 'directory' && directoryTargets.length > 0;
-    toolbar.hidden = !(hasTwoWayDiffs || hasDirectoryTargets);
+    toolbar.hidden = !isCompareMode;
 
-    if (!(hasTwoWayDiffs || hasDirectoryTargets)) {
+    if (!isCompareMode) {
         setTextContent('change-position', '');
         return;
     }
@@ -991,14 +1239,40 @@ function updateChangeToolbarState() {
         return;
     }
 
-    const safeIndex = clamp(activeDiffIndex, 0, diffBlocks.length - 1);
-    setTextContent('change-position', `${safeIndex + 1} / ${diffBlocks.length}`);
-    getElement('previous-change').disabled = diffBlocks.length === 0;
-    getElement('next-change').disabled = diffBlocks.length === 0;
-    getElement('previous-file').disabled = !currentFileNavigation.canGoPrevious;
-    getElement('next-file').disabled = !currentFileNavigation.canGoNext;
-    getElement('copy-left-to-right').disabled = !isSideEditable('right');
-    getElement('copy-right-to-left').disabled = !isSideEditable('left');
+    if (hasTwoWayMode) {
+        const safeIndex = diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1;
+        setTextContent('change-position', diffBlocks.length > 0 ? `${safeIndex + 1} / ${diffBlocks.length}` : '0 / 0');
+        getElement('previous-change').disabled = diffBlocks.length === 0;
+        getElement('next-change').disabled = diffBlocks.length === 0;
+        getElement('previous-file').disabled = !currentFileNavigation.canGoPrevious;
+        getElement('next-file').disabled = !currentFileNavigation.canGoNext;
+        getElement('copy-left-to-right').disabled = !isSideEditable('right');
+        getElement('copy-right-to-left').disabled = !isSideEditable('left');
+        return;
+    }
+
+    if (currentMode === MODE_MULTI_WAY) {
+        const currentPanelIndex = multiPanels.findIndex((panel) => panel.id === activeMultiPanelId);
+        const activePair = getActiveMultiPair();
+        const safeIndex = diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1;
+        setTextContent('change-position', diffBlocks.length > 0 ? `${safeIndex + 1} / ${diffBlocks.length}` : '—');
+        getElement('previous-change').disabled = !activePair || diffBlocks.length === 0;
+        getElement('next-change').disabled = !activePair || diffBlocks.length === 0;
+        getElement('previous-file').disabled = currentPanelIndex <= 0;
+        getElement('next-file').disabled = currentPanelIndex < 0 || currentPanelIndex >= multiPanels.length - 1;
+        getElement('copy-left-to-right').disabled = true;
+        getElement('copy-right-to-left').disabled = true;
+        updateActiveMultiShellState();
+        return;
+    }
+
+    setTextContent('change-position', '—');
+    getElement('previous-change').disabled = true;
+    getElement('next-change').disabled = true;
+    getElement('previous-file').disabled = true;
+    getElement('next-file').disabled = true;
+    getElement('copy-left-to-right').disabled = true;
+    getElement('copy-right-to-left').disabled = true;
 }
 
 function getNavigableDirectoryEntries() {
@@ -1069,6 +1343,29 @@ function updateFileNavigationState(fileNavigation, canReturnToDirectory) {
 }
 
 function revealActiveDiff(smooth) {
+    if (currentMode === MODE_MULTI_WAY) {
+        const activePair = getActiveMultiPair();
+        if (!activePair || activeDiffIndex < 0) {
+            return;
+        }
+
+        const block = diffBlocks[activeDiffIndex];
+        if (!block) {
+            return;
+        }
+
+        const leftMultiEditor = multiEditors[activePair.leftIndex];
+        const rightMultiEditor = multiEditors[activePair.rightIndex];
+        if (!leftMultiEditor || !rightMultiEditor) {
+            return;
+        }
+
+        revealBlockSide(leftMultiEditor, block.leftStart, block.leftEnd, smooth);
+        revealBlockSide(rightMultiEditor, block.rightStart, block.rightEnd, smooth);
+        connectorController.scheduleDrawConnections();
+        return;
+    }
+
     if (!leftEditor || !rightEditor || activeDiffIndex < 0) {
         return;
     }
@@ -1182,10 +1479,9 @@ function replaceEditorLines(editor, start, end, replacementLines) {
 
 function initializeDirectoryViewEvents() {
     const container = getElement('dir-rows');
-    container.addEventListener('scroll', () => {
-        connectorController.scheduleDrawConnections();
-    });
     container.addEventListener('bygone:directory-layout-change', () => {
+        syncDirectoryColumnsFromActive();
+        updateDirectoryEntrySelection();
         connectorController.scheduleDrawConnections();
     });
     container.addEventListener('bygone:directory-open-entry', (event) => {
@@ -1212,6 +1508,163 @@ function initializeDirectoryViewEvents() {
         activeDirectoryEntryPath = relativePath;
         updateChangeToolbarState();
     });
+}
+
+function attachDirectoryScrollSync() {
+    const container = getElement('dir-rows');
+    container.querySelectorAll('.dir-column').forEach((column) => {
+        column.addEventListener('scroll', () => handleDirectoryColumnScroll(column));
+    });
+}
+
+function handleDirectoryColumnScroll(sourceColumn) {
+    if (suppressDirectoryScrollSync) {
+        connectorController.scheduleDrawConnections();
+        return;
+    }
+
+    synchronizeDirectoryScroll(sourceColumn);
+    connectorController.scheduleDrawConnections();
+}
+
+function getDirectoryColumns() {
+    return Array.from(getElement('dir-rows').querySelectorAll('.dir-column'));
+}
+
+function resetDirectoryScrollPositions() {
+    suppressDirectoryScrollSync = true;
+    getDirectoryColumns().forEach((column) => {
+        column.scrollTop = 0;
+        column.scrollLeft = 0;
+    });
+    suppressDirectoryScrollSync = false;
+}
+
+function syncDirectoryColumnsFromActive() {
+    const columns = getDirectoryColumns();
+    if (columns.length < 2) {
+        return;
+    }
+
+    const sourceColumn = columns.find((column) => column.scrollTop > 0) || columns[0];
+    synchronizeDirectoryScroll(sourceColumn);
+}
+
+function synchronizeDirectoryScroll(sourceColumn) {
+    const columns = getDirectoryColumns();
+    if (columns.length < 2) {
+        return;
+    }
+
+    const sourceSideIndex = Number.parseInt(sourceColumn.getAttribute('data-side-index') || '', 10);
+    if (!Number.isInteger(sourceSideIndex)) {
+        return;
+    }
+
+    const targetColumn = columns.find((column) => Number.parseInt(column.getAttribute('data-side-index') || '', 10) !== sourceSideIndex);
+    if (!targetColumn) {
+        return;
+    }
+
+    const sourceMap = buildDirectoryScrollMap(sourceColumn, sourceSideIndex);
+    const targetSideIndex = Number.parseInt(targetColumn.getAttribute('data-side-index') || '', 10);
+    const targetMap = buildDirectoryScrollMap(targetColumn, targetSideIndex);
+    if (sourceMap.points.length === 0 || targetMap.points.length === 0) {
+        return;
+    }
+
+    const globalPosition = directoryScrollTopToGlobalPosition(sourceColumn.scrollTop, sourceMap);
+    const targetScrollTop = globalPositionToDirectoryScrollTop(globalPosition, targetMap, targetColumn);
+
+    suppressDirectoryScrollSync = true;
+    targetColumn.scrollTop = targetScrollTop;
+    suppressDirectoryScrollSync = false;
+}
+
+function buildDirectoryScrollMap(column, sideIndex) {
+    const rows = Array.from(column.querySelectorAll('.dir-entry'))
+        .filter((row) => row.offsetParent !== null)
+        .map((row) => {
+            const relativePath = row.getAttribute('data-path');
+            const globalIndex = directoryEntries.findIndex((entry) => entry.relativePath === relativePath && directoryEntryExistsOnSide(entry, sideIndex));
+            return {
+                globalIndex,
+                top: row.offsetTop,
+                height: row.offsetHeight
+            };
+        })
+        .filter((point) => point.globalIndex >= 0);
+
+    const points = rows.map((row) => ({
+        position: row.globalIndex,
+        top: row.top
+    }));
+
+    const lastRow = rows[rows.length - 1];
+    if (lastRow) {
+        points.push({
+            position: lastRow.globalIndex + 1,
+            top: lastRow.top + lastRow.height
+        });
+    }
+
+    return { points };
+}
+
+function directoryEntryExistsOnSide(entry, sideIndex) {
+    if (Array.isArray(entry.sides)) {
+        return Boolean(entry.sides[sideIndex]);
+    }
+
+    return sideIndex === 0
+        ? entry.status !== 'right-only'
+        : entry.status !== 'left-only';
+}
+
+function directoryScrollTopToGlobalPosition(scrollTop, map) {
+    const points = map.points;
+    if (points.length === 0) {
+        return 0;
+    }
+
+    if (points.length === 1 || scrollTop <= points[0].top) {
+        return points[0].position;
+    }
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+        const current = points[index];
+        const next = points[index + 1];
+        if (scrollTop <= next.top) {
+            const span = Math.max(1, next.top - current.top);
+            const fraction = (scrollTop - current.top) / span;
+            return current.position + ((next.position - current.position) * fraction);
+        }
+    }
+
+    return points[points.length - 1].position;
+}
+
+function globalPositionToDirectoryScrollTop(globalPosition, map, column) {
+    const points = map.points;
+    if (points.length === 0) {
+        return 0;
+    }
+
+    if (points.length === 1 || globalPosition <= points[0].position) {
+        return 0;
+    }
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+        const current = points[index];
+        const next = points[index + 1];
+        if (globalPosition <= next.position) {
+            const span = Math.max(0.0001, next.position - current.position);
+            const fraction = (globalPosition - current.position) / span;
+            return clamp(current.top + ((next.top - current.top) * fraction), 0, Math.max(0, column.scrollHeight - column.clientHeight));
+        }
+    }
+
+    return Math.max(0, column.scrollHeight - column.clientHeight);
 }
 
 function initializeStandaloneDropTarget() {

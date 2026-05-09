@@ -68,16 +68,26 @@ export class FileComparator {
         }
     }
 
-    public async compareThreeFiles(): Promise<void> {
+    public async compareMultipleFilesCommand(): Promise<void> {
         try {
-            const files = await this.selectFiles('Select three files to compare', 3);
+            const files = await this.selectFiles('Select files to compare', 1);
             if (!files) {
+                return;
+            }
+
+            if (files.length === 1) {
+                await this.loadFileHistory(files[0], this.historyIncludeStaged);
+                return;
+            }
+
+            if (files.length === 2) {
+                await this.compareFiles(files[0], files[1]);
                 return;
             }
 
             await this.compareMultipleFiles(files);
         } catch (error) {
-            this.showErrorMessage('Error comparing three files', error);
+            this.showErrorMessage('Error comparing files', error);
         }
     }
 
@@ -184,7 +194,7 @@ export class FileComparator {
         return fileUri?.[0];
     }
 
-    private async selectFiles(prompt: string, count: number): Promise<vscode.Uri[] | undefined> {
+    private async selectFiles(prompt: string, minCount: number): Promise<vscode.Uri[] | undefined> {
         const options: vscode.OpenDialogOptions = {
             canSelectMany: true,
             openLabel: 'Compare',
@@ -192,7 +202,7 @@ export class FileComparator {
         };
 
         const files = await vscode.window.showOpenDialog(options);
-        return files && files.length === count ? files : undefined;
+        return files && files.length >= minCount ? files : undefined;
     }
 
     private async selectDirectory(prompt: string): Promise<vscode.Uri | undefined> {

@@ -39,6 +39,7 @@
     "onCommand:bygone.compareFiles",
     "onCommand:bygone.compareDirectories",
     "onCommand:bygone.compareThreeDirectories",
+    "onCommand:bygone.compareMultipleFiles",
     "onCommand:bygone.compareThreeFiles",
     "onCommand:bygone.compareWithSelected",
     "onCommand:bygone.compareTestFiles",
@@ -65,8 +66,8 @@
         "category": "Bygone"
       },
       {
-        "command": "bygone.compareThreeFiles",
-        "title": "Compare Three Files (Prototype)",
+        "command": "bygone.compareMultipleFiles",
+        "title": "Compare Multiple Files",
         "category": "Bygone"
       },
       {

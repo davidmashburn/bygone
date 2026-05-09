@@ -65,6 +65,7 @@ export interface ShowDirectoryDiffMessage {
 }
 
 export interface MultiDiffPanel {
+    id: string;
     label: string;
     content: string;
 }
@@ -79,6 +80,8 @@ export interface ShowMultiDiffMessage {
     type: 'showMultiDiff';
     panels: MultiDiffPanel[];
     pairs: MultiDiffPair[];
+    activePanelId?: string | null;
+    activePairIndex?: number | null;
 }
 
 export interface ShowThreeWayMergeMessage {
@@ -143,6 +146,27 @@ export interface HistoryToggleStagedMessage {
     includeStaged: boolean;
 }
 
+export interface MultiSetActivePanelMessage {
+    type: 'multiSetActivePanel';
+    panelId: string;
+}
+
+export interface MultiSetActivePairMessage {
+    type: 'multiSetActivePair';
+    pairIndex: number;
+}
+
+export interface MultiAddPanelMessage {
+    type: 'multiAddPanel';
+    anchorPanelId: string;
+    side: 'left' | 'right';
+}
+
+export interface MultiRemovePanelMessage {
+    type: 'multiRemovePanel';
+    panelId: string;
+}
+
 export type WebviewInboundMessage =
     | ReadyMessage
     | RecomputeDiffMessage
@@ -151,7 +175,11 @@ export type WebviewInboundMessage =
     | SelectHistoryEntryMessage
     | ReturnToDirectoryMessage
     | NavigateFileMessage
-    | HistoryToggleStagedMessage;
+    | HistoryToggleStagedMessage
+    | MultiSetActivePanelMessage
+    | MultiSetActivePairMessage
+    | MultiAddPanelMessage
+    | MultiRemovePanelMessage;
 export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
 
 export function isReadyMessage(message: unknown): message is ReadyMessage {
@@ -187,6 +215,28 @@ export function isNavigateFileMessage(message: unknown): message is NavigateFile
 export function isHistoryToggleStagedMessage(message: unknown): message is HistoryToggleStagedMessage {
     return getMessageType(message) === 'historyToggleStaged'
         && typeof (message as HistoryToggleStagedMessage).includeStaged === 'boolean';
+}
+
+export function isMultiSetActivePanelMessage(message: unknown): message is MultiSetActivePanelMessage {
+    return getMessageType(message) === 'multiSetActivePanel'
+        && typeof (message as MultiSetActivePanelMessage).panelId === 'string';
+}
+
+export function isMultiSetActivePairMessage(message: unknown): message is MultiSetActivePairMessage {
+    return getMessageType(message) === 'multiSetActivePair'
+        && Number.isInteger((message as MultiSetActivePairMessage).pairIndex);
+}
+
+export function isMultiAddPanelMessage(message: unknown): message is MultiAddPanelMessage {
+    return getMessageType(message) === 'multiAddPanel'
+        && typeof (message as MultiAddPanelMessage).anchorPanelId === 'string'
+        && (((message as MultiAddPanelMessage).side) === 'left'
+            || ((message as MultiAddPanelMessage).side) === 'right');
+}
+
+export function isMultiRemovePanelMessage(message: unknown): message is MultiRemovePanelMessage {
+    return getMessageType(message) === 'multiRemovePanel'
+        && typeof (message as MultiRemovePanelMessage).panelId === 'string';
 }
 
 function getMessageType(message: unknown): string | undefined {
