@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bygone — chrome mockup</title>
+  <style>
+    /* =============================================================
+       Implements mockups/redesign/chrome-design.md against the
+       decisions in mockups/redesign/state-model.md.
+
+       Preserved from today:
+         - VS Code-webview dark palette and tokens
+         - Bygone color convention: GREEN = one-sided, BLUE = paired
+         - Canvas diff-gutter connectors (shown here with SVG beziers)
+
+       Changed:
+         - Four header rows collapse into: top bar + pane headers + status bar
+         - Pane headers carry per-pane state (ref, kind chip, writability,
+           focus, commit metadata)
+         - Two Copy buttons in the center: each arrow points toward the gutter;
+           the invalid direction is disabled when the target pane is read-only
+         - View flags moved off the toolbar into an overflow menu
+         - Keyboard hints moved to the status bar
+       ============================================================= */
+    :root {
+      --fg: #d4d4d4;
+      --bg: #1e1e1e;
+      --font: "SF Mono", Monaco, Consolas, "Liberation Mono", Menlo, monospace;
+      --size: 13px;
+      --sidebar: #252526;
+      --panel: #2d2d2d;
+      --panel-focus: #323234;
+      --border: #3c3c3c;
+      --muted: #9da1a6;
+      --gutter-fg: #858585;
+      --btn-border: #3c3c3c;
+      --btn-bg: #313131;
+      --btn-fg: #cccccc;
+      --chip-bg: #2a2a2b;
+      --chip-border: #424243;
+      --chip-fg: #b4b7bb;
+
+      --one-sided-fill:   rgba(73, 190, 119, 0.14);
+      --one-sided-strong: rgba(73, 190, 119, 0.42);
+      --one-sided-stroke: rgba(73, 190, 119, 0.92);
+      --paired-fill:      rgba(79, 124, 255, 0.14);
+      --paired-strong:    rgba(79, 124, 255, 0.34);
+      --paired-stroke:    rgba(79, 124, 255, 0.92);
+
+      --writable-dot:     rgba(79, 124, 255, 0.92);
+      --unsaved-dot:      #e0a34a;
+      --focus-edge:       rgba(79, 124, 255, 0.78);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      padding: 28px 24px 64px;
+      color: var(--fg);
+      background: var(--bg);
+      font-family: var(--font);
+      font-size: var(--size);
+    }
+
+    /* doc scaffolding (sans) */
+    .doc { max-width: 1440px; margin: 0 auto; display: grid; gap: 28px; }
+    .doc-header { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .doc-header h1 { margin: 0 0 6px 0; font-size: 20px; font-weight: 600; }
+    .doc-header p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 880px; }
+    .doc-header ul { margin: 10px 0 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.55; max-width: 880px; }
+    .doc-header code { font-family: var(--font); font-size: 12px; background: var(--sidebar); padding: 1px 5px; border-radius: 3px; color: var(--fg); }
+
+    .screen { display: grid; gap: 10px; }
+    .screen h2 {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      margin: 20px 0 0 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--fg);
+    }
+    .screen .note {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.55;
+      max-width: 880px;
+    }
+
+    /* app frame */
+    .app {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--bg);
+      display: grid;
+      grid-template-rows: 40px 32px 1fr 22px;
+    }
+    .app.with-sidebar {
+      grid-template-columns: 220px 1fr;
+      grid-template-rows: 40px 32px 1fr 22px;
+    }
+
+    /* ---------- top bar ----------
+       Three columns: left (scope + path) | center (Copy toward gutter) | right
+       (scope actions). center column is geometrically over the diff gutter. */
+    .topbar {
+      grid-column: 1 / -1;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: center;
+      gap: 8px 12px;
+      padding: 0 10px;
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .topbar-center {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+    .scope-badge {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--sidebar);
+      border: 1px solid var(--border);
+      color: var(--fg);
+    }
+    .breadcrumb {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .breadcrumb .sep { margin: 0 6px; color: #5f636a; }
+    .breadcrumb .leaf { color: var(--fg); }
+    .breadcrumb .position { margin-left: 10px; color: var(--fg); background: var(--sidebar); border: 1px solid var(--border); padding: 2px 7px; border-radius: 3px; font-size: 11px; }
+
+    .actions { display: flex; align-items: center; gap: 6px; }
+    .actions .sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+    .topbar-right .sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+
+    /* Two copy buttons; inner-edge arrows point toward the gutter between panes */
+    .copy-gutter-pair {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .copy-to-gutter {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 500;
+    }
+    .copy-to-gutter .to-center {
+      flex: 0 0 auto;
+      display: block;
+      opacity: 0.95;
+    }
+    .copy-to-gutter.lr .to-center { margin-left: 2px; /* arrow on inner (right) edge → */ }
+    .copy-to-gutter.rl .to-center { margin-right: 2px; /* arrow on inner (left) edge ← */ }
+    .btn-icon-tree {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      min-height: 28px;
+      padding: 4px 6px;
+    }
+    /* Lucide SVGs as files — currentColor does not apply via <img>; tint for dark UI */
+    .btn-icon-tree img {
+      display: block;
+      width: 16px;
+      height: 16px;
+      filter: brightness(0) invert(1);
+      opacity: 0.82;
+    }
+    .btn-icon-tree.on img { opacity: 1; }
+    .btn {
+      font-family: var(--font);
+      font-size: 12px;
+      color: var(--btn-fg);
+      background: var(--btn-bg);
+      border: 1px solid var(--btn-border);
+      border-radius: 3px;
+      padding: 4px 9px;
+      cursor: default;
+      white-space: nowrap;
+    }
+    .btn.icon-only { padding: 4px 7px; }
+    .btn.primary {
+      color: #ffffff;
+      background: #2a4070;
+      border-color: #3d5a94;
+    }
+    .btn.on {
+      color: #ffffff;
+      background: #3a3a3c;
+      border-color: #4f4f51;
+    }
+    .btn:disabled,
+    .btn:disabled .in-from-left,
+    .btn:disabled .in-from-right {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .seg { display: inline-flex; }
+    .seg .btn {
+      border-radius: 0;
+      margin-left: -1px;
+    }
+    .seg .btn:first-child { border-top-left-radius: 3px; border-bottom-left-radius: 3px; margin-left: 0; }
+    .seg .btn:last-child  { border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
+
+    /* ---------- pane headers ---------- */
+    .pane-headers {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+    .pane-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      font-size: 12px;
+      color: var(--fg);
+      border-right: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .pane-header:last-child { border-right: none; }
+    .pane-header.focused { background: var(--panel-focus); }
+    .pane-header.focused.left  { box-shadow: inset 2px 0 0 0 var(--focus-edge); }
+    .pane-header.focused.right { box-shadow: inset -2px 0 0 0 var(--focus-edge); }
+    .pane-header .spacer { flex: 1 1 auto; min-width: 0; }
+
+    .ref-label {
+      font-family: var(--font);
+      font-size: 12px;
+      color: var(--fg);
+      cursor: default;
+    }
+    .ref-label .caret {
+      color: var(--muted);
+      font-size: 10px;
+      margin-left: 4px;
+    }
+    .kind-chip {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      padding: 1px 6px;
+      border-radius: 9px;
+      background: var(--chip-bg);
+      border: 1px solid var(--chip-border);
+      color: var(--chip-fg);
+      text-transform: lowercase;
+      flex: 0 0 auto;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .meta .sep { color: #5f636a; margin: 0 5px; }
+    .write-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+      background: transparent;
+      border: 1.5px solid var(--writable-dot);
+    }
+    .write-dot.unsaved {
+      background: var(--unsaved-dot);
+      border-color: var(--unsaved-dot);
+    }
+    .unsaved-label {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 11px;
+      color: var(--unsaved-dot);
+    }
+    .pane-swap {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      font-size: 11px;
+      padding: 2px 7px;
+      background: var(--sidebar);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--muted);
+      cursor: default;
+    }
+
+    /* ---------- sidebar (changed files list) ---------- */
+    .sidebar {
+      grid-row: 2 / 4;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: 30px 28px 1fr 30px;
+    }
+    .sidebar-title {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .sidebar-title .count {
+      font-weight: 500;
+      color: var(--muted);
+    }
+    .sidebar-filter {
+      display: flex;
+      gap: 0;
+      padding: 0 10px;
+      align-items: center;
+    }
+    .sidebar-filter .seg .btn { font-size: 11px; padding: 2px 8px; }
+    .sidebar-list {
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+    .sidebar-item {
+      display: grid;
+      grid-template-columns: 16px 1fr auto;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      font-size: 12px;
+      color: var(--fg);
+      cursor: default;
+    }
+    .sidebar-item.active { background: #2a2d2e; }
+    .sidebar-item .status {
+      width: 14px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .sidebar-item .status.M { color: #e0a34a; }
+    .sidebar-item .status.A { color: #5bbf83; }
+    .sidebar-item .status.D { color: #c26d6d; }
+    .sidebar-item .changes {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .sidebar-footer {
+      font-size: 11px;
+      color: var(--muted);
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ---------- content area ---------- */
+    .content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      position: relative;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .pane {
+      overflow: hidden;
+      position: relative;
+      border-right: 1px solid var(--border);
+    }
+    .pane:last-child { border-right: none; }
+    .pane.focused { background: #1f1f21; }
+    .pane.focused.left  { box-shadow: inset 2px 0 0 0 var(--focus-edge); }
+    .pane.focused.right { box-shadow: inset -2px 0 0 0 var(--focus-edge); }
+
+    .code {
+      display: grid;
+      grid-template-columns: 50px 1fr;
+      font-family: var(--font);
+      font-size: 13px;
+      line-height: 18px;
+      white-space: pre;
+    }
+    .code .ln {
+      color: var(--gutter-fg);
+      text-align: right;
+      padding-right: 12px;
+      user-select: none;
+      background: var(--bg);
+    }
+    .code .tx { padding-left: 8px; }
+    .row.one-sided { background: var(--one-sided-fill); }
+    .row.one-sided .ln { color: #7cd09c; }
+    .row.paired { background: var(--paired-fill); }
+    .row.paired .ln { color: #93aaff; }
+    .row.change-hl { outline: 1.5px solid var(--paired-stroke); outline-offset: -1.5px; }
+
+    .connector-layer {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    /* ---------- status bar ---------- */
+    .statusbar {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 16px;
+      padding: 0 10px;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .statusbar .chunk {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .statusbar .chunk.mid { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+    .statusbar kbd {
+      font-family: var(--font);
+      font-size: 10px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: var(--sidebar);
+      border: 1px solid var(--border);
+      color: var(--fg);
+    }
+    .statusbar .sep { color: #5f636a; }
+
+    /* ---------- dir tree ---------- */
+    .tree {
+      font-family: var(--font);
+      font-size: 12px;
+      line-height: 22px;
+      padding: 4px 0;
+    }
+    .tree .row {
+      display: grid;
+      grid-template-columns: 14px 1fr auto;
+      align-items: center;
+      gap: 6px;
+      padding: 0 10px;
+    }
+    .tree .row.one-sided { background: var(--one-sided-fill); }
+    .tree .row.paired { background: var(--paired-fill); outline: 1px solid var(--paired-strong); outline-offset: -1px; }
+    .tree .row.added { color: var(--fg); }
+    .tree .row.removed { color: #b4b7bb; text-decoration: line-through; }
+    .tree .row .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      display: inline-block;
+    }
+    .tree .row.one-sided .dot { background: var(--one-sided-stroke); }
+    .tree .row.paired .dot { background: var(--paired-stroke); }
+    .tree .row .dir {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: none;
+    }
+    .tree .dir-header {
+      padding: 0 10px;
+      color: var(--fg);
+      font-size: 12px;
+    }
+    .tree .dir-header .chev { color: var(--muted); margin-right: 4px; }
+
+    /* ---------- why block ---------- */
+    .why {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.55;
+      border-left: 2px solid #4a4a4c;
+      padding: 8px 10px;
+      max-width: 880px;
+    }
+    .why b { color: var(--fg); }
+  </style>
+</head>
+<body>
+<div class="doc">
+
+  <div class="doc-header">
+    <h1>Bygone — chrome mockup</h1>
+    <p>
+      Implements the spec in <code>chrome-design.md</code> against the
+      decisions in <code>state-model.md</code>. Same palette, same
+      diff-gutter connector concept, same three scopes. The chrome moves
+      from a 4-row header to: a single <b>top bar</b>, a thin <b>pane
+      header row</b> carrying per-pane state, and a persistent <b>status
+      bar</b> with position and keyboard hints.
+    </p>
+    <ul>
+      <li>Green = one-sided change; blue = paired change. Unchanged.</li>
+      <li>Focused pane gets a 2px blue edge + header tint + exclusive caret.</li>
+      <li>Ref labels carry kind chips (<code>branch</code>, <code>commit</code>, <code>working&nbsp;tree</code>, <code>staged</code>) so <code>HEAD~1</code> and <code>working tree</code> stop looking identical.</li>
+      <li>Two Copy controls in the center column: each has an arrow on the edge toward the gutter (← / →). Only the direction with a writable target stays enabled; history shows both disabled.</li>
+      <li>View flags (collapse unchanged, ignore whitespace, follow renames, etc.) live in the overflow <code>⋯</code> menu.</li>
+    </ul>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- 1. Two-way file diff                                      -->
+  <!-- ========================================================= -->
+  <section class="screen">
+    <h2>1. Two-way file diff</h2>
+    <p class="note">
+      Top bar: left = scope + breadcrumb, center = <b>two Copy buttons</b> (arrows on the
+      inner edge point at the gutter — left button copies L→R, right button R→L; wrong
+      direction disabled), right = change nav + overflow.
+    </p>
+
+    <div class="app with-sidebar">
+      <!-- top bar -->
+      <div class="topbar">
+        <div class="topbar-left">
+          <div class="scope-badge">File</div>
+          <div class="breadcrumb">
+            ~/code/bygone <span class="sep">›</span> src <span class="sep">›</span>
+            <span class="leaf">gitHistory.ts</span>
+          </div>
+        </div>
+        <div class="topbar-center">
+          <div class="copy-gutter-pair" role="group" aria-label="Copy across diff gutter">
+            <button type="button" class="btn primary copy-to-gutter lr" title="Copy left → right (⌘→). Target: working tree.">
+              <span>Copy</span>
+              <svg class="to-center" width="8" height="10" viewBox="0 0 8 10" aria-hidden="true">
+                <polygon fill="currentColor" points="0,1 0,9 7,5"/>
+              </svg>
+            </button>
+            <button type="button" class="btn copy-to-gutter rl" disabled title="Copy right → left unavailable (left pane is read-only)">
+              <svg class="to-center" width="8" height="10" viewBox="0 0 8 10" aria-hidden="true">
+                <polygon fill="currentColor" points="8,1 8,9 1,5"/>
+              </svg>
+              <span>Copy</span>
+            </button>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <button class="btn icon-only" type="button" title="Previous change (F7)">↑</button>
+          <button class="btn icon-only" type="button" title="Next change (⇧F7)">↓</button>
+          <div class="sep"></div>
+          <button class="btn icon-only" type="button" title="More">⋯</button>
+        </div>
+      </div>
+
+      <!-- sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-title">
+          <span>Changed files</span>
+          <span class="count">4</span>
+        </div>
+        <div class="sidebar-filter">
+          <div class="seg">
+            <button class="btn on">Changed</button>
+            <button class="btn">Tree</button>
+          </div>
+        </div>
+        <div class="sidebar-list">
+          <div class="sidebar-item">
+            <span class="status M">M</span>
+            <span>src/diffEngine.ts</span>
+            <span class="changes">2</span>
+          </div>
+          <div class="sidebar-item active">
+            <span class="status M">M</span>
+            <span>src/gitHistory.ts</span>
+            <span class="changes">5</span>
+          </div>
+          <div class="sidebar-item">
+            <span class="status A">A</span>
+            <span>src/fallbackViews.ts</span>
+            <span class="changes">1</span>
+          </div>
+          <div class="sidebar-item">
+            <span class="status D">D</span>
+            <span>src/oldHistory.ts</span>
+            <span class="changes">1</span>
+          </div>
+        </div>
+        <div class="sidebar-footer">19 changes total</div>
+      </aside>
+
+      <!-- pane headers -->
+      <div class="pane-headers">
+        <div class="pane-header left">
+          <span class="ref-label">HEAD~1 <span class="caret">▾</span></span>
+          <span class="kind-chip">commit</span>
+          <span class="meta">e08ca0a <span class="sep">·</span> 2d ago</span>
+        </div>
+        <div class="pane-header right focused">
+          <span class="ref-label">working tree <span class="caret">▾</span></span>
+          <span class="kind-chip">working tree</span>
+          <span class="write-dot unsaved" title="Unsaved buffer"></span>
+          <span class="meta">unsaved</span>
+        </div>
+        <div class="pane-swap" title="Swap panes (⌘⇧X)">⇄</div>
+      </div>
+
+      <!-- content -->
+      <div class="content">
+        <!-- left pane -->
+        <div class="pane left">
+          <div class="code">
+            <div class="ln">38</div><div class="tx">    const repoRoot = this.runGitCo…</div>
+            <div class="ln">39</div><div class="tx">    const relativePath = path.relat…</div>
+            <div class="ln row one-sided">40</div><div class="tx row one-sided"></div>
+            <div class="ln row paired change-hl">41</div><div class="tx row paired change-hl">    export function loadFileHistory(</div>
+            <div class="ln row paired change-hl">42</div><div class="tx row paired change-hl">      const commits = git.log({ maxCo…</div>
+            <div class="ln row paired change-hl">43</div><div class="tx row paired change-hl">      const entries = commits.map((c…</div>
+            <div class="ln">44</div><div class="tx">        hash: c.hash,</div>
+            <div class="ln row paired">45</div><div class="tx row paired">        summary: c.subject,</div>
+            <div class="ln">46</div><div class="tx">      }))</div>
+            <div class="ln">47</div><div class="tx">      return entries</div>
+            <div class="ln">48</div><div class="tx">    }</div>
+            <div class="ln row one-sided">49</div><div class="tx row one-sided"></div>
+            <div class="ln row one-sided">50</div><div class="tx row one-sided"></div>
+            <div class="ln">71</div><div class="tx">    const metadata = this.readCommi…</div>
+            <div class="ln">72</div><div class="tx">      repoRoot,</div>
+            <div class="ln row one-sided">73</div><div class="tx row one-sided">      [...new Set(commits.map((c) =&gt;</div>
+            <div class="ln">74</div><div class="tx">    )</div>
+          </div>
+        </div>
+        <!-- connector layer -->
+        <svg class="connector-layer" viewBox="0 0 100 400" preserveAspectRatio="none">
+          <!-- paired change rectangle-to-rectangle bezier polygon -->
+          <path d="M 50,60 C 65,60 65,66 50,66 C 65,66 65,112 50,112 Z"
+                fill="var(--paired-fill)" stroke="var(--paired-stroke)" stroke-width="0.4" />
+          <!-- one-sided (block only on left) -->
+          <path d="M 50,176 C 65,176 65,198 50,198 C 65,198 65,226 50,226 Z"
+                fill="var(--one-sided-fill)" stroke="var(--one-sided-stroke)" stroke-width="0.4" />
+          <!-- paired single row -->
+          <path d="M 50,260 C 65,260 65,268 50,268 C 65,268 65,280 50,280 Z"
+                fill="var(--paired-fill)" stroke="var(--paired-stroke)" stroke-width="0.4" />
+          <!-- one-sided paragraph -->
+          <path d="M 50,330 C 65,330 65,338 50,338 C 65,338 65,354 50,354 Z"
+                fill="var(--one-sided-fill)" stroke="var(--one-sided-stroke)" stroke-width="0.4" />
+        </svg>
+        <!-- right pane -->
+        <div class="pane right focused">
+          <div class="code">
+            <div class="ln">38</div><div class="tx">    const repoRoot = this.runGitCo…</div>
+            <div class="ln">39</div><div class="tx">    const relativePath = path.relat…</div>
+            <div class="ln">40</div><div class="tx"></div>
+            <div class="ln row paired change-hl">41</div><div class="tx row paired change-hl">    export function loadFileHistory(</div>
+            <div class="ln row paired change-hl">42</div><div class="tx row paired change-hl">      const max = env.BYGONE_HISTORY…</div>
+            <div class="ln row paired change-hl">43</div><div class="tx row paired change-hl">      const commits = git.log({ maxCo…</div>
+            <div class="ln">44</div><div class="tx">      const entries = commits.map((c…</div>
+            <div class="ln">45</div><div class="tx">        hash: c.hash,</div>
+            <div class="ln row paired">46</div><div class="tx row paired">        summary: formatSubject(c.subj…</div>
+            <div class="ln">47</div><div class="tx">      }))</div>
+            <div class="ln">48</div><div class="tx">      return entries</div>
+            <div class="ln">49</div><div class="tx">    }</div>
+            <div class="ln">79</div><div class="tx">    const metadata = this.readCommi…</div>
+            <div class="ln">80</div><div class="tx">      repoRoot,</div>
+            <div class="ln">81</div><div class="tx">      [...new Set(commits</div>
+            <div class="ln">82</div><div class="tx">        .map((c) =&gt; c.parentCommit)</div>
+            <div class="ln">83</div><div class="tx">        .filter((c): c is string =&gt;</div>
+            <div class="ln">84</div><div class="tx">    )</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- status bar -->
+      <div class="statusbar">
+        <div class="chunk">change 3/19 <span class="sep">·</span> Ln 46, Col 24</div>
+        <div class="chunk mid">main <span class="sep">·</span> TypeScript <span class="sep">·</span> UTF-8 · LF</div>
+        <div class="chunk">
+          <kbd>F7</kbd> change <span class="sep">·</span>
+          <kbd>⌘→</kbd> copy <span class="sep">·</span>
+          <kbd>Tab</kbd> focus
+        </div>
+      </div>
+    </div>
+
+    <div class="why">
+      <b>Why:</b> today's 4-row header (app-header + context-bar + history-toolbar + change-toolbar) collapses into 40 + 32 + 22 = 94px of chrome total. <b>Copy</b> is a pair of buttons in the center: each arrow aims at the gutter; change nav and overflow sit on the right. Everything else lives in <code>⋯</code>. Ref kind from the chip; writability from the blue dot.
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <!-- 2. Directory diff                                         -->
+  <!-- ========================================================= -->
+  <section class="screen">
+    <h2>2. Directory diff</h2>
+    <p class="note">
+      Center column is empty in directory mode. Tree toolbar uses <b>Option A</b> (Lucide:
+      <code>chevron-down</code>, <code>chevron-right</code>, <code>list-filter</code>) with tooltips.
+      <code>Open → Diff</code> drills into the focused row.
+    </p>
+
+    <div class="app">
+      <div class="topbar">
+        <div class="topbar-left">
+          <div class="scope-badge">Directory</div>
+          <div class="breadcrumb">
+            ~/code/bygone <span class="sep">›</span>
+            <span class="leaf">src/</span>
+            <span class="position">5 changed</span>
+          </div>
+        </div>
+        <div class="topbar-center" aria-hidden="true"></div>
+        <div class="topbar-right">
+          <!-- Directory toolbar Option A — Lucide: chevron-down, chevron-right, list-filter (see icon-options.html + icons/README.md) -->
+          <button class="btn btn-icon-tree" type="button" title="Expand all folders">
+            <img src="icons/lucide/chevron-down.svg" width="16" height="16" alt="" />
+          </button>
+          <button class="btn btn-icon-tree" type="button" title="Collapse all folders">
+            <img src="icons/lucide/chevron-right.svg" width="16" height="16" alt="" />
+          </button>
+          <button class="btn on btn-icon-tree" type="button" title="Hide unchanged paths — show differences only">
+            <img src="icons/lucide/list-filter.svg" width="16" height="16" alt="" />
+          </button>
+          <div class="sep"></div>
+          <button class="btn" type="button" title="Open selected in file diff (↵)">Open → Diff</button>
+          <div class="sep"></div>
+          <button class="btn icon-only" type="button" title="More">⋯</button>
+        </div>
+      </div>
+
+      <div class="pane-headers">
+        <div class="pane-header left focused">
+          <span class="ref-label">main <span class="caret">▾</span></span>
+          <span class="kind-chip">branch</span>
+          <span class="meta">4653c81 <span class="sep">·</span> HEAD</span>
+        </div>
+        <div class="pane-header right">
+          <span class="ref-label">feat/history-cap <span class="caret">▾</span></span>
+          <span class="kind-chip">branch</span>
+          <span class="meta">e08ca0a <span class="sep">·</span> remote</span>
+        </div>
+        <div class="pane-swap" title="Swap panes (⌘⇧X)">⇄</div>
+      </div>
+
+      <div class="content">
+        <div class="pane left focused">
+          <div class="tree">
+            <div class="dir-header"><span class="chev">▾</span>src/</div>
+            <div class="row paired">
+              <span class="dot"></span><span>diffEngine.ts</span><span class="dir">2 changes</span>
+            </div>
+            <div class="row paired">
+              <span class="dot"></span><span>gitHistory.ts</span><span class="dir">5 changes</span>
+            </div>
+            <div class="row one-sided removed">
+              <span class="dot"></span><span>oldHistory.ts</span><span class="dir">D</span>
+            </div>
+            <div class="row">
+              <span class="dot"></span><span style="color:var(--muted)">extension.ts</span><span class="dir">—</span>
+            </div>
+          </div>
+        </div>
+        <svg class="connector-layer" viewBox="0 0 100 260" preserveAspectRatio="none">
+          <!-- diffEngine paired -->
+          <path d="M 50,36 C 65,36 65,58 50,58 C 65,58 65,36 50,36 Z"
+                fill="var(--paired-fill)" stroke="var(--paired-stroke)" stroke-width="0.4" />
+          <!-- gitHistory paired -->
+          <path d="M 50,58 C 65,58 65,80 50,80 C 65,80 65,58 50,58 Z"
+                fill="var(--paired-fill)" stroke="var(--paired-stroke)" stroke-width="0.4" />
+          <!-- oldHistory removed (left-only) -->
+          <path d="M 50,102 C 65,102 70,168 50,168 C 55,168 55,124 50,124 Z"
+                fill="var(--one-sided-fill)" stroke="var(--one-sided-stroke)" stroke-width="0.4" />
+          <!-- fallbackViews added (right-only) -->
+          <path d="M 50,168 C 35,168 30,146 50,146 C 45,146 45,192 50,192 Z"
+                fill="var(--one-sided-fill)" stroke="var(--one-sided-stroke)" stroke-width="0.4" />
+        </svg>
+        <div class="pane right">
+          <div class="tree">
+            <div class="dir-header"><span class="chev">▾</span>src/</div>
+            <div class="row paired">
+              <span class="dot"></span><span>diffEngine.ts</span><span class="dir">2 changes</span>
+            </div>
+            <div class="row paired">
+              <span class="dot"></span><span>gitHistory.ts</span><span class="dir">5 changes</span>
+            </div>
+            <div class="row">
+              <span class="dot"></span><span style="color:var(--muted)">extension.ts</span><span class="dir">—</span>
+            </div>
+            <div class="row one-sided added">
+              <span class="dot"></span><span>fallbackViews.ts</span><span class="dir">A</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="statusbar">
+        <div class="chunk">5 changed <span class="sep">·</span> 3 paired <span class="sep">·</span> 2 one-sided</div>
+        <div class="chunk mid">main → feat/history-cap <span class="sep">·</span> 312 unchanged hidden</div>
+        <div class="chunk">
+          <kbd>↵</kbd> open <span class="sep">·</span>
+          <kbd>[</kbd>/<kbd>]</kbd> sibling <span class="sep">·</span>
+          <kbd>Tab</kbd> focus
+        </div>
+      </div>
+    </div>
+
+    <div class="why">
+      <b>Why:</b> the three tree actions used to sit on their own bar with long labels. They are now icon buttons with <code>title</code> tooltips on the right; ref labels sit in the column headers. Same row coloring, same connectors between matching entries.
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <!-- 3. File git history                                       -->
+  <!-- ========================================================= -->
+  <section class="screen">
+    <h2>3. File git history</h2>
+    <p class="note">
+      History: same two-button pattern; <strong>both</strong> copy actions disabled (no writable pane).
+    </p>
+
+    <div class="app with-sidebar">
+      <div class="topbar">
+        <div class="topbar-left">
+          <div class="scope-badge">History</div>
+          <div class="breadcrumb">
+            ~/code/bygone <span class="sep">›</span> src <span class="sep">›</span>
+            <span class="leaf">gitHistory.ts</span>
+            <span class="position">12 / 86</span>
+          </div>
+        </div>
+        <div class="topbar-center">
+          <div class="copy-gutter-pair" role="group" aria-label="Copy across diff gutter (disabled)">
+            <button type="button" class="btn copy-to-gutter lr" disabled title="Copy unavailable — no writable pane">
+              <span>Copy</span>
+              <svg class="to-center" width="8" height="10" viewBox="0 0 8 10" aria-hidden="true">
+                <polygon fill="currentColor" points="0,1 0,9 7,5"/>
+              </svg>
+            </button>
+            <button type="button" class="btn copy-to-gutter rl" disabled title="Copy unavailable — no writable pane">
+              <svg class="to-center" width="8" height="10" viewBox="0 0 8 10" aria-hidden="true">
+                <polygon fill="currentColor" points="8,1 8,9 1,5"/>
+              </svg>
+              <span>Copy</span>
+            </button>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <button class="btn" type="button" title="Older (⇧[)">← Older</button>
+          <button class="btn" type="button" title="Newer (⇧])">Newer →</button>
+          <div class="sep"></div>
+          <button class="btn" type="button" title="Include staged in history">Staged ●</button>
+          <div class="sep"></div>
+          <button class="btn icon-only" type="button" title="More">⋯</button>
+        </div>
+      </div>
+
+      <aside class="sidebar">
+        <div class="sidebar-title">
+          <span>Commits</span>
+          <span class="count">86</span>
+        </div>
+        <div class="sidebar-filter">
+          <div class="seg">
+            <button class="btn on">List</button>
+            <button class="btn">Graph</button>
+          </div>
+        </div>
+        <div class="sidebar-list">
+          <div class="sidebar-item">
+            <span class="status M">●</span>
+            <span>e08ca0a — fix: history cap</span>
+            <span class="changes">1d</span>
+          </div>
+          <div class="sidebar-item active">
+            <span class="status M">●</span>
+            <span>4653c81 — refactor: readCommit</span>
+            <span class="changes">2d</span>
+          </div>
+          <div class="sidebar-item">
+            <span class="status M">●</span>
+            <span>91ab2ef — wip: paging</span>
+            <span class="changes">3d</span>
+          </div>
+          <div class="sidebar-item">
+            <span class="status M">●</span>
+            <span>bf01c3d — format pass</span>
+            <span class="changes">5d</span>
+          </div>
+          <div class="sidebar-item">
+            <span class="status M">●</span>
+            <span>12aa998 — init history svc</span>
+            <span class="changes">1w</span>
+          </div>
+        </div>
+        <div class="sidebar-footer">86 commits · staged included</div>
+      </aside>
+
+      <div class="pane-headers">
+        <div class="pane-header left">
+          <span class="ref-label">4653c81<sup>^</sup> <span class="caret">▾</span></span>
+          <span class="kind-chip">commit</span>
+          <span class="meta">parent <span class="sep">·</span> 2d ago</span>
+        </div>
+        <div class="pane-header right focused">
+          <span class="ref-label">4653c81 <span class="caret">▾</span></span>
+          <span class="kind-chip">commit</span>
+          <span class="meta">HEAD~1 <span class="sep">·</span> 2d ago</span>
+        </div>
+        <div class="pane-swap" title="Swap panes (⌘⇧X)">⇄</div>
+      </div>
+
+      <div class="content">
+        <div class="pane left">
+          <div class="code">
+            <div class="ln">39</div><div class="tx">    import { readFile } from 'fs'</div>
+            <div class="ln">40</div><div class="tx"></div>
+            <div class="ln">41</div><div class="tx">    export function loadFileHistory(…</div>
+            <div class="ln row paired">42</div><div class="tx row paired">      const commits = git.log({ maxCo…</div>
+            <div class="ln row one-sided">43</div><div class="tx row one-sided">      return commits</div>
+            <div class="ln row one-sided">44</div><div class="tx row one-sided">    }</div>
+          </div>
+        </div>
+        <svg class="connector-layer" viewBox="0 0 100 200" preserveAspectRatio="none">
+          <path d="M 50,74 C 65,74 65,92 50,92 Z"
+                fill="var(--paired-fill)" stroke="var(--paired-stroke)" stroke-width="0.4" />
+          <path d="M 50,92 C 65,92 70,140 50,140 Z"
+                fill="var(--one-sided-fill)" stroke="var(--one-sided-stroke)" stroke-width="0.4" />
+        </svg>
+        <div class="pane right focused">
+          <div class="code">
+            <div class="ln">39</div><div class="tx">    import { readFile } from 'fs'</div>
+            <div class="ln">40</div><div class="tx"></div>
+            <div class="ln">41</div><div class="tx">    export function loadFileHistory(…</div>
+            <div class="ln row paired">42</div><div class="tx row paired">      const commits = git.log({ maxCo…</div>
+            <div class="ln">43</div><div class="tx">      return commits</div>
+            <div class="ln">44</div><div class="tx">    }</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="statusbar">
+        <div class="chunk">commit 12/86 <span class="sep">·</span> 86 total</div>
+        <div class="chunk mid">main <span class="sep">·</span> gitHistory.ts <span class="sep">·</span> staged included</div>
+        <div class="chunk">
+          <kbd>[</kbd>/<kbd>]</kbd> older/newer <span class="sep">·</span>
+          <kbd>⌘G</kbd> jump <span class="sep">·</span>
+          <kbd>Tab</kbd> focus
+        </div>
+      </div>
+    </div>
+
+    <div class="why">
+      <b>Why:</b> today's history toolbar is a three-cell grid that duplicates the commit labels already present in the file headers. Older/newer shares the right slot with file mode's change nav. Both center <b>Copy</b> buttons stay for a consistent chrome shape; both are <code>disabled</code> when there is no writable pane.
+    </div>
+  </section>
+
+  <div class="doc-header" style="margin-top:12px">
+    <h1 style="font-size:16px">Keybindings at a glance</h1>
+    <p>
+      All three scopes share the same chrome shape and navigation model.
+      <code>Tab</code> toggles focused pane everywhere. <code>[</code> /
+      <code>]</code> is sibling-on-disk in file mode and older/newer in history
+      mode — safe because the scopes don't overlap.       Each copy button’s arrow points at the gutter (L→R vs R→L); the matching
+      ⌘ shortcut applies when that target is writable.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

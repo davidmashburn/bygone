@@ -360,7 +360,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                         <button id="next-change" class="change-button change-button-primary" type="button" title="Next difference (F7)">↓ Next</button>
                         <button id="next-file-change" class="change-button" type="button" title="Next changed file in drill-down view">Next File →</button>
                     </div>
-                    <div class="change-hint">F7 / Shift+F7 to jump hunks. Use Prev/Next File for sibling changed files.</div>
+                    <div class="change-hint">F7 / Shift+F7 to jump changes. Use Prev/Next File for sibling changed files.</div>
                 </div>
                 <div id="action-toolbar" class="action-toolbar" hidden>
                     <button id="copy-right-to-left" class="change-button" type="button" title="Copy current change from right to left (Cmd/Ctrl+Alt+Left)">← Copy current</button>

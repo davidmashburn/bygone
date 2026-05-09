@@ -51,7 +51,6 @@ let currentDirectoryContext = null;
 let shouldPulseActiveDiff = false;
 let navigatorRailScope = NAVIGATOR_SCOPE_CHANGED;
 let navigatorRailRenderKey = null;
-let activePaneSide = 'right';
 const uiProfileEnabled = Boolean(host.profileUi);
 const uiProfileStats = new Map();
 let uiProfileFlushTimer = null;
@@ -413,7 +412,6 @@ function ensureTwoWayEditors() {
 
     leftEditor = createEditor(getElement('file1-content'), MODE_TWO_WAY, 'left');
     rightEditor = createEditor(getElement('file2-content'), MODE_TWO_WAY, 'right');
-    updateActivePaneHeader();
 }
 
 function createEditor(container, editorMode, side = null) {
@@ -468,13 +466,6 @@ function createEditor(container, editorMode, side = null) {
         connectorController.scheduleDrawConnections();
     });
 
-    editor.onDidFocusEditorText(() => {
-        if (editorMode !== MODE_TWO_WAY || !side) {
-            return;
-        }
-        setActivePane(side);
-    });
-
     registerEditorKeybindings(editor, editorMode);
 
     return editor;
@@ -495,7 +486,6 @@ function disposeTwoWayEditors() {
 
     getElement('file1-content').classList.remove('editor-host');
     getElement('file2-content').classList.remove('editor-host');
-    updateActivePaneHeader();
 }
 
 function disposeMultiEditors() {
@@ -1216,8 +1206,6 @@ function focusNavigatorRail() {
 }
 
 function initializeEditModeToolbar() {
-    getElement('file1-header')?.addEventListener('click', () => setActivePane('left'));
-    getElement('file2-header')?.addEventListener('click', () => setActivePane('right'));
     getElement('toggle-readonly').addEventListener('click', () => {
         if (!hasHostEditableSide()) {
             return;
@@ -1228,26 +1216,6 @@ function initializeEditModeToolbar() {
         updateEditModeToolbar();
         updateChangeToolbarState();
     });
-}
-
-function setActivePane(side) {
-    if (side !== 'left' && side !== 'right') {
-        return;
-    }
-    activePaneSide = side;
-    updateActivePaneHeader();
-}
-
-function updateActivePaneHeader() {
-    const leftHeader = getElement('file1-header');
-    const rightHeader = getElement('file2-header');
-    if (!leftHeader || !rightHeader) {
-        return;
-    }
-
-    const isTwoWay = currentMode === MODE_TWO_WAY;
-    leftHeader.classList.toggle('is-active-pane', isTwoWay && activePaneSide === 'left');
-    rightHeader.classList.toggle('is-active-pane', isTwoWay && activePaneSide === 'right');
 }
 
 function initializeChangeToolbar() {

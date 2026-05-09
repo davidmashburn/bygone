@@ -158,10 +158,10 @@ For two-way diffs it produces a `TwoWayDiffModel` with:
   Aligned left/right rows, including placeholders for insert/delete alignment.
 
 - `leftLines` and `rightLines`
-  Rendered lines for each pane, including optional inline segments for replace hunks.
+  Rendered lines for each pane, including optional inline segments for replace changes.
 
 - `blocks`
-  Higher-level diff hunks used for connector rendering and line-level highlighting.
+  Higher-level diff changes used for connector rendering and line-level highlighting.
 
 - `hasChanges`
   Summary bit for quick checks.

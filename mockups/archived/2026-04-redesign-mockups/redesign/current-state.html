@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bygone — Current State Snapshot</title>
+  <style>
+    /* Mirrors the current shipping look: ./media/webview.css (abridged) */
+    :root {
+      --vscode-foreground: #d4d4d4;
+      --vscode-editor-background: #1e1e1e;
+      --vscode-font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", Menlo, monospace;
+      --vscode-font-size: 13px;
+      --vscode-sideBar-background: #252526;
+      --vscode-panel-border: #3c3c3c;
+      --vscode-descriptionForeground: #9da1a6;
+      --vscode-button-border: #3c3c3c;
+      --vscode-button-secondaryBackground: #313131;
+      --vscode-button-secondaryForeground: #cccccc;
+      --vscode-panel-background: #2d2d2d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--vscode-foreground);
+      background: var(--vscode-editor-background);
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+    }
+    .doc { max-width: 1440px; margin: 0 auto; padding: 24px; display: grid; gap: 22px; }
+    .doc h1 { font-family: system-ui, -apple-system, Segoe UI, sans-serif; font-size: 20px; margin: 0 0 6px 0; }
+    .doc .note { font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #9da1a6; font-size: 12px; margin: 0 0 12px 0; }
+    .screen {
+      border: 1px solid var(--vscode-panel-border);
+      background: var(--vscode-editor-background);
+    }
+    .screen-label {
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      font-size: 11px; color: #9da1a6; padding: 6px 10px; background: #161616; border-bottom: 1px solid var(--vscode-panel-border);
+    }
+
+    /* Header block from current app */
+    #header {
+      padding: 10px 14px 12px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+      background: var(--vscode-sideBar-background);
+      display: grid; gap: 8px;
+    }
+    .app-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .app-header h1 { margin: 0; font-size: 15px; font-family: var(--vscode-font-family); font-weight: 600; }
+    .mode-chip {
+      display: inline-flex; align-items: center;
+      border: 1px solid rgba(79,124,255,0.78); background: rgba(79,124,255,0.14);
+      color: #cfe0ff; border-radius: 999px; min-height: 20px; padding: 0 8px;
+      font-size: 11px; font-weight: 600;
+    }
+    .context-bar { display: grid; grid-template-columns: auto minmax(120px,1fr) minmax(220px,2fr); align-items: center; gap: 8px; min-height: 28px; }
+    .breadcrumb-trail { color: var(--vscode-descriptionForeground); font-size: 11px; }
+    .context-title { text-align: right; color: var(--vscode-descriptionForeground); font-size: 12px; }
+    .history-toolbar { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center; gap: 12px; }
+    .history-side-right { text-align: right; }
+    .history-commit { font-size: 12px; font-weight: 600; }
+    .history-time { color: var(--vscode-descriptionForeground); font-size: 11px; }
+    .history-nav { display: flex; gap: 8px; justify-content: center; }
+    .btn {
+      border: 1px solid var(--vscode-button-border); background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground); border-radius: 4px; min-height: 28px; padding: 4px 10px;
+      font: inherit; cursor: pointer;
+    }
+    .btn-primary { border-color: rgba(79,124,255,0.72); }
+
+    /* Workspace + diff */
+    .workspace-shell { display: grid; grid-template-columns: minmax(220px,280px) minmax(0,1fr); min-height: 520px; }
+    .navigator-rail { border-right: 1px solid var(--vscode-panel-border); background: #222; display: flex; flex-direction: column; }
+    .navigator-rail-header { display: flex; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid var(--vscode-panel-border); font-size: 12px; }
+    .navigator-rail-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px 8px; border-bottom: 1px solid #333; }
+    .navigator-rail-tab { border: 1px solid #333; background: #2a2a2a; color: #9da1a6; border-radius: 4px; font-size: 11px; padding: 4px 8px; cursor: pointer; }
+    .navigator-rail-tab.is-active { background: rgba(79,124,255,0.2); color: #e6e9ef; border-color: rgba(79,124,255,0.6); }
+    .navigator-rail-list { padding: 8px; display: grid; gap: 4px; overflow: auto; }
+    .navigator-entry {
+      display: grid; grid-template-columns: 22px minmax(0,1fr); align-items: center; gap: 6px;
+      padding: 0 8px; min-height: 26px; font-size: 12px; color: var(--vscode-foreground);
+      border-radius: 4px;
+    }
+    .navigator-entry:hover { background: #2a2a2a; }
+    .navigator-entry.is-active { background: rgba(79,124,255,0.18); }
+    .nav-icon { color: #9da1a6; }
+    .nav-icon.mod { color: #dda448; }
+    .nav-icon.add { color: #4bbf73; }
+    .nav-icon.del { color: #e06c75; }
+
+    /* Diff view */
+    #diff-container { min-height: 500px; display: grid; }
+    .diff-view { display: grid; grid-template-columns: 1fr 1fr; min-height: 500px; }
+    .file-panel { display: grid; grid-template-rows: auto 1fr; min-width: 0; border-right: 1px solid var(--vscode-panel-border); }
+    .file-panel:last-child { border-right: none; }
+    .file-header {
+      padding: 6px 10px; background: #262626; border-bottom: 1px solid var(--vscode-panel-border);
+      font-size: 12px; font-weight: 600;
+    }
+    .file-content { overflow: auto; font-family: var(--vscode-font-family); font-size: 12px; padding: 4px 0; }
+    .code-line { display: grid; grid-template-columns: 40px 1fr; min-height: 18px; line-height: 18px; }
+    .code-line .gutter { color: #858585; text-align: right; padding-right: 8px; font-size: 11px; user-select: none; }
+    .code-line .text { white-space: pre; padding-right: 10px; }
+    .code-line.add { background: rgba(73, 190, 119, 0.18); }
+    .code-line.del { background: rgba(240, 99, 120, 0.22); }
+    .code-line.mod { background: rgba(79, 124, 255, 0.22); }
+    .token-add { background: rgba(73, 190, 119, 0.4); }
+    .token-del { background: rgba(240, 99, 120, 0.4); }
+
+    /* Directory rows */
+    .dir-headers { display: grid; grid-template-columns: 1fr 12px 1fr; padding: 6px 10px; background: #262626; border-bottom: 1px solid var(--vscode-panel-border); font-size: 12px; font-weight: 600; }
+    .dir-rows { padding: 4px 8px; display: grid; gap: 2px; }
+    .dir-row { display: grid; grid-template-columns: 1fr 12px 1fr; padding: 4px 8px; border-radius: 3px; font-size: 12px; }
+    .dir-row:hover { background: #2a2a2a; }
+    .dir-row.changed { background: rgba(79, 124, 255, 0.14); }
+    .dir-cell.add { color: #4bbf73; }
+    .dir-cell.del { color: #e06c75; }
+    .dir-cell.mod { color: #dda448; }
+  </style>
+</head>
+<body>
+  <div class="doc">
+    <div>
+      <h1>Current-state snapshot</h1>
+      <p class="note">Static reference of the shipping Bygone UI (header bar stack + file rail + diff panes). Pulled from <code>standalone/index.html</code> and <code>media/webview.css</code>. Compare against the redesign in <code>redesign-visual-language.html</code>.</p>
+    </div>
+
+    <!-- Screen 1: Two-way file diff -->
+    <div class="screen">
+      <div class="screen-label">Screen — Two-way file diff (current)</div>
+      <div id="container">
+        <div id="header">
+          <div class="app-header">
+            <div style="display:flex;align-items:center;gap:8px"><h1>Bygone</h1><span class="mode-chip">Diff</span></div>
+            <div><button class="btn">Editing On</button></div>
+          </div>
+          <div class="context-bar">
+            <div class="breadcrumb-trail">~/code/bygone › src › diffEngine.ts</div>
+            <div></div>
+            <div class="context-title">Comparing HEAD~1 vs. working tree</div>
+          </div>
+          <div style="display:grid;grid-template-columns:auto auto auto auto auto;gap:8px;justify-content:center">
+            <button class="btn">← Prev File</button>
+            <button class="btn">↑ Prev</button>
+            <div style="min-width:72px;text-align:center;color:#9da1a6;font-size:12px;align-self:center">3 / 12</div>
+            <button class="btn btn-primary">↓ Next</button>
+            <button class="btn">Next File →</button>
+          </div>
+        </div>
+
+        <div class="workspace-shell">
+          <aside class="navigator-rail">
+            <div class="navigator-rail-header"><span>Changed Files</span><span style="color:#9da1a6">4</span></div>
+            <div class="navigator-rail-tabs">
+              <button class="navigator-rail-tab is-active">Changed Files</button>
+              <button class="navigator-rail-tab">Tree</button>
+            </div>
+            <div class="navigator-rail-list">
+              <div class="navigator-entry"><span class="nav-icon mod">M</span><span>src/diffEngine.ts</span></div>
+              <div class="navigator-entry is-active"><span class="nav-icon mod">M</span><span>src/gitHistory.ts</span></div>
+              <div class="navigator-entry"><span class="nav-icon add">A</span><span>src/fallbackViews.ts</span></div>
+              <div class="navigator-entry"><span class="nav-icon del">D</span><span>src/oldHistory.ts</span></div>
+            </div>
+          </aside>
+
+          <div id="diff-container">
+            <div class="diff-view">
+              <div class="file-panel">
+                <div class="file-header">gitHistory.ts (HEAD~1)</div>
+                <div class="file-content">
+                  <div class="code-line"><span class="gutter">41</span><span class="text">export function loadFileHistory(file: string) {</span></div>
+                  <div class="code-line del"><span class="gutter">42</span><span class="text">  const commits = git.log({ maxCount: 100 });</span></div>
+                  <div class="code-line"><span class="gutter">43</span><span class="text">  const entries = commits.map((c) =&gt; ({</span></div>
+                  <div class="code-line"><span class="gutter">44</span><span class="text">    hash: c.hash,</span></div>
+                  <div class="code-line mod"><span class="gutter">45</span><span class="text">    summary: c.subject,</span></div>
+                  <div class="code-line"><span class="gutter">46</span><span class="text">  }));</span></div>
+                  <div class="code-line"><span class="gutter">47</span><span class="text">  return entries;</span></div>
+                  <div class="code-line"><span class="gutter">48</span><span class="text">}</span></div>
+                </div>
+              </div>
+              <div class="file-panel">
+                <div class="file-header">gitHistory.ts (working tree)</div>
+                <div class="file-content">
+                  <div class="code-line"><span class="gutter">41</span><span class="text">export function loadFileHistory(file: string) {</span></div>
+                  <div class="code-line add"><span class="gutter">42</span><span class="text">  const max = env.BYGONE_HISTORY_MAX_COMMITS ?? 250;</span></div>
+                  <div class="code-line add"><span class="gutter">43</span><span class="text">  const commits = git.log({ maxCount: max });</span></div>
+                  <div class="code-line"><span class="gutter">44</span><span class="text">  const entries = commits.map((c) =&gt; ({</span></div>
+                  <div class="code-line"><span class="gutter">45</span><span class="text">    hash: c.hash,</span></div>
+                  <div class="code-line mod"><span class="gutter">46</span><span class="text">    summary: <span class="token-add">formatSubject(c.subject)</span>,</span></div>
+                  <div class="code-line"><span class="gutter">47</span><span class="text">  }));</span></div>
+                  <div class="code-line"><span class="gutter">48</span><span class="text">  return entries;</span></div>
+                  <div class="code-line"><span class="gutter">49</span><span class="text">}</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Screen 2: Directory diff -->
+    <div class="screen">
+      <div class="screen-label">Screen — Directory diff (current)</div>
+      <div id="header">
+        <div class="app-header">
+          <div style="display:flex;align-items:center;gap:8px"><h1>Bygone</h1><span class="mode-chip">Directory</span></div>
+          <div></div>
+        </div>
+        <div class="context-bar">
+          <div class="breadcrumb-trail">~/code/bygone › src</div>
+          <div></div>
+          <div class="context-title">3 modified · 1 added · 1 deleted</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn">Expand All</button>
+          <button class="btn">Collapse All</button>
+          <button class="btn">Collapse Unchanged (Default)</button>
+        </div>
+      </div>
+      <div class="dir-headers"><div>Left — main</div><div></div><div>Right — working tree</div></div>
+      <div class="dir-rows">
+        <div class="dir-row changed"><div>src/diffEngine.ts</div><div style="text-align:center;color:#dda448">M</div><div class="dir-cell mod">src/diffEngine.ts</div></div>
+        <div class="dir-row changed"><div>src/gitHistory.ts</div><div style="text-align:center;color:#dda448">M</div><div class="dir-cell mod">src/gitHistory.ts</div></div>
+        <div class="dir-row"><div style="color:#9da1a6">src/extension.ts</div><div></div><div style="color:#9da1a6">src/extension.ts</div></div>
+        <div class="dir-row changed"><div></div><div style="text-align:center;color:#4bbf73">+</div><div class="dir-cell add">src/fallbackViews.ts</div></div>
+        <div class="dir-row changed"><div class="dir-cell del">src/oldHistory.ts</div><div style="text-align:center;color:#e06c75">−</div><div></div></div>
+      </div>
+    </div>
+
+    <!-- Screen 3: File history -->
+    <div class="screen">
+      <div class="screen-label">Screen — File git history (current)</div>
+      <div id="header">
+        <div class="app-header">
+          <div style="display:flex;align-items:center;gap:8px"><h1>Bygone</h1><span class="mode-chip">History</span></div>
+        </div>
+        <div class="context-bar">
+          <div class="breadcrumb-trail">~/code/bygone › src › gitHistory.ts</div>
+          <div></div>
+          <div class="context-title">86 commits</div>
+        </div>
+        <div class="history-toolbar">
+          <div>
+            <div class="history-commit">4653c81 — feat(history): add staged toggle to history UI</div>
+            <div class="history-time">David Mashburn · 2 days ago</div>
+          </div>
+          <div class="history-nav">
+            <button class="btn">← Older</button>
+            <div style="min-width:52px;text-align:center;color:#9da1a6;font-size:12px;align-self:center">12 / 86</div>
+            <button class="btn btn-primary">Newer →</button>
+            <button class="btn">Staged Off</button>
+          </div>
+          <div class="history-side-right">
+            <div class="history-commit">e08ca0a — fix(history): normalize staged commit labels</div>
+            <div class="history-time">David Mashburn · 1 day ago</div>
+          </div>
+        </div>
+      </div>
+      <div class="diff-view">
+        <div class="file-panel">
+          <div class="file-header">gitHistory.ts @ 4653c81</div>
+          <div class="file-content">
+            <div class="code-line"><span class="gutter">41</span><span class="text">export function loadFileHistory(file: string) {</span></div>
+            <div class="code-line del"><span class="gutter">42</span><span class="text">  const commits = git.log({ maxCount: 100 });</span></div>
+            <div class="code-line"><span class="gutter">43</span><span class="text">  return commits;</span></div>
+            <div class="code-line"><span class="gutter">44</span><span class="text">}</span></div>
+          </div>
+        </div>
+        <div class="file-panel">
+          <div class="file-header">gitHistory.ts @ e08ca0a</div>
+          <div class="file-content">
+            <div class="code-line"><span class="gutter">41</span><span class="text">export function loadFileHistory(file: string) {</span></div>
+            <div class="code-line add"><span class="gutter">42</span><span class="text">  const commits = git.log({ maxCount: 250 });</span></div>
+            <div class="code-line"><span class="gutter">43</span><span class="text">  return commits;</span></div>
+            <div class="code-line"><span class="gutter">44</span><span class="text">}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

@@ -23,7 +23,7 @@ The central design move is to separate:
 - `where am I?` hierarchy and mode
 - `when am I?` history and timeline
 - `what sibling am I on?` file-to-file traversal
-- `what local change am I on?` hunk-to-hunk traversal
+- `what local change am I on?` change-to-change traversal
 - `what can I do?` edit, copy, save, open external
 
 Today these concepts are mixed into one header cluster. The refactor should give Bygone one stable shell whose regions change predictably by mode.
@@ -32,7 +32,7 @@ Today these concepts are mixed into one header cluster. The refactor should give
 
 - Keep one canonical window shell across extension and standalone.
 - Make the meaning of arrows and controls consistent across all modes.
-- Promote hierarchy, time, file traversal, and hunk traversal into separate visual groups.
+- Promote hierarchy, time, file traversal, and change traversal into separate visual groups.
 - Preserve existing capabilities while reducing toolbar sprawl.
 - Keep the shared browser runtime in `media/` as the main implementation surface.
 
@@ -66,7 +66,7 @@ The important rule is that the shell remains stable while the content inside the
 +------------------------------+-------------------------------------------------------+
 | NavigatorRail                | CanvasStage                                           |
 | tree / changed files /       | diff panes / multi diff / merge prototype             |
-| history list                 | local hunk navigation belongs here                    |
+| history list                 | local change navigation belongs here                    |
 +------------------------------+-------------------------------------------------------+
 | ActionBar: copy, save, open external, palette, hints                                 |
 +--------------------------------------------------------------------------------------+
@@ -140,7 +140,7 @@ This derived state should live in `media/script.js`, with the host continuing to
 - `NavigatorRail` defaults to `changed-files`.
 - `Back` returns to the directory tree.
 - `Prev/Next File` cycles sibling changed files.
-- `Prev/Next Change` cycles hunks in the active file.
+- `Prev/Next Change` cycles changes in the active file.
 
 ### `history`
 
@@ -156,7 +156,7 @@ This derived state should live in `media/script.js`, with the host continuing to
 - `NavigatorRail` shows tree at snapshot level and `changed-files` in drill-down level.
 - `Back` exits file drill-down and returns to the current snapshot tree.
 - `Prev/Next File` changes file within the current snapshot pair.
-- `Prev/Next Change` changes hunk within the current file.
+- `Prev/Next Change` changes change within the current file.
 
 ### `multi-diff`
 
@@ -425,7 +425,7 @@ Bygone should use three distinct motion families.
 
 ### Local change motion
 
-- Use scroll reveal plus active hunk pulse.
+- Use scroll reveal plus active change pulse.
 - Duration: scroll-native plus `90ms` highlight pulse.
 - Triggered by next/previous change.
 
@@ -531,7 +531,7 @@ Success criteria:
 
 ### Phase 3: Haptics And Polish
 
-- Add hierarchy slide, timeline crossfade, and active-hunk pulse.
+- Add hierarchy slide, timeline crossfade, and active-change pulse.
 - Improve keyboard focus ring and navigator focus handoff.
 - Tune spacing and density for smaller windows.
 
