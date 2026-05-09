@@ -1,3 +1,5 @@
+import { buildTwoWayDiffModel } from '../src/diffEngine';
+
 const host = createHostBridge();
 const {
     VIEW_IDS,
@@ -47,6 +49,7 @@ let multiDiffPairs = [];
 let multiPanels = [];
 let activeMultiPanelId = null;
 let activeMultiPairIndex = null;
+let multiPanelChangeIndices = new Map();
 let multiPanelMutationEnabled = false;
 let historyRailState = null;
 let activeHistoryRailTabId = null;
@@ -257,6 +260,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     multiDiffPairs = pairs || [];
     activeMultiPanelId = resolveActiveMultiPanelId(panels, nextActivePanelId);
     activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, nextActivePairIndex, activeMultiPanelId, panels);
+    multiPanelChangeIndices = new Map();
     multiPanelMutationEnabled = host.environment === 'standalone';
     updateHistoryToolbar(null);
     updateHistoryRail(null);
@@ -422,6 +426,7 @@ function disposeMultiEditors(resetState = true) {
     multiEditors = [];
     multiDecorationIds = [];
     multiDiffPairs = [];
+    multiPanelChangeIndices = new Map();
     if (resetState) {
         multiPanels = [];
         activeMultiPanelId = null;
@@ -447,12 +452,19 @@ function renderMultiDiffShell(panels) {
         children.push(
             `<div class="multi-pane" data-index="${index}" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header" data-panel-id="${escapeAttr(panel.id)}">`
+            + `<div class="multi-pane-header-top">`
             + `<span class="multi-pane-title">${escapeHtml(panel.label)}</span>`
             + `<span class="multi-pane-actions${multiPanelMutationEnabled ? '' : ' hidden'}">`
             + `<button class="multi-pane-action" type="button" data-multi-add-side="left" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the left" aria-label="Add panel to the left">+</button>`
             + `<button class="multi-pane-action" type="button" data-multi-remove-panel="${escapeAttr(panel.id)}" title="Remove panel" aria-label="Remove panel">−</button>`
             + `<button class="multi-pane-action" type="button" data-multi-add-side="right" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the right" aria-label="Add panel to the right">+</button>`
             + `</span>`
+            + `</div>`
+            + `<div class="multi-pane-header-controls">`
+            + `<button class="multi-pane-copy" type="button" data-multi-panel-copy="right-to-left" data-panel-id="${escapeAttr(panel.id)}" title="Copy current change into the left neighbor" aria-label="Copy current change into the left neighbor">←</button>`
+            + `<span class="multi-pane-position" data-multi-panel-position="${escapeAttr(panel.id)}">0 / 0</span>`
+            + `<button class="multi-pane-copy" type="button" data-multi-panel-copy="left-to-right" data-panel-id="${escapeAttr(panel.id)}" title="Copy current change into the right neighbor" aria-label="Copy current change into the right neighbor">→</button>`
+            + `</div>`
             + `</div>`
             + `<div id="multi-pane-${index}-content" class="multi-pane-content"></div>`
             + '</div>'
@@ -463,7 +475,7 @@ function renderMultiDiffShell(panels) {
             totalWidth += MULTI_GUTTER_WIDTH;
             children.push(
                 `<div class="multi-gutter" data-pair-index="${index}">`
-                + `<div class="multi-gutter-header">${escapeHtml(panel.label)}:${escapeHtml(panels[index + 1].label)}</div>`
+                + `<div class="multi-gutter-header"><span class="multi-gutter-title">${escapeHtml(panel.label)}:${escapeHtml(panels[index + 1].label)}</span></div>`
                 + '</div>'
             );
         }
@@ -472,6 +484,28 @@ function renderMultiDiffShell(panels) {
     const container = getElement(VIEW_IDS.multiWay);
     const trackWidth = Math.max(totalWidth, container.parentElement?.clientWidth || 0);
     container.innerHTML = `<div class="multi-view-track" style="grid-template-columns:${columns.join(' ')};width:${trackWidth}px;">${children.join('')}</div>`;
+}
+
+function recomputeMultiDiffState() {
+    if (currentMode !== MODE_MULTI_WAY || multiEditors.length !== multiPanels.length) {
+        return;
+    }
+
+    const nextPanels = multiPanels.map((panel, index) => ({
+        ...panel,
+        content: multiEditors[index]?.getValue().replace(/\r\n/g, '\n') ?? panel.content
+    }));
+
+    multiPanels = nextPanels;
+    multiDiffPairs = nextPanels.slice(0, -1).map((panel, index) => ({
+        leftIndex: index,
+        rightIndex: index + 1,
+        diffModel: buildTwoWayDiffModel(panel.content, nextPanels[index + 1].content)
+    }));
+    activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, activeMultiPairIndex, activeMultiPanelId, multiPanels);
+    updateMultiActivePairModel(false, activeMultiPairIndex);
+    updateActiveMultiShellState();
+    connectorController.scheduleDrawConnections();
 }
 
 function resolveActiveMultiPanelId(panels, nextActivePanelId) {
@@ -510,6 +544,17 @@ function updateActiveMultiShellState() {
     });
     container.querySelectorAll('[data-multi-remove-panel]').forEach((button) => {
         button.disabled = multiPanels.length <= 1;
+    });
+    container.querySelectorAll('[data-multi-panel-position]').forEach((element) => {
+        const panelId = element.getAttribute('data-multi-panel-position') || '';
+        const panelChanges = getMultiPanelChanges(panelId);
+        const panelChangeIndex = getMultiPanelChangeIndex(panelId, panelChanges);
+        element.textContent = panelChanges.length > 0 ? `${panelChangeIndex + 1} / ${panelChanges.length}` : '0 / 0';
+    });
+    container.querySelectorAll('[data-multi-panel-copy]').forEach((button) => {
+        const panelId = button.getAttribute('data-panel-id') || '';
+        const direction = button.getAttribute('data-multi-panel-copy') || '';
+        button.disabled = !canCopyFromPanel(panelId, direction);
     });
 }
 
@@ -925,8 +970,16 @@ function initializeMultiDiffInteractions() {
     }, { passive: false, capture: true });
 
     container.addEventListener('click', (event) => {
-        const target = event.target instanceof Element ? event.target.closest('[data-panel-id], [data-pair-index], [data-multi-add-side], [data-multi-remove-panel]') : null;
+        const target = event.target instanceof Element ? event.target.closest('[data-panel-id], [data-pair-index], [data-multi-add-side], [data-multi-remove-panel], [data-multi-panel-copy]') : null;
         if (!target) {
+            return;
+        }
+
+        const panelCopyDirection = target.getAttribute('data-multi-panel-copy');
+        const panelCopyId = target.getAttribute('data-panel-id');
+        if (panelCopyDirection && panelCopyId) {
+            event.stopPropagation();
+            copyMultiPanelChange(panelCopyId, panelCopyDirection);
             return;
         }
 
@@ -1050,8 +1103,17 @@ function setActiveMultiPair(pairIndex, notifyHost) {
         return;
     }
 
+    const pair = multiDiffPairs[pairIndex];
+    if (!pair) {
+        return;
+    }
+
+    const activePanelIndex = multiPanels.findIndex((panel) => panel.id === activeMultiPanelId);
+    if (activePanelIndex < 0 || (pair.leftIndex !== activePanelIndex && pair.rightIndex !== activePanelIndex)) {
+        activeMultiPanelId = multiPanels[pair.leftIndex]?.id ?? activeMultiPanelId;
+    }
     activeMultiPairIndex = pairIndex;
-    updateMultiActivePairModel(false);
+    updateMultiActivePairModel(false, pairIndex);
     updateActiveMultiShellState();
 
     if (notifyHost) {
@@ -1062,28 +1124,165 @@ function setActiveMultiPair(pairIndex, notifyHost) {
     }
 }
 
-function updateMultiActivePairModel(shouldReveal) {
-    const activePair = getActiveMultiPair();
+function getActiveMultiPanelIndex() {
+    return multiPanels.findIndex((panel) => panel.id === activeMultiPanelId);
+}
+
+function getAdjacentMultiPairs(panelIndex = getActiveMultiPanelIndex()) {
+    if (panelIndex < 0) {
+        return [];
+    }
+
+    return multiDiffPairs.flatMap((pair, pairIndex) => {
+        if (pair.leftIndex === panelIndex) {
+            return [{ pair, pairIndex, side: 'left' }];
+        }
+
+        if (pair.rightIndex === panelIndex) {
+            return [{ pair, pairIndex, side: 'right' }];
+        }
+
+        return [];
+    });
+}
+
+function getMultiPanelChanges(panelId = activeMultiPanelId) {
+    const panelIndex = multiPanels.findIndex((panel) => panel.id === panelId);
+    const adjacentPairs = getAdjacentMultiPairs(panelIndex);
+    const mergedChanges = new Map();
+
+    adjacentPairs.forEach(({ pair, pairIndex, side }) => {
+        (pair.diffModel?.blocks || []).forEach((block, blockIndex) => {
+            const start = side === 'left' ? block.leftStart : block.rightStart;
+            const end = side === 'left' ? block.leftEnd : block.rightEnd;
+            const normalizedStart = Math.max(0, start);
+            const normalizedEnd = Math.max(normalizedStart, end);
+            const key = `${normalizedStart}:${normalizedEnd}`;
+            const existing = mergedChanges.get(key);
+            const nextChange = {
+                key,
+                start: normalizedStart,
+                end: normalizedEnd,
+                pairIndex,
+                blockIndex
+            };
+
+            if (!existing) {
+                mergedChanges.set(key, nextChange);
+                return;
+            }
+
+            if (pairIndex === activeMultiPairIndex && existing.pairIndex !== activeMultiPairIndex) {
+                mergedChanges.set(key, nextChange);
+            }
+        });
+    });
+
+    return Array.from(mergedChanges.values()).sort((left, right) => {
+        if (left.start !== right.start) {
+            return left.start - right.start;
+        }
+
+        if (left.end !== right.end) {
+            return left.end - right.end;
+        }
+
+        return left.pairIndex - right.pairIndex;
+    });
+}
+
+function getMultiPanelChangeIndex(panelId = activeMultiPanelId, panelChanges = getMultiPanelChanges(panelId)) {
+    if (panelChanges.length === 0) {
+        return -1;
+    }
+
+    const currentIndex = multiPanelChangeIndices.get(panelId);
+    if (!Number.isInteger(currentIndex)) {
+        return 0;
+    }
+
+    return clamp(currentIndex, 0, panelChanges.length - 1);
+}
+
+function setMultiPanelChangeIndex(panelId, index) {
+    if (!panelId) {
+        return;
+    }
+
+    multiPanelChangeIndices.set(panelId, index);
+}
+
+function getActiveMultiPanelChange() {
+    const panelChanges = getMultiPanelChanges(activeMultiPanelId);
+    const panelChangeIndex = getMultiPanelChangeIndex(activeMultiPanelId, panelChanges);
+    if (panelChangeIndex < 0) {
+        return null;
+    }
+
+    return panelChanges[panelChangeIndex];
+}
+
+function updateMultiActivePairModel(shouldReveal, preferredPairIndex = null) {
+    const previousChange = getActiveMultiPanelChange();
+    const panelChanges = getMultiPanelChanges(activeMultiPanelId);
+
+    if (panelChanges.length === 0) {
+        const activePair = getActiveMultiPair();
+        if (!activePair) {
+            setMultiPanelChangeIndex(activeMultiPanelId, -1);
+            activeMultiPairIndex = null;
+            setCurrentDiffModel({ blocks: [], rows: [] });
+            setActiveDiffIndex(-1, false);
+            updateActiveMultiShellState();
+            return;
+        }
+
+        setMultiPanelChangeIndex(activeMultiPanelId, -1);
+        setCurrentDiffModel(activePair.diffModel);
+        setActiveDiffIndex(-1, false);
+        applyMultiDiffDecorations(multiDiffPairs);
+        updateActiveMultiShellState();
+        connectorController.scheduleDrawConnections();
+        return;
+    }
+
+    let nextChangeIndex = -1;
+    if (previousChange) {
+        nextChangeIndex = panelChanges.findIndex((change) => change.key === previousChange.key);
+    }
+
+    if (nextChangeIndex < 0 && Number.isInteger(preferredPairIndex)) {
+        nextChangeIndex = panelChanges.findIndex((change) => change.pairIndex === preferredPairIndex);
+    }
+
+    const currentPanelChangeIndex = getMultiPanelChangeIndex(activeMultiPanelId, panelChanges);
+    if (nextChangeIndex < 0 && Number.isInteger(currentPanelChangeIndex) && currentPanelChangeIndex >= 0) {
+        nextChangeIndex = clamp(currentPanelChangeIndex, 0, panelChanges.length - 1);
+    }
+
+    if (nextChangeIndex < 0) {
+        nextChangeIndex = 0;
+    }
+
+    const activeChange = panelChanges[nextChangeIndex];
+    const activePair = activeChange ? multiDiffPairs[activeChange.pairIndex] : null;
     if (!activePair) {
+        setMultiPanelChangeIndex(activeMultiPanelId, -1);
         setCurrentDiffModel({ blocks: [], rows: [] });
         setActiveDiffIndex(-1, false);
         updateActiveMultiShellState();
         return;
     }
 
+    setMultiPanelChangeIndex(activeMultiPanelId, nextChangeIndex);
+    activeMultiPairIndex = activeChange.pairIndex;
     setCurrentDiffModel(activePair.diffModel);
-    if (diffBlocks.length === 0) {
-        setActiveDiffIndex(-1, false);
-    } else if (activeDiffIndex < 0 || activeDiffIndex >= diffBlocks.length) {
-        setActiveDiffIndex(0, false);
-    } else {
-        updateChangeToolbarState();
-    }
+    setActiveDiffIndex(activeChange.blockIndex, false);
 
     applyMultiDiffDecorations(multiDiffPairs);
     updateActiveMultiShellState();
 
-    if (shouldReveal && diffBlocks.length > 0) {
+    if (shouldReveal) {
         revealActiveDiff(true);
     } else {
         connectorController.scheduleDrawConnections();
@@ -1212,7 +1411,22 @@ function registerEditorKeybindings(editor, editorMode) {
 }
 
 function navigateDiff(direction) {
-    if ((currentMode !== MODE_TWO_WAY && currentMode !== MODE_MULTI_WAY) || diffBlocks.length === 0) {
+    if (currentMode === MODE_MULTI_WAY) {
+        const panelChanges = getMultiPanelChanges(activeMultiPanelId);
+        if (panelChanges.length === 0) {
+            return;
+        }
+
+        const currentPanelChangeIndex = getMultiPanelChangeIndex(activeMultiPanelId, panelChanges);
+        const nextIndex = currentPanelChangeIndex < 0
+            ? 0
+            : (currentPanelChangeIndex + direction + panelChanges.length) % panelChanges.length;
+
+        setActiveMultiPanelChangeIndex(nextIndex, true);
+        return;
+    }
+
+    if (currentMode !== MODE_TWO_WAY || diffBlocks.length === 0) {
         return;
     }
 
@@ -1221,6 +1435,133 @@ function navigateDiff(direction) {
         : (activeDiffIndex + direction + diffBlocks.length) % diffBlocks.length;
 
     setActiveDiffIndex(nextIndex, true);
+}
+
+function setActiveMultiPanelChangeIndex(index, shouldReveal) {
+    const panelChanges = getMultiPanelChanges(activeMultiPanelId);
+    if (currentMode !== MODE_MULTI_WAY || index < 0 || index >= panelChanges.length) {
+        return;
+    }
+
+    const nextChange = panelChanges[index];
+    const nextPair = multiDiffPairs[nextChange.pairIndex];
+    if (!nextPair) {
+        return;
+    }
+
+    setMultiPanelChangeIndex(activeMultiPanelId, index);
+    activeMultiPairIndex = nextChange.pairIndex;
+    setCurrentDiffModel(nextPair.diffModel);
+    setActiveDiffIndex(nextChange.blockIndex, false);
+
+    updateActiveMultiShellState();
+    if (shouldReveal) {
+        revealActiveDiff(true);
+    }
+}
+
+function getActivePanelEditor() {
+    const panelIndex = getActiveMultiPanelIndex();
+    if (panelIndex < 0) {
+        return null;
+    }
+
+    return multiEditors[panelIndex] || null;
+}
+
+function getMultiPairForDirection(direction) {
+    const activePanelIndex = getActiveMultiPanelIndex();
+    if (activePanelIndex < 0) {
+        return null;
+    }
+
+    const targetPanelIndex = direction === 'left-to-right' ? activePanelIndex + 1 : activePanelIndex - 1;
+    if (targetPanelIndex < 0 || targetPanelIndex >= multiPanels.length) {
+        return null;
+    }
+
+    const pairIndex = direction === 'left-to-right' ? activePanelIndex : targetPanelIndex;
+    const pair = multiDiffPairs[pairIndex];
+    if (!pair) {
+        return null;
+    }
+
+    return {
+        pair,
+        pairIndex,
+        activePanelIndex,
+        targetPanelIndex
+    };
+}
+
+function getMultiPairProjection(pair, activePanelIndex, activeChange) {
+    if (!pair || !activeChange) {
+        return null;
+    }
+
+    const activeSide = pair.leftIndex === activePanelIndex ? 'left' : (pair.rightIndex === activePanelIndex ? 'right' : null);
+    if (!activeSide) {
+        return null;
+    }
+
+    const targetSide = activeSide === 'left' ? 'right' : 'left';
+    const activeStartKey = activeSide === 'left' ? 'leftStart' : 'rightStart';
+    const activeEndKey = activeSide === 'left' ? 'leftEnd' : 'rightEnd';
+    const targetStartKey = targetSide === 'left' ? 'leftStart' : 'rightStart';
+    const targetEndKey = targetSide === 'left' ? 'leftEnd' : 'rightEnd';
+    const block = (pair.diffModel?.blocks || []).find((candidate) => (
+        candidate[activeStartKey] === activeChange.start && candidate[activeEndKey] === activeChange.end
+    ));
+
+    if (block) {
+        return {
+            activeStart: block[activeStartKey],
+            activeEnd: block[activeEndKey],
+            targetStart: block[targetStartKey],
+            targetEnd: block[targetEndKey]
+        };
+    }
+
+    return {
+        activeStart: activeChange.start,
+        activeEnd: activeChange.end,
+        targetStart: activeChange.start,
+        targetEnd: activeChange.end
+    };
+}
+
+function canCopyFromPanel(panelId, direction) {
+    const panelChanges = getMultiPanelChanges(panelId);
+    if (panelChanges.length === 0) {
+        return false;
+    }
+
+    const panelIndex = multiPanels.findIndex((panel) => panel.id === panelId);
+    if (panelIndex < 0) {
+        return false;
+    }
+
+    if (direction === 'left-to-right') {
+        return panelIndex < multiPanels.length - 1;
+    }
+
+    if (direction === 'right-to-left') {
+        return panelIndex > 0;
+    }
+
+    return false;
+}
+
+function copyMultiPanelChange(panelId, direction) {
+    if (!canCopyFromPanel(panelId, direction)) {
+        return;
+    }
+
+    if (panelId !== activeMultiPanelId) {
+        setActiveMultiPanel(panelId, true);
+    }
+
+    copyCurrentChange(direction);
 }
 
 function setActiveDiffIndex(index, shouldReveal) {
@@ -1240,6 +1581,8 @@ function setActiveDiffIndex(index, shouldReveal) {
 
 function updateChangeToolbarState() {
     const toolbar = getElement('change-toolbar');
+    const toolbarCenter = toolbar.querySelector('.change-toolbar-center');
+    const toolbarHint = toolbar.parentElement?.querySelector('.change-hint');
     const isCompareMode = currentMode === MODE_TWO_WAY || currentMode === 'directory' || currentMode === MODE_MULTI_WAY || currentMode === 'three-way';
     const hasTwoWayMode = currentMode === MODE_TWO_WAY;
     const hasTwoWayDiffs = hasTwoWayMode && diffBlocks.length > 0;
@@ -1248,13 +1591,23 @@ function updateChangeToolbarState() {
     toolbar.hidden = !isCompareMode;
 
     if (!isCompareMode) {
+        toolbarCenter.hidden = false;
+        if (toolbarHint) {
+            toolbarHint.hidden = false;
+        }
         setTextContent('change-position', '');
         return;
     }
 
     if (hasDirectoryTargets) {
+        toolbarCenter.hidden = false;
+        if (toolbarHint) {
+            toolbarHint.hidden = false;
+        }
         const currentIndex = getActiveDirectoryEntryIndex(directoryTargets);
         setTextContent('change-position', `${currentIndex + 1} / ${directoryTargets.length}`);
+        getElement('copy-left-to-right').hidden = false;
+        getElement('copy-right-to-left').hidden = false;
         getElement('previous-change').disabled = true;
         getElement('next-change').disabled = true;
         getElement('previous-file').disabled = currentIndex <= 0;
@@ -1266,8 +1619,14 @@ function updateChangeToolbarState() {
     }
 
     if (hasTwoWayMode) {
+        toolbarCenter.hidden = false;
+        if (toolbarHint) {
+            toolbarHint.hidden = false;
+        }
         const safeIndex = diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1;
         setTextContent('change-position', diffBlocks.length > 0 ? `${safeIndex + 1} / ${diffBlocks.length}` : '0 / 0');
+        getElement('copy-left-to-right').hidden = false;
+        getElement('copy-right-to-left').hidden = false;
         getElement('previous-change').disabled = diffBlocks.length === 0;
         getElement('next-change').disabled = diffBlocks.length === 0;
         getElement('previous-file').disabled = !currentFileNavigation.canGoPrevious;
@@ -1278,12 +1637,18 @@ function updateChangeToolbarState() {
     }
 
     if (currentMode === MODE_MULTI_WAY) {
-        const currentPanelIndex = multiPanels.findIndex((panel) => panel.id === activeMultiPanelId);
-        const activePair = getActiveMultiPair();
-        const safeIndex = diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1;
-        setTextContent('change-position', diffBlocks.length > 0 ? `${safeIndex + 1} / ${diffBlocks.length}` : '—');
-        getElement('previous-change').disabled = !activePair || diffBlocks.length === 0;
-        getElement('next-change').disabled = !activePair || diffBlocks.length === 0;
+        const currentPanelIndex = getActiveMultiPanelIndex();
+        const panelChanges = getMultiPanelChanges(activeMultiPanelId);
+        const panelChangeIndex = getMultiPanelChangeIndex(activeMultiPanelId, panelChanges);
+        toolbarCenter.hidden = true;
+        if (toolbarHint) {
+            toolbarHint.hidden = true;
+        }
+        setTextContent('change-position', panelChanges.length > 0 ? `${panelChangeIndex + 1} / ${panelChanges.length}` : '0 / 0');
+        getElement('copy-left-to-right').hidden = true;
+        getElement('copy-right-to-left').hidden = true;
+        getElement('previous-change').disabled = panelChanges.length === 0;
+        getElement('next-change').disabled = panelChanges.length === 0;
         getElement('previous-file').disabled = currentPanelIndex <= 0;
         getElement('next-file').disabled = currentPanelIndex < 0 || currentPanelIndex >= multiPanels.length - 1;
         getElement('copy-left-to-right').disabled = true;
@@ -1292,7 +1657,13 @@ function updateChangeToolbarState() {
         return;
     }
 
+    toolbarCenter.hidden = false;
+    if (toolbarHint) {
+        toolbarHint.hidden = false;
+    }
     setTextContent('change-position', '—');
+    getElement('copy-left-to-right').hidden = false;
+    getElement('copy-right-to-left').hidden = false;
     getElement('previous-change').disabled = true;
     getElement('next-change').disabled = true;
     getElement('previous-file').disabled = true;
@@ -1424,6 +1795,26 @@ function revealBlockSide(editor, start, end, smooth) {
 }
 
 function copyCurrentChange(direction) {
+    if (currentMode === MODE_MULTI_WAY) {
+        const activeChange = getActiveMultiPanelChange();
+        const pairContext = getMultiPairForDirection(direction);
+        const activeEditor = getActivePanelEditor();
+        if (!activeChange || !pairContext || !activeEditor) {
+            return;
+        }
+
+        const targetEditor = multiEditors[pairContext.targetPanelIndex];
+        const projection = getMultiPairProjection(pairContext.pair, pairContext.activePanelIndex, activeChange);
+        if (!targetEditor || !projection) {
+            return;
+        }
+
+        const sourceLines = getEditorLines(activeEditor).slice(projection.activeStart, projection.activeEnd);
+        replaceEditorLines(targetEditor, projection.targetStart, projection.targetEnd, sourceLines);
+        recomputeMultiDiffState();
+        return;
+    }
+
     const targetSide = direction === 'left-to-right' ? 'right' : 'left';
     if (currentMode !== MODE_TWO_WAY || !isSideEditable(targetSide) || activeDiffIndex < 0) {
         return;
