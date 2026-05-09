@@ -475,14 +475,18 @@ function renderMultiDiffShell(panels) {
             + `<span class="multi-pane-title">${escapeHtml(panel.label)}</span>`
             + `<span class="multi-pane-actions${multiPanelMutationEnabled ? '' : ' hidden'}">`
             + `<button class="multi-pane-action" type="button" data-multi-add-side="left" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the left" aria-label="Add panel to the left">+</button>`
-            + `<button class="multi-pane-action" type="button" data-multi-remove-panel="${escapeAttr(panel.id)}" title="Remove panel" aria-label="Remove panel">−</button>`
+            + `<button class="multi-pane-action multi-pane-action-danger" type="button" data-multi-remove-panel="${escapeAttr(panel.id)}" title="Remove panel" aria-label="Remove panel">×</button>`
             + `<button class="multi-pane-action" type="button" data-multi-add-side="right" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the right" aria-label="Add panel to the right">+</button>`
             + `</span>`
             + `</div>`
             + `<div class="multi-pane-header-controls">`
-            + `<button class="multi-pane-copy" type="button" data-multi-panel-copy="right-to-left" data-panel-id="${escapeAttr(panel.id)}" title="Copy current change into the left neighbor" aria-label="Copy current change into the left neighbor">←</button>`
+            + `<button class="multi-pane-copy" type="button" data-multi-panel-copy="right-to-left" data-panel-id="${escapeAttr(panel.id)}" title="Copy current change into the left neighbor" aria-label="Copy current change into the left neighbor">`
+            + `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H9"></path><path d="M13 8l-4 4 4 4"></path><path d="M5 5v14"></path></svg>`
+            + `</button>`
             + `<span class="multi-pane-position" data-multi-panel-position="${escapeAttr(panel.id)}">0 / 0</span>`
-            + `<button class="multi-pane-copy" type="button" data-multi-panel-copy="left-to-right" data-panel-id="${escapeAttr(panel.id)}" title="Copy current change into the right neighbor" aria-label="Copy current change into the right neighbor">→</button>`
+            + `<button class="multi-pane-copy" type="button" data-multi-panel-copy="left-to-right" data-panel-id="${escapeAttr(panel.id)}" title="Copy current change into the right neighbor" aria-label="Copy current change into the right neighbor">`
+            + `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h10"></path><path d="M11 8l4 4-4 4"></path><path d="M19 5v14"></path></svg>`
+            + `</button>`
             + `</div>`
             + `</div>`
             + `<div id="multi-pane-${index}-content" class="multi-pane-content"></div>`

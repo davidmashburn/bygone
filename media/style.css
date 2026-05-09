@@ -623,40 +623,44 @@ body.web-host {
 }
 
 .multi-pane-title {
+    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--vscode-foreground);
 }
 
 .multi-pane-header {
-    min-height: 46px;
-    padding: 6px 10px;
+    min-height: 44px;
+    padding: 6px 8px 7px;
     flex-direction: column;
     align-items: stretch;
-    gap: 4px;
-    position: relative;
+    gap: 5px;
 }
 
 .multi-pane-header-top,
 .multi-pane-header-controls {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
+    justify-content: space-between;
+    gap: 6px;
     min-width: 0;
 }
 
 .multi-pane-header-controls {
     justify-content: center;
-    padding-right: 72px;
+    gap: 6px;
 }
 
 .multi-pane-position {
-    min-width: 48px;
+    min-width: 52px;
     text-align: center;
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    padding: 0 2px;
 }
 
 .multi-pane-actions {
@@ -664,10 +668,7 @@ body.web-host {
     align-items: center;
     gap: 4px;
     flex: 0 0 auto;
-    position: absolute;
-    top: 6px;
-    right: 10px;
-    opacity: 0.35;
+    opacity: 0.18;
     transition: opacity 120ms ease;
 }
 
@@ -677,16 +678,20 @@ body.web-host {
 }
 
 .multi-pane-action {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
     background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
     color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
     border-radius: 4px;
     cursor: pointer;
-    font: inherit;
+    font: 12px/1 inherit;
     line-height: 1;
     padding: 0;
+}
+
+.multi-pane-action-danger {
+    color: color-mix(in srgb, #ff8f8f 78%, var(--vscode-button-secondaryForeground, var(--vscode-button-foreground)));
 }
 
 .multi-pane-action:disabled {
@@ -702,8 +707,8 @@ body.web-host {
 }
 
 .multi-pane-copy {
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
     padding: 0;
     border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
     border-radius: 4px;
@@ -713,6 +718,20 @@ body.web-host {
     font: inherit;
     line-height: 1;
     flex: 0 0 auto;
+}
+
+.multi-pane-copy svg {
+    width: 13px;
+    height: 13px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.multi-pane.is-active-pane .multi-pane-copy {
+    border-color: color-mix(in srgb, rgba(79, 124, 255, 0.58) 72%, var(--vscode-button-border, var(--vscode-panel-border)));
 }
 
 .multi-pane-copy:disabled {
@@ -734,12 +753,12 @@ body.web-host {
 }
 
 .multi-gutter-header {
-    height: 33px;
+    height: 28px;
     align-items: center;
     justify-content: center;
     padding: 0 6px;
     color: var(--vscode-descriptionForeground);
-    font-size: 10px;
+    font-size: 9px;
     gap: 4px;
     text-overflow: ellipsis;
     white-space: nowrap;
