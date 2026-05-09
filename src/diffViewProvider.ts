@@ -8,6 +8,9 @@ import {
     isHistoryNavigationMessage,
     isHistoryToggleSkipUnchangedMessage,
     isHistoryToggleStagedMessage,
+    isMultiSetActivePanelMessage,
+    isMultiSetActivePairMessage,
+    isMultiUpdatePanelContentMessage,
     isOpenDirectoryEntryMessage,
     isNavigateFileMessage,
     isReadyMessage,
@@ -115,6 +118,18 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
             if (isNavigateFileMessage(message) && this.fileNavigationHandler) {
                 this.fileNavigationHandler(message.direction);
+            }
+
+            if (isMultiSetActivePanelMessage(message)) {
+                this.handleMultiSetActivePanel(message.panelId);
+            }
+
+            if (isMultiSetActivePairMessage(message)) {
+                this.handleMultiSetActivePair(message.pairIndex);
+            }
+
+            if (isMultiUpdatePanelContentMessage(message)) {
+                this.handleMultiUpdatePanelContent(message.panelId, message.content);
             }
         });
         webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
@@ -277,7 +292,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 id: file.uri.toString(),
                 label: path.basename(file.uri.path),
                 content: file.content,
-                editable: false
+                editable: file.uri.scheme === 'file'
             })),
             pairs: files.slice(0, -1).map((file, index) => ({
                 leftIndex: index,
@@ -482,6 +497,60 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             diffModel: buildTwoWayDiffModel(leftContent, rightContent),
             history: null
         });
+    }
+
+    private handleMultiSetActivePanel(panelId: string): void {
+        if (!this.currentMessage || this.currentMessage.type !== 'showMultiDiff') {
+            return;
+        }
+
+        if (!this.currentMessage.panels.some((panel) => panel.id === panelId)) {
+            return;
+        }
+
+        this.currentMessage = {
+            ...this.currentMessage,
+            activePanelId: panelId
+        };
+    }
+
+    private handleMultiSetActivePair(pairIndex: number): void {
+        if (!this.currentMessage || this.currentMessage.type !== 'showMultiDiff') {
+            return;
+        }
+
+        if (pairIndex < 0 || pairIndex >= this.currentMessage.pairs.length) {
+            return;
+        }
+
+        this.currentMessage = {
+            ...this.currentMessage,
+            activePairIndex: pairIndex
+        };
+    }
+
+    private handleMultiUpdatePanelContent(panelId: string, content: string): void {
+        if (!this.currentMessage || this.currentMessage.type !== 'showMultiDiff') {
+            return;
+        }
+
+        const panelIndex = this.currentMessage.panels.findIndex((panel) => panel.id === panelId);
+        if (panelIndex < 0) {
+            return;
+        }
+
+        const panels = this.currentMessage.panels.map((panel, index) => (
+            index === panelIndex ? { ...panel, content } : panel
+        ));
+        this.currentMessage = {
+            ...this.currentMessage,
+            panels,
+            pairs: panels.slice(0, -1).map((panel, index) => ({
+                leftIndex: index,
+                rightIndex: index + 1,
+                diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
+            }))
+        };
     }
 }
 
