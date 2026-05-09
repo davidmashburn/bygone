@@ -2570,6 +2570,38 @@ async function saveActiveMultiPanel() {
         return false;
     }
 
+    return saveMultiPanel(panel, {
+        dialogTitle: 'Save active file',
+        refreshView: true
+    });
+}
+
+async function saveDirtyMultiPanels() {
+    if (session.mode !== 'multi-diff' || !session.multi) {
+        return true;
+    }
+
+    for (const panel of session.multi.files) {
+        if (!panel.dirty) {
+            continue;
+        }
+
+        const saved = await saveMultiPanel(panel, {
+            dialogTitle: `Save ${panel.label || 'file'}`,
+            refreshView: false
+        });
+        if (!saved) {
+            return false;
+        }
+    }
+
+    updateWatchers();
+    await sendCurrentMultiDiff();
+    updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
+    return true;
+}
+
+async function saveMultiPanel(panel, { dialogTitle, refreshView }) {
     let targetPath = panel.path;
     if (!targetPath) {
         if (!mainWindow) {
@@ -2577,7 +2609,7 @@ async function saveActiveMultiPanel() {
         }
 
         const result = await dialog.showSaveDialog(mainWindow, {
-            title: 'Save active file',
+            title: dialogTitle,
             defaultPath: `${panel.label || 'untitled'}.txt`
         });
 
@@ -2593,28 +2625,13 @@ async function saveActiveMultiPanel() {
     panel.label = path.basename(targetPath);
     panel.savedContent = panel.content;
     panel.dirty = false;
-    updateWatchers();
-    await sendCurrentMultiDiff();
-    updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
-    return true;
-}
 
-async function saveDirtyMultiPanels() {
-    if (session.mode !== 'multi-diff' || !session.multi) {
-        return true;
+    if (refreshView) {
+        updateWatchers();
+        await sendCurrentMultiDiff();
+        updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
     }
 
-    for (const panel of session.multi.files) {
-        if (!panel.dirty || !panel.path) {
-            continue;
-        }
-
-        fs.writeFileSync(panel.path, panel.content, 'utf8');
-        panel.savedContent = panel.content;
-        panel.dirty = false;
-    }
-
-    updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
     return true;
 }
 
