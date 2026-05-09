@@ -1580,9 +1580,11 @@ async function openMultiDiff(filePaths) {
         history: null,
         directory: null,
         multi: {
+            sourceKind: 'normal',
             files,
             activePanelId: files[0]?.id ?? null,
-            activePairIndex: files.length > 1 ? 0 : null
+            activePairIndex: files.length > 1 ? 0 : null,
+            historySource: null
         },
         dirHistory: null
     };
@@ -1653,7 +1655,7 @@ function setActiveMultiPair(pairIndex) {
 }
 
 async function addMultiPanel(anchorPanelId, side) {
-    if (!mainWindow || session.mode !== 'multi-diff' || !session.multi) {
+    if (session.mode !== 'multi-diff' || !session.multi) {
         return;
     }
 
@@ -1662,16 +1664,12 @@ async function addMultiPanel(anchorPanelId, side) {
         return;
     }
 
-    const result = await dialog.showOpenDialog(mainWindow, {
-        title: side === 'left' ? 'Add panel to the left' : 'Add panel to the right',
-        properties: ['openFile']
-    });
-
-    if (result.canceled || result.filePaths.length === 0) {
+    if (session.multi.sourceKind === 'history' && session.multi.historySource) {
+        await addHistoryPanelToMulti(side);
         return;
     }
 
-    const panel = createMultiPanelState(path.resolve(result.filePaths[0]));
+    const panel = createBlankMultiPanelState();
     const insertIndex = side === 'left' ? anchorIndex : anchorIndex + 1;
     session.multi.files.splice(insertIndex, 0, panel);
     session.multi.activePanelId = panel.id;
@@ -1679,6 +1677,48 @@ async function addMultiPanel(anchorPanelId, side) {
         side === 'left' ? insertIndex : insertIndex - 1,
         session.multi.files.length
     );
+    updateWatchers();
+    await sendCurrentMultiDiff();
+}
+
+async function addHistoryPanelToMulti(side) {
+    if (session.mode !== 'multi-diff' || !session.multi?.historySource) {
+        return;
+    }
+
+    const source = session.multi.historySource;
+    if (side === 'left') {
+        const leftmostPanel = session.multi.files[0];
+        if (!leftmostPanel || leftmostPanel.historySide !== 'left' || !Number.isInteger(leftmostPanel.historyEntryIndex)) {
+            return;
+        }
+
+        const olderIndex = getHistoryNeighborIndex(source, leftmostPanel.historyEntryIndex, 'older');
+        if (olderIndex === null) {
+            return;
+        }
+
+        const panel = createHistoryMultiPanelState(source.entries[olderIndex], olderIndex, 'left', source.filePath);
+        session.multi.files.unshift(panel);
+        session.multi.activePanelId = panel.id;
+        session.multi.activePairIndex = normalizeMultiPairIndex(0, session.multi.files.length);
+    } else {
+        const rightmostPanel = session.multi.files[session.multi.files.length - 1];
+        if (!rightmostPanel || rightmostPanel.historySide !== 'right' || !Number.isInteger(rightmostPanel.historyEntryIndex)) {
+            return;
+        }
+
+        const newerIndex = getHistoryNeighborIndex(source, rightmostPanel.historyEntryIndex, 'newer');
+        if (newerIndex === null) {
+            return;
+        }
+
+        const panel = createHistoryMultiPanelState(source.entries[newerIndex], newerIndex, 'right', source.filePath);
+        session.multi.files.push(panel);
+        session.multi.activePanelId = panel.id;
+        session.multi.activePairIndex = normalizeMultiPairIndex(session.multi.files.length - 2, session.multi.files.length);
+    }
+
     updateWatchers();
     await sendCurrentMultiDiff();
 }
@@ -1705,6 +1745,11 @@ async function removeMultiPanel(panelId) {
 }
 
 async function addPanelFromMenu(side) {
+    if (session.mode === 'history' && session.history) {
+        await openHistoryAsMultiPanel(side);
+        return;
+    }
+
     if (session.mode !== 'multi-diff' || !session.multi?.activePanelId) {
         return;
     }
@@ -1718,6 +1763,68 @@ async function removeActivePanelFromMenu() {
     }
 
     await removeMultiPanel(session.multi.activePanelId);
+}
+
+async function openHistoryAsMultiPanel(side) {
+    if (session.mode !== 'history' || !session.history) {
+        return;
+    }
+
+    const currentEntry = session.history.entries[session.history.index];
+    if (!currentEntry) {
+        return;
+    }
+
+    const files = [
+        createHistoryMultiPanelState(currentEntry, session.history.index, 'left', session.history.filePath),
+        createHistoryMultiPanelState(currentEntry, session.history.index, 'right', session.history.filePath)
+    ];
+    let extended = false;
+
+    if (side === 'left') {
+        const olderIndex = getHistoryNeighborIndex(session.history, session.history.index, 'older');
+        if (olderIndex !== null) {
+            files.unshift(createHistoryMultiPanelState(session.history.entries[olderIndex], olderIndex, 'left', session.history.filePath));
+            extended = true;
+        }
+    } else {
+        const newerIndex = getHistoryNeighborIndex(session.history, session.history.index, 'newer');
+        if (newerIndex !== null) {
+            files.push(createHistoryMultiPanelState(session.history.entries[newerIndex], newerIndex, 'right', session.history.filePath));
+            extended = true;
+        }
+    }
+
+    if (!extended) {
+        return;
+    }
+
+    session = {
+        mode: 'multi-diff',
+        left: createSideState('', ''),
+        right: createSideState('', ''),
+        history: null,
+        directory: null,
+        multi: {
+            sourceKind: 'history',
+            files,
+            activePanelId: side === 'left' ? files[0]?.id ?? null : files[files.length - 1]?.id ?? null,
+            activePairIndex: side === 'left'
+                ? normalizeMultiPairIndex(0, files.length)
+                : normalizeMultiPairIndex(files.length - 2, files.length),
+            historySource: {
+                filePath: session.history.filePath,
+                entries: session.history.entries,
+                includeStaged: session.history.includeStaged,
+                skipUnchanged: session.history.skipUnchanged
+            }
+        },
+        dirHistory: null
+    };
+
+    clearWatchers();
+    updateWatchers();
+    await sendCurrentMultiDiff();
 }
 
 async function openDirectoryEntry(relativePath) {
@@ -2427,13 +2534,35 @@ async function saveActiveMultiPanel() {
     }
 
     const panel = session.multi.files.find((entry) => entry.id === session.multi.activePanelId);
-    if (!panel?.path) {
+    if (!panel) {
         return false;
     }
 
-    fs.writeFileSync(panel.path, panel.content, 'utf8');
+    let targetPath = panel.path;
+    if (!targetPath) {
+        if (!mainWindow) {
+            return false;
+        }
+
+        const result = await dialog.showSaveDialog(mainWindow, {
+            title: 'Save active file',
+            defaultPath: `${panel.label || 'untitled'}.txt`
+        });
+
+        if (result.canceled || !result.filePath) {
+            return false;
+        }
+
+        targetPath = result.filePath;
+    }
+
+    fs.writeFileSync(targetPath, panel.content, 'utf8');
+    panel.path = targetPath;
+    panel.label = path.basename(targetPath);
     panel.savedContent = panel.content;
     panel.dirty = false;
+    updateWatchers();
+    await sendCurrentMultiDiff();
     updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
     return true;
 }
@@ -2727,6 +2856,55 @@ function createMultiPanelState(filePath) {
         savedContent: content,
         dirty: false,
         editable: true
+    };
+}
+
+function createBlankMultiPanelState() {
+    return {
+        id: `panel-${nextMultiPanelId++}`,
+        path: '',
+        label: `Untitled ${nextMultiPanelId - 1}`,
+        content: '',
+        savedContent: '',
+        dirty: false,
+        editable: true
+    };
+}
+
+function getHistoryNeighborIndex(historyState, entryIndex, direction) {
+    const visibleIndices = getVisibleFileHistoryIndices(historyState);
+    const currentPosition = visibleIndices.indexOf(entryIndex);
+    if (currentPosition < 0) {
+        return null;
+    }
+
+    if (direction === 'older') {
+        return currentPosition < visibleIndices.length - 1 ? visibleIndices[currentPosition + 1] : null;
+    }
+
+    if (direction === 'newer') {
+        return currentPosition > 0 ? visibleIndices[currentPosition - 1] : null;
+    }
+
+    return null;
+}
+
+function createHistoryMultiPanelState(entry, entryIndex, side, filePath) {
+    const isRight = side === 'right';
+    const editable = isRight && entry.commit === 'WORKTREE';
+    const content = isRight ? entry.rightContent : entry.leftContent;
+    const savedContent = editable ? readFileContent(filePath) : content;
+
+    return {
+        id: `panel-${nextMultiPanelId++}`,
+        path: editable ? filePath : '',
+        label: isRight ? entry.rightLabel : entry.leftLabel,
+        content,
+        savedContent,
+        dirty: editable ? Boolean(entry.rightDirty) : false,
+        editable,
+        historyEntryIndex: entryIndex,
+        historySide: side
     };
 }
 
