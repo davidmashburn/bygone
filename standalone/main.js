@@ -1487,6 +1487,7 @@ async function openMultiDiff(filePaths) {
     };
 
     clearWatchers();
+    updateWatchers();
     await sendCurrentMultiDiff();
 }
 
@@ -1577,6 +1578,7 @@ async function addMultiPanel(anchorPanelId, side) {
         side === 'left' ? insertIndex : insertIndex - 1,
         session.multi.files.length
     );
+    updateWatchers();
     await sendCurrentMultiDiff();
 }
 
@@ -1597,6 +1599,7 @@ async function removeMultiPanel(panelId) {
         session.multi.activePairIndex ?? Math.max(0, nextPanelIndex - 1),
         session.multi.files.length
     );
+    updateWatchers();
     await sendCurrentMultiDiff();
 }
 
@@ -2335,6 +2338,10 @@ async function saveDirtyDirectoryHistoryEntries() {
 }
 
 async function reloadSide(side) {
+    if (session.mode === 'multi-diff') {
+        return reloadActiveMultiPanel();
+    }
+
     if (session.mode !== 'diff') {
         return;
     }
@@ -2351,8 +2358,39 @@ async function reloadSide(side) {
     await sendCurrentDiff();
 }
 
+async function reloadActiveMultiPanel() {
+    if (session.mode !== 'multi-diff' || !session.multi?.activePanelId) {
+        return;
+    }
+
+    const panel = session.multi.files.find((entry) => entry.id === session.multi.activePanelId);
+    if (!panel?.path) {
+        return;
+    }
+
+    const freshContent = readFileContent(panel.path);
+    panel.content = freshContent;
+    panel.savedContent = freshContent;
+    panel.dirty = false;
+    await sendCurrentMultiDiff();
+}
+
 function updateWatchers() {
     clearWatchers();
+
+    if (session.mode === 'multi-diff' && session.multi) {
+        for (const panel of session.multi.files) {
+            if (!panel.path || !fs.existsSync(panel.path)) {
+                continue;
+            }
+
+            const watcher = fs.watch(panel.path, () => {
+                void handleExternalMultiPanelChange(panel.id);
+            });
+            fileWatchers.push(watcher);
+        }
+        return;
+    }
 
     if (session.mode !== 'diff') {
         return;
@@ -2368,6 +2406,44 @@ function updateWatchers() {
             void handleExternalFileChange(side);
         });
         fileWatchers.push(watcher);
+    }
+}
+
+async function handleExternalMultiPanelChange(panelId) {
+    if (session.mode !== 'multi-diff' || !session.multi || !mainWindow) {
+        return;
+    }
+
+    const panel = session.multi.files.find((entry) => entry.id === panelId);
+    if (!panel?.path || !fs.existsSync(panel.path)) {
+        return;
+    }
+
+    const latestContent = readFileContent(panel.path);
+    if (latestContent === panel.savedContent) {
+        return;
+    }
+
+    const choice = await dialog.showMessageBox(mainWindow, {
+        type: 'question',
+        buttons: ['Reload', 'Keep Current'],
+        defaultId: 0,
+        cancelId: 1,
+        message: `${panel.label} changed on disk.`,
+        detail: panel.dirty
+            ? 'Reloading will discard unsaved Bygone edits for this panel.'
+            : 'Reload the changed file into Bygone?'
+    });
+
+    if (choice.response === 0) {
+        panel.content = latestContent;
+        panel.savedContent = latestContent;
+        panel.dirty = false;
+        await sendCurrentMultiDiff();
+    } else {
+        panel.savedContent = latestContent;
+        panel.dirty = panel.content !== panel.savedContent;
+        updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
     }
 }
 
