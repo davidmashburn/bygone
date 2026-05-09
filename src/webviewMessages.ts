@@ -180,6 +180,11 @@ export interface MultiUpdatePanelContentMessage {
     content: string;
 }
 
+export interface MultiSavePanelMessage {
+    type: 'multiSavePanel';
+    panelId?: string;
+}
+
 export type WebviewInboundMessage =
     | ReadyMessage
     | RecomputeDiffMessage
@@ -194,7 +199,8 @@ export type WebviewInboundMessage =
     | MultiSetActivePairMessage
     | MultiAddPanelMessage
     | MultiRemovePanelMessage
-    | MultiUpdatePanelContentMessage;
+    | MultiUpdatePanelContentMessage
+    | MultiSavePanelMessage;
 export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
 
 export function isReadyMessage(message: unknown): message is ReadyMessage {
@@ -263,6 +269,12 @@ export function isMultiUpdatePanelContentMessage(message: unknown): message is M
     return getMessageType(message) === 'multiUpdatePanelContent'
         && typeof (message as MultiUpdatePanelContentMessage).panelId === 'string'
         && typeof (message as MultiUpdatePanelContentMessage).content === 'string';
+}
+
+export function isMultiSavePanelMessage(message: unknown): message is MultiSavePanelMessage {
+    return getMessageType(message) === 'multiSavePanel'
+        && (((message as MultiSavePanelMessage).panelId) === undefined
+            || typeof (message as MultiSavePanelMessage).panelId === 'string');
 }
 
 function getMessageType(message: unknown): string | undefined {

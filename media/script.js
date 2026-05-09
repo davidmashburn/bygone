@@ -1368,6 +1368,15 @@ function initializeChangeToolbar() {
             return;
         }
 
+        if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 's' && currentMode === MODE_MULTI_WAY) {
+            event.preventDefault();
+            host.postMessage({
+                type: 'multiSavePanel',
+                panelId: activeMultiPanelId
+            });
+            return;
+        }
+
         if ((event.metaKey || event.ctrlKey) && event.key === '[' && !getElement('directory-return-toolbar').hidden) {
             event.preventDefault();
             returnToDirectory();
@@ -1454,6 +1463,15 @@ function registerEditorKeybindings(editor, editorMode) {
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.DownArrow, () => navigateDiff(1));
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.RightArrow, () => copyCurrentChange('left-to-right'));
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.LeftArrow, () => copyCurrentChange('right-to-left'));
+
+    if (editorMode === MODE_MULTI_WAY) {
+        editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS, () => {
+            host.postMessage({
+                type: 'multiSavePanel',
+                panelId: activeMultiPanelId
+            });
+        });
+    }
 }
 
 function navigateDiff(direction) {

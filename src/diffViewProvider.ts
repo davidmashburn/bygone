@@ -8,6 +8,7 @@ import {
     isHistoryNavigationMessage,
     isHistoryToggleSkipUnchangedMessage,
     isHistoryToggleStagedMessage,
+    isMultiSavePanelMessage,
     isMultiSetActivePanelMessage,
     isMultiSetActivePairMessage,
     isMultiUpdatePanelContentMessage,
@@ -130,6 +131,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
             if (isMultiUpdatePanelContentMessage(message)) {
                 this.handleMultiUpdatePanelContent(message.panelId, message.content);
+            }
+
+            if (isMultiSavePanelMessage(message)) {
+                void this.handleMultiSavePanel(message.panelId);
             }
         });
         webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
@@ -551,6 +556,41 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
             }))
         };
+    }
+
+    private async handleMultiSavePanel(panelId?: string): Promise<void> {
+        if (!this.currentMessage || this.currentMessage.type !== 'showMultiDiff') {
+            return;
+        }
+
+        const targetPanelId = panelId ?? this.currentMessage.activePanelId ?? undefined;
+        if (!targetPanelId) {
+            return;
+        }
+
+        const panel = this.currentMessage.panels.find((candidate) => candidate.id === targetPanelId);
+        if (!panel || panel.editable === false) {
+            return;
+        }
+
+        let uri: vscode.Uri;
+        try {
+            uri = vscode.Uri.parse(panel.id);
+        } catch {
+            return;
+        }
+
+        if (uri.scheme !== 'file') {
+            return;
+        }
+
+        try {
+            await vscode.workspace.fs.writeFile(uri, Buffer.from(panel.content, 'utf8'));
+            void vscode.window.setStatusBarMessage(`Saved ${panel.label}`, 1500);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            void vscode.window.showErrorMessage(`Unable to save ${panel.label}: ${message}`);
+        }
     }
 }
 
