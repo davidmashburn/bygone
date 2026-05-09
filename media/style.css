@@ -570,14 +570,18 @@ body.web-host {
 }
 
 .multi-view {
-    display: grid;
     height: 100%;
     padding: 12px;
     box-sizing: border-box;
     overflow-x: auto;
     overflow-y: hidden;
+}
+
+.multi-view-track {
+    display: grid;
+    height: 100%;
+    min-height: 0;
     align-content: stretch;
-    justify-content: start;
 }
 
 .multi-pane {

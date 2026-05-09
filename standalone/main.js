@@ -28,6 +28,8 @@ const launchArguments = parseLaunchArgs(getCliArgs());
 const smokeTestMode = launchArguments.kind === 'smoke';
 const captureOutputPath = launchArguments.capturePath ? path.resolve(launchArguments.capturePath) : null;
 const captureMode = Boolean(captureOutputPath);
+const launchWindowWidth = Number.isFinite(launchArguments.windowWidth) ? launchArguments.windowWidth : 1500;
+const launchWindowHeight = Number.isFinite(launchArguments.windowHeight) ? launchArguments.windowHeight : 960;
 const shouldUseSingleInstanceLock = app.isPackaged && launchArguments.kind === 'empty';
 
 app.setName(APP_NAME);
@@ -107,8 +109,8 @@ ipcMain.on('bygone:renderer-message', async (_event, message) => {
 
 function createMainWindow() {
     mainWindow = new BrowserWindow({
-        width: 1500,
-        height: 960,
+        width: launchWindowWidth,
+        height: launchWindowHeight,
         minWidth: 960,
         minHeight: 640,
         show: !smokeTestMode,
@@ -491,6 +493,8 @@ function parseLaunchArgs(args) {
     const { cwd, launchArgs } = normalizeLaunchArgs(args);
     const includeStaged = launchArgs.includes('--include-staged') || launchArgs.includes('--staged');
     let capturePath = null;
+    let windowWidth = null;
+    let windowHeight = null;
     const filteredArgs = [];
 
     for (let index = 0; index < launchArgs.length; index += 1) {
@@ -503,69 +507,85 @@ function parseLaunchArgs(args) {
             index += 1;
             continue;
         }
+        if (arg === '--window-width' && typeof launchArgs[index + 1] === 'string') {
+            const parsedWidth = Number.parseInt(launchArgs[index + 1], 10);
+            if (Number.isFinite(parsedWidth) && parsedWidth > 0) {
+                windowWidth = parsedWidth;
+            }
+            index += 1;
+            continue;
+        }
+        if (arg === '--window-height' && typeof launchArgs[index + 1] === 'string') {
+            const parsedHeight = Number.parseInt(launchArgs[index + 1], 10);
+            if (Number.isFinite(parsedHeight) && parsedHeight > 0) {
+                windowHeight = parsedHeight;
+            }
+            index += 1;
+            continue;
+        }
         filteredArgs.push(arg);
     }
 
     if (filteredArgs.length === 0) {
-        return { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath };
+        return { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--diff' && filteredArgs.length >= 2) {
         if (filteredArgs.length === 2) {
-            return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath };
+            return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
         }
 
         if (filteredArgs.length === 3) {
-            return { kind: 'diff', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd), capturePath };
+            return { kind: 'diff', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd), capturePath, windowWidth, windowHeight };
         }
 
-        return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath };
+        return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--dir' && filteredArgs.length >= 3) {
-        return { kind: 'directory', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd), capturePath };
+        return { kind: 'directory', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd), capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--dir3' && filteredArgs.length >= 4) {
-        return { kind: 'multi-directory', paths: filteredArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath };
+        return { kind: 'multi-directory', paths: filteredArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--diff3' && filteredArgs.length >= 4) {
-        return { kind: 'multi-diff', paths: filteredArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath };
+        return { kind: 'multi-diff', paths: filteredArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--history' && filteredArgs.length >= 2) {
-        return { kind: 'history', filePath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged, capturePath };
+        return { kind: 'history', filePath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged, capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--dir-history' && filteredArgs.length >= 2) {
-        return { kind: 'directory-history', dirPath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged, capturePath };
+        return { kind: 'directory-history', dirPath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged, capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--test') {
-        return { kind: 'test', capturePath };
+        return { kind: 'test', capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--smoke-test') {
-        return { kind: 'smoke', capturePath };
+        return { kind: 'smoke', capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs.length === 1 && !filteredArgs[0].startsWith('--')) {
         const targetPath = resolveLaunchPath(filteredArgs[0], cwd);
         return getPathKind(targetPath) === 'directory'
-            ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath }
-            : { kind: 'history', filePath: targetPath, includeStaged, capturePath };
+            ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
+            : { kind: 'history', filePath: targetPath, includeStaged, capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs.length >= 2 && !filteredArgs[0].startsWith('--')) {
         if (filteredArgs.length === 2) {
-            return { kind: 'pair', leftPath: resolveLaunchPath(filteredArgs[0], cwd), rightPath: resolveLaunchPath(filteredArgs[1], cwd), capturePath };
+            return { kind: 'pair', leftPath: resolveLaunchPath(filteredArgs[0], cwd), rightPath: resolveLaunchPath(filteredArgs[1], cwd), capturePath, windowWidth, windowHeight };
         }
 
-        return { kind: 'multi-diff', paths: filteredArgs.map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath };
+        return { kind: 'multi-diff', paths: filteredArgs.map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
     }
 
-    return { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath };
+    return { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath, windowWidth, windowHeight };
 }
 
 function normalizeLaunchArgs(args) {

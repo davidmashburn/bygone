@@ -431,6 +431,8 @@ function disposeMultiEditors(resetState = true) {
     const container = getElement(VIEW_IDS.multiWay);
     if (container) {
         container.innerHTML = '';
+        container.style.width = '';
+        container.style.minWidth = '';
     }
 }
 
@@ -468,9 +470,8 @@ function renderMultiDiffShell(panels) {
     });
 
     const container = getElement(VIEW_IDS.multiWay);
-    container.style.gridTemplateColumns = columns.join(' ');
-    container.style.minWidth = `${Math.max(totalWidth, container.parentElement?.clientWidth || 0)}px`;
-    container.innerHTML = children.join('');
+    const trackWidth = Math.max(totalWidth, container.parentElement?.clientWidth || 0);
+    container.innerHTML = `<div class="multi-view-track" style="grid-template-columns:${columns.join(' ')};width:${trackWidth}px;">${children.join('')}</div>`;
 }
 
 function resolveActiveMultiPanelId(panels, nextActivePanelId) {
@@ -897,6 +898,31 @@ function initializeMultiDiffInteractions() {
             connectorController.scheduleDrawConnections();
         }
     });
+
+    container.addEventListener('wheel', (event) => {
+        if (currentMode !== MODE_MULTI_WAY) {
+            return;
+        }
+
+        const deltaX = Math.abs(event.deltaX) > 0 ? event.deltaX : (event.shiftKey ? event.deltaY : 0);
+        if (deltaX === 0) {
+            return;
+        }
+
+        const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+        if (maxScrollLeft <= 0) {
+            return;
+        }
+
+        const nextScrollLeft = clamp(container.scrollLeft + deltaX, 0, maxScrollLeft);
+        if (nextScrollLeft === container.scrollLeft) {
+            return;
+        }
+
+        container.scrollLeft = nextScrollLeft;
+        connectorController.scheduleDrawConnections();
+        event.preventDefault();
+    }, { passive: false, capture: true });
 
     container.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target.closest('[data-panel-id], [data-pair-index], [data-multi-add-side], [data-multi-remove-panel]') : null;
