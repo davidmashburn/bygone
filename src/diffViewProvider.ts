@@ -297,7 +297,8 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 id: file.uri.toString(),
                 label: path.basename(file.uri.path),
                 content: file.content,
-                editable: file.uri.scheme === 'file'
+                editable: file.uri.scheme === 'file',
+                dirty: false
             })),
             pairs: files.slice(0, -1).map((file, index) => ({
                 leftIndex: index,
@@ -421,9 +422,29 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 </div>
             </div>
             <div id="directory-tree-toolbar" class="directory-tree-toolbar header-align-diff" hidden>
-                <button id="directory-expand-all" class="directory-tree-button" type="button" title="Expand all folders">Expand all</button>
-                <button id="directory-collapse-all" class="directory-tree-button" type="button" title="Collapse all folders">Collapse all</button>
-                <button id="directory-collapse-unchanged" class="directory-tree-button" type="button" title="Collapse unchanged folders">Collapse unchanged</button>
+                <button id="directory-expand-all" class="directory-tree-button icon-button" type="button" title="Expand all folders" aria-label="Expand all folders">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 7h16"></path>
+                        <path d="M4 12h16"></path>
+                        <path d="M4 17h16"></path>
+                        <path d="M12 4v16"></path>
+                    </svg>
+                </button>
+                <button id="directory-collapse-all" class="directory-tree-button icon-button" type="button" title="Collapse all folders" aria-label="Collapse all folders">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 7h16"></path>
+                        <path d="M4 12h16"></path>
+                        <path d="M4 17h16"></path>
+                    </svg>
+                </button>
+                <button id="directory-collapse-unchanged" class="directory-tree-button icon-button" type="button" title="Collapse unchanged folders" aria-label="Collapse unchanged folders">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 7h16"></path>
+                        <path d="M4 12h10"></path>
+                        <path d="M4 17h16"></path>
+                        <path d="M17 9l3 3-3 3"></path>
+                    </svg>
+                </button>
             </div>
         </div>
         <div id="diff-workspace">
@@ -545,7 +566,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         }
 
         const panels = this.currentMessage.panels.map((panel, index) => (
-            index === panelIndex ? { ...panel, content } : panel
+            index === panelIndex ? { ...panel, content, dirty: true } : panel
         ));
         this.currentMessage = {
             ...this.currentMessage,
@@ -586,6 +607,13 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
         try {
             await vscode.workspace.fs.writeFile(uri, Buffer.from(panel.content, 'utf8'));
+            this.currentMessage = {
+                ...this.currentMessage,
+                panels: this.currentMessage.panels.map((candidate) => (
+                    candidate.id === targetPanelId ? { ...candidate, dirty: false } : candidate
+                ))
+            };
+            this.postOrQueueMessage(this.currentMessage);
             void vscode.window.setStatusBarMessage(`Saved ${panel.label}`, 1500);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);

@@ -2038,7 +2038,8 @@ async function sendCurrentMultiDiff() {
         id: file.id,
         label: file.label,
         content: file.content,
-        editable: file.editable !== false
+        editable: file.editable !== false,
+        dirty: Boolean(file.dirty)
     }));
 
     const activePanelId = session.multi.activePanelId

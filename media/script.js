@@ -487,7 +487,10 @@ function renderMultiDiffShell(panels) {
             `<div class="multi-pane" data-index="${index}" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header-top">`
+            + `<span class="multi-pane-title-wrap">`
             + `<span class="multi-pane-title">${escapeHtml(panel.label)}</span>`
+            + `<span class="multi-pane-dirty${panel.dirty ? ' is-visible' : ''}" aria-hidden="true" title="Unsaved changes">•</span>`
+            + `</span>`
             + `<span class="multi-pane-actions${multiPanelMutationEnabled ? '' : ' hidden'}">`
             + `<button class="multi-pane-action" type="button" data-multi-add-side="left" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the left" aria-label="Add panel to the left">+</button>`
             + `<button class="multi-pane-action multi-pane-action-danger" type="button" data-multi-remove-panel="${escapeAttr(panel.id)}" title="Remove panel" aria-label="Remove panel">×</button>`

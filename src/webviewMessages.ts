@@ -70,6 +70,7 @@ export interface MultiDiffPanel {
     label: string;
     content: string;
     editable?: boolean;
+    dirty?: boolean;
 }
 
 export interface MultiDiffPair {

@@ -421,6 +421,24 @@ body.web-host {
     font: inherit;
 }
 
+.directory-tree-button.icon-button {
+    min-width: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.directory-tree-button.icon-button svg {
+    width: 15px;
+    height: 15px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .directory-tree-button:hover {
     filter: brightness(1.08);
 }
@@ -622,6 +640,14 @@ body.web-host {
     box-shadow: inset 0 2px 0 color-mix(in srgb, rgba(79, 124, 255, 0.85) 72%, transparent);
 }
 
+.multi-pane-title-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .multi-pane-title {
     flex: 1 1 auto;
     min-width: 0;
@@ -629,6 +655,19 @@ body.web-host {
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--vscode-foreground);
+}
+
+.multi-pane-dirty {
+    flex: 0 0 auto;
+    color: color-mix(in srgb, rgba(79, 124, 255, 0.88) 76%, var(--vscode-foreground));
+    font-size: 15px;
+    line-height: 1;
+    opacity: 0;
+    transform: translateY(-1px);
+}
+
+.multi-pane-dirty.is-visible {
+    opacity: 1;
 }
 
 .multi-pane-header {
