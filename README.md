@@ -7,13 +7,13 @@ Bygone is a VS Code extension and standalone desktop app for visual diff and fil
 ## Features
 
 - Editable two-way side-by-side diff view
-- Prototype three-file adjacent diff view
+- Dynamic adjacent multi-panel diff view
 - Flowing connectors, block contours, and inline change highlighting
 - Git file history viewer with commit-by-commit navigation
 
 ## Status
 
-This project is usable as a local or private pre-release VS Code extension. The two-way diff and git history flows are the most complete. The three-file view is a diff-focused N-panel prototype, not a merge tool.
+This project is usable as a local or private pre-release VS Code extension. The two-way diff and git history flows are the most complete. The multi-panel view is diff-focused, not a merge tool.
 
 ## Migration Note
 
@@ -58,6 +58,7 @@ npm install -g .
 bygone
 bygone path/to/file-or-directory
 bygone --diff path/to/left path/to/right
+bygone --diff path/to/file1 path/to/file2 path/to/file3 [...]
 bygone --dir path/to/left-dir path/to/right-dir
 bygone --diff3 path/to/left path/to/middle path/to/right
 bygone --dir3 path/to/left-dir path/to/middle-dir path/to/right-dir
@@ -71,6 +72,7 @@ CLI defaults:
 - `bygone <file>` opens file history.
 - `bygone <directory>` opens Git directory history for that directory.
 - `bygone <left> <right>` auto-selects file diff or directory compare.
+- `bygone --diff <file1> <file2> <file3> ...` opens multi-panel diff.
 
 If the native desktop app is installed, the npm/source launcher prefers it and forwards the shell working directory. Set `BYGONE_FORCE_BUNDLED=1` to force the npm-bundled Electron runtime instead.
 
@@ -145,7 +147,8 @@ In the standalone window, you can also drag and drop:
 
 - 1 file to open git history for that file
 - 2 files or directories to open a side-by-side compare
-- 3 files or directories to open a prototype three-panel compare
+- 3 or more files to open a multi-panel compare
+- 3 directories to open a three-directory compare
 
 ## Git Difftool
 
@@ -193,7 +196,7 @@ The wrapper scripts are:
 - `Bygone: Compare Files`
 - `Bygone: Compare Directories`
 - `Bygone: Compare Three Directories (Prototype)`
-- `Bygone: Compare Three Files (Prototype)`
+- `Bygone: Compare Multiple Files`
 - `Bygone: Compare with Selected`
 - `Bygone: Compare Test Files`
 - `Bygone: Compare File History`
