@@ -12,6 +12,7 @@ export interface HistoryViewState {
     rightCommitLabel: string;
     rightTimestamp: string;
     includeStaged?: boolean;
+    skipUnchanged?: boolean;
     rail?: HistoryRailState;
 }
 
@@ -147,6 +148,11 @@ export interface HistoryToggleStagedMessage {
     includeStaged: boolean;
 }
 
+export interface HistoryToggleSkipUnchangedMessage {
+    type: 'historyToggleSkipUnchanged';
+    skipUnchanged: boolean;
+}
+
 export interface MultiSetActivePanelMessage {
     type: 'multiSetActivePanel';
     panelId: string;
@@ -183,6 +189,7 @@ export type WebviewInboundMessage =
     | ReturnToDirectoryMessage
     | NavigateFileMessage
     | HistoryToggleStagedMessage
+    | HistoryToggleSkipUnchangedMessage
     | MultiSetActivePanelMessage
     | MultiSetActivePairMessage
     | MultiAddPanelMessage
@@ -223,6 +230,11 @@ export function isNavigateFileMessage(message: unknown): message is NavigateFile
 export function isHistoryToggleStagedMessage(message: unknown): message is HistoryToggleStagedMessage {
     return getMessageType(message) === 'historyToggleStaged'
         && typeof (message as HistoryToggleStagedMessage).includeStaged === 'boolean';
+}
+
+export function isHistoryToggleSkipUnchangedMessage(message: unknown): message is HistoryToggleSkipUnchangedMessage {
+    return getMessageType(message) === 'historyToggleSkipUnchanged'
+        && typeof (message as HistoryToggleSkipUnchangedMessage).skipUnchanged === 'boolean';
 }
 
 export function isMultiSetActivePanelMessage(message: unknown): message is MultiSetActivePanelMessage {

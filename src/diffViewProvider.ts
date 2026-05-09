@@ -6,6 +6,7 @@ import {
     DirectoryEntry,
     HistoryViewState,
     isHistoryNavigationMessage,
+    isHistoryToggleSkipUnchangedMessage,
     isHistoryToggleStagedMessage,
     isOpenDirectoryEntryMessage,
     isNavigateFileMessage,
@@ -32,6 +33,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     };
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
     private historyStagedToggleHandler?: (includeStaged: boolean) => void;
+    private historySkipUnchangedToggleHandler?: (skipUnchanged: boolean) => void;
     private historySelectionHandler?: (index: number) => void;
     private directoryEntryOpenHandler?: (relativePath: string) => void;
     private fileNavigationHandler?: (direction: 'previous' | 'next') => void;
@@ -44,6 +46,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
     public setHistoryStagedToggleHandler(handler: (includeStaged: boolean) => void): void {
         this.historyStagedToggleHandler = handler;
+    }
+
+    public setHistorySkipUnchangedToggleHandler(handler: (skipUnchanged: boolean) => void): void {
+        this.historySkipUnchangedToggleHandler = handler;
     }
 
     public setHistorySelectionHandler(handler: (index: number) => void): void {
@@ -93,6 +99,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
             if (isHistoryToggleStagedMessage(message) && this.historyStagedToggleHandler) {
                 this.historyStagedToggleHandler(message.includeStaged);
+            }
+
+            if (isHistoryToggleSkipUnchangedMessage(message) && this.historySkipUnchangedToggleHandler) {
+                this.historySkipUnchangedToggleHandler(message.skipUnchanged);
             }
 
             if (isSelectHistoryEntryMessage(message) && this.historySelectionHandler) {
@@ -380,6 +390,9 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                     </button>
                     <button id="history-toggle-staged" class="history-button history-toggle-button" type="button" title="Include staged changes in history" aria-label="Include staged changes in history" aria-pressed="false">
                         Staged
+                    </button>
+                    <button id="history-toggle-skip-unchanged" class="history-button history-toggle-button" type="button" title="Skip revisions where the current file did not change" aria-label="Skip revisions where the current file did not change" aria-pressed="false">
+                        Changed
                     </button>
                 </div>
                 <div class="history-side history-side-right">

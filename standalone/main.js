@@ -48,6 +48,7 @@ let session = createEmptySession();
 let smokeTimeout;
 let pendingOpenPaths = [];
 let historyIncludeStagedPreference = false;
+let historySkipUnchangedPreference = false;
 let captureScheduled = false;
 let nextMultiPanelId = 1;
 
@@ -746,6 +747,11 @@ async function handleRendererMessage(message) {
 
     if (message.type === 'historyToggleStaged' && typeof message.includeStaged === 'boolean') {
         await updateHistoryIncludeStaged(message.includeStaged);
+        return;
+    }
+
+    if (message.type === 'historyToggleSkipUnchanged' && typeof message.skipUnchanged === 'boolean') {
+        await updateHistorySkipUnchanged(message.skipUnchanged);
     }
 }
 
@@ -952,6 +958,7 @@ async function openDirectoryHistory(dirPath, includeStaged = historyIncludeStage
 
     clearWatchers();
     historyIncludeStagedPreference = Boolean(includeStaged);
+    historySkipUnchangedPreference = Boolean(historyState.skipUnchanged);
     await sendCurrentDirectoryHistoryEntry();
 }
 
@@ -1006,6 +1013,7 @@ function buildDirectoryHistory(resolvedDir, includeStaged = false) {
         dirPath: realDir,
         displayName,
         includeStaged,
+        skipUnchanged: Boolean(historySkipUnchangedPreference),
         entries,
         index: 0,
         viewRelativePath: null,
@@ -1152,6 +1160,11 @@ async function sendCurrentDirectoryHistoryEntry() {
         return;
     }
 
+    const normalizedIndex = normalizeHistoryIndex(getVisibleDirectoryHistoryIndices(session.dirHistory), session.dirHistory.index);
+    if (normalizedIndex !== null) {
+        session.dirHistory.index = normalizedIndex;
+    }
+
     let entry;
     try {
         entry = ensureDirectoryHistoryEntryMaterialized(session.dirHistory, session.dirHistory.index);
@@ -1217,16 +1230,19 @@ async function sendCurrentDirectoryHistoryEntry() {
 }
 
 function buildDirectoryHistoryViewState(dirHistory, entry) {
+    const visibleIndices = getVisibleDirectoryHistoryIndices(dirHistory);
+    const visiblePosition = visibleIndices.indexOf(dirHistory.index);
     return {
         fileName: dirHistory.displayName,
-        canGoBack: dirHistory.index < dirHistory.entries.length - 1,
-        canGoForward: dirHistory.index > 0,
-        positionLabel: `${dirHistory.index + 1} / ${dirHistory.entries.length}`,
+        canGoBack: visiblePosition >= 0 && visiblePosition < visibleIndices.length - 1,
+        canGoForward: visiblePosition > 0,
+        positionLabel: visibleIndices.length > 0 ? `${visiblePosition + 1} / ${visibleIndices.length}` : `0 / 0`,
         leftCommitLabel: `${entry.parentCommit?.slice(0, 7) ?? ''} ${entry.parentSummary}`.trim(),
         leftTimestamp: entry.parentTimestamp,
         rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
         rightTimestamp: entry.timestamp,
         includeStaged: Boolean(dirHistory.includeStaged),
+        skipUnchanged: Boolean(dirHistory.skipUnchanged),
         rail: buildDirectoryHistoryRailState(dirHistory, entry)
     };
 }
@@ -1236,13 +1252,16 @@ function buildDirectoryHistoryRailState(dirHistory, entry) {
         return undefined;
     }
 
-    const historyItems = dirHistory.entries.map((historyEntry, index) => ({
-        label: `${historyEntry.shortCommit} ${historyEntry.summary}`.trim() || historyEntry.shortCommit,
-        meta: historyEntry.timestamp,
-        active: index === dirHistory.index,
-        kind: 'history-entry',
-        index
-    }));
+    const historyItems = getVisibleDirectoryHistoryIndices(dirHistory).map((index) => {
+        const historyEntry = dirHistory.entries[index];
+        return ({
+            label: `${historyEntry.shortCommit} ${historyEntry.summary}`.trim() || historyEntry.shortCommit,
+            meta: historyEntry.timestamp,
+            active: index === dirHistory.index,
+            kind: 'history-entry',
+            index
+        });
+    });
 
     const changedFiles = buildMultiDirectoryComparison(entry.dirs)
         .filter((directoryEntry) => directoryEntry.status !== 'same' && !directoryEntry.isDirectory)
@@ -1278,6 +1297,60 @@ function buildDirectoryHistoryRailState(dirHistory, entry) {
             'changed-files': changedFiles
         }
     };
+}
+
+function getVisibleFileHistoryIndices(historyState) {
+    if (!historyState?.entries?.length) {
+        return [];
+    }
+
+    if (!historyState.skipUnchanged) {
+        return historyState.entries.map((_entry, index) => index);
+    }
+
+    return historyState.entries
+        .map((entry, index) => (entry.leftContent !== entry.rightContent ? index : -1))
+        .filter((index) => index >= 0);
+}
+
+function getVisibleDirectoryHistoryIndices(dirHistory) {
+    if (!dirHistory?.entries?.length) {
+        return [];
+    }
+
+    if (!dirHistory.skipUnchanged || !dirHistory.viewRelativePath) {
+        return dirHistory.entries.map((_entry, index) => index);
+    }
+
+    return dirHistory.entries
+        .map((entry, index) => {
+            const materialized = ensureDirectoryHistoryEntryMaterialized(dirHistory, index);
+            const changed = buildMultiDirectoryComparison(materialized.dirs).some((directoryEntry) => (
+                !directoryEntry.isDirectory
+                && directoryEntry.relativePath === dirHistory.viewRelativePath
+                && directoryEntry.status !== 'same'
+            ));
+            return changed ? index : -1;
+        })
+        .filter((index) => index >= 0);
+}
+
+function normalizeHistoryIndex(indices, currentIndex) {
+    if (!indices.length) {
+        return null;
+    }
+
+    if (indices.includes(currentIndex)) {
+        return currentIndex;
+    }
+
+    for (const index of indices) {
+        if (index >= currentIndex) {
+            return index;
+        }
+    }
+
+    return indices[indices.length - 1];
 }
 
 function ensureDirectoryHistoryEntryMaterialized(dirHistory, index) {
@@ -1438,7 +1511,8 @@ async function openHistory(filePath, includeStaged = historyIncludeStagedPrefere
             filePath: resolvedPath,
             entries,
             index: 0,
-            includeStaged: Boolean(includeStaged)
+            includeStaged: Boolean(includeStaged),
+            skipUnchanged: Boolean(historySkipUnchangedPreference)
         },
         directory: null,
         multi: null,
@@ -1447,6 +1521,7 @@ async function openHistory(filePath, includeStaged = historyIncludeStagedPrefere
 
     clearWatchers();
     historyIncludeStagedPreference = Boolean(includeStaged);
+    historySkipUnchangedPreference = Boolean(session.history.skipUnchanged);
     await sendCurrentHistoryEntry();
 }
 
@@ -1648,6 +1723,10 @@ async function removeActivePanelFromMenu() {
 async function openDirectoryEntry(relativePath) {
     if (session.mode === 'directory-history' && session.dirHistory && !relativePath.endsWith('/')) {
         session.dirHistory.viewRelativePath = relativePath;
+        const normalizedIndex = normalizeHistoryIndex(getVisibleDirectoryHistoryIndices(session.dirHistory), session.dirHistory.index);
+        if (normalizedIndex !== null) {
+            session.dirHistory.index = normalizedIndex;
+        }
         await sendCurrentDirectoryHistoryEntry();
         return;
     }
@@ -1991,10 +2070,17 @@ async function sendCurrentHistoryEntry() {
         return;
     }
 
+    const visibleIndices = getVisibleFileHistoryIndices(session.history);
+    const normalizedIndex = normalizeHistoryIndex(visibleIndices, session.history.index);
+    if (normalizedIndex === null) {
+        return;
+    }
+    session.history.index = normalizedIndex;
     const entry = session.history.entries[session.history.index];
     const fileName = path.basename(session.history.filePath);
     const diffModel = buildTwoWayDiffModel(entry.leftContent, entry.rightContent);
-    const rail = buildFileHistoryRailState(session.history.entries, session.history.index);
+    const rail = buildFileHistoryRailState(session.history);
+    const visiblePosition = visibleIndices.indexOf(session.history.index);
 
     postOrQueue({
         type: 'showDiff',
@@ -2006,14 +2092,15 @@ async function sendCurrentHistoryEntry() {
         editableSides: buildHistoryEditableSides(entry),
         history: {
             fileName,
-            canGoBack: session.history.index < session.history.entries.length - 1,
-            canGoForward: session.history.index > 0,
-            positionLabel: `${session.history.index + 1} / ${session.history.entries.length}`,
+            canGoBack: visiblePosition >= 0 && visiblePosition < visibleIndices.length - 1,
+            canGoForward: visiblePosition > 0,
+            positionLabel: `${visiblePosition + 1} / ${visibleIndices.length}`,
             leftCommitLabel: `${entry.parentCommit?.slice(0, 7) ?? ''} ${entry.parentSummary}`.trim(),
             leftTimestamp: entry.parentTimestamp,
             rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
             rightTimestamp: entry.timestamp,
             includeStaged: Boolean(session.history.includeStaged),
+            skipUnchanged: Boolean(session.history.skipUnchanged),
             rail
         }
     });
@@ -2029,8 +2116,8 @@ function buildHistoryEditableSides(entry) {
     };
 }
 
-function buildFileHistoryRailState(entries, activeIndex) {
-    if (!Array.isArray(entries) || entries.length === 0) {
+function buildFileHistoryRailState(historyState) {
+    if (!historyState?.entries?.length) {
         return undefined;
     }
 
@@ -2038,13 +2125,16 @@ function buildFileHistoryRailState(entries, activeIndex) {
         activeTabId: 'history',
         tabs: [{ id: 'history', label: 'History' }],
         itemsByTab: {
-            history: entries.map((entry, index) => ({
+            history: getVisibleFileHistoryIndices(historyState).map((index) => {
+                const entry = historyState.entries[index];
+                return ({
                 label: `${entry.shortCommit} ${entry.summary}`.trim() || entry.shortCommit,
                 meta: entry.timestamp,
-                active: index === activeIndex,
+                active: index === historyState.index,
                 kind: 'history-entry',
                 index
-            }))
+                });
+            })
         }
     };
 }
@@ -2087,10 +2177,18 @@ async function updateEditableDirectoryHistoryDiff(_leftContent, rightContent) {
 
 async function navigateHistory(direction) {
     if (session.mode === 'directory-history' && session.dirHistory) {
-        if (direction === 'back' && session.dirHistory.index < session.dirHistory.entries.length - 1) {
-            session.dirHistory.index += 1;
-        } else if (direction === 'forward' && session.dirHistory.index > 0) {
-            session.dirHistory.index -= 1;
+        const visibleIndices = getVisibleDirectoryHistoryIndices(session.dirHistory);
+        const currentVisiblePosition = visibleIndices.indexOf(session.dirHistory.index);
+        if (currentVisiblePosition < 0) {
+            const normalizedIndex = normalizeHistoryIndex(visibleIndices, session.dirHistory.index);
+            if (normalizedIndex === null) {
+                return;
+            }
+            session.dirHistory.index = normalizedIndex;
+        } else if (direction === 'back' && currentVisiblePosition < visibleIndices.length - 1) {
+            session.dirHistory.index = visibleIndices[currentVisiblePosition + 1];
+        } else if (direction === 'forward' && currentVisiblePosition > 0) {
+            session.dirHistory.index = visibleIndices[currentVisiblePosition - 1];
         } else {
             return;
         }
@@ -2103,10 +2201,18 @@ async function navigateHistory(direction) {
         return;
     }
 
-    if (direction === 'back' && session.history.index < session.history.entries.length - 1) {
-        session.history.index += 1;
-    } else if (direction === 'forward' && session.history.index > 0) {
-        session.history.index -= 1;
+    const visibleIndices = getVisibleFileHistoryIndices(session.history);
+    const currentVisiblePosition = visibleIndices.indexOf(session.history.index);
+    if (currentVisiblePosition < 0) {
+        const normalizedIndex = normalizeHistoryIndex(visibleIndices, session.history.index);
+        if (normalizedIndex === null) {
+            return;
+        }
+        session.history.index = normalizedIndex;
+    } else if (direction === 'back' && currentVisiblePosition < visibleIndices.length - 1) {
+        session.history.index = visibleIndices[currentVisiblePosition + 1];
+    } else if (direction === 'forward' && currentVisiblePosition > 0) {
+        session.history.index = visibleIndices[currentVisiblePosition - 1];
     } else {
         return;
     }
@@ -2148,9 +2254,33 @@ async function updateHistoryIncludeStaged(includeStaged) {
     }
 }
 
+async function updateHistorySkipUnchanged(skipUnchanged) {
+    historySkipUnchangedPreference = skipUnchanged;
+
+    if (session.mode === 'history' && session.history) {
+        session.history.skipUnchanged = skipUnchanged;
+        const normalizedIndex = normalizeHistoryIndex(getVisibleFileHistoryIndices(session.history), session.history.index);
+        if (normalizedIndex !== null) {
+            session.history.index = normalizedIndex;
+        }
+        await sendCurrentHistoryEntry();
+        return;
+    }
+
+    if (session.mode === 'directory-history' && session.dirHistory) {
+        session.dirHistory.skipUnchanged = skipUnchanged;
+        const normalizedIndex = normalizeHistoryIndex(getVisibleDirectoryHistoryIndices(session.dirHistory), session.dirHistory.index);
+        if (normalizedIndex !== null) {
+            session.dirHistory.index = normalizedIndex;
+        }
+        await sendCurrentDirectoryHistoryEntry();
+    }
+}
+
 async function selectHistoryEntry(index) {
     if (session.mode === 'history' && session.history) {
-        if (index < 0 || index >= session.history.entries.length) {
+        const visibleIndices = getVisibleFileHistoryIndices(session.history);
+        if (!visibleIndices.includes(index)) {
             return;
         }
 
@@ -2160,7 +2290,8 @@ async function selectHistoryEntry(index) {
     }
 
     if (session.mode === 'directory-history' && session.dirHistory) {
-        if (index < 0 || index >= session.dirHistory.entries.length) {
+        const visibleIndices = getVisibleDirectoryHistoryIndices(session.dirHistory);
+        if (!visibleIndices.includes(index)) {
             return;
         }
 

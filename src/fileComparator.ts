@@ -16,6 +16,7 @@ export class FileComparator {
     private fileHistoryIndex = 0;
     private activeHistoryFile: vscode.Uri | undefined;
     private historyIncludeStaged = false;
+    private historySkipUnchanged = false;
     private currentDirectoryRoots: vscode.Uri[] = [];
     private readonly gitHistoryService = new GitHistoryService();
 
@@ -26,6 +27,9 @@ export class FileComparator {
         });
         this.diffViewProvider.setHistoryStagedToggleHandler((includeStaged) => {
             void this.toggleHistoryStaged(includeStaged);
+        });
+        this.diffViewProvider.setHistorySkipUnchangedToggleHandler((skipUnchanged) => {
+            void this.toggleHistorySkipUnchanged(skipUnchanged);
         });
         this.diffViewProvider.setHistorySelectionHandler((index) => {
             void this.selectFileHistoryEntry(index);
@@ -338,6 +342,7 @@ export class FileComparator {
             rightCommitLabel: `${entry.shortCommit} ${entry.summary}`.trim(),
             rightTimestamp: entry.timestamp,
             includeStaged: this.historyIncludeStaged,
+            skipUnchanged: this.historySkipUnchanged,
             rail
         };
     }
@@ -379,6 +384,15 @@ export class FileComparator {
         }
 
         await this.loadFileHistory(this.activeHistoryFile, includeStaged);
+    }
+
+    private async toggleHistorySkipUnchanged(skipUnchanged: boolean): Promise<void> {
+        if (this.historySkipUnchanged === skipUnchanged) {
+            return;
+        }
+
+        this.historySkipUnchanged = skipUnchanged;
+        await this.showCurrentHistoryEntry();
     }
 
     private async loadFileHistory(targetFile: vscode.Uri, includeStaged: boolean): Promise<void> {

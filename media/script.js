@@ -898,6 +898,14 @@ function initializeHistoryToolbar() {
             includeStaged: nextIncludeStaged
         });
     });
+    getElement('history-toggle-skip-unchanged').addEventListener('click', (event) => {
+        const button = event.currentTarget;
+        const nextSkipUnchanged = button.getAttribute('aria-pressed') !== 'true';
+        host.postMessage({
+            type: 'historyToggleSkipUnchanged',
+            skipUnchanged: nextSkipUnchanged
+        });
+    });
 }
 
 function initializeDirectoryTreeToolbar() {
@@ -2143,12 +2151,15 @@ function updateHistoryToolbar(history) {
     const backButton = getElement('history-back');
     const forwardButton = getElement('history-forward');
     const stagedButton = getElement('history-toggle-staged');
+    const skipUnchangedButton = getElement('history-toggle-skip-unchanged');
 
     if (!history) {
         toolbar.hidden = true;
         clearHistoryToolbar();
         stagedButton.setAttribute('aria-pressed', 'false');
         stagedButton.classList.remove('is-active');
+        skipUnchangedButton.setAttribute('aria-pressed', 'false');
+        skipUnchangedButton.classList.remove('is-active');
         return;
     }
 
@@ -2157,6 +2168,8 @@ function updateHistoryToolbar(history) {
     forwardButton.disabled = !history.canGoForward;
     stagedButton.setAttribute('aria-pressed', history.includeStaged ? 'true' : 'false');
     stagedButton.classList.toggle('is-active', Boolean(history.includeStaged));
+    skipUnchangedButton.setAttribute('aria-pressed', history.skipUnchanged ? 'true' : 'false');
+    skipUnchangedButton.classList.toggle('is-active', Boolean(history.skipUnchanged));
     setTextContent('history-position', history.positionLabel);
     setTextContent('history-left-commit', history.leftCommitLabel);
     setTextContent('history-left-time', history.leftTimestamp);
