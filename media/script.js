@@ -67,6 +67,17 @@ const connectorController = window.BygoneConnectors.createConnectorController({
     getMonaco: () => monacoInstance
 });
 
+function notifyRenderComplete() {
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            host.postMessage({
+                type: 'renderComplete',
+                mode: currentMode
+            });
+        });
+    });
+}
+
 host.onMessage((message) => {
     if (!message || typeof message !== 'object') {
         return;
@@ -204,6 +215,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     revealActiveDiff(false);
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
+    notifyRenderComplete();
 }
 
 function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
@@ -239,6 +251,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     updateDirectoryEntrySelection();
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
+    notifyRenderComplete();
 }
 
 function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null) {
@@ -289,6 +302,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     layoutEditors();
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
+    notifyRenderComplete();
 }
 
 function showThreeWayMerge(message) {
@@ -329,6 +343,7 @@ function showThreeWayMerge(message) {
     resetScrollPositions();
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
+    notifyRenderComplete();
 }
 
 function ensureTwoWayEditors() {

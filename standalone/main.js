@@ -50,6 +50,7 @@ let pendingOpenPaths = [];
 let historyIncludeStagedPreference = false;
 let historySkipUnchangedPreference = false;
 let captureScheduled = false;
+let captureRenderReady = false;
 let nextMultiPanelId = 1;
 
 if (!singleInstanceLock) {
@@ -205,6 +206,7 @@ function createMainWindow() {
         clearTimeout(smokeTimeout);
         smokeTimeout = undefined;
         captureScheduled = false;
+        captureRenderReady = false;
     });
 }
 
@@ -651,6 +653,14 @@ async function handleRendererMessage(message) {
             pendingMessage = undefined;
         } else {
             await sendCurrentSession();
+        }
+        return;
+    }
+
+    if (message.type === 'renderComplete') {
+        captureRenderReady = true;
+        if (captureMode) {
+            scheduleCaptureIfNeeded();
         }
         return;
     }
@@ -2810,6 +2820,17 @@ function updateWindowTitle(title) {
 }
 
 function postOrQueue(message) {
+    if (captureMode
+        && message
+        && typeof message === 'object'
+        && (message.type === 'showDiff'
+            || message.type === 'showDirectoryDiff'
+            || message.type === 'showMultiDiff'
+            || message.type === 'showThreeWayMerge')) {
+        captureRenderReady = false;
+        captureScheduled = false;
+    }
+
     if (hostReady) {
         pendingMessage = undefined;
         postToRenderer(message);
@@ -3070,7 +3091,7 @@ function scheduleCaptureIfNeeded() {
             return;
         }
 
-        if (!hostReady || mainWindow.webContents.isLoadingMainFrame()) {
+        if (!hostReady || !captureRenderReady || mainWindow.webContents.isLoadingMainFrame()) {
             setTimeout(attemptCapture, 120);
             return;
         }
