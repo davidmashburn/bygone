@@ -246,6 +246,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
 
     resetDirectoryView();
     renderDirectoryView(getElement('dir-rows'), directoryEntries, directoryLabels);
+    collapseUnchangedDirectories(getElement('dir-rows'), directoryEntries);
     attachDirectoryScrollSync();
     resetDirectoryScrollPositions();
     updateDirectoryEntrySelection();
