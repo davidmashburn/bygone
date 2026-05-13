@@ -13,6 +13,10 @@ const shouldPublish = args.has('--publish');
 const skipDmg = args.has('--skip-dmg');
 const skipWindows = args.has('--skip-windows');
 
+if (shouldPublish) {
+    await preflightPublish();
+}
+
 const env = {
     ...process.env,
     HOMEBREW_CACHE: process.env.HOMEBREW_CACHE || path.join('/tmp', 'bygone-homebrew-cache'),
@@ -65,6 +69,29 @@ async function publishArtifacts() {
     ]);
 
     await publishHomebrewTap();
+}
+
+async function preflightPublish() {
+    if (skipDmg) {
+        throw new Error('Publishing requires a DMG because the Homebrew cask hash is computed from it. Remove --skip-dmg before publishing.');
+    }
+
+    if (!process.env.VSCE_PAT) {
+        throw new Error('Set VSCE_PAT before publishing the VS Code extension.');
+    }
+
+    const tapRoot = process.env.BYGONE_HOMEBREW_TAP;
+    if (!tapRoot) {
+        throw new Error('Set BYGONE_HOMEBREW_TAP to a local Homebrew tap checkout before publishing.');
+    }
+
+    const resolvedTapRoot = path.resolve(tapRoot);
+    if (!existsSync(path.join(resolvedTapRoot, '.git'))) {
+        throw new Error(`BYGONE_HOMEBREW_TAP must point at a git checkout: ${resolvedTapRoot}`);
+    }
+
+    await run('npm', ['whoami']);
+    await run('gh', ['auth', 'status']);
 }
 
 async function publishHomebrewTap() {
@@ -134,7 +161,7 @@ async function findDesktopArtifacts() {
 async function buildReleasePath() {
     const pathParts = [];
     const shimDir = path.join('/tmp', 'bygone-release-bin');
-    const python3 = firstExisting(['/opt/homebrew/bin/python3', '/usr/local/bin/python3']);
+    const python3 = firstExisting(['/usr/bin/python3', '/opt/homebrew/bin/python3', '/usr/local/bin/python3']);
 
     if (python3) {
         await rm(shimDir, { recursive: true, force: true });
