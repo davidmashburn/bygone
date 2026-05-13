@@ -2034,13 +2034,31 @@ async function sendCurrentMultiDiff() {
         return;
     }
 
-    const panels = session.multi.files.map((file) => ({
-        id: file.id,
-        label: file.label,
-        content: file.content,
-        editable: file.editable !== false,
-        dirty: Boolean(file.dirty)
-    }));
+    const sourceKind = session.multi.sourceKind;
+    const fileCount = session.multi.files.length;
+
+    const panels = session.multi.files.map((file, index) => {
+        let addLeftEnabled, removeEnabled, addRightEnabled;
+        if (sourceKind === 'history') {
+            addLeftEnabled = index === 0;
+            removeEnabled = (index === 0 || index === fileCount - 1) && fileCount > 1;
+            addRightEnabled = index === fileCount - 1;
+        } else {
+            addLeftEnabled = true;
+            removeEnabled = fileCount > 1;
+            addRightEnabled = true;
+        }
+        return {
+            id: file.id,
+            label: file.label,
+            content: file.content,
+            editable: file.editable !== false,
+            dirty: Boolean(file.dirty),
+            addLeftEnabled,
+            removeEnabled,
+            addRightEnabled
+        };
+    });
 
     const activePanelId = session.multi.activePanelId
         && panels.some((panel) => panel.id === session.multi.activePanelId)

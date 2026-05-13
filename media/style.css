@@ -707,13 +707,6 @@ body.web-host {
     align-items: center;
     gap: 4px;
     flex: 0 0 auto;
-    opacity: 0.18;
-    transition: opacity 120ms ease;
-}
-
-.multi-pane:hover .multi-pane-actions,
-.multi-pane.is-active-pane .multi-pane-actions {
-    opacity: 1;
 }
 
 .multi-pane-action {

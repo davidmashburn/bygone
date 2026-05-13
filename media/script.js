@@ -275,7 +275,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     activeMultiPanelId = resolveActiveMultiPanelId(panels, nextActivePanelId);
     activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, nextActivePairIndex, activeMultiPanelId, panels);
     multiPanelChangeIndices = new Map();
-    multiPanelMutationEnabled = host.environment === 'standalone';
+    multiPanelMutationEnabled = true;
     updateHistoryToolbar(null);
     updateHistoryRail(null);
     updateFileNavigationState(null, false);
@@ -466,7 +466,7 @@ function disposeMultiEditors(resetState = true) {
         multiPanels = [];
         activeMultiPanelId = null;
         activeMultiPairIndex = null;
-        multiPanelMutationEnabled = false;
+        multiPanelMutationEnabled = true;
     }
     const container = getElement(VIEW_IDS.multiWay);
     if (container) {
@@ -492,10 +492,10 @@ function renderMultiDiffShell(panels) {
             + `<span class="multi-pane-title">${escapeHtml(panel.label)}</span>`
             + `<span class="multi-pane-dirty${panel.dirty ? ' is-visible' : ''}" aria-hidden="true" title="Unsaved changes">•</span>`
             + `</span>`
-            + `<span class="multi-pane-actions${multiPanelMutationEnabled ? '' : ' hidden'}">`
-            + `<button class="multi-pane-action" type="button" data-multi-add-side="left" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the left" aria-label="Add panel to the left">+</button>`
-            + `<button class="multi-pane-action multi-pane-action-danger" type="button" data-multi-remove-panel="${escapeAttr(panel.id)}" title="Remove panel" aria-label="Remove panel">×</button>`
-            + `<button class="multi-pane-action" type="button" data-multi-add-side="right" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the right" aria-label="Add panel to the right">+</button>`
+            + `<span class="multi-pane-actions">`
+            + `<button class="multi-pane-action" type="button" data-multi-add-side="left" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the left" aria-label="Add panel to the left"${panel.addLeftEnabled ? '' : ' disabled'}>+</button>`
+            + `<button class="multi-pane-action multi-pane-action-danger" type="button" data-multi-remove-panel="${escapeAttr(panel.id)}" title="Remove panel" aria-label="Remove panel"${panel.removeEnabled ? '' : ' disabled'}>×</button>`
+            + `<button class="multi-pane-action" type="button" data-multi-add-side="right" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the right" aria-label="Add panel to the right"${panel.addRightEnabled ? '' : ' disabled'}>+</button>`
             + `</span>`
             + `</div>`
             + `<div class="multi-pane-header-controls">`
@@ -585,7 +585,17 @@ function updateActiveMultiShellState() {
         gutter.classList.toggle('is-active-pair', Number.isInteger(pairIndex) && pairIndex === activeMultiPairIndex);
     });
     container.querySelectorAll('[data-multi-remove-panel]').forEach((button) => {
-        button.disabled = multiPanels.length <= 1;
+        const panelId = button.getAttribute('data-multi-remove-panel') || '';
+        const panel = multiPanels.find((p) => p.id === panelId);
+        button.disabled = panel ? !panel.removeEnabled : multiPanels.length <= 1;
+    });
+    container.querySelectorAll('[data-multi-add-side]').forEach((button) => {
+        const panelId = button.getAttribute('data-panel-id') || '';
+        const side = button.getAttribute('data-multi-add-side') || '';
+        const panel = multiPanels.find((p) => p.id === panelId);
+        if (panel) {
+            button.disabled = side === 'left' ? !panel.addLeftEnabled : !panel.addRightEnabled;
+        }
     });
     container.querySelectorAll('[data-multi-panel-position]').forEach((element) => {
         const panelId = element.getAttribute('data-multi-panel-position') || '';
