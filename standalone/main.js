@@ -3095,12 +3095,18 @@ function finalizeSmokeTest(snapshot) {
     clearTimeout(smokeTimeout);
     smokeTimeout = undefined;
 
-    const passed = Boolean(
-        snapshot
-        && snapshot.fileInfo === 'Comparing test-file-1.js and test-file-2.js'
-        && snapshot.file1 === 'test-file-1.js'
-        && snapshot.file2 === 'test-file-2.js'
-    );
+    const passed = Boolean(snapshot && (
+        (
+            snapshot.fileInfo === 'Comparing test-file-1.js and test-file-2.js'
+            && snapshot.file1 === 'test-file-1.js'
+            && snapshot.file2 === 'test-file-2.js'
+        )
+        || (
+            snapshot.fileInfo === 'Comparing 2 files'
+            && snapshot.panelCount === 2
+            && snapshot.gutterCount === 1
+        )
+    ));
 
     if (!passed) {
         console.error(`Bygone smoke test failed: unexpected diff DOM snapshot ${JSON.stringify(snapshot)}`);
