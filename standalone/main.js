@@ -1478,23 +1478,7 @@ function releaseDirectoryHistoryEntry(entry) {
 }
 
 async function openDiff(leftPath, rightPath) {
-    const resolvedLeft = path.resolve(leftPath);
-    const resolvedRight = path.resolve(rightPath);
-    const leftContent = readFileContent(resolvedLeft);
-    const rightContent = readFileContent(resolvedRight);
-
-    session = {
-        mode: 'diff',
-        left: createSideState(resolvedLeft, leftContent),
-        right: createSideState(resolvedRight, rightContent),
-        history: null,
-        directory: null,
-        multi: null,
-        dirHistory: null
-    };
-
-    updateWatchers();
-    await sendCurrentDiff();
+    await openMultiDiff([leftPath, rightPath]);
 }
 
 async function openHistory(filePath, includeStaged = historyIncludeStagedPreference) {
@@ -1513,26 +1497,38 @@ async function openHistory(filePath, includeStaged = historyIncludeStagedPrefere
         return;
     }
 
+    const firstEntry = entries[0];
+    const historySource = {
+        filePath: resolvedPath,
+        entries,
+        includeStaged: Boolean(includeStaged),
+        skipUnchanged: Boolean(historySkipUnchangedPreference)
+    };
+    const files = [
+        createHistoryMultiPanelState(firstEntry, 0, 'left', resolvedPath),
+        createHistoryMultiPanelState(firstEntry, 0, 'right', resolvedPath)
+    ];
+
     session = {
-        mode: 'history',
+        mode: 'multi-diff',
         left: createSideState('', ''),
         right: createSideState('', ''),
-        history: {
-            filePath: resolvedPath,
-            entries,
-            index: 0,
-            includeStaged: Boolean(includeStaged),
-            skipUnchanged: Boolean(historySkipUnchangedPreference)
-        },
+        history: null,
         directory: null,
-        multi: null,
+        multi: {
+            sourceKind: 'history',
+            files,
+            activePanelId: files[1]?.id ?? null,
+            activePairIndex: 0,
+            historySource
+        },
         dirHistory: null
     };
 
     clearWatchers();
     historyIncludeStagedPreference = Boolean(includeStaged);
-    historySkipUnchangedPreference = Boolean(session.history.skipUnchanged);
-    await sendCurrentHistoryEntry();
+    historySkipUnchangedPreference = Boolean(historySource.skipUnchanged);
+    await sendCurrentMultiDiff();
 }
 
 async function openPathPair(leftPath, rightPath, expectedMode) {
