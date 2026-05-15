@@ -55,7 +55,12 @@ async function publishArtifacts() {
     requireFile(vsixPath, 'VSIX package');
     requireFile(path.join(npmPackagePath, 'package.json'), 'staged npm package');
 
-    await run('npm', ['publish', npmPackagePath, '--access', 'public']);
+    if (!(await isPublishedNpmVersion(npmPackagePath))) {
+        await run('npm', ['publish', npmPackagePath, '--access', 'public']);
+    } else {
+        console.log(`\n$ npm publish ${npmPackagePath} --access public`);
+        console.log(`npm ${version} is already published, skipping npm publish and continuing with the remaining release steps.`);
+    }
     await run('npx', ['vsce', 'publish', '--packagePath', vsixPath]);
     await run('gh', [
         'release',
@@ -69,6 +74,14 @@ async function publishArtifacts() {
     ]);
 
     await publishHomebrewTap();
+}
+
+async function isPublishedNpmVersion(packagePath) {
+    const pkg = JSON.parse(await readFile(path.join(packagePath, 'package.json'), 'utf8'));
+    const packageName = pkg.name;
+    const manifest = JSON.parse(await runCapture('npm', ['view', packageName, 'versions', '--json']));
+    const versions = Array.isArray(manifest) ? manifest : (manifest ? [manifest] : []);
+    return versions.includes(pkg.version);
 }
 
 async function preflightPublish() {
@@ -213,6 +226,32 @@ function run(command, commandArgs) {
         child.on('exit', (code) => {
             if (code === 0) {
                 resolve();
+                return;
+            }
+
+            reject(new Error(`${command} ${commandArgs.join(' ')} failed with exit code ${code}`));
+        });
+    });
+}
+
+function runCapture(command, commandArgs) {
+    return new Promise((resolve, reject) => {
+        const child = spawn(command, commandArgs, {
+            cwd: repoRoot,
+            env,
+            stdio: ['ignore', 'pipe', 'inherit']
+        });
+
+        let output = '';
+        child.stdout.setEncoding('utf8');
+        child.stdout.on('data', (chunk) => {
+            output += chunk;
+        });
+
+        child.on('error', reject);
+        child.on('exit', (code) => {
+            if (code === 0) {
+                resolve(output.trim());
                 return;
             }
 
