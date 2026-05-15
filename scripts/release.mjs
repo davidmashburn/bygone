@@ -13,15 +13,15 @@ const shouldPublish = args.has('--publish');
 const skipDmg = args.has('--skip-dmg');
 const skipWindows = args.has('--skip-windows');
 
-if (shouldPublish) {
-    await preflightPublish();
-}
-
 const env = {
     ...process.env,
     HOMEBREW_CACHE: process.env.HOMEBREW_CACHE || path.join('/tmp', 'bygone-homebrew-cache'),
     PATH: await buildReleasePath()
 };
+
+if (shouldPublish) {
+    await preflightPublish();
+}
 
 const buildSteps = [
     ['npm', ['test']],
