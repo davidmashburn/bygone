@@ -578,26 +578,7 @@ function parseLaunchArgs(args) {
         return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
     }
 
-    if (filteredArgs[0] === '--dir' && filteredArgs.length >= 3) {
-        return { kind: 'directory', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd), capturePath, windowWidth, windowHeight };
-    }
-
-    if (filteredArgs[0] === '--dir3' && filteredArgs.length >= 4) {
-        return { kind: 'multi-directory', paths: filteredArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
-    }
-
-    if (filteredArgs[0] === '--diff3' && filteredArgs.length >= 4) {
-        return { kind: 'multi-diff', paths: filteredArgs.slice(1, 4).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
-    }
-
     if (filteredArgs[0] === '--history' && filteredArgs.length >= 2) {
-        const targetPath = resolveLaunchPath(filteredArgs[1], cwd);
-        return getPathKind(targetPath) === 'directory'
-            ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
-            : { kind: 'history', filePath: targetPath, includeStaged, capturePath, windowWidth, windowHeight };
-    }
-
-    if (filteredArgs[0] === '--dir-history' && filteredArgs.length >= 2) {
         const targetPath = resolveLaunchPath(filteredArgs[1], cwd);
         return getPathKind(targetPath) === 'directory'
             ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
@@ -620,11 +601,24 @@ function parseLaunchArgs(args) {
     }
 
     if (filteredArgs.length >= 2 && !filteredArgs[0].startsWith('--')) {
-        if (filteredArgs.length === 2) {
-            return { kind: 'pair', leftPath: resolveLaunchPath(filteredArgs[0], cwd), rightPath: resolveLaunchPath(filteredArgs[1], cwd), capturePath, windowWidth, windowHeight };
+        const resolvedPaths = filteredArgs.map((candidate) => resolveLaunchPath(candidate, cwd));
+        const kinds = resolvedPaths.map((candidate) => getPathKind(candidate));
+
+        if (kinds.every((kind) => kind === 'directory')) {
+            return resolvedPaths.length === 2
+                ? { kind: 'directory', leftPath: resolvedPaths[0], rightPath: resolvedPaths[1], capturePath, windowWidth, windowHeight }
+                : { kind: 'multi-directory', paths: resolvedPaths, capturePath, windowWidth, windowHeight };
         }
 
-        return { kind: 'multi-diff', paths: filteredArgs.map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
+        if (kinds.every((kind) => kind === 'file')) {
+            return resolvedPaths.length === 2
+                ? { kind: 'pair', leftPath: resolvedPaths[0], rightPath: resolvedPaths[1], capturePath, windowWidth, windowHeight }
+                : { kind: 'multi-diff', paths: resolvedPaths, capturePath, windowWidth, windowHeight };
+        }
+
+        return resolvedPaths.length === 2
+            ? { kind: 'pair', leftPath: resolvedPaths[0], rightPath: resolvedPaths[1], capturePath, windowWidth, windowHeight }
+            : { kind: 'multi-diff', paths: resolvedPaths, capturePath, windowWidth, windowHeight };
     }
 
     return isInsideGitRepo(cwd)

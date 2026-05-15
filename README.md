@@ -51,9 +51,6 @@ bygone path/to/file-or-directory
 bygone --diff path/to/left path/to/right
 bygone --diff
 bygone --diff path/to/file1 path/to/file2 path/to/file3 [...]
-bygone --dir path/to/left-dir path/to/right-dir
-bygone --diff3 path/to/left path/to/middle path/to/right
-bygone --dir3 path/to/left-dir path/to/middle-dir path/to/right-dir
 bygone --history path/to/path
 bygone --help
 ```
@@ -65,7 +62,7 @@ CLI defaults:
 - `bygone <directory>` opens Git directory history for that directory.
 - `bygone --history <path>` opens file or directory history.
 - `bygone <left> <right>` auto-selects file diff or directory compare.
-- `bygone --diff <file1> <file2> <file3> ...` opens multi-panel diff.
+- `bygone --diff <file1> <file2> <file3> ...` opens multi-panel diff or multi-directory compare.
 
 If the native desktop app is installed, the npm/source launcher prefers it and forwards the shell working directory. Set `BYGONE_FORCE_BUNDLED=1` to force the npm-bundled Electron runtime instead.
 

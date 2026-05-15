@@ -18,21 +18,17 @@ Usage:
   bygone --diff <left> <right>
   bygone --diff
   bygone --diff <file1> <file2> <file3> [...]
-  bygone --diff3 <left> <middle> <right>
-  bygone --dir <left-dir> <right-dir>
-  bygone --dir3 <left-dir> <middle-dir> <right-dir>
   bygone --history <path>
-  bygone --dir-history <directory>
   bygone --test
 
 Notes:
   - No args opens Git directory history inside a Git repo, or a blank editable diff outside one.
   - \`--diff\` with no paths opens a blank editable diff.
   - One positional path opens file history or Git directory history.
-  - `--history` accepts either files or directories.
+  - \`--history\` accepts either files or directories.
   - Two positional paths auto-select file diff or directory compare.
-  - \`--diff\` accepts 2 or more files; 3+ opens multi-panel diff.
-  - In the standalone app, drop 1 file for history, 2 files/directories for compare, 3+ files for multi-panel diff, or 3 directories for directory compare.
+  - Three or more positional paths auto-select multi-panel file diff or multi-directory compare.
+  - In the standalone app, drop 1 file for history, 2 files/directories for compare, 3+ files for multi-panel diff, or 3+ directories for multi-directory compare.
 `);
     process.exit(0);
 }
