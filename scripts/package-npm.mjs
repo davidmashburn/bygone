@@ -7,7 +7,7 @@ const packageRoot = path.join(repoRoot, 'dist', 'npm-package');
 const rootPackageJson = await readJson(path.join(repoRoot, 'package.json'));
 
 const npmPackageJson = {
-    name: '@davidmashburn/bygone',
+    name: '@davmash/bygone',
     version: rootPackageJson.version,
     description: 'See how change happened. Visual diff and file history.',
     author: rootPackageJson.author,

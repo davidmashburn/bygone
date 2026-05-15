@@ -135,7 +135,7 @@ async function publishHomebrewTap() {
 async function packNpmTarball() {
     await run('npm', ['pack', './dist/npm-package', '--pack-destination', './dist']);
     const files = await readdir(path.join(repoRoot, 'dist'));
-    const tarballName = files.find((file) => file === `davidmashburn-bygone-${version}.tgz`);
+    const tarballName = files.find((file) => file === `davmash-bygone-${version}.tgz`);
     return tarballName ? path.join(repoRoot, 'dist', tarballName) : null;
 }
 
