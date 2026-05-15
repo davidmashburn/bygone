@@ -16,6 +16,7 @@ media/*.prev.png
 media/*.pre-*.png
 .gitignore
 .npmignore
+.env
 RELEASE_PLAN.md
 node_modules/**
 media/dom.js
