@@ -88,12 +88,12 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 
         diff3Input?.addEventListener('change', async () => {
             const files = Array.from(diff3Input.files || []);
-            if (files.length !== 3) {
-                setStatus('Select exactly 3 files for a 3-panel diff.');
+            if (files.length < 1) {
+                setStatus('Select one or more files.');
                 return;
             }
 
-            await openThreeFileDiff(files);
+            await openMultiFileDiff(files);
         });
     }
 
@@ -150,14 +150,21 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
         });
     }
 
-    async function openThreeFileDiff(files) {
-        const panels = await Promise.all(files.map(async (file) => ({
-            label: file.name,
-            content: await file.text()
-        })));
+    async function openMultiFileDiff(files) {
+        const panels = await Promise.all(files.map(async (file, index) => {
+            const content = await file.text();
+            return {
+                id: `web-panel-${index}`,
+                label: file.name,
+                content,
+                savedContent: content,
+                dirty: false,
+                editable: true
+            };
+        }));
 
         state.mode = 'multi-diff';
-        setStatus(`Loaded 3-panel diff for ${panels.map((panel) => panel.label).join(', ')}.`);
+        setStatus(`Loaded ${panels.length}-panel diff for ${panels.map((panel) => panel.label).join(', ')}.`);
         emit({
             type: 'showMultiDiff',
             panels,

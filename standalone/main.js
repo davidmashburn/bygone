@@ -286,8 +286,8 @@ function installApplicationMenu() {
                     click: () => { void removeActivePanelFromMenu(); }
                 },
                 {
-                    label: 'Compare Three Directories (Prototype)…',
-                    click: () => { void openCompareThreeDirectoriesDialog(); }
+                    label: 'Compare Multiple Directories…',
+                    click: () => { void openCompareMultipleDirectoriesDialog(); }
                 },
                 {
                     label: 'Compare File History…',
@@ -827,11 +827,7 @@ async function openDroppedFiles(paths) {
     if (normalizedPaths.length >= 3) {
         const kinds = normalizedPaths.map((candidate) => getPathKind(candidate));
         if (kinds.every((kind) => kind === 'directory')) {
-            if (normalizedPaths.length === 3) {
-                await openDirectories(normalizedPaths);
-            } else {
-                await showInfo('Directory compare currently supports two or three directories.');
-            }
+            await openDirectories(normalizedPaths);
             return;
         }
 
@@ -853,15 +849,21 @@ async function openHistoryDialog() {
     }
 
     const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Select file for git history',
-        properties: ['openFile']
+        title: 'Select file or directory for git history',
+        properties: ['openFile', 'openDirectory']
     });
 
     if (result.canceled || result.filePaths.length === 0) {
         return;
     }
 
-    await openHistory(result.filePaths[0], historyIncludeStagedPreference);
+    const targetPath = result.filePaths[0];
+    if (getPathKind(targetPath) === 'directory') {
+        await openDirectoryHistory(targetPath, historyIncludeStagedPreference);
+        return;
+    }
+
+    await openHistory(targetPath, historyIncludeStagedPreference);
 }
 
 async function openCompareMultiFilesDialog() {
@@ -886,21 +888,21 @@ async function openCompareMultiFilesDialog() {
     await openMultiDiff(result.filePaths);
 }
 
-async function openCompareThreeDirectoriesDialog() {
+async function openCompareMultipleDirectoriesDialog() {
     if (!mainWindow) {
         return;
     }
 
     const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Select three directories to compare',
+        title: 'Select directories to compare',
         properties: ['openDirectory', 'multiSelections']
     });
 
-    if (result.canceled || result.filePaths.length < 3) {
+    if (result.canceled || result.filePaths.length < 2) {
         return;
     }
 
-    await openDirectories(result.filePaths.slice(0, 3));
+    await openDirectories(result.filePaths);
 }
 
 async function openCompareDirectoriesDialog() {

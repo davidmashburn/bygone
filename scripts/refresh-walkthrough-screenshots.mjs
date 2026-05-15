@@ -15,7 +15,7 @@ const skipCompile = process.argv.includes('--skip-compile');
 const captures = [
     {
         output: path.join(walkthroughDir, 'directory-history.png'),
-        args: ['--dir-history', repoRoot]
+        args: ['--history', repoRoot]
     },
     {
         output: path.join(walkthroughDir, 'file-history.png'),

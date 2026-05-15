@@ -153,16 +153,16 @@ export class FileComparator {
         }
     }
 
-    public async selectAndCompareThreeDirectories(): Promise<void> {
+    public async compareMultipleDirectoriesCommand(): Promise<void> {
         try {
-            const dirs = await this.selectDirectories('Select three directories to compare', 3);
+            const dirs = await this.selectDirectories('Select directories to compare', 2);
             if (!dirs) {
                 return;
             }
 
             await this.compareDirectories(dirs);
         } catch (error) {
-            this.showErrorMessage('Error comparing three directories', error);
+            this.showErrorMessage('Error comparing directories', error);
         }
     }
 
@@ -222,7 +222,7 @@ export class FileComparator {
         return result?.[0];
     }
 
-    private async selectDirectories(prompt: string, count: number): Promise<vscode.Uri[] | undefined> {
+    private async selectDirectories(prompt: string, minCount: number): Promise<vscode.Uri[] | undefined> {
         const options: vscode.OpenDialogOptions = {
             canSelectMany: true,
             canSelectFolders: true,
@@ -232,7 +232,7 @@ export class FileComparator {
         };
 
         const dirs = await vscode.window.showOpenDialog(options);
-        return dirs && dirs.length === count ? dirs : undefined;
+        return dirs && dirs.length >= minCount ? dirs : undefined;
     }
 
     private async compareDirectories(dirs: vscode.Uri[]): Promise<void> {

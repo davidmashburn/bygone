@@ -104,7 +104,7 @@ npm run package:npm
 npm pack --dry-run ./dist/npm-package
 ```
 
-The root `package.json` is the VS Code extension manifest and intentionally keeps the unscoped extension name `bygone`. The npm distribution is staged separately as `@davidmashburn/bygone` so the global launcher can avoid the already-taken `bygone` package name while preserving the VS Code extension id `davidmashburn.bygone`.
+The root `package.json` is the VS Code extension manifest and intentionally keeps the unscoped extension name `bygone`. The npm distribution is staged separately as `@davmash/bygone` so the global launcher can avoid the already-taken `bygone` package name while preserving the VS Code extension id `davidmashburn.bygone`.
 
 Homebrew packaging templates live in `packaging/homebrew/`. They are staged for local validation only until release artifact URLs and checksums exist.
 
@@ -185,7 +185,7 @@ The wrapper scripts are:
 
 - `Bygone: Compare Files`
 - `Bygone: Compare Directories`
-- `Bygone: Compare Three Directories (Prototype)`
+- `Bygone: Compare Multiple Directories`
 - `Bygone: Compare Multiple Files`
 - `Bygone: Compare with Selected`
 - `Bygone: Compare Test Files`

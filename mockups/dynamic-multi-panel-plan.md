@@ -281,7 +281,7 @@ The extension command surface should not keep implying that the feature is inher
 
 Update standalone launch parsing in [standalone/main.js](/Users/davmash/Git/melden/standalone/main.js):
 
-- replace `--diff3` with a general multi-panel launch form
+- use the general multi-panel launch form instead of the legacy three-file flag
 
 Reasonable options:
 

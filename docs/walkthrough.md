@@ -21,7 +21,7 @@ cd ~/code/bygone
 You can also be explicit:
 
 ```bash
-./bin/bygone.js --dir-history ~/code/bygone
+./bin/bygone.js --history ~/code/bygone
 ```
 
 ![Directory history view](../media/walkthrough/directory-history.png)
