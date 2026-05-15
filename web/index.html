@@ -21,67 +21,164 @@
 
     <div id="container">
         <div id="header">
-            <h1>Bygone</h1>
-            <div id="file-info">Choose a compare command to render a diff.</div>
-            <div id="status-banner" class="status-banner" hidden></div>
-            <div id="change-toolbar" class="change-toolbar" hidden>
-                <div class="change-copy">
-                    <button id="copy-left-to-right" class="change-button change-button-primary" type="button" title="Copy current change from left to right (Cmd/Ctrl+Alt+Right)">Copy current →</button>
-                </div>
-                <div class="change-nav">
-                    <button id="previous-change" class="change-button" type="button" title="Previous difference (Shift+F7)">↑ Prev</button>
-                    <div id="change-position" class="change-position"></div>
-                    <button id="next-change" class="change-button change-button-primary" type="button" title="Next difference (F7)">↓ Next</button>
-                    <div class="change-hint">F7 / Shift+F7 to jump. Cmd/Ctrl+Alt+←/→ to copy the selected change.</div>
-                </div>
-                <div class="change-copy change-copy-right">
-                    <button id="copy-right-to-left" class="change-button change-button-primary" type="button" title="Copy current change from right to left (Cmd/Ctrl+Alt+Left)">← Copy current</button>
-                </div>
+            <div id="file-info" class="header-align-diff">Choose a compare command to render a diff.</div>
+            <div id="status-banner" class="status-banner header-align-diff" hidden></div>
+            <div id="directory-return-toolbar" class="directory-return-toolbar header-align-diff" hidden>
+                <button id="back-to-directory" class="directory-return-button" type="button" title="Back to directory view (Cmd/Ctrl+[)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M15 18l-6-6 6-6"></path>
+                        <path d="M9 12h10"></path>
+                    </svg>
+                    <span>Back</span>
+                </button>
             </div>
-            <div id="history-toolbar" class="history-toolbar" hidden>
+            <div id="edit-mode-toolbar" class="edit-mode-toolbar header-align-diff" hidden>
+                <button id="toggle-readonly" class="edit-mode-button" type="button" title="Toggle read-only mode">Editing On</button>
+            </div>
+            <div id="change-toolbar" class="change-toolbar header-align-diff" hidden>
+                <div class="change-toolbar-main">
+                    <div class="change-toolbar-nav">
+                        <button id="previous-file" class="change-button icon-button" type="button" title="Previous file" aria-label="Previous file">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M17 11l-5-5-5 5"></path>
+                                <path d="M17 18l-5-5-5 5" opacity="0.7"></path>
+                            </svg>
+                        </button>
+                        <button id="next-file" class="change-button change-button-primary icon-button" type="button" title="Next file" aria-label="Next file">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M7 13l5 5 5-5"></path>
+                                <path d="M7 6l5 5 5-5" opacity="0.7"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="change-toolbar-center">
+                        <button id="previous-change" class="change-button icon-button" type="button" title="Previous difference (Cmd/Ctrl+Alt+Up)" aria-label="Previous difference">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 19V5"></path>
+                                <path d="M6 11l6-6 6 6"></path>
+                            </svg>
+                        </button>
+                        <button id="copy-left-to-right" class="change-button change-button-primary icon-button" type="button" title="Copy current change from left to right (Cmd/Ctrl+Alt+Right)" aria-label="Copy current change from left to right">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M5 12h10"></path>
+                                <path d="M11 8l4 4-4 4"></path>
+                                <path d="M19 5v14"></path>
+                            </svg>
+                        </button>
+                        <div id="change-position" class="change-position"></div>
+                        <button id="copy-right-to-left" class="change-button change-button-primary icon-button" type="button" title="Copy current change from right to left (Cmd/Ctrl+Alt+Left)" aria-label="Copy current change from right to left">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M19 12H9"></path>
+                                <path d="M13 8l-4 4 4 4"></path>
+                                <path d="M5 5v14"></path>
+                            </svg>
+                        </button>
+                        <button id="next-change" class="change-button change-button-primary icon-button" type="button" title="Next difference (Cmd/Ctrl+Alt+Down)" aria-label="Next difference">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 5v14"></path>
+                                <path d="M6 13l6 6 6-6"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="change-hint">Cmd/Ctrl+Alt+Up/Down to jump.</div>
+            </div>
+            <div id="history-toolbar" class="history-toolbar header-align-diff" hidden>
                 <div class="history-side history-side-left">
                     <div id="history-left-commit" class="history-commit"></div>
                     <div id="history-left-time" class="history-time"></div>
                 </div>
                 <div class="history-nav">
-                    <button id="history-back" class="history-button" type="button" title="Older commit">← Older</button>
+                    <button id="history-back" class="history-button icon-button" type="button" title="Older commit" aria-label="Older commit">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M15 18l-6-6 6-6"></path>
+                            <path d="M10 18l-6-6 6-6" opacity="0.7"></path>
+                        </svg>
+                    </button>
                     <div id="history-position" class="history-position"></div>
-                    <button id="history-forward" class="history-button" type="button" title="Newer commit">Newer →</button>
+                    <button id="history-forward" class="history-button icon-button" type="button" title="Newer commit" aria-label="Newer commit">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M9 18l6-6-6-6"></path>
+                            <path d="M14 18l6-6-6-6" opacity="0.7"></path>
+                        </svg>
+                    </button>
+                    <button id="history-toggle-staged" class="history-button history-toggle-button" type="button" title="Include staged changes in history" aria-label="Include staged changes in history" aria-pressed="false">
+                        Staged
+                    </button>
+                    <button id="history-toggle-skip-unchanged" class="history-button history-toggle-button" type="button" title="Skip revisions where the current file did not change" aria-label="Skip revisions where the current file did not change" aria-pressed="false">
+                        Changed
+                    </button>
                 </div>
                 <div class="history-side history-side-right">
                     <div id="history-right-commit" class="history-commit"></div>
                     <div id="history-right-time" class="history-time"></div>
                 </div>
             </div>
-        </div>
-        <div id="diff-container">
-            <div id="two-way-diff" class="diff-view">
-                <div class="file-panel">
-                    <div id="file1-header" class="file-header">File 1</div>
-                    <div id="file1-content" class="file-content"></div>
-                </div>
-                <div class="file-panel">
-                    <div id="file2-header" class="file-header">File 2</div>
-                    <div id="file2-content" class="file-content"></div>
-                </div>
+            <div id="directory-tree-toolbar" class="directory-tree-toolbar header-align-diff" hidden>
+                <button id="directory-expand-all" class="directory-tree-button icon-button" type="button" title="Expand all folders" aria-label="Expand all folders">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 7h16"></path>
+                        <path d="M4 12h16"></path>
+                        <path d="M4 17h16"></path>
+                        <path d="M12 4v16"></path>
+                    </svg>
+                </button>
+                <button id="directory-collapse-all" class="directory-tree-button icon-button" type="button" title="Collapse all folders" aria-label="Collapse all folders">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 7h16"></path>
+                        <path d="M4 12h16"></path>
+                        <path d="M4 17h16"></path>
+                    </svg>
+                </button>
+                <button id="directory-collapse-unchanged" class="directory-tree-button icon-button" type="button" title="Collapse unchanged folders" aria-label="Collapse unchanged folders">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 7h16"></path>
+                        <path d="M4 12h10"></path>
+                        <path d="M4 17h16"></path>
+                        <path d="M17 9l3 3-3 3"></path>
+                    </svg>
+                </button>
             </div>
-            <div id="multi-way-diff" class="multi-view hidden"></div>
-            <div id="three-way-diff" class="diff-view hidden">
-                <div class="file-panel">
-                    <div id="base-header" class="file-header">Base</div>
-                    <div id="base-content" class="file-content"></div>
+        </div>
+        <div id="diff-workspace">
+            <aside id="history-rail" class="history-rail hidden" hidden></aside>
+            <div id="diff-container">
+                <div id="two-way-diff" class="diff-view">
+                    <div class="file-panel">
+                        <div id="file1-header" class="file-header">File 1</div>
+                        <div id="file1-content" class="file-content"></div>
+                    </div>
+                    <div class="file-panel">
+                        <div id="file2-header" class="file-header">File 2</div>
+                        <div id="file2-content" class="file-content"></div>
+                    </div>
                 </div>
-                <div class="file-panel">
-                    <div id="left-header" class="file-header">Left</div>
-                    <div id="left-content" class="file-content"></div>
+                <div id="directory-diff" class="dir-view hidden">
+                    <div class="dir-headers">
+                        <div class="dir-col-header" id="dir-left-header">Left</div>
+                        <div class="dir-header-gutter" aria-hidden="true"></div>
+                        <div class="dir-col-header" id="dir-right-header">Right</div>
+                    </div>
+                    <div id="dir-rows" class="dir-rows-container"></div>
                 </div>
-                <div class="file-panel">
-                    <div id="right-header" class="file-header">Right</div>
-                    <div id="right-content" class="file-content"></div>
-                </div>
-                <div class="file-panel">
-                    <div id="result-header" class="file-header">Result</div>
-                    <div id="result-content" class="file-content"></div>
+                <div id="multi-way-diff" class="multi-view hidden"></div>
+                <div id="three-way-diff" class="diff-view hidden">
+                    <div class="file-panel">
+                        <div id="base-header" class="file-header">Base</div>
+                        <div id="base-content" class="file-content"></div>
+                    </div>
+                    <div class="file-panel">
+                        <div id="left-header" class="file-header">Left</div>
+                        <div id="left-content" class="file-content"></div>
+                    </div>
+                    <div class="file-panel">
+                        <div id="right-header" class="file-header">Right</div>
+                        <div id="right-content" class="file-content"></div>
+                    </div>
+                    <div class="file-panel">
+                        <div id="result-header" class="file-header">Result</div>
+                        <div id="result-content" class="file-content"></div>
+                    </div>
                 </div>
             </div>
         </div>
