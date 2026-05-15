@@ -54,12 +54,13 @@ bygone --dir path/to/left-dir path/to/right-dir
 bygone --diff3 path/to/left path/to/middle path/to/right
 bygone --dir3 path/to/left-dir path/to/middle-dir path/to/right-dir
 bygone --history path/to/file
+bygone --blank
 bygone --help
 ```
 
 CLI defaults:
-
-- `bygone` opens Git directory history for the current directory.
+- In a Git repo, `bygone` opens directory history for the current directory.
+- Outside a Git repo, `bygone` opens a blank editable diff.
 - `bygone <file>` opens file history.
 - `bygone <directory>` opens Git directory history for that directory.
 - `bygone <left> <right>` auto-selects file diff or directory compare.

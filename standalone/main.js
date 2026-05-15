@@ -30,7 +30,7 @@ const captureOutputPath = launchArguments.capturePath ? path.resolve(launchArgum
 const captureMode = Boolean(captureOutputPath);
 const launchWindowWidth = Number.isFinite(launchArguments.windowWidth) ? launchArguments.windowWidth : 1500;
 const launchWindowHeight = Number.isFinite(launchArguments.windowHeight) ? launchArguments.windowHeight : 960;
-const shouldUseSingleInstanceLock = app.isPackaged && launchArguments.kind === 'empty';
+const shouldUseSingleInstanceLock = app.isPackaged && launchArguments.kind === 'blank';
 
 app.setName(APP_NAME);
 if (typeof app.setAppUserModelId === 'function') {
@@ -465,7 +465,8 @@ async function openInitialLaunchTarget() {
 }
 
 async function routeLaunchTarget(launchTarget) {
-    if (launchTarget.kind === 'empty') {
+    if (launchTarget.kind === 'blank') {
+        await openBlankDiff();
         return;
     }
 
@@ -556,7 +557,9 @@ function parseLaunchArgs(args) {
     }
 
     if (filteredArgs.length === 0) {
-        return { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath, windowWidth, windowHeight };
+        return isInsideGitRepo(cwd)
+            ? { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath, windowWidth, windowHeight }
+            : { kind: 'blank', capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--diff' && filteredArgs.length >= 2) {
@@ -587,6 +590,10 @@ function parseLaunchArgs(args) {
         return { kind: 'history', filePath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged, capturePath, windowWidth, windowHeight };
     }
 
+    if (filteredArgs[0] === '--blank') {
+        return { kind: 'blank', capturePath, windowWidth, windowHeight };
+    }
+
     if (filteredArgs[0] === '--dir-history' && filteredArgs.length >= 2) {
         return { kind: 'directory-history', dirPath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged, capturePath, windowWidth, windowHeight };
     }
@@ -614,7 +621,9 @@ function parseLaunchArgs(args) {
         return { kind: 'multi-diff', paths: filteredArgs.map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
     }
 
-    return { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath, windowWidth, windowHeight };
+    return isInsideGitRepo(cwd)
+        ? { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath, windowWidth, windowHeight }
+        : { kind: 'blank', capturePath, windowWidth, windowHeight };
 }
 
 function normalizeLaunchArgs(args) {
@@ -632,6 +641,18 @@ function normalizeLaunchArgs(args) {
 
 function resolveLaunchPath(candidate, cwd) {
     return path.isAbsolute(candidate) ? candidate : path.resolve(cwd, candidate);
+}
+
+function isInsideGitRepo(cwd) {
+    try {
+        return execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
+            cwd,
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe']
+        }).trim() === 'true';
+    } catch {
+        return false;
+    }
 }
 
 async function routePendingOpenPaths() {
@@ -1590,6 +1611,29 @@ async function openMultiDiff(filePaths) {
             files,
             activePanelId: files[0]?.id ?? null,
             activePairIndex: files.length > 1 ? 0 : null,
+            historySource: null
+        },
+        dirHistory: null
+    };
+
+    clearWatchers();
+    updateWatchers();
+    await sendCurrentMultiDiff();
+}
+
+async function openBlankDiff() {
+    const panel = createBlankMultiPanelState();
+    session = {
+        mode: 'multi-diff',
+        left: createSideState('', ''),
+        right: createSideState('', ''),
+        history: null,
+        directory: null,
+        multi: {
+            sourceKind: 'normal',
+            files: [panel],
+            activePanelId: panel.id,
+            activePairIndex: null,
             historySource: null
         },
         dirHistory: null

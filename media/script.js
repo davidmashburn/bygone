@@ -286,7 +286,11 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
 
     toggleView(VIEW_IDS.multiWay);
     setStatus('', false);
-    setTextContent('file-info', `Comparing ${panels.length} file${panels.length === 1 ? '' : 's'}`);
+    const isBlankMultiPanel = panels.length === 1 && !panels[0]?.path && !panels[0]?.content;
+    setTextContent(
+        'file-info',
+        isBlankMultiPanel ? 'Blank editable diff' : `Comparing ${panels.length} file${panels.length === 1 ? '' : 's'}`
+    );
 
     renderMultiDiffShell(panels);
     suppressEditorEvents = true;
