@@ -13,10 +13,10 @@ if (args.includes('--help') || args.includes('-h')) {
 
 Usage:
   bygone
-  bygone --blank
   bygone <file-or-directory>
   bygone <left> <right>
   bygone --diff <left> <right>
+  bygone --diff
   bygone --diff <file1> <file2> <file3> [...]
   bygone --diff3 <left> <middle> <right>
   bygone --dir <left-dir> <right-dir>
@@ -27,7 +27,7 @@ Usage:
 
 Notes:
   - No args opens Git directory history inside a Git repo, or a blank editable diff outside one.
-  - \`--blank\` always opens a blank editable diff.
+  - \`--diff\` with no paths opens a blank editable diff.
   - One positional path opens file history or Git directory history.
   - Two positional paths auto-select file diff or directory compare.
   - \`--diff\` accepts 2 or more files; 3+ opens multi-panel diff.

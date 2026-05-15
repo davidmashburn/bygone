@@ -49,12 +49,12 @@ npm install -g .
 bygone
 bygone path/to/file-or-directory
 bygone --diff path/to/left path/to/right
+bygone --diff
 bygone --diff path/to/file1 path/to/file2 path/to/file3 [...]
 bygone --dir path/to/left-dir path/to/right-dir
 bygone --diff3 path/to/left path/to/middle path/to/right
 bygone --dir3 path/to/left-dir path/to/middle-dir path/to/right-dir
 bygone --history path/to/file
-bygone --blank
 bygone --help
 ```
 

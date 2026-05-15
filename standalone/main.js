@@ -562,6 +562,10 @@ function parseLaunchArgs(args) {
             : { kind: 'blank', capturePath, windowWidth, windowHeight };
     }
 
+    if (filteredArgs[0] === '--diff' && filteredArgs.length < 2) {
+        return { kind: 'blank', capturePath, windowWidth, windowHeight };
+    }
+
     if (filteredArgs[0] === '--diff' && filteredArgs.length >= 2) {
         if (filteredArgs.length === 2) {
             return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
@@ -588,10 +592,6 @@ function parseLaunchArgs(args) {
 
     if (filteredArgs[0] === '--history' && filteredArgs.length >= 2) {
         return { kind: 'history', filePath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged, capturePath, windowWidth, windowHeight };
-    }
-
-    if (filteredArgs[0] === '--blank') {
-        return { kind: 'blank', capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--dir-history' && filteredArgs.length >= 2) {
