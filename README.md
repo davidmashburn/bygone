@@ -15,15 +15,6 @@ Bygone is a VS Code extension and standalone desktop app for visual diff and fil
 
 This project is usable as a local or private pre-release VS Code extension. The two-way diff and git history flows are the most complete. The multi-panel view is diff-focused, not a merge tool.
 
-## Migration Note
-
-This project was renamed from `Melden` to `Bygone`.
-
-- VS Code extension id changed from `davidmashburn.melden` to `davidmashburn.bygone`
-- CLI changed from `melden` to `bygone`
-- Git difftool names changed from `melden` / `melden-vscode` to `bygone` / `bygone-vscode`
-- Existing users should reinstall the extension and re-run the difftool setup scripts
-
 ## Install For Development
 
 Install dependencies and compile:

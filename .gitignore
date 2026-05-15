@@ -4,6 +4,7 @@ dist/
 *.vsix
 .DS_Store
 .vscode-test/
+.env
 media/*.prev.png
 media/*.pre-*.png
 media/webview.js
