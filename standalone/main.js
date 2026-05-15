@@ -591,11 +591,17 @@ function parseLaunchArgs(args) {
     }
 
     if (filteredArgs[0] === '--history' && filteredArgs.length >= 2) {
-        return { kind: 'history', filePath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged, capturePath, windowWidth, windowHeight };
+        const targetPath = resolveLaunchPath(filteredArgs[1], cwd);
+        return getPathKind(targetPath) === 'directory'
+            ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
+            : { kind: 'history', filePath: targetPath, includeStaged, capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--dir-history' && filteredArgs.length >= 2) {
-        return { kind: 'directory-history', dirPath: resolveLaunchPath(filteredArgs[1], cwd), includeStaged, capturePath, windowWidth, windowHeight };
+        const targetPath = resolveLaunchPath(filteredArgs[1], cwd);
+        return getPathKind(targetPath) === 'directory'
+            ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
+            : { kind: 'history', filePath: targetPath, includeStaged, capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--test') {
