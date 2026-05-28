@@ -2010,6 +2010,43 @@ function initializeDirectoryViewEvents() {
         activeDirectoryEntryPath = relativePath;
         updateChangeToolbarState();
     });
+
+    const dirView = getElement(VIEW_IDS.directory);
+    if (dirView) {
+        dirView.addEventListener('click', (event) => {
+            const target = event.target instanceof Element
+                ? event.target.closest('[data-dir-add-side], [data-dir-remove-side]')
+                : null;
+            if (!target || target.disabled) {
+                return;
+            }
+
+            const addSide = target.getAttribute('data-dir-add-side');
+            if (addSide === 'left' || addSide === 'right') {
+                event.stopPropagation();
+                const sideIndexAttr = target.getAttribute('data-side-index');
+                const sideIndex = Number.parseInt(sideIndexAttr || '', 10);
+                host.postMessage({
+                    type: 'dirAddColumn',
+                    side: addSide,
+                    sideIndex: Number.isInteger(sideIndex) ? sideIndex : null
+                });
+                return;
+            }
+
+            const removeAttr = target.getAttribute('data-dir-remove-side');
+            if (removeAttr !== null) {
+                event.stopPropagation();
+                const sideIndex = Number.parseInt(removeAttr, 10);
+                if (Number.isInteger(sideIndex)) {
+                    host.postMessage({
+                        type: 'dirRemoveColumn',
+                        sideIndex
+                    });
+                }
+            }
+        });
+    }
 }
 
 function attachDirectoryScrollSync() {

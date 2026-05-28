@@ -1064,14 +1064,16 @@ body.web-host {
 }
 
 .dir-col-header {
-    padding: 6px 10px;
     background: var(--vscode-panel-background);
     border: 1px solid var(--vscode-panel-border);
     font-size: 12px;
     font-weight: 600;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-width: 0;
+}
+
+.dir-col-header .multi-pane-header-top {
+    padding: 6px 10px;
 }
 
 .dir-header-gutter {

@@ -80,7 +80,25 @@
         if (headers) {
             headers.style.gridTemplateColumns = columnTemplate;
             headers.innerHTML = labels.map((label, index) => {
-                const header = `<div class="dir-col-header">${escapeHtml(label)}</div>`;
+                const isFirst = index === 0;
+                const isLast = index === labels.length - 1;
+                // Add buttons only meaningful on outermost columns
+                const addLeftDisabled = !isFirst;
+                const addRightDisabled = !isLast;
+                // Remove must keep at least 2 columns (need a left/right to compare)
+                const removeDisabled = labels.length <= 2;
+                const header = `<div class="dir-col-header" data-side-index="${index}">`
+                    + `<div class="multi-pane-header-top">`
+                    + `<span class="multi-pane-title-wrap">`
+                    + `<span class="multi-pane-title">${escapeHtml(label)}</span>`
+                    + `</span>`
+                    + `<span class="multi-pane-actions">`
+                    + `<button class="multi-pane-action" type="button" data-dir-add-side="left" data-side-index="${index}" title="Add directory to the left" aria-label="Add directory to the left"${addLeftDisabled ? ' disabled' : ''}>+</button>`
+                    + `<button class="multi-pane-action multi-pane-action-danger" type="button" data-dir-remove-side="${index}" title="Remove directory" aria-label="Remove directory"${removeDisabled ? ' disabled' : ''}>×</button>`
+                    + `<button class="multi-pane-action" type="button" data-dir-add-side="right" data-side-index="${index}" title="Add directory to the right" aria-label="Add directory to the right"${addRightDisabled ? ' disabled' : ''}>+</button>`
+                    + `</span>`
+                    + `</div>`
+                    + `</div>`;
                 return index < labels.length - 1
                     ? `${header}<div class="dir-header-gutter" aria-hidden="true"></div>`
                     : header;

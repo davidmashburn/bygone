@@ -795,6 +795,16 @@ async function handleRendererMessage(message) {
         return;
     }
 
+    if (message.type === 'dirAddColumn' && (message.side === 'left' || message.side === 'right')) {
+        await addDirectoryColumn(message.side);
+        return;
+    }
+
+    if (message.type === 'dirRemoveColumn' && Number.isInteger(message.sideIndex)) {
+        await removeDirectoryColumn(message.sideIndex);
+        return;
+    }
+
     if (message.type === 'multiUpdatePanelContent'
         && typeof message.panelId === 'string'
         && typeof message.content === 'string'
@@ -999,6 +1009,60 @@ async function openDirectories(dirs) {
     };
 
     clearWatchers();
+    await sendCurrentDirectoryDiff();
+}
+
+async function addDirectoryColumn(side) {
+    if (session.mode !== 'directory' || !session.directory || !mainWindow) {
+        return;
+    }
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: `Add directory to the ${side}`,
+        properties: ['openDirectory']
+    });
+
+    if (result.canceled || !result.filePaths?.length) {
+        return;
+    }
+
+    const newDir = path.resolve(result.filePaths[0]);
+    if (getPathKind(newDir) !== 'directory') {
+        await showInfo('Selected path is not a directory.');
+        return;
+    }
+
+    const newLabel = path.basename(newDir);
+    if (side === 'left') {
+        session.directory.dirs.unshift(newDir);
+        session.directory.labels.unshift(newLabel);
+    } else {
+        session.directory.dirs.push(newDir);
+        session.directory.labels.push(newLabel);
+    }
+
+    session.left = createSideState(session.directory.dirs[0], '');
+    session.right = createSideState(session.directory.dirs[session.directory.dirs.length - 1], '');
+    await sendCurrentDirectoryDiff();
+}
+
+async function removeDirectoryColumn(sideIndex) {
+    if (session.mode !== 'directory' || !session.directory) {
+        return;
+    }
+
+    if (session.directory.dirs.length <= 2) {
+        return;
+    }
+
+    if (sideIndex < 0 || sideIndex >= session.directory.dirs.length) {
+        return;
+    }
+
+    session.directory.dirs.splice(sideIndex, 1);
+    session.directory.labels.splice(sideIndex, 1);
+    session.left = createSideState(session.directory.dirs[0], '');
+    session.right = createSideState(session.directory.dirs[session.directory.dirs.length - 1], '');
     await sendCurrentDirectoryDiff();
 }
 
