@@ -104,7 +104,7 @@ host.onMessage((message) => {
     }
 
     if (message.type === 'showDirectoryDiff') {
-        showDirectoryDiff(message.leftLabel, message.rightLabel, message.entries, message.labels, message.history || null);
+        showDirectoryDiff(message.leftLabel, message.rightLabel, message.entries, message.labels, message.history || null, message.canMutate !== false);
         return;
     }
 
@@ -221,7 +221,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     notifyRenderComplete();
 }
 
-function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
+function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canMutate = true) {
     currentMode = 'directory';
     historyMode = false;
     currentDiffModel = null;
@@ -248,7 +248,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     setTextContent('file-info', `Comparing directories ${directoryLabels.join(' and ')}`);
 
     resetDirectoryView();
-    renderDirectoryView(getElement('dir-rows'), directoryEntries, directoryLabels);
+    renderDirectoryView(getElement('dir-rows'), directoryEntries, directoryLabels, canMutate);
     collapseUnchangedDirectories(getElement('dir-rows'), directoryEntries);
     attachDirectoryScrollSync();
     resetDirectoryScrollPositions();

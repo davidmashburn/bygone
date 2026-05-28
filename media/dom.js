@@ -72,7 +72,7 @@
         collapsedDirs.clear();
     }
 
-    function renderDirectoryView(container, entries, labels = ['Left', 'Right']) {
+    function renderDirectoryView(container, entries, labels = ['Left', 'Right'], canMutate = true) {
         const columnTemplate = labels.map(() => 'minmax(0, 1fr)').join(' 96px ');
         const view = container.closest('.dir-view');
         const headers = view?.querySelector('.dir-headers');
@@ -83,10 +83,10 @@
                 const isFirst = index === 0;
                 const isLast = index === labels.length - 1;
                 // Add buttons only meaningful on outermost columns
-                const addLeftDisabled = !isFirst;
-                const addRightDisabled = !isLast;
+                const addLeftDisabled = !canMutate || !isFirst;
+                const addRightDisabled = !canMutate || !isLast;
                 // Remove must keep at least 2 columns (need a left/right to compare)
-                const removeDisabled = labels.length <= 2;
+                const removeDisabled = !canMutate || labels.length <= 2;
                 const header = `<div class="dir-col-header" data-side-index="${index}">`
                     + `<div class="multi-pane-header-top">`
                     + `<span class="multi-pane-title-wrap">`

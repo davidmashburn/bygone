@@ -1288,7 +1288,8 @@ async function sendCurrentDirectoryDiff() {
         leftLabel: session.directory.labels[0],
         rightLabel: session.directory.labels[1],
         labels: session.directory.labels,
-        entries
+        entries,
+        canMutate: true
     });
 
     updateWindowTitle(session.directory.labels.join(' ↔ '));
@@ -1363,7 +1364,8 @@ async function sendCurrentDirectoryHistoryEntry() {
         rightLabel: entry.labels[1],
         labels: entry.labels,
         entries,
-        history
+        history,
+        canMutate: false
     });
 
     updateWindowTitle(`${session.dirHistory.displayName} Directory History`);
