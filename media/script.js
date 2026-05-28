@@ -114,7 +114,7 @@ host.onMessage((message) => {
             return;
         }
 
-        showMultiDiff(message.panels, message.pairs, message.activePanelId ?? null, message.activePairIndex ?? null);
+        showMultiDiff(message.panels, message.pairs, message.activePanelId ?? null, message.activePairIndex ?? null, message.history ?? null, message.fileNavigation ?? null, Boolean(message.canReturnToDirectory));
         return;
     }
 
@@ -157,7 +157,10 @@ window.addEventListener('load', async () => {
             pendingMultiPayload.panels,
             pendingMultiPayload.pairs,
             pendingMultiPayload.activePanelId ?? null,
-            pendingMultiPayload.activePairIndex ?? null
+            pendingMultiPayload.activePairIndex ?? null,
+            pendingMultiPayload.history ?? null,
+            pendingMultiPayload.fileNavigation ?? null,
+            Boolean(pendingMultiPayload.canReturnToDirectory)
         );
         pendingMultiPayload = undefined;
     }
@@ -255,7 +258,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history) {
     notifyRenderComplete();
 }
 
-function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null) {
+function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false) {
     if (!Array.isArray(panels) || panels.length < 1) {
         return;
     }
@@ -276,10 +279,10 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, nextActivePairIndex, activeMultiPanelId, panels);
     multiPanelChangeIndices = new Map();
     multiPanelMutationEnabled = true;
-    updateHistoryToolbar(null);
+    updateHistoryToolbar(history);
     updateHistoryRail(null);
-    updateFileNavigationState(null, false);
-    updateDirectoryReturnToolbar(false);
+    updateFileNavigationState(fileNavigation, canReturnToDirectory);
+    updateDirectoryReturnToolbar(canReturnToDirectory);
     updateEditModeToolbar();
     updateDirectoryTreeToolbar();
     updateChangeToolbarState();

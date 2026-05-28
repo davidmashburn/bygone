@@ -1225,21 +1225,22 @@ async function sendCurrentDirectoryHistoryEntry() {
         const rightContent = entry.editedFiles?.[relativePath] ?? (rightExists ? readFileContent(files[1]) : '');
         const leftLabel = `${entry.labels[0]} / ${relativePath}${leftExists ? '' : ' (missing)'}`;
         const rightLabel = `${entry.labels[1]} / ${relativePath}${rightExists ? '' : ' (missing)'}`;
+        const diffModel = buildTwoWayDiffModel(leftContent, rightContent);
+        const leftPanelId = `dir-hist-${session.dirHistory.index}-left`;
+        const rightPanelId = `dir-hist-${session.dirHistory.index}-right`;
 
         postOrQueue({
-            type: 'showDiff',
-            file1: leftLabel,
-            file2: rightLabel,
-            leftContent,
-            rightContent,
-            diffModel: buildTwoWayDiffModel(leftContent, rightContent),
+            type: 'showMultiDiff',
+            panels: [
+                { id: leftPanelId, label: leftLabel, content: leftContent, editable: false, dirty: false, addLeftEnabled: false, removeEnabled: false, addRightEnabled: false },
+                { id: rightPanelId, label: rightLabel, content: rightContent, editable: false, dirty: false, addLeftEnabled: false, removeEnabled: false, addRightEnabled: false }
+            ],
+            pairs: [{ leftIndex: 0, rightIndex: 1, diffModel }],
+            activePanelId: rightPanelId,
+            activePairIndex: 0,
+            history: { ...history, fileName: relativePath },
             fileNavigation: buildDirectoryHistoryFileNavigationState(session.dirHistory, entry),
-            canReturnToDirectory: true,
-            editableSides: buildHistoryEditableSides(entry),
-            history: {
-                ...history,
-                fileName: relativePath
-            }
+            canReturnToDirectory: true
         });
 
         updateWindowTitle(`${relativePath} Directory History`);
