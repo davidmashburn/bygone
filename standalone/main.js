@@ -9,6 +9,7 @@ const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
 const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
 
 const APP_NAME = 'Bygone';
+const APP_VERSION = require('../package.json').version;
 const HELP_URL = 'https://github.com/davidmashburn/bygone';
 const DEFAULT_GIT_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 const parsedGitMaxBufferBytes = Number.parseInt(process.env.BYGONE_GIT_MAX_BUFFER_BYTES || '', 10);
@@ -254,7 +255,35 @@ function installApplicationMenu() {
             }
         ];
 
+    const isMac = process.platform === 'darwin';
+    const aboutItem = {
+        label: `About ${APP_NAME}`,
+        click: () => {
+            void dialog.showMessageBox(mainWindow ?? undefined, {
+                type: 'info',
+                title: `About ${APP_NAME}`,
+                message: APP_NAME,
+                detail: `Version ${APP_VERSION}\n\n${HELP_URL}`,
+                buttons: ['OK']
+            });
+        }
+    };
+
     const template = [
+        ...(isMac ? [{
+            label: APP_NAME,
+            submenu: [
+                aboutItem,
+                { type: 'separator' },
+                { role: 'services' },
+                { type: 'separator' },
+                { role: 'hide' },
+                { role: 'hideOthers' },
+                { role: 'unhide' },
+                { type: 'separator' },
+                { role: 'quit' }
+            ]
+        }] : []),
         {
             label: 'File',
             submenu: [
@@ -301,8 +330,21 @@ function installApplicationMenu() {
                 },
                 { type: 'separator' },
                 ...fileActionItems,
+                ...(isMac ? [] : [{ type: 'separator' }, { role: 'quit' }])
+            ]
+        },
+        {
+            label: 'Edit',
+            submenu: [
+                { role: 'undo' },
+                { role: 'redo' },
                 { type: 'separator' },
-                { role: 'quit' }
+                { role: 'cut' },
+                { role: 'copy' },
+                { role: 'paste' },
+                { role: 'pasteAndMatchStyle' },
+                { role: 'delete' },
+                { role: 'selectAll' }
             ]
         },
         {
@@ -356,7 +398,8 @@ function installApplicationMenu() {
                 {
                     label: 'Check for Updates…',
                     click: () => { void checkForUpdates(true); }
-                }
+                },
+                ...(isMac ? [] : [{ type: 'separator' }, aboutItem])
             ]
         }
     ];
