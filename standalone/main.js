@@ -1068,7 +1068,7 @@ async function removeDirectoryColumn(sideIndex) {
     if (session.mode === 'directory-history' && session.dirHistory) {
         const range = session.dirHistory.displayedRange;
         const colCount = (range[0] - range[1]) + 2;
-        if (colCount <= 2) {
+        if (colCount <= 1) {
             return;
         }
         if (sideIndex === 0) {
@@ -1086,7 +1086,7 @@ async function removeDirectoryColumn(sideIndex) {
         return;
     }
 
-    if (session.directory.dirs.length <= 2) {
+    if (session.directory.dirs.length <= 1) {
         return;
     }
 
@@ -1373,34 +1373,43 @@ async function sendCurrentDirectoryHistoryEntry() {
 
     if (session.dirHistory.viewRelativePath) {
         const relativePath = session.dirHistory.viewRelativePath;
-        const files = entry.dirs.map((dir) => path.join(dir, relativePath));
-        const leftExists = getPathKind(files[0]) === 'file';
-        const rightExists = getPathKind(files[1]) === 'file';
+        const { dirs: displayedDirs, labels: displayedLabels } = getDisplayedDirectoryHistoryDirs(session.dirHistory);
+        const allMissing = displayedDirs.every((dir) => getPathKind(path.join(dir, relativePath)) !== 'file');
 
-        if (!leftExists && !rightExists) {
+        if (allMissing) {
             session.dirHistory.viewRelativePath = null;
-            await showInfo('That entry does not exist on either side for this history step.');
+            await showInfo('That entry does not exist in any displayed column for this history step.');
             await sendCurrentDirectoryHistoryEntry();
             return;
         }
 
-        const leftContent = leftExists ? readFileContent(files[0]) : '';
-        const rightContent = entry.editedFiles?.[relativePath] ?? (rightExists ? readFileContent(files[1]) : '');
-        const leftLabel = `${entry.labels[0]} / ${relativePath}${leftExists ? '' : ' (missing)'}`;
-        const rightLabel = `${entry.labels[1]} / ${relativePath}${rightExists ? '' : ' (missing)'}`;
-        const diffModel = buildTwoWayDiffModel(leftContent, rightContent);
-        const leftPanelId = `dir-hist-${session.dirHistory.index}-left`;
-        const rightPanelId = `dir-hist-${session.dirHistory.index}-right`;
+        const range = session.dirHistory.displayedRange;
+        const colCount = displayedDirs.length;
+        const panels = displayedDirs.map((dir, colIdx) => {
+            const filePath = path.join(dir, relativePath);
+            const exists = getPathKind(filePath) === 'file';
+            const content = exists ? readFileContent(filePath) : '';
+            const isFirst = colIdx === 0;
+            const isLast = colIdx === colCount - 1;
+            return {
+                id: `dir-hist-col-${colIdx}`,
+                label: `${displayedLabels[colIdx]} / ${relativePath}${exists ? '' : ' (missing)'}`,
+                content,
+                editable: false,
+                dirty: false,
+                addLeftEnabled: isFirst && (range[0] + 1 < session.dirHistory.entries.length),
+                removeEnabled: (isFirst || isLast) && colCount > 1,
+                addRightEnabled: isLast && (range[1] - 1 >= 0)
+            };
+        });
+        const pairs = panels.slice(0, -1).map((_, i) => ({ leftIndex: i, rightIndex: i + 1 }));
 
         postOrQueue({
             type: 'showMultiDiff',
-            panels: [
-                { id: leftPanelId, label: leftLabel, content: leftContent, editable: false, dirty: false, addLeftEnabled: false, removeEnabled: false, addRightEnabled: false },
-                { id: rightPanelId, label: rightLabel, content: rightContent, editable: false, dirty: false, addLeftEnabled: false, removeEnabled: false, addRightEnabled: false }
-            ],
-            pairs: [{ leftIndex: 0, rightIndex: 1, diffModel }],
-            activePanelId: rightPanelId,
-            activePairIndex: 0,
+            panels,
+            pairs,
+            activePanelId: panels[panels.length - 1]?.id ?? null,
+            activePairIndex: pairs.length > 0 ? pairs.length - 1 : null,
             history: { ...history, fileName: relativePath },
             fileNavigation: buildDirectoryHistoryFileNavigationState(session.dirHistory, entry),
             canReturnToDirectory: true
@@ -1893,6 +1902,11 @@ function setActiveMultiPair(pairIndex) {
 }
 
 async function addMultiPanel(anchorPanelId, side) {
+    if (session.mode === 'directory-history' && session.dirHistory?.viewRelativePath) {
+        await addDirectoryColumn(side);
+        return;
+    }
+
     if (session.mode !== 'multi-diff' || !session.multi) {
         return;
     }
@@ -1962,6 +1976,14 @@ async function addHistoryPanelToMulti(side) {
 }
 
 async function removeMultiPanel(panelId) {
+    if (session.mode === 'directory-history' && session.dirHistory?.viewRelativePath) {
+        const match = panelId.match(/^dir-hist-col-(\d+)$/);
+        if (match) {
+            await removeDirectoryColumn(parseInt(match[1], 10));
+        }
+        return;
+    }
+
     if (session.mode !== 'multi-diff' || !session.multi || session.multi.files.length <= 1) {
         return;
     }
@@ -2085,16 +2107,44 @@ async function openDirectoryEntry(relativePath) {
         return;
     }
 
-    const files = session.directory.dirs
-        .map((dir) => path.join(dir, relativePath))
-        .filter((filePath) => getPathKind(filePath) === 'file');
+    await openDirectoryEntryMultiPanel(session.directory.dirs, session.directory.labels, relativePath);
+}
 
-    if (files.length === 2) {
-        await openDiff(files[0], files[1]);
-        return;
-    }
+async function openDirectoryEntryMultiPanel(dirs, labels, relativePath) {
+    const panels = dirs.map((dir, i) => {
+        const filePath = path.join(dir, relativePath);
+        const exists = getPathKind(filePath) === 'file';
+        const content = exists ? readFileContent(filePath) : '';
+        return {
+            id: `panel-${nextMultiPanelId++}`,
+            path: exists ? filePath : '',
+            label: `${labels[i]} / ${relativePath}${exists ? '' : ' (missing)'}`,
+            content,
+            savedContent: content,
+            dirty: false,
+            editable: false
+        };
+    });
 
-    await openMultiDiff(files);
+    session = {
+        mode: 'multi-diff',
+        left: createSideState('', ''),
+        right: createSideState('', ''),
+        history: null,
+        directory: null,
+        multi: {
+            sourceKind: 'normal',
+            files: panels,
+            activePanelId: panels[panels.length - 1]?.id ?? null,
+            activePairIndex: panels.length > 1 ? panels.length - 2 : null,
+            historySource: null
+        },
+        dirHistory: null,
+        returnDirectory: { dirs, labels, relativePath }
+    };
+
+    clearWatchers();
+    await sendCurrentMultiDiff();
 }
 
 async function openDirectoryFileDiff(dirs, labels, relativePath) {
@@ -2142,13 +2192,13 @@ async function returnToDirectoryView() {
         return;
     }
 
-    if (session.mode === 'diff' && session.returnDirectory) {
+    if ((session.mode === 'diff' || session.mode === 'multi-diff') && session.returnDirectory) {
         const { dirs, labels } = session.returnDirectory;
 
         session = {
             mode: 'directory',
             left: createSideState(dirs[0], ''),
-            right: createSideState(dirs[1], ''),
+            right: createSideState(dirs[dirs.length - 1], ''),
             history: null,
             directory: {
                 dirs,
@@ -2299,13 +2349,13 @@ async function sendCurrentMultiDiff() {
     postOrQueue({
         type: 'showMultiDiff',
         panels,
-        pairs: panels.slice(0, -1).map((panel, index) => ({
+        pairs: panels.slice(0, -1).map((_panel, index) => ({
             leftIndex: index,
-            rightIndex: index + 1,
-            diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
+            rightIndex: index + 1
         })),
         activePanelId,
-        activePairIndex
+        activePairIndex,
+        canReturnToDirectory: Boolean(session.returnDirectory)
     });
 
     updateWindowTitle(panels.map((panel) => panel.label).join(' ↔ ') || 'Multi-Panel Compare');

@@ -285,7 +285,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     multiPanelChangeIndices = new Map();
     multiPanelMutationEnabled = true;
     updateHistoryToolbar(history);
-    updateHistoryRail(null);
+    updateHistoryRail(history?.rail || null);
     updateFileNavigationState(fileNavigation, canReturnToDirectory);
     updateDirectoryReturnToolbar(canReturnToDirectory);
     updateEditModeToolbar();

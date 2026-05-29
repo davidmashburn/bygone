@@ -85,8 +85,7 @@
                 // Add buttons only meaningful on outermost columns
                 const addLeftDisabled = !canMutate || !isFirst;
                 const addRightDisabled = !canMutate || !isLast;
-                // Remove must keep at least 2 columns (need a left/right to compare)
-                const removeDisabled = !canMutate || labels.length <= 2;
+                const removeDisabled = !canMutate || labels.length <= 1;
                 const header = `<div class="dir-col-header" data-side-index="${index}">`
                     + `<div class="multi-pane-header-top">`
                     + `<span class="multi-pane-title-wrap">`
