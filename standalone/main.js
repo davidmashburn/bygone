@@ -1013,6 +1013,24 @@ async function openDirectories(dirs) {
 }
 
 async function addDirectoryColumn(side) {
+    if (session.mode === 'directory-history' && session.dirHistory) {
+        const range = session.dirHistory.displayedRange;
+        const entries = session.dirHistory.entries;
+        if (side === 'left') {
+            if (range[0] + 1 >= entries.length) {
+                return;
+            }
+            range[0] += 1;
+        } else {
+            if (range[1] - 1 < 0) {
+                return;
+            }
+            range[1] -= 1;
+        }
+        await sendCurrentDirectoryHistoryEntry();
+        return;
+    }
+
     if (session.mode !== 'directory' || !session.directory || !mainWindow) {
         return;
     }
@@ -1047,6 +1065,23 @@ async function addDirectoryColumn(side) {
 }
 
 async function removeDirectoryColumn(sideIndex) {
+    if (session.mode === 'directory-history' && session.dirHistory) {
+        const range = session.dirHistory.displayedRange;
+        const colCount = (range[0] - range[1]) + 2;
+        if (colCount <= 2) {
+            return;
+        }
+        if (sideIndex === 0) {
+            range[0] -= 1;
+        } else if (sideIndex === colCount - 1) {
+            range[1] += 1;
+        } else {
+            return;
+        }
+        await sendCurrentDirectoryHistoryEntry();
+        return;
+    }
+
     if (session.mode !== 'directory' || !session.directory) {
         return;
     }
@@ -1156,9 +1191,29 @@ function buildDirectoryHistory(resolvedDir, includeStaged = false) {
         skipUnchanged: Boolean(historySkipUnchangedPreference),
         entries,
         index: 0,
+        displayedRange: [0, 0],
         viewRelativePath: null,
         materializedOrder: []
     };
+}
+
+function getDisplayedDirectoryHistoryDirs(dirHistory) {
+    const range = dirHistory.displayedRange || [dirHistory.index, dirHistory.index];
+    const [oldestIdx, newestIdx] = range;
+    const dirs = [];
+    const labels = [];
+
+    for (let i = oldestIdx; i >= newestIdx; i--) {
+        const entry = ensureDirectoryHistoryEntryMaterialized(dirHistory, i);
+        if (i === oldestIdx) {
+            dirs.push(entry.dirs[0]);
+            labels.push(entry.labels[0]);
+        }
+        dirs.push(entry.dirs[1]);
+        labels.push(entry.labels[1]);
+    }
+
+    return { dirs, labels };
 }
 
 function buildWorkingTreeDirectoryHistoryEntry(repoRoot, relativeDir, displayName, includeStaged) {
@@ -1356,16 +1411,27 @@ async function sendCurrentDirectoryHistoryEntry() {
         return;
     }
 
-    const entries = buildMultiDirectoryComparison(entry.dirs);
+    let displayedDirs;
+    let displayedLabels;
+    try {
+        const result = getDisplayedDirectoryHistoryDirs(session.dirHistory);
+        displayedDirs = result.dirs;
+        displayedLabels = result.labels;
+    } catch (error) {
+        await showError(`Error loading directory history range: ${getErrorMessage(error)}`);
+        return;
+    }
+
+    const entries = buildMultiDirectoryComparison(displayedDirs);
 
     postOrQueue({
         type: 'showDirectoryDiff',
-        leftLabel: entry.labels[0],
-        rightLabel: entry.labels[1],
-        labels: entry.labels,
+        leftLabel: displayedLabels[0],
+        rightLabel: displayedLabels[displayedLabels.length - 1],
+        labels: displayedLabels,
         entries,
         history,
-        canMutate: false
+        canMutate: true
     });
 
     updateWindowTitle(`${session.dirHistory.displayName} Directory History`);
@@ -1546,6 +1612,16 @@ function markDirectoryHistoryEntryUsed(dirHistory, index) {
 
 function evictDirectoryHistoryEntries(dirHistory, activeIndex) {
     const keepIndexes = new Set([activeIndex]);
+
+    if (Array.isArray(dirHistory.displayedRange)) {
+        const [oldestIdx, newestIdx] = dirHistory.displayedRange;
+        for (let i = newestIdx; i <= oldestIdx; i++) {
+            if (i >= 0 && i < dirHistory.entries.length) {
+                keepIndexes.add(i);
+            }
+        }
+    }
+
     const materializedIndexes = [];
 
     for (let index = 0; index < dirHistory.entries.length; index += 1) {
@@ -2503,6 +2579,7 @@ async function navigateHistory(direction) {
             return;
         }
 
+        session.dirHistory.displayedRange = [session.dirHistory.index, session.dirHistory.index];
         await sendCurrentDirectoryHistoryEntry();
         return;
     }
@@ -2606,6 +2683,7 @@ async function selectHistoryEntry(index) {
         }
 
         session.dirHistory.index = index;
+        session.dirHistory.displayedRange = [index, index];
         await sendCurrentDirectoryHistoryEntry();
     }
 }
