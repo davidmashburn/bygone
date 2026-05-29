@@ -351,6 +351,7 @@ function computeMissingPairDiffsAsync() {
         activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, activeMultiPairIndex, activeMultiPanelId, multiPanels);
         updateMultiActivePairModel(false, activeMultiPairIndex);
         updateActiveMultiShellState();
+        updateChangeToolbarState();
         connectorController.scheduleDrawConnections();
     });
 }
