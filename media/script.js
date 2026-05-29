@@ -273,6 +273,9 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     currentDiffRows = [];
     scrollMaps = null;
     directoryEntries = [];
+    clearTimeout(multiRecomputeTimer);
+    multiRecomputeTimer = null;
+    multiRecomputePendingPanelIds.clear();
     disposeTwoWayEditors();
     disposeMultiEditors(false);
     multiPanels = panels;
@@ -549,12 +552,15 @@ function recomputeMultiDiffState(changedPanelIds = null) {
 
     multiPanels = nextPanels;
 
-    if (changedPanelIds) {
-        const changedIndices = new Set(
+    const changedIndices = changedPanelIds
+        ? new Set(
             [...changedPanelIds]
                 .map((id) => nextPanels.findIndex((p) => p.id === id))
                 .filter((i) => i >= 0)
-        );
+        )
+        : null;
+
+    if (changedIndices && changedIndices.size > 0) {
         multiDiffPairs = multiDiffPairs.map((pair) => {
             if (changedIndices.has(pair.leftIndex) || changedIndices.has(pair.rightIndex)) {
                 return {
