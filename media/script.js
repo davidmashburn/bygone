@@ -37,6 +37,11 @@ let suppressEditorEvents = false;
 let recomputeTimer;
 let multiRecomputeTimer;
 const multiRecomputePendingPanelIds = new Set();
+let diffWorker = null;
+let diffRequestIdCounter = 0;
+const diffPendingRequests = new Map();
+let multiDiffEpoch = 0;
+let pendingDiffJobs = 0;
 let pendingTwoWayPayload;
 let pendingMultiPayload;
 let currentDiffRows = [];
@@ -136,6 +141,7 @@ window.addEventListener('load', async () => {
     initializeDirectoryViewEvents();
     initializeMultiDiffInteractions();
     initializeStandaloneDropTarget();
+    initializeDiffWorker();
     await initializeMonaco();
     host.postMessage({ type: 'ready' });
 
@@ -316,6 +322,37 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
     notifyRenderComplete();
+    computeMissingPairDiffsAsync();
+}
+
+function computeMissingPairDiffsAsync() {
+    const missing = multiDiffPairs
+        .map((pair, index) => ({ pair, index }))
+        .filter(({ pair }) => !pair?.diffModel);
+    if (missing.length === 0) {
+        return;
+    }
+    const epoch = ++multiDiffEpoch;
+    beginDiffJob();
+    Promise.all(missing.map(({ pair, index }) =>
+        requestDiffAsync(multiPanels[pair.leftIndex]?.content ?? '', multiPanels[pair.rightIndex]?.content ?? '')
+            .then((model) => ({ index, model }))
+            .catch(() => ({ index, model: buildTwoWayDiffModel(multiPanels[pair.leftIndex]?.content ?? '', multiPanels[pair.rightIndex]?.content ?? '') }))
+    )).then((results) => {
+        endDiffJob();
+        if (epoch !== multiDiffEpoch || currentMode !== MODE_MULTI_WAY) {
+            return;
+        }
+        for (const { index, model } of results) {
+            if (multiDiffPairs[index]) {
+                multiDiffPairs[index] = { ...multiDiffPairs[index], diffModel: model };
+            }
+        }
+        activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, activeMultiPairIndex, activeMultiPanelId, multiPanels);
+        updateMultiActivePairModel(false, activeMultiPairIndex);
+        updateActiveMultiShellState();
+        connectorController.scheduleDrawConnections();
+    });
 }
 
 function showThreeWayMerge(message) {
@@ -560,28 +597,56 @@ function recomputeMultiDiffState(changedPanelIds = null) {
         )
         : null;
 
+    const epoch = ++multiDiffEpoch;
+    let pairsToBuild;
+
     if (changedIndices && changedIndices.size > 0) {
         multiDiffPairs = multiDiffPairs.map((pair) => {
             if (changedIndices.has(pair.leftIndex) || changedIndices.has(pair.rightIndex)) {
-                return {
-                    ...pair,
-                    diffModel: buildTwoWayDiffModel(nextPanels[pair.leftIndex].content, nextPanels[pair.rightIndex].content)
-                };
+                return { ...pair, diffModel: null };
             }
             return pair;
         });
+        pairsToBuild = multiDiffPairs
+            .map((pair, index) => ({ pair, index }))
+            .filter(({ pair }) => pair.diffModel === null);
     } else {
         multiDiffPairs = nextPanels.slice(0, -1).map((panel, index) => ({
             leftIndex: index,
             rightIndex: index + 1,
-            diffModel: buildTwoWayDiffModel(panel.content, nextPanels[index + 1].content)
+            diffModel: null
         }));
+        pairsToBuild = multiDiffPairs.map((pair, index) => ({ pair, index }));
     }
 
     activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, activeMultiPairIndex, activeMultiPanelId, multiPanels);
     updateMultiActivePairModel(false, activeMultiPairIndex);
     updateActiveMultiShellState();
     connectorController.scheduleDrawConnections();
+
+    if (pairsToBuild.length === 0) {
+        return;
+    }
+
+    beginDiffJob();
+    Promise.all(pairsToBuild.map(({ pair, index }) =>
+        requestDiffAsync(nextPanels[pair.leftIndex].content, nextPanels[pair.rightIndex].content)
+            .then((model) => ({ index, model }))
+            .catch(() => ({ index, model: buildTwoWayDiffModel(nextPanels[pair.leftIndex].content, nextPanels[pair.rightIndex].content) }))
+    )).then((results) => {
+        endDiffJob();
+        if (epoch !== multiDiffEpoch) {
+            return;
+        }
+        for (const { index, model } of results) {
+            if (multiDiffPairs[index]) {
+                multiDiffPairs[index] = { ...multiDiffPairs[index], diffModel: model };
+            }
+        }
+        updateMultiActivePairModel(false, activeMultiPairIndex);
+        updateActiveMultiShellState();
+        connectorController.scheduleDrawConnections();
+    });
 }
 
 function resolveActiveMultiPanelId(panels, nextActivePanelId) {
@@ -697,8 +762,8 @@ function hasHostEditableSide() {
 
 function setCurrentDiffModel(diffModel) {
     currentDiffModel = diffModel;
-    diffBlocks = diffModel.blocks || [];
-    currentDiffRows = diffModel.rows || [];
+    diffBlocks = diffModel?.blocks || [];
+    currentDiffRows = diffModel?.rows || [];
     scrollMaps = currentDiffRows.length === 0
         ? null
         : {
@@ -2538,6 +2603,74 @@ function scheduleRecompute() {
             rightContent: rightEditor.getValue()
         });
     }, 120);
+}
+
+function initializeDiffWorker() {
+    if (diffWorker) {
+        return;
+    }
+    try {
+        diffWorker = new Worker('diff.worker.js');
+    } catch (error) {
+        diffWorker = null;
+        return;
+    }
+    diffWorker.addEventListener('message', (event) => {
+        const data = event.data || {};
+        const pending = diffPendingRequests.get(data.id);
+        if (!pending) {
+            return;
+        }
+        diffPendingRequests.delete(data.id);
+        if (data.error) {
+            pending.reject(new Error(data.error));
+        } else {
+            pending.resolve(data.model);
+        }
+    });
+    diffWorker.addEventListener('error', () => {
+        // Worker failed; future requests will fall back to synchronous diff
+        for (const pending of diffPendingRequests.values()) {
+            pending.reject(new Error('diff worker error'));
+        }
+        diffPendingRequests.clear();
+        diffWorker = null;
+    });
+}
+
+function requestDiffAsync(leftContent, rightContent) {
+    if (!diffWorker) {
+        return Promise.resolve(buildTwoWayDiffModel(leftContent, rightContent));
+    }
+    const id = ++diffRequestIdCounter;
+    return new Promise((resolve, reject) => {
+        diffPendingRequests.set(id, { resolve, reject });
+        diffWorker.postMessage({ id, leftContent, rightContent });
+    });
+}
+
+function beginDiffJob() {
+    pendingDiffJobs += 1;
+    updateDiffJobStatus();
+}
+
+function endDiffJob() {
+    pendingDiffJobs = Math.max(0, pendingDiffJobs - 1);
+    updateDiffJobStatus();
+}
+
+function updateDiffJobStatus() {
+    const banner = getElement('status-banner');
+    if (!banner) {
+        return;
+    }
+    if (pendingDiffJobs > 0) {
+        banner.textContent = 'Computing diff…';
+        banner.hidden = false;
+    } else if (banner.textContent === 'Computing diff…') {
+        banner.textContent = '';
+        banner.hidden = true;
+    }
 }
 
 function scheduleMultiRecompute(changedPanelId) {

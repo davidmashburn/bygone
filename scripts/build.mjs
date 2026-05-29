@@ -14,6 +14,8 @@ await rm('media/webview.css', { force: true });
 await rm('media/webview.css.map', { force: true });
 await rm('media/editor.worker.js', { force: true });
 await rm('media/editor.worker.js.map', { force: true });
+await rm('media/diff.worker.js', { force: true });
+await rm('media/diff.worker.js.map', { force: true });
 await rm('out/standalone-main.js', { force: true });
 await rm('out/standalone-main.js.map', { force: true });
 await rm('out/standalone-preload.js', { force: true });
@@ -74,6 +76,15 @@ await build({
     ...sharedOptions,
     entryPoints: ['media/editor.worker.entry.js'],
     outfile: 'media/editor.worker.js',
+    platform: 'browser',
+    format: 'iife',
+    target: 'es2020'
+});
+
+await build({
+    ...sharedOptions,
+    entryPoints: ['media/diff.worker.entry.js'],
+    outfile: 'media/diff.worker.js',
     platform: 'browser',
     format: 'iife',
     target: 'es2020'
