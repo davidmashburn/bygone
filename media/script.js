@@ -1820,7 +1820,7 @@ function updateChangeToolbarState() {
         const currentPanelIndex = getActiveMultiPanelIndex();
         const panelChanges = getMultiPanelChanges(activeMultiPanelId);
         const panelChangeIndex = getMultiPanelChangeIndex(activeMultiPanelId, panelChanges);
-        toolbarCenter.hidden = true;
+        toolbarCenter.hidden = false;
         if (toolbarHint) {
             toolbarHint.hidden = true;
         }
