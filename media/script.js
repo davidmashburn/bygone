@@ -2100,23 +2100,27 @@ function synchronizeDirectoryScroll(sourceColumn) {
         return;
     }
 
-    const targetColumn = columns.find((column) => Number.parseInt(column.getAttribute('data-side-index') || '', 10) !== sourceSideIndex);
-    if (!targetColumn) {
-        return;
-    }
-
     const sourceMap = buildDirectoryScrollMap(sourceColumn, sourceSideIndex);
-    const targetSideIndex = Number.parseInt(targetColumn.getAttribute('data-side-index') || '', 10);
-    const targetMap = buildDirectoryScrollMap(targetColumn, targetSideIndex);
-    if (sourceMap.points.length === 0 || targetMap.points.length === 0) {
+    if (sourceMap.points.length === 0) {
         return;
     }
-
     const globalPosition = directoryScrollTopToGlobalPosition(sourceColumn.scrollTop, sourceMap);
-    const targetScrollTop = globalPositionToDirectoryScrollTop(globalPosition, targetMap, targetColumn);
 
     suppressDirectoryScrollSync = true;
-    targetColumn.scrollTop = targetScrollTop;
+    for (const targetColumn of columns) {
+        if (targetColumn === sourceColumn) {
+            continue;
+        }
+        const targetSideIndex = Number.parseInt(targetColumn.getAttribute('data-side-index') || '', 10);
+        if (!Number.isInteger(targetSideIndex)) {
+            continue;
+        }
+        const targetMap = buildDirectoryScrollMap(targetColumn, targetSideIndex);
+        if (targetMap.points.length === 0) {
+            continue;
+        }
+        targetColumn.scrollTop = globalPositionToDirectoryScrollTop(globalPosition, targetMap, targetColumn);
+    }
     suppressDirectoryScrollSync = false;
 }
 
