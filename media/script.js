@@ -35,6 +35,8 @@ let activeDiffIndex = -1;
 let currentDiffModel = null;
 let suppressEditorEvents = false;
 let recomputeTimer;
+let multiRecomputeTimer;
+const multiRecomputePendingPanelIds = new Set();
 let pendingTwoWayPayload;
 let pendingMultiPayload;
 let currentDiffRows = [];
@@ -404,13 +406,13 @@ function createEditor(container, editorMode, side = null) {
         }
 
         if (editorMode === MODE_MULTI_WAY && side) {
-            recomputeMultiDiffState();
             host.postMessage({
                 type: 'multiUpdatePanelContent',
                 panelId: side,
                 content: editor.getValue().replace(/\r\n/g, '\n')
             });
             connectorController.scheduleDrawConnections();
+            scheduleMultiRecompute(side);
         }
     });
 
@@ -535,7 +537,7 @@ function renderMultiDiffShell(panels) {
     container.innerHTML = `<div class="multi-view-track" style="grid-template-columns:${columns.join(' ')};width:${trackWidth}px;">${children.join('')}</div>`;
 }
 
-function recomputeMultiDiffState() {
+function recomputeMultiDiffState(changedPanelIds = null) {
     if (currentMode !== MODE_MULTI_WAY || multiEditors.length !== multiPanels.length) {
         return;
     }
@@ -546,11 +548,30 @@ function recomputeMultiDiffState() {
     }));
 
     multiPanels = nextPanels;
-    multiDiffPairs = nextPanels.slice(0, -1).map((panel, index) => ({
-        leftIndex: index,
-        rightIndex: index + 1,
-        diffModel: buildTwoWayDiffModel(panel.content, nextPanels[index + 1].content)
-    }));
+
+    if (changedPanelIds) {
+        const changedIndices = new Set(
+            [...changedPanelIds]
+                .map((id) => nextPanels.findIndex((p) => p.id === id))
+                .filter((i) => i >= 0)
+        );
+        multiDiffPairs = multiDiffPairs.map((pair) => {
+            if (changedIndices.has(pair.leftIndex) || changedIndices.has(pair.rightIndex)) {
+                return {
+                    ...pair,
+                    diffModel: buildTwoWayDiffModel(nextPanels[pair.leftIndex].content, nextPanels[pair.rightIndex].content)
+                };
+            }
+            return pair;
+        });
+    } else {
+        multiDiffPairs = nextPanels.slice(0, -1).map((panel, index) => ({
+            leftIndex: index,
+            rightIndex: index + 1,
+            diffModel: buildTwoWayDiffModel(panel.content, nextPanels[index + 1].content)
+        }));
+    }
+
     activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, activeMultiPairIndex, activeMultiPanelId, multiPanels);
     updateMultiActivePairModel(false, activeMultiPairIndex);
     updateActiveMultiShellState();
@@ -775,18 +796,19 @@ function applyMultiDiffDecorations(pairs) {
 }
 
 function addLineDecorations(target, start, end, className) {
-    for (let index = start; index < end; index++) {
-        target.push({
-            range: new monacoInstance.Range(index + 1, 1, index + 1, 1),
-            options: {
-                isWholeLine: true,
-                wholeLineClassName: `${className}-whole`,
-                className,
-                linesDecorationsClassName: `${className}-gutter`,
-                marginClassName: `${className}-gutter`
-            }
-        });
+    if (start >= end) {
+        return;
     }
+    target.push({
+        range: new monacoInstance.Range(start + 1, 1, end, Number.MAX_SAFE_INTEGER),
+        options: {
+            isWholeLine: true,
+            wholeLineClassName: `${className}-whole`,
+            className,
+            linesDecorationsClassName: `${className}-gutter`,
+            marginClassName: `${className}-gutter`
+        }
+    });
 }
 
 function addBlockEdgeDecorations(target, start, end, className) {
@@ -815,15 +837,16 @@ function addBlockEdgeDecorations(target, start, end, className) {
 }
 
 function addAdjacentEdgeDecorations(target, start, end, side, className) {
-    for (let index = start; index < end; index++) {
-        target.push({
-            range: new monacoInstance.Range(index + 1, 1, index + 1, 1),
-            options: {
-                isWholeLine: true,
-                className: `${className}-${side}`
-            }
-        });
+    if (start >= end) {
+        return;
     }
+    target.push({
+        range: new monacoInstance.Range(start + 1, 1, end, Number.MAX_SAFE_INTEGER),
+        options: {
+            isWholeLine: true,
+            className: `${className}-${side}`
+        }
+    });
 }
 
 function addCollapsedBoundaryDecoration(target, anchorIndex, targetLineCount, className) {
@@ -1896,6 +1919,9 @@ function copyCurrentChange(direction) {
 
         const sourceLines = getEditorLines(activeEditor).slice(projection.activeStart, projection.activeEnd);
         replaceEditorLines(targetEditor, projection.targetStart, projection.targetEnd, sourceLines);
+        clearTimeout(multiRecomputeTimer);
+        multiRecomputeTimer = null;
+        multiRecomputePendingPanelIds.clear();
         recomputeMultiDiffState();
         return;
     }
@@ -2505,6 +2531,18 @@ function scheduleRecompute() {
             leftContent: leftEditor.getValue(),
             rightContent: rightEditor.getValue()
         });
+    }, 120);
+}
+
+function scheduleMultiRecompute(changedPanelId) {
+    if (changedPanelId) {
+        multiRecomputePendingPanelIds.add(changedPanelId);
+    }
+    clearTimeout(multiRecomputeTimer);
+    multiRecomputeTimer = window.setTimeout(() => {
+        const panelIds = new Set(multiRecomputePendingPanelIds);
+        multiRecomputePendingPanelIds.clear();
+        recomputeMultiDiffState(panelIds.size > 0 ? panelIds : null);
     }, 120);
 }
 
