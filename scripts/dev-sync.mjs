@@ -40,10 +40,7 @@ Notes:
     process.exit(0);
 }
 
-if (!existsSync(path.join(repoRoot, 'node_modules'))) {
-    await run(npmCmd, ['install']);
-}
-
+await run(npmCmd, ['install']);
 await rm(path.join(repoRoot, 'dist'), { recursive: true, force: true });
 await run(npmCmd, ['run', 'compile']);
 await run(npmCmd, ['install', '-g', '.']);
