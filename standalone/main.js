@@ -71,6 +71,10 @@ app.on('window-all-closed', () => {
     }
 });
 
+app.on('will-quit', () => {
+    cleanupGitDiffTempRoots([...trackedGitDiffTempRoots]);
+});
+
 app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
         createMainWindow();
@@ -548,6 +552,16 @@ async function routeLaunchTarget(launchTarget) {
         return;
     }
 
+    if (launchTarget.kind === 'git-diff') {
+        await openGitRefs(launchTarget.cwd || process.cwd(), launchTarget.refs);
+        return;
+    }
+
+    if (launchTarget.kind === 'branch-diff') {
+        await openGitBranchDiff(launchTarget.cwd || process.cwd(), launchTarget.branch, launchTarget.mainRef);
+        return;
+    }
+
     if (launchTarget.kind === 'test' || launchTarget.kind === 'smoke') {
         await compareTestFiles();
     }
@@ -626,6 +640,24 @@ function parseLaunchArgs(args) {
         return getPathKind(targetPath) === 'directory'
             ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
             : { kind: 'history', filePath: targetPath, includeStaged, capturePath, windowWidth, windowHeight };
+    }
+
+    if (filteredArgs[0] === '--git-diff' && filteredArgs.length >= 3) {
+        return { kind: 'git-diff', refs: filteredArgs.slice(1), cwd, capturePath, windowWidth, windowHeight };
+    }
+
+    if (filteredArgs[0] === '--branch-diff') {
+        let branch = 'HEAD';
+        let mainRef = 'main';
+        for (let i = 1; i < filteredArgs.length; i++) {
+            const arg = filteredArgs[i];
+            if ((arg === '-b' || arg === '--branch') && filteredArgs[i + 1]) {
+                branch = filteredArgs[++i];
+            } else if ((arg === '-m' || arg === '--main') && filteredArgs[i + 1]) {
+                mainRef = filteredArgs[++i];
+            }
+        }
+        return { kind: 'branch-diff', branch, mainRef, cwd, capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs[0] === '--test') {
@@ -988,12 +1020,16 @@ async function openDirectory(leftDir, rightDir) {
     await openDirectories([leftDir, rightDir]);
 }
 
-async function openDirectories(dirs) {
+async function openDirectories(dirs, options = {}) {
     const resolvedDirs = dirs.map((dir) => path.resolve(dir));
     if (resolvedDirs.length < 2 || !resolvedDirs.every((dir) => getPathKind(dir) === 'directory')) {
         await showInfo('Directory compare requires directories.');
         return;
     }
+
+    const labels = Array.isArray(options.labels) && options.labels.length === resolvedDirs.length
+        ? [...options.labels]
+        : resolvedDirs.map((dir) => path.basename(dir));
 
     session = {
         mode: 'directory',
@@ -1002,7 +1038,8 @@ async function openDirectories(dirs) {
         history: null,
         directory: {
             dirs: resolvedDirs,
-            labels: resolvedDirs.map((dir) => path.basename(dir))
+            labels,
+            tempRoots: Array.isArray(options.tempRoots) ? [...options.tempRoots] : []
         },
         multi: null,
         dirHistory: null
@@ -1099,6 +1136,108 @@ async function removeDirectoryColumn(sideIndex) {
     session.left = createSideState(session.directory.dirs[0], '');
     session.right = createSideState(session.directory.dirs[session.directory.dirs.length - 1], '');
     await sendCurrentDirectoryDiff();
+}
+
+const trackedGitDiffTempRoots = new Set();
+
+function cleanupGitDiffTempRoots(roots) {
+    for (const root of roots || []) {
+        try {
+            fs.rmSync(root, { recursive: true, force: true });
+        } catch {
+            // best effort
+        }
+        trackedGitDiffTempRoots.delete(root);
+    }
+}
+
+function resolveGitRefForDiff(repoRoot, ref) {
+    const sha = runGit(['rev-parse', '--verify', `${ref}^{commit}`], repoRoot);
+    const shortSha = sha.slice(0, 7);
+    let summary = '';
+    try {
+        summary = readCommitSummary(repoRoot, sha);
+    } catch {
+        // ignore — labels are nice-to-have
+    }
+    return { ref, sha, shortSha, summary };
+}
+
+async function openGitRefs(cwd, refs, options = {}) {
+    if (!Array.isArray(refs) || refs.length < 2) {
+        await showInfo('Compare git refs requires at least two refs.');
+        return;
+    }
+
+    let repoRoot;
+    try {
+        repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], cwd));
+    } catch (error) {
+        await showError(`Not inside a git repository: ${getErrorMessage(error)}`);
+        return;
+    }
+
+    const resolved = [];
+    for (const ref of refs) {
+        try {
+            resolved.push(resolveGitRefForDiff(repoRoot, ref));
+        } catch (error) {
+            await showError(`Could not resolve git ref "${ref}": ${getErrorMessage(error)}`);
+            return;
+        }
+    }
+
+    const tempRoots = [];
+    const dirs = [];
+    const labels = [];
+
+    try {
+        for (const r of resolved) {
+            const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-gitdiff-'));
+            tempRoots.push(root);
+            trackedGitDiffTempRoots.add(root);
+            materializeGitTree(repoRoot, '', root, r.sha);
+            dirs.push(root);
+            const customLabel = options.labels?.[dirs.length - 1];
+            labels.push(customLabel || `${r.shortSha}${r.summary ? ` ${r.summary}` : ''} (${r.ref})`);
+        }
+    } catch (error) {
+        cleanupGitDiffTempRoots(tempRoots);
+        await showError(`Error materializing git refs: ${getErrorMessage(error)}`);
+        return;
+    }
+
+    await openDirectories(dirs, { labels, tempRoots });
+}
+
+async function openGitBranchDiff(cwd, branch, mainRef) {
+    let repoRoot;
+    try {
+        repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], cwd));
+    } catch (error) {
+        await showError(`Not inside a git repository: ${getErrorMessage(error)}`);
+        return;
+    }
+
+    let mergeBase;
+    let branchParent;
+    try {
+        runGit(['rev-parse', '--verify', `${branch}^{commit}`], repoRoot);
+        runGit(['rev-parse', '--verify', `${mainRef}^{commit}`], repoRoot);
+        mergeBase = runGit(['merge-base', mainRef, branch], repoRoot);
+        branchParent = runGit(['rev-parse', `${branch}^`], repoRoot);
+    } catch (error) {
+        await showError(`Could not compute branch diff refs: ${getErrorMessage(error)}`);
+        return;
+    }
+
+    await openGitRefs(cwd, [mergeBase, branchParent, branch], {
+        labels: [
+            `merge-base(${mainRef},${branch})`,
+            `${branch}^`,
+            branch
+        ]
+    });
 }
 
 async function openDirectoryHistory(dirPath, includeStaged = historyIncludeStagedPreference) {
