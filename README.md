@@ -1,3 +1,16 @@
+---
+author: David Mashburn
+created_at: 2026-06-01T20:35:08Z
+modified_at: 2026-06-01T20:35:08Z
+generated_by: Codex
+generated_for: David Mashburn
+reviewed_by:
+approved_by:
+repo: https://github.com/davidmashburn/bygone
+branch: main
+repo_branch_url: https://github.com/davidmashburn/bygone/tree/main
+---
+
 # Bygone
 
 Bygone is a VS Code extension and standalone desktop app for visual diff and file history.
@@ -53,6 +66,12 @@ bygone --diff
 bygone --diff path/to/file1 path/to/file2 path/to/file3 [...]
 bygone --history path/to/path
 bygone --help
+```
+
+For a one-command local sync that builds the repo, installs the global CLI, packages the desktop app, and auto-installs the VSIX and desktop app for your current platform:
+
+```bash
+npm run dev:sync
 ```
 
 CLI defaults:
