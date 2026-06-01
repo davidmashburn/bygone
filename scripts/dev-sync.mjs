@@ -44,6 +44,7 @@ if (!existsSync(path.join(repoRoot, 'node_modules'))) {
     await run(npmCmd, ['install']);
 }
 
+await rm(path.join(repoRoot, 'dist'), { recursive: true, force: true });
 await run(npmCmd, ['run', 'compile']);
 await run(npmCmd, ['install', '-g', '.']);
 await run(vsceBin, ['package']);
@@ -77,7 +78,6 @@ async function installVsix(vsixFile) {
     requireFile(vsixFile, 'VSIX package');
 
     const candidates = vscodeInstallCommands();
-    let lastError;
 
     for (const command of candidates) {
         try {
@@ -85,7 +85,6 @@ async function installVsix(vsixFile) {
             return;
         } catch (error) {
             if (error?.code === 'ENOENT') {
-                lastError = error;
                 continue;
             }
 
@@ -98,25 +97,24 @@ async function installVsix(vsixFile) {
 
 async function installDesktopApp() {
     if (platform === 'darwin') {
-        await installMacDesktopApp();
+        await installMacDesktopApp(await findDesktopArtifact('dmg'));
         return;
     }
 
     if (platform === 'linux') {
-        await installLinuxDesktopApp();
+        await installLinuxDesktopApp(await findDesktopArtifact('AppImage'));
         return;
     }
 
     if (platform === 'win32') {
-        await installWindowsDesktopApp();
+        await installWindowsDesktopApp(await findDesktopArtifact('exe'));
         return;
     }
 
     throw new Error(`Unsupported platform for desktop install: ${platform}`);
 }
 
-async function installMacDesktopApp() {
-    const dmgPath = await findNewestArtifact('dmg');
+async function installMacDesktopApp(dmgPath) {
     requireFile(dmgPath, 'macOS DMG');
 
     const mountDir = path.join(os.tmpdir(), `bygone-dmg-${process.pid}-${Date.now()}`);
@@ -152,8 +150,7 @@ async function macInstallRoot() {
     }
 }
 
-async function installLinuxDesktopApp() {
-    const appImagePath = await findNewestArtifact('AppImage');
+async function installLinuxDesktopApp(appImagePath) {
     requireFile(appImagePath, 'Linux AppImage');
 
     const targetDir = path.join(os.homedir(), '.local', 'bin');
@@ -167,8 +164,7 @@ async function installLinuxDesktopApp() {
     console.log(`Installed desktop app to ${targetPath}`);
 }
 
-async function installWindowsDesktopApp() {
-    const installerPath = await findNewestArtifact('.exe');
+async function installWindowsDesktopApp(installerPath) {
     requireFile(installerPath, 'Windows installer');
     await run(installerPath, ['/S']);
     console.log(`Ran installer ${path.basename(installerPath)} silently`);
@@ -200,13 +196,13 @@ function vscodeInstallCommands() {
     return candidates;
 }
 
-async function findNewestArtifact(extensionOrToken) {
+async function findDesktopArtifact(kind) {
     const distDir = path.join(repoRoot, 'dist');
     const entries = await readdir(distDir);
     const matches = [];
 
     for (const entry of entries) {
-        if (!matchesArtifactName(entry, extensionOrToken)) {
+        if (!matchesArtifactName(entry, kind)) {
             continue;
         }
 
@@ -218,7 +214,12 @@ async function findNewestArtifact(extensionOrToken) {
     }
 
     matches.sort((left, right) => right.mtimeMs - left.mtimeMs);
-    return matches[0]?.path;
+    const newestMatch = matches[0]?.path;
+    if (!newestMatch) {
+        return undefined;
+    }
+
+    return newestMatch;
 }
 
 async function run(command, commandArgs, options = {}) {
@@ -230,6 +231,7 @@ async function run(command, commandArgs, options = {}) {
                 ...process.env,
                 ...(options.env || {})
             },
+            shell: options.shell ?? shouldUseWindowsShell(command),
             stdio: options.stdio || 'inherit'
         });
 
@@ -264,18 +266,22 @@ function requireFile(filePath, description) {
     }
 }
 
-function matchesArtifactName(entry, extensionOrToken) {
-    if (extensionOrToken === 'dmg') {
-        return entry.endsWith('.dmg');
+function shouldUseWindowsShell(command) {
+    return platform === 'win32' && (command.endsWith('.cmd') || command.endsWith('.bat'));
+}
+
+function matchesArtifactName(entry, kind) {
+    if (kind === 'dmg') {
+        return entry === `Bygone-${version}-arm64.dmg`;
     }
 
-    if (extensionOrToken === 'AppImage') {
-        return entry.endsWith('.AppImage');
+    if (kind === 'AppImage') {
+        return entry === `Bygone-${version}-arm64.AppImage`;
     }
 
-    if (extensionOrToken === '.exe') {
-        return entry.endsWith('.exe');
+    if (kind === 'exe') {
+        return entry === `Bygone Setup ${version}.exe`;
     }
 
-    return entry.includes(extensionOrToken);
+    return false;
 }
