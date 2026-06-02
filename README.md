@@ -26,7 +26,7 @@ Bygone is a VS Code extension and standalone desktop app for visual diff and fil
 
 ## Status
 
-This project is usable as a local or private pre-release VS Code extension. The two-way diff and git history flows are the most complete. The multi-panel view is diff-focused, not a merge tool.
+This project is usable as a VS Code extension and standalone desktop app. The two-way diff and git history flows are the most complete. The multi-panel view is diff-focused, not a merge tool.
 
 ## Install For Development
 
@@ -216,7 +216,6 @@ The wrapper scripts are:
 - Bygone is intentionally diff-focused; merge tooling is not exposed as a product feature.
 - Directory compare supports modified-file detection and file drill-down; deep tree ergonomics are still early.
 - The git history viewer currently steps through single-parent commit history for one file at a time.
-- Marketplace publishing metadata is not finalized yet.
 
 ## Release Work
 
