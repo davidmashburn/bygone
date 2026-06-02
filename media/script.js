@@ -21,7 +21,6 @@ const {
 
 const MODE_TWO_WAY = 'two-way';
 const MODE_MULTI_WAY = 'multi-way';
-const MULTI_PANEL_WIDTH = 470;
 const MULTI_GUTTER_WIDTH = 96;
 
 let currentMode = MODE_TWO_WAY;
@@ -529,11 +528,9 @@ function disposeMultiEditors(resetState = true) {
 function renderMultiDiffShell(panels) {
     const columns = [];
     const children = [];
-    let totalWidth = 0;
 
     panels.forEach((panel, index) => {
-        columns.push(`${MULTI_PANEL_WIDTH}px`);
-        totalWidth += MULTI_PANEL_WIDTH;
+        columns.push('minmax(0, 1fr)');
         children.push(
             `<div class="multi-pane" data-index="${index}" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header" data-panel-id="${escapeAttr(panel.id)}">`
@@ -564,7 +561,6 @@ function renderMultiDiffShell(panels) {
 
         if (index < panels.length - 1) {
             columns.push(`${MULTI_GUTTER_WIDTH}px`);
-            totalWidth += MULTI_GUTTER_WIDTH;
             children.push(
                 `<div class="multi-gutter" data-pair-index="${index}">`
                 + `<div class="multi-gutter-header"><span class="multi-gutter-title">${escapeHtml(panel.label)}:${escapeHtml(panels[index + 1].label)}</span></div>`
@@ -574,8 +570,7 @@ function renderMultiDiffShell(panels) {
     });
 
     const container = getElement(VIEW_IDS.multiWay);
-    const trackWidth = Math.max(totalWidth, container.parentElement?.clientWidth || 0);
-    container.innerHTML = `<div class="multi-view-track" style="grid-template-columns:${columns.join(' ')};width:${trackWidth}px;">${children.join('')}</div>`;
+    container.innerHTML = `<div class="multi-view-track" style="grid-template-columns:${columns.join(' ')};width:100%;min-width:100%;">${children.join('')}</div>`;
 }
 
 function recomputeMultiDiffState(changedPanelIds = null) {

@@ -605,6 +605,8 @@ body.web-host {
     height: 100%;
     min-height: 0;
     align-content: stretch;
+    width: 100%;
+    min-width: 100%;
 }
 
 .multi-pane {
