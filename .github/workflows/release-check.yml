@@ -44,3 +44,35 @@ jobs:
 
       - name: Run standalone smoke check
         run: npm run standalone:smoke
+
+  desktop-package:
+    name: Desktop Package (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            command: package:desktop:mac:zip
+          - name: Linux
+            os: ubuntu-latest
+            command: package:desktop:linux
+          - name: Windows
+            os: windows-latest
+            command: package:desktop:win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build desktop package
+        run: npm run ${{ matrix.command }}

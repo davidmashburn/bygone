@@ -2416,7 +2416,7 @@ function initializeStandaloneDropTarget() {
         document.body.classList.remove('drag-active');
 
         const paths = Array.from(event.dataTransfer?.files || [])
-            .map((file) => file.path)
+            .map((file) => host.getPathForFile?.(file))
             .filter((filePath) => typeof filePath === 'string' && filePath.length > 0);
 
         if (paths.length === 0) {

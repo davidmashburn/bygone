@@ -170,8 +170,9 @@
     "package:npm": "npm run compile && node ./scripts/package-npm.mjs",
     "package:npm:dry-run": "node ./scripts/pack-npm-dry-run.mjs",
     "perf:bench": "npm run compile && node ./scripts/perf-benchmarks.mjs",
+    "security:audit": "npm audit --audit-level=high",
     "dev:sync": "node ./scripts/dev-sync.mjs",
-    "release:check": "npm test && npm run package:vsix && npm run package:npm && npm run package:npm:dry-run",
+    "release:check": "npm run security:audit && npm test && npm run package:vsix && npm run package:npm && npm run package:npm:dry-run",
     "release:build": "node ./scripts/release.mjs",
     "release:publish": "node ./scripts/release.mjs --publish",
     "watch": "tsc -watch -p ./",
@@ -236,16 +237,20 @@
   },
   "devDependencies": {
     "@types/node": "16.x",
-    "@types/vscode": "^1.74.0",
-    "@vscode/vsce": "^3.7.1",
-    "electron": "^31.7.7",
-    "electron-builder": "^24.13.3",
-    "esbuild": "^0.28.0",
+    "@types/vscode": "1.74.0",
+    "@vscode/vsce": "^3.9.2",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.1",
     "typescript": "^4.9.4"
   },
   "dependencies": {
-    "diff": "^5.1.0",
-    "electron-updater": "^6.8.3",
+    "diff": "^5.2.2",
+    "electron-updater": "^6.8.9",
     "monaco-editor": "^0.55.1"
+  },
+  "overrides": {
+    "dompurify": "^3.4.12",
+    "js-yaml": "^4.3.0"
   }
 }

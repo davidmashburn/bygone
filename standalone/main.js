@@ -1,6 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const { execFileSync } = require('child_process');
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const { buildTwoWayDiffModel } = require('../src/diffEngine.ts');
@@ -110,9 +111,25 @@ app.on('open-file', (event, filePath) => {
     }
 });
 
-ipcMain.on('bygone:renderer-message', async (_event, message) => {
-    await handleRendererMessage(message);
+ipcMain.on('bygone:renderer-message', (event, message) => {
+    if (!isTrustedRendererEvent(event)) {
+        return;
+    }
+
+    void handleRendererMessage(message).catch((error) => {
+        console.error(`Bygone renderer message failed: ${getErrorMessage(error)}`);
+    });
 });
+
+function isTrustedRendererEvent(event) {
+    if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
+        return false;
+    }
+
+    const expectedUrl = pathToFileURL(path.join(__dirname, '..', 'standalone', 'index.html')).toString();
+    return event.senderFrame === mainWindow.webContents.mainFrame
+        && event.senderFrame.url === expectedUrl;
+}
 
 function createMainWindow() {
     mainWindow = new BrowserWindow({
@@ -123,9 +140,10 @@ function createMainWindow() {
         show: !smokeTestMode,
         title: APP_NAME,
         webPreferences: {
-            sandbox: false,
+            sandbox: true,
             contextIsolation: true,
             nodeIntegration: false,
+            webSecurity: true,
             backgroundThrottling: false,
             preload: path.join(__dirname, 'standalone-preload.js')
         }
@@ -133,6 +151,13 @@ function createMainWindow() {
 
     hostReady = false;
     pendingMessage = undefined;
+    const expectedUrl = pathToFileURL(path.join(__dirname, '..', 'standalone', 'index.html')).toString();
+    mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+        if (navigationUrl !== expectedUrl) {
+            event.preventDefault();
+        }
+    });
     void mainWindow.loadFile(path.join(__dirname, '..', 'standalone', 'index.html'));
 
     if (smokeTestMode || captureMode) {
@@ -2639,7 +2664,15 @@ async function sendCurrentDiff() {
             void mainWindow.webContents.executeJavaScript(`(() => ({
                 fileInfo: document.getElementById('file-info')?.textContent,
                 file1: document.getElementById('file1-header')?.textContent,
-                file2: document.getElementById('file2-header')?.textContent
+                file2: document.getElementById('file2-header')?.textContent,
+                changePosition: document.getElementById('change-position')?.textContent,
+                pairedLineCount: document.querySelectorAll('.bygone-paired-line').length,
+                oneSidedLineCount: document.querySelectorAll('.bygone-one-sided-line').length,
+                inlineHighlightCount: document.querySelectorAll('.bygone-inline-blue').length,
+                activeDiffCount: document.querySelectorAll('.bygone-active-diff').length,
+                pairedLineBackground: getComputedStyle(document.querySelector('.bygone-paired-line')).backgroundColor,
+                inlineHighlightBackground: getComputedStyle(document.querySelector('.bygone-inline-blue')).backgroundColor,
+                activeDiffBackground: getComputedStyle(document.querySelector('.bygone-active-diff')).backgroundColor
             }))()`)
                 .then((snapshot) => {
                     if (smokeTestMode) {
@@ -3588,6 +3621,15 @@ function finalizeSmokeTest(snapshot) {
             snapshot.fileInfo === 'Comparing test-file-1.js and test-file-2.js'
             && snapshot.file1 === 'test-file-1.js'
             && snapshot.file2 === 'test-file-2.js'
+            && /^1 \/ \d+$/.test(snapshot.changePosition)
+            && snapshot.pairedLineCount > 0
+            && snapshot.oneSidedLineCount > 0
+            && snapshot.inlineHighlightCount > 0
+            && snapshot.activeDiffCount > 0
+            && isVisibleBackground(snapshot.pairedLineBackground)
+            && isVisibleBackground(snapshot.inlineHighlightBackground)
+            && isVisibleBackground(snapshot.activeDiffBackground)
+            && snapshot.pairedLineBackground !== snapshot.inlineHighlightBackground
         )
         || (
             snapshot.fileInfo === 'Comparing 2 files'
@@ -3604,6 +3646,13 @@ function finalizeSmokeTest(snapshot) {
     }
 
     app.quit();
+}
+
+function isVisibleBackground(value) {
+    return typeof value === 'string'
+        && value.length > 0
+        && value !== 'transparent'
+        && value !== 'rgba(0, 0, 0, 0)';
 }
 
 function scheduleCaptureIfNeeded() {
