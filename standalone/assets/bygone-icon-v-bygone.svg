@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-labelledby="title desc">
+  <title id="title">Bygone — past to present</title>
+  <desc id="desc">The faded past on the left flows through the gutter into the vivid present on the right.</desc>
+  <defs>
+    <linearGradient id="bgFill" x1="0" y1="0" x2="1" y2="0.25">
+      <stop offset="0" stop-color="#26221f"/>
+      <stop offset="0.5" stop-color="#16181f"/>
+      <stop offset="1" stop-color="#0d1422"/>
+    </linearGradient>
+    <linearGradient id="leftPanelFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2826" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#1c1a18" stop-opacity="0.85"/>
+    </linearGradient>
+    <linearGradient id="rightPanelFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#222b3e"/>
+      <stop offset="1" stop-color="#141b2a"/>
+    </linearGradient>
+    <linearGradient id="greenFlow" x1="88" y1="0" x2="932" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6d7a66"/>
+      <stop offset="0.42" stop-color="#48a35a"/>
+      <stop offset="1" stop-color="#2fcf63"/>
+    </linearGradient>
+    <linearGradient id="greenEdgeFlow" x1="88" y1="0" x2="932" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9aa794" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#8df5a8"/>
+    </linearGradient>
+    <linearGradient id="blueFlow" x1="88" y1="0" x2="932" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5a6273"/>
+      <stop offset="0.42" stop-color="#3a62c4"/>
+      <stop offset="1" stop-color="#2f74ff"/>
+    </linearGradient>
+    <linearGradient id="blueEdgeFlow" x1="88" y1="0" x2="932" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#979eac" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#a8c7ff"/>
+    </linearGradient>
+    <linearGradient id="greenBarPast" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7d8a76"/>
+      <stop offset="1" stop-color="#84b489"/>
+    </linearGradient>
+    <linearGradient id="blueBarPast" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6f7685"/>
+      <stop offset="1" stop-color="#7d97c9"/>
+    </linearGradient>
+    <filter id="glow" x="-0.12" y="-0.6" width="1.24" height="2.2">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="url(#bgFill)"/>
+  <rect x="5" y="5" width="1014" height="1014" rx="220" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="2"/>
+
+  <rect x="88" y="144" width="368" height="768" rx="44" fill="url(#leftPanelFill)" stroke="#3e3a35" stroke-width="3" stroke-dasharray="18 14"/>
+  <rect x="568" y="144" width="364" height="768" rx="44" fill="url(#rightPanelFill)" stroke="#3f4d68" stroke-width="3"/>
+
+  <g id="top-green">
+    <path d="M88 192 H456 H568 H932 V288 H568 C468 288 556 192 456 192 H88 Z" fill="url(#greenFlow)" filter="url(#glow)" opacity="0.6"/>
+    <path d="M88 192 H456 H568 H932 V288 H568 C468 288 556 192 456 192 H88 Z" fill="url(#greenFlow)"/>
+    <path d="M88 192 H456 H568 H932" fill="none" stroke="url(#greenEdgeFlow)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M932 288 H568 C468 288 556 192 456 192 H88" fill="none" stroke="url(#greenEdgeFlow)" stroke-width="6" stroke-linecap="round"/>
+  </g>
+
+  <g id="blue">
+    <path d="M88 384 H456 C556 384 468 480 568 480 H932 V672 H568 H456 H88 Z" fill="url(#blueFlow)" filter="url(#glow)" opacity="0.6"/>
+    <path d="M88 384 H456 C556 384 468 480 568 480 H932 V672 H568 H456 H88 Z" fill="url(#blueFlow)"/>
+    <path d="M88 384 H456 C556 384 468 480 568 480 H932" fill="none" stroke="url(#blueEdgeFlow)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M932 672 H568 H456 H88" fill="none" stroke="url(#blueEdgeFlow)" stroke-width="6" stroke-linecap="round"/>
+  </g>
+
+  <g id="bottom-green">
+    <path d="M88 768 H456 H568 H932 V768 H568 C468 768 556 864 456 864 H88 Z" fill="url(#greenFlow)" filter="url(#glow)" opacity="0.6"/>
+    <path d="M88 768 H456 H568 H932 V768 H568 C468 768 556 864 456 864 H88 Z" fill="url(#greenFlow)"/>
+    <path d="M88 768 H456 H568 H932" fill="none" stroke="url(#greenEdgeFlow)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M932 768 H568 C468 768 556 864 456 864 H88" fill="none" stroke="url(#greenEdgeFlow)" stroke-width="6" stroke-linecap="round"/>
+  </g>
+
+  <g id="left-bars" opacity="0.62">
+    <rect x="126" y="214" width="292" height="52" rx="26" fill="#4a4a52"/>
+    <rect x="126" y="310" width="292" height="52" rx="26" fill="#4a4a52"/>
+    <rect x="126" y="406" width="292" height="52" rx="26" fill="url(#blueBarPast)"/>
+    <rect x="126" y="502" width="292" height="52" rx="26" fill="url(#blueBarPast)"/>
+    <rect x="126" y="598" width="292" height="52" rx="26" fill="url(#blueBarPast)"/>
+    <rect x="126" y="694" width="292" height="52" rx="26" fill="#4a4a52"/>
+    <rect x="126" y="790" width="292" height="52" rx="26" fill="url(#greenBarPast)"/>
+  </g>
+  <g id="right-bars">
+    <rect x="606" y="214" width="288" height="52" rx="26" fill="#74f193"/>
+    <rect x="606" y="310" width="288" height="52" rx="26" fill="#4d5870"/>
+    <rect x="606" y="406" width="288" height="52" rx="26" fill="#4d5870"/>
+    <rect x="606" y="502" width="288" height="52" rx="26" fill="#92bcff"/>
+    <rect x="606" y="598" width="288" height="52" rx="26" fill="#92bcff"/>
+    <rect x="606" y="694" width="288" height="52" rx="26" fill="#4d5870"/>
+  </g>
+</svg>

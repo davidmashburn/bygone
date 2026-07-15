@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.4 (dcaf3e7, 2026-05-05)"
+   sodipodi:docname="bygone-icon-curves.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="0.23752683"
+     inkscape:cx="475.73574"
+     inkscape:cy="427.32015"
+     inkscape:window-width="1483"
+     inkscape:window-height="808"
+     inkscape:window-x="0"
+     inkscape:window-y="34"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       style="fill:#47f100;fill-opacity:1;stroke:#91ff9b;stroke-width:3.565;stroke-dasharray:none;stroke-opacity:1"
+       d="M 179.33939,42.717582 H 18.936457 l 51.984569,1.377751 c 35.207894,-4.171235 29.275214,28.342452 57.683364,30.970963 l 50.72142,0.522324"
+       id="path1"
+       sodipodi:nodetypes="ccccc" />
+    <path
+       style="fill:#47f100;fill-opacity:1;stroke:#91ff9b;stroke-width:3.69663;stroke-dasharray:none;stroke-opacity:1"
+       d="M 18.941154,178.38504 H 191.51896 l -55.93029,1.37686 c -37.880227,-4.16856 -31.49725,28.3243 -62.061632,30.95113 l -54.571273,0.52198"
+       id="path1-7"
+       sodipodi:nodetypes="ccccc" />
+    <path
+       style="fill:#0029f1;fill-opacity:1;stroke:#919cff;stroke-width:3.93681;stroke-dasharray:none;stroke-opacity:1"
+       d="m 21.69462,147.99243 h 154.72767 l -1.47374,-35.26139 -38.85288,1.39617 C 98.221502,118.85582 106.83128,78.655795 76.271778,75.676052 l -54.56255,-0.592108"
+       id="path1-7-5"
+       sodipodi:nodetypes="cccccc" />
+  </g>
+</svg>

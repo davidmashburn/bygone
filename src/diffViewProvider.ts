@@ -34,6 +34,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     private currentTwoWayDiff?: {
         file1: string;
         file2: string;
+        comparisonId: string;
     };
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
     private historyStagedToggleHandler?: (includeStaged: boolean) => void;
@@ -150,12 +151,14 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
         this.currentTwoWayDiff = {
             file1: path.basename(file1.path),
-            file2: path.basename(file2.path)
+            file2: path.basename(file2.path),
+            comparisonId: `${file1.toString()}\u0000${file2.toString()}`
         };
 
         this.postOrQueueDiffMessage({
             file1: this.currentTwoWayDiff.file1,
             file2: this.currentTwoWayDiff.file2,
+            comparisonId: this.currentTwoWayDiff.comparisonId,
             leftContent,
             rightContent,
             diffModel,
@@ -180,12 +183,14 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
         this.currentTwoWayDiff = {
             file1: leftLabel,
-            file2: rightLabel
+            file2: rightLabel,
+            comparisonId: `${file.toString()}\u0000${leftLabel}\u0000${rightLabel}`
         };
 
         this.postOrQueueDiffMessage({
             file1: leftLabel,
             file2: rightLabel,
+            comparisonId: this.currentTwoWayDiff.comparisonId,
             leftContent,
             rightContent,
             diffModel,
@@ -329,7 +334,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     <div id="container">
         <div id="header">
             <div id="file-info" class="header-align-diff">Choose a compare command to render a diff.</div>
-            <div id="status-banner" class="status-banner header-align-diff" hidden></div>
+            <div id="status-banner" class="status-banner header-align-diff" role="status" aria-live="polite" aria-atomic="true" hidden></div>
             <div id="directory-return-toolbar" class="directory-return-toolbar header-align-diff" hidden>
                 <button id="back-to-directory" class="directory-return-button" type="button" title="Back to directory view (Cmd/Ctrl+[)">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -372,7 +377,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                             <path d="M19 5v14"></path>
                         </svg>
                     </button>
-                    <div id="change-position" class="change-position"></div>
+                    <div id="change-position" class="change-position" role="status" aria-live="polite" aria-atomic="true"></div>
                     <button id="copy-right-to-left" class="change-button change-button-primary icon-button" type="button" title="Copy current change from right to left (Cmd/Ctrl+Alt+Left)" aria-label="Copy current change from right to left">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M19 12H9"></path>
@@ -402,7 +407,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                             <path d="M10 18l-6-6 6-6" opacity="0.7"></path>
                         </svg>
                     </button>
-                    <div id="history-position" class="history-position"></div>
+                    <div id="history-position" class="history-position" role="status" aria-live="polite" aria-atomic="true"></div>
                     <button id="history-forward" class="history-button icon-button" type="button" title="Newer commit" aria-label="Newer commit">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M9 18l6-6-6-6"></path>
@@ -452,11 +457,11 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             <div id="diff-container">
                 <div id="two-way-diff" class="diff-view">
                     <div class="file-panel">
-                        <div id="file1-header" class="file-header">File 1</div>
+                        <button id="file1-header" class="file-header" type="button" aria-pressed="false">File 1</button>
                         <div id="file1-content" class="file-content"></div>
                     </div>
                     <div class="file-panel">
-                        <div id="file2-header" class="file-header">File 2</div>
+                        <button id="file2-header" class="file-header" type="button" aria-pressed="false">File 2</button>
                         <div id="file2-content" class="file-content"></div>
                     </div>
                 </div>
@@ -518,6 +523,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         this.postOrQueueDiffMessage({
             file1: this.currentTwoWayDiff.file1,
             file2: this.currentTwoWayDiff.file2,
+            comparisonId: this.currentTwoWayDiff.comparisonId,
             leftContent,
             rightContent,
             diffModel: buildTwoWayDiffModel(leftContent, rightContent),

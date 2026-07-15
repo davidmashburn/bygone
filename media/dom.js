@@ -152,18 +152,21 @@
         const displayText = isDir ? entry.displayName + '/' : entry.displayName;
 
         const toggleHtml = isDir
-            ? `<span class="dir-toggle" aria-label="toggle">▼</span>`
-            : `<span class="dir-toggle dir-toggle--spacer"></span>`;
+            ? `<span class="dir-toggle" aria-hidden="true">▼</span>`
+            : `<span class="dir-toggle dir-toggle--spacer" aria-hidden="true"></span>`;
 
         const cellContent = `${toggleHtml}<span class="dir-indent">${indent}</span><span class="${nameClass}">${escapeHtml(displayText)}</span>`;
+        const accessibleLabel = isDir ? `${displayText} folder` : `${displayText} file`;
+        const expandedAttr = isDir ? ' aria-expanded="true"' : '';
 
-        return `<div class="dir-entry dir-entry--${entry.status}" `
+        return `<button class="dir-entry dir-entry--${entry.status}" type="button" `
+            + `aria-label="${escapeAttr(accessibleLabel)}" `
             + `data-path="${escapeAttr(entry.relativePath)}" `
             + `data-depth="${entry.depth}" `
             + `data-side-index="${sideIndex}" `
-            + `data-is-dir="${isDir}">`
-            + `<div class="dir-entry-content">${cellContent}</div>`
-            + `</div>`;
+            + `data-is-dir="${isDir}"${expandedAttr}>`
+            + `<span class="dir-entry-content">${cellContent}</span>`
+            + `</button>`;
     }
 
     function directoryEntryExistsOnSide(entry, sideIndex) {
@@ -221,6 +224,7 @@
             // Update toggle arrows for directory rows
             if (row.dataset.isDir === 'true') {
                 const collapsed = collapsedDirs.has(rowPath);
+                row.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
                 row.querySelectorAll('.dir-toggle').forEach((t) => {
                     t.textContent = collapsed ? '▶' : '▼';
                 });
@@ -263,7 +267,12 @@
     }
 
     function escapeAttr(text) {
-        return text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     window.BygoneDom = {

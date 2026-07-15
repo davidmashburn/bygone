@@ -1152,6 +1152,22 @@ function cleanupGitDiffTempRoots(roots) {
 }
 
 function resolveGitRefForDiff(repoRoot, ref) {
+    const normalizedRef = ref.toUpperCase();
+    if (normalizedRef === 'INDEX') {
+        return {
+            ref,
+            kind: 'index',
+            label: 'Index'
+        };
+    }
+    if (normalizedRef === 'WORKTREE' || normalizedRef === 'WORKDIR' || normalizedRef === 'WORKINGTREE') {
+        return {
+            ref,
+            kind: 'worktree',
+            label: 'Working Tree'
+        };
+    }
+
     const sha = runGit(['rev-parse', '--verify', `${ref}^{commit}`], repoRoot);
     const shortSha = sha.slice(0, 7);
     let summary = '';
@@ -1160,7 +1176,28 @@ function resolveGitRefForDiff(repoRoot, ref) {
     } catch {
         // ignore — labels are nice-to-have
     }
-    return { ref, sha, shortSha, summary };
+    return { ref, kind: 'commit', sha, shortSha, summary };
+}
+
+function materializeGitDiffSource(repoRoot, source, targetRoot) {
+    if (source.kind === 'index') {
+        materializeGitTree(repoRoot, '', targetRoot, 'INDEX');
+        return;
+    }
+    if (source.kind === 'worktree') {
+        materializeWorkingTree(repoRoot, '', targetRoot);
+        return;
+    }
+
+    materializeGitTree(repoRoot, '', targetRoot, source.sha);
+}
+
+function getGitDiffSourceLabel(source) {
+    if (source.label) {
+        return source.label;
+    }
+
+    return `${source.shortSha}${source.summary ? ` ${source.summary}` : ''} (${source.ref})`;
 }
 
 async function openGitRefs(cwd, refs, options = {}) {
@@ -1196,10 +1233,10 @@ async function openGitRefs(cwd, refs, options = {}) {
             const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-gitdiff-'));
             tempRoots.push(root);
             trackedGitDiffTempRoots.add(root);
-            materializeGitTree(repoRoot, '', root, r.sha);
+            materializeGitDiffSource(repoRoot, r, root);
             dirs.push(root);
             const customLabel = options.labels?.[dirs.length - 1];
-            labels.push(customLabel || `${r.shortSha}${r.summary ? ` ${r.summary}` : ''} (${r.ref})`);
+            labels.push(customLabel || getGitDiffSourceLabel(r));
         }
     } catch (error) {
         cleanupGitDiffTempRoots(tempRoots);
@@ -1282,9 +1319,13 @@ function buildDirectoryHistory(resolvedDir, includeStaged = false) {
     const relativeDir = path.relative(repoRoot, realDir).replace(/\\/g, '/');
     const displayName = path.basename(realDir) || path.basename(repoRoot);
     const commitRecords = parseGitHistoryRecords(runGit(
-        ['log', '--format=%H%x09%h%x09%cI%x09%s', '--', relativeDir || '.'],
+        ['log', '--format=%H%x09%h%x09%cI%x09%s%x09%P', '--', relativeDir || '.'],
         repoRoot
     ));
+    const parentMetadataByCommit = readCommitMetadataMap(
+        repoRoot,
+        [...new Set(commitRecords.map((commit) => commit.parentCommit).filter(Boolean))]
+    );
     const entries = [];
 
     if (includeStaged) {
@@ -1304,10 +1345,11 @@ function buildDirectoryHistory(resolvedDir, includeStaged = false) {
     }
 
     for (const commit of commitRecords) {
-        const parentCommit = readPrimaryParent(repoRoot, commit.commit);
+        const parentCommit = commit.parentCommit;
         if (!parentCommit) {
             continue;
         }
+        const parentMetadata = parentMetadataByCommit.get(parentCommit) || { summary: '', timestamp: '' };
 
         entries.push({
             commit: commit.commit,
@@ -1315,8 +1357,8 @@ function buildDirectoryHistory(resolvedDir, includeStaged = false) {
             shortCommit: commit.shortCommit,
             summary: commit.summary,
             timestamp: commit.timestamp,
-            parentSummary: readCommitSummary(repoRoot, parentCommit),
-            parentTimestamp: readCommitTimestamp(repoRoot, parentCommit),
+            parentSummary: parentMetadata.summary,
+            parentTimestamp: parentMetadata.timestamp,
             labels: [`${displayName} @ ${parentCommit.slice(0, 7)}`, `${displayName} @ ${commit.shortCommit}`]
         });
     }
@@ -2576,6 +2618,7 @@ async function sendCurrentDiff() {
         type: 'showDiff',
         file1: session.left.label,
         file2: session.right.label,
+        comparisonId: `${session.left.path}\u0000${session.right.path}`,
         leftContent: session.left.content,
         rightContent: session.right.content,
         diffModel,
@@ -2639,6 +2682,7 @@ async function sendCurrentHistoryEntry() {
         type: 'showDiff',
         file1: entry.leftLabel,
         file2: entry.rightLabel,
+        comparisonId: `${session.history.filePath}\u0000${entry.commit}`,
         leftContent: entry.leftContent,
         rightContent: entry.rightContent,
         diffModel,
@@ -3428,15 +3472,6 @@ function readHeadCommit(repoRoot) {
     }
 }
 
-function readPrimaryParent(repoRoot, commit) {
-    const parents = runGit(['rev-list', '--parents', '-n', '1', commit], repoRoot)
-        .trim()
-        .split(' ')
-        .slice(1);
-
-    return parents[0];
-}
-
 function readCommitSummary(repoRoot, commit) {
     return runGit(['show', '-s', '--format=%s', commit], repoRoot);
 }
@@ -3445,18 +3480,48 @@ function readCommitTimestamp(repoRoot, commit) {
     return runGit(['show', '-s', '--format=%cI', commit], repoRoot);
 }
 
+function readCommitMetadataMap(repoRoot, commits) {
+    if (!Array.isArray(commits) || commits.length === 0) {
+        return new Map();
+    }
+
+    const output = runGit(['show', '-s', '--format=%H%x09%cI%x09%s', ...commits], repoRoot);
+    return output
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .reduce((map, line) => {
+            const [commit, timestamp = '', ...summaryParts] = line.split('\t');
+            if (commit) {
+                map.set(commit, {
+                    timestamp,
+                    summary: summaryParts.join('\t')
+                });
+            }
+            return map;
+        }, new Map());
+}
+
 function parseGitHistoryRecords(logOutput) {
     return logOutput
         .split('\n')
         .map((line) => line.trim())
         .filter((line) => line.length > 0)
         .map((line) => {
-            const [commit, shortCommit, timestamp, ...summaryParts] = line.split('\t');
+            const parts = line.split('\t');
+            const commit = parts[0];
+            const shortCommit = parts[1];
+            const timestamp = parts[2];
+            const hasParentField = parts.length >= 5;
+            const parentField = hasParentField ? (parts[parts.length - 1] || '') : '';
+            const summaryParts = hasParentField ? parts.slice(3, -1) : parts.slice(3);
+            const parentCommit = parentField.split(' ').find((candidate) => candidate.length > 0);
             return {
                 commit,
                 shortCommit,
                 timestamp,
-                summary: summaryParts.join('\t')
+                summary: summaryParts.join('\t'),
+                parentCommit
             };
         });
 }

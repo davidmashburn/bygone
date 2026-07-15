@@ -62,14 +62,21 @@ let activeHistoryRailTabId = null;
 let currentFileNavigation = { canGoPrevious: false, canGoNext: false };
 let activePaneSide = 'right';
 let activeDirectoryEntryPath = null;
+let currentTwoWayComparisonKey = null;
 let suppressDirectoryScrollSync = false;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
     getEditors: () => ({ leftEditor, rightEditor }),
     getDiffBlocks: () => diffBlocks,
+    getActiveDiffIndex: () => activeDiffIndex,
     getDirectoryEntries: () => directoryEntries,
-    getMultiDiffState: () => ({ editors: multiEditors, pairs: multiDiffPairs }),
+    getMultiDiffState: () => ({
+        editors: multiEditors,
+        pairs: multiDiffPairs,
+        activePairIndex: activeMultiPairIndex,
+        activeDiffIndex
+    }),
     getMonaco: () => monacoInstance
 });
 
@@ -104,7 +111,8 @@ host.onMessage((message) => {
             message.history || null,
             message.fileNavigation || null,
             Boolean(message.canReturnToDirectory),
-            message.editableSides
+            message.editableSides,
+            message.comparisonId
         );
         return;
     }
@@ -154,7 +162,8 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.history || null,
             pendingTwoWayPayload.fileNavigation || null,
             Boolean(pendingTwoWayPayload.canReturnToDirectory),
-            pendingTwoWayPayload.editableSides
+            pendingTwoWayPayload.editableSides,
+            pendingTwoWayPayload.comparisonId
         );
         pendingTwoWayPayload = undefined;
     }
@@ -185,10 +194,74 @@ async function initializeMonaco() {
     };
 
     monacoInstance = window.monaco;
+    applyMonacoTheme();
+
+    new MutationObserver(() => applyMonacoTheme()).observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style']
+    });
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null) {
+function applyMonacoTheme() {
+    if (!monacoInstance) {
+        return;
+    }
+
+    const styles = getComputedStyle(document.documentElement);
+    const background = styles.getPropertyValue('--vscode-editor-background').trim() || '#1e1e1e';
+    const foreground = styles.getPropertyValue('--vscode-foreground').trim() || '#d4d4d4';
+    const lineNumber = styles.getPropertyValue('--vscode-editorLineNumber-foreground').trim() || '#858585';
+    const selection = styles.getPropertyValue('--vscode-editor-selectionBackground').trim() || '#264f78';
+    const bodyClasses = document.body.classList;
+    const isDark = bodyClasses.contains('vscode-dark')
+        || bodyClasses.contains('vscode-high-contrast')
+        || (!bodyClasses.contains('vscode-light')
+            && !bodyClasses.contains('vscode-high-contrast-light')
+            && isDarkColor(background));
+
+    monacoInstance.editor.defineTheme('bygone', {
+        base: isDark ? 'vs-dark' : 'vs',
+        inherit: true,
+        rules: [],
+        colors: {
+            'editor.background': background,
+            'editor.foreground': foreground,
+            'editorGutter.background': background,
+            'editorLineNumber.foreground': lineNumber,
+            'editor.selectionBackground': selection
+        }
+    });
+    monacoInstance.editor.setTheme('bygone');
+}
+
+function isDarkColor(color) {
+    const hex = color.match(/^#([\da-f]{3}|[\da-f]{6})$/i);
+    const rgb = color.match(/^rgba?\(\s*(\d+)\s*[, ]\s*(\d+)\s*[, ]\s*(\d+)/i);
+    let channels;
+
+    if (hex) {
+        const value = hex[1].length === 3
+            ? [...hex[1]].map((character) => character + character).join('')
+            : hex[1];
+        channels = [0, 2, 4].map((offset) => Number.parseInt(value.slice(offset, offset + 2), 16));
+    } else if (rgb) {
+        channels = rgb.slice(1, 4).map(Number);
+    } else {
+        return true;
+    }
+
+    const luminance = channels.reduce(
+        (total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index],
+        0
+    );
+    return luminance < 140;
+}
+
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null) {
+    const comparisonKey = comparisonId || `${file1}\u0000${file2}`;
+    const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
     currentMode = MODE_TWO_WAY;
+    currentTwoWayComparisonKey = comparisonKey;
     historyMode = Boolean(history);
     activeDirectoryEntryPath = null;
     hostEditableSides = normalizeEditableSides(nextEditableSides, historyMode);
@@ -198,7 +271,8 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
         activePaneSide = 'right';
     }
     setCurrentDiffModel(diffModel);
-    setActiveDiffIndex(diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1, false);
+    const nextActiveDiffIndex = comparisonChanged ? 0 : activeDiffIndex;
+    setActiveDiffIndex(diffBlocks.length > 0 ? clamp(nextActiveDiffIndex, 0, diffBlocks.length - 1) : -1, false);
     directoryEntries = [];
     disposeMultiEditors();
 
@@ -413,7 +487,7 @@ function createEditor(container, editorMode, side = null) {
     const editor = monacoInstance.editor.create(container.firstElementChild, {
         value: '',
         language: 'plaintext',
-        theme: 'vs',
+        theme: 'bygone',
         automaticLayout: true,
         minimap: { enabled: false },
         glyphMargin: false,
@@ -475,11 +549,15 @@ function createEditor(container, editorMode, side = null) {
     });
 
     editor.onDidFocusEditorText(() => {
-        if (editorMode !== MODE_TWO_WAY || !side) {
+        if (!side) {
             return;
         }
 
-        setActivePane(side, false);
+        if (editorMode === MODE_TWO_WAY) {
+            setActivePane(side, false);
+        } else if (editorMode === MODE_MULTI_WAY) {
+            setActiveMultiPanel(side, true);
+        }
     });
 
     registerEditorKeybindings(editor, editorMode);
@@ -535,10 +613,10 @@ function renderMultiDiffShell(panels) {
             `<div class="multi-pane" data-index="${index}" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header-top">`
-            + `<span class="multi-pane-title-wrap">`
+            + `<button class="multi-pane-title-wrap multi-pane-select" type="button" data-multi-select-panel="${escapeAttr(panel.id)}" data-panel-id="${escapeAttr(panel.id)}" aria-pressed="false">`
             + `<span class="multi-pane-title">${escapeHtml(panel.label)}</span>`
             + `<span class="multi-pane-dirty${panel.dirty ? ' is-visible' : ''}" aria-hidden="true" title="Unsaved changes">•</span>`
-            + `</span>`
+            + `</button>`
             + `<span class="multi-pane-actions">`
             + `<button class="multi-pane-action" type="button" data-multi-add-side="left" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the left" aria-label="Add panel to the left"${panel.addLeftEnabled ? '' : ' disabled'}>+</button>`
             + `<button class="multi-pane-action multi-pane-action-danger" type="button" data-multi-remove-panel="${escapeAttr(panel.id)}" title="Remove panel" aria-label="Remove panel"${panel.removeEnabled ? '' : ' disabled'}>×</button>`
@@ -562,9 +640,9 @@ function renderMultiDiffShell(panels) {
         if (index < panels.length - 1) {
             columns.push(`${MULTI_GUTTER_WIDTH}px`);
             children.push(
-                `<div class="multi-gutter" data-pair-index="${index}">`
-                + `<div class="multi-gutter-header"><span class="multi-gutter-title">${escapeHtml(panel.label)}:${escapeHtml(panels[index + 1].label)}</span></div>`
-                + '</div>'
+                `<button class="multi-gutter" type="button" data-pair-index="${index}" aria-label="Compare ${escapeAttr(panel.label)} with ${escapeAttr(panels[index + 1].label)}" aria-pressed="false">`
+                + `<span class="multi-gutter-header"><span class="multi-gutter-title">${escapeHtml(panel.label)}:${escapeHtml(panels[index + 1].label)}</span></span>`
+                + '</button>'
             );
         }
     });
@@ -631,7 +709,7 @@ function recomputeMultiDiffState(changedPanelIds = null) {
             .catch(() => ({ index, model: buildTwoWayDiffModel(nextPanels[pair.leftIndex].content, nextPanels[pair.rightIndex].content) }))
     )).then((results) => {
         endDiffJob();
-        if (epoch !== multiDiffEpoch) {
+        if (epoch !== multiDiffEpoch || currentMode !== MODE_MULTI_WAY) {
             return;
         }
         for (const { index, model } of results) {
@@ -675,9 +753,17 @@ function updateActiveMultiShellState() {
     container.querySelectorAll('.multi-pane').forEach((pane) => {
         pane.classList.toggle('is-active-pane', pane.getAttribute('data-panel-id') === activeMultiPanelId);
     });
+    container.querySelectorAll('[data-multi-select-panel]').forEach((button) => {
+        button.setAttribute(
+            'aria-pressed',
+            button.getAttribute('data-multi-select-panel') === activeMultiPanelId ? 'true' : 'false'
+        );
+    });
     container.querySelectorAll('.multi-gutter').forEach((gutter) => {
         const pairIndex = Number.parseInt(gutter.getAttribute('data-pair-index') || '', 10);
-        gutter.classList.toggle('is-active-pair', Number.isInteger(pairIndex) && pairIndex === activeMultiPairIndex);
+        const isActivePair = Number.isInteger(pairIndex) && pairIndex === activeMultiPairIndex;
+        gutter.classList.toggle('is-active-pair', isActivePair);
+        gutter.setAttribute('aria-pressed', isActivePair ? 'true' : 'false');
     });
     container.querySelectorAll('[data-multi-remove-panel]').forEach((button) => {
         const panelId = button.getAttribute('data-multi-remove-panel') || '';
@@ -1173,7 +1259,9 @@ function initializeMultiDiffInteractions() {
         }
 
         const panelId = target.getAttribute('data-panel-id');
-        if (panelId) {
+        const selectsPanel = target.hasAttribute('data-multi-select-panel')
+            || Boolean(event.target instanceof Element && event.target.closest('.multi-pane-content'));
+        if (panelId && selectsPanel) {
             setActiveMultiPanel(panelId, true);
         }
     });
@@ -1220,6 +1308,8 @@ function updateActivePaneHeader() {
     const isTwoWay = currentMode === MODE_TWO_WAY;
     leftHeader.classList.toggle('is-active-pane', isTwoWay && activePaneSide === 'left');
     rightHeader.classList.toggle('is-active-pane', isTwoWay && activePaneSide === 'right');
+    leftHeader.setAttribute('aria-pressed', isTwoWay && activePaneSide === 'left' ? 'true' : 'false');
+    rightHeader.setAttribute('aria-pressed', isTwoWay && activePaneSide === 'right' ? 'true' : 'false');
 }
 
 function setActiveMultiPanel(panelId, notifyHost) {
@@ -1965,7 +2055,9 @@ function revealBlockSide(editor, start, end, smooth) {
 
     editor.revealLineInCenterIfOutsideViewport(
         lineNumber,
-        smooth ? monacoInstance.editor.ScrollType.Smooth : monacoInstance.editor.ScrollType.Immediate
+        smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? monacoInstance.editor.ScrollType.Smooth
+            : monacoInstance.editor.ScrollType.Immediate
     );
 }
 

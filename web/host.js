@@ -5,7 +5,8 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
     const state = {
         mode: 'empty',
         left: null,
-        right: null
+        right: null,
+        comparisonId: 0
     };
 
     window.__BYGONE_HOST__ = {
@@ -47,6 +48,7 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
                 type: 'showDiff',
                 file1: state.left.name,
                 file2: state.right.name,
+                comparisonId: `web-${state.comparisonId}`,
                 leftContent: state.left.content,
                 rightContent: state.right.content,
                 diffModel: buildTwoWayDiffModel(state.left.content, state.right.content),
@@ -100,6 +102,7 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
     function compareTestFiles() {
         const sample = createJavaScriptSampleFilePair();
         state.mode = 'diff';
+        state.comparisonId += 1;
         state.left = {
             name: sample.leftFileName,
             content: sample.leftContent
@@ -114,6 +117,7 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
             type: 'showDiff',
             file1: state.left.name,
             file2: state.right.name,
+            comparisonId: `web-${state.comparisonId}`,
             leftContent: state.left.content,
             rightContent: state.right.content,
             diffModel: buildTwoWayDiffModel(state.left.content, state.right.content),
@@ -129,6 +133,7 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
         ]);
 
         state.mode = 'diff';
+        state.comparisonId += 1;
         state.left = {
             name: leftFile.name,
             content: leftContent
@@ -143,6 +148,7 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
             type: 'showDiff',
             file1: leftFile.name,
             file2: rightFile.name,
+            comparisonId: `web-${state.comparisonId}`,
             leftContent,
             rightContent,
             diffModel: buildTwoWayDiffModel(leftContent, rightContent),

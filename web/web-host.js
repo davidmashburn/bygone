@@ -700,7 +700,8 @@ module.exports = FileProcessor;
     const state = {
       mode: "empty",
       left: null,
-      right: null
+      right: null,
+      comparisonId: 0
     };
     window.__BYGONE_HOST__ = {
       environment: "web",
@@ -735,6 +736,7 @@ module.exports = FileProcessor;
           type: "showDiff",
           file1: state.left.name,
           file2: state.right.name,
+          comparisonId: `web-${state.comparisonId}`,
           leftContent: state.left.content,
           rightContent: state.right.content,
           diffModel: buildTwoWayDiffModel(state.left.content, state.right.content),
@@ -779,6 +781,7 @@ module.exports = FileProcessor;
     function compareTestFiles() {
       const sample = createJavaScriptSampleFilePair();
       state.mode = "diff";
+      state.comparisonId += 1;
       state.left = {
         name: sample.leftFileName,
         content: sample.leftContent
@@ -792,6 +795,7 @@ module.exports = FileProcessor;
         type: "showDiff",
         file1: state.left.name,
         file2: state.right.name,
+        comparisonId: `web-${state.comparisonId}`,
         leftContent: state.left.content,
         rightContent: state.right.content,
         diffModel: buildTwoWayDiffModel(state.left.content, state.right.content),
@@ -805,6 +809,7 @@ module.exports = FileProcessor;
         rightFile.text()
       ]);
       state.mode = "diff";
+      state.comparisonId += 1;
       state.left = {
         name: leftFile.name,
         content: leftContent
@@ -818,6 +823,7 @@ module.exports = FileProcessor;
         type: "showDiff",
         file1: leftFile.name,
         file2: rightFile.name,
+        comparisonId: `web-${state.comparisonId}`,
         leftContent,
         rightContent,
         diffModel: buildTwoWayDiffModel(leftContent, rightContent),

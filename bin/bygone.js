@@ -30,7 +30,7 @@ Notes:
   - \`--history\` accepts either files or directories.
   - Two positional paths auto-select file diff or directory compare.
   - Three or more positional paths auto-select multi-panel file diff or multi-directory compare.
-  - \`--git-diff\` materializes each git ref to a temp directory and opens them as an N-panel directory compare. Any \`git rev-parse\`-able value works (branches, tags, SHAs, HEAD~1, stash@{0}).
+  - \`--git-diff\` materializes each git source to a temp directory and opens them as an N-panel directory compare. Commit-ish refs work (branches, tags, SHAs, HEAD~1, stash@{0}); INDEX and WORKTREE are also supported.
   - \`--branch-diff\` opens [merge-base(MAIN,BRANCH), BRANCH^, BRANCH] (defaults: BRANCH=HEAD, MAIN=main).
   - In the standalone app, drop 1 file for history, 2 files/directories for compare, 3+ files for multi-panel diff, or 3+ directories for multi-directory compare.
 `);

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-labelledby="title desc">
+  <title id="title">Bygone — bold</title>
+  <desc id="desc">Simplified five-row diff icon tuned for small sizes.</desc>
+  <defs>
+    <linearGradient id="bgFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a3245"/>
+      <stop offset="1" stop-color="#11161f"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="url(#bgFill)"/>
+
+  <rect x="96" y="178" width="340" height="668" rx="48" fill="#1d2435"/>
+  <rect x="588" y="178" width="340" height="668" rx="48" fill="#1d2435"/>
+
+  <path id="top-green" d="M96 222 H436 H588 H928 V338 H588 C458 338 566 222 436 222 H96 Z" fill="#23a951"/>
+
+  <path id="blue" d="M96 338 H436 C566 338 458 454 588 454 H928 V570 H588 H436 H96 Z" fill="#2e66e5"/>
+
+  <path id="bottom-green" d="M96 686 H436 H588 H928 V686 H588 C458 686 566 802 436 802 H96 Z" fill="#23a951"/>
+
+  <g id="left-bars">
+    <rect x="136" y="248" width="260" height="64" rx="32" fill="#4d5870"/>
+    <rect x="136" y="364" width="260" height="64" rx="32" fill="#9ec5ff"/>
+    <rect x="136" y="480" width="260" height="64" rx="32" fill="#9ec5ff"/>
+    <rect x="136" y="596" width="260" height="64" rx="32" fill="#4d5870"/>
+    <rect x="136" y="712" width="260" height="64" rx="32" fill="#7bf09a"/>
+  </g>
+  <g id="right-bars">
+    <rect x="628" y="248" width="260" height="64" rx="32" fill="#7bf09a"/>
+    <rect x="628" y="364" width="260" height="64" rx="32" fill="#4d5870"/>
+    <rect x="628" y="480" width="260" height="64" rx="32" fill="#9ec5ff"/>
+    <rect x="628" y="596" width="260" height="64" rx="32" fill="#4d5870"/>
+  </g>
+</svg>

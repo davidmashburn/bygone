@@ -44,6 +44,7 @@ export interface ShowDiffMessage {
     type: 'showDiff';
     file1: string;
     file2: string;
+    comparisonId?: string;
     leftContent: string;
     rightContent: string;
     diffModel: TwoWayDiffModel;

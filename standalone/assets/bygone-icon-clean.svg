@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-labelledby="title desc">
+  <title id="title">Bygone icon cleaned</title>
+  <desc id="desc">Cleaned vector copy of the Bygone icon with aligned panes, row bars, and diff connector bands.</desc>
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#161a20"/>
+      <stop offset="1" stop-color="#0a0d12"/>
+    </linearGradient>
+
+    <linearGradient id="leftFrameFill" x1="130" y1="130" x2="454" y2="130" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1c2128" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#0e1217" stop-opacity="0.96"/>
+    </linearGradient>
+    <linearGradient id="rightFrameFill" x1="570" y1="130" x2="894" y2="130" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0e1217" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#1c2128" stop-opacity="0.92"/>
+    </linearGradient>
+    <linearGradient id="leftFrameStroke" x1="126" y1="512" x2="460" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e7ecf2"/>
+      <stop offset="0.45" stop-color="#a8aeb6"/>
+      <stop offset="1" stop-color="#4f555e"/>
+    </linearGradient>
+    <linearGradient id="rightFrameStroke" x1="564" y1="512" x2="898" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4f555e"/>
+      <stop offset="0.55" stop-color="#a8aeb6"/>
+      <stop offset="1" stop-color="#e7ecf2"/>
+    </linearGradient>
+
+    <linearGradient id="grayBar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5c626a"/>
+      <stop offset="1" stop-color="#3e434b"/>
+    </linearGradient>
+    <linearGradient id="blueBar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5f8cff"/>
+      <stop offset="1" stop-color="#3a64d6"/>
+    </linearGradient>
+    <linearGradient id="blueBarBright" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8db1ff"/>
+      <stop offset="1" stop-color="#4a78ef"/>
+    </linearGradient>
+    <linearGradient id="greenBar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7fd790"/>
+      <stop offset="1" stop-color="#4ba85d"/>
+    </linearGradient>
+    <linearGradient id="greenRibbon" x1="428" y1="0" x2="608" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7fd790" stop-opacity="0.98"/>
+      <stop offset="0.5" stop-color="#5fc472" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#7fd790" stop-opacity="0.98"/>
+    </linearGradient>
+    <linearGradient id="blueBoxFill" x1="512" y1="476" x2="512" y2="625" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5f8cff" stop-opacity="0.28"/>
+      <stop offset="0.5" stop-color="#8db1ff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#5f8cff" stop-opacity="0.28"/>
+    </linearGradient>
+
+    <filter id="softGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+    <filter id="ribbonGlow" x="-12%" y="-40%" width="124%" height="180%">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="url(#bgGrad)"/>
+  <rect x="4" y="4" width="1016" height="1016" rx="222" fill="none" stroke="#2a2f37" stroke-width="2" opacity="0.55"/>
+
+  <g id="connectors">
+    <g id="top-green-connector" filter="url(#ribbonGlow)">
+      <path d="M428 185
+               C500 185 536 230 608 230
+               L608 185
+               C536 185 500 185 428 185
+               Z"
+            fill="url(#greenRibbon)" opacity="0.82"/>
+      <path d="M428 185 C500 185 536 230 608 230" fill="none" stroke="#9ee3ad" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+      <path d="M428 185 C500 185 536 185 608 185" fill="none" stroke="#9ee3ad" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+      <path d="M428 237 C500 237 536 185 608 185" fill="none" stroke="#9ee3ad" stroke-width="3" stroke-linecap="round" opacity="0.72"/>
+    </g>
+
+    <g id="blue-connector">
+      <rect x="428" y="476" width="180" height="149" fill="url(#blueBoxFill)"/>
+      <path d="M428 476H608" fill="none" stroke="#6f95ff" stroke-width="4" stroke-linecap="round" opacity="0.92"/>
+      <path d="M428 625H608" fill="none" stroke="#6f95ff" stroke-width="4" stroke-linecap="round" opacity="0.92"/>
+    </g>
+
+    <g id="bottom-green-connector" filter="url(#ribbonGlow)">
+      <path d="M157 757
+               H428
+               C492 757 532 750 588 750
+               H608
+               V809
+               H588
+               C532 809 512 802 460 807
+               C392 811 270 809 157 809
+               Z"
+            fill="url(#greenRibbon)" opacity="0.78"/>
+      <path d="M157 757H428C492 757 532 750 588 750H608" fill="none" stroke="#9ee3ad" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+      <path d="M157 809C270 809 392 811 460 807C512 802 532 809 588 809H608" fill="none" stroke="#9ee3ad" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+      <path d="M428 809C492 809 532 750 588 750" fill="none" stroke="#9ee3ad" stroke-width="3" stroke-linecap="round" opacity="0.78"/>
+    </g>
+  </g>
+
+  <g id="panes">
+    <rect x="130" y="130" width="324" height="764" rx="56" fill="url(#leftFrameFill)"/>
+    <rect x="126" y="124" width="334" height="740" rx="58" fill="none" stroke="url(#leftFrameStroke)" stroke-width="7"/>
+
+    <rect x="570" y="130" width="324" height="764" rx="56" fill="url(#rightFrameFill)"/>
+    <rect x="564" y="124" width="334" height="740" rx="58" fill="none" stroke="url(#rightFrameStroke)" stroke-width="7"/>
+  </g>
+
+  <g id="left-bars">
+    <rect x="157" y="185" width="271" height="52" rx="11" fill="url(#grayBar)"/>
+    <rect x="157" y="282" width="271" height="52" rx="11" fill="url(#grayBar)"/>
+    <rect x="157" y="379" width="271" height="52" rx="11" fill="url(#blueBar)"/>
+    <rect x="157" y="476" width="271" height="52" rx="11" fill="url(#blueBarBright)"/>
+    <rect x="157" y="573" width="271" height="52" rx="11" fill="url(#blueBarBright)"/>
+    <rect x="157" y="670" width="271" height="52" rx="11" fill="url(#grayBar)"/>
+    <rect x="157" y="757" width="271" height="52" rx="11" fill="url(#greenBar)"/>
+  </g>
+
+  <g id="right-bars">
+    <rect x="608" y="185" width="271" height="52" rx="11" fill="url(#greenBar)"/>
+    <rect x="608" y="282" width="271" height="52" rx="11" fill="url(#grayBar)"/>
+    <rect x="608" y="379" width="271" height="52" rx="11" fill="url(#grayBar)"/>
+    <rect x="608" y="476" width="271" height="52" rx="11" fill="url(#blueBarBright)"/>
+    <rect x="608" y="573" width="271" height="52" rx="11" fill="url(#blueBarBright)"/>
+    <rect x="608" y="670" width="271" height="52" rx="11" fill="url(#grayBar)"/>
+  </g>
+
+  <g id="green-guide-lines" fill="none" stroke="#9ee3ad" stroke-width="3" stroke-linecap="round" opacity="0.86">
+    <path d="M163 176H898"/>
+    <path d="M153 750H897"/>
+    <path d="M148 810C270 806 392 809 460 807C522 803 532 750 588 750"/>
+  </g>
+</svg>

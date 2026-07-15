@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-labelledby="title desc">
+  <title id="title">Bygone connector curves cleaned</title>
+  <desc id="desc">Generated connector curve silhouettes for the Bygone icon.</desc>
+  <defs>
+    <linearGradient id="greenFill" x1="88" y1="0" x2="932" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#47f100"/>
+      <stop offset="0.55" stop-color="#38f000"/>
+      <stop offset="1" stop-color="#47f100"/>
+    </linearGradient>
+    <linearGradient id="blueFill" x1="88" y1="0" x2="932" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0029f1"/>
+      <stop offset="0.55" stop-color="#0b32f6"/>
+      <stop offset="1" stop-color="#0029f1"/>
+    </linearGradient>
+  </defs>
+
+  <g id="top-green" fill="url(#greenFill)" stroke="#91ff9b" stroke-width="17" stroke-linejoin="round">
+    <path d="M88 192 H456 H568 H932 V288 H568 C468 288 556 192 456 192 H88 Z"/>
+  </g>
+
+  <g id="blue" fill="url(#blueFill)" stroke="#919cff" stroke-width="18" stroke-linejoin="round">
+    <path d="M88 384 H456 C556 384 468 480 568 480 H932 V672 H568 H456 H88 Z"/>
+  </g>
+
+  <g id="bottom-green" fill="url(#greenFill)" stroke="#91ff9b" stroke-width="17" stroke-linejoin="round">
+    <path d="M88 768 H456 H568 H932 V768 H568 C468 768 556 864 456 864 H88 Z"/>
+  </g>
+</svg>

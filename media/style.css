@@ -16,6 +16,18 @@
     --vscode-editor-font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", Menlo, monospace;
     --vscode-editor-font-size: 13px;
     --vscode-editorLineNumber-foreground: #858585;
+    --vscode-focusBorder: #007fd4;
+}
+
+html,
+body.vscode-dark,
+body.vscode-high-contrast {
+    color-scheme: dark;
+}
+
+body.vscode-light,
+body.vscode-high-contrast-light {
+    color-scheme: light;
 }
 
 body {
@@ -25,6 +37,20 @@ body {
     background: var(--vscode-editor-background);
     font-family: var(--vscode-font-family);
     font-size: var(--vscode-font-size);
+}
+
+button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+.file-header:focus-visible,
+.dir-entry:focus-visible {
+    outline: 2px solid var(--vscode-focusBorder);
+    outline-offset: 2px;
+    position: relative;
+    z-index: 5;
 }
 
 body.drag-active::after {
@@ -281,6 +307,15 @@ body.web-host {
 .change-button:disabled {
     opacity: 0.45;
     cursor: default;
+}
+
+.change-button:not(:disabled):hover,
+.history-button:not(:disabled):hover,
+.history-rail-tab:hover,
+.multi-pane-action:not(:disabled):hover,
+.multi-pane-copy:not(:disabled):hover,
+button.file-header:hover {
+    filter: brightness(1.12);
 }
 
 .change-position {
@@ -650,6 +685,21 @@ body.web-host {
     gap: 6px;
 }
 
+.multi-pane-select {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.multi-pane-select:hover .multi-pane-title {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
 .multi-pane-title {
     flex: 1 1 auto;
     min-width: 0;
@@ -774,8 +824,16 @@ body.web-host {
 }
 
 .multi-gutter {
+    display: block;
+    width: 100%;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
     min-width: 0;
     min-height: 0;
+    border-right: 0;
+    border-left: 0;
     border-top: 1px solid var(--vscode-panel-border);
     border-bottom: 1px solid var(--vscode-panel-border);
     background: color-mix(in srgb, var(--vscode-editor-background) 90%, var(--vscode-panel-border));
@@ -784,6 +842,10 @@ body.web-host {
 .multi-gutter.is-active-pair {
     border-color: color-mix(in srgb, rgba(79, 124, 255, 0.72) 72%, var(--vscode-panel-border));
     background: color-mix(in srgb, rgba(79, 124, 255, 0.08) 55%, var(--vscode-editor-background));
+}
+
+.multi-gutter:hover {
+    filter: brightness(1.08);
 }
 
 .multi-gutter-header {
@@ -828,13 +890,22 @@ body.web-host {
 }
 
 .file-header {
+    width: 100%;
     padding: 8px 10px;
+    color: var(--vscode-foreground);
+    text-align: left;
+    font: inherit;
+    border: 0;
     border-bottom: 1px solid var(--vscode-panel-border);
     background: var(--vscode-panel-background);
     font-size: 12px;
     font-weight: 600;
-    cursor: pointer;
+    cursor: default;
     transition: background-color 120ms ease, border-bottom-color 120ms ease, box-shadow 120ms ease;
+}
+
+button.file-header {
+    cursor: pointer;
 }
 
 .file-header.is-active-pane {
@@ -984,28 +1055,28 @@ body.web-host {
 
 .monaco-editor .bygone-active-diff,
 .monaco-editor .bygone-active-diff-whole {
-    background: rgba(79, 124, 255, 0.08);
+    background: color-mix(in srgb, var(--vscode-editorWarning-foreground) 18%, transparent);
 }
 
 .monaco-editor .margin .bygone-active-diff-gutter,
 .monaco-editor .lines-decoration .bygone-active-diff-gutter {
-    border-left: 3px solid rgba(79, 124, 255, 0.95);
+    border-left: 3px solid var(--vscode-editorWarning-foreground);
 }
 
 .monaco-editor .bygone-active-diff-start {
-    border-top: 1.5px solid rgba(79, 124, 255, 0.95);
+    border-top: 2px solid var(--vscode-editorWarning-foreground);
 }
 
 .monaco-editor .bygone-active-diff-end {
-    border-bottom: 1.5px solid rgba(79, 124, 255, 0.95);
+    border-bottom: 2px solid var(--vscode-editorWarning-foreground);
 }
 
 .monaco-editor .bygone-active-diff-top {
-    border-top: 1.5px solid rgba(79, 124, 255, 0.95);
+    border-top: 2px solid var(--vscode-editorWarning-foreground);
 }
 
 .monaco-editor .bygone-active-diff-bottom {
-    border-bottom: 1.5px solid rgba(79, 124, 255, 0.95);
+    border-bottom: 2px solid var(--vscode-editorWarning-foreground);
 }
 
 .monaco-editor .bygone-paired-edge-left,
@@ -1111,6 +1182,14 @@ body.web-host {
 }
 
 .dir-entry {
+    display: block;
+    width: 100%;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    border: 0;
     border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 50%, transparent);
     cursor: default;
     user-select: none;
@@ -1194,6 +1273,12 @@ body.web-host {
 
 .dir-entry--modified .dir-name {
     color: rgba(65, 132, 214, 0.95);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .file-header {
+        transition: none;
+    }
 }
 
 @media (max-width: 1200px) {
