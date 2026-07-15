@@ -125,7 +125,10 @@ async function installMacDesktopApp(dmgPath) {
         requireFile(mountedApp, 'mounted Bygone.app');
         await rm(targetApp, { recursive: true, force: true });
         await mkdir(targetRoot, { recursive: true });
-        await cp(mountedApp, targetApp, { recursive: true });
+        await cp(mountedApp, targetApp, {
+            recursive: true,
+            verbatimSymlinks: true,
+        });
     } finally {
         await run('hdiutil', ['detach', mountDir]).catch(() => undefined);
         await rm(mountDir, { recursive: true, force: true }).catch(() => undefined);
