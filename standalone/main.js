@@ -1041,10 +1041,6 @@ async function openCompareDirectoriesDialog() {
     await openDirectories([left.filePaths[0], right.filePaths[0]]);
 }
 
-async function openDirectory(leftDir, rightDir) {
-    await openDirectories([leftDir, rightDir]);
-}
-
 async function openDirectories(dirs, options = {}) {
     const resolvedDirs = dirs.map((dir) => path.resolve(dir));
     if (resolvedDirs.length < 2 || !resolvedDirs.every((dir) => getPathKind(dir) === 'directory')) {

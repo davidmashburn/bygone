@@ -17,7 +17,7 @@ function makeHelpers(geometry) {
     };
 
     const bottomEdge = (section, open = false) => {
-        const { left, gutterLeft, gutterRight, right, handle } = geometry;
+        const { left, gutterLeft, gutterRight, handle } = geometry;
         const bottomRightY = y(section.bottomRight);
         const bottomLeftY = y(section.bottomLeft);
         const gutter = bottomRightY === bottomLeftY

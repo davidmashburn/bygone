@@ -4,6 +4,7 @@ dist/**
 src/**
 test/**
 tsconfig.json
+eslint.config.mjs
 **/*.map
 apps/**
 scripts/**

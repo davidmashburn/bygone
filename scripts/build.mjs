@@ -7,6 +7,12 @@ const sharedOptions = {
     logLevel: 'info'
 };
 
+const browserOptions = {
+    ...sharedOptions,
+    minify: true,
+    legalComments: 'none'
+};
+
 await rm('out', { recursive: true, force: true });
 await rm('media/webview.js', { force: true });
 await rm('media/webview.js.map', { force: true });
@@ -61,7 +67,7 @@ await build({
 });
 
 await build({
-    ...sharedOptions,
+    ...browserOptions,
     entryPoints: ['media/webview-entry.js'],
     outfile: 'media/webview.js',
     platform: 'browser',
@@ -73,7 +79,7 @@ await build({
 });
 
 await build({
-    ...sharedOptions,
+    ...browserOptions,
     entryPoints: ['media/editor.worker.entry.js'],
     outfile: 'media/editor.worker.js',
     platform: 'browser',
@@ -82,7 +88,7 @@ await build({
 });
 
 await build({
-    ...sharedOptions,
+    ...browserOptions,
     entryPoints: ['media/diff.worker.entry.js'],
     outfile: 'media/diff.worker.js',
     platform: 'browser',
@@ -101,7 +107,7 @@ await build({
 });
 
 await build({
-    ...sharedOptions,
+    ...browserOptions,
     entryPoints: ['web/host.js'],
     outfile: 'web/web-host.js',
     platform: 'browser',

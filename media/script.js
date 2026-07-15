@@ -1850,7 +1850,6 @@ function updateChangeToolbarState() {
     const toolbarHint = toolbar.parentElement?.querySelector('.change-hint');
     const isCompareMode = currentMode === MODE_TWO_WAY || currentMode === 'directory' || currentMode === MODE_MULTI_WAY || currentMode === 'three-way';
     const hasTwoWayMode = currentMode === MODE_TWO_WAY;
-    const hasTwoWayDiffs = hasTwoWayMode && diffBlocks.length > 0;
     const directoryTargets = getNavigableDirectoryEntries();
     const hasDirectoryTargets = currentMode === 'directory' && directoryTargets.length > 0;
     toolbar.hidden = !isCompareMode;
@@ -2699,7 +2698,7 @@ function initializeDiffWorker() {
     }
     try {
         diffWorker = new Worker('diff.worker.js');
-    } catch (error) {
+    } catch {
         diffWorker = null;
         return;
     }
