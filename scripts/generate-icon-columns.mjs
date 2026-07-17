@@ -58,21 +58,22 @@ const mainSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="10
       <stop offset="0" stop-color="#0d1420"/><stop offset="1" stop-color="#03050a"/>
     </radialGradient>
     <linearGradient id="pane" x1="0" y1="${top}" x2="0" y2="${bottom}" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#1c2739"/><stop offset="1" stop-color="#121a29"/>
+      <stop offset="0" stop-color="#283751"/><stop offset="1" stop-color="#1b273d"/>
     </linearGradient>
     <linearGradient id="grn" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#26a35c"/><stop offset="1" stop-color="#1b7d45"/>
+      <stop offset="0" stop-color="#2cbc6a"/><stop offset="1" stop-color="#1f9250"/>
     </linearGradient>
     <linearGradient id="blu" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3358b4"/><stop offset="1" stop-color="#263f80"/>
+      <stop offset="0" stop-color="#585eff"/><stop offset="1" stop-color="#050cff"/>
     </linearGradient>
     <filter id="shadow" x="-18%" y="-22%" width="136%" height="144%">
       <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000" flood-opacity="0.5"/>
     </filter>
-    <filter id="bGlow" x="-10%" y="-40%" width="120%" height="180%">
-      <feGaussianBlur stdDeviation="4.5" result="b"/>
-      <feColorMatrix in="b" type="matrix" values="0 0 0 0 0.24 0 0 0 0 0.48 0 0 0 0 1.0 0 0 0 0.6 0" result="g"/>
-      <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <filter id="bGlow" x="-25%" y="-65%" width="150%" height="230%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#8787ff" flood-opacity="1" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
     <clipPath id="app"><rect width="1024" height="1024" rx="196"/></clipPath>
     ${colsClip}
@@ -88,18 +89,14 @@ const mainSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="10
       <path d="${blue.fill}" fill="url(#blu)"/>
       <path d="${greenBot.fill}" fill="url(#grn)"/>
       <g fill="none" stroke-linecap="butt">
-        <path d="${gTopEdge}" stroke="#4ade80" stroke-width="3" opacity="0.45"/>
-        <path d="${gBotEdge}" stroke="#4ade80" stroke-width="3" opacity="0.45"/>
-        <path d="${gTopSeam}" stroke="#4ade80" stroke-width="5" opacity="0.85"/>
-        <path d="${gBotSeam}" stroke="#4ade80" stroke-width="5" opacity="0.85"/>
+        <path d="${gTopEdge}" stroke="#3dff84" stroke-width="4.8" opacity="0.55"/>
+        <path d="${gBotEdge}" stroke="#3dff84" stroke-width="4.8" opacity="0.55"/>
+        <path d="${gTopSeam}" stroke="#3dff84" stroke-width="8"/>
+        <path d="${gBotSeam}" stroke="#3dff84" stroke-width="8"/>
         <g filter="url(#bGlow)">
-          <path d="${blue.top}" stroke="#7396ff" stroke-width="6"/>
-          <path d="${blue.bot}" stroke="#7396ff" stroke-width="6"/>
+          <path d="${blue.top}" stroke="#8787ff" stroke-width="10"/>
+          <path d="${blue.bot}" stroke="#8787ff" stroke-width="10"/>
         </g>
-        <path d="${blue.top}" stroke="#eef4ff" stroke-width="2" opacity="0.55"/>
-        <path d="${blue.bot}" stroke="#eef4ff" stroke-width="2" opacity="0.55"/>
-        <path d="${gTopSeam}" stroke="#dfffe9" stroke-width="1.8" opacity="0.45"/>
-        <path d="${gBotSeam}" stroke="#dfffe9" stroke-width="1.8" opacity="0.45"/>
       </g>
     </g>
   </g>
@@ -114,15 +111,17 @@ const smallSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1
   </defs>
   <g clip-path="url(#app)">
     <rect width="1024" height="1024" fill="#070b12"/>
-    <rect x="${left}" y="${top}" width="${gutterLeft - left}" height="${bottom - top}" rx="${r}" fill="#1e2a3f"/>
-    <rect x="${gutterRight}" y="${top}" width="${right - gutterRight}" height="${bottom - top}" rx="${r}" fill="#1e2a3f"/>
+    <rect x="${left}" y="${top}" width="${gutterLeft - left}" height="${bottom - top}" rx="${r}" fill="#283751"/>
+    <rect x="${gutterRight}" y="${top}" width="${right - gutterRight}" height="${bottom - top}" rx="${r}" fill="#283751"/>
     <g clip-path="url(#cols)">
-      <path d="${greenTop.fill}" fill="#2bb767"/>
-      <path d="${blue.fill}" fill="#3b64d0"/>
-      <path d="${greenBot.fill}" fill="#2bb767"/>
+      <path d="${greenTop.fill}" fill="#2cbc6a"/>
+      <path d="${blue.fill}" fill="#252dff"/>
+      <path d="${greenBot.fill}" fill="#2cbc6a"/>
       <g fill="none" stroke-linecap="butt">
-        <path d="${blue.top}" stroke="#8fb0ff" stroke-width="10"/>
-        <path d="${blue.bot}" stroke="#8fb0ff" stroke-width="10"/>
+        <path d="${gTopSeam}" stroke="#3dff84" stroke-width="12"/>
+        <path d="${gBotSeam}" stroke="#3dff84" stroke-width="12"/>
+        <path d="${blue.top}" stroke="#8787ff" stroke-width="14"/>
+        <path d="${blue.bot}" stroke="#8787ff" stroke-width="14"/>
       </g>
     </g>
   </g>

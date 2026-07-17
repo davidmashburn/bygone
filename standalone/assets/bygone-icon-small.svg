@@ -9,15 +9,17 @@
   </defs>
   <g clip-path="url(#app)">
     <rect width="1024" height="1024" fill="#070b12"/>
-    <rect x="110" y="120" width="292" height="784" rx="40" fill="#1e2a3f"/>
-    <rect x="622" y="120" width="292" height="784" rx="40" fill="#1e2a3f"/>
+    <rect x="110" y="120" width="292" height="784" rx="40" fill="#283751"/>
+    <rect x="622" y="120" width="292" height="784" rx="40" fill="#283751"/>
     <g clip-path="url(#cols)">
-      <path d="M110 120 H402 C522 120 502 120 622 120 H914 V120 H622 C502 120 522 300 402 300 H110 Z" fill="#2bb767"/>
-      <path d="M110 440 H402 C522 440 502 288 622 288 H914 V592 H622 C502 592 522 744 402 744 H110 Z" fill="#3b64d0"/>
-      <path d="M110 904 H402 C522 904 502 736 622 736 H914 V904 H622 C502 904 522 904 402 904 H110 Z" fill="#2bb767"/>
+      <path d="M110 120 H402 C522 120 502 120 622 120 H914 V120 H622 C502 120 522 300 402 300 H110 Z" fill="#2cbc6a"/>
+      <path d="M110 440 H402 C522 440 502 288 622 288 H914 V592 H622 C502 592 522 744 402 744 H110 Z" fill="#252dff"/>
+      <path d="M110 904 H402 C522 904 502 736 622 736 H914 V904 H622 C502 904 522 904 402 904 H110 Z" fill="#2cbc6a"/>
       <g fill="none" stroke-linecap="butt">
-        <path d="M110 440 H402 C522 440 502 288 622 288 H914" stroke="#8fb0ff" stroke-width="10"/>
-        <path d="M110 744 H402 C522 744 502 592 622 592 H914" stroke="#8fb0ff" stroke-width="10"/>
+        <path d="M110 300 H402 C522 300 502 124.5 622 124.5 H914" stroke="#3dff84" stroke-width="12"/>
+        <path d="M110 899.5 H402 C522 899.5 502 736 622 736 H914" stroke="#3dff84" stroke-width="12"/>
+        <path d="M110 440 H402 C522 440 502 288 622 288 H914" stroke="#8787ff" stroke-width="14"/>
+        <path d="M110 744 H402 C522 744 502 592 622 592 H914" stroke="#8787ff" stroke-width="14"/>
       </g>
     </g>
   </g>
