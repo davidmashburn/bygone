@@ -17,6 +17,8 @@
     --vscode-editor-font-size: 13px;
     --vscode-editorLineNumber-foreground: #858585;
     --vscode-focusBorder: #007fd4;
+    --bygone-active-diff-color: rgba(135, 135, 255, 0.98);
+    --bygone-active-diff-fill: rgba(135, 135, 255, 0.30);
 }
 
 html,
@@ -1055,28 +1057,28 @@ button.file-header {
 
 .monaco-editor .bygone-active-diff,
 .monaco-editor .bygone-active-diff-whole {
-    background: color-mix(in srgb, var(--vscode-editorWarning-foreground) 18%, transparent);
+    background: color-mix(in srgb, var(--bygone-active-diff-color) 22%, transparent);
 }
 
 .monaco-editor .margin .bygone-active-diff-gutter,
 .monaco-editor .lines-decoration .bygone-active-diff-gutter {
-    border-left: 3px solid var(--vscode-editorWarning-foreground);
+    border-left: 3px solid var(--bygone-active-diff-color);
 }
 
 .monaco-editor .bygone-active-diff-start {
-    border-top: 2px solid var(--vscode-editorWarning-foreground);
+    border-top: 2px solid var(--bygone-active-diff-color);
 }
 
 .monaco-editor .bygone-active-diff-end {
-    border-bottom: 2px solid var(--vscode-editorWarning-foreground);
+    border-bottom: 2px solid var(--bygone-active-diff-color);
 }
 
 .monaco-editor .bygone-active-diff-top {
-    border-top: 2px solid var(--vscode-editorWarning-foreground);
+    border-top: 2px solid var(--bygone-active-diff-color);
 }
 
 .monaco-editor .bygone-active-diff-bottom {
-    border-bottom: 2px solid var(--vscode-editorWarning-foreground);
+    border-bottom: 2px solid var(--bygone-active-diff-color);
 }
 
 .monaco-editor .bygone-paired-edge-left,

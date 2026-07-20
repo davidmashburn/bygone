@@ -21,11 +21,13 @@
         absentFill: 'rgba(73, 190, 119, 0.08)',
         stroke: 'rgba(73, 190, 119, 0.92)'
     };
-    const ACTIVE_BLOCK_COLOR = {
-        leftFill: 'rgba(204, 167, 0, 0.30)',
-        rightFill: 'rgba(204, 167, 0, 0.30)',
-        stroke: 'rgba(230, 190, 38, 0.98)'
-    };
+
+    function getActiveBlockColor() {
+        const styles = getComputedStyle(document.documentElement);
+        const fill = styles.getPropertyValue('--bygone-active-diff-fill').trim() || 'rgba(135, 135, 255, 0.30)';
+        const stroke = styles.getPropertyValue('--bygone-active-diff-color').trim() || 'rgba(135, 135, 255, 0.98)';
+        return { leftFill: fill, rightFill: fill, stroke };
+    }
 
     function createConnectorController(options) {
         let connectionCanvas;
@@ -399,7 +401,7 @@
             }
 
             const cpOffset = (rightBounds.x - leftBounds.x) * 0.35;
-            const color = isActive ? ACTIVE_BLOCK_COLOR : (BLOCK_COLORS[block.kind] || BLOCK_COLORS.replace);
+            const color = isActive ? getActiveBlockColor() : (BLOCK_COLORS[block.kind] || BLOCK_COLORS.replace);
             const gradient = canvasContext.createLinearGradient(leftBounds.x, 0, rightBounds.x, 0);
             const collapsesLeft = block.kind === 'insert';
             const collapsesRight = block.kind === 'delete';

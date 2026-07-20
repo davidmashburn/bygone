@@ -6,6 +6,7 @@ const { execFileSync } = require('node:child_process');
 const { buildTwoWayDiffModel, mergeText } = require('../out/diffEngine.js');
 const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
+const { createAdjacentEdgeDecorationOptions } = require('../media/decorationOptions.js');
 
 function testTwoWayDiffAlignsInsertions() {
     const model = buildTwoWayDiffModel('a\nb\nc\n', 'a\nx\nb\nc\n');
@@ -74,6 +75,24 @@ function testPureDeleteHasNoInlineSegments() {
 
     assert.equal(model.blocks[0].kind, 'delete');
     assert.equal(model.leftLines[1].segments, undefined);
+}
+
+function testAdjacentPanelEdgesDecorateWholeLines() {
+    assert.deepEqual(
+        createAdjacentEdgeDecorationOptions('left', 'bygone-paired-edge'),
+        {
+            isWholeLine: true,
+            blockClassName: 'bygone-paired-edge-left'
+        }
+    );
+}
+
+function testActiveConnectorUsesSharedThemeColor() {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'media', 'connectors.js'), 'utf8');
+
+    assert.match(source, /--bygone-active-diff-fill/);
+    assert.match(source, /--bygone-active-diff-color/);
+    assert.doesNotMatch(source, /rgba\(204, 167, 0|rgba\(230, 190, 38/);
 }
 
 function testDirectoryDiffDetectsModifiedFiles() {
@@ -392,6 +411,8 @@ function run() {
     testInlineHighlightsWhitespaceSensitiveChange();
     testInlineHighlightsOnlyPairedReplaceLines();
     testPureDeleteHasNoInlineSegments();
+    testAdjacentPanelEdgesDecorateWholeLines();
+    testActiveConnectorUsesSharedThemeColor();
     testDirectoryDiffDetectsModifiedFiles();
     testMultiDirectoryDiffDetectsPartialAndModifiedFiles();
     testDirectoryDiffLeavesIdenticalFilesSame();

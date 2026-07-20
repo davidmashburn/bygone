@@ -1,4 +1,5 @@
 import { buildTwoWayDiffModel } from '../src/diffEngine';
+import { createAdjacentEdgeDecorationOptions } from './decorationOptions';
 
 const host = createHostBridge();
 const {
@@ -995,10 +996,7 @@ function addAdjacentEdgeDecorations(target, start, end, side, className) {
     }
     target.push({
         range: new monacoInstance.Range(start + 1, 1, end, Number.MAX_SAFE_INTEGER),
-        options: {
-            isWholeLine: true,
-            className: `${className}-${side}`
-        }
+        options: createAdjacentEdgeDecorationOptions(side, className)
     });
 }
 

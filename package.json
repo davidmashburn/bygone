@@ -158,7 +158,7 @@
     "icons:generate": "node ./scripts/generate-icons.mjs",
     "package:vsix": "vsce package",
     "standalone:start": "npm run compile && electron ./out/standalone-main.js",
-    "standalone:smoke": "npm run compile && electron ./out/standalone-main.js --smoke-test",
+    "standalone:smoke": "npm run compile && electron ./out/standalone-main.js --smoke-test && electron ./out/standalone-main.js --smoke-test-multi",
     "walkthrough:refresh": "node ./scripts/refresh-walkthrough-screenshots.mjs",
     "web:start": "npm run compile && node ./scripts/web-server.mjs",
     "package:desktop": "npm run package:desktop:mac",

@@ -27,7 +27,7 @@ const commandLineToolPath = process.platform === 'win32'
     : '/usr/local/bin/bygone';
 const gitHistoryService = new GitHistoryService();
 const launchArguments = parseLaunchArgs(getCliArgs());
-const smokeTestMode = launchArguments.kind === 'smoke';
+const smokeTestMode = launchArguments.kind === 'smoke' || launchArguments.kind === 'smoke-multi';
 const captureOutputPath = launchArguments.capturePath ? path.resolve(launchArguments.capturePath) : null;
 const captureMode = Boolean(captureOutputPath);
 const launchWindowWidth = Number.isFinite(launchArguments.windowWidth) ? launchArguments.windowWidth : 1500;
@@ -589,6 +589,11 @@ async function routeLaunchTarget(launchTarget) {
 
     if (launchTarget.kind === 'test' || launchTarget.kind === 'smoke') {
         await compareTestFiles();
+        return;
+    }
+
+    if (launchTarget.kind === 'smoke-multi') {
+        await compareMultiTestFiles();
     }
 }
 
@@ -691,6 +696,10 @@ function parseLaunchArgs(args) {
 
     if (filteredArgs[0] === '--smoke-test') {
         return { kind: 'smoke', capturePath, windowWidth, windowHeight };
+    }
+
+    if (filteredArgs[0] === '--smoke-test-multi') {
+        return { kind: 'smoke-multi', capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs.length === 1 && !filteredArgs[0].startsWith('--')) {
@@ -2567,7 +2576,13 @@ async function sendCurrentMultiDiff() {
             void mainWindow.webContents.executeJavaScript(`(() => ({
                 fileInfo: document.getElementById('file-info')?.textContent,
                 panelCount: document.querySelectorAll('.multi-pane').length,
-                gutterCount: document.querySelectorAll('.multi-gutter').length
+                gutterCount: document.querySelectorAll('.multi-gutter').length,
+                activeDiffCount: document.querySelectorAll('.bygone-active-diff').length,
+                activeDiffBackground: getComputedStyle(document.querySelector('.bygone-active-diff')).backgroundColor,
+                activeDiffBorderColor: getComputedStyle(document.querySelector('.bygone-active-diff-start')).borderTopColor,
+                warningColor: getComputedStyle(document.documentElement).getPropertyValue('--vscode-editorWarning-foreground').trim(),
+                adjacentEdgeCount: document.querySelectorAll('.bygone-paired-edge-left, .bygone-one-sided-edge-left').length,
+                inlineAdjacentEdgeCount: document.querySelectorAll('.view-line span.bygone-paired-edge-left, .view-line span.bygone-one-sided-edge-left').length
             }))()`)
                 .then((snapshot) => {
                     if (smokeTestMode) {
@@ -2629,6 +2644,42 @@ async function compareTestFiles() {
     await openDiff(leftPath, rightPath);
 }
 
+async function compareMultiTestFiles() {
+    const contents = [
+        'const alpha = 1;\nconst shared = true;\n',
+        'const alpha = 2;\nconst shared = true;\n',
+        'const alpha = 3;\nconst shared = false;\n'
+    ];
+    const files = contents.map((content, index) => ({
+        id: `smoke-panel-${index}`,
+        path: '',
+        label: `test-panel-${index + 1}.js`,
+        content,
+        savedContent: content,
+        dirty: false,
+        editable: true
+    }));
+
+    session = {
+        mode: 'multi-diff',
+        left: createSideState('', ''),
+        right: createSideState('', ''),
+        history: null,
+        directory: null,
+        multi: {
+            sourceKind: 'normal',
+            files,
+            activePanelId: files[1].id,
+            activePairIndex: 0,
+            historySource: null
+        },
+        dirHistory: null
+    };
+
+    clearWatchers();
+    await sendCurrentMultiDiff();
+}
+
 async function sendCurrentDiff() {
     if (session.mode !== 'diff') {
         return;
@@ -2668,7 +2719,9 @@ async function sendCurrentDiff() {
                 activeDiffCount: document.querySelectorAll('.bygone-active-diff').length,
                 pairedLineBackground: getComputedStyle(document.querySelector('.bygone-paired-line')).backgroundColor,
                 inlineHighlightBackground: getComputedStyle(document.querySelector('.bygone-inline-blue')).backgroundColor,
-                activeDiffBackground: getComputedStyle(document.querySelector('.bygone-active-diff')).backgroundColor
+                activeDiffBackground: getComputedStyle(document.querySelector('.bygone-active-diff')).backgroundColor,
+                activeDiffBorderColor: getComputedStyle(document.querySelector('.bygone-active-diff-start')).borderTopColor,
+                warningColor: getComputedStyle(document.documentElement).getPropertyValue('--vscode-editorWarning-foreground').trim()
             }))()`)
                 .then((snapshot) => {
                     if (smokeTestMode) {
@@ -3625,12 +3678,18 @@ function finalizeSmokeTest(snapshot) {
             && isVisibleBackground(snapshot.pairedLineBackground)
             && isVisibleBackground(snapshot.inlineHighlightBackground)
             && isVisibleBackground(snapshot.activeDiffBackground)
+            && snapshot.activeDiffBorderColor !== snapshot.warningColor
             && snapshot.pairedLineBackground !== snapshot.inlineHighlightBackground
         )
         || (
-            snapshot.fileInfo === 'Comparing 2 files'
-            && snapshot.panelCount === 2
-            && snapshot.gutterCount === 1
+            snapshot.fileInfo === `Comparing ${snapshot.panelCount} files`
+            && snapshot.panelCount >= 2
+            && snapshot.gutterCount === snapshot.panelCount - 1
+            && snapshot.activeDiffCount > 0
+            && isVisibleBackground(snapshot.activeDiffBackground)
+            && snapshot.activeDiffBorderColor !== snapshot.warningColor
+            && snapshot.adjacentEdgeCount > 0
+            && snapshot.inlineAdjacentEdgeCount === 0
         )
     ));
 
