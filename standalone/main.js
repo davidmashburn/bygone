@@ -2578,9 +2578,6 @@ async function sendCurrentMultiDiff() {
                 panelCount: document.querySelectorAll('.multi-pane').length,
                 gutterCount: document.querySelectorAll('.multi-gutter').length,
                 activeDiffCount: document.querySelectorAll('.bygone-active-diff').length,
-                activeDiffBackground: getComputedStyle(document.querySelector('.bygone-active-diff')).backgroundColor,
-                activeDiffBorderColor: getComputedStyle(document.querySelector('.bygone-active-diff-start')).borderTopColor,
-                warningColor: getComputedStyle(document.documentElement).getPropertyValue('--vscode-editorWarning-foreground').trim(),
                 adjacentEdgeCount: document.querySelectorAll('.bygone-paired-edge-left, .bygone-one-sided-edge-left').length,
                 inlineAdjacentEdgeCount: document.querySelectorAll('.view-line span.bygone-paired-edge-left, .view-line span.bygone-one-sided-edge-left').length
             }))()`)
@@ -2718,10 +2715,7 @@ async function sendCurrentDiff() {
                 inlineHighlightCount: document.querySelectorAll('.bygone-inline-blue').length,
                 activeDiffCount: document.querySelectorAll('.bygone-active-diff').length,
                 pairedLineBackground: getComputedStyle(document.querySelector('.bygone-paired-line')).backgroundColor,
-                inlineHighlightBackground: getComputedStyle(document.querySelector('.bygone-inline-blue')).backgroundColor,
-                activeDiffBackground: getComputedStyle(document.querySelector('.bygone-active-diff')).backgroundColor,
-                activeDiffBorderColor: getComputedStyle(document.querySelector('.bygone-active-diff-start')).borderTopColor,
-                warningColor: getComputedStyle(document.documentElement).getPropertyValue('--vscode-editorWarning-foreground').trim()
+                inlineHighlightBackground: getComputedStyle(document.querySelector('.bygone-inline-blue')).backgroundColor
             }))()`)
                 .then((snapshot) => {
                     if (smokeTestMode) {
@@ -3674,21 +3668,17 @@ function finalizeSmokeTest(snapshot) {
             && snapshot.pairedLineCount > 0
             && snapshot.oneSidedLineCount > 0
             && snapshot.inlineHighlightCount > 0
-            && snapshot.activeDiffCount > 0
+            && snapshot.activeDiffCount === 0
             && isVisibleBackground(snapshot.pairedLineBackground)
             && isVisibleBackground(snapshot.inlineHighlightBackground)
-            && isVisibleBackground(snapshot.activeDiffBackground)
-            && snapshot.activeDiffBorderColor !== snapshot.warningColor
             && snapshot.pairedLineBackground !== snapshot.inlineHighlightBackground
         )
         || (
             snapshot.fileInfo === `Comparing ${snapshot.panelCount} files`
             && snapshot.panelCount >= 2
             && snapshot.gutterCount === snapshot.panelCount - 1
-            && snapshot.activeDiffCount > 0
-            && isVisibleBackground(snapshot.activeDiffBackground)
-            && snapshot.activeDiffBorderColor !== snapshot.warningColor
-            && snapshot.adjacentEdgeCount > 0
+            && snapshot.activeDiffCount === 0
+            && snapshot.adjacentEdgeCount === 0
             && snapshot.inlineAdjacentEdgeCount === 0
         )
     ));

@@ -94,20 +94,26 @@ export function buildTwoWayDiffModel(leftContent: string, rightContent: string):
 
         if (change.removed && index + 1 < changes.length && changes[index + 1].added) {
             const nextChange = changes[index + 1];
-            const pairedLength = Math.max(removedLines.length, nextChange.value.length);
             const leftStart = renderedLeftLines.length;
             const rightStart = renderedRightLines.length;
+            const alignedLines = alignReplacementLines(removedLines, nextChange.value);
 
-            for (let rowIndex = 0; rowIndex < pairedLength; rowIndex++) {
-                const removedLine = removedLines[rowIndex];
-                const addedLine = nextChange.value[rowIndex];
+            for (const { left: removedLine, right: addedLine } of alignedLines) {
+                let renderedLeftLine: DiffLine | undefined;
+                let renderedRightLine: DiffLine | undefined;
 
                 if (removedLine !== undefined) {
-                    renderedLeftLines.push(makeDiffLine('removed', removedLine, leftLineNumber));
+                    renderedLeftLine = makeDiffLine('removed', removedLine, leftLineNumber);
+                    renderedLeftLines.push(renderedLeftLine);
                 }
 
                 if (addedLine !== undefined) {
-                    renderedRightLines.push(makeDiffLine('added', addedLine, rightLineNumber));
+                    renderedRightLine = makeDiffLine('added', addedLine, rightLineNumber);
+                    renderedRightLines.push(renderedRightLine);
+                }
+
+                if (renderedLeftLine && renderedRightLine) {
+                    applyInlineHighlightPair(renderedLeftLine, renderedRightLine);
                 }
 
                 rows.push(makeDiffRow(
@@ -121,7 +127,6 @@ export function buildTwoWayDiffModel(leftContent: string, rightContent: string):
             }
 
             blocks.push(makeDiffBlock('replace', leftStart, renderedLeftLines.length, rightStart, renderedRightLines.length));
-            applyInlineHighlights(renderedLeftLines, renderedRightLines, leftStart, renderedLeftLines.length, rightStart, renderedRightLines.length);
 
             index++;
             continue;
@@ -310,35 +315,103 @@ function normalizeLines(content: string): string[] {
     return lines;
 }
 
-function applyInlineHighlights(
-    leftLines: DiffLine[],
-    rightLines: DiffLine[],
-    leftStart: number,
-    leftEnd: number,
-    rightStart: number,
-    rightEnd: number
-): void {
-    const pairCount = Math.min(leftEnd - leftStart, rightEnd - rightStart);
+interface AlignedReplacementLine {
+    left?: string;
+    right?: string;
+}
 
-    for (let index = 0; index < pairCount; index++) {
-        const leftLine = leftLines[leftStart + index];
-        const rightLine = rightLines[rightStart + index];
+function alignReplacementLines(leftLines: string[], rightLines: string[]): AlignedReplacementLine[] {
+    const maxAlignmentCells = 10_000;
+    if (leftLines.length * rightLines.length > maxAlignmentCells) {
+        return alignReplacementLinesByPosition(leftLines, rightLines);
+    }
 
-        if (!leftLine || !rightLine) {
-            continue;
+    const gapPenalty = 0;
+    const minimumSimilarity = 0.45;
+    const scores = Array.from(
+        { length: leftLines.length + 1 },
+        () => new Array<number>(rightLines.length + 1).fill(Number.NEGATIVE_INFINITY)
+    );
+    const moves = Array.from(
+        { length: leftLines.length + 1 },
+        () => new Array<'match' | 'left' | 'right' | null>(rightLines.length + 1).fill(null)
+    );
+    scores[0][0] = 0;
+
+    for (let leftIndex = 1; leftIndex <= leftLines.length; leftIndex++) {
+        scores[leftIndex][0] = scores[leftIndex - 1][0] + gapPenalty;
+        moves[leftIndex][0] = 'left';
+    }
+    for (let rightIndex = 1; rightIndex <= rightLines.length; rightIndex++) {
+        scores[0][rightIndex] = scores[0][rightIndex - 1] + gapPenalty;
+        moves[0][rightIndex] = 'right';
+    }
+
+    for (let leftIndex = 1; leftIndex <= leftLines.length; leftIndex++) {
+        for (let rightIndex = 1; rightIndex <= rightLines.length; rightIndex++) {
+            const similarity = lineSimilarity(leftLines[leftIndex - 1], rightLines[rightIndex - 1]);
+            const candidates = [
+                {
+                    move: 'match' as const,
+                    score: similarity > minimumSimilarity
+                        ? scores[leftIndex - 1][rightIndex - 1] + Math.pow(similarity - minimumSimilarity, 2)
+                        : Number.NEGATIVE_INFINITY
+                },
+                { move: 'left' as const, score: scores[leftIndex - 1][rightIndex] + gapPenalty },
+                { move: 'right' as const, score: scores[leftIndex][rightIndex - 1] + gapPenalty }
+            ];
+            const best = candidates.reduce((current, candidate) => (
+                candidate.score > current.score ? candidate : current
+            ));
+            scores[leftIndex][rightIndex] = best.score;
+            moves[leftIndex][rightIndex] = best.move;
         }
+    }
 
-        if (leftLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH
-            || rightLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH) {
-            continue;
+    const aligned: AlignedReplacementLine[] = [];
+    let leftIndex = leftLines.length;
+    let rightIndex = rightLines.length;
+    while (leftIndex > 0 || rightIndex > 0) {
+        const move = moves[leftIndex][rightIndex];
+        if (move === 'match') {
+            aligned.push({ left: leftLines[--leftIndex], right: rightLines[--rightIndex] });
+        } else if (move === 'left') {
+            aligned.push({ left: leftLines[--leftIndex] });
+        } else {
+            aligned.push({ right: rightLines[--rightIndex] });
         }
+    }
 
-        const { leftSegments, rightSegments, hasInlineChanges } = buildInlineSegments(leftLine.content, rightLine.content);
+    return aligned.reverse();
+}
 
-        if (!hasInlineChanges) {
-            continue;
-        }
+function alignReplacementLinesByPosition(leftLines: string[], rightLines: string[]): AlignedReplacementLine[] {
+    const length = Math.max(leftLines.length, rightLines.length);
+    return Array.from({ length }, (_value, index) => ({
+        left: leftLines[index],
+        right: rightLines[index]
+    }));
+}
 
+function lineSimilarity(left: string, right: string): number {
+    const maxLength = left.length + right.length;
+    if (maxLength === 0) {
+        return 1;
+    }
+    const commonLength = Diff.diffChars(left, right)
+        .filter((change) => !change.added && !change.removed)
+        .reduce((total, change) => total + change.value.length, 0);
+    return (2 * commonLength) / maxLength;
+}
+
+function applyInlineHighlightPair(leftLine: DiffLine, rightLine: DiffLine): void {
+    if (leftLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH
+        || rightLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH) {
+        return;
+    }
+
+    const { leftSegments, rightSegments, hasInlineChanges } = buildInlineSegments(leftLine.content, rightLine.content);
+    if (hasInlineChanges) {
         leftLine.segments = leftSegments;
         rightLine.segments = rightSegments;
     }

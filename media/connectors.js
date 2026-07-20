@@ -21,14 +21,6 @@
         absentFill: 'rgba(73, 190, 119, 0.08)',
         stroke: 'rgba(73, 190, 119, 0.92)'
     };
-
-    function getActiveBlockColor() {
-        const styles = getComputedStyle(document.documentElement);
-        const fill = styles.getPropertyValue('--bygone-active-diff-fill').trim() || 'rgba(135, 135, 255, 0.30)';
-        const stroke = styles.getPropertyValue('--bygone-active-diff-color').trim() || 'rgba(135, 135, 255, 0.98)';
-        return { leftFill: fill, rightFill: fill, stroke };
-    }
-
     function createConnectorController(options) {
         let connectionCanvas;
         let canvasContext;
@@ -106,15 +98,14 @@
             const leftRect = leftEditor.getDomNode().getBoundingClientRect();
             const rightRect = rightEditor.getDomNode().getBoundingClientRect();
 
-            diffBlocks.forEach((block, blockIndex) => {
+            diffBlocks.forEach((block) => {
                 drawBlockRegion(
                     block,
                     leftEditor,
                     rightEditor,
                     leftRect,
                     rightRect,
-                    containerRect,
-                    blockIndex === options.getActiveDiffIndex?.()
+                    containerRect
                 );
             });
         }
@@ -127,7 +118,7 @@
 
             const containerRect = connectionCanvas.getBoundingClientRect();
 
-            state.pairs.forEach((pair, pairIndex) => {
+            state.pairs.forEach((pair) => {
                 const leftEditor = state.editors[pair.leftIndex];
                 const rightEditor = state.editors[pair.rightIndex];
                 if (!leftEditor || !rightEditor) {
@@ -137,15 +128,14 @@
                 const leftRect = leftEditor.getDomNode().getBoundingClientRect();
                 const rightRect = rightEditor.getDomNode().getBoundingClientRect();
 
-                (pair.diffModel?.blocks || []).forEach((block, blockIndex) => {
+                (pair.diffModel?.blocks || []).forEach((block) => {
                     drawBlockRegion(
                         block,
                         leftEditor,
                         rightEditor,
                         leftRect,
                         rightRect,
-                        containerRect,
-                        pairIndex === state.activePairIndex && blockIndex === state.activeDiffIndex
+                        containerRect
                     );
                 });
             });
@@ -392,7 +382,7 @@
             return Boolean(row) && row.offsetParent !== null;
         }
 
-        function drawBlockRegion(block, leftEditor, rightEditor, leftRect, rightRect, containerRect, isActive = false) {
+        function drawBlockRegion(block, leftEditor, rightEditor, leftRect, rightRect, containerRect) {
             const leftBounds = getBlockBounds(leftEditor, block.leftStart, block.leftEnd, leftRect, containerRect, true);
             const rightBounds = getBlockBounds(rightEditor, block.rightStart, block.rightEnd, rightRect, containerRect, false);
 
@@ -401,7 +391,7 @@
             }
 
             const cpOffset = (rightBounds.x - leftBounds.x) * 0.35;
-            const color = isActive ? getActiveBlockColor() : (BLOCK_COLORS[block.kind] || BLOCK_COLORS.replace);
+            const color = BLOCK_COLORS[block.kind] || BLOCK_COLORS.replace;
             const gradient = canvasContext.createLinearGradient(leftBounds.x, 0, rightBounds.x, 0);
             const collapsesLeft = block.kind === 'insert';
             const collapsesRight = block.kind === 'delete';

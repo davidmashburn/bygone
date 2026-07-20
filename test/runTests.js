@@ -6,7 +6,7 @@ const { execFileSync } = require('node:child_process');
 const { buildTwoWayDiffModel, mergeText } = require('../out/diffEngine.js');
 const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
-const { createAdjacentEdgeDecorationOptions } = require('../media/decorationOptions.js');
+const { dedupeDecorations } = require('../media/decorationUtils.js');
 
 function testTwoWayDiffAlignsInsertions() {
     const model = buildTwoWayDiffModel('a\nb\nc\n', 'a\nx\nb\nc\n');
@@ -77,22 +77,52 @@ function testPureDeleteHasNoInlineSegments() {
     assert.equal(model.leftLines[1].segments, undefined);
 }
 
-function testAdjacentPanelEdgesDecorateWholeLines() {
+function testInlineHighlightsAlignAroundInsertedAndDeletedLines() {
+    const model = buildTwoWayDiffModel(
+        'const one = 1;\nconst two = 2;\nconst three = 3;\n',
+        'const zero = 0;\nconst one = 10;\nconst three = 30;\n'
+    );
+
+    assert.equal(model.rows.length, 4);
+    assert.equal(model.rows[0].left.kind, 'placeholder');
+    assert.equal(model.rows[0].right.content, 'const zero = 0;');
+    assert.equal(model.rows[1].left.content, 'const one = 1;');
+    assert.equal(model.rows[1].right.content, 'const one = 10;');
+    assert.equal(model.rows[2].left.content, 'const two = 2;');
+    assert.equal(model.rows[2].right.kind, 'placeholder');
+    assert.equal(model.rows[3].left.content, 'const three = 3;');
+    assert.equal(model.rows[3].right.content, 'const three = 30;');
+    assert.equal(model.rightLines[0].segments, undefined);
+    assert.equal(model.leftLines[1].segments, undefined);
     assert.deepEqual(
-        createAdjacentEdgeDecorationOptions('left', 'bygone-paired-edge'),
-        {
-            isWholeLine: true,
-            blockClassName: 'bygone-paired-edge-left'
-        }
+        model.leftLines[0].segments?.filter((segment) => segment.emphasis).map((segment) => segment.text),
+        ['1']
+    );
+    assert.deepEqual(
+        model.rightLines[1].segments?.filter((segment) => segment.emphasis).map((segment) => segment.text),
+        ['10']
     );
 }
 
-function testActiveConnectorUsesSharedThemeColor() {
-    const source = fs.readFileSync(path.join(__dirname, '..', 'media', 'connectors.js'), 'utf8');
+function testRendererDoesNotAddActiveOrAdjacentSemanticOverrides() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const connectorSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'connectors.js'), 'utf8');
 
-    assert.match(source, /--bygone-active-diff-fill/);
-    assert.match(source, /--bygone-active-diff-color/);
-    assert.doesNotMatch(source, /rgba\(204, 167, 0|rgba\(230, 190, 38/);
+    assert.doesNotMatch(rendererSource, /addActiveBlockDecorations|addAdjacentEdgeDecorations/);
+    assert.doesNotMatch(connectorSource, /getActiveBlockColor/);
+}
+
+function testDuplicateMultiPanelDecorationsRenderOnce() {
+    const duplicate = {
+        range: { startLineNumber: 2, startColumn: 7, endLineNumber: 2, endColumn: 12 },
+        options: { inlineClassName: 'bygone-inline-blue' }
+    };
+    const distinct = {
+        range: { startLineNumber: 2, startColumn: 14, endLineNumber: 2, endColumn: 18 },
+        options: { inlineClassName: 'bygone-inline-blue' }
+    };
+
+    assert.deepEqual(dedupeDecorations([duplicate, duplicate, distinct]), [duplicate, distinct]);
 }
 
 function testDirectoryDiffDetectsModifiedFiles() {
@@ -411,8 +441,9 @@ function run() {
     testInlineHighlightsWhitespaceSensitiveChange();
     testInlineHighlightsOnlyPairedReplaceLines();
     testPureDeleteHasNoInlineSegments();
-    testAdjacentPanelEdgesDecorateWholeLines();
-    testActiveConnectorUsesSharedThemeColor();
+    testInlineHighlightsAlignAroundInsertedAndDeletedLines();
+    testRendererDoesNotAddActiveOrAdjacentSemanticOverrides();
+    testDuplicateMultiPanelDecorationsRenderOnce();
     testDirectoryDiffDetectsModifiedFiles();
     testMultiDirectoryDiffDetectsPartialAndModifiedFiles();
     testDirectoryDiffLeavesIdenticalFilesSame();

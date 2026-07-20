@@ -17,8 +17,6 @@
     --vscode-editor-font-size: 13px;
     --vscode-editorLineNumber-foreground: #858585;
     --vscode-focusBorder: #007fd4;
-    --bygone-active-diff-color: rgba(135, 135, 255, 0.98);
-    --bygone-active-diff-fill: rgba(135, 135, 255, 0.30);
 }
 
 html,
@@ -1053,55 +1051,6 @@ button.file-header {
 
 .monaco-editor .bygone-paired-line-end {
     border-bottom: 1.5px solid rgba(79, 124, 255, 0.92);
-}
-
-.monaco-editor .bygone-active-diff,
-.monaco-editor .bygone-active-diff-whole {
-    background: color-mix(in srgb, var(--bygone-active-diff-color) 22%, transparent);
-}
-
-.monaco-editor .margin .bygone-active-diff-gutter,
-.monaco-editor .lines-decoration .bygone-active-diff-gutter {
-    border-left: 3px solid var(--bygone-active-diff-color);
-}
-
-.monaco-editor .bygone-active-diff-start {
-    border-top: 2px solid var(--bygone-active-diff-color);
-}
-
-.monaco-editor .bygone-active-diff-end {
-    border-bottom: 2px solid var(--bygone-active-diff-color);
-}
-
-.monaco-editor .bygone-active-diff-top {
-    border-top: 2px solid var(--bygone-active-diff-color);
-}
-
-.monaco-editor .bygone-active-diff-bottom {
-    border-bottom: 2px solid var(--bygone-active-diff-color);
-}
-
-.monaco-editor .bygone-paired-edge-left,
-.monaco-editor .bygone-paired-edge-right,
-.monaco-editor .bygone-one-sided-edge-left,
-.monaco-editor .bygone-one-sided-edge-right {
-    box-sizing: border-box;
-}
-
-.monaco-editor .bygone-paired-edge-left {
-    border-left: 5px solid rgba(79, 124, 255, 0.92);
-}
-
-.monaco-editor .bygone-paired-edge-right {
-    border-right: 5px solid rgba(79, 124, 255, 0.92);
-}
-
-.monaco-editor .bygone-one-sided-edge-left {
-    border-left: 5px solid rgba(73, 190, 119, 0.92);
-}
-
-.monaco-editor .bygone-one-sided-edge-right {
-    border-right: 5px solid rgba(73, 190, 119, 0.92);
 }
 
 .context {

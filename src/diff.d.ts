@@ -5,6 +5,7 @@ declare module 'diff' {
         removed?: boolean;
     }
 
-    export function diffArrays<T>(oldArr: T[], newArr: T[]): Change<T>[];
+    export function diffArrays<T>(oldArr: T[], newArr: T[]): Change<T[]>[];
+    export function diffChars(oldStr: string, newStr: string): Change<string>[];
     export function diffWordsWithSpace(oldStr: string, newStr: string): Change<string>[];
 }

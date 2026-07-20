@@ -1,5 +1,5 @@
 import { buildTwoWayDiffModel } from '../src/diffEngine';
-import { createAdjacentEdgeDecorationOptions } from './decorationOptions';
+import { dedupeDecorations } from './decorationUtils';
 
 const host = createHostBridge();
 const {
@@ -876,33 +876,17 @@ function applyDiffDecorations(diffModel) {
         }
     }
 
-    const activeBlock = diffBlocks[activeDiffIndex];
-    if (activeBlock) {
-        addActiveBlockDecorations(leftDecorations, activeBlock.leftStart, activeBlock.leftEnd, leftEditor.getModel()?.getLineCount() ?? 0);
-        addActiveBlockDecorations(rightDecorations, activeBlock.rightStart, activeBlock.rightEnd, rightEditor.getModel()?.getLineCount() ?? 0);
-    }
-
     addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
     addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
 
-    leftDecorationIds = leftEditor.deltaDecorations(leftDecorationIds, leftDecorations);
-    rightDecorationIds = rightEditor.deltaDecorations(rightDecorationIds, rightDecorations);
-}
-
-function addActiveBlockDecorations(target, start, end, targetLineCount) {
-    if (start === end) {
-        addCollapsedBoundaryDecoration(target, start, targetLineCount, 'bygone-active-diff');
-        return;
-    }
-
-    addLineDecorations(target, start, end, 'bygone-active-diff');
-    addBlockEdgeDecorations(target, start, end, 'bygone-active-diff');
+    leftDecorationIds = leftEditor.deltaDecorations(leftDecorationIds, dedupeDecorations(leftDecorations));
+    rightDecorationIds = rightEditor.deltaDecorations(rightDecorationIds, dedupeDecorations(rightDecorations));
 }
 
 function applyMultiDiffDecorations(pairs) {
     const decorations = multiEditors.map(() => []);
 
-    (pairs || []).forEach((pair, pairIndex) => {
+    (pairs || []).forEach((pair) => {
         const leftDecorations = decorations[pair.leftIndex];
         const rightDecorations = decorations[pair.rightIndex];
         const diffModel = pair.diffModel;
@@ -917,17 +901,13 @@ function applyMultiDiffDecorations(pairs) {
                 addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
                 addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-paired-line');
                 addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-paired-line');
-                addAdjacentEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'right', 'bygone-paired-edge');
-                addAdjacentEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'left', 'bygone-paired-edge');
             } else if (block.kind === 'delete') {
                 addLineDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
                 addBlockEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'bygone-one-sided-line');
-                addAdjacentEdgeDecorations(leftDecorations, block.leftStart, block.leftEnd, 'right', 'bygone-one-sided-edge');
                 addCollapsedBoundaryDecoration(rightDecorations, block.rightStart, multiEditors[pair.rightIndex].getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
             } else if (block.kind === 'insert') {
                 addLineDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
                 addBlockEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'bygone-one-sided-line');
-                addAdjacentEdgeDecorations(rightDecorations, block.rightStart, block.rightEnd, 'left', 'bygone-one-sided-edge');
                 addCollapsedBoundaryDecoration(leftDecorations, block.leftStart, multiEditors[pair.leftIndex].getModel()?.getLineCount() ?? 0, 'bygone-one-sided-boundary');
             }
         }
@@ -935,17 +915,10 @@ function applyMultiDiffDecorations(pairs) {
         addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
         addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
 
-        if (pairIndex === activeMultiPairIndex) {
-            const activeBlock = diffModel.blocks?.[activeDiffIndex];
-            if (activeBlock) {
-                addActiveBlockDecorations(leftDecorations, activeBlock.leftStart, activeBlock.leftEnd, multiEditors[pair.leftIndex].getModel()?.getLineCount() ?? 0);
-                addActiveBlockDecorations(rightDecorations, activeBlock.rightStart, activeBlock.rightEnd, multiEditors[pair.rightIndex].getModel()?.getLineCount() ?? 0);
-            }
-        }
     });
 
     multiDecorationIds = multiEditors.map((editor, index) => (
-        editor.deltaDecorations(multiDecorationIds[index] || [], decorations[index])
+        editor.deltaDecorations(multiDecorationIds[index] || [], dedupeDecorations(decorations[index]))
     ));
 }
 
@@ -987,16 +960,6 @@ function addBlockEdgeDecorations(target, start, end, className) {
             isWholeLine: true,
             className: `${className}-end`
         }
-    });
-}
-
-function addAdjacentEdgeDecorations(target, start, end, side, className) {
-    if (start >= end) {
-        return;
-    }
-    target.push({
-        range: new monacoInstance.Range(start + 1, 1, end, Number.MAX_SAFE_INTEGER),
-        options: createAdjacentEdgeDecorationOptions(side, className)
     });
 }
 
