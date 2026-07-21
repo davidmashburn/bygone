@@ -9,9 +9,9 @@
 <body class="web-host">
     <div class="web-toolbar">
         <div class="web-toolbar-group">
-            <button id="web-compare-test" type="button">Compare Test Files</button>
-            <button id="web-open-diff" type="button">Open 2 Files</button>
-            <button id="web-open-diff3" type="button">Open Files</button>
+            <button id="web-compare-test" type="button" title="Compare sample files">Compare Test Files</button>
+            <button id="web-open-diff" type="button" title="Choose two files to compare">Open 2 Files</button>
+            <button id="web-open-diff3" type="button" title="Choose one or more files">Open Files</button>
         </div>
         <div id="web-status" class="web-status" role="status" aria-live="polite" aria-atomic="true">Browser host ready.</div>
     </div>
@@ -30,6 +30,9 @@
                         <path d="M9 12h10"></path>
                     </svg>
                     <span>Back</span>
+                </button>
+                <button id="toggle-directory-sidebar" class="directory-return-button" type="button" title="Hide directory files" aria-label="Hide directory files" aria-pressed="true">
+                    <span>Files</span>
                 </button>
             </div>
             <div id="edit-mode-toolbar" class="edit-mode-toolbar header-align-diff" hidden>
@@ -145,11 +148,11 @@
             <div id="diff-container">
                 <div id="two-way-diff" class="diff-view">
                     <div class="file-panel">
-                        <button id="file1-header" class="file-header" type="button" aria-pressed="false">File 1</button>
+                        <button id="file1-header" class="file-header" type="button" title="Select left pane" aria-pressed="false">File 1</button>
                         <div id="file1-content" class="file-content"></div>
                     </div>
                     <div class="file-panel">
-                        <button id="file2-header" class="file-header" type="button" aria-pressed="false">File 2</button>
+                        <button id="file2-header" class="file-header" type="button" title="Select right pane" aria-pressed="false">File 2</button>
                         <div id="file2-content" class="file-content"></div>
                     </div>
                 </div>

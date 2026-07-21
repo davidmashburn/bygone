@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DiffViewProvider } from './diffViewProvider';
 import { buildTwoWayDiffModel } from './diffEngine';
-import { buildMultiDirectoryComparison } from './directoryDiff';
+import { buildMultiDirectoryComparison, DirectoryEntry } from './directoryDiff';
 import { openDiffPreview } from './fallbackViews';
 import { FileHistoryEntry, GitHistoryService } from './gitHistory';
 import { createJavaScriptSampleFilePair } from './sampleFiles';
@@ -18,6 +18,8 @@ export class FileComparator {
     private historyIncludeStaged = false;
     private historySkipUnchanged = false;
     private currentDirectoryRoots: vscode.Uri[] = [];
+    private currentDirectoryEntries: DirectoryEntry[] = [];
+    private currentDirectoryRelativePath: string | undefined;
     private readonly gitHistoryService = new GitHistoryService();
 
     public setDiffViewProvider(provider: DiffViewProvider) {
@@ -36,6 +38,12 @@ export class FileComparator {
         });
         this.diffViewProvider.setDirectoryEntryOpenHandler((relativePath) => {
             void this.openDirectoryEntry(relativePath);
+        });
+        this.diffViewProvider.setFileNavigationHandler((direction) => {
+            void this.navigateCurrentFile(direction);
+        });
+        this.diffViewProvider.setDirectoryReturnHandler(() => {
+            void this.returnToCurrentDirectory();
         });
     }
 
@@ -238,6 +246,8 @@ export class FileComparator {
     private async compareDirectories(dirs: vscode.Uri[]): Promise<void> {
         const entries = buildMultiDirectoryComparison(dirs.map((dir) => dir.fsPath));
         this.currentDirectoryRoots = dirs;
+        this.currentDirectoryEntries = entries;
+        this.currentDirectoryRelativePath = undefined;
         this.clearFileHistoryState();
 
         if (this.diffViewProvider) {
@@ -250,6 +260,7 @@ export class FileComparator {
         const content2 = this.readFileContent(file2);
         const diffModel = buildTwoWayDiffModel(content1, content2);
         this.clearFileHistoryState();
+        this.clearDirectoryContext();
 
         if (this.diffViewProvider) {
             this.diffViewProvider.showDiff(file1, file2, content1, content2, diffModel);
@@ -260,6 +271,7 @@ export class FileComparator {
 
     private async compareMultipleFiles(files: vscode.Uri[]): Promise<void> {
         this.clearFileHistoryState();
+        this.clearDirectoryContext();
 
         if (this.diffViewProvider) {
             await this.diffViewProvider.showMultiDiff(files.map((uri) => ({
@@ -275,20 +287,84 @@ export class FileComparator {
         }
 
         const files = this.currentDirectoryRoots
-            .map((root) => vscode.Uri.file(path.join(root.fsPath, relativePath)))
-            .filter((uri) => this.getPathKind(uri.fsPath) === 'file');
+            .map((root) => vscode.Uri.file(path.join(root.fsPath, relativePath)));
 
-        if (files.length < 2) {
-            vscode.window.showInformationMessage('That entry only exists on one side.');
+        if (!files.some((uri) => this.getPathKind(uri.fsPath) === 'file')) {
+            vscode.window.showInformationMessage('That entry does not exist in the selected directories.');
             return;
         }
+
+        this.currentDirectoryRelativePath = relativePath;
+        const directoryContext = this.createDirectoryDrilldownContext(relativePath);
+        const directoryLabels = this.currentDirectoryRoots.map((root) => `${path.basename(root.fsPath)} / ${relativePath}`);
 
         if (files.length === 2) {
-            await this.compareFiles(files[0], files[1]);
+            const leftContent = this.getPathKind(files[0].fsPath) === 'file' ? this.readFileContent(files[0]) : '';
+            const rightContent = this.getPathKind(files[1].fsPath) === 'file' ? this.readFileContent(files[1]) : '';
+            await this.diffViewProvider?.showDiff(
+                files[0],
+                files[1],
+                leftContent,
+                rightContent,
+                buildTwoWayDiffModel(leftContent, rightContent),
+                { ...directoryContext, labels: [directoryLabels[0], directoryLabels[1]] }
+            );
             return;
         }
 
-        await this.compareMultipleFiles(files);
+        await this.diffViewProvider?.showMultiDiff(files.map((uri, index) => ({
+            uri,
+            content: this.getPathKind(uri.fsPath) === 'file' ? this.readFileContent(uri) : '',
+            label: directoryLabels[index]
+        })), directoryContext);
+    }
+
+    private createDirectoryDrilldownContext(relativePath: string) {
+        const files = this.currentDirectoryEntries.filter((entry) => !entry.isDirectory && entry.status !== 'same');
+        const currentIndex = files.findIndex((entry) => entry.relativePath === relativePath);
+        return {
+            canReturnToDirectory: true,
+            fileNavigation: {
+                canGoPrevious: currentIndex > 0,
+                canGoNext: currentIndex >= 0 && currentIndex < files.length - 1
+            },
+            directoryNavigation: {
+                activeRelativePath: relativePath,
+                rail: {
+                    activeTabId: 'directory-files',
+                    tabs: [{ id: 'directory-files', label: 'Files' }],
+                    itemsByTab: {
+                        'directory-files': files.map((entry) => ({
+                            label: entry.relativePath,
+                            status: entry.status,
+                            kind: 'directory-entry' as const,
+                            relativePath: entry.relativePath,
+                            active: entry.relativePath === relativePath
+                        }))
+                    }
+                }
+            }
+        };
+    }
+
+    private async navigateCurrentFile(direction: 'previous' | 'next'): Promise<void> {
+        if (!this.currentDirectoryRelativePath) {
+            return;
+        }
+
+        const files = this.currentDirectoryEntries.filter((entry) => !entry.isDirectory && entry.status !== 'same');
+        const currentIndex = files.findIndex((entry) => entry.relativePath === this.currentDirectoryRelativePath);
+        const nextIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
+        const next = files[nextIndex];
+        if (next) {
+            await this.openDirectoryEntry(next.relativePath);
+        }
+    }
+
+    private async returnToCurrentDirectory(): Promise<void> {
+        if (this.currentDirectoryRoots.length >= 2) {
+            await this.compareDirectories(this.currentDirectoryRoots);
+        }
     }
 
     private async navigateFileHistory(direction: 'back' | 'forward'): Promise<void> {
@@ -402,6 +478,7 @@ export class FileComparator {
             return;
         }
 
+        this.clearDirectoryContext();
         this.activeHistoryFile = targetFile;
         this.historyIncludeStaged = includeStaged;
         this.fileHistoryEntries = history;
@@ -440,6 +517,12 @@ export class FileComparator {
         this.fileHistoryEntries = [];
         this.fileHistoryIndex = 0;
         this.activeHistoryFile = undefined;
+    }
+
+    private clearDirectoryContext(): void {
+        this.currentDirectoryRoots = [];
+        this.currentDirectoryEntries = [];
+        this.currentDirectoryRelativePath = undefined;
     }
 
     private showErrorMessage(prefix: string, error: unknown): void {

@@ -85,7 +85,7 @@
                 // Add buttons only meaningful on outermost columns
                 const addLeftDisabled = !canMutate || !isFirst;
                 const addRightDisabled = !canMutate || !isLast;
-                const removeDisabled = !canMutate || labels.length <= 1;
+                const removeDisabled = !canMutate || labels.length <= 2;
                 const header = `<div class="dir-col-header" data-side-index="${index}">`
                     + `<div class="multi-pane-header-top">`
                     + `<span class="multi-pane-title-wrap">`
@@ -161,6 +161,7 @@
 
         return `<button class="dir-entry dir-entry--${entry.status}" type="button" `
             + `aria-label="${escapeAttr(accessibleLabel)}" `
+            + `title="${escapeAttr(entry.relativePath)}" `
             + `data-path="${escapeAttr(entry.relativePath)}" `
             + `data-depth="${entry.depth}" `
             + `data-side-index="${sideIndex}" `

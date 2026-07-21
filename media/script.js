@@ -1,5 +1,6 @@
 import { buildTwoWayDiffModel } from '../src/diffEngine';
 import { dedupeDecorations } from './decorationUtils';
+import { buildBlockChanges, findChangeIndexAtLine } from './navigationUtils';
 
 const host = createHostBridge();
 const {
@@ -60,6 +61,9 @@ let multiPanelChangeIndices = new Map();
 let multiPanelMutationEnabled = false;
 let historyRailState = null;
 let activeHistoryRailTabId = null;
+let historyRailKind = null;
+let directoryRailVisible = true;
+let hasDirectoryNavigation = false;
 let currentFileNavigation = { canGoPrevious: false, canGoNext: false };
 let activePaneSide = 'right';
 let activeDirectoryEntryPath = null;
@@ -113,7 +117,8 @@ host.onMessage((message) => {
             message.fileNavigation || null,
             Boolean(message.canReturnToDirectory),
             message.editableSides,
-            message.comparisonId
+            message.comparisonId,
+            message.directoryNavigation || null
         );
         return;
     }
@@ -129,7 +134,7 @@ host.onMessage((message) => {
             return;
         }
 
-        showMultiDiff(message.panels, message.pairs, message.activePanelId ?? null, message.activePairIndex ?? null, message.history ?? null, message.fileNavigation ?? null, Boolean(message.canReturnToDirectory));
+        showMultiDiff(message.panels, message.pairs, message.activePanelId ?? null, message.activePairIndex ?? null, message.history ?? null, message.fileNavigation ?? null, Boolean(message.canReturnToDirectory), message.directoryNavigation || null, message.mutationEnabled !== false);
         return;
     }
 
@@ -164,7 +169,8 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.fileNavigation || null,
             Boolean(pendingTwoWayPayload.canReturnToDirectory),
             pendingTwoWayPayload.editableSides,
-            pendingTwoWayPayload.comparisonId
+            pendingTwoWayPayload.comparisonId,
+            pendingTwoWayPayload.directoryNavigation || null
         );
         pendingTwoWayPayload = undefined;
     }
@@ -177,7 +183,9 @@ window.addEventListener('load', async () => {
             pendingMultiPayload.activePairIndex ?? null,
             pendingMultiPayload.history ?? null,
             pendingMultiPayload.fileNavigation ?? null,
-            Boolean(pendingMultiPayload.canReturnToDirectory)
+            Boolean(pendingMultiPayload.canReturnToDirectory),
+            pendingMultiPayload.directoryNavigation || null,
+            pendingMultiPayload.mutationEnabled !== false
         );
         pendingMultiPayload = undefined;
     }
@@ -258,7 +266,7 @@ function isDarkColor(color) {
     return luminance < 140;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null) {
     const comparisonKey = comparisonId || `${file1}\u0000${file2}`;
     const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
     currentMode = MODE_TWO_WAY;
@@ -283,7 +291,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     setTextContent('file1-header', file1);
     setTextContent('file2-header', file2);
     updateHistoryToolbar(history);
-    updateHistoryRail(history?.rail || null);
+    updateNavigationRail(history?.rail || directoryNavigation?.rail || null, history ? 'history' : (directoryNavigation ? 'directory' : null));
     updateFileNavigationState(fileNavigation || null, canReturnToDirectory);
     updateDirectoryReturnToolbar(canReturnToDirectory);
     updateEditModeToolbar();
@@ -316,7 +324,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(history);
-    updateHistoryRail(history?.rail || null);
+    updateNavigationRail(history?.rail || null, history ? 'history' : null);
     updateFileNavigationState(null, false);
     updateDirectoryReturnToolbar(false);
     updateEditModeToolbar();
@@ -340,7 +348,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
     notifyRenderComplete();
 }
 
-function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false) {
+function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true) {
     if (!Array.isArray(panels) || panels.length < 1) {
         return;
     }
@@ -363,9 +371,9 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     activeMultiPanelId = resolveActiveMultiPanelId(panels, nextActivePanelId);
     activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, nextActivePairIndex, activeMultiPanelId, panels);
     multiPanelChangeIndices = new Map();
-    multiPanelMutationEnabled = true;
+    multiPanelMutationEnabled = mutationEnabled;
     updateHistoryToolbar(history);
-    updateHistoryRail(history?.rail || null);
+    updateNavigationRail(history?.rail || directoryNavigation?.rail || null, history ? 'history' : (directoryNavigation ? 'directory' : null));
     updateFileNavigationState(fileNavigation, canReturnToDirectory);
     updateDirectoryReturnToolbar(canReturnToDirectory);
     updateEditModeToolbar();
@@ -440,7 +448,7 @@ function showThreeWayMerge(message) {
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(null);
-    updateHistoryRail(null);
+    updateNavigationRail(null, null);
     updateFileNavigationState(null, false);
     updateDirectoryReturnToolbar(false);
     updateEditModeToolbar();
@@ -561,6 +569,40 @@ function createEditor(container, editorMode, side = null) {
         }
     });
 
+    const selectChangeAtLine = (lineNumber) => {
+        if (!Number.isInteger(lineNumber) || !side) {
+            return;
+        }
+
+        if (editorMode === MODE_TWO_WAY) {
+            setActivePane(side, false);
+            const changeIndex = findChangeIndexAtLine(buildBlockChanges(diffBlocks, side), lineNumber);
+            if (changeIndex >= 0 && changeIndex !== activeDiffIndex) {
+                setActiveDiffIndex(changeIndex, false);
+            }
+            return;
+        }
+
+        if (editorMode === MODE_MULTI_WAY) {
+            setActiveMultiPanel(side, true);
+            const panelChanges = getMultiPanelChanges(side);
+            const changeIndex = findChangeIndexAtLine(panelChanges, lineNumber, activeMultiPairIndex);
+            if (changeIndex >= 0) {
+                setActiveMultiPanelChangeIndex(changeIndex, false, true);
+            }
+        }
+    };
+
+    editor.onMouseDown((event) => {
+        selectChangeAtLine(event.target?.position?.lineNumber);
+    });
+
+    editor.onDidChangeCursorPosition((event) => {
+        if (event.source === 'mouse') {
+            selectChangeAtLine(event.position.lineNumber);
+        }
+    });
+
     registerEditorKeybindings(editor, editorMode);
 
     return editor;
@@ -614,7 +656,7 @@ function renderMultiDiffShell(panels) {
             `<div class="multi-pane" data-index="${index}" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header-top">`
-            + `<button class="multi-pane-title-wrap multi-pane-select" type="button" data-multi-select-panel="${escapeAttr(panel.id)}" data-panel-id="${escapeAttr(panel.id)}" aria-pressed="false">`
+            + `<button class="multi-pane-title-wrap multi-pane-select" type="button" title="Select ${escapeAttr(panel.label)}" data-multi-select-panel="${escapeAttr(panel.id)}" data-panel-id="${escapeAttr(panel.id)}" aria-pressed="false">`
             + `<span class="multi-pane-title">${escapeHtml(panel.label)}</span>`
             + `<span class="multi-pane-dirty${panel.dirty ? ' is-visible' : ''}" aria-hidden="true" title="Unsaved changes">•</span>`
             + `</button>`
@@ -641,7 +683,7 @@ function renderMultiDiffShell(panels) {
         if (index < panels.length - 1) {
             columns.push(`${MULTI_GUTTER_WIDTH}px`);
             children.push(
-                `<button class="multi-gutter" type="button" data-pair-index="${index}" aria-label="Compare ${escapeAttr(panel.label)} with ${escapeAttr(panels[index + 1].label)}" aria-pressed="false">`
+                `<button class="multi-gutter" type="button" title="Compare ${escapeAttr(panel.label)} with ${escapeAttr(panels[index + 1].label)}" data-pair-index="${index}" aria-label="Compare ${escapeAttr(panel.label)} with ${escapeAttr(panels[index + 1].label)}" aria-pressed="false">`
                 + `<span class="multi-gutter-header"><span class="multi-gutter-title">${escapeHtml(panel.label)}:${escapeHtml(panels[index + 1].label)}</span></span>`
                 + '</button>'
             );
@@ -1137,6 +1179,14 @@ function initializeHistoryRail() {
 
 function initializeDirectoryReturnToolbar() {
     getElement('back-to-directory').addEventListener('click', () => returnToDirectory());
+    getElement('toggle-directory-sidebar').addEventListener('click', () => {
+        if (!hasDirectoryNavigation) {
+            return;
+        }
+        directoryRailVisible = !directoryRailVisible;
+        renderHistoryRail();
+        updateDirectorySidebarToggle();
+    });
 }
 
 function initializeMultiDiffInteractions() {
@@ -1564,6 +1614,16 @@ function navigateFile(direction) {
         return;
     }
 
+    if (hasDirectoryNavigation) {
+        const canNavigate = direction === 'previous'
+            ? currentFileNavigation.canGoPrevious
+            : currentFileNavigation.canGoNext;
+        if (canNavigate) {
+            host.postMessage({ type: 'navigateFile', direction });
+        }
+        return;
+    }
+
     if (currentMode === MODE_MULTI_WAY) {
         const currentIndex = multiPanels.findIndex((panel) => panel.id === activeMultiPanelId);
         if (currentIndex < 0) {
@@ -1601,6 +1661,16 @@ function returnToDirectory() {
 
 function updateDirectoryReturnToolbar(canReturnToDirectory) {
     getElement('directory-return-toolbar').hidden = !canReturnToDirectory;
+    getElement('toggle-directory-sidebar').hidden = !hasDirectoryNavigation;
+    updateDirectorySidebarToggle();
+}
+
+function updateDirectorySidebarToggle() {
+    const button = getElement('toggle-directory-sidebar');
+    const isVisible = hasDirectoryNavigation && directoryRailVisible;
+    button.setAttribute('aria-pressed', isVisible ? 'true' : 'false');
+    button.setAttribute('aria-label', isVisible ? 'Hide directory files' : 'Show directory files');
+    button.title = isVisible ? 'Hide directory files' : 'Show directory files';
 }
 
 function updateEditModeToolbar() {
@@ -1663,7 +1733,7 @@ function navigateDiff(direction) {
     setActiveDiffIndex(nextIndex, true);
 }
 
-function setActiveMultiPanelChangeIndex(index, shouldReveal) {
+function setActiveMultiPanelChangeIndex(index, shouldReveal, notifyHost = false) {
     const panelChanges = getMultiPanelChanges(activeMultiPanelId);
     if (currentMode !== MODE_MULTI_WAY || index < 0 || index >= panelChanges.length) {
         return;
@@ -1683,6 +1753,10 @@ function setActiveMultiPanelChangeIndex(index, shouldReveal) {
     updateActiveMultiShellState();
     if (shouldReveal) {
         revealActiveDiff(true);
+    }
+
+    if (notifyHost) {
+        host.postMessage({ type: 'multiSetActivePair', pairIndex: activeMultiPairIndex });
     }
 }
 
@@ -1833,6 +1907,8 @@ function updateChangeToolbarState() {
         setTextContent('change-position', `${currentIndex + 1} / ${directoryTargets.length}`);
         getElement('copy-left-to-right').hidden = false;
         getElement('copy-right-to-left').hidden = false;
+        getElement('previous-file').hidden = false;
+        getElement('next-file').hidden = false;
         getElement('previous-change').disabled = true;
         getElement('next-change').disabled = true;
         getElement('previous-file').disabled = currentIndex <= 0;
@@ -1852,6 +1928,8 @@ function updateChangeToolbarState() {
         setTextContent('change-position', diffBlocks.length > 0 ? `${safeIndex + 1} / ${diffBlocks.length}` : '0 / 0');
         getElement('copy-left-to-right').hidden = false;
         getElement('copy-right-to-left').hidden = false;
+        getElement('previous-file').hidden = false;
+        getElement('next-file').hidden = false;
         getElement('previous-change').disabled = diffBlocks.length === 0;
         getElement('next-change').disabled = diffBlocks.length === 0;
         getElement('previous-file').disabled = !currentFileNavigation.canGoPrevious;
@@ -1862,7 +1940,6 @@ function updateChangeToolbarState() {
     }
 
     if (currentMode === MODE_MULTI_WAY) {
-        const currentPanelIndex = getActiveMultiPanelIndex();
         const panelChanges = getMultiPanelChanges(activeMultiPanelId);
         const panelChangeIndex = getMultiPanelChangeIndex(activeMultiPanelId, panelChanges);
         toolbarCenter.hidden = false;
@@ -1874,8 +1951,10 @@ function updateChangeToolbarState() {
         getElement('copy-right-to-left').hidden = true;
         getElement('previous-change').disabled = panelChanges.length === 0;
         getElement('next-change').disabled = panelChanges.length === 0;
-        getElement('previous-file').disabled = currentPanelIndex <= 0;
-        getElement('next-file').disabled = currentPanelIndex < 0 || currentPanelIndex >= multiPanels.length - 1;
+        getElement('previous-file').hidden = !hasDirectoryNavigation;
+        getElement('next-file').hidden = !hasDirectoryNavigation;
+        getElement('previous-file').disabled = !currentFileNavigation.canGoPrevious;
+        getElement('next-file').disabled = !currentFileNavigation.canGoNext;
         getElement('copy-left-to-right').disabled = true;
         getElement('copy-right-to-left').disabled = true;
         updateActiveMultiShellState();
@@ -2425,8 +2504,19 @@ function updateDirectoryTreeToolbar() {
     getElement('directory-tree-toolbar').hidden = currentMode !== 'directory';
 }
 
-function updateHistoryRail(historyRail) {
+function updateNavigationRail(historyRail, kind) {
     historyRailState = historyRail;
+    historyRailKind = historyRail ? kind : null;
+    hasDirectoryNavigation = historyRailKind === 'directory';
+
+    if (hasDirectoryNavigation && historyRailState) {
+        const activeItem = Object.values(historyRailState.itemsByTab || {})
+            .flat()
+            .find((item) => item.active && item.relativePath);
+        if (activeItem) {
+            activeDirectoryEntryPath = activeItem.relativePath;
+        }
+    }
 
     if (!historyRail) {
         activeHistoryRailTabId = null;
@@ -2439,13 +2529,14 @@ function updateHistoryRail(historyRail) {
     }
 
     renderHistoryRail();
+    updateDirectorySidebarToggle();
 }
 
 function renderHistoryRail() {
     const rail = getElement('history-rail');
     const container = getElement('container');
 
-    if (!historyRailState) {
+    if (!historyRailState || (historyRailKind === 'directory' && !directoryRailVisible)) {
         rail.hidden = true;
         rail.classList.add('hidden');
         rail.innerHTML = '';
@@ -2465,7 +2556,7 @@ function renderHistoryRail() {
         '<div class="history-rail-tabs">',
         ...tabs.map((tab) => {
             const isActive = tab.id === (activeTab?.id || null);
-            return `<button class="history-rail-tab${isActive ? ' active' : ''}" type="button" data-rail-tab="${escapeAttr(tab.id)}">${escapeHtml(tab.label)}</button>`;
+            return `<button class="history-rail-tab${isActive ? ' active' : ''}" type="button" title="Show ${escapeAttr(tab.label)}" data-rail-tab="${escapeAttr(tab.id)}">${escapeHtml(tab.label)}</button>`;
         }),
         '</div>',
         '<div class="history-rail-list">',
@@ -2485,7 +2576,7 @@ function renderHistoryRailItem(item, tabId, index) {
     const indexAttr = Number.isInteger(item.index) ? ` data-rail-index="${String(item.index)}"` : ` data-rail-index="${String(index)}"`;
     const pathAttr = typeof item.relativePath === 'string' ? ` data-rail-path="${escapeAttr(item.relativePath)}"` : '';
 
-    return `<button class="history-rail-item${activeClass}${statusClass}" type="button" data-rail-item="true" data-rail-tab="${escapeAttr(tabId)}"${kindAttr}${indexAttr}${pathAttr}>`
+    return `<button class="history-rail-item${activeClass}${statusClass}" type="button" title="${escapeAttr(item.label)}" data-rail-item="true" data-rail-tab="${escapeAttr(tabId)}"${kindAttr}${indexAttr}${pathAttr}>`
         + `<span class="history-rail-marker">${escapeHtml(marker)}</span>`
         + `<span class="history-rail-text">`
         + `<span class="history-rail-label">${escapeHtml(item.label)}</span>`

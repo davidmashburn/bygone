@@ -7,6 +7,69 @@ const { buildTwoWayDiffModel, mergeText } = require('../out/diffEngine.js');
 const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
 const { dedupeDecorations } = require('../media/decorationUtils.js');
+const { buildBlockChanges, buildDirectoryNavigationState, findChangeIndexAtLine } = require('../media/navigationUtils.js');
+const { getMenuCapabilities } = require('../standalone/menuUtils.js');
+
+function testLineClickSelectsContainingTwoWayChange() {
+    const model = buildTwoWayDiffModel('one\ntwo\nthree\nfour\n', 'one\nTWO\nthree\nFOUR\n');
+    const rightChanges = buildBlockChanges(model.blocks, 'right');
+
+    assert.equal(findChangeIndexAtLine(rightChanges, 2), 0);
+    assert.equal(findChangeIndexAtLine(rightChanges, 4), 1);
+    assert.equal(findChangeIndexAtLine(rightChanges, 3), -1);
+}
+
+function testLineClickIgnoresCollapsedSideOfOneSidedChange() {
+    const model = buildTwoWayDiffModel('one\nthree\n', 'one\ntwo\nthree\n');
+
+    assert.equal(findChangeIndexAtLine(buildBlockChanges(model.blocks, 'left'), 2), -1);
+    assert.equal(findChangeIndexAtLine(buildBlockChanges(model.blocks, 'right'), 2), 0);
+}
+
+function testLineClickPrefersCurrentAdjacentPair() {
+    const changes = [
+        { start: 4, end: 6, pairIndex: 0 },
+        { start: 4, end: 6, pairIndex: 1 }
+    ];
+
+    assert.equal(findChangeIndexAtLine(changes, 5, 1), 1);
+    assert.equal(findChangeIndexAtLine(changes, 5, 0), 0);
+}
+
+function testDirectoryDrilldownNavigationTracksActiveFile() {
+    const navigation = buildDirectoryNavigationState([
+        { relativePath: 'folder/', isDirectory: true, status: 'modified' },
+        { relativePath: 'same.txt', isDirectory: false, status: 'same' },
+        { relativePath: 'a.txt', isDirectory: false, status: 'modified' },
+        { relativePath: 'b.txt', isDirectory: false, status: 'partial' },
+        { relativePath: 'c.txt', isDirectory: false, status: 'right-only' }
+    ], 'b.txt');
+
+    assert.deepEqual(navigation.fileNavigation, { canGoPrevious: true, canGoNext: true });
+    assert.deepEqual(
+        navigation.directoryNavigation.rail.itemsByTab['directory-files'].map((item) => [item.relativePath, item.active]),
+        [['a.txt', false], ['b.txt', true], ['c.txt', false]]
+    );
+}
+
+function testMenuCapabilitiesFollowSessionMode() {
+    assert.deepEqual(getMenuCapabilities({ mode: 'empty' }), {
+        isMultiDiff: false,
+        isTwoWayDiff: false,
+        isHistory: false,
+        canReturnToDirectory: false,
+        canAddPanel: false,
+        canRemovePanel: false
+    });
+    const multi = getMenuCapabilities({
+        mode: 'multi-diff',
+        multi: { activePanelId: 'middle', files: [{}, {}, {}] },
+        returnDirectory: { relativePath: 'a.txt' }
+    });
+    assert.equal(multi.canAddPanel, true);
+    assert.equal(multi.canRemovePanel, true);
+    assert.equal(multi.canReturnToDirectory, true);
+}
 
 function testTwoWayDiffAlignsInsertions() {
     const model = buildTwoWayDiffModel('a\nb\nc\n', 'a\nx\nb\nc\n');
@@ -110,6 +173,29 @@ function testRendererDoesNotAddActiveOrAdjacentSemanticOverrides() {
 
     assert.doesNotMatch(rendererSource, /addActiveBlockDecorations|addAdjacentEdgeDecorations/);
     assert.doesNotMatch(connectorSource, /getActiveBlockColor/);
+}
+
+function testStaticButtonsHaveTooltips() {
+    for (const relativePath of ['standalone/index.html', 'web/index.html', 'src/diffViewProvider.ts']) {
+        const source = fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
+        const buttons = source.match(/<button\b[\s\S]*?<\/button>/g) || [];
+        assert.ok(buttons.length > 0, `${relativePath} should contain buttons`);
+        buttons.forEach((button) => {
+            const openingTag = button.match(/<button\b[^>]*>/)?.[0] || '';
+            assert.match(openingTag, /\btitle="[^"]+"/, `${relativePath} has a button without a tooltip: ${openingTag}`);
+        });
+    }
+}
+
+function testDynamicButtonsHaveTooltips() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const directorySource = fs.readFileSync(path.join(__dirname, '..', 'media', 'dom.js'), 'utf8');
+
+    assert.match(rendererSource, /multi-pane-title-wrap[^`]+title=/);
+    assert.match(rendererSource, /multi-gutter[^`]+title=/);
+    assert.match(rendererSource, /history-rail-tab[^`]+title=/);
+    assert.match(rendererSource, /history-rail-item[^`]+title=/);
+    assert.match(directorySource, /return `<button class="dir-entry[\s\S]{0,300}title=/);
 }
 
 function testDuplicateMultiPanelDecorationsRenderOnce() {
@@ -435,6 +521,11 @@ function shortCommit(repo, rev) {
 }
 
 function run() {
+    testLineClickSelectsContainingTwoWayChange();
+    testLineClickIgnoresCollapsedSideOfOneSidedChange();
+    testLineClickPrefersCurrentAdjacentPair();
+    testDirectoryDrilldownNavigationTracksActiveFile();
+    testMenuCapabilitiesFollowSessionMode();
     testTwoWayDiffAlignsInsertions();
     testInlineHighlightsSingleWordReplacement();
     testInlineHighlightsPunctuationChange();
@@ -443,6 +534,8 @@ function run() {
     testPureDeleteHasNoInlineSegments();
     testInlineHighlightsAlignAroundInsertedAndDeletedLines();
     testRendererDoesNotAddActiveOrAdjacentSemanticOverrides();
+    testStaticButtonsHaveTooltips();
+    testDynamicButtonsHaveTooltips();
     testDuplicateMultiPanelDecorationsRenderOnce();
     testDirectoryDiffDetectsModifiedFiles();
     testMultiDirectoryDiffDetectsPartialAndModifiedFiles();

@@ -40,6 +40,11 @@ export interface HistoryRailState {
     itemsByTab: Record<string, HistoryRailItem[]>;
 }
 
+export interface DirectoryNavigationState {
+    activeRelativePath: string;
+    rail: HistoryRailState;
+}
+
 export interface ShowDiffMessage {
     type: 'showDiff';
     file1: string;
@@ -50,6 +55,7 @@ export interface ShowDiffMessage {
     diffModel: TwoWayDiffModel;
     history: (HistoryViewState & { fileName: string }) | null;
     canReturnToDirectory?: boolean;
+    directoryNavigation?: DirectoryNavigationState | null;
     fileNavigation?: FileNavigationState | null;
     editableSides?: {
         left: boolean;
@@ -64,6 +70,7 @@ export interface ShowDirectoryDiffMessage {
     labels?: string[];
     entries: DirectoryEntry[];
     history?: (HistoryViewState & { fileName: string }) | null;
+    canMutate?: boolean;
 }
 
 export interface MultiDiffPanel {
@@ -86,6 +93,10 @@ export interface ShowMultiDiffMessage {
     pairs: MultiDiffPair[];
     activePanelId?: string | null;
     activePairIndex?: number | null;
+    canReturnToDirectory?: boolean;
+    directoryNavigation?: DirectoryNavigationState | null;
+    fileNavigation?: FileNavigationState | null;
+    mutationEnabled?: boolean;
 }
 
 export interface ShowThreeWayMergeMessage {
@@ -233,6 +244,10 @@ export function isNavigateFileMessage(message: unknown): message is NavigateFile
     return getMessageType(message) === 'navigateFile'
         && (((message as NavigateFileMessage).direction) === 'previous'
             || ((message as NavigateFileMessage).direction) === 'next');
+}
+
+export function isReturnToDirectoryMessage(message: unknown): message is ReturnToDirectoryMessage {
+    return getMessageType(message) === 'returnToDirectory';
 }
 
 export function isHistoryToggleStagedMessage(message: unknown): message is HistoryToggleStagedMessage {

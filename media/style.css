@@ -154,6 +154,8 @@ body.web-host {
 
 .directory-return-toolbar {
     margin-top: 10px;
+    display: flex;
+    gap: 6px;
 }
 
 .directory-return-toolbar[hidden] {

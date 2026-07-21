@@ -8,6 +8,8 @@ const { buildTwoWayDiffModel } = require('../src/diffEngine.ts');
 const { GitHistoryService } = require('../src/gitHistory.ts');
 const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
 const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
+const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
+const { getMenuCapabilities } = require('./menuUtils.js');
 
 const APP_NAME = 'Bygone';
 const APP_VERSION = require('../package.json').version;
@@ -27,7 +29,7 @@ const commandLineToolPath = process.platform === 'win32'
     : '/usr/local/bin/bygone';
 const gitHistoryService = new GitHistoryService();
 const launchArguments = parseLaunchArgs(getCliArgs());
-const smokeTestMode = launchArguments.kind === 'smoke' || launchArguments.kind === 'smoke-multi';
+const smokeTestMode = launchArguments.kind === 'smoke' || launchArguments.kind === 'smoke-multi' || launchArguments.kind === 'smoke-directory';
 const captureOutputPath = launchArguments.capturePath ? path.resolve(launchArguments.capturePath) : null;
 const captureMode = Boolean(captureOutputPath);
 const launchWindowWidth = Number.isFinite(launchArguments.windowWidth) ? launchArguments.windowWidth : 1500;
@@ -241,21 +243,31 @@ function createMainWindow() {
 }
 
 function installApplicationMenu() {
-    const isMultiDiff = session.mode === 'multi-diff';
+    const {
+        isMultiDiff,
+        isTwoWayDiff,
+        isHistory,
+        canReturnToDirectory,
+        canAddPanel,
+        canRemovePanel
+    } = getMenuCapabilities(session);
     const fileActionItems = isMultiDiff
         ? [
             {
                 label: 'Save Active File',
                 accelerator: 'CmdOrCtrl+S',
+                enabled: Boolean(session.multi?.activePanelId),
                 click: () => { void saveSide('left'); }
             },
             {
                 label: 'Save All',
                 accelerator: 'CmdOrCtrl+Shift+S',
+                enabled: isMultiDiff,
                 click: () => { void saveAllDirtySides(); }
             },
             {
                 label: 'Reload Active File',
+                enabled: Boolean(session.multi?.activePanelId),
                 click: () => { void reloadSide('left'); }
             }
         ]
@@ -263,23 +275,28 @@ function installApplicationMenu() {
             {
                 label: 'Save Left',
                 accelerator: 'CmdOrCtrl+S',
+                enabled: isTwoWayDiff || isHistory,
                 click: () => { void saveSide('left'); }
             },
             {
                 label: 'Save Right',
                 accelerator: 'CmdOrCtrl+Shift+S',
+                enabled: isTwoWayDiff || isHistory,
                 click: () => { void saveSide('right'); }
             },
             {
                 label: 'Save All',
+                enabled: isTwoWayDiff || isHistory,
                 click: () => { void saveAllDirtySides(); }
             },
             {
                 label: 'Reload Left',
+                enabled: isTwoWayDiff,
                 click: () => { void reloadSide('left'); }
             },
             {
                 label: 'Reload Right',
+                enabled: isTwoWayDiff,
                 click: () => { void reloadSide('right'); }
             }
         ];
@@ -330,22 +347,25 @@ function installApplicationMenu() {
                     label: 'Compare Multiple Files…',
                     click: () => { void openCompareMultiFilesDialog(); }
                 },
+                {
+                    label: 'Compare Multiple Directories…',
+                    click: () => { void openCompareMultipleDirectoriesDialog(); }
+                },
                 { type: 'separator' },
                 {
                     label: 'Add Panel to Left…',
+                    enabled: canAddPanel,
                     click: () => { void addPanelFromMenu('left'); }
                 },
                 {
                     label: 'Add Panel to Right…',
+                    enabled: canAddPanel,
                     click: () => { void addPanelFromMenu('right'); }
                 },
                 {
                     label: 'Remove Active Panel',
+                    enabled: canRemovePanel,
                     click: () => { void removeActivePanelFromMenu(); }
-                },
-                {
-                    label: 'Compare Multiple Directories…',
-                    click: () => { void openCompareMultipleDirectoriesDialog(); }
                 },
                 {
                     label: 'Compare File History…',
@@ -382,11 +402,13 @@ function installApplicationMenu() {
                 {
                     label: 'Older Commit',
                     accelerator: 'Alt+Left',
+                    enabled: isHistory,
                     click: () => { void navigateHistory('back'); }
                 },
                 {
                     label: 'Newer Commit',
                     accelerator: 'Alt+Right',
+                    enabled: isHistory,
                     click: () => { void navigateHistory('forward'); }
                 }
             ]
@@ -397,6 +419,7 @@ function installApplicationMenu() {
                 {
                     label: 'Back to Directory',
                     accelerator: 'CmdOrCtrl+[',
+                    enabled: canReturnToDirectory,
                     click: () => { void returnToDirectoryView(); }
                 },
                 { type: 'separator' },
@@ -594,6 +617,11 @@ async function routeLaunchTarget(launchTarget) {
 
     if (launchTarget.kind === 'smoke-multi') {
         await compareMultiTestFiles();
+        return;
+    }
+
+    if (launchTarget.kind === 'smoke-directory') {
+        await compareDirectoryTestFiles();
     }
 }
 
@@ -700,6 +728,10 @@ function parseLaunchArgs(args) {
 
     if (filteredArgs[0] === '--smoke-test-multi') {
         return { kind: 'smoke-multi', capturePath, windowWidth, windowHeight };
+    }
+
+    if (filteredArgs[0] === '--smoke-test-directory') {
+        return { kind: 'smoke-directory', capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs.length === 1 && !filteredArgs[0].startsWith('--')) {
@@ -916,10 +948,17 @@ async function openCompareFilesDialog() {
     });
 
     if (result.canceled || result.filePaths.length < 2) {
+        if (!result.canceled) {
+            await showInfo('Select at least two files to compare.');
+        }
         return;
     }
 
-    await openDiff(result.filePaths[0], result.filePaths[1]);
+    if (result.filePaths.length === 2) {
+        await openDiff(result.filePaths[0], result.filePaths[1]);
+    } else {
+        await openMultiDiff(result.filePaths);
+    }
 }
 
 async function openDroppedFiles(paths) {
@@ -999,6 +1038,11 @@ async function openCompareMultiFilesDialog() {
         return;
     }
 
+    if (result.filePaths.length === 1) {
+        await openHistory(result.filePaths[0], historyIncludeStagedPreference);
+        return;
+    }
+
     if (result.filePaths.length === 2) {
         await openDiff(result.filePaths[0], result.filePaths[1]);
         return;
@@ -1017,11 +1061,23 @@ async function openCompareMultipleDirectoriesDialog() {
         properties: ['openDirectory', 'multiSelections']
     });
 
-    if (result.canceled || result.filePaths.length < 2) {
+    if (result.canceled || result.filePaths.length === 0) {
         return;
     }
 
-    await openDirectories(result.filePaths);
+    const selectedDirectories = [...result.filePaths];
+    if (selectedDirectories.length === 1) {
+        const second = await dialog.showOpenDialog(mainWindow, {
+            title: 'Select another directory to compare',
+            properties: ['openDirectory']
+        });
+        if (second.canceled || second.filePaths.length === 0) {
+            return;
+        }
+        selectedDirectories.push(second.filePaths[0]);
+    }
+
+    await openDirectories(selectedDirectories);
 }
 
 async function openCompareDirectoriesDialog() {
@@ -1051,9 +1107,13 @@ async function openCompareDirectoriesDialog() {
 }
 
 async function openDirectories(dirs, options = {}) {
-    const resolvedDirs = dirs.map((dir) => path.resolve(dir));
+    const resolvedDirs = dirs.map((dir) => path.resolve(dir)).filter((dir, index, all) => all.indexOf(dir) === index);
     if (resolvedDirs.length < 2 || !resolvedDirs.every((dir) => getPathKind(dir) === 'directory')) {
-        await showInfo('Directory compare requires directories.');
+        await showInfo('Directory compare requires at least two distinct directories.');
+        return;
+    }
+    if (!await confirmSessionReplacement('open another directory comparison')) {
+        cleanupGitDiffTempRoots(options.tempRoots || []);
         return;
     }
 
@@ -1153,7 +1213,7 @@ async function removeDirectoryColumn(sideIndex) {
         return;
     }
 
-    if (session.directory.dirs.length <= 1) {
+    if (session.directory.dirs.length <= 2) {
         return;
     }
 
@@ -1311,6 +1371,9 @@ async function openDirectoryHistory(dirPath, includeStaged = historyIncludeStage
     const resolvedDir = path.resolve(dirPath);
     if (getPathKind(resolvedDir) !== 'directory') {
         await showInfo('Directory history requires a directory.');
+        return;
+    }
+    if (!await confirmSessionReplacement('open directory history')) {
         return;
     }
 
@@ -1559,6 +1622,11 @@ async function sendCurrentDirectoryDiff() {
     });
 
     updateWindowTitle(session.directory.labels.join(' ↔ '));
+    if (launchArguments.kind === 'smoke-directory' && mainWindow && !mainWindow.isDestroyed()) {
+        setTimeout(() => {
+            void mainWindow.webContents.executeJavaScript(`document.querySelector('.dir-entry[data-is-dir="false"]')?.click()`);
+        }, 250);
+    }
     scheduleCaptureIfNeeded();
 }
 
@@ -1911,6 +1979,9 @@ async function openDiff(leftPath, rightPath) {
 }
 
 async function openHistory(filePath, includeStaged = historyIncludeStagedPreference) {
+    if (!await confirmSessionReplacement('open file history')) {
+        return;
+    }
     const resolvedPath = path.resolve(filePath);
     let entries;
 
@@ -2005,6 +2076,9 @@ async function openMultiDiff(filePaths) {
         await showInfo('Multi-file compare requires one or more files.');
         return;
     }
+    if (!await confirmSessionReplacement('open another comparison')) {
+        return;
+    }
 
     const files = resolvedPaths.map((filePath) => createMultiPanelState(filePath));
 
@@ -2030,6 +2104,9 @@ async function openMultiDiff(filePaths) {
 }
 
 async function openBlankDiff() {
+    if (!await confirmSessionReplacement('open a blank comparison')) {
+        return;
+    }
     const panel = createBlankMultiPanelState();
     session = {
         mode: 'multi-diff',
@@ -2203,6 +2280,9 @@ async function removeMultiPanel(panelId) {
     if (panelIndex < 0) {
         return;
     }
+    if (session.multi.files[panelIndex]?.dirty && !await confirmSessionReplacement('remove the edited panel')) {
+        return;
+    }
 
     session.multi.files.splice(panelIndex, 1);
     const nextPanelIndex = Math.min(panelIndex, session.multi.files.length - 1);
@@ -2299,6 +2379,15 @@ async function openHistoryAsMultiPanel(side) {
 }
 
 async function openDirectoryEntry(relativePath) {
+    if ((session.mode === 'diff' || session.mode === 'multi-diff') && session.returnDirectory && !relativePath.endsWith('/')) {
+        if (session.returnDirectory.dirs.length === 2) {
+            await openDirectoryFileDiff(session.returnDirectory.dirs, session.returnDirectory.labels, relativePath);
+        } else {
+            await openDirectoryEntryMultiPanel(session.returnDirectory.dirs, session.returnDirectory.labels, relativePath);
+        }
+        return;
+    }
+
     if (session.mode === 'directory-history' && session.dirHistory && !relativePath.endsWith('/')) {
         session.dirHistory.viewRelativePath = relativePath;
         const normalizedIndex = normalizeHistoryIndex(getVisibleDirectoryHistoryIndices(session.dirHistory), session.dirHistory.index);
@@ -2322,6 +2411,9 @@ async function openDirectoryEntry(relativePath) {
 }
 
 async function openDirectoryEntryMultiPanel(dirs, labels, relativePath) {
+    if (!await confirmSessionReplacement('open another directory file')) {
+        return;
+    }
     const panels = dirs.map((dir, i) => {
         const filePath = path.join(dir, relativePath);
         const exists = getPathKind(filePath) === 'file';
@@ -2359,6 +2451,9 @@ async function openDirectoryEntryMultiPanel(dirs, labels, relativePath) {
 }
 
 async function openDirectoryFileDiff(dirs, labels, relativePath) {
+    if (!await confirmSessionReplacement('open another directory file')) {
+        return;
+    }
     const leftPath = path.join(dirs[0], relativePath);
     const rightPath = path.join(dirs[1], relativePath);
     const leftExists = getPathKind(leftPath) === 'file';
@@ -2404,6 +2499,9 @@ async function returnToDirectoryView() {
     }
 
     if ((session.mode === 'diff' || session.mode === 'multi-diff') && session.returnDirectory) {
+        if (!await confirmSessionReplacement('return to the directory comparison')) {
+            return;
+        }
         const { dirs, labels } = session.returnDirectory;
 
         session = {
@@ -2433,20 +2531,24 @@ function buildChangedFileEntries(entries) {
 }
 
 function buildStandaloneFileNavigationState() {
-    if (session.mode !== 'diff' || !session.returnDirectory?.relativePath) {
+    if ((session.mode !== 'diff' && session.mode !== 'multi-diff') || !session.returnDirectory?.relativePath) {
         return {
             canGoPrevious: false,
             canGoNext: false
         };
     }
 
-    const entries = buildChangedFileEntries(buildMultiDirectoryComparison(session.returnDirectory.dirs));
-    const currentIndex = entries.findIndex((entry) => entry.relativePath === session.returnDirectory.relativePath);
+    const entries = buildMultiDirectoryComparison(session.returnDirectory.dirs);
+    return buildDirectoryNavigationState(entries, session.returnDirectory.relativePath).fileNavigation;
+}
 
-    return {
-        canGoPrevious: currentIndex > 0,
-        canGoNext: currentIndex >= 0 && currentIndex < entries.length - 1
-    };
+function buildDirectoryDrilldownNavigationState() {
+    if ((session.mode !== 'diff' && session.mode !== 'multi-diff') || !session.returnDirectory?.relativePath) {
+        return null;
+    }
+
+    const entries = buildMultiDirectoryComparison(session.returnDirectory.dirs);
+    return buildDirectoryNavigationState(entries, session.returnDirectory.relativePath).directoryNavigation;
 }
 
 function buildDirectoryHistoryFileNavigationState(dirHistory, entry) {
@@ -2467,6 +2569,23 @@ function buildDirectoryHistoryFileNavigationState(dirHistory, entry) {
 }
 
 async function navigateSiblingFile(direction) {
+    if ((session.mode === 'diff' || session.mode === 'multi-diff') && session.returnDirectory?.relativePath) {
+        const entries = buildChangedFileEntries(buildMultiDirectoryComparison(session.returnDirectory.dirs));
+        const currentIndex = entries.findIndex((entry) => entry.relativePath === session.returnDirectory.relativePath);
+        const nextIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
+        const nextEntry = entries[nextIndex];
+        if (!nextEntry) {
+            return;
+        }
+
+        if (session.returnDirectory.dirs.length === 2) {
+            await openDirectoryFileDiff(session.returnDirectory.dirs, session.returnDirectory.labels, nextEntry.relativePath);
+        } else {
+            await openDirectoryEntryMultiPanel(session.returnDirectory.dirs, session.returnDirectory.labels, nextEntry.relativePath);
+        }
+        return;
+    }
+
     if (session.mode === 'multi-diff' && session.multi) {
         const currentIndex = getMultiPanelIndexById(session.multi.activePanelId || '');
         if (currentIndex < 0) {
@@ -2504,18 +2623,6 @@ async function navigateSiblingFile(direction) {
         return;
     }
 
-    if (session.mode === 'diff' && session.returnDirectory?.relativePath) {
-        const entries = buildChangedFileEntries(buildMultiDirectoryComparison(session.returnDirectory.dirs));
-        const currentIndex = entries.findIndex((directoryEntry) => directoryEntry.relativePath === session.returnDirectory.relativePath);
-        const nextIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
-        const nextEntry = entries[nextIndex];
-
-        if (!nextEntry) {
-            return;
-        }
-
-        await openDirectoryFileDiff(session.returnDirectory.dirs, session.returnDirectory.labels, nextEntry.relativePath);
-    }
 }
 
 async function sendCurrentMultiDiff() {
@@ -2525,6 +2632,7 @@ async function sendCurrentMultiDiff() {
 
     const sourceKind = session.multi.sourceKind;
     const fileCount = session.multi.files.length;
+    const isDirectoryDrilldown = Boolean(session.returnDirectory);
 
     const panels = session.multi.files.map((file, index) => {
         let addLeftEnabled, removeEnabled, addRightEnabled;
@@ -2532,6 +2640,10 @@ async function sendCurrentMultiDiff() {
             addLeftEnabled = index === 0;
             removeEnabled = (index === 0 || index === fileCount - 1) && fileCount > 1;
             addRightEnabled = index === fileCount - 1;
+        } else if (isDirectoryDrilldown) {
+            addLeftEnabled = false;
+            removeEnabled = false;
+            addRightEnabled = false;
         } else {
             addLeftEnabled = true;
             removeEnabled = fileCount > 1;
@@ -2566,7 +2678,10 @@ async function sendCurrentMultiDiff() {
         })),
         activePanelId,
         activePairIndex,
-        canReturnToDirectory: Boolean(session.returnDirectory)
+        canReturnToDirectory: Boolean(session.returnDirectory),
+        directoryNavigation: buildDirectoryDrilldownNavigationState(),
+        fileNavigation: buildStandaloneFileNavigationState(),
+        mutationEnabled: !isDirectoryDrilldown
     });
 
     updateWindowTitle(panels.map((panel) => panel.label).join(' ↔ ') || 'Multi-Panel Compare');
@@ -2677,6 +2792,19 @@ async function compareMultiTestFiles() {
     await sendCurrentMultiDiff();
 }
 
+async function compareDirectoryTestFiles() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-directory-smoke-'));
+    const left = path.join(root, 'left');
+    const right = path.join(root, 'right');
+    fs.mkdirSync(left, { recursive: true });
+    fs.mkdirSync(right, { recursive: true });
+    fs.writeFileSync(path.join(left, 'a.txt'), 'left a\n', 'utf8');
+    fs.writeFileSync(path.join(right, 'a.txt'), 'right a\n', 'utf8');
+    fs.writeFileSync(path.join(left, 'b.txt'), 'left b\n', 'utf8');
+    fs.writeFileSync(path.join(right, 'b.txt'), 'right b\n', 'utf8');
+    await openDirectories([left, right]);
+}
+
 async function sendCurrentDiff() {
     if (session.mode !== 'diff') {
         return;
@@ -2693,6 +2821,7 @@ async function sendCurrentDiff() {
         diffModel,
         history: null,
         fileNavigation: buildStandaloneFileNavigationState(),
+        directoryNavigation: buildDirectoryDrilldownNavigationState(),
         editableSides: {
             left: true,
             right: true
@@ -2715,7 +2844,21 @@ async function sendCurrentDiff() {
                 inlineHighlightCount: document.querySelectorAll('.bygone-inline-blue').length,
                 activeDiffCount: document.querySelectorAll('.bygone-active-diff').length,
                 pairedLineBackground: getComputedStyle(document.querySelector('.bygone-paired-line')).backgroundColor,
-                inlineHighlightBackground: getComputedStyle(document.querySelector('.bygone-inline-blue')).backgroundColor
+                inlineHighlightBackground: getComputedStyle(document.querySelector('.bygone-inline-blue')).backgroundColor,
+                directoryRailVisible: !document.getElementById('history-rail')?.hidden,
+                directoryRailItemCount: document.querySelectorAll('.history-rail-item').length,
+                directoryReturnVisible: !document.getElementById('directory-return-toolbar')?.hidden,
+                directorySidebarToggleVisible: !document.getElementById('toggle-directory-sidebar')?.hidden,
+                directorySidebarToggleWorked: (() => {
+                    const toggle = document.getElementById('toggle-directory-sidebar');
+                    const rail = document.getElementById('history-rail');
+                    if (!toggle || !rail || toggle.hidden) return false;
+                    toggle.click();
+                    const hidden = rail.hidden;
+                    toggle.click();
+                    return hidden && !rail.hidden;
+                })(),
+                nextFileEnabled: !document.getElementById('next-file')?.disabled
             }))()`)
                 .then((snapshot) => {
                     if (smokeTestMode) {
@@ -3394,7 +3537,33 @@ function updateWindowTitle(title) {
     mainWindow.setTitle(`${APP_NAME} — ${title}${dirtySuffix}`);
 }
 
+async function confirmSessionReplacement(action) {
+    if (!hasUnsavedChanges()) {
+        return true;
+    }
+    if (!mainWindow) {
+        return false;
+    }
+
+    const choice = await dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        buttons: ['Save All', 'Discard', 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+        message: `Save your changes before you ${action}?`,
+        detail: 'Continuing without saving will discard unsaved Bygone edits.'
+    });
+    if (choice.response === 2) {
+        return false;
+    }
+    if (choice.response === 0) {
+        return Boolean(await saveAllDirtySides());
+    }
+    return true;
+}
+
 function postOrQueue(message) {
+    installApplicationMenu();
     if (captureMode
         && message
         && typeof message === 'object'
@@ -3680,6 +3849,14 @@ function finalizeSmokeTest(snapshot) {
             && snapshot.activeDiffCount === 0
             && snapshot.adjacentEdgeCount === 0
             && snapshot.inlineAdjacentEdgeCount === 0
+        )
+        || (
+            snapshot.directoryRailVisible === true
+            && snapshot.directoryRailItemCount === 2
+            && snapshot.directoryReturnVisible === true
+            && snapshot.directorySidebarToggleVisible === true
+            && snapshot.directorySidebarToggleWorked === true
+            && snapshot.nextFileEnabled === true
         )
     ));
 

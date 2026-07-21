@@ -16,6 +16,7 @@ import {
     isNavigateFileMessage,
     isReadyMessage,
     isRecomputeDiffMessage,
+    isReturnToDirectoryMessage,
     isSelectHistoryEntryMessage,
     ShowDiffMessage,
     ShowDirectoryDiffMessage,
@@ -23,6 +24,10 @@ import {
     ShowThreeWayMergeMessage,
     WebviewOutboundMessage
 } from './webviewMessages';
+
+type DirectoryDiffContext = Pick<ShowDiffMessage, 'canReturnToDirectory' | 'fileNavigation' | 'directoryNavigation'> & {
+    labels?: [string, string];
+};
 
 export class DiffViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'bygone.diffView';
@@ -35,6 +40,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         file1: string;
         file2: string;
         comparisonId: string;
+        directoryContext?: DirectoryDiffContext;
     };
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
     private historyStagedToggleHandler?: (includeStaged: boolean) => void;
@@ -42,6 +48,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     private historySelectionHandler?: (index: number) => void;
     private directoryEntryOpenHandler?: (relativePath: string) => void;
     private fileNavigationHandler?: (direction: 'previous' | 'next') => void;
+    private directoryReturnHandler?: () => void;
 
     constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -67,6 +74,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
     public setFileNavigationHandler(handler: (direction: 'previous' | 'next') => void): void {
         this.fileNavigationHandler = handler;
+    }
+
+    public setDirectoryReturnHandler(handler: () => void): void {
+        this.directoryReturnHandler = handler;
     }
 
     public resolveWebviewView(
@@ -122,6 +133,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 this.fileNavigationHandler(message.direction);
             }
 
+            if (isReturnToDirectoryMessage(message) && this.directoryReturnHandler) {
+                this.directoryReturnHandler();
+            }
+
             if (isMultiSetActivePanelMessage(message)) {
                 this.handleMultiSetActivePanel(message.panelId);
             }
@@ -141,7 +156,14 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
     }
 
-    public async showDiff(file1: vscode.Uri, file2: vscode.Uri, leftContent: string, rightContent: string, diffModel: TwoWayDiffModel) {
+    public async showDiff(
+        file1: vscode.Uri,
+        file2: vscode.Uri,
+        leftContent: string,
+        rightContent: string,
+        diffModel: TwoWayDiffModel,
+        directoryContext?: DirectoryDiffContext
+    ) {
         const view = await this.revealView();
         if (!view) {
             vscode.window.showWarningMessage('Bygone view is unavailable. Opening the diff in a text tab instead.');
@@ -150,9 +172,10 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         }
 
         this.currentTwoWayDiff = {
-            file1: path.basename(file1.path),
-            file2: path.basename(file2.path),
-            comparisonId: `${file1.toString()}\u0000${file2.toString()}`
+            file1: directoryContext?.labels?.[0] ?? path.basename(file1.path),
+            file2: directoryContext?.labels?.[1] ?? path.basename(file2.path),
+            comparisonId: `${file1.toString()}\u0000${file2.toString()}`,
+            directoryContext
         };
 
         this.postOrQueueDiffMessage({
@@ -162,7 +185,8 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             leftContent,
             rightContent,
             diffModel,
-            history: null
+            history: null,
+            ...toDirectoryMessageContext(directoryContext)
         });
     }
 
@@ -215,11 +239,15 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             leftLabel: path.basename(dirs[0].path),
             rightLabel: path.basename(dirs[1].path),
             labels: dirs.map((dir) => path.basename(dir.path)),
-            entries
+            entries,
+            canMutate: false
         } satisfies ShowDirectoryDiffMessage);
     }
 
-    public async showMultiDiff(files: Array<{ uri: vscode.Uri; content: string }>) {
+    public async showMultiDiff(
+        files: Array<{ uri: vscode.Uri; content: string; label?: string }>,
+        directoryContext?: Pick<ShowMultiDiffMessage, 'canReturnToDirectory' | 'fileNavigation' | 'directoryNavigation'>
+    ) {
         const view = await this.revealView();
         if (!view) {
             vscode.window.showWarningMessage('Bygone view is unavailable.');
@@ -228,7 +256,11 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
         this.currentTwoWayDiff = undefined;
 
-        this.postOrQueueMessage(this.createMultiDiffMessage(files));
+        this.postOrQueueMessage({
+            ...this.createMultiDiffMessage(files),
+            ...directoryContext,
+            mutationEnabled: false
+        });
     }
 
     public async showThreeWayMerge(base: vscode.Uri, left: vscode.Uri, right: vscode.Uri, mergeModel: ThreeWayMergeModel) {
@@ -295,12 +327,12 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         } satisfies ShowDiffMessage);
     }
 
-    private createMultiDiffMessage(files: Array<{ uri: vscode.Uri; content: string }>): ShowMultiDiffMessage {
+    private createMultiDiffMessage(files: Array<{ uri: vscode.Uri; content: string; label?: string }>): ShowMultiDiffMessage {
         return {
             type: 'showMultiDiff',
             panels: files.map((file) => ({
                 id: file.uri.toString(),
-                label: path.basename(file.uri.path),
+                label: file.label ?? path.basename(file.uri.path),
                 content: file.content,
                 editable: file.uri.scheme === 'file',
                 dirty: false
@@ -342,6 +374,9 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                         <path d="M9 12h10"></path>
                     </svg>
                     <span>Back</span>
+                </button>
+                <button id="toggle-directory-sidebar" class="directory-return-button" type="button" title="Hide directory files" aria-label="Hide directory files" aria-pressed="true">
+                    <span>Files</span>
                 </button>
             </div>
             <div id="edit-mode-toolbar" class="edit-mode-toolbar header-align-diff" hidden>
@@ -457,11 +492,11 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             <div id="diff-container">
                 <div id="two-way-diff" class="diff-view">
                     <div class="file-panel">
-                        <button id="file1-header" class="file-header" type="button" aria-pressed="false">File 1</button>
+                        <button id="file1-header" class="file-header" type="button" title="Select left pane" aria-pressed="false">File 1</button>
                         <div id="file1-content" class="file-content"></div>
                     </div>
                     <div class="file-panel">
-                        <button id="file2-header" class="file-header" type="button" aria-pressed="false">File 2</button>
+                        <button id="file2-header" class="file-header" type="button" title="Select right pane" aria-pressed="false">File 2</button>
                         <div id="file2-content" class="file-content"></div>
                     </div>
                 </div>
@@ -527,7 +562,8 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             leftContent,
             rightContent,
             diffModel: buildTwoWayDiffModel(leftContent, rightContent),
-            history: null
+            history: null,
+            ...toDirectoryMessageContext(this.currentTwoWayDiff.directoryContext)
         });
     }
 
@@ -626,6 +662,17 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             void vscode.window.showErrorMessage(`Unable to save ${panel.label}: ${message}`);
         }
     }
+}
+
+function toDirectoryMessageContext(context?: DirectoryDiffContext) {
+    if (!context) {
+        return {};
+    }
+    return {
+        canReturnToDirectory: context.canReturnToDirectory,
+        fileNavigation: context.fileNavigation,
+        directoryNavigation: context.directoryNavigation
+    };
 }
 
 function getNonce(): string {
