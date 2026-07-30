@@ -8,6 +8,7 @@ const { buildTwoWayDiffModel } = require('../src/diffEngine.ts');
 const { GitHistoryService } = require('../src/gitHistory.ts');
 const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
 const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
+const { materializeBranchReviewTrees, resolveBranchReviewRange } = require('../src/gitComparison.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('./menuUtils.js');
 
@@ -351,6 +352,11 @@ function installApplicationMenu() {
                     label: 'Compare Multiple Directories…',
                     click: () => { void openCompareMultipleDirectoriesDialog(); }
                 },
+                {
+                    label: 'Review Current Branch',
+                    accelerator: 'CmdOrCtrl+Shift+R',
+                    click: () => { void openBranchReviewDialog(); }
+                },
                 { type: 'separator' },
                 {
                     label: 'Add Panel to Left…',
@@ -479,8 +485,8 @@ async function installCommandLineTools() {
 function buildCommandLineLauncher() {
     if (process.platform === 'darwin') {
         return {
-            content: '#!/usr/bin/env sh\nexec open -W -a "Bygone" --args --cwd "$PWD" "$@"\n',
-            manualCommand: `sudo tee ${shellQuote(commandLineToolPath)} >/dev/null <<'EOF'\n#!/usr/bin/env sh\nexec open -W -a "Bygone" --args --cwd "$PWD" "$@"\nEOF\nsudo chmod +x ${shellQuote(commandLineToolPath)}`
+            content: '#!/usr/bin/env sh\nexec open -W -n -a "Bygone" --args --cwd "$PWD" "$@"\n',
+            manualCommand: `sudo tee ${shellQuote(commandLineToolPath)} >/dev/null <<'EOF'\n#!/usr/bin/env sh\nexec open -W -n -a "Bygone" --args --cwd "$PWD" "$@"\nEOF\nsudo chmod +x ${shellQuote(commandLineToolPath)}`
         };
     }
 
@@ -606,7 +612,7 @@ async function routeLaunchTarget(launchTarget) {
     }
 
     if (launchTarget.kind === 'branch-diff') {
-        await openGitBranchDiff(launchTarget.cwd || process.cwd(), launchTarget.branch, launchTarget.mainRef);
+        await openGitBranchReview(launchTarget.cwd || process.cwd(), launchTarget.branch, launchTarget.mainRef);
         return;
     }
 
@@ -704,15 +710,17 @@ function parseLaunchArgs(args) {
         return { kind: 'git-diff', refs: filteredArgs.slice(1), cwd, capturePath, windowWidth, windowHeight };
     }
 
-    if (filteredArgs[0] === '--branch-diff') {
+    if (filteredArgs[0] === '--branch-diff' || filteredArgs[0] === 'review') {
         let branch = 'HEAD';
-        let mainRef = 'main';
+        let mainRef;
         for (let i = 1; i < filteredArgs.length; i++) {
             const arg = filteredArgs[i];
             if ((arg === '-b' || arg === '--branch') && filteredArgs[i + 1]) {
                 branch = filteredArgs[++i];
-            } else if ((arg === '-m' || arg === '--main') && filteredArgs[i + 1]) {
+            } else if ((arg === '-m' || arg === '--main' || arg === '--base') && filteredArgs[i + 1]) {
                 mainRef = filteredArgs[++i];
+            } else if (filteredArgs[0] === 'review' && !arg.startsWith('-')) {
+                branch = arg;
             }
         }
         return { kind: 'branch-diff', branch, mainRef, cwd, capturePath, windowWidth, windowHeight };
@@ -1024,6 +1032,27 @@ async function openHistoryDialog() {
     await openHistory(targetPath, historyIncludeStagedPreference);
 }
 
+async function openBranchReviewDialog() {
+    let reviewRoot = launchArguments.cwd || process.cwd();
+    try {
+        runGit(['rev-parse', '--show-toplevel'], reviewRoot);
+    } catch {
+        if (!mainWindow) {
+            return;
+        }
+        const result = await dialog.showOpenDialog(mainWindow, {
+            title: 'Select a Git repository to review',
+            properties: ['openDirectory']
+        });
+        if (result.canceled || result.filePaths.length === 0) {
+            return;
+        }
+        reviewRoot = result.filePaths[0];
+    }
+
+    await openGitBranchReview(reviewRoot, 'HEAD');
+}
+
 async function openCompareMultiFilesDialog() {
     if (!mainWindow) {
         return;
@@ -1129,7 +1158,8 @@ async function openDirectories(dirs, options = {}) {
         directory: {
             dirs: resolvedDirs,
             labels,
-            tempRoots: Array.isArray(options.tempRoots) ? [...options.tempRoots] : []
+            tempRoots: Array.isArray(options.tempRoots) ? [...options.tempRoots] : [],
+            review: options.review || null
         },
         multi: null,
         dirHistory: null
@@ -1337,33 +1367,43 @@ async function openGitRefs(cwd, refs, options = {}) {
     await openDirectories(dirs, { labels, tempRoots });
 }
 
-async function openGitBranchDiff(cwd, branch, mainRef) {
-    let repoRoot;
+async function openGitBranchReview(cwd, branch, mainRef) {
+    let review;
     try {
-        repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], cwd));
+        review = resolveBranchReviewRange(cwd, branch, mainRef);
     } catch (error) {
-        await showError(`Not inside a git repository: ${getErrorMessage(error)}`);
+        await showError(`Could not prepare branch review: ${getErrorMessage(error)}`);
         return;
     }
 
-    let mergeBase;
-    let branchParent;
-    try {
-        runGit(['rev-parse', '--verify', `${branch}^{commit}`], repoRoot);
-        runGit(['rev-parse', '--verify', `${mainRef}^{commit}`], repoRoot);
-        mergeBase = runGit(['merge-base', mainRef, branch], repoRoot);
-        branchParent = runGit(['rev-parse', `${branch}^`], repoRoot);
-    } catch (error) {
-        await showError(`Could not compute branch diff refs: ${getErrorMessage(error)}`);
+    if (review.changedPaths.length === 0) {
+        await showInfo(`${review.headRef} has no changes relative to ${review.baseRef}.`);
         return;
     }
 
-    await openGitRefs(cwd, [mergeBase, branchParent, branch], {
+    const leftRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-review-base-'));
+    const rightRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-review-head-'));
+    trackedGitDiffTempRoots.add(leftRoot);
+    trackedGitDiffTempRoots.add(rightRoot);
+
+    try {
+        materializeBranchReviewTrees(review, leftRoot, rightRoot);
+    } catch (error) {
+        cleanupGitDiffTempRoots([leftRoot, rightRoot]);
+        await showError(`Could not load branch review files: ${getErrorMessage(error)}`);
+        return;
+    }
+
+    await openDirectories([leftRoot, rightRoot], {
         labels: [
-            `merge-base(${mainRef},${branch})`,
-            `${branch}^`,
-            branch
-        ]
+            `${review.baseRef} @ ${review.mergeBaseOid.slice(0, 7)}`,
+            `${review.headRef} @ ${review.headOid.slice(0, 7)}`
+        ],
+        tempRoots: [leftRoot, rightRoot],
+        review: {
+            ...review,
+            viewedPaths: new Set()
+        }
     });
 }
 
@@ -1605,12 +1645,71 @@ function materializeWorkingTree(repoRoot, relativeDir, targetRoot) {
     }
 }
 
+function applyReviewMetadata(entries, review) {
+    if (!review) {
+        return entries;
+    }
+
+    const changeByPath = new Map();
+    for (const changedPath of review.changedPaths) {
+        changeByPath.set(changedPath.path, changedPath);
+        if (changedPath.previousPath) {
+            changeByPath.set(changedPath.previousPath, changedPath);
+        }
+    }
+
+    return entries.map((entry) => {
+        const normalizedPath = entry.relativePath.endsWith('/')
+            ? entry.relativePath.slice(0, -1)
+            : entry.relativePath;
+        const changedPath = changeByPath.get(normalizedPath);
+        if (!changedPath) {
+            return entry;
+        }
+        return {
+            ...entry,
+            gitChangeKind: changedPath.kind,
+            previousPath: changedPath.previousPath,
+            reviewed: review.viewedPaths.has(changedPath.path)
+                || Boolean(changedPath.previousPath && review.viewedPaths.has(changedPath.previousPath))
+        };
+    });
+}
+
+function buildReviewViewState(review) {
+    if (!review) {
+        return null;
+    }
+
+    const viewedCount = review.changedPaths.filter((changedPath) => (
+        review.viewedPaths.has(changedPath.path)
+        || Boolean(changedPath.previousPath && review.viewedPaths.has(changedPath.previousPath))
+    )).length;
+
+    return {
+        baseRef: review.baseRef,
+        headRef: review.headRef,
+        mergeBaseOid: review.mergeBaseOid,
+        headOid: review.headOid,
+        dirty: review.dirty,
+        changedFileCount: review.changedPaths.length,
+        viewedCount,
+        commitCount: review.commits.length,
+        mergeCommitCount: review.commits.filter((commit) => commit.parentOids.length > 1).length,
+        commits: review.commits
+    };
+}
+
 async function sendCurrentDirectoryDiff() {
     if (session.mode !== 'directory' || !session.directory) {
         return;
     }
 
-    const entries = buildMultiDirectoryComparison(session.directory.dirs);
+    const review = session.directory.review;
+    const entries = applyReviewMetadata(
+        buildMultiDirectoryComparison(session.directory.dirs),
+        review
+    );
 
     postOrQueue({
         type: 'showDirectoryDiff',
@@ -1618,10 +1717,13 @@ async function sendCurrentDirectoryDiff() {
         rightLabel: session.directory.labels[1],
         labels: session.directory.labels,
         entries,
-        canMutate: true
+        canMutate: !review,
+        review: buildReviewViewState(review)
     });
 
-    updateWindowTitle(session.directory.labels.join(' ↔ '));
+    updateWindowTitle(review
+        ? `${review.headRef} Branch Review`
+        : session.directory.labels.join(' ↔ '));
     if (launchArguments.kind === 'smoke-directory' && mainWindow && !mainWindow.isDestroyed()) {
         setTimeout(() => {
             void mainWindow.webContents.executeJavaScript(`document.querySelector('.dir-entry[data-is-dir="false"]')?.click()`);
@@ -2381,9 +2483,19 @@ async function openHistoryAsMultiPanel(side) {
 async function openDirectoryEntry(relativePath) {
     if ((session.mode === 'diff' || session.mode === 'multi-diff') && session.returnDirectory && !relativePath.endsWith('/')) {
         if (session.returnDirectory.dirs.length === 2) {
-            await openDirectoryFileDiff(session.returnDirectory.dirs, session.returnDirectory.labels, relativePath);
+            await openDirectoryFileDiff(
+                session.returnDirectory.dirs,
+                session.returnDirectory.labels,
+                relativePath,
+                session.returnDirectory.review
+            );
         } else {
-            await openDirectoryEntryMultiPanel(session.returnDirectory.dirs, session.returnDirectory.labels, relativePath);
+            await openDirectoryEntryMultiPanel(
+                session.returnDirectory.dirs,
+                session.returnDirectory.labels,
+                relativePath,
+                session.returnDirectory.review
+            );
         }
         return;
     }
@@ -2402,15 +2514,20 @@ async function openDirectoryEntry(relativePath) {
         return;
     }
 
+    const review = session.directory.review;
+    if (review) {
+        review.viewedPaths.add(relativePath);
+    }
+
     if (session.directory.dirs.length === 2) {
-        await openDirectoryFileDiff(session.directory.dirs, session.directory.labels, relativePath);
+        await openDirectoryFileDiff(session.directory.dirs, session.directory.labels, relativePath, review);
         return;
     }
 
-    await openDirectoryEntryMultiPanel(session.directory.dirs, session.directory.labels, relativePath);
+    await openDirectoryEntryMultiPanel(session.directory.dirs, session.directory.labels, relativePath, review);
 }
 
-async function openDirectoryEntryMultiPanel(dirs, labels, relativePath) {
+async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review = null) {
     if (!await confirmSessionReplacement('open another directory file')) {
         return;
     }
@@ -2443,14 +2560,14 @@ async function openDirectoryEntryMultiPanel(dirs, labels, relativePath) {
             historySource: null
         },
         dirHistory: null,
-        returnDirectory: { dirs, labels, relativePath }
+        returnDirectory: { dirs, labels, relativePath, review }
     };
 
     clearWatchers();
     await sendCurrentMultiDiff();
 }
 
-async function openDirectoryFileDiff(dirs, labels, relativePath) {
+async function openDirectoryFileDiff(dirs, labels, relativePath, review = null) {
     if (!await confirmSessionReplacement('open another directory file')) {
         return;
     }
@@ -2483,7 +2600,8 @@ async function openDirectoryFileDiff(dirs, labels, relativePath) {
         returnDirectory: {
             dirs: [...dirs],
             labels: [...labels],
-            relativePath
+            relativePath,
+            review
         }
     };
 
@@ -2502,7 +2620,7 @@ async function returnToDirectoryView() {
         if (!await confirmSessionReplacement('return to the directory comparison')) {
             return;
         }
-        const { dirs, labels } = session.returnDirectory;
+        const { dirs, labels, review } = session.returnDirectory;
 
         session = {
             mode: 'directory',
@@ -2511,7 +2629,8 @@ async function returnToDirectoryView() {
             history: null,
             directory: {
                 dirs,
-                labels
+                labels,
+                review: review || null
             },
             multi: null,
             dirHistory: null,
@@ -2578,10 +2697,21 @@ async function navigateSiblingFile(direction) {
             return;
         }
 
+        session.returnDirectory.review?.viewedPaths.add(nextEntry.relativePath);
         if (session.returnDirectory.dirs.length === 2) {
-            await openDirectoryFileDiff(session.returnDirectory.dirs, session.returnDirectory.labels, nextEntry.relativePath);
+            await openDirectoryFileDiff(
+                session.returnDirectory.dirs,
+                session.returnDirectory.labels,
+                nextEntry.relativePath,
+                session.returnDirectory.review
+            );
         } else {
-            await openDirectoryEntryMultiPanel(session.returnDirectory.dirs, session.returnDirectory.labels, nextEntry.relativePath);
+            await openDirectoryEntryMultiPanel(
+                session.returnDirectory.dirs,
+                session.returnDirectory.labels,
+                nextEntry.relativePath,
+                session.returnDirectory.review
+            );
         }
         return;
     }
@@ -2823,8 +2953,8 @@ async function sendCurrentDiff() {
         fileNavigation: buildStandaloneFileNavigationState(),
         directoryNavigation: buildDirectoryDrilldownNavigationState(),
         editableSides: {
-            left: true,
-            right: true
+            left: !session.returnDirectory?.review,
+            right: !session.returnDirectory?.review
         },
         canReturnToDirectory: Boolean(session.returnDirectory)
     };

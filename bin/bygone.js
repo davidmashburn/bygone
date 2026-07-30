@@ -20,6 +20,7 @@ Usage:
   bygone --diff <file1> <file2> <file3> [...]
   bygone --history <path>
   bygone --git-diff <ref1> <ref2> [<ref3>...]
+  bygone review [<head>] [--base <base>]
   bygone --branch-diff [-b BRANCH] [-m MAIN]
   bygone --test
 
@@ -31,7 +32,8 @@ Notes:
   - Two positional paths auto-select file diff or directory compare.
   - Three or more positional paths auto-select multi-panel file diff or multi-directory compare.
   - \`--git-diff\` materializes each git source to a temp directory and opens them as an N-panel directory compare. Commit-ish refs work (branches, tags, SHAs, HEAD~1, stash@{0}); INDEX and WORKTREE are also supported.
-  - \`--branch-diff\` opens [merge-base(MAIN,BRANCH), BRANCH^, BRANCH] (defaults: BRANCH=HEAD, MAIN=main).
+  - \`review\` compares merge-base(BASE,HEAD) with HEAD, detects the repository's default base when omitted, and opens a read-only branch-review workspace.
+  - \`--branch-diff\` is retained as an alias for \`review\`.
   - In the standalone app, drop 1 file for history, 2 files/directories for compare, 3+ files for multi-panel diff, or 3+ directories for multi-directory compare.
 `);
     process.exit(0);
@@ -49,15 +51,14 @@ const electronBinary = process.platform === 'win32'
 const appEntry = './out/standalone-main.js';
 const forwardedArgs = ['--cwd', cliCwd, ...args];
 const installedApp = findInstalledApp();
-const preferBundledApp = fs.existsSync(path.join(packageRoot, '.git'));
 
 const child = installedApp && process.env.BYGONE_FORCE_BUNDLED !== '1'
-    && !preferBundledApp
     ? spawnInstalledApp(installedApp, forwardedArgs)
     : spawn(electronBinary, [appEntry, ...forwardedArgs], {
-    cwd: packageRoot,
-    stdio: 'inherit'
-});
+        cwd: packageRoot,
+        stdio: 'inherit',
+        env: electronEnvironment()
+    });
 
 child.on('exit', (code, signal) => {
     if (signal) {
@@ -104,12 +105,20 @@ function findInstalledApp() {
 
 function spawnInstalledApp(installedApp, launchArgs) {
     if (process.platform === 'darwin') {
-        return spawn('open', ['-W', installedApp, '--args', ...launchArgs], {
-            stdio: 'inherit'
+        return spawn('open', ['-W', '-n', installedApp, '--args', ...launchArgs], {
+            stdio: 'inherit',
+            env: electronEnvironment()
         });
     }
 
     return spawn(installedApp, launchArgs, {
-        stdio: 'inherit'
+        stdio: 'inherit',
+        env: electronEnvironment()
     });
+}
+
+function electronEnvironment() {
+    const environment = { ...process.env };
+    delete environment.ELECTRON_RUN_AS_NODE;
+    return environment;
 }

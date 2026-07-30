@@ -59,6 +59,15 @@ await build({
 
 await build({
     ...sharedOptions,
+    entryPoints: ['src/gitComparison.ts'],
+    outfile: 'out/gitComparison.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node16'
+});
+
+await build({
+    ...sharedOptions,
     entryPoints: ['src/directoryDiff.ts'],
     outfile: 'out/directoryDiff.js',
     platform: 'node',

@@ -155,8 +155,13 @@
             ? `<span class="dir-toggle" aria-hidden="true">▼</span>`
             : `<span class="dir-toggle dir-toggle--spacer" aria-hidden="true"></span>`;
 
-        const cellContent = `${toggleHtml}<span class="dir-indent">${indent}</span><span class="${nameClass}">${escapeHtml(displayText)}</span>`;
-        const accessibleLabel = isDir ? `${displayText} folder` : `${displayText} file`;
+        const reviewStatus = !isDir && entry.gitChangeKind
+            ? `<span class="dir-review-status dir-review-status--${escapeAttr(entry.gitChangeKind)}">${entry.reviewed ? '✓ ' : ''}${escapeHtml(reviewStatusLabel(entry.gitChangeKind))}</span>`
+            : '';
+        const cellContent = `${toggleHtml}<span class="dir-indent">${indent}</span><span class="${nameClass}">${escapeHtml(displayText)}</span>${reviewStatus}`;
+        const accessibleLabel = isDir
+            ? `${displayText} folder`
+            : `${displayText} file${entry.gitChangeKind ? `, ${reviewStatusLabel(entry.gitChangeKind)}${entry.reviewed ? ', viewed' : ''}` : ''}`;
         const expandedAttr = isDir ? ' aria-expanded="true"' : '';
 
         return `<button class="dir-entry dir-entry--${entry.status}" type="button" `
@@ -168,6 +173,10 @@
             + `data-is-dir="${isDir}"${expandedAttr}>`
             + `<span class="dir-entry-content">${cellContent}</span>`
             + `</button>`;
+    }
+
+    function reviewStatusLabel(kind) {
+        return String(kind || 'changed').replace(/-/g, ' ');
     }
 
     function directoryEntryExistsOnSide(entry, sideIndex) {

@@ -12,6 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
     fileComparator.setDiffViewProvider(diffViewProvider);
 
     context.subscriptions.push(
+        fileComparator,
         vscode.window.registerWebviewViewProvider(DiffViewProvider.viewType, diffViewProvider),
         vscode.window.registerUriHandler(uriHandler),
         registerCommand('bygone.compareFiles', () => fileComparator.selectAndCompareFiles()),
@@ -22,6 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
         registerCommand('bygone.compareTestFiles', () => fileComparator.compareTestFiles()),
         registerCommand('bygone.compareFileHistory', (resource?: vscode.Uri) => fileComparator.compareFileHistory(resource)),
         registerCommand('bygone.compareActiveFileHistory', () => fileComparator.compareFileHistory()),
+        registerCommand('bygone.reviewBranch', () => fileComparator.reviewCurrentBranch()),
         registerCommand('bygone.openStandaloneDownloads', () => vscode.env.openExternal(standaloneDownloadUrl))
     );
 }

@@ -1,15 +1,36 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
-import { DiffViewProvider } from './diffViewProvider';
+import { DiffViewProvider, DirectoryDiffOptions } from './diffViewProvider';
 import { buildTwoWayDiffModel } from './diffEngine';
 import { buildMultiDirectoryComparison, DirectoryEntry } from './directoryDiff';
 import { openDiffPreview } from './fallbackViews';
 import { FileHistoryEntry, GitHistoryService } from './gitHistory';
+import {
+    BranchReviewRange,
+    materializeBranchReviewTrees,
+    resolveBranchReviewRange
+} from './gitComparison';
 import { createJavaScriptSampleFilePair } from './sampleFiles';
-import { HistoryRailItem, HistoryRailState, HistoryViewState } from './webviewMessages';
+import {
+    BranchReviewViewState,
+    HistoryRailItem,
+    HistoryRailState,
+    HistoryViewState
+} from './webviewMessages';
 
-export class FileComparator {
+interface DirectoryReviewState {
+    range: BranchReviewRange;
+    viewedPaths: Set<string>;
+}
+
+interface CompareDirectoryOptions {
+    labels?: string[];
+    review?: DirectoryReviewState;
+}
+
+export class FileComparator implements vscode.Disposable {
     private selectedFile: vscode.Uri | undefined;
     private diffViewProvider: DiffViewProvider | undefined;
     private fileHistoryEntries: FileHistoryEntry[] = [];
@@ -20,7 +41,17 @@ export class FileComparator {
     private currentDirectoryRoots: vscode.Uri[] = [];
     private currentDirectoryEntries: DirectoryEntry[] = [];
     private currentDirectoryRelativePath: string | undefined;
+    private currentDirectoryLabels: string[] = [];
+    private currentDirectoryReview: DirectoryReviewState | undefined;
+    private readonly reviewTempRoots = new Set<string>();
     private readonly gitHistoryService = new GitHistoryService();
+
+    public dispose(): void {
+        for (const root of this.reviewTempRoots) {
+            fs.rmSync(root, { recursive: true, force: true });
+        }
+        this.reviewTempRoots.clear();
+    }
 
     public setDiffViewProvider(provider: DiffViewProvider) {
         this.diffViewProvider = provider;
@@ -195,6 +226,61 @@ export class FileComparator {
         }
     }
 
+    public async reviewCurrentBranch(): Promise<void> {
+        try {
+            const workspaceFolder = await this.selectReviewWorkspace();
+            if (!workspaceFolder) {
+                return;
+            }
+            const headRef = await vscode.window.showInputBox({
+                title: 'Review Branch',
+                prompt: 'Branch or commit to review',
+                value: 'HEAD',
+                validateInput: (value) => value.trim() ? undefined : 'Enter a branch or commit.'
+            });
+            if (headRef === undefined) {
+                return;
+            }
+            const baseRef = await vscode.window.showInputBox({
+                title: 'Review Branch',
+                prompt: 'Base branch (leave blank to detect the repository default)',
+                placeHolder: 'origin/main'
+            });
+            if (baseRef === undefined) {
+                return;
+            }
+
+            const range = resolveBranchReviewRange(
+                workspaceFolder.uri.fsPath,
+                headRef.trim(),
+                baseRef.trim() || undefined
+            );
+            if (range.changedPaths.length === 0) {
+                void vscode.window.showInformationMessage(`${range.headRef} has no changes relative to ${range.baseRef}.`);
+                return;
+            }
+
+            const leftRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-vscode-review-base-'));
+            const rightRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-vscode-review-head-'));
+            this.reviewTempRoots.add(leftRoot);
+            this.reviewTempRoots.add(rightRoot);
+            materializeBranchReviewTrees(range, leftRoot, rightRoot);
+
+            await this.compareDirectories(
+                [vscode.Uri.file(leftRoot), vscode.Uri.file(rightRoot)],
+                {
+                    labels: [
+                        `${range.baseRef} @ ${range.mergeBaseOid.slice(0, 7)}`,
+                        `${range.headRef} @ ${range.headOid.slice(0, 7)}`
+                    ],
+                    review: { range, viewedPaths: new Set() }
+                }
+            );
+        } catch (error) {
+            this.showErrorMessage('Error preparing branch review', error);
+        }
+    }
+
     private async selectFile(prompt: string): Promise<vscode.Uri | undefined> {
         const options: vscode.OpenDialogOptions = {
             canSelectMany: false,
@@ -243,15 +329,39 @@ export class FileComparator {
         return dirs && dirs.length >= minCount ? dirs : undefined;
     }
 
-    private async compareDirectories(dirs: vscode.Uri[]): Promise<void> {
-        const entries = buildMultiDirectoryComparison(dirs.map((dir) => dir.fsPath));
+    private async selectReviewWorkspace(): Promise<vscode.WorkspaceFolder | undefined> {
+        const folders = vscode.workspace.workspaceFolders ?? [];
+        if (folders.length === 0) {
+            void vscode.window.showErrorMessage('Open a Git repository workspace before reviewing a branch.');
+            return undefined;
+        }
+        if (folders.length === 1) {
+            return folders[0];
+        }
+
+        const selected = await vscode.window.showQuickPick(
+            folders.map((folder) => ({ label: folder.name, description: folder.uri.fsPath, folder })),
+            { title: 'Select the repository to review' }
+        );
+        return selected?.folder;
+    }
+
+    private async compareDirectories(dirs: vscode.Uri[], options: CompareDirectoryOptions = {}): Promise<void> {
+        const rawEntries = buildMultiDirectoryComparison(dirs.map((dir) => dir.fsPath));
+        const entries = this.applyDirectoryReviewMetadata(rawEntries, options.review);
         this.currentDirectoryRoots = dirs;
         this.currentDirectoryEntries = entries;
         this.currentDirectoryRelativePath = undefined;
+        this.currentDirectoryLabels = options.labels ?? dirs.map((dir) => path.basename(dir.fsPath));
+        this.currentDirectoryReview = options.review;
         this.clearFileHistoryState();
 
         if (this.diffViewProvider) {
-            this.diffViewProvider.showDirectoryDiff(dirs, entries);
+            const providerOptions: DirectoryDiffOptions = {
+                labels: this.currentDirectoryLabels,
+                review: this.createBranchReviewViewState(options.review)
+            };
+            this.diffViewProvider.showDirectoryDiff(dirs, entries, providerOptions);
         }
     }
 
@@ -295,8 +405,17 @@ export class FileComparator {
         }
 
         this.currentDirectoryRelativePath = relativePath;
+        if (this.currentDirectoryReview) {
+            this.currentDirectoryReview.viewedPaths.add(relativePath);
+            this.currentDirectoryEntries = this.applyDirectoryReviewMetadata(
+                this.currentDirectoryEntries,
+                this.currentDirectoryReview
+            );
+        }
         const directoryContext = this.createDirectoryDrilldownContext(relativePath);
-        const directoryLabels = this.currentDirectoryRoots.map((root) => `${path.basename(root.fsPath)} / ${relativePath}`);
+        const directoryLabels = this.currentDirectoryRoots.map((_root, index) => (
+            `${this.currentDirectoryLabels[index] ?? `Side ${index + 1}`} / ${relativePath}`
+        ));
 
         if (files.length === 2) {
             const leftContent = this.getPathKind(files[0].fsPath) === 'file' ? this.readFileContent(files[0]) : '';
@@ -327,6 +446,10 @@ export class FileComparator {
             fileNavigation: {
                 canGoPrevious: currentIndex > 0,
                 canGoNext: currentIndex >= 0 && currentIndex < files.length - 1
+            },
+            editableSides: {
+                left: !this.currentDirectoryReview,
+                right: !this.currentDirectoryReview
             },
             directoryNavigation: {
                 activeRelativePath: relativePath,
@@ -363,7 +486,10 @@ export class FileComparator {
 
     private async returnToCurrentDirectory(): Promise<void> {
         if (this.currentDirectoryRoots.length >= 2) {
-            await this.compareDirectories(this.currentDirectoryRoots);
+            await this.compareDirectories(this.currentDirectoryRoots, {
+                labels: this.currentDirectoryLabels,
+                review: this.currentDirectoryReview
+            });
         }
     }
 
@@ -519,10 +645,78 @@ export class FileComparator {
         this.activeHistoryFile = undefined;
     }
 
+    private applyDirectoryReviewMetadata(
+        entries: DirectoryEntry[],
+        review: DirectoryReviewState | undefined
+    ): DirectoryEntry[] {
+        if (!review) {
+            return entries;
+        }
+
+        const changeByPath = new Map<string, BranchReviewRange['changedPaths'][number]>();
+        for (const changedPath of review.range.changedPaths) {
+            changeByPath.set(changedPath.path, changedPath);
+            if (changedPath.previousPath) {
+                changeByPath.set(changedPath.previousPath, changedPath);
+            }
+        }
+
+        return entries.map((entry) => {
+            const normalizedPath = entry.relativePath.endsWith('/')
+                ? entry.relativePath.slice(0, -1)
+                : entry.relativePath;
+            const changedPath = changeByPath.get(normalizedPath);
+            if (!changedPath) {
+                return entry;
+            }
+            return {
+                ...entry,
+                gitChangeKind: changedPath.kind,
+                previousPath: changedPath.previousPath,
+                reviewed: review.viewedPaths.has(changedPath.path)
+                    || Boolean(changedPath.previousPath && review.viewedPaths.has(changedPath.previousPath))
+            };
+        });
+    }
+
+    private createBranchReviewViewState(
+        review: DirectoryReviewState | undefined
+    ): BranchReviewViewState | null {
+        if (!review) {
+            return null;
+        }
+
+        const viewedCount = review.range.changedPaths.filter((changedPath) => (
+            review.viewedPaths.has(changedPath.path)
+            || Boolean(changedPath.previousPath && review.viewedPaths.has(changedPath.previousPath))
+        )).length;
+
+        return {
+            baseRef: review.range.baseRef,
+            headRef: review.range.headRef,
+            mergeBaseOid: review.range.mergeBaseOid,
+            headOid: review.range.headOid,
+            dirty: review.range.dirty,
+            changedFileCount: review.range.changedPaths.length,
+            viewedCount,
+            commitCount: review.range.commits.length,
+            mergeCommitCount: review.range.commits.filter((commit) => commit.parentOids.length > 1).length,
+            commits: review.range.commits
+        };
+    }
+
     private clearDirectoryContext(): void {
+        for (const root of this.currentDirectoryRoots) {
+            if (this.reviewTempRoots.has(root.fsPath)) {
+                fs.rmSync(root.fsPath, { recursive: true, force: true });
+                this.reviewTempRoots.delete(root.fsPath);
+            }
+        }
         this.currentDirectoryRoots = [];
         this.currentDirectoryEntries = [];
         this.currentDirectoryRelativePath = undefined;
+        this.currentDirectoryLabels = [];
+        this.currentDirectoryReview = undefined;
     }
 
     private showErrorMessage(prefix: string, error: unknown): void {

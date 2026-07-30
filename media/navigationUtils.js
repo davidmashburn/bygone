@@ -78,9 +78,47 @@ function buildDirectoryNavigationState(entries, activeRelativePath) {
     };
 }
 
+function resolveFileNavigationAction({
+    direction,
+    mode,
+    fileNavigation,
+    panelIds,
+    activePanelId
+}) {
+    if (direction !== 'previous' && direction !== 'next') {
+        return { kind: 'none' };
+    }
+
+    if (fileNavigation && typeof fileNavigation === 'object') {
+        const canNavigate = direction === 'previous'
+            ? fileNavigation.canGoPrevious === true
+            : fileNavigation.canGoNext === true;
+        return canNavigate ? { kind: 'host-file' } : { kind: 'none' };
+    }
+
+    if (mode !== 'multi-way' || !Array.isArray(panelIds)) {
+        return { kind: 'none' };
+    }
+
+    const currentIndex = panelIds.indexOf(activePanelId);
+    const nextIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= panelIds.length) {
+        return { kind: 'none' };
+    }
+
+    return {
+        kind: 'panel',
+        panelId: panelIds[nextIndex],
+        pairIndex: direction === 'previous'
+            ? Math.max(0, nextIndex)
+            : Math.max(0, nextIndex - 1)
+    };
+}
+
 module.exports = {
     buildBlockChanges,
     buildDirectoryNavigationState,
     containsModelLine,
-    findChangeIndexAtLine
+    findChangeIndexAtLine,
+    resolveFileNavigationAction
 };

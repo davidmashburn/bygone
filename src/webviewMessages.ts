@@ -45,6 +45,25 @@ export interface DirectoryNavigationState {
     rail: HistoryRailState;
 }
 
+export interface BranchReviewViewState {
+    baseRef: string;
+    headRef: string;
+    mergeBaseOid: string;
+    headOid: string;
+    dirty: boolean;
+    changedFileCount: number;
+    viewedCount: number;
+    commitCount: number;
+    mergeCommitCount: number;
+    commits: Array<{
+        oid: string;
+        shortOid: string;
+        timestamp: string;
+        summary: string;
+        parentOids: string[];
+    }>;
+}
+
 export interface ShowDiffMessage {
     type: 'showDiff';
     file1: string;
@@ -71,6 +90,7 @@ export interface ShowDirectoryDiffMessage {
     entries: DirectoryEntry[];
     history?: (HistoryViewState & { fileName: string }) | null;
     canMutate?: boolean;
+    review?: BranchReviewViewState | null;
 }
 
 export interface MultiDiffPanel {

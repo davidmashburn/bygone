@@ -1213,6 +1213,30 @@ button.file-header {
     color: var(--vscode-foreground);
 }
 
+.dir-review-status {
+    flex-shrink: 0;
+    margin-left: auto;
+    padding: 1px 6px;
+    border: 1px solid rgba(65, 132, 214, 0.55);
+    border-radius: 999px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 10px;
+    line-height: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.dir-review-status--added,
+.dir-review-status--copied {
+    border-color: rgba(73, 190, 119, 0.65);
+    color: rgba(73, 190, 119, 0.95);
+}
+
+.dir-review-status--deleted {
+    border-color: rgba(169, 111, 255, 0.65);
+    color: rgba(169, 111, 255, 0.95);
+}
+
 .dir-name--dir {
     font-weight: 600;
     color: var(--vscode-foreground);

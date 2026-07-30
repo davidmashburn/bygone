@@ -1,6 +1,6 @@
 import { buildTwoWayDiffModel } from '../src/diffEngine';
 import { dedupeDecorations } from './decorationUtils';
-import { buildBlockChanges, findChangeIndexAtLine } from './navigationUtils';
+import { buildBlockChanges, findChangeIndexAtLine, resolveFileNavigationAction } from './navigationUtils';
 
 const host = createHostBridge();
 const {
@@ -64,6 +64,7 @@ let activeHistoryRailTabId = null;
 let historyRailKind = null;
 let directoryRailVisible = true;
 let hasDirectoryNavigation = false;
+let hostFileNavigation = null;
 let currentFileNavigation = { canGoPrevious: false, canGoNext: false };
 let activePaneSide = 'right';
 let activeDirectoryEntryPath = null;
@@ -124,7 +125,15 @@ host.onMessage((message) => {
     }
 
     if (message.type === 'showDirectoryDiff') {
-        showDirectoryDiff(message.leftLabel, message.rightLabel, message.entries, message.labels, message.history || null, message.canMutate !== false);
+        showDirectoryDiff(
+            message.leftLabel,
+            message.rightLabel,
+            message.entries,
+            message.labels,
+            message.history || null,
+            message.canMutate !== false,
+            message.review || null
+        );
         return;
     }
 
@@ -311,7 +320,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     notifyRenderComplete();
 }
 
-function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canMutate = true) {
+function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canMutate = true, review = null) {
     currentMode = 'directory';
     historyMode = false;
     currentDiffModel = null;
@@ -335,7 +344,9 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
 
     toggleView(VIEW_IDS.directory);
     setStatus('', false);
-    setTextContent('file-info', `Comparing directories ${directoryLabels.join(' and ')}`);
+    setTextContent('file-info', review
+        ? `Reviewing ${review.headRef} against ${review.baseRef} · ${review.viewedCount}/${review.changedFileCount} files viewed · ${review.commitCount} commits${review.mergeCommitCount ? ` (${review.mergeCommitCount} merge)` : ''}${review.dirty ? ' · working tree dirty (not included)' : ''}`
+        : `Comparing directories ${directoryLabels.join(' and ')}`);
 
     resetDirectoryView();
     renderDirectoryView(getElement('dir-rows'), directoryEntries, directoryLabels, canMutate);
@@ -1614,45 +1625,25 @@ function navigateFile(direction) {
         return;
     }
 
-    if (hasDirectoryNavigation) {
-        const canNavigate = direction === 'previous'
-            ? currentFileNavigation.canGoPrevious
-            : currentFileNavigation.canGoNext;
-        if (canNavigate) {
-            host.postMessage({ type: 'navigateFile', direction });
-        }
-        return;
-    }
-
-    if (currentMode === MODE_MULTI_WAY) {
-        const currentIndex = multiPanels.findIndex((panel) => panel.id === activeMultiPanelId);
-        if (currentIndex < 0) {
-            return;
-        }
-
-        const nextIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
-        const nextPanel = multiPanels[nextIndex];
-        if (!nextPanel) {
-            return;
-        }
-
-        setActiveMultiPanel(nextPanel.id, true);
-        const pairIndex = direction === 'previous'
-            ? Math.max(0, nextIndex)
-            : Math.max(0, nextIndex - 1);
-        setActiveMultiPair(pairIndex, true);
-        return;
-    }
-
-    if ((direction === 'previous' && !currentFileNavigation.canGoPrevious)
-        || (direction === 'next' && !currentFileNavigation.canGoNext)) {
-        return;
-    }
-
-    host.postMessage({
-        type: 'navigateFile',
-        direction
+    const action = resolveFileNavigationAction({
+        direction,
+        mode: currentMode,
+        fileNavigation: hostFileNavigation,
+        panelIds: multiPanels.map((panel) => panel.id),
+        activePanelId: activeMultiPanelId
     });
+
+    if (action.kind === 'host-file') {
+        host.postMessage({ type: 'navigateFile', direction });
+        return;
+    }
+
+    if (action.kind === 'panel') {
+        setActiveMultiPanel(action.panelId, true);
+        setActiveMultiPair(action.pairIndex, true);
+        return;
+    }
+
 }
 
 function returnToDirectory() {
@@ -2030,6 +2021,9 @@ function updateDirectoryEntrySelection() {
 }
 
 function updateFileNavigationState(fileNavigation, canReturnToDirectory) {
+    hostFileNavigation = fileNavigation && typeof fileNavigation === 'object'
+        ? fileNavigation
+        : null;
     currentFileNavigation = fileNavigation || {
         canGoPrevious: false,
         canGoNext: false

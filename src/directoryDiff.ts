@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { GitChangeKind } from './gitComparison';
 
 export type DirectoryEntryStatus = 'same' | 'modified' | 'left-only' | 'right-only' | 'partial';
 
@@ -10,6 +11,9 @@ export interface DirectoryEntry {
     isDirectory: boolean;
     status: DirectoryEntryStatus;
     sides: boolean[];
+    gitChangeKind?: GitChangeKind;
+    previousPath?: string;
+    reviewed?: boolean;
 }
 
 const DEFAULT_SMALL_FILE_COMPARE_BYTES = 256 * 1024;

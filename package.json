@@ -44,6 +44,7 @@
     "onCommand:bygone.compareTestFiles",
     "onCommand:bygone.compareFileHistory",
     "onCommand:bygone.compareActiveFileHistory",
+    "onCommand:bygone.reviewBranch",
     "onView:bygone.diffView"
   ],
   "main": "./out/extension.js",
@@ -87,6 +88,11 @@
       {
         "command": "bygone.compareActiveFileHistory",
         "title": "Compare Active File History",
+        "category": "Bygone"
+      },
+      {
+        "command": "bygone.reviewBranch",
+        "title": "Review Branch",
         "category": "Bygone"
       },
       {
@@ -155,8 +161,8 @@
     "compile": "npm run typecheck && node ./scripts/build.mjs",
     "icons:generate": "node ./scripts/generate-icons.mjs",
     "package:vsix": "vsce package",
-    "standalone:start": "npm run compile && electron ./out/standalone-main.js",
-    "standalone:smoke": "npm run compile && electron ./out/standalone-main.js --smoke-test && electron ./out/standalone-main.js --smoke-test-multi && electron ./out/standalone-main.js --smoke-test-directory",
+    "standalone:start": "npm run compile && node ./scripts/run-electron.mjs ./out/standalone-main.js",
+    "standalone:smoke": "npm run compile && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-multi && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-directory",
     "walkthrough:refresh": "node ./scripts/refresh-walkthrough-screenshots.mjs",
     "web:start": "npm run compile && node ./scripts/web-server.mjs",
     "package:desktop": "npm run package:desktop:mac",

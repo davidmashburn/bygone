@@ -6,8 +6,14 @@ const { execFileSync } = require('node:child_process');
 const { buildTwoWayDiffModel, mergeText } = require('../out/diffEngine.js');
 const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
+const { parseNameStatusZ, resolveBranchReviewRange } = require('../out/gitComparison.js');
 const { dedupeDecorations } = require('../media/decorationUtils.js');
-const { buildBlockChanges, buildDirectoryNavigationState, findChangeIndexAtLine } = require('../media/navigationUtils.js');
+const {
+    buildBlockChanges,
+    buildDirectoryNavigationState,
+    findChangeIndexAtLine,
+    resolveFileNavigationAction
+} = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
 
 function testLineClickSelectsContainingTwoWayChange() {
@@ -50,6 +56,28 @@ function testDirectoryDrilldownNavigationTracksActiveFile() {
         navigation.directoryNavigation.rail.itemsByTab['directory-files'].map((item) => [item.relativePath, item.active]),
         [['a.txt', false], ['b.txt', true], ['c.txt', false]]
     );
+}
+
+function testDirectoryHistoryFileNavigationTakesPriorityOverPanelNavigation() {
+    assert.deepEqual(resolveFileNavigationAction({
+        direction: 'previous',
+        mode: 'multi-way',
+        fileNavigation: { canGoPrevious: true, canGoNext: true },
+        panelIds: ['older', 'newer'],
+        activePanelId: 'newer'
+    }), { kind: 'host-file' });
+}
+
+function testGitNameStatusParserPreservesRenameMetadata() {
+    assert.deepEqual(parseNameStatusZ('M\u0000src/current.ts\u0000R087\u0000old name.ts\u0000new name.ts\u0000'), [
+        { kind: 'modified', path: 'src/current.ts' },
+        {
+            kind: 'renamed',
+            path: 'new name.ts',
+            previousPath: 'old name.ts',
+            similarity: 87
+        }
+    ]);
 }
 
 function testMenuCapabilitiesFollowSessionMode() {
@@ -185,6 +213,14 @@ function testStaticButtonsHaveTooltips() {
             assert.match(openingTag, /\btitle="[^"]+"/, `${relativePath} has a button without a tooltip: ${openingTag}`);
         });
     }
+}
+
+function testMacCliLaunchesASeparateArgumentAwareAppInstance() {
+    const cliSource = fs.readFileSync(path.join(__dirname, '..', 'bin', 'bygone.js'), 'utf8');
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+
+    assert.match(cliSource, /spawn\('open', \['-W', '-n', installedApp, '--args'/);
+    assert.match(standaloneSource, /open -W -n -a "Bygone" --args/);
 }
 
 function testDynamicButtonsHaveTooltips() {
@@ -498,6 +534,63 @@ function testHistoryIncludeStagedShowsIndexWhenNoUnstagedChanges() {
     assert.notEqual(history[0].commit, 'WORKTREE');
 }
 
+function testBranchReviewUsesMergeBaseAndDetectsDefaultBase() {
+    const repo = createTempGitRepo();
+    const firstPath = path.join(repo, 'first.txt');
+    const secondPath = path.join(repo, 'second.txt');
+
+    fs.writeFileSync(firstPath, 'base\n', 'utf8');
+    runGit(repo, ['add', 'first.txt']);
+    runGit(repo, ['commit', '-m', 'base']);
+    runGit(repo, ['branch', '-M', 'main']);
+    const baseOid = runGit(repo, ['rev-parse', 'HEAD']);
+
+    runGit(repo, ['checkout', '-b', 'feature/review']);
+    fs.writeFileSync(firstPath, 'feature\n', 'utf8');
+    runGit(repo, ['commit', '-am', 'change first']);
+    fs.writeFileSync(secondPath, 'second\n', 'utf8');
+    runGit(repo, ['add', 'second.txt']);
+    runGit(repo, ['commit', '-m', 'add second']);
+
+    const range = resolveBranchReviewRange(repo);
+
+    assert.equal(range.baseRef, 'main');
+    assert.equal(range.headRef, 'HEAD');
+    assert.equal(range.mergeBaseOid, baseOid);
+    assert.equal(range.commits.length, 2);
+    assert.deepEqual(
+        range.changedPaths.map((entry) => [entry.kind, entry.path]),
+        [['modified', 'first.txt'], ['added', 'second.txt']]
+    );
+    assert.equal(range.dirty, false);
+}
+
+function testBranchReviewPreservesMergeCommitParents() {
+    const repo = createTempGitRepo();
+    fs.writeFileSync(path.join(repo, 'base.txt'), 'base\n', 'utf8');
+    runGit(repo, ['add', 'base.txt']);
+    runGit(repo, ['commit', '-m', 'base']);
+    runGit(repo, ['branch', '-M', 'main']);
+
+    runGit(repo, ['checkout', '-b', 'feature/merge']);
+    fs.writeFileSync(path.join(repo, 'feature.txt'), 'feature\n', 'utf8');
+    runGit(repo, ['add', 'feature.txt']);
+    runGit(repo, ['commit', '-m', 'feature']);
+
+    runGit(repo, ['checkout', 'main']);
+    fs.writeFileSync(path.join(repo, 'main.txt'), 'main\n', 'utf8');
+    runGit(repo, ['add', 'main.txt']);
+    runGit(repo, ['commit', '-m', 'main change']);
+
+    runGit(repo, ['checkout', 'feature/merge']);
+    runGit(repo, ['merge', '--no-ff', 'main', '-m', 'merge main']);
+
+    const range = resolveBranchReviewRange(repo, 'HEAD', 'main');
+    const mergeCommit = range.commits.find((commit) => commit.summary === 'merge main');
+
+    assert.equal(mergeCommit?.parentOids.length, 2);
+}
+
 function createTempGitRepo() {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-history-test-'));
 
@@ -525,6 +618,8 @@ function run() {
     testLineClickIgnoresCollapsedSideOfOneSidedChange();
     testLineClickPrefersCurrentAdjacentPair();
     testDirectoryDrilldownNavigationTracksActiveFile();
+    testDirectoryHistoryFileNavigationTakesPriorityOverPanelNavigation();
+    testGitNameStatusParserPreservesRenameMetadata();
     testMenuCapabilitiesFollowSessionMode();
     testTwoWayDiffAlignsInsertions();
     testInlineHighlightsSingleWordReplacement();
@@ -535,6 +630,7 @@ function run() {
     testInlineHighlightsAlignAroundInsertedAndDeletedLines();
     testRendererDoesNotAddActiveOrAdjacentSemanticOverrides();
     testStaticButtonsHaveTooltips();
+    testMacCliLaunchesASeparateArgumentAwareAppInstance();
     testDynamicButtonsHaveTooltips();
     testDuplicateMultiPanelDecorationsRenderOnce();
     testDirectoryDiffDetectsModifiedFiles();
@@ -552,6 +648,8 @@ function run() {
     testHistoryPrependsDirtyWorkingTree();
     testHistoryIncludeStagedSplitsIndexAndWorkingTree();
     testHistoryIncludeStagedShowsIndexWhenNoUnstagedChanges();
+    testBranchReviewUsesMergeBaseAndDetectsDefaultBase();
+    testBranchReviewPreservesMergeCommitParents();
     console.log('All tests passed.');
 }
 

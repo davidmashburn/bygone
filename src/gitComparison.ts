@@ -1,0 +1,306 @@
+import { execFileSync } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const DEFAULT_GIT_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
+
+export type GitSnapshot =
+    | { kind: 'commit'; oid: string; label: string }
+    | { kind: 'index'; label: string }
+    | { kind: 'worktree'; label: string };
+
+export type GitChangeKind =
+    | 'added'
+    | 'copied'
+    | 'deleted'
+    | 'modified'
+    | 'renamed'
+    | 'type-changed'
+    | 'unmerged'
+    | 'unknown';
+
+export interface GitChangedPath {
+    kind: GitChangeKind;
+    path: string;
+    previousPath?: string;
+    similarity?: number;
+}
+
+export interface BranchCommit {
+    oid: string;
+    shortOid: string;
+    timestamp: string;
+    summary: string;
+    parentOids: string[];
+}
+
+export interface BranchReviewRange {
+    repoRoot: string;
+    baseRef: string;
+    headRef: string;
+    baseOid: string;
+    headOid: string;
+    mergeBaseOid: string;
+    currentBranch?: string;
+    dirty: boolean;
+    changedPaths: GitChangedPath[];
+    commits: BranchCommit[];
+}
+
+export type RunGit = (args: readonly string[], cwd: string) => string;
+
+export function createGitRunner(maxBuffer = readGitMaxBuffer()): RunGit {
+    return (args, cwd) => execFileSync('git', [...args], {
+        cwd,
+        encoding: 'utf8',
+        maxBuffer,
+        stdio: ['ignore', 'pipe', 'pipe']
+    }).trimEnd();
+}
+
+export function resolveBranchReviewRange(
+    startPath: string,
+    headRef = 'HEAD',
+    requestedBaseRef?: string,
+    runGit: RunGit = createGitRunner()
+): BranchReviewRange {
+    const repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], startPath));
+    const currentBranch = tryRunGit(runGit, ['symbolic-ref', '--quiet', '--short', 'HEAD'], repoRoot);
+    const baseRef = requestedBaseRef || detectDefaultBaseRef(repoRoot, headRef, runGit);
+    const headOid = verifyCommit(repoRoot, headRef, runGit);
+    const baseOid = verifyCommit(repoRoot, baseRef, runGit);
+    const mergeBaseOids = runGit(['merge-base', '--all', baseOid, headOid], repoRoot)
+        .split('\n')
+        .filter(Boolean);
+    if (mergeBaseOids.length === 0) {
+        throw new Error(`No merge base exists between ${baseRef} and ${headRef}.`);
+    }
+    if (mergeBaseOids.length > 1) {
+        throw new Error(
+            `Multiple merge bases exist between ${baseRef} and ${headRef}: `
+            + `${mergeBaseOids.map((oid) => oid.slice(0, 7)).join(', ')}. `
+            + 'Pass one merge-base commit explicitly with --base.'
+        );
+    }
+    const mergeBaseOid = mergeBaseOids[0];
+
+    return {
+        repoRoot,
+        baseRef,
+        headRef,
+        baseOid,
+        headOid,
+        mergeBaseOid,
+        currentBranch: currentBranch || undefined,
+        dirty: runGit(['status', '--porcelain=v1', '--untracked-files=normal'], repoRoot).length > 0,
+        changedPaths: listChangedPaths(repoRoot, mergeBaseOid, headOid, runGit),
+        commits: listBranchCommits(repoRoot, mergeBaseOid, headOid, runGit)
+    };
+}
+
+export function detectDefaultBaseRef(
+    repoRoot: string,
+    headRef = 'HEAD',
+    runGit: RunGit = createGitRunner()
+): string {
+    const remoteDefault = tryRunGit(
+        runGit,
+        ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'],
+        repoRoot
+    );
+    const candidates = [remoteDefault, 'main', 'master']
+        .filter((candidate): candidate is string => Boolean(candidate))
+        .filter((candidate, index, all) => all.indexOf(candidate) === index);
+
+    for (const candidate of candidates) {
+        if (candidate !== headRef && canResolveCommit(repoRoot, candidate, runGit)) {
+            return candidate;
+        }
+    }
+
+    throw new Error('Could not detect a base branch. Pass --base <ref>.');
+}
+
+export function listChangedPaths(
+    repoRoot: string,
+    baseOid: string,
+    headOid: string,
+    runGit: RunGit = createGitRunner()
+): GitChangedPath[] {
+    const output = runGit([
+        'diff',
+        '--name-status',
+        '-z',
+        '--find-renames',
+        '--find-copies',
+        baseOid,
+        headOid,
+        '--'
+    ], repoRoot);
+    return parseNameStatusZ(output);
+}
+
+export function parseNameStatusZ(output: string): GitChangedPath[] {
+    const fields = output.split('\0');
+    if (fields[fields.length - 1] === '') {
+        fields.pop();
+    }
+
+    const changedPaths: GitChangedPath[] = [];
+    for (let index = 0; index < fields.length;) {
+        const status = fields[index++];
+        if (!status) {
+            continue;
+        }
+
+        const code = status[0];
+        const similarityText = status.slice(1);
+        const similarity = similarityText ? Number.parseInt(similarityText, 10) : undefined;
+
+        if (code === 'R' || code === 'C') {
+            const previousPath = fields[index++];
+            const nextPath = fields[index++];
+            if (previousPath && nextPath) {
+                changedPaths.push({
+                    kind: code === 'R' ? 'renamed' : 'copied',
+                    path: nextPath,
+                    previousPath,
+                    similarity: Number.isFinite(similarity) ? similarity : undefined
+                });
+            }
+            continue;
+        }
+
+        const changedPath = fields[index++];
+        if (!changedPath) {
+            continue;
+        }
+        changedPaths.push({
+            kind: changeKindForStatus(code),
+            path: changedPath
+        });
+    }
+
+    return changedPaths;
+}
+
+export function listBranchCommits(
+    repoRoot: string,
+    mergeBaseOid: string,
+    headOid: string,
+    runGit: RunGit = createGitRunner()
+): BranchCommit[] {
+    const output = runGit([
+        'log',
+        '--reverse',
+        '--topo-order',
+        '--format=%H%x00%h%x00%cI%x00%s%x00%P%x1e',
+        `${mergeBaseOid}..${headOid}`
+    ], repoRoot);
+
+    return output
+        .split('\x1e')
+        .map((record) => record.replace(/^\n+|\n+$/g, ''))
+        .filter(Boolean)
+        .map((record) => {
+            const [oid = '', shortOid = '', timestamp = '', summary = '', parents = ''] = record.split('\0');
+            return {
+                oid,
+                shortOid,
+                timestamp,
+                summary,
+                parentOids: parents.split(' ').filter(Boolean)
+            };
+        })
+        .filter((commit) => Boolean(commit.oid));
+}
+
+export function materializeBranchReviewTrees(
+    review: BranchReviewRange,
+    leftRoot: string,
+    rightRoot: string
+): void {
+    for (const changedPath of review.changedPaths) {
+        if (changedPath.kind === 'renamed') {
+            materializeGitPath(review.repoRoot, review.mergeBaseOid, changedPath.previousPath, leftRoot);
+            materializeGitPath(review.repoRoot, review.headOid, changedPath.path, rightRoot);
+            continue;
+        }
+
+        if (changedPath.kind !== 'added' && changedPath.kind !== 'copied') {
+            materializeGitPath(review.repoRoot, review.mergeBaseOid, changedPath.path, leftRoot);
+        }
+        if (changedPath.kind !== 'deleted') {
+            materializeGitPath(review.repoRoot, review.headOid, changedPath.path, rightRoot);
+        }
+    }
+}
+
+function verifyCommit(repoRoot: string, ref: string, runGit: RunGit): string {
+    try {
+        return runGit(['rev-parse', '--verify', `${ref}^{commit}`], repoRoot);
+    } catch {
+        throw new Error(`Could not resolve git ref "${ref}".`);
+    }
+}
+
+function canResolveCommit(repoRoot: string, ref: string, runGit: RunGit): boolean {
+    try {
+        verifyCommit(repoRoot, ref, runGit);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function tryRunGit(runGit: RunGit, args: readonly string[], cwd: string): string {
+    try {
+        return runGit(args, cwd);
+    } catch {
+        return '';
+    }
+}
+
+function materializeGitPath(repoRoot: string, commit: string, relativePath: string | undefined, targetRoot: string): void {
+    if (!relativePath) {
+        return;
+    }
+
+    const resolvedRoot = path.resolve(targetRoot);
+    const targetFile = path.resolve(resolvedRoot, relativePath);
+    if (targetFile !== resolvedRoot && !targetFile.startsWith(`${resolvedRoot}${path.sep}`)) {
+        throw new Error(`Refusing to materialize path outside review root: ${relativePath}`);
+    }
+
+    const content = execFileSync('git', ['show', `${commit}:${relativePath}`], {
+        cwd: repoRoot,
+        maxBuffer: readGitMaxBuffer(),
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
+    fs.mkdirSync(path.dirname(targetFile), { recursive: true });
+    fs.writeFileSync(targetFile, content);
+}
+
+function changeKindForStatus(code: string): GitChangeKind {
+    if (code === 'A') {
+        return 'added';
+    }
+    if (code === 'D') {
+        return 'deleted';
+    }
+    if (code === 'M') {
+        return 'modified';
+    }
+    if (code === 'T') {
+        return 'type-changed';
+    }
+    if (code === 'U') {
+        return 'unmerged';
+    }
+    return 'unknown';
+}
+
+function readGitMaxBuffer(): number {
+    const parsed = Number.parseInt(process.env.BYGONE_GIT_MAX_BUFFER_BYTES ?? '', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_GIT_MAX_BUFFER_BYTES;
+}

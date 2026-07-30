@@ -1,7 +1,7 @@
 ---
 author: David Mashburn
 created_at: 2026-06-01T20:35:08Z
-modified_at: 2026-06-01T20:35:08Z
+modified_at: 2026-07-30T01:00:53Z
 generated_by: Codex
 generated_for: David Mashburn
 reviewed_by:
@@ -23,6 +23,7 @@ Bygone is a VS Code extension and standalone desktop app for visual diff and fil
 - Dynamic adjacent multi-panel diff view
 - Flowing connectors, block contours, and inline change highlighting
 - Git file history viewer with commit-by-commit navigation
+- Local branch-review workspace using merge-base-to-tip semantics and changed-file progress
 
 ## Status
 
@@ -65,6 +66,8 @@ bygone --diff path/to/left path/to/right
 bygone --diff
 bygone --diff path/to/file1 path/to/file2 path/to/file3 [...]
 bygone --history path/to/path
+bygone review
+bygone review feature/my-branch --base origin/main
 bygone --help
 ```
 
@@ -80,10 +83,13 @@ CLI defaults:
 - `bygone <file>` opens file history.
 - `bygone <directory>` opens Git directory history for that directory.
 - `bygone --history <path>` opens file or directory history.
+- `bygone review [<head>] [--base <base>]` reviews the committed branch tip against its merge base. The base is detected from `origin/HEAD`, `main`, or `master` when omitted.
 - `bygone <left> <right>` auto-selects file diff or directory compare.
 - `bygone --diff <file1> <file2> <file3> ...` opens multi-panel diff or multi-directory compare.
 
-If the native desktop app is installed, the npm/source launcher prefers it and forwards the shell working directory. Set `BYGONE_FORCE_BUNDLED=1` to force the npm-bundled Electron runtime instead.
+If the native desktop app is installed, the npm/source launcher prefers it and forwards the shell working directory. Set `BYGONE_FORCE_BUNDLED=1` to force the npm-bundled Electron runtime instead. The launcher removes `ELECTRON_RUN_AS_NODE` before starting Electron so editor-integrated terminals cannot accidentally force the app into Node mode.
+
+Branch review compares the selected head directly with `merge-base(base, head)`, so merge commits are represented correctly in the aggregate diff. Commit metadata retains every parent of merge commits for future temporal review. Dirty index and working-tree changes are reported but never silently included.
 
 The desktop app also includes `Help -> Install Command Line Tools...` for non-npm installs. Homebrew cask installs can provide the `bygone` command automatically.
 

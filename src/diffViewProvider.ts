@@ -3,6 +3,7 @@ import * as path from 'path';
 import { buildTwoWayDiffModel, ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
 import { openDiffPreview } from './fallbackViews';
 import {
+    BranchReviewViewState,
     DirectoryEntry,
     HistoryViewState,
     isHistoryNavigationMessage,
@@ -25,9 +26,14 @@ import {
     WebviewOutboundMessage
 } from './webviewMessages';
 
-type DirectoryDiffContext = Pick<ShowDiffMessage, 'canReturnToDirectory' | 'fileNavigation' | 'directoryNavigation'> & {
+type DirectoryDiffContext = Pick<ShowDiffMessage, 'canReturnToDirectory' | 'fileNavigation' | 'directoryNavigation' | 'editableSides'> & {
     labels?: [string, string];
 };
+
+export interface DirectoryDiffOptions {
+    labels?: string[];
+    review?: BranchReviewViewState | null;
+}
 
 export class DiffViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'bygone.diffView';
@@ -225,7 +231,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    public async showDirectoryDiff(dirs: vscode.Uri[], entries: DirectoryEntry[]) {
+    public async showDirectoryDiff(dirs: vscode.Uri[], entries: DirectoryEntry[], options: DirectoryDiffOptions = {}) {
         const view = await this.revealView();
         if (!view) {
             vscode.window.showWarningMessage('Bygone view is unavailable.');
@@ -236,11 +242,12 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
 
         this.postOrQueueMessage({
             type: 'showDirectoryDiff',
-            leftLabel: path.basename(dirs[0].path),
-            rightLabel: path.basename(dirs[1].path),
-            labels: dirs.map((dir) => path.basename(dir.path)),
+            leftLabel: options.labels?.[0] ?? path.basename(dirs[0].path),
+            rightLabel: options.labels?.[1] ?? path.basename(dirs[1].path),
+            labels: options.labels ?? dirs.map((dir) => path.basename(dir.path)),
             entries,
-            canMutate: false
+            canMutate: false,
+            review: options.review
         } satisfies ShowDirectoryDiffMessage);
     }
 
@@ -671,7 +678,8 @@ function toDirectoryMessageContext(context?: DirectoryDiffContext) {
     return {
         canReturnToDirectory: context.canReturnToDirectory,
         fileNavigation: context.fileNavigation,
-        directoryNavigation: context.directoryNavigation
+        directoryNavigation: context.directoryNavigation,
+        editableSides: context.editableSides
     };
 }
 
