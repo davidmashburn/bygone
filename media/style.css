@@ -935,6 +935,69 @@ button.file-header {
     white-space: normal;
 }
 
+.file-content.binary-preview-host {
+    padding: 18px;
+    overflow: auto;
+    white-space: normal;
+}
+
+.binary-preview-card {
+    min-height: 100%;
+    display: grid;
+    grid-template-rows: auto minmax(220px, 1fr) auto;
+    gap: 12px;
+}
+
+.binary-preview-state {
+    justify-self: start;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+}
+
+.binary-preview-state.is-identical {
+    color: color-mix(in srgb, #98c379 82%, var(--vscode-descriptionForeground));
+}
+
+.binary-preview-state.is-different {
+    color: color-mix(in srgb, #cca700 82%, var(--vscode-descriptionForeground));
+}
+
+.binary-preview-stage {
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    overflow: auto;
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
+    border-radius: 6px;
+    background:
+        linear-gradient(45deg, rgba(255, 255, 255, 0.025) 25%, transparent 25%) 0 0 / 18px 18px,
+        linear-gradient(-45deg, rgba(255, 255, 255, 0.025) 25%, transparent 25%) 0 9px / 18px 18px,
+        var(--vscode-editor-background);
+}
+
+.binary-preview-image {
+    display: block;
+    max-width: calc(100% - 24px);
+    max-height: calc(100% - 24px);
+    object-fit: contain;
+    image-rendering: auto;
+}
+
+.binary-preview-icon {
+    color: var(--vscode-descriptionForeground);
+    font-size: 38px;
+}
+
+.binary-preview-placeholder,
+.binary-preview-metadata {
+    color: var(--vscode-descriptionForeground);
+    font-size: 12px;
+    text-align: center;
+}
+
 .editor-root {
     width: 100%;
     height: 100%;
@@ -1213,28 +1276,28 @@ button.file-header {
     color: var(--vscode-foreground);
 }
 
-.dir-review-status {
+.dir-file-kind-icon {
+    flex-shrink: 0;
+    width: 14px;
+    color: color-mix(in srgb, var(--vscode-descriptionForeground) 82%, transparent);
+    font-size: 11px;
+    text-align: center;
+}
+
+.dir-file-kind-icon--image {
+    color: color-mix(in srgb, #73b0ff 78%, var(--vscode-descriptionForeground));
+}
+
+.dir-reviewed {
     flex-shrink: 0;
     margin-left: auto;
-    padding: 1px 6px;
-    border: 1px solid rgba(65, 132, 214, 0.55);
-    border-radius: 999px;
-    color: var(--vscode-descriptionForeground);
-    font-size: 10px;
-    line-height: 16px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    color: color-mix(in srgb, #73b0ff 80%, var(--vscode-descriptionForeground));
+    font-size: 12px;
 }
 
-.dir-review-status--added,
-.dir-review-status--copied {
-    border-color: rgba(73, 190, 119, 0.65);
-    color: rgba(73, 190, 119, 0.95);
-}
-
-.dir-review-status--deleted {
-    border-color: rgba(169, 111, 255, 0.65);
-    color: rgba(169, 111, 255, 0.95);
+.dir-entry.is-related-review-path {
+    background: color-mix(in srgb, rgba(139, 92, 246, 0.2) 72%, transparent);
+    box-shadow: inset 2px 0 0 rgba(169, 111, 255, 0.72);
 }
 
 .dir-name--dir {

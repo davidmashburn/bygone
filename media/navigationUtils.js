@@ -66,7 +66,7 @@ function buildDirectoryNavigationState(entries, activeRelativePath) {
                 tabs: [{ id: 'directory-files', label: 'Files' }],
                 itemsByTab: {
                     'directory-files': files.map((entry) => ({
-                        label: entry.relativePath,
+                        label: entry.displayName || entry.relativePath,
                         status: entry.status,
                         kind: 'directory-entry',
                         relativePath: entry.relativePath,

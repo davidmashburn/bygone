@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { buildBinaryComparison } from './binaryComparison';
 import { DiffViewProvider, DirectoryDiffOptions } from './diffViewProvider';
 import { buildTwoWayDiffModel } from './diffEngine';
 import { buildMultiDirectoryComparison, DirectoryEntry } from './directoryDiff';
@@ -10,7 +11,8 @@ import { FileHistoryEntry, GitHistoryService } from './gitHistory';
 import {
     BranchReviewRange,
     materializeBranchReviewTrees,
-    resolveBranchReviewRange
+    resolveBranchReviewRange,
+    resolveReviewPathPair
 } from './gitComparison';
 import { createJavaScriptSampleFilePair } from './sampleFiles';
 import {
@@ -366,6 +368,14 @@ export class FileComparator implements vscode.Disposable {
     }
 
     private async compareFiles(file1: vscode.Uri, file2: vscode.Uri): Promise<void> {
+        const binaryComparison = buildBinaryComparison(file1.fsPath, file2.fsPath);
+        if (binaryComparison) {
+            this.clearFileHistoryState();
+            this.clearDirectoryContext();
+            await this.diffViewProvider?.showBinaryDiff(binaryComparison);
+            return;
+        }
+
         const content1 = this.readFileContent(file1);
         const content2 = this.readFileContent(file2);
         const diffModel = buildTwoWayDiffModel(content1, content2);
@@ -396,28 +406,49 @@ export class FileComparator implements vscode.Disposable {
             return;
         }
 
-        const files = this.currentDirectoryRoots
-            .map((root) => vscode.Uri.file(path.join(root.fsPath, relativePath)));
+        const reviewPair = this.currentDirectoryReview
+            ? resolveReviewPathPair(this.currentDirectoryReview.range.changedPaths, relativePath)
+            : undefined;
+        const reviewKey = reviewPair?.key ?? relativePath;
+        const sidePaths = this.currentDirectoryRoots.map((_root, index) => {
+            if (!reviewPair || index > 1) {
+                return relativePath;
+            }
+            return index === 0 ? reviewPair.leftPath : reviewPair.rightPath;
+        });
+        const files = this.currentDirectoryRoots.map((root, index) => (
+            vscode.Uri.file(path.join(root.fsPath, sidePaths[index] ?? reviewKey))
+        ));
 
         if (!files.some((uri) => this.getPathKind(uri.fsPath) === 'file')) {
             vscode.window.showInformationMessage('That entry does not exist in the selected directories.');
             return;
         }
 
-        this.currentDirectoryRelativePath = relativePath;
+        this.currentDirectoryRelativePath = reviewKey;
         if (this.currentDirectoryReview) {
-            this.currentDirectoryReview.viewedPaths.add(relativePath);
+            this.currentDirectoryReview.viewedPaths.add(reviewKey);
             this.currentDirectoryEntries = this.applyDirectoryReviewMetadata(
                 this.currentDirectoryEntries,
                 this.currentDirectoryReview
             );
         }
-        const directoryContext = this.createDirectoryDrilldownContext(relativePath);
+        const directoryContext = this.createDirectoryDrilldownContext(reviewKey, reviewPair?.summary);
         const directoryLabels = this.currentDirectoryRoots.map((_root, index) => (
-            `${this.currentDirectoryLabels[index] ?? `Side ${index + 1}`} / ${relativePath}`
+            `${this.currentDirectoryLabels[index] ?? `Side ${index + 1}`} / ${sidePaths[index] ?? reviewKey}`
         ));
 
         if (files.length === 2) {
+            const binaryComparison = buildBinaryComparison(
+                files[0].fsPath,
+                files[1].fsPath,
+                directoryLabels[0],
+                directoryLabels[1]
+            );
+            if (binaryComparison) {
+                await this.diffViewProvider?.showBinaryDiff(binaryComparison, directoryContext);
+                return;
+            }
             const leftContent = this.getPathKind(files[0].fsPath) === 'file' ? this.readFileContent(files[0]) : '';
             const rightContent = this.getPathKind(files[1].fsPath) === 'file' ? this.readFileContent(files[1]) : '';
             await this.diffViewProvider?.showDiff(
@@ -438,8 +469,8 @@ export class FileComparator implements vscode.Disposable {
         })), directoryContext);
     }
 
-    private createDirectoryDrilldownContext(relativePath: string) {
-        const files = this.currentDirectoryEntries.filter((entry) => !entry.isDirectory && entry.status !== 'same');
+    private createDirectoryDrilldownContext(relativePath: string, comparisonSummary?: string) {
+        const files = this.getNavigableDirectoryEntries();
         const currentIndex = files.findIndex((entry) => entry.relativePath === relativePath);
         return {
             canReturnToDirectory: true,
@@ -451,6 +482,7 @@ export class FileComparator implements vscode.Disposable {
                 left: !this.currentDirectoryReview,
                 right: !this.currentDirectoryReview
             },
+            comparisonSummary,
             directoryNavigation: {
                 activeRelativePath: relativePath,
                 rail: {
@@ -458,7 +490,7 @@ export class FileComparator implements vscode.Disposable {
                     tabs: [{ id: 'directory-files', label: 'Files' }],
                     itemsByTab: {
                         'directory-files': files.map((entry) => ({
-                            label: entry.relativePath,
+                            label: entry.displayName || entry.relativePath,
                             status: entry.status,
                             kind: 'directory-entry' as const,
                             relativePath: entry.relativePath,
@@ -475,13 +507,40 @@ export class FileComparator implements vscode.Disposable {
             return;
         }
 
-        const files = this.currentDirectoryEntries.filter((entry) => !entry.isDirectory && entry.status !== 'same');
+        const files = this.getNavigableDirectoryEntries();
         const currentIndex = files.findIndex((entry) => entry.relativePath === this.currentDirectoryRelativePath);
         const nextIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
         const next = files[nextIndex];
         if (next) {
             await this.openDirectoryEntry(next.relativePath);
         }
+    }
+
+    private getNavigableDirectoryEntries(): DirectoryEntry[] {
+        if (!this.currentDirectoryReview) {
+            return this.currentDirectoryEntries.filter((entry) => !entry.isDirectory && entry.status !== 'same');
+        }
+
+        return this.currentDirectoryReview.range.changedPaths.map((changedPath) => {
+            const entry = this.currentDirectoryEntries.find((candidate) => (
+                !candidate.isDirectory
+                && (candidate.relativePath === changedPath.path || candidate.relativePath === changedPath.previousPath)
+            ));
+            return {
+                relativePath: changedPath.path,
+                displayName: changedPath.previousPath && changedPath.previousPath !== changedPath.path
+                    ? `${changedPath.previousPath} → ${changedPath.path}`
+                    : changedPath.path,
+                depth: 0,
+                isDirectory: false,
+                status: changedPath.kind === 'added'
+                    ? 'right-only'
+                    : changedPath.kind === 'deleted'
+                        ? 'left-only'
+                        : 'modified',
+                sides: entry?.sides ?? [Boolean(changedPath.previousPath), changedPath.kind !== 'deleted']
+            };
+        });
     }
 
     private async returnToCurrentDirectory(): Promise<void> {
@@ -669,10 +728,19 @@ export class FileComparator implements vscode.Disposable {
             if (!changedPath) {
                 return entry;
             }
+            const reviewPair = resolveReviewPathPair(review.range.changedPaths, normalizedPath);
+            const relatedPath = reviewPair?.leftPath === normalizedPath
+                ? reviewPair.rightPath
+                : reviewPair?.rightPath === normalizedPath
+                    ? reviewPair.leftPath
+                    : null;
             return {
                 ...entry,
                 gitChangeKind: changedPath.kind,
                 previousPath: changedPath.previousPath,
+                relatedPath: relatedPath && relatedPath !== normalizedPath ? relatedPath : undefined,
+                reviewKey: reviewPair?.key,
+                relationSummary: reviewPair?.summary,
                 reviewed: review.viewedPaths.has(changedPath.path)
                     || Boolean(changedPath.previousPath && review.viewedPaths.has(changedPath.previousPath))
             };

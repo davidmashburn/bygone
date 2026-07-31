@@ -5,10 +5,11 @@ const { pathToFileURL } = require('url');
 const { execFileSync } = require('child_process');
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const { buildTwoWayDiffModel } = require('../src/diffEngine.ts');
+const { buildBinaryComparison } = require('../src/binaryComparison.ts');
 const { GitHistoryService } = require('../src/gitHistory.ts');
 const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
 const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
-const { materializeBranchReviewTrees, resolveBranchReviewRange } = require('../src/gitComparison.ts');
+const { materializeBranchReviewTrees, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('./menuUtils.js');
 
@@ -1666,10 +1667,19 @@ function applyReviewMetadata(entries, review) {
         if (!changedPath) {
             return entry;
         }
+        const reviewPair = resolveReviewPathPair(review.changedPaths, normalizedPath);
+        const relatedPath = reviewPair?.leftPath === normalizedPath
+            ? reviewPair.rightPath
+            : reviewPair?.rightPath === normalizedPath
+                ? reviewPair.leftPath
+                : null;
         return {
             ...entry,
             gitChangeKind: changedPath.kind,
             previousPath: changedPath.previousPath,
+            relatedPath: relatedPath && relatedPath !== normalizedPath ? relatedPath : undefined,
+            reviewKey: reviewPair?.key,
+            relationSummary: reviewPair?.summary,
             reviewed: review.viewedPaths.has(changedPath.path)
                 || Boolean(changedPath.previousPath && review.viewedPaths.has(changedPath.previousPath))
         };
@@ -2077,6 +2087,27 @@ function releaseDirectoryHistoryEntry(entry) {
 }
 
 async function openDiff(leftPath, rightPath) {
+    const binaryComparison = buildBinaryComparison(leftPath, rightPath);
+    if (binaryComparison) {
+        if (!await confirmSessionReplacement('open another comparison')) {
+            return;
+        }
+        session = {
+            mode: 'diff',
+            left: createSideState(leftPath, ''),
+            right: createSideState(rightPath, ''),
+            binaryComparison,
+            history: null,
+            directory: null,
+            multi: null,
+            dirHistory: null,
+            returnDirectory: null
+        };
+        clearWatchers();
+        updateWatchers();
+        await sendCurrentDiff();
+        return;
+    }
     await openMultiDiff([leftPath, rightPath]);
 }
 
@@ -2482,6 +2513,10 @@ async function openHistoryAsMultiPanel(side) {
 
 async function openDirectoryEntry(relativePath) {
     if ((session.mode === 'diff' || session.mode === 'multi-diff') && session.returnDirectory && !relativePath.endsWith('/')) {
+        const reviewPair = session.returnDirectory.review
+            ? resolveReviewPathPair(session.returnDirectory.review.changedPaths, relativePath)
+            : null;
+        session.returnDirectory.review?.viewedPaths.add(reviewPair?.key || relativePath);
         if (session.returnDirectory.dirs.length === 2) {
             await openDirectoryFileDiff(
                 session.returnDirectory.dirs,
@@ -2515,12 +2550,14 @@ async function openDirectoryEntry(relativePath) {
     }
 
     const review = session.directory.review;
+    const reviewPair = review ? resolveReviewPathPair(review.changedPaths, relativePath) : null;
+    const reviewKey = reviewPair?.key || relativePath;
     if (review) {
-        review.viewedPaths.add(relativePath);
+        review.viewedPaths.add(reviewKey);
     }
 
     if (session.directory.dirs.length === 2) {
-        await openDirectoryFileDiff(session.directory.dirs, session.directory.labels, relativePath, review);
+        await openDirectoryFileDiff(session.directory.dirs, session.directory.labels, reviewKey, review);
         return;
     }
 
@@ -2571,8 +2608,12 @@ async function openDirectoryFileDiff(dirs, labels, relativePath, review = null) 
     if (!await confirmSessionReplacement('open another directory file')) {
         return;
     }
-    const leftPath = path.join(dirs[0], relativePath);
-    const rightPath = path.join(dirs[1], relativePath);
+    const reviewPair = review ? resolveReviewPathPair(review.changedPaths, relativePath) : null;
+    const reviewKey = reviewPair?.key || relativePath;
+    const leftRelativePath = reviewPair?.leftPath ?? relativePath;
+    const rightRelativePath = reviewPair?.rightPath ?? relativePath;
+    const leftPath = path.join(dirs[0], leftRelativePath);
+    const rightPath = path.join(dirs[1], rightRelativePath);
     const leftExists = getPathKind(leftPath) === 'file';
     const rightExists = getPathKind(rightPath) === 'file';
 
@@ -2581,18 +2622,25 @@ async function openDirectoryFileDiff(dirs, labels, relativePath, review = null) 
         return;
     }
 
-    const leftContent = leftExists ? readFileContent(leftPath) : '';
-    const rightContent = rightExists ? readFileContent(rightPath) : '';
+    const binaryComparison = buildBinaryComparison(
+        leftPath,
+        rightPath,
+        `${labels[0]} / ${leftRelativePath}${leftExists ? '' : ' (missing)'}`,
+        `${labels[1]} / ${rightRelativePath}${rightExists ? '' : ' (missing)'}`
+    );
+    const leftContent = leftExists && !binaryComparison ? readFileContent(leftPath) : '';
+    const rightContent = rightExists && !binaryComparison ? readFileContent(rightPath) : '';
     const left = createSideState(leftExists ? leftPath : '', leftContent);
     const right = createSideState(rightExists ? rightPath : '', rightContent);
 
-    left.label = `${labels[0]} / ${relativePath}${leftExists ? '' : ' (missing)'}`;
-    right.label = `${labels[1]} / ${relativePath}${rightExists ? '' : ' (missing)'}`;
+    left.label = `${labels[0]} / ${leftRelativePath}${leftExists ? '' : ' (missing)'}`;
+    right.label = `${labels[1]} / ${rightRelativePath}${rightExists ? '' : ' (missing)'}`;
 
     session = {
         mode: 'diff',
         left,
         right,
+        binaryComparison,
         history: null,
         directory: null,
         multi: null,
@@ -2600,7 +2648,8 @@ async function openDirectoryFileDiff(dirs, labels, relativePath, review = null) 
         returnDirectory: {
             dirs: [...dirs],
             labels: [...labels],
-            relativePath,
+            relativePath: reviewKey,
+            comparisonSummary: reviewPair?.summary,
             review
         }
     };
@@ -2649,6 +2698,25 @@ function buildChangedFileEntries(entries) {
     return entries.filter((directoryEntry) => directoryEntry.status !== 'same' && !directoryEntry.isDirectory);
 }
 
+function buildReturnDirectoryEntries(returnDirectory) {
+    if (!returnDirectory?.review) {
+        return buildChangedFileEntries(buildMultiDirectoryComparison(returnDirectory?.dirs || []));
+    }
+
+    return returnDirectory.review.changedPaths.map((changedPath) => ({
+        relativePath: changedPath.path,
+        displayName: changedPath.previousPath && changedPath.previousPath !== changedPath.path
+            ? `${changedPath.previousPath} → ${changedPath.path}`
+            : changedPath.path,
+        isDirectory: false,
+        status: changedPath.kind === 'added'
+            ? 'right-only'
+            : changedPath.kind === 'deleted'
+                ? 'left-only'
+                : 'modified'
+    }));
+}
+
 function buildStandaloneFileNavigationState() {
     if ((session.mode !== 'diff' && session.mode !== 'multi-diff') || !session.returnDirectory?.relativePath) {
         return {
@@ -2657,7 +2725,7 @@ function buildStandaloneFileNavigationState() {
         };
     }
 
-    const entries = buildMultiDirectoryComparison(session.returnDirectory.dirs);
+    const entries = buildReturnDirectoryEntries(session.returnDirectory);
     return buildDirectoryNavigationState(entries, session.returnDirectory.relativePath).fileNavigation;
 }
 
@@ -2666,7 +2734,7 @@ function buildDirectoryDrilldownNavigationState() {
         return null;
     }
 
-    const entries = buildMultiDirectoryComparison(session.returnDirectory.dirs);
+    const entries = buildReturnDirectoryEntries(session.returnDirectory);
     return buildDirectoryNavigationState(entries, session.returnDirectory.relativePath).directoryNavigation;
 }
 
@@ -2689,7 +2757,7 @@ function buildDirectoryHistoryFileNavigationState(dirHistory, entry) {
 
 async function navigateSiblingFile(direction) {
     if ((session.mode === 'diff' || session.mode === 'multi-diff') && session.returnDirectory?.relativePath) {
-        const entries = buildChangedFileEntries(buildMultiDirectoryComparison(session.returnDirectory.dirs));
+        const entries = buildReturnDirectoryEntries(session.returnDirectory);
         const currentIndex = entries.findIndex((entry) => entry.relativePath === session.returnDirectory.relativePath);
         const nextIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
         const nextEntry = entries[nextIndex];
@@ -2940,6 +3008,20 @@ async function sendCurrentDiff() {
         return;
     }
 
+    if (session.binaryComparison) {
+        postOrQueue({
+            type: 'showBinaryDiff',
+            comparison: session.binaryComparison,
+            comparisonSummary: session.returnDirectory?.comparisonSummary,
+            fileNavigation: buildStandaloneFileNavigationState(),
+            directoryNavigation: buildDirectoryDrilldownNavigationState(),
+            canReturnToDirectory: Boolean(session.returnDirectory)
+        });
+        updateWindowTitle(`${session.left.label} ↔ ${session.right.label}`);
+        scheduleCaptureIfNeeded();
+        return;
+    }
+
     const diffModel = buildTwoWayDiffModel(session.left.content, session.right.content);
     const message = {
         type: 'showDiff',
@@ -2956,7 +3038,8 @@ async function sendCurrentDiff() {
             left: !session.returnDirectory?.review,
             right: !session.returnDirectory?.review
         },
-        canReturnToDirectory: Boolean(session.returnDirectory)
+        canReturnToDirectory: Boolean(session.returnDirectory),
+        comparisonSummary: session.returnDirectory?.comparisonSummary
     };
 
     postOrQueue(message);
@@ -3698,6 +3781,7 @@ function postOrQueue(message) {
         && message
         && typeof message === 'object'
         && (message.type === 'showDiff'
+            || message.type === 'showBinaryDiff'
             || message.type === 'showDirectoryDiff'
             || message.type === 'showMultiDiff'
             || message.type === 'showThreeWayMerge')) {

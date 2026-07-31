@@ -47,6 +47,15 @@ export interface BranchReviewRange {
     commits: BranchCommit[];
 }
 
+export interface ReviewPathPair {
+    key: string;
+    leftPath: string | null;
+    rightPath: string | null;
+    kind: GitChangeKind;
+    similarity?: number;
+    summary?: string;
+}
+
 export type RunGit = (args: readonly string[], cwd: string) => string;
 
 export function createGitRunner(maxBuffer = readGitMaxBuffer()): RunGit {
@@ -234,6 +243,44 @@ export function materializeBranchReviewTrees(
             materializeGitPath(review.repoRoot, review.headOid, changedPath.path, rightRoot);
         }
     }
+}
+
+export function resolveReviewPathPair(
+    changedPaths: readonly GitChangedPath[],
+    selectedPath: string
+): ReviewPathPair | undefined {
+    const changedPath = changedPaths.find((candidate) => (
+        candidate.path === selectedPath || candidate.previousPath === selectedPath
+    ));
+    if (!changedPath) {
+        return undefined;
+    }
+
+    const relatesDistinctPaths = (changedPath.kind === 'renamed' || changedPath.kind === 'copied')
+        && Boolean(changedPath.previousPath);
+    const leftPath = changedPath.kind === 'added'
+        ? null
+        : relatesDistinctPaths
+            ? changedPath.previousPath ?? null
+            : changedPath.path;
+    const rightPath = changedPath.kind === 'deleted' ? null : changedPath.path;
+    const relationVerb = changedPath.kind === 'renamed'
+        ? 'Renamed'
+        : changedPath.kind === 'copied'
+            ? 'Copied'
+            : null;
+
+    return {
+        key: changedPath.path,
+        leftPath,
+        rightPath,
+        kind: changedPath.kind,
+        similarity: changedPath.similarity,
+        summary: relationVerb && changedPath.previousPath
+            ? `${relationVerb} ${changedPath.previousPath} → ${changedPath.path}`
+                + (changedPath.similarity === undefined ? '' : ` · ${changedPath.similarity}% similarity`)
+            : undefined
+    };
 }
 
 function verifyCommit(repoRoot: string, ref: string, runGit: RunGit): string {

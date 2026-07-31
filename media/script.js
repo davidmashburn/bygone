@@ -119,8 +119,14 @@ host.onMessage((message) => {
             Boolean(message.canReturnToDirectory),
             message.editableSides,
             message.comparisonId,
-            message.directoryNavigation || null
+            message.directoryNavigation || null,
+            message.comparisonSummary || null
         );
+        return;
+    }
+
+    if (message.type === 'showBinaryDiff') {
+        showBinaryDiff(message);
         return;
     }
 
@@ -179,7 +185,8 @@ window.addEventListener('load', async () => {
             Boolean(pendingTwoWayPayload.canReturnToDirectory),
             pendingTwoWayPayload.editableSides,
             pendingTwoWayPayload.comparisonId,
-            pendingTwoWayPayload.directoryNavigation || null
+            pendingTwoWayPayload.directoryNavigation || null,
+            pendingTwoWayPayload.comparisonSummary || null
         );
         pendingTwoWayPayload = undefined;
     }
@@ -275,7 +282,7 @@ function isDarkColor(color) {
     return luminance < 140;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null) {
     const comparisonKey = comparisonId || `${file1}\u0000${file2}`;
     const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
     currentMode = MODE_TWO_WAY;
@@ -296,7 +303,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
 
     toggleView(VIEW_IDS.twoWay);
     setStatus('', false);
-    setTextContent('file-info', `Comparing ${file1} and ${file2}`);
+    setTextContent('file-info', comparisonSummary || `Comparing ${file1} and ${file2}`);
     setTextContent('file1-header', file1);
     setTextContent('file2-header', file2);
     updateHistoryToolbar(history);
@@ -318,6 +325,102 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
     notifyRenderComplete();
+}
+
+function showBinaryDiff(message) {
+    const comparison = message.comparison;
+    currentMode = 'binary';
+    currentTwoWayComparisonKey = null;
+    historyMode = false;
+    activeDirectoryEntryPath = message.directoryNavigation?.activeRelativePath || null;
+    currentDiffModel = null;
+    activeDiffIndex = -1;
+    diffBlocks = [];
+    currentDiffRows = [];
+    scrollMaps = null;
+    directoryEntries = [];
+    hostEditableSides = { left: false, right: false };
+
+    disposeTwoWayEditors();
+    disposeMultiEditors();
+    toggleView(VIEW_IDS.twoWay);
+    setStatus('', false);
+    const subject = comparison.kind === 'image' ? 'Images' : 'Binary files';
+    setTextContent(
+        'file-info',
+        message.comparisonSummary || `${subject} are ${comparison.identical ? 'byte-for-byte identical' : 'different byte-for-byte'}`
+    );
+    setTextContent('file1-header', comparison.left.label);
+    setTextContent('file2-header', comparison.right.label);
+    updateHistoryToolbar(null);
+    updateNavigationRail(message.directoryNavigation?.rail || null, message.directoryNavigation ? 'directory' : null);
+    updateFileNavigationState(message.fileNavigation || null, Boolean(message.canReturnToDirectory));
+    updateDirectoryReturnToolbar(Boolean(message.canReturnToDirectory));
+    updateEditModeToolbar();
+    updateDirectoryTreeToolbar();
+    updateChangeToolbarState();
+
+    renderBinarySide(getElement('file1-content'), comparison.left, comparison.identical);
+    renderBinarySide(getElement('file2-content'), comparison.right, comparison.identical);
+    resetTwoWayScrollPositions();
+    connectorController.resizeCanvas();
+    connectorController.scheduleDrawConnections();
+    notifyRenderComplete();
+}
+
+function renderBinarySide(container, side, identical) {
+    container.classList.remove('editor-host');
+    container.classList.add('binary-preview-host');
+    container.innerHTML = '';
+
+    const card = document.createElement('div');
+    card.className = 'binary-preview-card';
+    const state = document.createElement('div');
+    state.className = `binary-preview-state ${identical ? 'is-identical' : 'is-different'}`;
+    state.textContent = identical ? 'Byte-identical' : 'Bytes differ';
+    card.appendChild(state);
+
+    const stage = document.createElement('div');
+    stage.className = 'binary-preview-stage';
+    if (!side.exists) {
+        const missing = document.createElement('div');
+        missing.className = 'binary-preview-placeholder';
+        missing.textContent = 'Missing on this side';
+        stage.appendChild(missing);
+    } else if (side.dataUrl) {
+        const image = document.createElement('img');
+        image.className = 'binary-preview-image';
+        image.src = side.dataUrl;
+        image.alt = side.label;
+        stage.appendChild(image);
+    } else {
+        const icon = document.createElement('div');
+        icon.className = 'binary-preview-icon';
+        icon.textContent = side.kind === 'image' ? '▣' : '◈';
+        const reason = document.createElement('div');
+        reason.className = 'binary-preview-placeholder';
+        reason.textContent = side.previewUnavailableReason || 'No textual preview';
+        stage.append(icon, reason);
+    }
+    card.appendChild(stage);
+
+    const metadata = document.createElement('div');
+    metadata.className = 'binary-preview-metadata';
+    metadata.textContent = side.exists
+        ? `${side.mimeType || 'binary data'} · ${formatByteLength(side.byteLength)}`
+        : 'File does not exist';
+    card.appendChild(metadata);
+    container.appendChild(card);
+}
+
+function formatByteLength(bytes) {
+    if (bytes < 1024) {
+        return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+        return `${(bytes / 1024).toFixed(1)} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canMutate = true, review = null) {
@@ -502,6 +605,7 @@ function ensureTwoWayEditors() {
 
 function createEditor(container, editorMode, side = null) {
     container.innerHTML = '<div class="editor-root"></div>';
+    container.classList.remove('binary-preview-host');
     container.classList.add('editor-host');
 
     const editor = monacoInstance.editor.create(container.firstElementChild, {
@@ -1874,8 +1978,9 @@ function updateChangeToolbarState() {
     const toolbar = getElement('change-toolbar');
     const toolbarCenter = toolbar.querySelector('.change-toolbar-center');
     const toolbarHint = toolbar.parentElement?.querySelector('.change-hint');
-    const isCompareMode = currentMode === MODE_TWO_WAY || currentMode === 'directory' || currentMode === MODE_MULTI_WAY || currentMode === 'three-way';
+    const isCompareMode = currentMode === MODE_TWO_WAY || currentMode === 'binary' || currentMode === 'directory' || currentMode === MODE_MULTI_WAY || currentMode === 'three-way';
     const hasTwoWayMode = currentMode === MODE_TWO_WAY;
+    const hasBinaryMode = currentMode === 'binary';
     const directoryTargets = getNavigableDirectoryEntries();
     const hasDirectoryTargets = currentMode === 'directory' && directoryTargets.length > 0;
     toolbar.hidden = !isCompareMode;
@@ -1927,6 +2032,24 @@ function updateChangeToolbarState() {
         getElement('next-file').disabled = !currentFileNavigation.canGoNext;
         getElement('copy-left-to-right').disabled = !isSideEditable('right');
         getElement('copy-right-to-left').disabled = !isSideEditable('left');
+        return;
+    }
+
+    if (hasBinaryMode) {
+        toolbar.hidden = !hasDirectoryNavigation;
+        toolbarCenter.hidden = true;
+        if (toolbarHint) {
+            toolbarHint.hidden = true;
+        }
+        setTextContent('change-position', '');
+        getElement('copy-left-to-right').hidden = true;
+        getElement('copy-right-to-left').hidden = true;
+        getElement('previous-change').disabled = true;
+        getElement('next-change').disabled = true;
+        getElement('previous-file').hidden = false;
+        getElement('next-file').hidden = false;
+        getElement('previous-file').disabled = !currentFileNavigation.canGoPrevious;
+        getElement('next-file').disabled = !currentFileNavigation.canGoNext;
         return;
     }
 
@@ -2199,6 +2322,40 @@ function replaceEditorLines(editor, start, end, replacementLines) {
 
 function initializeDirectoryViewEvents() {
     const container = getElement('dir-rows');
+    const clearRelatedRows = () => {
+        container.querySelectorAll('.dir-entry.is-related-review-path').forEach((row) => {
+            row.classList.remove('is-related-review-path');
+        });
+    };
+    const emphasizeRelatedRows = (row) => {
+        clearRelatedRows();
+        if (!(row instanceof Element)) {
+            return;
+        }
+        const path = row.getAttribute('data-path');
+        const relatedPath = row.getAttribute('data-related-path');
+        if (!path || !relatedPath) {
+            return;
+        }
+        container.querySelectorAll('.dir-entry[data-path]').forEach((candidate) => {
+            const candidatePath = candidate.getAttribute('data-path');
+            if (candidatePath === path || candidatePath === relatedPath) {
+                candidate.classList.add('is-related-review-path');
+            }
+        });
+    };
+    container.addEventListener('pointerover', (event) => {
+        emphasizeRelatedRows(event.target instanceof Element ? event.target.closest('.dir-entry') : null);
+    });
+    container.addEventListener('pointerleave', clearRelatedRows);
+    container.addEventListener('focusin', (event) => {
+        emphasizeRelatedRows(event.target instanceof Element ? event.target.closest('.dir-entry') : null);
+    });
+    container.addEventListener('focusout', (event) => {
+        if (!container.contains(event.relatedTarget)) {
+            clearRelatedRows();
+        }
+    });
     container.addEventListener('bygone:directory-layout-change', () => {
         syncDirectoryColumnsFromActive();
         updateDirectoryEntrySelection();
@@ -2833,10 +2990,10 @@ function getScrollRatio(value, extent) {
 }
 
 function resetTwoWayScrollPositions() {
-    leftEditor.setScrollTop(0);
-    leftEditor.setScrollLeft(0);
-    rightEditor.setScrollTop(0);
-    rightEditor.setScrollLeft(0);
+    leftEditor?.setScrollTop(0);
+    leftEditor?.setScrollLeft(0);
+    rightEditor?.setScrollTop(0);
+    rightEditor?.setScrollLeft(0);
 }
 
 function resetMultiScrollPositions() {

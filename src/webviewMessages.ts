@@ -1,5 +1,6 @@
 import { ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
 import { DirectoryEntry, DirectoryEntryStatus } from './directoryDiff';
+import { BinaryComparison } from './binaryComparison';
 
 export { DirectoryEntry, DirectoryEntryStatus };
 
@@ -80,6 +81,16 @@ export interface ShowDiffMessage {
         left: boolean;
         right: boolean;
     };
+    comparisonSummary?: string;
+}
+
+export interface ShowBinaryDiffMessage {
+    type: 'showBinaryDiff';
+    comparison: BinaryComparison;
+    comparisonSummary?: string;
+    canReturnToDirectory?: boolean;
+    directoryNavigation?: DirectoryNavigationState | null;
+    fileNavigation?: FileNavigationState | null;
 }
 
 export interface ShowDirectoryDiffMessage {
@@ -234,7 +245,7 @@ export type WebviewInboundMessage =
     | MultiRemovePanelMessage
     | MultiUpdatePanelContentMessage
     | MultiSavePanelMessage;
-export type WebviewOutboundMessage = ShowDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
+export type WebviewOutboundMessage = ShowDiffMessage | ShowBinaryDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
 
 export function isReadyMessage(message: unknown): message is ReadyMessage {
     return getMessageType(message) === 'ready';

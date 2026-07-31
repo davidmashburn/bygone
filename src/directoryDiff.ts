@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { classifyFile, ComparedFileKind } from './binaryComparison';
 import { GitChangeKind } from './gitComparison';
 
 export type DirectoryEntryStatus = 'same' | 'modified' | 'left-only' | 'right-only' | 'partial';
@@ -13,7 +14,11 @@ export interface DirectoryEntry {
     sides: boolean[];
     gitChangeKind?: GitChangeKind;
     previousPath?: string;
+    relatedPath?: string;
+    reviewKey?: string;
+    relationSummary?: string;
     reviewed?: boolean;
+    fileKind?: Exclude<ComparedFileKind, 'text'>;
 }
 
 const DEFAULT_SMALL_FILE_COMPARE_BYTES = 256 * 1024;
@@ -78,6 +83,17 @@ function collectUnionEntries(
 
         const status = getEntryStatus(roots, relPath, sideEntries, sides, isDirectory, childrenChanged);
         result[entryIndex].status = status;
+        if (!isDirectory) {
+            const existingPath = roots
+                .map((root) => path.join(root, relPath))
+                .find((candidate) => safeStat(candidate)?.isFile());
+            if (existingPath) {
+                const fileKind = classifyFile(existingPath);
+                if (fileKind !== 'text') {
+                    result[entryIndex].fileKind = fileKind;
+                }
+            }
+        }
         hasChanges = hasChanges || status !== 'same';
     }
 

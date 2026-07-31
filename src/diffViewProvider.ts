@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { BinaryComparison } from './binaryComparison';
 import { buildTwoWayDiffModel, ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
 import { openDiffPreview } from './fallbackViews';
 import {
@@ -20,13 +21,14 @@ import {
     isReturnToDirectoryMessage,
     isSelectHistoryEntryMessage,
     ShowDiffMessage,
+    ShowBinaryDiffMessage,
     ShowDirectoryDiffMessage,
     ShowMultiDiffMessage,
     ShowThreeWayMergeMessage,
     WebviewOutboundMessage
 } from './webviewMessages';
 
-type DirectoryDiffContext = Pick<ShowDiffMessage, 'canReturnToDirectory' | 'fileNavigation' | 'directoryNavigation' | 'editableSides'> & {
+type DirectoryDiffContext = Pick<ShowDiffMessage, 'canReturnToDirectory' | 'fileNavigation' | 'directoryNavigation' | 'editableSides' | 'comparisonSummary'> & {
     labels?: [string, string];
 };
 
@@ -194,6 +196,25 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             history: null,
             ...toDirectoryMessageContext(directoryContext)
         });
+    }
+
+    public async showBinaryDiff(
+        comparison: BinaryComparison,
+        directoryContext?: DirectoryDiffContext
+    ) {
+        const view = await this.revealView();
+        if (!view) {
+            vscode.window.showWarningMessage('Bygone view is unavailable.');
+            return;
+        }
+
+        this.currentTwoWayDiff = undefined;
+        this.postOrQueueMessage({
+            type: 'showBinaryDiff',
+            comparison,
+            comparisonSummary: directoryContext?.comparisonSummary,
+            ...toDirectoryMessageContext(directoryContext)
+        } satisfies ShowBinaryDiffMessage);
     }
 
     public async showHistoryDiff(
@@ -679,7 +700,8 @@ function toDirectoryMessageContext(context?: DirectoryDiffContext) {
         canReturnToDirectory: context.canReturnToDirectory,
         fileNavigation: context.fileNavigation,
         directoryNavigation: context.directoryNavigation,
-        editableSides: context.editableSides
+        editableSides: context.editableSides,
+        comparisonSummary: context.comparisonSummary
     };
 }
 

@@ -155,28 +155,33 @@
             ? `<span class="dir-toggle" aria-hidden="true">▼</span>`
             : `<span class="dir-toggle dir-toggle--spacer" aria-hidden="true"></span>`;
 
-        const reviewStatus = !isDir && entry.gitChangeKind
-            ? `<span class="dir-review-status dir-review-status--${escapeAttr(entry.gitChangeKind)}">${entry.reviewed ? '✓ ' : ''}${escapeHtml(reviewStatusLabel(entry.gitChangeKind))}</span>`
+        const fileKindIcon = !isDir && entry.fileKind
+            ? `<span class="dir-file-kind-icon dir-file-kind-icon--${escapeAttr(entry.fileKind)}" title="${entry.fileKind === 'image' ? 'Image file' : 'Binary file'}" aria-hidden="true">${entry.fileKind === 'image' ? '▣' : '◈'}</span>`
             : '';
-        const cellContent = `${toggleHtml}<span class="dir-indent">${indent}</span><span class="${nameClass}">${escapeHtml(displayText)}</span>${reviewStatus}`;
+        const lastPresentSide = Array.isArray(entry.sides) ? entry.sides.lastIndexOf(true) : sideIndex;
+        const isCanonicalReviewRow = !entry.reviewKey || entry.reviewKey === entry.relativePath;
+        const reviewed = !isDir && entry.reviewed && isCanonicalReviewRow && sideIndex === lastPresentSide
+            ? '<span class="dir-reviewed" title="Viewed" aria-hidden="true">✓</span>'
+            : '';
+        const cellContent = `${toggleHtml}<span class="dir-indent">${indent}</span>${fileKindIcon}<span class="${nameClass}">${escapeHtml(displayText)}</span>${reviewed}`;
         const accessibleLabel = isDir
             ? `${displayText} folder`
-            : `${displayText} file${entry.gitChangeKind ? `, ${reviewStatusLabel(entry.gitChangeKind)}${entry.reviewed ? ', viewed' : ''}` : ''}`;
+            : `${displayText} file${entry.fileKind ? `, ${entry.fileKind}` : ''}${entry.reviewed ? ', viewed' : ''}${entry.relationSummary ? `, ${entry.relationSummary}` : ''}`;
         const expandedAttr = isDir ? ' aria-expanded="true"' : '';
+        const relatedPathAttr = entry.relatedPath
+            ? ` data-related-path="${escapeAttr(entry.relatedPath)}"`
+            : '';
 
         return `<button class="dir-entry dir-entry--${entry.status}" type="button" `
             + `aria-label="${escapeAttr(accessibleLabel)}" `
-            + `title="${escapeAttr(entry.relativePath)}" `
+            + `title="${escapeAttr(entry.relationSummary || entry.relativePath)}" `
             + `data-path="${escapeAttr(entry.relativePath)}" `
+            + relatedPathAttr
             + `data-depth="${entry.depth}" `
             + `data-side-index="${sideIndex}" `
             + `data-is-dir="${isDir}"${expandedAttr}>`
             + `<span class="dir-entry-content">${cellContent}</span>`
             + `</button>`;
-    }
-
-    function reviewStatusLabel(kind) {
-        return String(kind || 'changed').replace(/-/g, ' ');
     }
 
     function directoryEntryExistsOnSide(entry, sideIndex) {

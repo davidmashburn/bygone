@@ -6,7 +6,13 @@ const { execFileSync } = require('node:child_process');
 const { buildTwoWayDiffModel, mergeText } = require('../out/diffEngine.js');
 const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
-const { parseNameStatusZ, resolveBranchReviewRange } = require('../out/gitComparison.js');
+const { buildBinaryComparison, classifyFile } = require('../out/binaryComparison.js');
+const {
+    materializeBranchReviewTrees,
+    parseNameStatusZ,
+    resolveBranchReviewRange,
+    resolveReviewPathPair
+} = require('../out/gitComparison.js');
 const { dedupeDecorations } = require('../media/decorationUtils.js');
 const {
     buildBlockChanges,
@@ -78,6 +84,57 @@ function testGitNameStatusParserPreservesRenameMetadata() {
             similarity: 87
         }
     ]);
+}
+
+function testReviewPathPairUsesDistinctRenameEndpoints() {
+    assert.deepEqual(resolveReviewPathPair([{
+        kind: 'renamed',
+        previousPath: 'src/old-name.ts',
+        path: 'src/new-name.ts',
+        similarity: 92
+    }], 'src/old-name.ts'), {
+        key: 'src/new-name.ts',
+        leftPath: 'src/old-name.ts',
+        rightPath: 'src/new-name.ts',
+        kind: 'renamed',
+        similarity: 92,
+        summary: 'Renamed src/old-name.ts → src/new-name.ts · 92% similarity'
+    });
+}
+
+function testBinaryComparisonBuildsImagePreviewsAndEquality() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-binary-test-'));
+    const left = path.join(root, 'left.png');
+    const right = path.join(root, 'right.png');
+    const onePixelPng = Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        'base64'
+    );
+    fs.writeFileSync(left, onePixelPng);
+    fs.writeFileSync(right, onePixelPng);
+
+    const same = buildBinaryComparison(left, right, 'left image', 'right image');
+    assert.equal(same?.kind, 'image');
+    assert.equal(same?.identical, true);
+    assert.match(same?.left.dataUrl ?? '', /^data:image\/png;base64,/);
+
+    fs.appendFileSync(right, Buffer.from([1]));
+    const different = buildBinaryComparison(left, right);
+    assert.equal(different?.identical, false);
+}
+
+function testBinaryComparisonDetectsGenericBinaryWithoutPreview() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-binary-test-'));
+    const left = path.join(root, 'left.data');
+    const right = path.join(root, 'right.data');
+    fs.writeFileSync(left, Buffer.from([1, 0, 2]));
+    fs.writeFileSync(right, Buffer.from([1, 0, 3]));
+
+    assert.equal(classifyFile(left), 'binary');
+    const comparison = buildBinaryComparison(left, right);
+    assert.equal(comparison?.kind, 'binary');
+    assert.equal(comparison?.identical, false);
+    assert.equal(comparison?.left.dataUrl, undefined);
 }
 
 function testMenuCapabilitiesFollowSessionMode() {
@@ -232,6 +289,13 @@ function testDynamicButtonsHaveTooltips() {
     assert.match(rendererSource, /history-rail-tab[^`]+title=/);
     assert.match(rendererSource, /history-rail-item[^`]+title=/);
     assert.match(directorySource, /return `<button class="dir-entry[\s\S]{0,300}title=/);
+}
+
+function testDirectoryRowsUseFileKindAffordancesWithoutStatusBadges() {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'media', 'dom.js'), 'utf8');
+    assert.match(source, /dir-file-kind-icon/);
+    assert.match(source, /dir-reviewed/);
+    assert.doesNotMatch(source, /dir-review-status/);
 }
 
 function testDuplicateMultiPanelDecorationsRenderOnce() {
@@ -591,6 +655,37 @@ function testBranchReviewPreservesMergeCommitParents() {
     assert.equal(mergeCommit?.parentOids.length, 2);
 }
 
+function testBranchReviewMaterializesRenameEndpointsAsOneReviewPair() {
+    const repo = createTempGitRepo();
+    const oldPath = path.join(repo, 'src', 'old-name.txt');
+    fs.mkdirSync(path.dirname(oldPath), { recursive: true });
+    fs.writeFileSync(oldPath, 'alpha\nbeta\ngamma\ndelta\n', 'utf8');
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'base']);
+    runGit(repo, ['branch', '-M', 'main']);
+    runGit(repo, ['checkout', '-b', 'feature/rename']);
+    runGit(repo, ['mv', 'src/old-name.txt', 'src/new-name.txt']);
+    fs.appendFileSync(path.join(repo, 'src', 'new-name.txt'), 'epsilon\n', 'utf8');
+    runGit(repo, ['commit', '-am', 'rename file']);
+
+    const range = resolveBranchReviewRange(repo, 'HEAD', 'main');
+    const rename = range.changedPaths.find((entry) => entry.kind === 'renamed');
+    assert.equal(rename?.previousPath, 'src/old-name.txt');
+    assert.equal(rename?.path, 'src/new-name.txt');
+
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-rename-review-'));
+    const left = path.join(root, 'left');
+    const right = path.join(root, 'right');
+    fs.mkdirSync(left, { recursive: true });
+    fs.mkdirSync(right, { recursive: true });
+    materializeBranchReviewTrees(range, left, right);
+
+    assert.equal(fs.readFileSync(path.join(left, 'src', 'old-name.txt'), 'utf8'), 'alpha\nbeta\ngamma\ndelta\n');
+    assert.equal(fs.readFileSync(path.join(right, 'src', 'new-name.txt'), 'utf8'), 'alpha\nbeta\ngamma\ndelta\nepsilon\n');
+    assert.equal(fs.existsSync(path.join(left, 'src', 'new-name.txt')), false);
+    assert.equal(fs.existsSync(path.join(right, 'src', 'old-name.txt')), false);
+}
+
 function createTempGitRepo() {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-history-test-'));
 
@@ -620,6 +715,9 @@ function run() {
     testDirectoryDrilldownNavigationTracksActiveFile();
     testDirectoryHistoryFileNavigationTakesPriorityOverPanelNavigation();
     testGitNameStatusParserPreservesRenameMetadata();
+    testReviewPathPairUsesDistinctRenameEndpoints();
+    testBinaryComparisonBuildsImagePreviewsAndEquality();
+    testBinaryComparisonDetectsGenericBinaryWithoutPreview();
     testMenuCapabilitiesFollowSessionMode();
     testTwoWayDiffAlignsInsertions();
     testInlineHighlightsSingleWordReplacement();
@@ -632,6 +730,7 @@ function run() {
     testStaticButtonsHaveTooltips();
     testMacCliLaunchesASeparateArgumentAwareAppInstance();
     testDynamicButtonsHaveTooltips();
+    testDirectoryRowsUseFileKindAffordancesWithoutStatusBadges();
     testDuplicateMultiPanelDecorationsRenderOnce();
     testDirectoryDiffDetectsModifiedFiles();
     testMultiDirectoryDiffDetectsPartialAndModifiedFiles();
@@ -650,6 +749,7 @@ function run() {
     testHistoryIncludeStagedShowsIndexWhenNoUnstagedChanges();
     testBranchReviewUsesMergeBaseAndDetectsDefaultBase();
     testBranchReviewPreservesMergeCommitParents();
+    testBranchReviewMaterializesRenameEndpointsAsOneReviewPair();
     console.log('All tests passed.');
 }
 

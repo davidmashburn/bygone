@@ -1,7 +1,7 @@
 ---
 author: David Mashburn
 created_at: 2026-06-01T20:35:08Z
-modified_at: 2026-07-30T01:00:53Z
+modified_at: 2026-07-31T17:56:59Z
 generated_by: Codex
 generated_for: David Mashburn
 reviewed_by:
@@ -9,6 +9,7 @@ approved_by:
 repo: https://github.com/davidmashburn/bygone
 branch: main
 repo_branch_url: https://github.com/davidmashburn/bygone/tree/main
+repo_head_commit_url: https://github.com/davidmashburn/bygone/commit/75b6d7c0303124ec314aa790d6b808c4a9d9ea0e
 ---
 
 # Bygone
@@ -24,6 +25,7 @@ Bygone is a VS Code extension and standalone desktop app for visual diff and fil
 - Flowing connectors, block contours, and inline change highlighting
 - Git file history viewer with commit-by-commit navigation
 - Local branch-review workspace using merge-base-to-tip semantics and changed-file progress
+- Binary-aware comparisons with side-by-side image previews and byte-equality reporting
 
 ## Status
 
@@ -89,7 +91,9 @@ CLI defaults:
 
 If the native desktop app is installed, the npm/source launcher prefers it and forwards the shell working directory. Set `BYGONE_FORCE_BUNDLED=1` to force the npm-bundled Electron runtime instead. The launcher removes `ELECTRON_RUN_AS_NODE` before starting Electron so editor-integrated terminals cannot accidentally force the app into Node mode.
 
-Branch review compares the selected head directly with `merge-base(base, head)`, so merge commits are represented correctly in the aggregate diff. Commit metadata retains every parent of merge commits for future temporal review. Dirty index and working-tree changes are reported but never silently included.
+Branch review compares the selected head directly with `merge-base(base, head)`, so merge commits are represented correctly in the aggregate diff. Commit metadata retains every parent of merge commits for future temporal review. Dirty index and working-tree changes are reported but never silently included. Detected renames keep distinct old and new paths for correct drill-down and navigation without adding persistent cross-tree connectors.
+
+Two-file and directory drill-down comparisons detect binary content before decoding it as text. Images render side by side when they are small enough to preview inline; all binary comparisons report whether the underlying bytes are identical.
 
 The desktop app also includes `Help -> Install Command Line Tools...` for non-npm installs. Homebrew cask installs can provide the `bygone` command automatically.
 
