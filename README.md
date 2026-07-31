@@ -1,7 +1,7 @@
 ---
 author: David Mashburn
 created_at: 2026-06-01T20:35:08Z
-modified_at: 2026-07-31T17:56:59Z
+modified_at: 2026-07-31T20:56:06Z
 generated_by: Codex
 generated_for: David Mashburn
 reviewed_by:
@@ -9,7 +9,7 @@ approved_by:
 repo: https://github.com/davidmashburn/bygone
 branch: main
 repo_branch_url: https://github.com/davidmashburn/bygone/tree/main
-repo_head_commit_url: https://github.com/davidmashburn/bygone/commit/75b6d7c0303124ec314aa790d6b808c4a9d9ea0e
+repo_head_commit_url: https://github.com/davidmashburn/bygone/commit/183156146f54cc35b9304d6b2131e066b88e97dc
 ---
 
 # Bygone
@@ -70,6 +70,7 @@ bygone --diff path/to/file1 path/to/file2 path/to/file3 [...]
 bygone --history path/to/path
 bygone review
 bygone review feature/my-branch --base origin/main
+bygone completion zsh
 bygone --help
 ```
 
@@ -88,6 +89,15 @@ CLI defaults:
 - `bygone review [<head>] [--base <base>]` reviews the committed branch tip against its merge base. The base is detected from `origin/HEAD`, `main`, or `master` when omitted.
 - `bygone <left> <right>` auto-selects file diff or directory compare.
 - `bygone --diff <file1> <file2> <file3> ...` opens multi-panel diff or multi-directory compare.
+
+Shell completion is generated from the same command specification as `bygone --help`, including contextual file arguments and local Git refs for branch review. `npm run dev:sync`, the desktop app's command-line installer, and the Homebrew packages install completions automatically. To install one manually, choose the command for your shell:
+
+```bash
+mkdir -p ~/.zfunc ~/.local/share/bash-completion/completions ~/.config/fish/completions
+bygone completion zsh > ~/.zfunc/_bygone # add ~/.zfunc to fpath before compinit
+bygone completion bash > ~/.local/share/bash-completion/completions/bygone
+bygone completion fish > ~/.config/fish/completions/bygone.fish
+```
 
 If the native desktop app is installed, the npm/source launcher prefers it and forwards the shell working directory. Set `BYGONE_FORCE_BUNDLED=1` to force the npm-bundled Electron runtime instead. The launcher removes `ELECTRON_RUN_AS_NODE` before starting Electron so editor-integrated terminals cannot accidentally force the app into Node mode.
 

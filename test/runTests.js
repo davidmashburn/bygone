@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 const { buildTwoWayDiffModel, mergeText } = require('../out/diffEngine.js');
 const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
@@ -21,6 +21,8 @@ const {
     resolveFileNavigationAction
 } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
+const { CLI_SPEC, renderCliHelp } = require('../cli/commandSpec.js');
+const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 
 function testLineClickSelectsContainingTwoWayChange() {
     const model = buildTwoWayDiffModel('one\ntwo\nthree\nfour\n', 'one\nTWO\nthree\nFOUR\n');
@@ -84,6 +86,66 @@ function testGitNameStatusParserPreservesRenameMetadata() {
             similarity: 87
         }
     ]);
+}
+
+function testCliSpecificationDrivesHelpAndEveryCompletionFormat() {
+    const help = renderCliHelp('test-version');
+    assert.match(help, /^Bygone test-version/);
+
+    for (const entry of CLI_SPEC.entries) {
+        for (const token of entry.tokens) {
+            assert.ok(help.includes(token), `help is missing ${token}`);
+        }
+    }
+
+    for (const shell of SUPPORTED_SHELLS) {
+        const generated = generateCompletion(shell);
+        const checkedIn = fs.readFileSync(
+            path.join(__dirname, '..', 'completions', completionFileName(shell)),
+            'utf8'
+        );
+        assert.equal(checkedIn, generated, `${shell} completion is stale`);
+        assert.match(generated, /git for-each-ref/);
+        assert.match(generated, /INDEX/);
+        assert.match(generated, /WORKTREE/);
+        for (const entry of CLI_SPEC.entries) {
+            for (const token of entry.tokens) {
+                const renderedToken = shell === 'fish' && token.startsWith('--')
+                    ? `-l ${token.slice(2)}`
+                    : shell === 'fish' && token.startsWith('-')
+                        ? `-s ${token.slice(1)}`
+                        : token;
+                assert.ok(generated.includes(renderedToken), `${shell} completion is missing ${token}`);
+            }
+        }
+    }
+}
+
+function testCliPrintsGeneratedCompletionsWithoutStartingElectron() {
+    const output = execFileSync(process.execPath, [
+        path.join(__dirname, '..', 'bin', 'bygone.js'),
+        'completion',
+        'zsh'
+    ], { encoding: 'utf8' });
+    assert.equal(output, generateCompletion('zsh'));
+
+    const invalid = spawnSync(process.execPath, [
+        path.join(__dirname, '..', 'bin', 'bygone.js'),
+        'completion',
+        'powershell'
+    ], { encoding: 'utf8' });
+    assert.equal(invalid.status, 2);
+    assert.match(invalid.stderr, /zsh\|bash\|fish/);
+}
+
+function testGeneratedCompletionScriptsPassAvailableShellSyntaxChecks() {
+    execFileSync('zsh', ['-n', path.join(__dirname, '..', 'completions', '_bygone')]);
+    execFileSync('bash', ['-n', path.join(__dirname, '..', 'completions', 'bygone')]);
+
+    const fish = spawnSync('fish', ['-n', path.join(__dirname, '..', 'completions', 'bygone.fish')]);
+    if (!fish.error || fish.error.code !== 'ENOENT') {
+        assert.equal(fish.status, 0, fish.stderr?.toString() || 'Fish completion syntax failed');
+    }
 }
 
 function testReviewPathPairUsesDistinctRenameEndpoints() {
@@ -715,6 +777,9 @@ function run() {
     testDirectoryDrilldownNavigationTracksActiveFile();
     testDirectoryHistoryFileNavigationTakesPriorityOverPanelNavigation();
     testGitNameStatusParserPreservesRenameMetadata();
+    testCliSpecificationDrivesHelpAndEveryCompletionFormat();
+    testCliPrintsGeneratedCompletionsWithoutStartingElectron();
+    testGeneratedCompletionScriptsPassAvailableShellSyntaxChecks();
     testReviewPathPairUsesDistinctRenameEndpoints();
     testBinaryComparisonBuildsImagePreviewsAndEquality();
     testBinaryComparisonDetectsGenericBinaryWithoutPreview();

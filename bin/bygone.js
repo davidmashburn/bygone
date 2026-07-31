@@ -4,43 +4,29 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const packageJson = require('../package.json');
+const { generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
+const { renderCliHelp, tokenMatches } = require('../cli/commandSpec.js');
 
 const args = process.argv.slice(2);
 const cliCwd = process.cwd();
 
-if (args.includes('--help') || args.includes('-h')) {
-    process.stdout.write(`Bygone ${packageJson.version}
-
-Usage:
-  bygone
-  bygone <file-or-directory>
-  bygone <left> <right>
-  bygone --diff <left> <right>
-  bygone --diff
-  bygone --diff <file1> <file2> <file3> [...]
-  bygone --history <path>
-  bygone --git-diff <ref1> <ref2> [<ref3>...]
-  bygone review [<head>] [--base <base>]
-  bygone --branch-diff [-b BRANCH] [-m MAIN]
-  bygone --test
-
-Notes:
-  - No args opens Git directory history inside a Git repo, or a blank editable diff outside one.
-  - \`--diff\` with no paths opens a blank editable diff.
-  - One positional path opens file history or Git directory history.
-  - \`--history\` accepts either files or directories.
-  - Two positional paths auto-select file diff or directory compare.
-  - Three or more positional paths auto-select multi-panel file diff or multi-directory compare.
-  - \`--git-diff\` materializes each git source to a temp directory and opens them as an N-panel directory compare. Commit-ish refs work (branches, tags, SHAs, HEAD~1, stash@{0}); INDEX and WORKTREE are also supported.
-  - \`review\` compares merge-base(BASE,HEAD) with HEAD, detects the repository's default base when omitted, and opens a read-only branch-review workspace.
-  - \`--branch-diff\` is retained as an alias for \`review\`.
-  - In the standalone app, drop 1 file for history, 2 files/directories for compare, 3+ files for multi-panel diff, or 3+ directories for multi-directory compare.
-`);
+if (args.some((arg) => tokenMatches('help', arg))) {
+    process.stdout.write(renderCliHelp(packageJson.version));
     process.exit(0);
 }
 
-if (args.includes('--version') || args.includes('-v')) {
+if (args.some((arg) => tokenMatches('version', arg))) {
     process.stdout.write(`${packageJson.version}\n`);
+    process.exit(0);
+}
+
+if (tokenMatches('completion', args[0])) {
+    const shell = args[1];
+    if (!SUPPORTED_SHELLS.includes(shell)) {
+        process.stderr.write(`Usage: bygone completion <${SUPPORTED_SHELLS.join('|')}>\n`);
+        process.exit(2);
+    }
+    process.stdout.write(generateCompletion(shell));
     process.exit(0);
 }
 

@@ -159,6 +159,7 @@
     "clean": "rm -rf out *.vsix",
     "typecheck": "tsc -p ./ --noEmit",
     "compile": "npm run typecheck && node ./scripts/build.mjs",
+    "completions:generate": "node ./scripts/generate-completions.mjs",
     "icons:generate": "node ./scripts/generate-icons.mjs",
     "package:vsix": "vsce package",
     "standalone:start": "npm run compile && node ./scripts/run-electron.mjs ./out/standalone-main.js",
@@ -202,6 +203,12 @@
       "README.md",
       "LICENSE.txt",
       "CHANGELOG.md"
+    ],
+    "extraResources": [
+      {
+        "from": "completions",
+        "to": "completions"
+      }
     ],
     "extraMetadata": {
       "main": "out/standalone-main.js"

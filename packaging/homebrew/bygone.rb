@@ -14,6 +14,10 @@ class Bygone < Formula
   def install
     system "npm", "install", *std_npm_args(prefix: libexec), cached_download
     bin.install_symlink libexec/"bin/bygone"
+    completion_root = libexec/"lib/node_modules/@davmash/bygone/completions"
+    zsh_completion.install completion_root/"_bygone"
+    bash_completion.install completion_root/"bygone"
+    fish_completion.install completion_root/"bygone.fish"
   end
 
   test do

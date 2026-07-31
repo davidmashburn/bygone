@@ -12,6 +12,8 @@ const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
 const { materializeBranchReviewTrees, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('./menuUtils.js');
+const { generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
+const { tokenMatches, tokensFor } = require('../cli/commandSpec.js');
 
 const APP_NAME = 'Bygone';
 const APP_VERSION = require('../package.json').version;
@@ -473,11 +475,15 @@ async function installCommandLineTools() {
         fs.mkdirSync(path.dirname(commandLineToolPath), { recursive: true });
         fs.writeFileSync(commandLineToolPath, launcher.content, 'utf8');
         fs.chmodSync(commandLineToolPath, 0o755);
-        await showInfo(`Installed command line tool at ${commandLineToolPath}`);
+        const completionPaths = installShellCompletionFiles();
+        await showInfo(
+            `Installed command line tool at ${commandLineToolPath}\n\nShell completions:\n`
+            + completionPaths.map((completionPath) => `- ${completionPath}`).join('\n')
+        );
     } catch (error) {
         await showError(
             `Could not install command line tool at ${commandLineToolPath}.\n\n`
-            + `Run this manually:\n${launcher.manualCommand}\n\n`
+            + `Run this manually:\n${launcher.manualCommand}\n${completionManualCommands()}\n\n`
             + getErrorMessage(error)
         );
     }
@@ -485,9 +491,10 @@ async function installCommandLineTools() {
 
 function buildCommandLineLauncher() {
     if (process.platform === 'darwin') {
+        const content = buildPosixCommandLineLauncher('exec open -W -n -a "Bygone" --args --cwd "$PWD" "$@"');
         return {
-            content: '#!/usr/bin/env sh\nexec open -W -n -a "Bygone" --args --cwd "$PWD" "$@"\n',
-            manualCommand: `sudo tee ${shellQuote(commandLineToolPath)} >/dev/null <<'EOF'\n#!/usr/bin/env sh\nexec open -W -n -a "Bygone" --args --cwd "$PWD" "$@"\nEOF\nsudo chmod +x ${shellQuote(commandLineToolPath)}`
+            content,
+            manualCommand: `sudo tee ${shellQuote(commandLineToolPath)} >/dev/null <<'EOF'\n${content}EOF\nsudo chmod +x ${shellQuote(commandLineToolPath)}`
         };
     }
 
@@ -500,10 +507,68 @@ function buildCommandLineLauncher() {
     }
 
     const executablePath = process.env.APPIMAGE || process.execPath;
+    const content = buildPosixCommandLineLauncher(`exec ${shellQuote(executablePath)} --cwd "$PWD" "$@"`);
     return {
-        content: `#!/usr/bin/env sh\nexec ${shellQuote(executablePath)} --cwd "$PWD" "$@"\n`,
-        manualCommand: `sudo tee ${shellQuote(commandLineToolPath)} >/dev/null <<'EOF'\n#!/usr/bin/env sh\nexec ${shellQuote(executablePath)} --cwd "$PWD" "$@"\nEOF\nsudo chmod +x ${shellQuote(commandLineToolPath)}`
+        content,
+        manualCommand: `sudo tee ${shellQuote(commandLineToolPath)} >/dev/null <<'EOF'\n${content}EOF\nsudo chmod +x ${shellQuote(commandLineToolPath)}`
     };
+}
+
+function buildPosixCommandLineLauncher(applicationCommand) {
+    const completionCommand = tokensFor('completion')[0];
+    const cases = SUPPORTED_SHELLS.map((shell) => {
+        const delimiter = `BYGONE_${shell.toUpperCase()}_COMPLETION`;
+        return `        ${shell})\n            cat <<'${delimiter}'\n${generateCompletion(shell)}${delimiter}\n            ;;`;
+    }).join('\n');
+
+    return `#!/usr/bin/env sh
+if [ "$1" = "${completionCommand}" ]; then
+    case "$2" in
+${cases}
+        *)
+            echo "Usage: bygone completion <${SUPPORTED_SHELLS.join('|')}>" >&2
+            exit 2
+            ;;
+    esac
+    exit 0
+fi
+${applicationCommand}
+`;
+}
+
+function installShellCompletionFiles() {
+    if (process.platform === 'win32') {
+        return [];
+    }
+
+    const prefix = path.dirname(path.dirname(commandLineToolPath));
+    const targets = [
+        ['zsh', path.join(prefix, 'share', 'zsh', 'site-functions', '_bygone')],
+        ['bash', path.join(prefix, 'etc', 'bash_completion.d', 'bygone')],
+        ['fish', path.join(prefix, 'share', 'fish', 'vendor_completions.d', 'bygone.fish')]
+    ];
+
+    for (const [shellName, targetPath] of targets) {
+        fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+        fs.writeFileSync(targetPath, generateCompletion(shellName), 'utf8');
+    }
+    return targets.map(([, targetPath]) => targetPath);
+}
+
+function completionManualCommands() {
+    if (process.platform === 'win32') {
+        return '';
+    }
+    const prefix = path.dirname(path.dirname(commandLineToolPath));
+    const targets = [
+        ['zsh', path.join(prefix, 'share', 'zsh', 'site-functions', '_bygone')],
+        ['bash', path.join(prefix, 'etc', 'bash_completion.d', 'bygone')],
+        ['fish', path.join(prefix, 'share', 'fish', 'vendor_completions.d', 'bygone.fish')]
+    ];
+    return targets.map(([shellName, targetPath]) => (
+        `sudo mkdir -p ${shellQuote(path.dirname(targetPath))}\n`
+        + `bygone completion ${shellName} | sudo tee ${shellQuote(targetPath)} >/dev/null`
+    )).join('\n');
 }
 
 function initializeAutoUpdates() {
@@ -643,7 +708,7 @@ function getCliArgsFromArgv(argv) {
 
 function parseLaunchArgs(args) {
     const { cwd, launchArgs } = normalizeLaunchArgs(args);
-    const includeStaged = launchArgs.includes('--include-staged') || launchArgs.includes('--staged');
+    const includeStaged = launchArgs.some((arg) => tokenMatches('includeStaged', arg));
     let capturePath = null;
     let windowWidth = null;
     let windowHeight = null;
@@ -651,7 +716,7 @@ function parseLaunchArgs(args) {
 
     for (let index = 0; index < launchArgs.length; index += 1) {
         const arg = launchArgs[index];
-        if (arg === '--include-staged' || arg === '--staged') {
+        if (tokenMatches('includeStaged', arg)) {
             continue;
         }
         if (arg === '--capture' && typeof launchArgs[index + 1] === 'string') {
@@ -684,11 +749,11 @@ function parseLaunchArgs(args) {
             : { kind: 'blank', capturePath, windowWidth, windowHeight };
     }
 
-    if (filteredArgs[0] === '--diff' && filteredArgs.length < 2) {
+    if (tokenMatches('diff', filteredArgs[0]) && filteredArgs.length < 2) {
         return { kind: 'blank', capturePath, windowWidth, windowHeight };
     }
 
-    if (filteredArgs[0] === '--diff' && filteredArgs.length >= 2) {
+    if (tokenMatches('diff', filteredArgs[0]) && filteredArgs.length >= 2) {
         if (filteredArgs.length === 2) {
             return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
         }
@@ -700,34 +765,34 @@ function parseLaunchArgs(args) {
         return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
     }
 
-    if (filteredArgs[0] === '--history' && filteredArgs.length >= 2) {
+    if (tokenMatches('history', filteredArgs[0]) && filteredArgs.length >= 2) {
         const targetPath = resolveLaunchPath(filteredArgs[1], cwd);
         return getPathKind(targetPath) === 'directory'
             ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
             : { kind: 'history', filePath: targetPath, includeStaged, capturePath, windowWidth, windowHeight };
     }
 
-    if (filteredArgs[0] === '--git-diff' && filteredArgs.length >= 3) {
+    if (tokenMatches('gitDiff', filteredArgs[0]) && filteredArgs.length >= 3) {
         return { kind: 'git-diff', refs: filteredArgs.slice(1), cwd, capturePath, windowWidth, windowHeight };
     }
 
-    if (filteredArgs[0] === '--branch-diff' || filteredArgs[0] === 'review') {
+    if (tokenMatches('branchDiff', filteredArgs[0]) || tokenMatches('review', filteredArgs[0])) {
         let branch = 'HEAD';
         let mainRef;
         for (let i = 1; i < filteredArgs.length; i++) {
             const arg = filteredArgs[i];
-            if ((arg === '-b' || arg === '--branch') && filteredArgs[i + 1]) {
+            if (tokenMatches('branch', arg) && filteredArgs[i + 1]) {
                 branch = filteredArgs[++i];
-            } else if ((arg === '-m' || arg === '--main' || arg === '--base') && filteredArgs[i + 1]) {
+            } else if (tokenMatches('base', arg) && filteredArgs[i + 1]) {
                 mainRef = filteredArgs[++i];
-            } else if (filteredArgs[0] === 'review' && !arg.startsWith('-')) {
+            } else if (tokenMatches('review', filteredArgs[0]) && !arg.startsWith('-')) {
                 branch = arg;
             }
         }
         return { kind: 'branch-diff', branch, mainRef, cwd, capturePath, windowWidth, windowHeight };
     }
 
-    if (filteredArgs[0] === '--test') {
+    if (tokenMatches('test', filteredArgs[0])) {
         return { kind: 'test', capturePath, windowWidth, windowHeight };
     }
 

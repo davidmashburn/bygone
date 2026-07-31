@@ -31,6 +31,7 @@ export default [
     {
         files: [
             'bin/**/*.js',
+            'cli/**/*.js',
             'eslint.config.mjs',
             'scripts/**/*.mjs',
             'standalone/main.js',
@@ -38,6 +39,12 @@ export default [
         ],
         languageOptions: {
             globals: globals.node
+        }
+    },
+    {
+        files: ['bin/**/*.js', 'cli/**/*.js'],
+        languageOptions: {
+            sourceType: 'commonjs'
         }
     },
     {

@@ -1,0 +1,54 @@
+# Generated from cli/commandSpec.js. Do not edit by hand.
+_bygone_git_refs() {
+    git for-each-ref --format='%(refname:short)' refs/heads refs/remotes refs/tags 2>/dev/null
+    printf '%s\n' HEAD INDEX WORKTREE
+}
+
+_bygone() {
+    local cur prev first refs
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    first="${COMP_WORDS[1]}"
+
+    if (( COMP_CWORD == 1 )); then
+        COMPREPLY=( $(compgen -W 'review completion --diff --history --git-diff --branch-diff --test -h --help -v --version' -- "$cur") $(compgen -f -- "$cur") )
+        compopt -o filenames 2>/dev/null || true
+        return
+    fi
+
+    case "$first" in
+        completion)
+            COMPREPLY=( $(compgen -W 'zsh bash fish' -- "$cur") )
+            ;;
+        review)
+            refs="$(_bygone_git_refs)"
+            if [[ "$prev" =~ ^(--base|-m|--main)$ ]]; then
+                COMPREPLY=( $(compgen -W "$refs" -- "$cur") )
+            else
+                COMPREPLY=( $(compgen -W '--base -m --main -h --help '"$refs" -- "$cur") )
+            fi
+            ;;
+        --branch-diff)
+            refs="$(_bygone_git_refs)"
+            if [[ "$prev" =~ ^(-b|--branch|--base|-m|--main)$ ]]; then
+                COMPREPLY=( $(compgen -W "$refs" -- "$cur") )
+            else
+                COMPREPLY=( $(compgen -W '-b --branch --base -m --main -h --help '"$refs" -- "$cur") )
+            fi
+            ;;
+        --git-diff)
+            COMPREPLY=( $(compgen -W "$(_bygone_git_refs)" -- "$cur") )
+            ;;
+        --history)
+            COMPREPLY=( $(compgen -W '--include-staged --staged -h --help' -- "$cur") $(compgen -f -- "$cur") )
+            compopt -o filenames 2>/dev/null || true
+            ;;
+        *)
+            COMPREPLY=( $(compgen -f -- "$cur") )
+            compopt -o filenames 2>/dev/null || true
+            ;;
+    esac
+}
+
+complete -F _bygone bygone

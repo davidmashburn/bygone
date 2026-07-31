@@ -27,6 +27,7 @@ Usage:
 What it does:
   - builds the repo
   - installs the global CLI from the local checkout
+  - installs Zsh, Bash, and Fish completions
   - packages the VSIX
   - packages the desktop app for the current platform
   - auto-installs the VSIX
@@ -44,6 +45,7 @@ await run(npmCmd, ['install']);
 await rm(path.join(repoRoot, 'dist'), { recursive: true, force: true });
 await run(npmCmd, ['run', 'compile']);
 await run(npmCmd, ['install', '-g', '.']);
+await installShellCompletions();
 await run(vsceBin, ['package']);
 await run(electronBuilderBin, desktopPackageArgs());
 
@@ -69,6 +71,42 @@ function desktopPackageArgs() {
     }
 
     throw new Error(`Unsupported platform for desktop packaging: ${platform}`);
+}
+
+async function installShellCompletions() {
+    if (platform === 'win32') {
+        return;
+    }
+
+    let targets;
+    if (platform === 'darwin') {
+        try {
+            const brewPrefix = await run('brew', ['--prefix'], { stdio: ['ignore', 'pipe', 'inherit'] });
+            targets = [
+                ['_bygone', path.join(brewPrefix, 'share', 'zsh', 'site-functions', '_bygone')],
+                ['bygone', path.join(brewPrefix, 'etc', 'bash_completion.d', 'bygone')],
+                ['bygone.fish', path.join(brewPrefix, 'share', 'fish', 'vendor_completions.d', 'bygone.fish')]
+            ];
+        } catch {
+            targets = userCompletionTargets();
+        }
+    } else {
+        targets = userCompletionTargets();
+    }
+
+    for (const [sourceName, targetPath] of targets) {
+        await mkdir(path.dirname(targetPath), { recursive: true });
+        await cp(path.join(repoRoot, 'completions', sourceName), targetPath);
+        console.log(`Installed shell completion to ${targetPath}`);
+    }
+}
+
+function userCompletionTargets() {
+    return [
+        ['_bygone', path.join(os.homedir(), '.local', 'share', 'zsh', 'site-functions', '_bygone')],
+        ['bygone', path.join(os.homedir(), '.local', 'share', 'bash-completion', 'completions', 'bygone')],
+        ['bygone.fish', path.join(os.homedir(), '.config', 'fish', 'completions', 'bygone.fish')]
+    ];
 }
 
 async function installVsix(vsixFile) {

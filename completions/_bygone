@@ -1,0 +1,94 @@
+#compdef bygone
+# Generated from cli/commandSpec.js. Do not edit by hand.
+
+_bygone_git_refs() {
+    local -a refs
+    refs=(${(f)"$(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes refs/tags 2>/dev/null)"})
+    _describe 'git source' refs
+    compadd -- HEAD INDEX WORKTREE
+}
+
+_bygone() {
+    local first="${words[2]}"
+    local previous="${words[CURRENT-1]}"
+    local -a root_items review_options legacy_options history_options shells
+    root_items=(
+        'review:Review a committed branch against its merge base'
+        'completion:Print shell completion source'
+        '--diff:Compare files, or open a blank editable diff'
+        '--history:Open Git history for a file or directory'
+        '--git-diff:Compare two or more Git sources'
+        '--branch-diff:Legacy alias for branch review'
+        '--test:Open the built-in test comparison'
+        '-h:Show command help'
+        '--help:Show command help'
+        '-v:Show the installed version'
+        '--version:Show the installed version'
+    )
+    review_options=(
+        '--base:Set the branch-review base ref'
+        '-m:Set the branch-review base ref'
+        '--main:Set the branch-review base ref'
+        '-h:Show command help'
+        '--help:Show command help'
+    )
+    legacy_options=(
+        '-b:Set the branch-review head ref'
+        '--branch:Set the branch-review head ref'
+        '--base:Set the branch-review base ref'
+        '-m:Set the branch-review base ref'
+        '--main:Set the branch-review base ref'
+        '-h:Show command help'
+        '--help:Show command help'
+    )
+    history_options=(
+        '--include-staged:Include staged state in Git history'
+        '--staged:Include staged state in Git history'
+        '-h:Show command help'
+        '--help:Show command help'
+    )
+    shells=('zsh:Z shell' 'bash:Bash' 'fish:Fish shell')
+
+    if (( CURRENT == 2 )); then
+        _describe 'bygone command' root_items
+        _files
+        return
+    fi
+
+    case "$first" in
+        completion)
+            _describe 'shell' shells
+            ;;
+        review)
+            if [[ "$previous" == (--base|-m|--main) ]]; then
+                _bygone_git_refs
+            else
+                _describe 'review option' review_options
+                _bygone_git_refs
+            fi
+            ;;
+        --branch-diff)
+            if [[ "$previous" == (-b|--branch|--base|-m|--main) ]]; then
+                _bygone_git_refs
+            else
+                _describe 'review option' legacy_options
+                _bygone_git_refs
+            fi
+            ;;
+        --git-diff)
+            _bygone_git_refs
+            ;;
+        --history)
+            _describe 'history option' history_options
+            _files
+            ;;
+        --diff)
+            _files
+            ;;
+        *)
+            _files
+            ;;
+    esac
+}
+
+compdef _bygone bygone

@@ -21,6 +21,8 @@ const npmPackageJson = {
     main: './out/standalone-main.js',
     files: [
         'bin/',
+        'cli/',
+        'completions/',
         'out/',
         'media/',
         'standalone/',
@@ -48,6 +50,8 @@ await copyFile('README.md');
 await copyFile('LICENSE.txt');
 await copyFile('CHANGELOG.md');
 await copyFile('bin/bygone.js');
+await copyFile('cli');
+await copyFile('completions');
 await copyFile('out/standalone-main.js');
 await copyFile('out/standalone-preload.js');
 await copyFile('standalone/index.html');

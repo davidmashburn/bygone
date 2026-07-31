@@ -12,6 +12,12 @@ cask "bygone-desktop" do
 
   app "Bygone.app"
   binary "#{appdir}/Bygone.app/Contents/MacOS/Bygone", target: "bygone"
+  artifact "Bygone.app/Contents/Resources/completions/_bygone",
+           target: "#{HOMEBREW_PREFIX}/share/zsh/site-functions/_bygone"
+  artifact "Bygone.app/Contents/Resources/completions/bygone",
+           target: "#{HOMEBREW_PREFIX}/etc/bash_completion.d/bygone"
+  artifact "Bygone.app/Contents/Resources/completions/bygone.fish",
+           target: "#{HOMEBREW_PREFIX}/share/fish/vendor_completions.d/bygone.fish"
 
   zap trash: [
     "~/Library/Application Support/Bygone",
