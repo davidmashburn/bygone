@@ -109,6 +109,8 @@ Two-file and directory drill-down comparisons detect binary content before decod
 
 Change tours can layer an authored, code-connected narrative over the complete generated change set. Pass a `.bygone.yaml` file with `--tour`; named source anchors compile to exact commit and line references, and unspecified files remain available in an automatically generated appendix. Try the self-referencing example with `bygone present --tour examples/bygone-history.bygone.yaml`, then see the [change tour format](./docs/change-tour-format.md).
 
+Agents can validate anchors and structure with `bygone tour validate <file.bygone.yaml> --json`, compile a portable manifest with `bygone tour compile`, and retrieve the authoring contract with `bygone tour schema`. See [Generating change tours with an LLM](./docs/generating-change-tours.md).
+
 The desktop app also includes `Help -> Install Command Line Tools...` for non-npm installs. Homebrew cask installs can provide the `bygone` command automatically.
 
 ## Package For External Use

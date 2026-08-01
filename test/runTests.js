@@ -26,6 +26,7 @@ const { CLI_SPEC, renderCliHelp } = require('../cli/commandSpec.js');
 const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const { buildChangeTourManifest, parseChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
 const { parsePresentArgs } = require('../cli/present.js');
+const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
 
 function testLineClickSelectsContainingTwoWayChange() {
     const model = buildTwoWayDiffModel('one\ntwo\nthree\nfour\n', 'one\nTWO\nthree\nFOUR\n');
@@ -264,6 +265,8 @@ function testChangeTourBuildsPortableNarrativeChapters() {
             anchors: { ...source.anchors, contract: { ...source.anchors.contract, contains: 'missing code' } }
         }
     }), /did not match/);
+    assert.throws(() => parseChangeTourSource({ ...source, inventedField: true }), /unknown field: inventedField/);
+    assert.throws(() => parseChangeTourSource({ ...source, chapters: [] }), /non-empty array/);
 }
 
 function testPresentArgumentsUseSharedBaseAliases() {
@@ -295,6 +298,37 @@ function testCheckedInBygoneHistoryTourRemainsReproducible() {
     assert.equal(manifest.scenes[0].kind, 'walkthrough');
     assert.equal(manifest.scenes[0].kind === 'walkthrough' ? manifest.scenes[0].steps.length : 0, 5);
     assert.equal(manifest.range.mergeBaseOid, source.range?.base);
+}
+
+function testAgentTourCommandsValidateCompileAndExposeSchema() {
+    assert.deepEqual(parseTourArgs(['validate', 'review.bygone.yaml', '--json']), {
+        action: 'validate', sourcePath: 'review.bygone.yaml', outputPath: undefined, json: true
+    });
+    assert.deepEqual(parseTourArgs(['compile', 'review.bygone.yaml', '-o', 'tour.json']), {
+        action: 'compile', sourcePath: 'review.bygone.yaml', outputPath: 'tour.json', json: false
+    });
+    assert.throws(() => parseTourArgs(['validate']), /requires a \.bygone\.yaml/);
+    assert.throws(() => parseTourArgs(['compile', 'review.bygone.yaml', '--json']), /only valid with tour validate/);
+
+    const repoRoot = path.join(__dirname, '..');
+    const sourcePath = 'examples/bygone-history.bygone.yaml';
+    let validationOutput = '';
+    const validation = runTourCommand(['validate', sourcePath, '--json'], repoRoot, repoRoot, {
+        write(chunk) { validationOutput += chunk; }
+    });
+    assert.equal(validation.ok, true);
+    assert.equal(JSON.parse(validationOutput).walkthroughSteps, 5);
+
+    const outputPath = path.join(os.tmpdir(), `bygone-tour-${process.pid}.json`);
+    runTourCommand(['compile', sourcePath, '--output', outputPath], repoRoot, repoRoot, { write() {} });
+    assert.equal(parseChangeTourManifest(JSON.parse(fs.readFileSync(outputPath, 'utf8'))).version, 1);
+    fs.rmSync(outputPath, { force: true });
+
+    let schemaOutput = '';
+    runTourCommand(['schema'], repoRoot, repoRoot, { write(chunk) { schemaOutput += chunk; } });
+    const schema = JSON.parse(schemaOutput);
+    assert.equal(schema.$schema, 'https://json-schema.org/draft/2020-12/schema');
+    assert.deepEqual(schema.required, ['version', 'anchors', 'connections', 'chapters']);
 }
 
 function testGeneratedCompletionScriptsPassAvailableShellSyntaxChecks() {
@@ -941,6 +975,7 @@ function run() {
     testChangeTourBuildsPortableNarrativeChapters();
     testPresentArgumentsUseSharedBaseAliases();
     testCheckedInBygoneHistoryTourRemainsReproducible();
+    testAgentTourCommandsValidateCompileAndExposeSchema();
     testGeneratedCompletionScriptsPassAvailableShellSyntaxChecks();
     testReviewPathPairUsesDistinctRenameEndpoints();
     testBinaryComparisonBuildsImagePreviewsAndEquality();

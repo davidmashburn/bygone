@@ -58,3 +58,5 @@ chapters:
 Only the active step's connection is shown. This keeps relationships useful without adding a permanent second layer of curves to Bygone's diff view. Files not used by an authored step remain available in the generated “Complete change set” appendix.
 
 See [Bygone's self-referencing history tour](../examples/bygone-history.bygone.yaml) for a complete narrative that pins and explains the commit where branch review was introduced.
+
+For agent workflows, see [Generating change tours with an LLM](./generating-change-tours.md) and the machine-readable [JSON Schema](../schemas/change-tour-source.schema.json).

@@ -58,7 +58,7 @@ _bygone_git_refs() {
 _bygone() {
     local first="\${words[2]}"
     local previous="\${words[CURRENT-1]}"
-    local -a root_items review_options present_options legacy_options history_options shells
+    local -a root_items review_options present_options legacy_options history_options shells tour_actions
     root_items=(
 ${rootItems}
     )
@@ -75,6 +75,7 @@ ${legacyOptions}
 ${historyOptions}
     )
     shells=('zsh:Z shell' 'bash:Bash' 'fish:Fish shell')
+    tour_actions=('validate:Validate source and anchors' 'compile:Compile a portable manifest' 'schema:Print the source schema')
 
     if (( CURRENT == 2 )); then
         _describe 'bygone command' root_items
@@ -85,6 +86,13 @@ ${historyOptions}
     case "$first" in
         completion)
             _describe 'shell' shells
+            ;;
+        tour)
+            if (( CURRENT == 3 )); then
+                _describe 'tour action' tour_actions
+            elif [[ "$words[3]" == "validate" || "$words[3]" == "compile" ]]; then
+                _files -g '*.bygone.yaml'
+            fi
             ;;
         review)
             if [[ "$previous" == ${shellAlternation(tokensFor('base'))} ]]; then
@@ -164,6 +172,14 @@ _bygone() {
         completion)
             COMPREPLY=( $(compgen -W 'zsh bash fish' -- "$cur") )
             ;;
+        tour)
+            if (( COMP_CWORD == 2 )); then
+                COMPREPLY=( $(compgen -W 'validate compile schema' -- "$cur") )
+            else
+                COMPREPLY=( $(compgen -W '--json --output -o' -- "$cur") $(compgen -f -- "$cur") )
+                compopt -o filenames 2>/dev/null || true
+            fi
+            ;;
         review)
             refs="$(_bygone_git_refs)"
             if [[ "$prev" =~ ^(${baseTokens})$ ]]; then
@@ -227,6 +243,9 @@ function generateFishCompletion() {
 
     lines.push(
         "complete -c bygone -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish' -d 'Shell'",
+        "complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'validate compile schema' -d 'Tour action'",
+        "complete -c bygone -n 'string match -q \"*tour validate*\" -- (commandline -opc)' -l json -d 'Print machine-readable validation output'",
+        "complete -c bygone -n 'string match -q \"*tour compile*\" -- (commandline -opc)' -l output -s o -r -d 'Write the compiled manifest'",
         `complete -c bygone -n 'string match -q "*--history*" -- (commandline -opc)' ${fishTokens(tokensFor('includeStaged'))} -d '${escapeSingleQuoted(getCliEntry('includeStaged').description)}'`,
         `complete -c bygone -n '__fish_seen_subcommand_from review' ${fishTokens(tokensFor('base'))} -r -a '(__bygone_git_refs)' -d '${escapeSingleQuoted(getCliEntry('base').description)}'`,
         "complete -c bygone -n '__fish_seen_subcommand_from review' -a '(__bygone_git_refs)' -d 'Git ref'",

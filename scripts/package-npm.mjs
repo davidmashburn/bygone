@@ -29,6 +29,7 @@ const npmPackageJson = {
         'standalone/',
         'docs/',
         'examples/',
+        'schemas/',
         'README.md',
         'LICENSE.txt',
         'CHANGELOG.md'
@@ -53,8 +54,9 @@ await mkdir(packageRoot, { recursive: true });
 await copyFile('README.md');
 await copyFile('LICENSE.txt');
 await copyFile('CHANGELOG.md');
-await copyFile('docs/change-tour-format.md');
+await copyFile('docs');
 await copyFile('examples');
+await copyFile('schemas');
 await copyFile('bin/bygone.js');
 await copyFile('cli');
 await copyFile('completions');

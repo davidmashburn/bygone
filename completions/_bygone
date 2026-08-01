@@ -11,11 +11,12 @@ _bygone_git_refs() {
 _bygone() {
     local first="${words[2]}"
     local previous="${words[CURRENT-1]}"
-    local -a root_items review_options present_options legacy_options history_options shells
+    local -a root_items review_options present_options legacy_options history_options shells tour_actions
     root_items=(
         'review:Review a committed branch against its merge base'
         'completion:Print shell completion source'
         'present:Open a browser tour of a committed branch range'
+        'tour:Validate, compile, or inspect authored change tours'
         '--diff:Compare files, or open a blank editable diff'
         '--history:Open Git history for a file or directory'
         '--git-diff:Compare two or more Git sources'
@@ -57,6 +58,7 @@ _bygone() {
         '--help:Show command help'
     )
     shells=('zsh:Z shell' 'bash:Bash' 'fish:Fish shell')
+    tour_actions=('validate:Validate source and anchors' 'compile:Compile a portable manifest' 'schema:Print the source schema')
 
     if (( CURRENT == 2 )); then
         _describe 'bygone command' root_items
@@ -67,6 +69,13 @@ _bygone() {
     case "$first" in
         completion)
             _describe 'shell' shells
+            ;;
+        tour)
+            if (( CURRENT == 3 )); then
+                _describe 'tour action' tour_actions
+            elif [[ "$words[3]" == "validate" || "$words[3]" == "compile" ]]; then
+                _files -g '*.bygone.yaml'
+            fi
             ;;
         review)
             if [[ "$previous" == (--base|-m|--main) ]]; then

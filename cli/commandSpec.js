@@ -12,6 +12,9 @@ const CLI_SPEC = Object.freeze({
         'bygone --git-diff <ref1> <ref2> [<ref3>...]',
         'bygone review [<head>] [--base <base>]',
         'bygone present [<head>] [--base <base>] [--tour <file.bygone.yaml>]',
+        'bygone tour validate <file.bygone.yaml> [--json]',
+        'bygone tour compile <file.bygone.yaml> [--output <tour.json>]',
+        'bygone tour schema',
         'bygone --branch-diff [-b BRANCH] [-m MAIN]',
         'bygone completion <zsh|bash|fish>',
         'bygone --test'
@@ -37,6 +40,13 @@ const CLI_SPEC = Object.freeze({
             tokens: ['present'],
             description: 'Open a browser tour of a committed branch range',
             argument: 'git-ref'
+        },
+        {
+            id: 'tourCommand',
+            kind: 'command',
+            tokens: ['tour'],
+            description: 'Validate, compile, or inspect authored change tours',
+            argument: 'tour-action'
         },
         {
             id: 'diff',
@@ -126,6 +136,8 @@ const CLI_SPEC = Object.freeze({
         '`--git-diff` accepts branches, tags, SHAs, HEAD~1, stash@{0}, INDEX, and WORKTREE.',
         '`review` compares merge-base(BASE,HEAD) with HEAD and detects the default base when omitted.',
         '`present` turns the same range into a browser-hosted, ordered change tour.',
+        '`tour validate` resolves every authored anchor; add `--json` for agent-readable output.',
+        '`tour compile` writes a portable manifest to stdout or `--output`; `tour schema` prints its source schema.',
         '`--branch-diff` is retained as an alias for `review`.',
         '`completion` prints a completion script for Zsh, Bash, or Fish.',
         'In the standalone app, drop 1 file for history, 2 files/directories for compare, or 3+ matching paths for multi-panel compare.'

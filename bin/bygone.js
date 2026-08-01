@@ -7,6 +7,7 @@ const packageJson = require('../package.json');
 const { generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const { renderCliHelp, tokenMatches } = require('../cli/commandSpec.js');
 const { startPresentation } = require('../cli/present.js');
+const { runTourCommand } = require('../cli/tour.js');
 
 const args = process.argv.slice(2);
 const cliCwd = process.cwd();
@@ -32,7 +33,17 @@ if (tokenMatches('completion', args[0])) {
 }
 
 const packageRoot = path.join(__dirname, '..');
-if (tokenMatches('present', args[0])) {
+if (tokenMatches('tourCommand', args[0])) {
+    try {
+        runTourCommand(args.slice(1), cliCwd, packageRoot);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(args.includes('--json')
+            ? `${JSON.stringify({ ok: false, error: { message } }, null, 2)}\n`
+            : `Could not process change tour: ${message}\n`);
+        process.exitCode = 1;
+    }
+} else if (tokenMatches('present', args[0])) {
     startPresentation(args.slice(1), cliCwd, packageRoot).catch((error) => {
         process.stderr.write(`Could not start change tour: ${error instanceof Error ? error.message : String(error)}\n`);
         process.exitCode = 1;

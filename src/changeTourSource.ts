@@ -53,10 +53,12 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
     if (!isRecord(value) || value.version !== CHANGE_TOUR_SOURCE_VERSION) {
         throw new Error('Unsupported or missing change-tour source version.');
     }
+    requireOnlyKeys(value, ['version', 'title', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters'], 'source');
     optionalString(value.title, 'title');
     optionalString(value.sourceUrl, 'sourceUrl');
     if (value.range !== undefined) {
         if (!isRecord(value.range)) throw new Error('range must be an object.');
+        requireOnlyKeys(value.range, ['base', 'head'], 'range');
         requireString(value.range.base, 'range.base');
         requireString(value.range.head, 'range.head');
     }
@@ -67,6 +69,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         if (!isRecord(anchor)) {
             throw new Error(`anchors.${id} must be an object.`);
         }
+        requireOnlyKeys(anchor, ['file', 'revision', 'contains', 'occurrence'], `anchors.${id}`);
         requireString(anchor.file, `anchors.${id}.file`);
         if (anchor.revision !== 'base' && anchor.revision !== 'head') {
             throw new Error(`anchors.${id}.revision must be base or head.`);
@@ -81,14 +84,15 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         : isRecord(value.connections)
             ? Object.entries(value.connections).map(([id, connection]) => isRecord(connection) ? { id, ...connection } : connection)
             : null;
-    if (!rawConnections || !Array.isArray(value.chapters)) {
-        throw new Error('connections must be an array or object, and chapters must be an array.');
+    if (!rawConnections || !Array.isArray(value.chapters) || value.chapters.length === 0) {
+        throw new Error('connections must be an array or object, and chapters must be a non-empty array.');
     }
     const connectionIds = new Set<string>();
     for (const [index, connection] of rawConnections.entries()) {
         if (!isRecord(connection)) {
             throw new Error(`connections[${index}] must be an object.`);
         }
+        requireOnlyKeys(connection, ['id', 'from', 'to', 'label'], `connections[${index}]`);
         requireString(connection.id, `connections[${index}].id`);
         requireString(connection.from, `connections[${index}].from`);
         requireString(connection.to, `connections[${index}].to`);
@@ -102,12 +106,17 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         }
         connectionIds.add(id);
     }
+    const chapterIds = new Set<string>();
+    const sceneIds = new Set<string>();
     for (const [chapterIndex, chapter] of value.chapters.entries()) {
-        if (!isRecord(chapter) || !Array.isArray(chapter.scenes)) {
-            throw new Error(`chapters[${chapterIndex}] must contain a scenes array.`);
+        if (!isRecord(chapter) || !Array.isArray(chapter.scenes) || chapter.scenes.length === 0) {
+            throw new Error(`chapters[${chapterIndex}] must contain a non-empty scenes array.`);
         }
         requireString(chapter.id, `chapters[${chapterIndex}].id`);
         requireString(chapter.title, `chapters[${chapterIndex}].title`);
+        requireOnlyKeys(chapter, ['id', 'title', 'scenes'], `chapters[${chapterIndex}]`);
+        if (chapterIds.has(chapter.id)) throw new Error(`Duplicate chapter id: ${chapter.id}`);
+        chapterIds.add(chapter.id);
         for (const [sceneIndex, scene] of chapter.scenes.entries()) {
             const path = `chapters[${chapterIndex}].scenes[${sceneIndex}]`;
             if (!isRecord(scene) || !Array.isArray(scene.steps) || scene.steps.length === 0) {
@@ -115,7 +124,11 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             }
             requireString(scene.id, `${path}.id`);
             requireString(scene.title, `${path}.title`);
+            requireOnlyKeys(scene, ['id', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'steps'], path);
+            if (sceneIds.has(scene.id)) throw new Error(`Duplicate scene id: ${scene.id}`);
+            sceneIds.add(scene.id);
             validateNarrative(scene, path);
+            const stepIds = new Set<string>();
             for (const [stepIndex, step] of scene.steps.entries()) {
                 const stepPath = `${path}.steps[${stepIndex}]`;
                 if (!isRecord(step)) {
@@ -125,6 +138,9 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
                 requireString(step.title, `${stepPath}.title`);
                 requireString(step.body, `${stepPath}.body`);
                 requireString(step.focus, `${stepPath}.focus`);
+                requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection'], stepPath);
+                if (stepIds.has(step.id)) throw new Error(`Duplicate step id in scene ${scene.id}: ${step.id}`);
+                stepIds.add(step.id);
                 const focus = step.focus;
                 if (!value.anchors[focus]) {
                     throw new Error(`${stepPath} references unknown anchor ${focus}.`);
@@ -166,5 +182,12 @@ function optionalString(value: unknown, path: string): void {
 function requireStringArray(value: unknown, path: string): asserts value is string[] {
     if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
         throw new Error(`${path} must be an array of strings.`);
+    }
+}
+
+function requireOnlyKeys(value: Record<string, unknown>, allowed: string[], path: string): void {
+    const unexpected = Object.keys(value).filter((key) => !allowed.includes(key));
+    if (unexpected.length > 0) {
+        throw new Error(`${path} contains unknown field${unexpected.length === 1 ? '' : 's'}: ${unexpected.join(', ')}`);
     }
 }

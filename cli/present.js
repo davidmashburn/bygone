@@ -2,9 +2,9 @@ const { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } =
 const { createServer } = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
-const { load: loadYaml } = require('js-yaml');
-const { buildChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
+const { buildChangeTourManifest, parseChangeTourStory } = require('../out/changeTour.js');
 const { tokenMatches } = require('./commandSpec.js');
+const { loadTourSource } = require('./tourFile.js');
 
 const MIME_TYPES = new Map([
     ['.css', 'text/css; charset=utf-8'],
@@ -21,9 +21,7 @@ async function startPresentation(args, cwd, packageRoot) {
     const story = process.env.BYGONE_TOUR_STORY
         ? parseChangeTourStory(JSON.parse(readFileSync(path.resolve(cwd, process.env.BYGONE_TOUR_STORY), 'utf8')))
         : undefined;
-    const source = tourPath
-        ? parseChangeTourSource(loadYaml(readFileSync(path.resolve(cwd, tourPath), 'utf8')))
-        : undefined;
+    const source = tourPath ? loadTourSource(cwd, tourPath).source : undefined;
     const manifest = buildChangeTourManifest(cwd, {
         headRef: explicitHeadRef || source?.range?.head || headRef,
         baseRef: baseRef || source?.range?.base,

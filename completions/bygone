@@ -12,7 +12,7 @@ _bygone() {
     first="${COMP_WORDS[1]}"
 
     if (( COMP_CWORD == 1 )); then
-        COMPREPLY=( $(compgen -W 'review completion present --diff --history --git-diff --branch-diff --test -h --help -v --version' -- "$cur") $(compgen -f -- "$cur") )
+        COMPREPLY=( $(compgen -W 'review completion present tour --diff --history --git-diff --branch-diff --test -h --help -v --version' -- "$cur") $(compgen -f -- "$cur") )
         compopt -o filenames 2>/dev/null || true
         return
     fi
@@ -20,6 +20,14 @@ _bygone() {
     case "$first" in
         completion)
             COMPREPLY=( $(compgen -W 'zsh bash fish' -- "$cur") )
+            ;;
+        tour)
+            if (( COMP_CWORD == 2 )); then
+                COMPREPLY=( $(compgen -W 'validate compile schema' -- "$cur") )
+            else
+                COMPREPLY=( $(compgen -W '--json --output -o' -- "$cur") $(compgen -f -- "$cur") )
+                compopt -o filenames 2>/dev/null || true
+            fi
             ;;
         review)
             refs="$(_bygone_git_refs)"
