@@ -1,0 +1,129 @@
+---
+name: generate-bygone-tours
+description: Generate, validate, compile, and present evidence-grounded Bygone code-change tours from Git ranges. Use when an AI coding agent should explain a branch, commit, pull request, or code change as a guided walkthrough; create or repair a .bygone.yaml file; produce an LLM-ready Bygone change context; connect narrative claims to exact source evidence; or turn a diff into a browser-presentable review or demo.
+---
+
+# Generate Bygone Tours
+
+Use Bygone as the deterministic evidence and rendering layer. Treat the language model as the narrative planner, never as the authority on Git ranges or source locations.
+
+## Locate Bygone
+
+Run `bygone --help`. In a Bygone source checkout whose installed command is stale, use `node ./bin/bygone.js` instead. The CLI must expose `tour context`, `tour schema`, `tour validate`, and `tour compile`.
+
+Do not install, rebuild, commit, push, publish, or open a browser unless the user requests it or the surrounding task clearly requires it.
+
+## Build the evidence context
+
+Determine the intended head and base from the request and repository state. Prefer an explicit base; do not guess when different bases would materially change the explanation.
+
+Generate a bounded, provider-neutral dossier:
+
+```sh
+bygone tour context HEAD --base origin/main --output /tmp/change-context.json
+```
+
+Use immutable commit IDs in the eventual tour. Dirty working-tree changes are reported but excluded from committed-range context.
+
+Inspect progressively instead of loading every patch immediately:
+
+```sh
+jq '{range,summary,commits,files:[.files[]|{path,previousPath,changeKind,role,additions,deletions,binary,patchOmittedReason,symbolHints}]}' /tmp/change-context.json
+```
+
+Then read patches only for likely narrative-bearing files. Account explicitly for every `patchOmittedReason`; never claim to understand omitted binary or oversized evidence.
+
+## Plan the explanation
+
+Identify the smallest set of reviewer questions that makes the change understandable. Organize by conceptual dependency rather than filename order. Usually move through:
+
+1. motivation, contract, or invariant;
+2. core implementation;
+3. integration or side effects;
+4. failure behavior and proof.
+
+Keep secondary, generated, dependency, and mechanical files in Bygone's complete-change appendix unless they alter a reviewer conclusion.
+
+Use these narrative constraints:
+
+- State one reviewer question or thesis per scene.
+- Prefer three to seven steps per scene.
+- Explain why focused code matters instead of paraphrasing syntax.
+- Keep summaries, annotations, and takeaways distinct.
+- Avoid intent, safety, performance, or runtime claims unsupported by the evidence.
+- Do not imply that the authored tour exhaustively reviews every changed file.
+
+## Author the source
+
+Retrieve the current contract:
+
+```sh
+bygone tour schema > /tmp/change-tour-source.schema.json
+```
+
+Write a `.bygone.yaml` file. Pin `range.base` and `range.head` to the exact OIDs from the context.
+
+For every step:
+
+- make one concise explanatory claim;
+- focus an anchor in `base` or `head` evidence;
+- prefer changed lines, using unchanged context only when it establishes a required boundary;
+- use the shortest snippet that is unique within that file and revision;
+- connect behavior to tests, error handling, or other concrete proof;
+- add a connection only when the relationship between two locations materially improves understanding.
+
+Never emit generated line numbers or hunk indexes. Verify candidate snippets against the pinned object when uncertain:
+
+```sh
+git show HEAD_OID:path/to/file | rg -F -n 'exact snippet'
+```
+
+Use `occurrence` only when repetition is intentional and stable. Treat rename identity as evidence rather than describing a rename as unrelated deletion and addition.
+
+## Validate and repair
+
+Always run validation before presenting or handing off:
+
+```sh
+bygone tour validate review.bygone.yaml --json
+```
+
+Repair every error. Do not weaken, delete, or redirect an anchor merely to make validation pass. If evidence no longer exists, revise the claim or report the broken premise.
+
+After structural validation, check that:
+
+- the first step establishes enough context for later steps;
+- important production behavior is not hidden in the appendix;
+- tests are connected to the behavior they prove;
+- connections express causal, contractual, data-flow, ordering, or proof relationships;
+- binary files and omitted patches are surfaced explicitly;
+- the final step supplies proof or a clear reviewer conclusion.
+
+## Compile or present
+
+Compile a portable manifest when the user needs an artifact:
+
+```sh
+bygone tour compile review.bygone.yaml --output review.tour.json
+```
+
+Open the interactive browser only when requested or useful for verifying the result:
+
+```sh
+bygone present --tour review.bygone.yaml
+```
+
+Compiled manifests contain source snapshots. Do not publish or upload them without explicit authorization.
+
+## Hand off
+
+Report:
+
+- the exact base and head OIDs;
+- the source and compiled artifact paths;
+- authored chapter, scene, and step counts, plus compiled counts when the generated complete-change appendix changes them;
+- omitted or unread evidence;
+- validation and visual verification performed;
+- whether generated files are temporary, uncommitted, committed, or pushed.
+
+Distinguish syntactic grounding from interpretive correctness: Bygone proves that cited evidence exists at the pinned revision, not that the narrative's interpretation is unquestionably correct.
