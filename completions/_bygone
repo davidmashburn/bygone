@@ -58,7 +58,7 @@ _bygone() {
         '--help:Show command help'
     )
     shells=('zsh:Z shell' 'bash:Bash' 'fish:Fish shell')
-    tour_actions=('validate:Validate source and anchors' 'compile:Compile a portable manifest' 'schema:Print the source schema')
+    tour_actions=('context:Build structured change evidence' 'validate:Validate source and anchors' 'compile:Compile a portable manifest' 'schema:Print the source schema')
 
     if (( CURRENT == 2 )); then
         _describe 'bygone command' root_items
@@ -73,6 +73,15 @@ _bygone() {
         tour)
             if (( CURRENT == 3 )); then
                 _describe 'tour action' tour_actions
+            elif [[ "$words[3]" == "context" ]]; then
+                if [[ "$previous" == (--base|-m|--main) ]]; then
+                    _bygone_git_refs
+                elif [[ "$previous" == "--output" || "$previous" == "-o" ]]; then
+                    _files
+                else
+                    compadd -- --base --output -o --max-patch-bytes --max-total-patch-bytes
+                    _bygone_git_refs
+                fi
             elif [[ "$words[3]" == "validate" || "$words[3]" == "compile" ]]; then
                 _files -g '*.bygone.yaml'
             fi

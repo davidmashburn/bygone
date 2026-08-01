@@ -75,7 +75,7 @@ ${legacyOptions}
 ${historyOptions}
     )
     shells=('zsh:Z shell' 'bash:Bash' 'fish:Fish shell')
-    tour_actions=('validate:Validate source and anchors' 'compile:Compile a portable manifest' 'schema:Print the source schema')
+    tour_actions=('context:Build structured change evidence' 'validate:Validate source and anchors' 'compile:Compile a portable manifest' 'schema:Print the source schema')
 
     if (( CURRENT == 2 )); then
         _describe 'bygone command' root_items
@@ -90,6 +90,15 @@ ${historyOptions}
         tour)
             if (( CURRENT == 3 )); then
                 _describe 'tour action' tour_actions
+            elif [[ "$words[3]" == "context" ]]; then
+                if [[ "$previous" == ${shellAlternation(tokensFor('base'))} ]]; then
+                    _bygone_git_refs
+                elif [[ "$previous" == "--output" || "$previous" == "-o" ]]; then
+                    _files
+                else
+                    compadd -- --base --output -o --max-patch-bytes --max-total-patch-bytes
+                    _bygone_git_refs
+                fi
             elif [[ "$words[3]" == "validate" || "$words[3]" == "compile" ]]; then
                 _files -g '*.bygone.yaml'
             fi
@@ -174,7 +183,17 @@ _bygone() {
             ;;
         tour)
             if (( COMP_CWORD == 2 )); then
-                COMPREPLY=( $(compgen -W 'validate compile schema' -- "$cur") )
+                COMPREPLY=( $(compgen -W 'context validate compile schema' -- "$cur") )
+            elif [[ "\${COMP_WORDS[2]}" == "context" ]]; then
+                refs="$(_bygone_git_refs)"
+                if [[ "$prev" =~ ^(${baseTokens})$ ]]; then
+                    COMPREPLY=( $(compgen -W "$refs" -- "$cur") )
+                elif [[ "$prev" == "--output" || "$prev" == "-o" ]]; then
+                    COMPREPLY=( $(compgen -f -- "$cur") )
+                    compopt -o filenames 2>/dev/null || true
+                else
+                    COMPREPLY=( $(compgen -W '--base --output -o --max-patch-bytes --max-total-patch-bytes '"$refs" -- "$cur") )
+                fi
             else
                 COMPREPLY=( $(compgen -W '--json --output -o' -- "$cur") $(compgen -f -- "$cur") )
                 compopt -o filenames 2>/dev/null || true
@@ -243,7 +262,11 @@ function generateFishCompletion() {
 
     lines.push(
         "complete -c bygone -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish' -d 'Shell'",
-        "complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'validate compile schema' -d 'Tour action'",
+        "complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'context validate compile schema' -d 'Tour action'",
+        "complete -c bygone -n 'string match -q \"*tour context*\" -- (commandline -opc)' -l base -r -a '(__bygone_git_refs)' -d 'Set the change-context base ref'",
+        "complete -c bygone -n 'string match -q \"*tour context*\" -- (commandline -opc)' -l output -s o -r -d 'Write the change context'",
+        "complete -c bygone -n 'string match -q \"*tour context*\" -- (commandline -opc)' -l max-patch-bytes -r -d 'Maximum included patch size per file'",
+        "complete -c bygone -n 'string match -q \"*tour context*\" -- (commandline -opc)' -l max-total-patch-bytes -r -d 'Maximum included patch size for the dossier'",
         "complete -c bygone -n 'string match -q \"*tour validate*\" -- (commandline -opc)' -l json -d 'Print machine-readable validation output'",
         "complete -c bygone -n 'string match -q \"*tour compile*\" -- (commandline -opc)' -l output -s o -r -d 'Write the compiled manifest'",
         `complete -c bygone -n 'string match -q "*--history*" -- (commandline -opc)' ${fishTokens(tokensFor('includeStaged'))} -d '${escapeSingleQuoted(getCliEntry('includeStaged').description)}'`,

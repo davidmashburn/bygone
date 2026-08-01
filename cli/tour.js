@@ -1,14 +1,24 @@
 const { mkdirSync, readFileSync, writeFileSync } = require('fs');
 const path = require('path');
+const { buildChangeTourContext } = require('../out/changeTour.js');
 const { buildManifestForTourSource, loadTourSource } = require('./tourFile.js');
 
-const TOUR_ACTIONS = Object.freeze(['validate', 'compile', 'schema']);
+const TOUR_ACTIONS = Object.freeze(['context', 'validate', 'compile', 'schema']);
 
 function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
     const options = parseTourArgs(args);
     if (options.action === 'schema') {
         output.write(readFileSync(path.join(packageRoot, 'schemas', 'change-tour-source.schema.json'), 'utf8'));
         return { action: 'schema' };
+    }
+    if (options.action === 'context') {
+        const context = buildChangeTourContext(cwd, {
+            headRef: options.headRef,
+            baseRef: options.baseRef,
+            maxPatchBytes: options.maxPatchBytes,
+            maxTotalPatchBytes: options.maxTotalPatchBytes
+        });
+        return writeJsonResult('change-tour context', context, options.outputPath, cwd, output);
     }
 
     const { resolvedPath, source } = loadTourSource(cwd, options.sourcePath);
@@ -42,6 +52,7 @@ function parseTourArgs(args) {
         if (rest.length > 0) throw new Error('tour schema does not accept additional arguments.');
         return { action };
     }
+    if (action === 'context') return parseContextArgs(rest);
     let sourcePath;
     let outputPath;
     let json = false;
@@ -64,6 +75,60 @@ function parseTourArgs(args) {
     if (action === 'validate' && outputPath) throw new Error('--output is only valid with tour compile.');
     if (action === 'compile' && json) throw new Error('--json is only valid with tour validate.');
     return { action, sourcePath, outputPath, json };
+}
+
+function parseContextArgs(args) {
+    let headRef;
+    let baseRef;
+    let outputPath;
+    let maxPatchBytes;
+    let maxTotalPatchBytes;
+    for (let index = 0; index < args.length; index += 1) {
+        const arg = args[index];
+        if (arg === '--base' || arg === '-m' || arg === '--main') {
+            if (!args[index + 1]) throw new Error(`${arg} requires a Git ref.`);
+            baseRef = args[++index];
+            continue;
+        }
+        if (arg === '--output' || arg === '-o') {
+            if (!args[index + 1]) throw new Error(`${arg} requires a file path.`);
+            outputPath = args[++index];
+            continue;
+        }
+        if (arg === '--max-patch-bytes') {
+            if (!args[index + 1]) throw new Error(`${arg} requires a positive integer.`);
+            maxPatchBytes = Number.parseInt(args[++index], 10);
+            if (!Number.isInteger(maxPatchBytes) || maxPatchBytes < 1) {
+                throw new Error(`${arg} requires a positive integer.`);
+            }
+            continue;
+        }
+        if (arg === '--max-total-patch-bytes') {
+            if (!args[index + 1]) throw new Error(`${arg} requires a positive integer.`);
+            maxTotalPatchBytes = Number.parseInt(args[++index], 10);
+            if (!Number.isInteger(maxTotalPatchBytes) || maxTotalPatchBytes < 1) {
+                throw new Error(`${arg} requires a positive integer.`);
+            }
+            continue;
+        }
+        if (arg.startsWith('-')) throw new Error(`Unknown tour context option: ${arg}`);
+        if (headRef) throw new Error('tour context accepts at most one head ref.');
+        headRef = arg;
+    }
+    return { action: 'context', headRef, baseRef, outputPath, maxPatchBytes, maxTotalPatchBytes };
+}
+
+function writeJsonResult(label, value, outputPath, cwd, output) {
+    const serialized = `${JSON.stringify(value, null, 2)}\n`;
+    if (!outputPath) {
+        output.write(serialized);
+        return { action: 'context', context: value };
+    }
+    const resolvedOutput = path.resolve(cwd, outputPath);
+    mkdirSync(path.dirname(resolvedOutput), { recursive: true });
+    writeFileSync(resolvedOutput, serialized, 'utf8');
+    output.write(`Wrote ${label} to ${resolvedOutput}\n`);
+    return { action: 'context', outputPath: resolvedOutput, context: value };
 }
 
 function buildValidationResult(sourcePath, manifest) {

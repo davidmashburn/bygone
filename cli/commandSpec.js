@@ -14,6 +14,7 @@ const CLI_SPEC = Object.freeze({
         'bygone present [<head>] [--base <base>] [--tour <file.bygone.yaml>]',
         'bygone tour validate <file.bygone.yaml> [--json]',
         'bygone tour compile <file.bygone.yaml> [--output <tour.json>]',
+        'bygone tour context [<head>] [--base <base>] [--output <context.json>]',
         'bygone tour schema',
         'bygone --branch-diff [-b BRANCH] [-m MAIN]',
         'bygone completion <zsh|bash|fish>',
@@ -138,6 +139,7 @@ const CLI_SPEC = Object.freeze({
         '`present` turns the same range into a browser-hosted, ordered change tour.',
         '`tour validate` resolves every authored anchor; add `--json` for agent-readable output.',
         '`tour compile` writes a portable manifest to stdout or `--output`; `tour schema` prints its source schema.',
+        '`tour context` emits compact, structured Git evidence for an LLM without invoking a model.',
         '`--branch-diff` is retained as an alias for `review`.',
         '`completion` prints a completion script for Zsh, Bash, or Fish.',
         'In the standalone app, drop 1 file for history, 2 files/directories for compare, or 3+ matching paths for multi-panel compare.'

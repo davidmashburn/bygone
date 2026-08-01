@@ -4,19 +4,27 @@ Bygone treats an LLM as a narrative planner and evidence selector, not as the au
 
 ## Recommended loop
 
-1. Inspect the merge-base-to-head change, its commits, production files, tests, renames, and binaries.
-2. Identify the small set of reviewer questions that explain why the change exists and how it works.
-3. Arrange those questions into conceptual chapters rather than filename order.
-4. Attach every walkthrough step to an exact snippet in either the base or head revision.
-5. Add a connection only when it explains a meaningful relationship between two pieces of evidence.
-6. Write the `.bygone.yaml` source.
-7. Validate it and repair every reported problem:
+1. Generate a deterministic change dossier instead of asking the model to rediscover the Git range:
+
+   ```sh
+   bygone tour context HEAD --base origin/main --output change-context.json
+   ```
+
+   The context contains commits, file roles, rename metadata, bounded unified patches, changed line ranges, basic symbol hints, and explicit binary or oversized-patch omissions.
+
+2. Inspect the merge-base-to-head change, its commits, production files, tests, renames, and binaries.
+3. Identify the small set of reviewer questions that explain why the change exists and how it works.
+4. Arrange those questions into conceptual chapters rather than filename order.
+5. Attach every walkthrough step to an exact snippet in either the base or head revision.
+6. Add a connection only when it explains a meaningful relationship between two pieces of evidence.
+7. Write the `.bygone.yaml` source.
+8. Validate it and repair every reported problem:
 
    ```sh
    bygone tour validate review.bygone.yaml --json
    ```
 
-8. Compile or present the verified result:
+9. Compile or present the verified result:
 
    ```sh
    bygone tour compile review.bygone.yaml --output review.tour.json

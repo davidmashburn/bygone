@@ -111,6 +111,8 @@ Change tours can layer an authored, code-connected narrative over the complete g
 
 Agents can validate anchors and structure with `bygone tour validate <file.bygone.yaml> --json`, compile a portable manifest with `bygone tour compile`, and retrieve the authoring contract with `bygone tour schema`. See [Generating change tours with an LLM](./docs/generating-change-tours.md).
 
+`bygone tour context [<head>] --base <base>` produces a provider-neutral change dossier with bounded patches, changed ranges, file roles, symbol hints, commits, renames, and explicit binary omissions for an LLM to consume.
+
 The desktop app also includes `Help -> Install Command Line Tools...` for non-npm installs. Homebrew cask installs can provide the `bygone` command automatically.
 
 ## Package For External Use

@@ -24,7 +24,7 @@ const {
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
 const { CLI_SPEC, renderCliHelp } = require('../cli/commandSpec.js');
 const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
-const { buildChangeTourManifest, parseChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
+const { buildChangeTourContext, buildChangeTourManifest, parseChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
 const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
 
@@ -307,6 +307,10 @@ function testAgentTourCommandsValidateCompileAndExposeSchema() {
     assert.deepEqual(parseTourArgs(['compile', 'review.bygone.yaml', '-o', 'tour.json']), {
         action: 'compile', sourcePath: 'review.bygone.yaml', outputPath: 'tour.json', json: false
     });
+    assert.deepEqual(parseTourArgs(['context', 'feature/tour', '--base', 'main', '--max-patch-bytes', '4096']), {
+        action: 'context', headRef: 'feature/tour', baseRef: 'main', outputPath: undefined,
+        maxPatchBytes: 4096, maxTotalPatchBytes: undefined
+    });
     assert.throws(() => parseTourArgs(['validate']), /requires a \.bygone\.yaml/);
     assert.throws(() => parseTourArgs(['compile', 'review.bygone.yaml', '--json']), /only valid with tour validate/);
 
@@ -329,6 +333,64 @@ function testAgentTourCommandsValidateCompileAndExposeSchema() {
     const schema = JSON.parse(schemaOutput);
     assert.equal(schema.$schema, 'https://json-schema.org/draft/2020-12/schema');
     assert.deepEqual(schema.required, ['version', 'anchors', 'connections', 'chapters']);
+}
+
+function testChangeTourContextPackagesBoundedGitEvidence() {
+    const repo = createTempGitRepo();
+    fs.mkdirSync(path.join(repo, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'src', 'old-name.ts'), [
+        'export function calculate() {',
+        '    return 1;',
+        '}',
+        '// stable context',
+        '// more stable context',
+        ''
+    ].join('\n'));
+    fs.writeFileSync(path.join(repo, 'asset.bin'), Buffer.from([1, 0, 2]));
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'base']);
+    runGit(repo, ['branch', '-M', 'main']);
+    runGit(repo, ['checkout', '-b', 'feature/context']);
+    runGit(repo, ['mv', 'src/old-name.ts', 'src/new-name.ts']);
+    fs.writeFileSync(path.join(repo, 'src', 'new-name.ts'), [
+        'export function calculate() {',
+        '    return 2;',
+        '}',
+        '// stable context',
+        '// more stable context',
+        ''
+    ].join('\n'));
+    fs.writeFileSync(path.join(repo, 'asset.bin'), Buffer.from([1, 0, 3]));
+    fs.mkdirSync(path.join(repo, 'tests'));
+    fs.writeFileSync(path.join(repo, 'tests', 'calculate.test.ts'), 'it("calculates", () => {});\n');
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'feat: change calculation']);
+
+    const context = buildChangeTourContext(repo, {
+        headRef: 'HEAD', baseRef: 'main', generatedAt: '2026-08-01T00:00:00.000Z'
+    });
+    assert.equal(context.version, 1);
+    assert.equal(context.summary.changedFiles, 3);
+    assert.equal(context.summary.binaryFiles, 1);
+    const binary = context.files.find((file) => file.path === 'asset.bin');
+    assert.equal(binary?.patchOmittedReason, 'binary');
+    const renamed = context.files.find((file) => file.path === 'src/new-name.ts');
+    assert.equal(renamed?.previousPath, 'src/old-name.ts');
+    assert.match(renamed?.patch || '', /return 2/);
+    assert.ok(renamed?.changedRanges.length);
+    assert.deepEqual(renamed?.symbolHints.map((symbol) => symbol.name), ['calculate']);
+    assert.equal(context.files.find((file) => file.path.includes('calculate.test'))?.role, 'test');
+
+    const bounded = buildChangeTourContext(repo, {
+        headRef: 'HEAD', baseRef: 'main', maxPatchBytes: 1
+    });
+    assert.equal(bounded.files.find((file) => file.path === 'src/new-name.ts')?.patchOmittedReason, 'too-large');
+    assert.ok(bounded.files.find((file) => file.path === 'src/new-name.ts')?.changedRanges.length);
+    const totalBounded = buildChangeTourContext(repo, {
+        headRef: 'HEAD', baseRef: 'main', maxTotalPatchBytes: 1
+    });
+    assert.ok(totalBounded.files.some((file) => file.patchOmittedReason === 'total-budget'));
+    assert.equal(totalBounded.summary.includedPatchBytes, 0);
 }
 
 function testGeneratedCompletionScriptsPassAvailableShellSyntaxChecks() {
@@ -976,6 +1038,7 @@ function run() {
     testPresentArgumentsUseSharedBaseAliases();
     testCheckedInBygoneHistoryTourRemainsReproducible();
     testAgentTourCommandsValidateCompileAndExposeSchema();
+    testChangeTourContextPackagesBoundedGitEvidence();
     testGeneratedCompletionScriptsPassAvailableShellSyntaxChecks();
     testReviewPathPairUsesDistinctRenameEndpoints();
     testBinaryComparisonBuildsImagePreviewsAndEquality();

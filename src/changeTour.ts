@@ -15,6 +15,8 @@ import { ChangeTourSource, parseChangeTourSource } from './changeTourSource';
 
 export { parseChangeTourManifest, parseChangeTourStory } from './changeTourManifest';
 export { parseChangeTourSource } from './changeTourSource';
+export { buildChangeTourContext } from './changeTourContext';
+export type { BuildChangeTourContextOptions, ChangeTourContext } from './changeTourContext';
 
 const DEFAULT_MAX_TOUR_FILE_BYTES = 2 * 1024 * 1024;
 
