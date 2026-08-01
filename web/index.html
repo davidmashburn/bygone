@@ -5,8 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bygone Web</title>
     <link href="/media/webview.css" rel="stylesheet">
+    <link href="/web/presenter.css" rel="stylesheet">
 </head>
 <body class="web-host">
+    <aside id="tour-shell" class="tour-shell" hidden>
+        <header class="tour-overview">
+            <div class="tour-kicker">BYGONE CHANGE TOUR</div>
+            <h1 id="tour-title"></h1>
+            <a id="tour-source" class="tour-source" target="_blank" rel="noreferrer" hidden>Open source ↗</a>
+            <div id="tour-range" class="tour-range"></div>
+            <div id="tour-stats" class="tour-stats"></div>
+        </header>
+        <div class="tour-controls">
+            <button id="tour-previous" type="button" title="Previous scene">← Previous</button>
+            <span id="tour-position"></span>
+            <button id="tour-next" type="button" title="Next scene">Next →</button>
+        </div>
+        <div class="tour-chapter-controls">
+            <button id="tour-previous-chapter" type="button" title="Previous chapter">← Chapter</button>
+            <button id="tour-next-chapter" type="button" title="Next chapter">Chapter →</button>
+        </div>
+        <nav id="tour-chapters" class="tour-chapters" aria-label="Change tour chapters"></nav>
+        <nav id="tour-scenes" class="tour-scenes" aria-label="Change tour scenes"></nav>
+        <section class="tour-commits-section">
+            <h2>Commits</h2>
+            <ol id="tour-commits" class="tour-commits"></ol>
+        </section>
+    </aside>
+    <section id="tour-narrative" class="tour-narrative" hidden>
+        <div id="tour-narrative-chapter" class="tour-narrative-chapter"></div>
+        <h2 id="tour-narrative-title"></h2>
+        <div id="tour-step" class="tour-step" hidden>
+            <div class="tour-step-controls">
+                <button id="tour-step-previous" type="button" title="Previous annotation step">← Step</button>
+                <span id="tour-step-position"></span>
+                <button id="tour-step-next" type="button" title="Next annotation step">Step →</button>
+            </div>
+            <div id="tour-step-title" class="tour-step-title"></div>
+            <p id="tour-step-body" class="tour-step-body"></p>
+            <div id="tour-connection" class="tour-connection" hidden></div>
+        </div>
+        <p id="tour-narrative-summary" class="tour-narrative-summary"></p>
+        <ul id="tour-narrative-bullets" class="tour-narrative-bullets"></ul>
+        <div id="tour-narrative-tags" class="tour-narrative-tags"></div>
+        <div id="tour-narrative-takeaway" class="tour-narrative-takeaway"></div>
+    </section>
     <div class="web-toolbar">
         <div class="web-toolbar-group">
             <button id="web-compare-test" type="button" title="Compare sample files">Compare Test Files</button>

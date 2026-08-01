@@ -25,7 +25,10 @@ const npmPackageJson = {
         'completions/',
         'out/',
         'media/',
+        'web/',
         'standalone/',
+        'docs/',
+        'examples/',
         'README.md',
         'LICENSE.txt',
         'CHANGELOG.md'
@@ -39,7 +42,8 @@ const npmPackageJson = {
     ],
     dependencies: {
         electron: rootPackageJson.devDependencies.electron,
-        'electron-updater': rootPackageJson.dependencies['electron-updater']
+        'electron-updater': rootPackageJson.dependencies['electron-updater'],
+        'js-yaml': rootPackageJson.dependencies['js-yaml']
     }
 };
 
@@ -49,12 +53,18 @@ await mkdir(packageRoot, { recursive: true });
 await copyFile('README.md');
 await copyFile('LICENSE.txt');
 await copyFile('CHANGELOG.md');
+await copyFile('docs/change-tour-format.md');
+await copyFile('examples');
 await copyFile('bin/bygone.js');
 await copyFile('cli');
 await copyFile('completions');
 await copyFile('out/standalone-main.js');
 await copyFile('out/standalone-preload.js');
+await copyFile('out/changeTour.js');
 await copyFile('standalone/index.html');
+await copyFile('web/index.html');
+await copyFile('web/presenter.css');
+await copyFile('web/web-host.js');
 await copyMediaRuntime();
 await writeFile(
     path.join(packageRoot, 'package.json'),

@@ -11,10 +11,11 @@ _bygone_git_refs() {
 _bygone() {
     local first="${words[2]}"
     local previous="${words[CURRENT-1]}"
-    local -a root_items review_options legacy_options history_options shells
+    local -a root_items review_options present_options legacy_options history_options shells
     root_items=(
         'review:Review a committed branch against its merge base'
         'completion:Print shell completion source'
+        'present:Open a browser tour of a committed branch range'
         '--diff:Compare files, or open a blank editable diff'
         '--history:Open Git history for a file or directory'
         '--git-diff:Compare two or more Git sources'
@@ -29,6 +30,14 @@ _bygone() {
         '--base:Set the branch-review base ref'
         '-m:Set the branch-review base ref'
         '--main:Set the branch-review base ref'
+        '-h:Show command help'
+        '--help:Show command help'
+    )
+    present_options=(
+        '--base:Set the branch-review base ref'
+        '-m:Set the branch-review base ref'
+        '--main:Set the branch-review base ref'
+        '--tour:Use an authored change-tour YAML file'
         '-h:Show command help'
         '--help:Show command help'
     )
@@ -64,6 +73,16 @@ _bygone() {
                 _bygone_git_refs
             else
                 _describe 'review option' review_options
+                _bygone_git_refs
+            fi
+            ;;
+        present)
+            if [[ "$previous" == (--tour) ]]; then
+                _files -g '*.bygone.yaml'
+            elif [[ "$previous" == (--base|-m|--main) ]]; then
+                _bygone_git_refs
+            else
+                _describe 'present option' present_options
                 _bygone_git_refs
             fi
             ;;

@@ -82,6 +82,13 @@ export interface ShowDiffMessage {
         right: boolean;
     };
     comparisonSummary?: string;
+    initialChangeIndex?: number;
+    tourAnnotation?: {
+        side: 'left' | 'right';
+        startLine: number;
+        endLine: number;
+        label: string;
+    };
 }
 
 export interface ShowBinaryDiffMessage {

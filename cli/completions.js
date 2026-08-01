@@ -35,6 +35,9 @@ function generateZshCompletion() {
     const reviewOptions = entriesByIds(['base', 'help'])
         .flatMap((entry) => entry.tokens.map((token) => `        '${token}:${escapeSingleQuoted(entry.description)}'`))
         .join('\n');
+    const presentOptions = entriesByIds(['base', 'tour', 'help'])
+        .flatMap((entry) => entry.tokens.map((token) => `        '${token}:${escapeSingleQuoted(entry.description)}'`))
+        .join('\n');
     const legacyOptions = entriesByIds(['branch', 'base', 'help'])
         .flatMap((entry) => entry.tokens.map((token) => `        '${token}:${escapeSingleQuoted(entry.description)}'`))
         .join('\n');
@@ -55,12 +58,15 @@ _bygone_git_refs() {
 _bygone() {
     local first="\${words[2]}"
     local previous="\${words[CURRENT-1]}"
-    local -a root_items review_options legacy_options history_options shells
+    local -a root_items review_options present_options legacy_options history_options shells
     root_items=(
 ${rootItems}
     )
     review_options=(
 ${reviewOptions}
+    )
+    present_options=(
+${presentOptions}
     )
     legacy_options=(
 ${legacyOptions}
@@ -85,6 +91,16 @@ ${historyOptions}
                 _bygone_git_refs
             else
                 _describe 'review option' review_options
+                _bygone_git_refs
+            fi
+            ;;
+        present)
+            if [[ "$previous" == ${shellAlternation(tokensFor('tour'))} ]]; then
+                _files -g '*.bygone.yaml'
+            elif [[ "$previous" == ${shellAlternation(tokensFor('base'))} ]]; then
+                _bygone_git_refs
+            else
+                _describe 'present option' present_options
                 _bygone_git_refs
             fi
             ;;
@@ -119,6 +135,7 @@ compdef _bygone bygone
 function generateBashCompletion() {
     const rootTokens = completionEntries().flatMap((entry) => entry.tokens).join(' ');
     const reviewTokens = entriesByIds(['base', 'help']).flatMap((entry) => entry.tokens).join(' ');
+    const presentTokens = entriesByIds(['base', 'tour', 'help']).flatMap((entry) => entry.tokens).join(' ');
     const legacyTokens = entriesByIds(['branch', 'base', 'help']).flatMap((entry) => entry.tokens).join(' ');
     const historyTokens = entriesByIds(['includeStaged', 'help']).flatMap((entry) => entry.tokens).join(' ');
     const baseTokens = tokensFor('base').join('|');
@@ -153,6 +170,17 @@ _bygone() {
                 COMPREPLY=( $(compgen -W "$refs" -- "$cur") )
             else
                 COMPREPLY=( $(compgen -W '${reviewTokens} '"$refs" -- "$cur") )
+            fi
+            ;;
+        present)
+            refs="$(_bygone_git_refs)"
+            if [[ "$prev" == "--tour" ]]; then
+                COMPREPLY=( $(compgen -f -X '!*.bygone.yaml' -- "$cur") )
+                compopt -o filenames 2>/dev/null || true
+            elif [[ "$prev" =~ ^(${baseTokens})$ ]]; then
+                COMPREPLY=( $(compgen -W "$refs" -- "$cur") )
+            else
+                COMPREPLY=( $(compgen -W '${presentTokens} '"$refs" -- "$cur") )
             fi
             ;;
         --branch-diff)
@@ -202,6 +230,9 @@ function generateFishCompletion() {
         `complete -c bygone -n 'string match -q "*--history*" -- (commandline -opc)' ${fishTokens(tokensFor('includeStaged'))} -d '${escapeSingleQuoted(getCliEntry('includeStaged').description)}'`,
         `complete -c bygone -n '__fish_seen_subcommand_from review' ${fishTokens(tokensFor('base'))} -r -a '(__bygone_git_refs)' -d '${escapeSingleQuoted(getCliEntry('base').description)}'`,
         "complete -c bygone -n '__fish_seen_subcommand_from review' -a '(__bygone_git_refs)' -d 'Git ref'",
+        `complete -c bygone -n '__fish_seen_subcommand_from present' ${fishTokens(tokensFor('base'))} -r -a '(__bygone_git_refs)' -d '${escapeSingleQuoted(getCliEntry('base').description)}'`,
+        `complete -c bygone -n '__fish_seen_subcommand_from present' ${fishTokens(tokensFor('tour'))} -r -d '${escapeSingleQuoted(getCliEntry('tour').description)}'`,
+        "complete -c bygone -n '__fish_seen_subcommand_from present' -a '(__bygone_git_refs)' -d 'Git ref'",
         `complete -c bygone -n 'string match -q "*--branch-diff*" -- (commandline -opc)' ${fishTokens(tokensFor('branch'))} -r -a '(__bygone_git_refs)' -d '${escapeSingleQuoted(getCliEntry('branch').description)}'`,
         `complete -c bygone -n 'string match -q "*--branch-diff*" -- (commandline -opc)' ${fishTokens(tokensFor('base'))} -r -a '(__bygone_git_refs)' -d '${escapeSingleQuoted(getCliEntry('base').description)}'`,
         `complete -c bygone -n 'string match -q "*--git-diff*" -- (commandline -opc)' -a '(__bygone_git_refs)' -d 'Git source'`

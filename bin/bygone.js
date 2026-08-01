@@ -6,6 +6,7 @@ const path = require('path');
 const packageJson = require('../package.json');
 const { generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const { renderCliHelp, tokenMatches } = require('../cli/commandSpec.js');
+const { startPresentation } = require('../cli/present.js');
 
 const args = process.argv.slice(2);
 const cliCwd = process.cwd();
@@ -31,6 +32,16 @@ if (tokenMatches('completion', args[0])) {
 }
 
 const packageRoot = path.join(__dirname, '..');
+if (tokenMatches('present', args[0])) {
+    startPresentation(args.slice(1), cliCwd, packageRoot).catch((error) => {
+        process.stderr.write(`Could not start change tour: ${error instanceof Error ? error.message : String(error)}\n`);
+        process.exitCode = 1;
+    });
+} else {
+    launchDesktopApp();
+}
+
+function launchDesktopApp() {
 const electronBinary = process.platform === 'win32'
     ? '.\\node_modules\\.bin\\electron.cmd'
     : './node_modules/.bin/electron';
@@ -54,6 +65,7 @@ child.on('exit', (code, signal) => {
 
     process.exit(code ?? 0);
 });
+}
 
 function findInstalledApp() {
     if (process.platform === 'darwin') {

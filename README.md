@@ -70,6 +70,7 @@ bygone --diff path/to/file1 path/to/file2 path/to/file3 [...]
 bygone --history path/to/path
 bygone review
 bygone review feature/my-branch --base origin/main
+bygone present feature/my-branch --base origin/main
 bygone completion zsh
 bygone --help
 ```
@@ -87,6 +88,7 @@ CLI defaults:
 - `bygone <directory>` opens Git directory history for that directory.
 - `bygone --history <path>` opens file or directory history.
 - `bygone review [<head>] [--base <base>]` reviews the committed branch tip against its merge base. The base is detected from `origin/HEAD`, `main`, or `master` when omitted.
+- `bygone present [<head>] [--base <base>]` opens the same committed range as a browser-hosted change tour, grouped into a deterministic suggested reading order.
 - `bygone <left> <right>` auto-selects file diff or directory compare.
 - `bygone --diff <file1> <file2> <file3> ...` opens multi-panel diff or multi-directory compare.
 
@@ -104,6 +106,8 @@ If the native desktop app is installed, the npm/source launcher prefers it and f
 Branch review compares the selected head directly with `merge-base(base, head)`, so merge commits are represented correctly in the aggregate diff. Commit metadata retains every parent of merge commits for future temporal review. Dirty index and working-tree changes are reported but never silently included. Detected renames keep distinct old and new paths for correct drill-down and navigation without adding persistent cross-tree connectors.
 
 Two-file and directory drill-down comparisons detect binary content before decoding it as text. Images render side by side when they are small enough to preview inline; all binary comparisons report whether the underlying bytes are identical.
+
+Change tours can layer an authored, code-connected narrative over the complete generated change set. Pass a `.bygone.yaml` file with `--tour`; named source anchors compile to exact commit and line references, and unspecified files remain available in an automatically generated appendix. Try the self-referencing example with `bygone present --tour examples/bygone-history.bygone.yaml`, then see the [change tour format](./docs/change-tour-format.md).
 
 The desktop app also includes `Help -> Install Command Line Tools...` for non-npm installs. Homebrew cask installs can provide the `bygone` command automatically.
 

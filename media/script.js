@@ -120,7 +120,9 @@ host.onMessage((message) => {
             message.editableSides,
             message.comparisonId,
             message.directoryNavigation || null,
-            message.comparisonSummary || null
+            message.comparisonSummary || null,
+            message.initialChangeIndex,
+            message.tourAnnotation || null
         );
         return;
     }
@@ -186,7 +188,9 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.editableSides,
             pendingTwoWayPayload.comparisonId,
             pendingTwoWayPayload.directoryNavigation || null,
-            pendingTwoWayPayload.comparisonSummary || null
+            pendingTwoWayPayload.comparisonSummary || null,
+            pendingTwoWayPayload.initialChangeIndex,
+            pendingTwoWayPayload.tourAnnotation || null
         );
         pendingTwoWayPayload = undefined;
     }
@@ -282,7 +286,7 @@ function isDarkColor(color) {
     return luminance < 140;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotation = null) {
     const comparisonKey = comparisonId || `${file1}\u0000${file2}`;
     const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
     currentMode = MODE_TWO_WAY;
@@ -296,7 +300,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
         activePaneSide = 'right';
     }
     setCurrentDiffModel(diffModel);
-    const nextActiveDiffIndex = comparisonChanged ? 0 : activeDiffIndex;
+    const nextActiveDiffIndex = comparisonChanged ? (initialChangeIndex ?? 0) : activeDiffIndex;
     setActiveDiffIndex(diffBlocks.length > 0 ? clamp(nextActiveDiffIndex, 0, diffBlocks.length - 1) : -1, false);
     directoryEntries = [];
     disposeMultiEditors();
@@ -317,11 +321,20 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     updateActivePaneHeader();
     updateEditorValues(leftContent, rightContent);
     updateTwoWayEditorOptions();
-    applyDiffDecorations(diffModel);
+    applyDiffDecorations(diffModel, tourAnnotation);
     updateChangeToolbarState();
     resetTwoWayScrollPositions();
     layoutEditors();
     revealActiveDiff(false);
+    if (tourAnnotation) {
+        const editor = tourAnnotation.side === 'left' ? leftEditor : rightEditor;
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            editor.revealLineInCenter(
+                tourAnnotation.startLine,
+                monacoInstance.editor.ScrollType.Immediate
+            );
+        }));
+    }
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
     notifyRenderComplete();
@@ -1012,7 +1025,7 @@ function setCurrentDiffModel(diffModel) {
         };
 }
 
-function applyDiffDecorations(diffModel) {
+function applyDiffDecorations(diffModel, tourAnnotation = null) {
     const leftDecorations = [];
     const rightDecorations = [];
 
@@ -1035,6 +1048,26 @@ function applyDiffDecorations(diffModel) {
 
     addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
     addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
+
+    if (tourAnnotation) {
+        const target = tourAnnotation.side === 'left' ? leftDecorations : rightDecorations;
+        const editor = tourAnnotation.side === 'left' ? leftEditor : rightEditor;
+        const endColumn = editor.getModel()?.getLineMaxColumn(tourAnnotation.endLine) ?? 1;
+        target.push({
+            range: new monacoInstance.Range(
+                tourAnnotation.startLine,
+                1,
+                tourAnnotation.endLine,
+                endColumn
+            ),
+            options: {
+                isWholeLine: true,
+                className: 'bygone-tour-anchor',
+                linesDecorationsClassName: 'bygone-tour-anchor-gutter',
+                hoverMessage: { value: tourAnnotation.label }
+            }
+        });
+    }
 
     leftDecorationIds = leftEditor.deltaDecorations(leftDecorationIds, dedupeDecorations(leftDecorations));
     rightDecorationIds = rightEditor.deltaDecorations(rightDecorationIds, dedupeDecorations(rightDecorations));

@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
+const { load: loadYaml } = require('js-yaml');
 const { buildTwoWayDiffModel, mergeText } = require('../out/diffEngine.js');
 const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
@@ -23,6 +24,8 @@ const {
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
 const { CLI_SPEC, renderCliHelp } = require('../cli/commandSpec.js');
 const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
+const { buildChangeTourManifest, parseChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
+const { parsePresentArgs } = require('../cli/present.js');
 
 function testLineClickSelectsContainingTwoWayChange() {
     const model = buildTwoWayDiffModel('one\ntwo\nthree\nfour\n', 'one\nTWO\nthree\nFOUR\n');
@@ -136,6 +139,162 @@ function testCliPrintsGeneratedCompletionsWithoutStartingElectron() {
     ], { encoding: 'utf8' });
     assert.equal(invalid.status, 2);
     assert.match(invalid.stderr, /zsh\|bash\|fish/);
+}
+
+function testChangeTourBuildsPortableNarrativeChapters() {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-tour-'));
+    runGit(repo, ['init']);
+    runGit(repo, ['config', 'user.email', 'tour@example.com']);
+    runGit(repo, ['config', 'user.name', 'Tour Test']);
+    fs.mkdirSync(path.join(repo, 'docs'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'docs', 'architecture.md'), 'Original architecture\n');
+    fs.mkdirSync(path.join(repo, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'src', 'models.ts'), 'export const version = 1;\n');
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'base']);
+    runGit(repo, ['branch', '-M', 'main']);
+    runGit(repo, ['checkout', '-b', 'feature/tour']);
+    fs.appendFileSync(path.join(repo, 'docs', 'architecture.md'), 'New event flow\n');
+    fs.writeFileSync(path.join(repo, 'src', 'models.ts'), 'export const version = 2;\nexport interface Event {}\n');
+    fs.mkdirSync(path.join(repo, 'tests'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'tests', 'models.test.ts'), 'it("works", () => {});\n');
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'feat: explain event flow']);
+
+    const manifest = buildChangeTourManifest(repo, {
+        headRef: 'feature/tour',
+        baseRef: 'main',
+        title: 'Event flow tour',
+        generatedAt: '2026-08-01T00:00:00.000Z'
+    });
+
+    assert.equal(manifest.title, 'Event flow tour');
+    assert.equal(manifest.summary.changedFiles, 3);
+    assert.equal(manifest.summary.includedScenes, 3);
+    assert.deepEqual(manifest.chapters.map((chapter) => chapter.id), ['context', 'contracts', 'proof']);
+    assert.deepEqual(manifest.scenes.map((scene) => scene.path), [
+        'docs/architecture.md',
+        'src/models.ts',
+        'tests/models.test.ts'
+    ]);
+    assert.equal(parseChangeTourManifest(JSON.parse(JSON.stringify(manifest))).version, 1);
+    assert.throws(() => parseChangeTourManifest({ version: 1 }), /title must be a string/);
+
+    const story = parseChangeTourStory({
+        title: 'Authored event flow',
+        scenes: [
+            {
+                kind: 'discussion',
+                chapterId: 'why',
+                chapterTitle: 'Why',
+                title: 'Why change this?',
+                summary: 'The old flow hid causality.',
+                bullets: ['Preserve the decision trail.'],
+                tags: ['context'],
+                takeaway: 'Make the change explainable.'
+            },
+            {
+                kind: 'file',
+                chapterId: 'model',
+                chapterTitle: 'Model',
+                path: 'src/models.ts',
+                summary: 'The model carries explicit event identity.',
+                bullets: ['Consumers receive a stable contract.'],
+                tags: ['contract'],
+                takeaway: 'Identity is explicit.',
+                focusChangeIndex: 0
+            }
+        ]
+    });
+    const authored = buildChangeTourManifest(repo, {
+        headRef: 'feature/tour',
+        baseRef: 'main',
+        generatedAt: '2026-08-01T00:00:00.000Z',
+        story
+    });
+    assert.equal(authored.title, 'Authored event flow');
+    assert.deepEqual(authored.chapters.map((chapter) => chapter.id), ['why', 'model', 'appendix']);
+    assert.deepEqual(authored.scenes.map((scene) => scene.kind), ['discussion', 'text-diff', 'text-diff', 'text-diff']);
+    assert.equal(authored.scenes[1].kind === 'text-diff' ? authored.scenes[1].focusChangeIndex : undefined, 0);
+    assert.throws(() => parseChangeTourStory({ scenes: [{ kind: 'discussion' }] }), /chapterId/);
+
+    const source = parseChangeTourSource({
+        version: 1,
+        title: 'Anchored event flow',
+        anchors: {
+            contract: { file: 'src/models.ts', revision: 'head', contains: 'export interface Event {}' },
+            version: { file: 'src/models.ts', revision: 'head', contains: 'export const version = 2;' }
+        },
+        connections: {
+            contractToVersion: { from: 'contract', to: 'version', label: 'The contract ships with version two.' }
+        },
+        chapters: [{
+            id: 'flow',
+            title: 'Flow',
+            scenes: [{
+                id: 'walkthrough',
+                title: 'Walk through the contract',
+                summary: 'Follow exact code.',
+                bullets: [],
+                tags: ['contract'],
+                takeaway: 'Anchors survive hunk reordering.',
+                steps: [{
+                    id: 'contract-step',
+                    title: 'Add the contract',
+                    body: 'The new interface is the reviewer focus.',
+                    focus: 'contract',
+                    connection: 'contractToVersion'
+                }]
+            }]
+        }]
+    });
+    const anchored = buildChangeTourManifest(repo, {
+        headRef: 'feature/tour',
+        baseRef: 'main',
+        generatedAt: '2026-08-01T00:00:00.000Z',
+        source
+    });
+    assert.equal(anchored.scenes[0].kind, 'walkthrough');
+    assert.equal(anchored.scenes[0].kind === 'walkthrough' ? anchored.scenes[0].steps[0].focus.startLine : 0, 2);
+    assert.equal(anchored.scenes[0].kind === 'walkthrough' ? anchored.scenes[0].steps[0].connection?.from.startLine : 0, 2);
+    assert.deepEqual(anchored.chapters.map((chapter) => chapter.id), ['flow', 'appendix']);
+    assert.throws(() => buildChangeTourManifest(repo, {
+        headRef: 'feature/tour', baseRef: 'main', source: {
+            ...source,
+            anchors: { ...source.anchors, contract: { ...source.anchors.contract, contains: 'missing code' } }
+        }
+    }), /did not match/);
+}
+
+function testPresentArgumentsUseSharedBaseAliases() {
+    assert.deepEqual(parsePresentArgs(['feature/tour', '--base', 'origin/main']), {
+        headRef: 'feature/tour',
+        baseRef: 'origin/main',
+        tourPath: undefined,
+        explicitHeadRef: 'feature/tour'
+    });
+    assert.deepEqual(parsePresentArgs(['-m', 'main', '--tour', 'review.bygone.yaml']), {
+        headRef: 'HEAD', baseRef: 'main', tourPath: 'review.bygone.yaml', explicitHeadRef: undefined
+    });
+    assert.throws(() => parsePresentArgs(['--unknown']), /Unknown present option/);
+}
+
+function testCheckedInBygoneHistoryTourRemainsReproducible() {
+    const source = parseChangeTourSource(loadYaml(fs.readFileSync(
+        path.join(__dirname, '..', 'examples', 'bygone-history.bygone.yaml'),
+        'utf8'
+    )));
+    assert.equal(source.range?.base, '292fe9248c5c49f762489dc688296fc100d120bc');
+    assert.equal(source.range?.head, '75b6d7c0303124ec314aa790d6b808c4a9d9ea0e');
+    const manifest = buildChangeTourManifest(path.join(__dirname, '..'), {
+        baseRef: source.range?.base,
+        headRef: source.range?.head,
+        source,
+        generatedAt: '2026-08-01T00:00:00.000Z'
+    });
+    assert.equal(manifest.scenes[0].kind, 'walkthrough');
+    assert.equal(manifest.scenes[0].kind === 'walkthrough' ? manifest.scenes[0].steps.length : 0, 5);
+    assert.equal(manifest.range.mergeBaseOid, source.range?.base);
 }
 
 function testGeneratedCompletionScriptsPassAvailableShellSyntaxChecks() {
@@ -779,6 +938,9 @@ function run() {
     testGitNameStatusParserPreservesRenameMetadata();
     testCliSpecificationDrivesHelpAndEveryCompletionFormat();
     testCliPrintsGeneratedCompletionsWithoutStartingElectron();
+    testChangeTourBuildsPortableNarrativeChapters();
+    testPresentArgumentsUseSharedBaseAliases();
+    testCheckedInBygoneHistoryTourRemainsReproducible();
     testGeneratedCompletionScriptsPassAvailableShellSyntaxChecks();
     testReviewPathPairUsesDistinctRenameEndpoints();
     testBinaryComparisonBuildsImagePreviewsAndEquality();

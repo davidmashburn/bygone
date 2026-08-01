@@ -1,0 +1,80 @@
+version: 1
+title: How Bygone learned to review a branch
+sourceUrl: https://github.com/davidmashburn/bygone/commit/75b6d7c0303124ec314aa790d6b808c4a9d9ea0e
+range:
+  base: 292fe9248c5c49f762489dc688296fc100d120bc
+  head: 75b6d7c0303124ec314aa790d6b808c4a9d9ea0e
+
+anchors:
+  choose-merge-base:
+    file: src/gitComparison.ts
+    revision: head
+    contains: "    const mergeBaseOids = runGit(['merge-base', '--all', baseOid, headOid], repoRoot)"
+  describe-range:
+    file: src/gitComparison.ts
+    revision: head
+    contains: "        changedPaths: listChangedPaths(repoRoot, mergeBaseOid, headOid, runGit),"
+  materialize-boundary:
+    file: src/gitComparison.ts
+    revision: head
+    contains: "export function materializeBranchReviewTrees("
+  open-review-surface:
+    file: src/fileComparator.ts
+    revision: head
+    contains: "            materializeBranchReviewTrees(range, leftRoot, rightRoot);"
+  prove-merge-base:
+    file: test/runTests.js
+    revision: head
+    contains: "    assert.equal(range.mergeBaseOid, baseOid);"
+
+connections:
+  range-to-snapshot:
+    from: choose-merge-base
+    to: materialize-boundary
+    label: The selected historical boundary determines the two trees a reviewer sees.
+  snapshot-to-surface:
+    from: materialize-boundary
+    to: open-review-surface
+    label: The Git model is converted into the ordinary directory comparison surface.
+  semantics-to-proof:
+    from: choose-merge-base
+    to: prove-merge-base
+    label: A repository fixture locks the branch comparison to merge-base semantics.
+
+chapters:
+  - id: branch-to-review
+    title: A branch becomes a review
+    scenes:
+      - id: review-pipeline
+        title: From Git history to a visual workspace
+        summary: Follow the branch-review feature through its historical boundary, portable model, presentation seam, and proof.
+        bullets:
+          - The comparison starts at merge-base rather than whichever ref happens to be named as the base.
+          - Git-specific work ends once two temporary trees have been materialized.
+          - Existing directory comparison then provides navigation and drill-down without a second renderer.
+        tags: [git, architecture, dogfood]
+        takeaway: Bygone reviews its own history using the same boundary it introduced in this commit.
+        steps:
+          - id: establish-boundary
+            title: Establish the historical boundary
+            body: The review represents everything introduced since the branch diverged, including changes made around merges.
+            focus: choose-merge-base
+          - id: make-range-portable
+            title: Describe the review as data
+            body: Changed paths and commits are collected into a range that neither renderer needs to rediscover.
+            focus: describe-range
+          - id: turn-history-into-files
+            title: Materialize two review trees
+            body: The Git-specific layer creates base and head snapshots for only the changed paths.
+            focus: materialize-boundary
+            connection: range-to-snapshot
+          - id: reuse-the-diff-surface
+            title: Reuse directory comparison
+            body: VS Code hands those snapshots to Bygone's existing directory workflow instead of introducing a branch-only view.
+            focus: open-review-surface
+            connection: snapshot-to-surface
+          - id: lock-the-semantics
+            title: Prove the range starts at divergence
+            body: The test creates a real repository and asserts the selected merge base, changed paths, and commits.
+            focus: prove-merge-base
+            connection: semantics-to-proof

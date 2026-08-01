@@ -11,6 +11,7 @@ const CLI_SPEC = Object.freeze({
         'bygone --history <path>',
         'bygone --git-diff <ref1> <ref2> [<ref3>...]',
         'bygone review [<head>] [--base <base>]',
+        'bygone present [<head>] [--base <base>] [--tour <file.bygone.yaml>]',
         'bygone --branch-diff [-b BRANCH] [-m MAIN]',
         'bygone completion <zsh|bash|fish>',
         'bygone --test'
@@ -29,6 +30,13 @@ const CLI_SPEC = Object.freeze({
             tokens: ['completion'],
             description: 'Print shell completion source',
             argument: 'shell'
+        },
+        {
+            id: 'present',
+            kind: 'command',
+            tokens: ['present'],
+            description: 'Open a browser tour of a committed branch range',
+            argument: 'git-ref'
         },
         {
             id: 'diff',
@@ -80,6 +88,13 @@ const CLI_SPEC = Object.freeze({
             argument: 'git-ref'
         },
         {
+            id: 'tour',
+            kind: 'option',
+            tokens: ['--tour'],
+            description: 'Use an authored change-tour YAML file',
+            argument: 'path'
+        },
+        {
             id: 'branch',
             kind: 'option',
             tokens: ['-b', '--branch'],
@@ -110,6 +125,7 @@ const CLI_SPEC = Object.freeze({
         'Three or more positional paths auto-select multi-panel file diff or multi-directory compare.',
         '`--git-diff` accepts branches, tags, SHAs, HEAD~1, stash@{0}, INDEX, and WORKTREE.',
         '`review` compares merge-base(BASE,HEAD) with HEAD and detects the default base when omitted.',
+        '`present` turns the same range into a browser-hosted, ordered change tour.',
         '`--branch-diff` is retained as an alias for `review`.',
         '`completion` prints a completion script for Zsh, Bash, or Fish.',
         'In the standalone app, drop 1 file for history, 2 files/directories for compare, or 3+ matching paths for multi-panel compare.'

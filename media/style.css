@@ -1087,6 +1087,20 @@ button.file-header {
     border-radius: 2px;
 }
 
+.monaco-editor .bygone-tour-anchor {
+    background: rgba(154, 126, 255, 0.22);
+    border-top: 1px solid rgba(178, 157, 255, 0.95);
+    border-bottom: 1px solid rgba(178, 157, 255, 0.95);
+    box-shadow: inset 3px 0 0 #b29dff;
+}
+
+.monaco-editor .margin .bygone-tour-anchor-gutter,
+.monaco-editor .lines-decoration .bygone-tour-anchor-gutter {
+    background: #a68cff;
+    width: 4px !important;
+    margin-left: 4px;
+}
+
 .monaco-editor .bygone-one-sided-line-start,
 .monaco-editor .bygone-one-sided-line-end,
 .monaco-editor .bygone-paired-line-start,
