@@ -11,17 +11,22 @@ Use Bygone as the deterministic evidence and rendering layer. Treat the language
 
 Run `bygone --help`. In a Bygone source checkout whose installed command is stale, use `node ./bin/bygone.js` instead. The CLI must expose `tour context`, `tour schema`, `tour validate`, and `tour compile`.
 
+If neither `bygone` nor `node ./bin/bygone.js` exposes the `tour` subcommands, stop and report that the toolchain is unavailable rather than guessing.
+
 Do not install, rebuild, commit, push, publish, or open a browser unless the user requests it or the surrounding task clearly requires it.
 
 ## Build the evidence context
 
 Determine the intended head and base from the request and repository state. Prefer an explicit base; do not guess when different bases would materially change the explanation.
 
-Generate a bounded, provider-neutral dossier:
+For a PR, derive the true base branch first and use that instead of defaulting to `main`:
 
 ```sh
-bygone tour context HEAD --base origin/main --output /tmp/change-context.json
+BASE_REF="$(gh pr view <n> --json baseRefName -q .baseRefName)"
+bygone tour context HEAD --base "origin/${BASE_REF}" --output /tmp/change-context.json
 ```
+
+If you are not reviewing a PR, compute the merge-base against the intended integration branch and pass that exact base OID or ref. Keep the existing preference for an explicit base and do not guess.
 
 Use immutable commit IDs in the eventual tour. Dirty working-tree changes are reported but excluded from committed-range context.
 
@@ -32,6 +37,8 @@ jq '{range,summary,commits,files:[.files[]|{path,previousPath,changeKind,role,ad
 ```
 
 Then read patches only for likely narrative-bearing files. Account explicitly for every `patchOmittedReason`; never claim to understand omitted binary or oversized evidence.
+
+Compiled tours and context dossiers are large because they embed source snapshots. Inspect them progressively and do not load every patch unless the narrative really needs it.
 
 ## Plan the explanation
 
@@ -47,9 +54,10 @@ Keep secondary, generated, dependency, and mechanical files in Bygone's complete
 Use these narrative constraints:
 
 - State one reviewer question or thesis per scene.
+- Decompose scenes by conceptual need, not a fixed template; do not force every scene to use the same step count.
 - Prefer three to seven steps per scene.
 - Explain why focused code matters instead of paraphrasing syntax.
-- Keep summaries, annotations, and takeaways distinct.
+- Keep summaries, bullets, annotations, and takeaways distinct; bullets that merely restate the summary are a defect.
 - Avoid intent, safety, performance, or runtime claims unsupported by the evidence.
 - Do not imply that the authored tour exhaustively reviews every changed file.
 
@@ -91,6 +99,8 @@ bygone tour validate review.bygone.yaml --json
 Repair every error. Do not weaken, delete, or redirect an anchor merely to make validation pass. If evidence no longer exists, revise the claim or report the broken premise.
 
 After structural validation, check that:
+
+Treat this as a required self-audit, not a claim the validator can prove. For each item, cite concrete evidence you actually opened or mark it not applicable; the hand-off must distinguish verified findings from interpretation.
 
 - the first step establishes enough context for later steps;
 - important production behavior is not hidden in the appendix;
