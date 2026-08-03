@@ -33,22 +33,26 @@
         </section>
     </aside>
     <section id="tour-narrative" class="tour-narrative" hidden>
-        <div id="tour-narrative-chapter" class="tour-narrative-chapter"></div>
-        <h2 id="tour-narrative-title"></h2>
-        <div id="tour-step" class="tour-step" hidden>
-            <div class="tour-step-controls">
-                <button id="tour-step-previous" type="button" title="Previous annotation step">← Step</button>
-                <span id="tour-step-position"></span>
-                <button id="tour-step-next" type="button" title="Next annotation step">Step →</button>
-            </div>
-            <div id="tour-step-title" class="tour-step-title"></div>
-            <p id="tour-step-body" class="tour-step-body"></p>
-            <div id="tour-connection" class="tour-connection" hidden></div>
+        <div class="tour-narrative-prose">
+            <div id="tour-narrative-chapter" class="tour-narrative-chapter"></div>
+            <h2 id="tour-narrative-title"></h2>
+            <p id="tour-narrative-summary" class="tour-narrative-summary"></p>
+            <ul id="tour-narrative-bullets" class="tour-narrative-bullets"></ul>
+            <div id="tour-narrative-tags" class="tour-narrative-tags"></div>
         </div>
-        <p id="tour-narrative-summary" class="tour-narrative-summary"></p>
-        <ul id="tour-narrative-bullets" class="tour-narrative-bullets"></ul>
-        <div id="tour-narrative-tags" class="tour-narrative-tags"></div>
-        <div id="tour-narrative-takeaway" class="tour-narrative-takeaway"></div>
+        <div class="tour-narrative-side">
+            <div id="tour-step" class="tour-step" hidden>
+                <div class="tour-step-controls">
+                    <button id="tour-step-previous" type="button" title="Previous annotation step">← Step</button>
+                    <span id="tour-step-position"></span>
+                    <button id="tour-step-next" type="button" title="Next annotation step">Step →</button>
+                </div>
+                <div id="tour-step-title" class="tour-step-title"></div>
+                <p id="tour-step-body" class="tour-step-body"></p>
+                <div id="tour-connection" class="tour-connection" hidden></div>
+            </div>
+            <div id="tour-narrative-takeaway" class="tour-narrative-takeaway"></div>
+        </div>
     </section>
     <div class="web-toolbar">
         <div class="web-toolbar-group">

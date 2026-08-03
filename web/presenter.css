@@ -5,8 +5,9 @@
     --tour-surface: #11131a;
     --tour-surface-raised: #191c26;
     --tour-border: rgba(255, 255, 255, 0.09);
-    --tour-muted: rgba(232, 235, 246, 0.64);
-    --tour-narrative-height: 208px;
+    --tour-muted: rgba(232, 235, 246, 0.84);
+    --tour-body-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --tour-narrative-height: 272px;
 }
 
 .tour-shell {
@@ -170,7 +171,7 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-chapters button span:last-child {
-    color: rgba(232, 235, 246, 0.42);
+    color: var(--tour-muted);
     font-size: 9px;
 }
 
@@ -260,7 +261,7 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-scene-note {
-    color: rgba(191, 195, 210, 0.78);
+    color: rgba(223, 227, 239, 0.88);
     font-size: 10px;
 }
 
@@ -302,6 +303,9 @@ body.tour-mode.tour-discussion #container {
     z-index: 90;
     height: var(--tour-narrative-height);
     box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 430px);
+    gap: 18px 24px;
     overflow: auto;
     padding: 20px 26px 18px;
     color: #f5f6fb;
@@ -309,10 +313,30 @@ body.tour-mode.tour-discussion #container {
     background:
         radial-gradient(circle at 92% 0%, rgba(91, 72, 255, 0.18), transparent 35%),
         #151821;
+    scrollbar-gutter: stable;
+    font-family: var(--tour-body-font);
 }
 
 .tour-narrative[hidden] {
     display: none;
+}
+
+.tour-narrative-prose,
+.tour-narrative-side {
+    min-width: 0;
+}
+
+.tour-narrative-prose {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tour-narrative-side {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-self: start;
 }
 
 .tour-narrative-chapter {
@@ -330,25 +354,24 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-narrative-summary {
-    max-width: 1050px;
     margin: 0 0 8px;
-    color: #e7e9f2;
+    color: #eef1fa;
     font-size: 13px;
     line-height: 1.45;
 }
 
 .tour-narrative-bullets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px 24px;
+    display: grid;
+    gap: 7px;
     margin: 0 0 9px;
     padding-left: 18px;
-    color: var(--tour-muted);
+    color: #d8deea;
     font-size: 11px;
+    line-height: 1.5;
 }
 
 .tour-narrative-bullets li {
-    max-width: 520px;
+    max-width: none;
 }
 
 .tour-narrative-tags {
@@ -359,7 +382,7 @@ body.tour-mode.tour-discussion #container {
 
 .tour-narrative-tags span {
     padding: 3px 7px;
-    color: #c9c4ff;
+    color: #dbd7ff;
     border: 1px solid rgba(128, 117, 255, 0.28);
     border-radius: 999px;
     background: rgba(128, 117, 255, 0.09);
@@ -367,10 +390,9 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-narrative-takeaway {
-    position: absolute;
-    right: 24px;
-    bottom: 16px;
-    max-width: 430px;
+    position: static;
+    width: 100%;
+    box-sizing: border-box;
     padding: 8px 11px;
     color: #f2f0ff;
     border: 1px solid rgba(128, 117, 255, 0.34);
@@ -380,10 +402,8 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-step {
-    position: absolute;
-    top: 16px;
-    right: 24px;
-    width: min(44%, 570px);
+    position: static;
+    width: 100%;
     box-sizing: border-box;
     padding: 11px 13px;
     border: 1px solid rgba(166, 140, 255, 0.42);
@@ -415,7 +435,7 @@ body.tour-mode.tour-discussion #container {
 .tour-step-controls button:disabled { opacity: 0.35; }
 .tour-step-controls span { color: var(--tour-muted); font-size: 10px; }
 .tour-step-title { color: #fff; font-size: 13px; font-weight: 750; }
-.tour-step-body { margin: 3px 0 0; color: #d9d5eb; font-size: 11px; line-height: 1.38; }
+.tour-step-body { margin: 3px 0 0; color: #e6e9f4; font-size: 11px; line-height: 1.45; }
 
 .tour-connection {
     margin-top: 7px;
@@ -426,11 +446,8 @@ body.tour-mode.tour-discussion #container {
     font-size: 9px;
 }
 
-.tour-narrative:has(.tour-step:not([hidden])) > :not(.tour-step):not(.tour-narrative-takeaway) {
-    max-width: 50%;
-}
-
 body.tour-discussion .tour-narrative {
+    display: block;
     bottom: 0;
     height: auto;
     padding: clamp(48px, 10vh, 100px) clamp(44px, 8vw, 120px);
