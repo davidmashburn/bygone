@@ -1,9 +1,9 @@
 ---
-name: generate-bygone-tours
-description: Generate, validate, compile, and present evidence-grounded Bygone code-change tours from Git ranges. Use when an AI coding agent should explain a branch, commit, pull request, or code change as a guided walkthrough; create or repair a .bygone.yaml file; produce an LLM-ready Bygone change context; connect narrative claims to exact source evidence; or turn a diff into a browser-presentable review or demo.
+name: pr-tour-guide
+description: Act as a PR Tour Guide by generating, validating, compiling, and presenting evidence-grounded Bygone code-change tours from Git ranges. Use when an AI coding agent should explain a pull request, branch, commit, or code change as a guided walkthrough; create or repair a .bygone.yaml file; produce an LLM-ready Bygone change context; connect narrative claims to exact source evidence; or turn a diff into a browser-presentable review or demo.
 ---
 
-# Generate Bygone Tours
+# PR Tour Guide
 
 Use Bygone as the deterministic evidence and rendering layer. Treat the language model as the narrative planner, never as the authority on Git ranges or source locations.
 

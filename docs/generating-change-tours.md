@@ -2,7 +2,7 @@
 
 Bygone treats an LLM as a narrative planner and evidence selector, not as the authority on Git or source locations. The model writes `.bygone.yaml`; Bygone resolves its anchors against pinned commits and rejects missing, ambiguous, or structurally invalid references.
 
-For agents that support repository skills, use the agent-agnostic [`generate-bygone-tours` skill](../skills/generate-bygone-tours/SKILL.md). It packages the complete evidence, authoring, validation, and handoff workflow without depending on a particular agent vendor.
+For agents that support repository skills, use the agent-agnostic [`pr-tour-guide` skill](../skills/pr-tour-guide/SKILL.md). It packages the complete evidence, authoring, validation, and handoff workflow without depending on a particular agent vendor.
 
 ## Recommended loop
 

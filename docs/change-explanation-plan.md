@@ -183,9 +183,21 @@ A focused display mode could add:
 
 Support deterministic rendering of scenes to PNG, SVG where practical, or HTML fragments. This would let existing slide workflows use Bygone without adopting its entire presentation shell.
 
-### Live Refresh
+### Live PR Tour Guide Loop
 
-During active development, refresh a tour when the branch advances while preserving authored scene intent through semantic anchors such as file identity, hunk context, and commit IDs. Broken anchors should be surfaced clearly rather than silently redirected.
+Treat the saved `.bygone.yaml` as the shared boundary between an author, an agent, and the open presenter. When the author asks a question, the PR Tour Guide can revise the narrative or its evidence links and save the file; Bygone should validate, compile, and refresh the browser without restarting the presentation.
+
+The refresh loop should:
+
+- watch the authored tour and debounce partial editor writes;
+- replace the presented manifest only after the new source validates and compiles;
+- keep the last known-good tour visible when an edit is invalid and report the error clearly;
+- preserve the active scene and step by stable IDs when they still exist;
+- update the scene rail and focused code when the narrative changes;
+- distinguish a narrative-only refresh from a changed Git range, which may require rebuilding source evidence;
+- surface broken anchors rather than silently redirecting them.
+
+This makes the first interactive workflow deliberately simple: conversation changes the durable tour file, and the presenter reflects it. An embedded chat UI or agent protocol can come later without becoming part of the tour format.
 
 ## A Possible Authoring Format
 

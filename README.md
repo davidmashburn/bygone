@@ -109,7 +109,7 @@ Two-file and directory drill-down comparisons detect binary content before decod
 
 Change tours can layer an authored, code-connected narrative over the complete generated change set. Pass a `.bygone.yaml` file with `--tour`; named source anchors compile to exact commit and line references, and unspecified files remain available in an automatically generated appendix. Try the self-referencing example with `bygone present --tour examples/bygone-history.bygone.yaml`, then see the [change tour format](./docs/change-tour-format.md).
 
-Agents can validate anchors and structure with `bygone tour validate <file.bygone.yaml> --json`, compile a portable manifest with `bygone tour compile`, and retrieve the authoring contract with `bygone tour schema`. See [Generating change tours with an LLM](./docs/generating-change-tours.md), or give a compatible agent the repository's vendor-neutral [`generate-bygone-tours` skill](./skills/generate-bygone-tours/SKILL.md).
+Agents can validate anchors and structure with `bygone tour validate <file.bygone.yaml> --json`, compile a portable manifest with `bygone tour compile`, and retrieve the authoring contract with `bygone tour schema`. See [Generating change tours with an LLM](./docs/generating-change-tours.md), or give a compatible agent the repository's vendor-neutral [`pr-tour-guide` skill](./skills/pr-tour-guide/SKILL.md).
 
 `bygone tour context [<head>] --base <base>` produces a provider-neutral change dossier with bounded patches, changed ranges, file roles, symbol hints, commits, renames, and explicit binary omissions for an LLM to consume.
 
