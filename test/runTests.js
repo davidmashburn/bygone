@@ -27,7 +27,7 @@ const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('..
 const { buildChangeTourContext, buildChangeTourManifest, parseChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
 const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
-const { getLinearTourTarget, resolveTourPosition } = require('../out/tourNavigation.js');
+const { getLinearTourTarget, getTourFileTarget, resolveTourPosition } = require('../out/tourNavigation.js');
 
 function testTourLinearNavigationTraversesStepsAndScenes() {
     const scenes = [
@@ -55,11 +55,53 @@ function testTourPositionRestoresStableSceneAndStepIds() {
     assert.deepEqual(resolveTourPosition(scenes, 'missing', 'two'), { sceneIndex: 0, stepIndex: 0 });
 }
 
-function testWebTourHostWiresLinearNavigationAndResponsiveLayout() {
+function testTourFileNavigationSkipsNarrativeStatesAndDuplicateFiles() {
+    const scenes = [
+        { id: 'intro', kind: 'discussion' },
+        {
+            id: 'walkthrough',
+            kind: 'walkthrough',
+            steps: [
+                { id: 'a-one', diff: { path: 'src/a.ts' } },
+                { id: 'a-two', diff: { path: 'src/a.ts' } },
+                { id: 'b', diff: { path: 'src/b.ts' } }
+            ]
+        },
+        { id: 'appendix-c', kind: 'text-diff', path: 'src/c.ts' }
+    ];
+
+    assert.deepEqual(getTourFileTarget(scenes, { sceneIndex: 1, stepIndex: 0 }, 1), {
+        sceneIndex: 1,
+        stepIndex: 2,
+        path: 'src/b.ts'
+    });
+    assert.deepEqual(getTourFileTarget(scenes, { sceneIndex: 1, stepIndex: 1 }, 1), {
+        sceneIndex: 1,
+        stepIndex: 2,
+        path: 'src/b.ts'
+    });
+    assert.deepEqual(getTourFileTarget(scenes, { sceneIndex: 1, stepIndex: 2 }, -1), {
+        sceneIndex: 1,
+        stepIndex: 0,
+        path: 'src/a.ts'
+    });
+    assert.deepEqual(getTourFileTarget(scenes, { sceneIndex: 1, stepIndex: 2 }, 1), {
+        sceneIndex: 2,
+        stepIndex: 0,
+        path: 'src/c.ts'
+    });
+    assert.equal(getTourFileTarget(scenes, { sceneIndex: 1, stepIndex: 0 }, -1), null);
+    assert.equal(getTourFileTarget(scenes, { sceneIndex: 2, stepIndex: 0 }, 1), null);
+    assert.equal(getTourFileTarget(scenes, { sceneIndex: 0, stepIndex: 0 }, 1), null);
+}
+
+function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     const hostSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
     const presenterSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'presenter.css'), 'utf8');
 
-    assert.match(hostSource, /message\.type === 'navigateFile'[\s\S]{0,180}showTourLinear/);
+    assert.match(hostSource, /message\.type === 'navigateFile'[\s\S]{0,180}showTourFile/);
+    assert.doesNotMatch(hostSource, /message\.type === 'navigateFile'[\s\S]{0,180}showTourLinear/);
+    assert.match(hostSource, /tourPrevious\?\.addEventListener\('click', \(\) => showTourLinear\(-1\)\)/);
     assert.match(hostSource, /parameters\.get\('step'\)/);
     assert.match(hostSource, /parameters\.set\('step', scene\.steps\[state\.activeStepIndex\]\.id\)/);
     assert.match(hostSource, /isInteractiveKeyTarget\(event\.target\)/);
@@ -1067,7 +1109,8 @@ function shortCommit(repo, rev) {
 function run() {
     testTourLinearNavigationTraversesStepsAndScenes();
     testTourPositionRestoresStableSceneAndStepIds();
-    testWebTourHostWiresLinearNavigationAndResponsiveLayout();
+    testTourFileNavigationSkipsNarrativeStatesAndDuplicateFiles();
+    testWebTourHostSeparatesFileAndNarrativeNavigation();
     testLineClickSelectsContainingTwoWayChange();
     testLineClickIgnoresCollapsedSideOfOneSidedChange();
     testLineClickPrefersCurrentAdjacentPair();

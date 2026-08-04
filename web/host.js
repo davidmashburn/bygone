@@ -1,7 +1,7 @@
 import { buildTwoWayDiffModel } from '../src/diffEngine.ts';
 import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
-import { getLinearTourTarget, resolveTourPosition } from '../src/tourNavigation.ts';
+import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../src/tourNavigation.ts';
 
 (function initializeWebHost() {
     const state = {
@@ -50,7 +50,7 @@ import { getLinearTourTarget, resolveTourPosition } from '../src/tourNavigation.
         }
 
         if (message.type === 'navigateFile' && state.mode === 'tour') {
-            showTourLinear(message.direction === 'previous' ? -1 : 1);
+            showTourFile(message.direction === 'previous' ? -1 : 1);
             return;
         }
 
@@ -284,8 +284,8 @@ import { getLinearTourTarget, resolveTourPosition } from '../src/tourNavigation.
             diffModel,
             history: null,
             fileNavigation: {
-                canGoPrevious: Boolean(getCurrentLinearTourTarget(-1)),
-                canGoNext: Boolean(getCurrentLinearTourTarget(1))
+                canGoPrevious: Boolean(getCurrentTourFileTarget(-1)),
+                canGoNext: Boolean(getCurrentTourFileTarget(1))
             },
             editableSides: { left: false, right: false },
             comparisonSummary: `${scene.path} · ${scene.takeaway}`,
@@ -326,6 +326,26 @@ import { getLinearTourTarget, resolveTourPosition } from '../src/tourNavigation.
 
     function showTourLinear(direction) {
         const target = getCurrentLinearTourTarget(direction);
+        if (!target) {
+            return false;
+        }
+        showTourScene(target.sceneIndex, target.stepIndex);
+        return true;
+    }
+
+    function getCurrentTourFileTarget(direction) {
+        const tour = state.tour;
+        if (!tour || (direction !== -1 && direction !== 1)) {
+            return null;
+        }
+        return getTourFileTarget(tour.scenes, {
+            sceneIndex: state.activeSceneIndex,
+            stepIndex: state.activeStepIndex
+        }, direction);
+    }
+
+    function showTourFile(direction) {
+        const target = getCurrentTourFileTarget(direction);
         if (!target) {
             return false;
         }

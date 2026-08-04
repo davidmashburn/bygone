@@ -5,6 +5,10 @@ export interface TourPosition {
     stepIndex: number;
 }
 
+export interface TourFileTarget extends TourPosition {
+    path: string;
+}
+
 export function resolveTourPosition(
     scenes: readonly ChangeTourScene[],
     requestedSceneId: string | null,
@@ -48,4 +52,46 @@ export function getLinearTourTarget(
         sceneIndex: position.sceneIndex - 1,
         stepIndex: previousScene.kind === 'walkthrough' ? previousScene.steps.length - 1 : 0
     };
+}
+
+export function getTourFileTarget(
+    scenes: readonly ChangeTourScene[],
+    position: TourPosition,
+    direction: -1 | 1
+): TourFileTarget | null {
+    const targets: TourFileTarget[] = [];
+    const seenPaths = new Set<string>();
+    const addTarget = (target: TourFileTarget) => {
+        if (!seenPaths.has(target.path)) {
+            seenPaths.add(target.path);
+            targets.push(target);
+        }
+    };
+
+    scenes.forEach((scene, sceneIndex) => {
+        if (scene.kind === 'text-diff') {
+            addTarget({ sceneIndex, stepIndex: 0, path: scene.path });
+            return;
+        }
+        if (scene.kind === 'walkthrough') {
+            scene.steps.forEach((step, stepIndex) => {
+                addTarget({ sceneIndex, stepIndex, path: step.diff.path });
+            });
+        }
+    });
+
+    const scene = scenes[position.sceneIndex];
+    const currentPath = scene?.kind === 'text-diff'
+        ? scene.path
+        : scene?.kind === 'walkthrough'
+            ? scene.steps[position.stepIndex]?.diff.path
+            : null;
+    if (!currentPath) {
+        return null;
+    }
+    const currentIndex = targets.findIndex((target) => target.path === currentPath);
+    const targetIndex = currentIndex + direction;
+    return currentIndex >= 0 && targetIndex >= 0 && targetIndex < targets.length
+        ? targets[targetIndex]
+        : null;
 }
