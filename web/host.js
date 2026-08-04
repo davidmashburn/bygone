@@ -78,10 +78,6 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         const diff3Input = document.getElementById('web-diff3-input');
         const tourPrevious = document.getElementById('tour-previous');
         const tourNext = document.getElementById('tour-next');
-        const previousChapter = document.getElementById('tour-previous-chapter');
-        const nextChapter = document.getElementById('tour-next-chapter');
-        const previousStep = document.getElementById('tour-step-previous');
-        const nextStep = document.getElementById('tour-step-next');
 
         compareTestButton?.addEventListener('click', () => {
             compareTestFiles();
@@ -117,22 +113,18 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
             await openMultiFileDiff(files);
         });
 
-        tourPrevious?.addEventListener('click', () => showTourScene(state.activeSceneIndex - 1));
-        tourNext?.addEventListener('click', () => showTourScene(state.activeSceneIndex + 1));
-        previousChapter?.addEventListener('click', () => showRelativeChapter(-1));
-        nextChapter?.addEventListener('click', () => showRelativeChapter(1));
-        previousStep?.addEventListener('click', () => showRelativeStep(-1));
-        nextStep?.addEventListener('click', () => showRelativeStep(1));
+        tourPrevious?.addEventListener('click', () => showTourLinear(-1));
+        tourNext?.addEventListener('click', () => showTourLinear(1));
         window.addEventListener('keydown', (event) => {
             if (state.mode !== 'tour' || event.metaKey || event.ctrlKey || event.altKey) {
                 return;
             }
-            if (event.key === 'PageUp') {
+            if (event.key === 'PageUp' || event.key === 'ArrowLeft') {
                 event.preventDefault();
-                if (!showRelativeStep(-1)) showTourScene(state.activeSceneIndex - 1);
-            } else if (event.key === 'PageDown') {
+                showTourLinear(-1);
+            } else if (event.key === 'PageDown' || event.key === 'ArrowRight') {
                 event.preventDefault();
-                if (!showRelativeStep(1)) showTourScene(state.activeSceneIndex + 1);
+                showTourLinear(1);
             }
         });
     }
@@ -167,10 +159,10 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         const source = document.getElementById('tour-source');
         const range = document.getElementById('tour-range');
         const stats = document.getElementById('tour-stats');
-        const chapterNavigation = document.getElementById('tour-chapters');
         const scenes = document.getElementById('tour-scenes');
         const commits = document.getElementById('tour-commits');
-        if (!shell || !title || !source || !range || !stats || !chapterNavigation || !scenes || !commits) {
+        const commitsSummary = document.getElementById('tour-commits-summary');
+        if (!shell || !title || !source || !range || !stats || !scenes || !commits || !commitsSummary) {
             throw new Error('Presenter UI is incomplete.');
         }
         shell.hidden = false;
@@ -178,25 +170,15 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         if (tour.sourceUrl) {
             source.href = tour.sourceUrl;
             source.hidden = false;
+        } else {
+            source.hidden = true;
         }
         const baseLabel = formatTourRef(tour.range.baseRef);
         const headLabel = formatTourRef(tour.range.headRef);
         const resolvedHead = tour.range.headOid.slice(0, 7);
         range.textContent = `${baseLabel} → ${headLabel}${headLabel === resolvedHead ? '' : ` · ${resolvedHead}`}`;
         stats.textContent = `${tour.summary.changedFiles} files · +${tour.summary.additions} −${tour.summary.deletions} · ${tour.summary.commitCount} commits`;
-        chapterNavigation.replaceChildren(...tour.chapters.map((chapter) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.dataset.chapterId = chapter.id;
-            button.title = `Jump to ${chapter.title}`;
-            button.addEventListener('click', () => showChapter(chapter.id));
-            const label = document.createElement('span');
-            label.textContent = chapter.title;
-            const count = document.createElement('span');
-            count.textContent = String(chapter.sceneIds.length);
-            button.append(label, count);
-            return button;
-        }));
+        commitsSummary.textContent = `${tour.summary.commitCount} commits`;
         scenes.replaceChildren();
         const sceneById = new Map(tour.scenes.map((scene) => [scene.id, scene]));
         for (const chapter of tour.chapters) {
@@ -245,44 +227,22 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         }));
     }
 
-    function showTourScene(index) {
+    function showTourScene(index, stepIndex = 0) {
         const tour = state.tour;
         if (!tour || index < 0 || index >= tour.scenes.length) {
             return;
         }
-        state.activeSceneIndex = index;
-        state.activeStepIndex = 0;
         const scene = tour.scenes[index];
-        const activeChapterIndex = tour.chapters.findIndex((chapter) => chapter.sceneIds.includes(scene.id));
-        const activeChapter = tour.chapters[activeChapterIndex];
+        state.activeSceneIndex = index;
+        state.activeStepIndex = scene.kind === 'walkthrough'
+            ? Math.min(Math.max(stepIndex, 0), Math.max(scene.steps.length - 1, 0))
+            : 0;
+        const location = getSceneLocation(tour, index);
         document.querySelectorAll('.tour-scene').forEach((button) => {
             button.classList.toggle('is-active', button.dataset.sceneId === scene.id);
         });
-        document.querySelectorAll('.tour-chapters button').forEach((button) => {
-            button.classList.toggle('is-active', button.dataset.chapterId === activeChapter?.id);
-        });
         document.querySelector(`.tour-scene[data-scene-id="${scene.id}"]`)?.scrollIntoView({ block: 'nearest' });
-        const position = document.getElementById('tour-position');
-        const previous = document.getElementById('tour-previous');
-        const next = document.getElementById('tour-next');
-        const previousChapter = document.getElementById('tour-previous-chapter');
-        const nextChapter = document.getElementById('tour-next-chapter');
-        if (position) {
-            position.textContent = `${index + 1} / ${tour.scenes.length}`;
-        }
-        if (previous) {
-            previous.disabled = index === 0;
-        }
-        if (next) {
-            next.disabled = index === tour.scenes.length - 1;
-        }
-        if (previousChapter) {
-            previousChapter.disabled = activeChapterIndex <= 0;
-        }
-        if (nextChapter) {
-            nextChapter.disabled = activeChapterIndex < 0 || activeChapterIndex >= tour.chapters.length - 1;
-        }
-        renderTourNarrative(scene, activeChapter?.title || 'Change tour');
+        renderTourNarrative(scene, location);
         const parameters = new URLSearchParams(window.location.search);
         parameters.set('scene', scene.id);
         window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
@@ -327,7 +287,6 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
     function renderWalkthroughStep(scene) {
         const step = scene.steps[state.activeStepIndex];
         if (!step) return;
-        renderTourNarrative(scene, currentChapterTitle());
         const side = step.focus.revision === 'base' ? 'left' : 'right';
         emitDiffScene(step.diff, state.activeSceneIndex, {
             side,
@@ -337,20 +296,64 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         }, `${scene.id}-${step.id}`);
     }
 
-    function showRelativeStep(offset) {
-        const scene = state.tour?.scenes[state.activeSceneIndex];
-        if (!scene || scene.kind !== 'walkthrough') return false;
-        const target = state.activeStepIndex + offset;
-        if (target < 0 || target >= scene.steps.length) return false;
-        state.activeStepIndex = target;
-        renderWalkthroughStep(scene);
+    function getLinearTourTarget(direction) {
+        const tour = state.tour;
+        const scene = tour?.scenes[state.activeSceneIndex];
+        if (!tour || !scene || direction === 0) {
+            return null;
+        }
+        if (direction > 0) {
+            if (scene.kind === 'walkthrough' && state.activeStepIndex < scene.steps.length - 1) {
+                return { sceneIndex: state.activeSceneIndex, stepIndex: state.activeStepIndex + 1 };
+            }
+            if (state.activeSceneIndex < tour.scenes.length - 1) {
+                return { sceneIndex: state.activeSceneIndex + 1, stepIndex: 0 };
+            }
+            return null;
+        }
+        if (scene.kind === 'walkthrough' && state.activeStepIndex > 0) {
+            return { sceneIndex: state.activeSceneIndex, stepIndex: state.activeStepIndex - 1 };
+        }
+        if (state.activeSceneIndex > 0) {
+            const previousScene = tour.scenes[state.activeSceneIndex - 1];
+            return {
+                sceneIndex: state.activeSceneIndex - 1,
+                stepIndex: previousScene.kind === 'walkthrough' ? previousScene.steps.length - 1 : 0
+            };
+        }
+        return null;
+    }
+
+    function showTourLinear(direction) {
+        const target = getLinearTourTarget(direction);
+        if (!target) {
+            return false;
+        }
+        showTourScene(target.sceneIndex, target.stepIndex);
         return true;
     }
 
-    function currentChapterTitle() {
-        const tour = state.tour;
-        const scene = tour?.scenes[state.activeSceneIndex];
-        return tour?.chapters.find((chapter) => scene && chapter.sceneIds.includes(scene.id))?.title || 'Change tour';
+    function getSceneLocation(tour, sceneIndex) {
+        const scene = tour.scenes[sceneIndex];
+        const chapterIndex = tour.chapters.findIndex((chapter) => chapter.sceneIds.includes(scene.id));
+        const chapter = chapterIndex >= 0 ? tour.chapters[chapterIndex] : null;
+        const sceneInChapter = chapter ? chapter.sceneIds.indexOf(scene.id) + 1 : sceneIndex + 1;
+        const scenesInChapter = chapter ? chapter.sceneIds.length : tour.scenes.length;
+        return {
+            chapter,
+            chapterIndex,
+            chapterNumber: chapterIndex >= 0 ? chapterIndex + 1 : sceneIndex + 1,
+            sceneInChapter,
+            scenesInChapter
+        };
+    }
+
+    function formatTourBreadcrumb(location, scene, stepIndex) {
+        const parts = [`Ch ${location.chapterNumber}`, `Scene ${location.sceneInChapter}/${location.scenesInChapter}`];
+        if (scene.kind === 'walkthrough') {
+            parts.push(`Step ${stepIndex + 1}/${scene.steps.length}`);
+        }
+        return parts.join(' · ');
     }
 
     function findChangeIndexAtSourceLine(diffModel, side, sourceLine) {
@@ -374,31 +377,9 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         return /^[0-9a-f]{40}$/i.test(ref) ? ref.slice(0, 7) : ref;
     }
 
-    function showChapter(chapterId) {
-        const tour = state.tour;
-        const chapter = tour?.chapters.find((candidate) => candidate.id === chapterId);
-        const sceneId = chapter?.sceneIds[0];
-        const sceneIndex = tour?.scenes.findIndex((scene) => scene.id === sceneId) ?? -1;
-        if (sceneIndex >= 0) {
-            showTourScene(sceneIndex);
-        }
-    }
-
-    function showRelativeChapter(offset) {
-        const tour = state.tour;
-        const scene = tour?.scenes[state.activeSceneIndex];
-        if (!tour || !scene) {
-            return;
-        }
-        const chapterIndex = tour.chapters.findIndex((chapter) => chapter.sceneIds.includes(scene.id));
-        const target = tour.chapters[chapterIndex + offset];
-        if (target) {
-            showChapter(target.id);
-        }
-    }
-
-    function renderTourNarrative(scene, chapterTitle) {
+    function renderTourNarrative(scene, location) {
         const narrative = document.getElementById('tour-narrative');
+        const breadcrumb = document.getElementById('tour-breadcrumb');
         const chapter = document.getElementById('tour-narrative-chapter');
         const title = document.getElementById('tour-narrative-title');
         const summary = document.getElementById('tour-narrative-summary');
@@ -408,15 +389,15 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         const stepPanel = document.getElementById('tour-step');
         const stepTitle = document.getElementById('tour-step-title');
         const stepBody = document.getElementById('tour-step-body');
-        const stepPosition = document.getElementById('tour-step-position');
-        const previousStep = document.getElementById('tour-step-previous');
-        const nextStep = document.getElementById('tour-step-next');
         const connection = document.getElementById('tour-connection');
-        if (!narrative || !chapter || !title || !summary || !bullets || !tags || !takeaway || !stepPanel || !stepTitle || !stepBody || !stepPosition || !previousStep || !nextStep || !connection) {
+        const previous = document.getElementById('tour-previous');
+        const next = document.getElementById('tour-next');
+        if (!narrative || !breadcrumb || !chapter || !title || !summary || !bullets || !tags || !takeaway || !stepPanel || !stepTitle || !stepBody || !connection || !previous || !next) {
             throw new Error('Tour narrative UI is incomplete.');
         }
         narrative.hidden = false;
-        chapter.textContent = chapterTitle;
+        breadcrumb.textContent = formatTourBreadcrumb(location, scene, state.activeStepIndex);
+        chapter.textContent = location.chapter?.title || 'Change tour';
         title.textContent = scene.title;
         summary.textContent = scene.summary;
         bullets.replaceChildren(...scene.bullets.map((text) => {
@@ -435,9 +416,6 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         if (step) {
             stepTitle.textContent = step.title;
             stepBody.textContent = step.body;
-            stepPosition.textContent = `${state.activeStepIndex + 1} / ${scene.steps.length}`;
-            previousStep.disabled = state.activeStepIndex === 0;
-            nextStep.disabled = state.activeStepIndex === scene.steps.length - 1;
             if (step.connection) {
                 connection.hidden = false;
                 connection.textContent = `${step.connection.from.path} → ${step.connection.to.path} · ${step.connection.label}`;
@@ -445,7 +423,12 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
                 connection.hidden = true;
                 connection.textContent = '';
             }
+        } else {
+            connection.hidden = true;
+            connection.textContent = '';
         }
+        previous.disabled = !getLinearTourTarget(-1);
+        next.disabled = !getLinearTourTarget(1);
     }
 
     function compareTestFiles() {

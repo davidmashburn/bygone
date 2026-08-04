@@ -7,7 +7,7 @@
     --tour-border: rgba(255, 255, 255, 0.09);
     --tour-muted: rgba(232, 235, 246, 0.84);
     --tour-body-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --tour-narrative-height: 272px;
+    --tour-narrative-height: 296px;
 }
 
 .tour-shell {
@@ -55,14 +55,6 @@ body.tour-mode.tour-discussion #container {
     border-bottom: 1px solid var(--tour-border);
 }
 
-.tour-kicker {
-    margin-bottom: 9px;
-    color: var(--tour-accent-bright);
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.18em;
-}
-
 .tour-overview h1 {
     margin: 0 0 10px;
     font-size: 20px;
@@ -71,7 +63,7 @@ body.tour-mode.tour-discussion #container {
 
 .tour-source {
     display: inline-block;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     color: #bcb5ff;
     font-size: 12px;
     text-decoration: none;
@@ -79,6 +71,16 @@ body.tour-mode.tour-discussion #container {
 
 .tour-source:hover {
     color: #fff;
+}
+
+.tour-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5ch;
+    align-items: baseline;
+    color: var(--tour-muted);
+    font-size: 11px;
+    line-height: 1.55;
 }
 
 .tour-range,
@@ -89,25 +91,55 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-range {
+    min-width: 0;
     overflow: hidden;
-    margin-bottom: 5px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.tour-controls {
+.tour-stats {
+    white-space: nowrap;
+}
+
+.tour-narrative {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: var(--tour-rail-width);
+    z-index: 90;
+    height: var(--tour-narrative-height);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    padding: 20px 26px 18px;
+    color: #f5f6fb;
+    border-bottom: 1px solid var(--tour-border);
+    background:
+        radial-gradient(circle at 92% 0%, rgba(91, 72, 255, 0.18), transparent 35%),
+        #151821;
+    scrollbar-gutter: stable;
+    font-family: var(--tour-body-font);
+}
+
+.tour-narrative[hidden] {
+    display: none;
+}
+
+.tour-narrative-nav {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 10px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 12px;
     align-items: center;
-    padding: 10px 12px;
+    margin-bottom: 14px;
+    padding: 0 0 10px;
     border-bottom: 1px solid var(--tour-border);
     background: rgba(255, 255, 255, 0.025);
 }
 
-.tour-controls button {
-    min-width: 0;
-    padding: 7px 9px;
+.tour-narrative-nav button {
+    min-width: 72px;
+    padding: 7px 10px;
     color: #eeeff7;
     border: 1px solid var(--tour-border);
     border-radius: 6px;
@@ -115,77 +147,24 @@ body.tour-mode.tour-discussion #container {
     cursor: pointer;
 }
 
-.tour-controls button:last-child {
-    color: #fff;
-    border-color: rgba(128, 117, 255, 0.48);
-    background: rgba(104, 88, 255, 0.25);
+.tour-narrative-nav button:last-child {
+    justify-self: end;
 }
 
-.tour-controls button:disabled {
+.tour-narrative-nav button:disabled {
     opacity: 0.35;
     cursor: default;
 }
 
-.tour-chapter-controls {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 8px 12px 0;
-}
-
-.tour-chapter-controls button,
-.tour-chapters button {
-    padding: 7px 9px;
-    color: var(--tour-muted);
-    border: 1px solid var(--tour-border);
-    border-radius: 6px;
-    background: transparent;
-    cursor: pointer;
-}
-
-.tour-chapter-controls button:disabled {
-    opacity: 0.35;
-    cursor: default;
-}
-
-.tour-chapters {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
-    padding: 8px 12px 10px;
-    border-bottom: 1px solid var(--tour-border);
-}
-
-.tour-chapters button {
-    display: flex;
+.tour-breadcrumb {
     min-width: 0;
-    justify-content: space-between;
-    gap: 6px;
-    text-align: left;
-}
-
-.tour-chapters button span:first-child {
+    color: var(--tour-muted);
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 10px;
+    text-align: center;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tour-chapters button span:last-child {
-    color: var(--tour-muted);
-    font-size: 9px;
-}
-
-.tour-chapters button.is-active {
-    color: #fff;
-    border-color: rgba(128, 117, 255, 0.5);
-    background: rgba(104, 88, 255, 0.22);
-}
-
-#tour-position {
-    min-width: 42px;
-    color: var(--tour-muted);
-    font-size: 11px;
-    text-align: center;
 }
 
 .tour-scenes {
@@ -273,12 +252,31 @@ body.tour-mode.tour-discussion #container {
     background: rgba(0, 0, 0, 0.12);
 }
 
-.tour-commits-section h2 {
-    margin: 0 0 8px;
+.tour-commits-section summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
     color: var(--tour-muted);
     font-size: 10px;
+    font-weight: 750;
     letter-spacing: 0.09em;
     text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+}
+
+.tour-commits-section summary::marker {
+    content: '';
+}
+
+.tour-commits-section summary::-webkit-details-marker {
+    display: none;
+}
+
+.tour-commits-section[open] summary {
+    margin-bottom: 8px;
 }
 
 .tour-commits {
@@ -295,30 +293,10 @@ body.tour-mode.tour-discussion #container {
     line-height: 1.35;
 }
 
-.tour-narrative {
-    position: fixed;
-    top: 0;
-    right: 0;
-    left: var(--tour-rail-width);
-    z-index: 90;
-    height: var(--tour-narrative-height);
-    box-sizing: border-box;
+.tour-narrative-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(300px, 430px);
     gap: 18px 24px;
-    overflow: auto;
-    padding: 20px 26px 18px;
-    color: #f5f6fb;
-    border-bottom: 1px solid var(--tour-border);
-    background:
-        radial-gradient(circle at 92% 0%, rgba(91, 72, 255, 0.18), transparent 35%),
-        #151821;
-    scrollbar-gutter: stable;
-    font-family: var(--tour-body-font);
-}
-
-.tour-narrative[hidden] {
-    display: none;
 }
 
 .tour-narrative-prose,
@@ -377,15 +355,20 @@ body.tour-mode.tour-discussion #container {
 .tour-narrative-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: 0;
+    color: var(--tour-muted);
+    font-size: 9px;
+    line-height: 1.45;
 }
 
 .tour-narrative-tags span {
-    padding: 3px 7px;
-    color: #dbd7ff;
-    border: 1px solid rgba(128, 117, 255, 0.28);
-    border-radius: 999px;
-    background: rgba(128, 117, 255, 0.09);
+    color: var(--tour-muted);
+}
+
+.tour-narrative-tags span + span::before {
+    margin: 0 8px;
+    color: rgba(232, 235, 246, 0.32);
+    content: "·";
     font-size: 9px;
 }
 
@@ -416,24 +399,6 @@ body.tour-mode.tour-discussion #container {
     display: none;
 }
 
-.tour-step-controls {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 6px;
-}
-
-.tour-step-controls button {
-    padding: 3px 7px;
-    color: #e9e5ff;
-    border: 1px solid rgba(166, 140, 255, 0.34);
-    border-radius: 5px;
-    background: rgba(166, 140, 255, 0.1);
-    font-size: 10px;
-}
-
-.tour-step-controls button:disabled { opacity: 0.35; }
-.tour-step-controls span { color: var(--tour-muted); font-size: 10px; }
 .tour-step-title { color: #fff; font-size: 13px; font-weight: 750; }
 .tour-step-body { margin: 3px 0 0; color: #e6e9f4; font-size: 11px; line-height: 1.45; }
 
@@ -451,6 +416,14 @@ body.tour-discussion .tour-narrative {
     bottom: 0;
     height: auto;
     padding: clamp(48px, 10vh, 100px) clamp(44px, 8vw, 120px);
+}
+
+body.tour-discussion .tour-narrative-nav {
+    margin-bottom: clamp(22px, 4vh, 36px);
+}
+
+body.tour-discussion .tour-narrative-layout {
+    display: block;
 }
 
 body.tour-discussion .tour-narrative h2 {
