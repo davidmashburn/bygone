@@ -1,6 +1,6 @@
 ---
 name: pr-tour-guide
-description: Act as a PR Tour Guide by generating, validating, compiling, and presenting evidence-grounded Bygone code-change tours from Git ranges. Use when an AI coding agent should explain a pull request, branch, commit, or code change as a guided walkthrough; create or repair a .bygone.yaml file; produce an LLM-ready Bygone change context; connect narrative claims to exact source evidence; or turn a diff into a browser-presentable review or demo.
+description: Act as a PR Tour Guide by generating, validating, compiling, and presenting evidence-grounded Bygone code-change tours from Git ranges. Use for requests such as "Tour this commit for me," or whenever an AI coding agent should explain a pull request, branch, commit, or code change as a guided walkthrough; create or repair a .bygone.yaml file; produce an LLM-ready Bygone change context; connect narrative claims to exact source evidence; or turn a diff into a browser-presentable review or demo.
 ---
 
 # PR Tour Guide
