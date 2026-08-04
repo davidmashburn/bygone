@@ -53,11 +53,23 @@ Identify the smallest set of reviewer questions that makes the change understand
 3. integration or side effects;
 4. failure behavior and proof.
 
-Keep secondary, generated, dependency, and mechanical files in Bygone's complete-change appendix unless they alter a reviewer conclusion.
+Keep secondary, generated, dependency, and mechanical files in Bygone's complete Files rail unless they alter a reviewer conclusion.
+
+Let the change determine the hierarchy. A chapter is a named conceptual arc containing one or more related scenes; a scene answers one reviewer question or advances one thesis. Do not target a fixed chapter count, and do not create a chapter merely to wrap each scene. Repeated one-scene chapters usually indicate that headings are being generated from a template instead of the change's actual structure.
+
+Scale the structure proportionally:
+
+- A small commit may need one chapter and one scene.
+- A normal pull request often needs one to three chapters with one or more scenes in each.
+- A broad release or long-lived branch may need several chapters, but each boundary must mark a real conceptual transition.
+- Prefer merging adjacent chapters when their scenes form one argument; split a chapter only when its scenes answer materially different reviewer questions.
+
+These are pacing heuristics, not quotas. Preserve asymmetry when one capability deserves substantially more explanation than another.
 
 Use these narrative constraints:
 
 - State one reviewer question or thesis per scene.
+- Give every chapter a coherent multi-scene arc when the material supports one; allow a single-scene chapter only when that scene is independently substantial.
 - Decompose scenes by conceptual need, not a fixed template; do not force every scene to use the same step count.
 - Prefer three to seven steps per scene.
 - Explain why focused code matters instead of paraphrasing syntax.
@@ -107,7 +119,8 @@ After structural validation, check that:
 Treat this as a required self-audit, not a claim the validator can prove. For each item, cite concrete evidence you actually opened or mark it not applicable; the hand-off must distinguish verified findings from interpretation.
 
 - the first step establishes enough context for later steps;
-- important production behavior is not hidden in the appendix;
+- chapter boundaries follow conceptual transitions rather than a fixed count or one-scene-per-chapter pattern;
+- important production behavior is not hidden in the complete Files rail;
 - tests are connected to the behavior they prove;
 - connections express causal, contractual, data-flow, ordering, or proof relationships;
 - binary files and omitted patches are surfaced explicitly;

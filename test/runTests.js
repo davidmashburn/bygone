@@ -403,6 +403,29 @@ function testCheckedInBygoneHistoryTourRemainsReproducible() {
     assert.equal(manifest.range.mergeBaseOid, source.range?.base);
 }
 
+function testVersionTourChangelogRemainsReproducible() {
+    const source = parseChangeTourSource(loadYaml(fs.readFileSync(
+        path.join(__dirname, '..', 'tours', 'v0.6.bygone.yaml'),
+        'utf8'
+    )));
+    assert.equal(source.range?.base, '18fa9dda779309663c290ea8a3efff6217ea5757');
+    assert.equal(source.range?.head, 'e6e3e0554e480be319b645293eaab5348a2c55fe');
+    assert.equal(source.chapters.length, 3);
+    assert.equal(source.chapters.flatMap((chapter) => chapter.scenes).length, 5);
+    assert.equal(source.chapters.flatMap((chapter) => chapter.scenes.flatMap((scene) => scene.steps)).length, 28);
+
+    const manifest = buildChangeTourManifest(path.join(__dirname, '..'), {
+        baseRef: source.range?.base,
+        headRef: source.range?.head,
+        source,
+        generatedAt: '2026-08-04T00:00:00.000Z'
+    });
+    assert.equal(manifest.summary.changedFiles, 105);
+    assert.equal(manifest.files.length, 105);
+    assert.equal(manifest.summary.includedScenes, 5);
+    assert.equal(manifest.summary.omittedFiles.length, 18);
+}
+
 function testAgentTourCommandsValidateCompileAndExposeSchema() {
     assert.deepEqual(parseTourArgs(['validate', 'review.bygone.yaml', '--json']), {
         action: 'validate', sourcePath: 'review.bygone.yaml', outputPath: undefined, json: true
@@ -1144,6 +1167,7 @@ function run() {
     testChangeTourBuildsPortableNarrativeChapters();
     testPresentArgumentsUseSharedBaseAliases();
     testCheckedInBygoneHistoryTourRemainsReproducible();
+    testVersionTourChangelogRemainsReproducible();
     testAgentTourCommandsValidateCompileAndExposeSchema();
     testChangeTourContextPackagesBoundedGitEvidence();
     testGeneratedCompletionScriptsPassAvailableShellSyntaxChecks();

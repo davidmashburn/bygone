@@ -3,7 +3,7 @@
   "publisher": "davidmashburn",
   "displayName": "Bygone",
   "description": "See how change happened. Visual diff and file history for VS Code.",
-  "version": "0.6.6",
+  "version": "0.7.0",
   "author": "David Mashburn",
   "license": "MIT",
   "private": false,

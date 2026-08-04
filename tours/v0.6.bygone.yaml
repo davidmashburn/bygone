@@ -1,0 +1,360 @@
+version: 1
+title: Bygone 0.6 — from visual diff to guided review
+sourceUrl: https://github.com/davidmashburn/bygone/compare/v0.5.2...e6e3e05
+range:
+  base: 18fa9dda779309663c290ea8a3efff6217ea5757
+  head: e6e3e0554e480be319b645293eaab5348a2c55fe
+
+anchors:
+  multi-directory-model:
+    file: src/directoryDiff.ts
+    revision: head
+    contains: "export function buildMultiDirectoryComparison(dirs: string[]): DirectoryEntry[] {"
+  asynchronous-diff-worker:
+    file: media/script.js
+    revision: head
+    contains: "function requestDiffAsync(leftContent, rightContent) {"
+  directory-file-state:
+    file: media/navigationUtils.js
+    revision: head
+    contains: "function buildDirectoryNavigationState(entries, activeRelativePath) {"
+  multi-directory-proof:
+    file: test/runTests.js
+    revision: head
+    contains: "    assert.deepEqual(partialEntry?.sides, [true, false, false]);"
+
+  paired-inline-highlight:
+    file: src/diffEngine.ts
+    revision: head
+    contains: "                    applyInlineHighlightPair(renderedLeftLine, renderedRightLine);"
+  line-click-selection:
+    file: media/navigationUtils.js
+    revision: head
+    contains: "function findChangeIndexAtLine(changes, modelLineNumber, preferredPairIndex = null) {"
+  decoration-deduplication:
+    file: media/decorationUtils.js
+    revision: head
+    contains: "function dedupeDecorations(decorations) {"
+  binary-comparison:
+    file: src/binaryComparison.ts
+    revision: head
+    contains: "export function buildBinaryComparison("
+  binary-proof:
+    file: test/runTests.js
+    revision: head
+    contains: "    assert.match(same?.left.dataUrl ?? '', /^data:image\\/png;base64,/);"
+
+  merge-base-range:
+    file: src/gitComparison.ts
+    revision: head
+    contains: "    const mergeBaseOids = runGit(['merge-base', '--all', baseOid, headOid], repoRoot)"
+  ambiguous-merge-base:
+    file: src/gitComparison.ts
+    revision: head
+    contains: "            `Multiple merge bases exist between ${baseRef} and ${headRef}: `"
+  rename-pairing:
+    file: src/gitComparison.ts
+    revision: head
+    contains: "    const relatesDistinctPaths = (changedPath.kind === 'renamed' || changedPath.kind === 'copied')"
+  materialized-review-trees:
+    file: src/gitComparison.ts
+    revision: head
+    contains: "export function materializeBranchReviewTrees("
+  reuse-directory-surface:
+    file: src/fileComparator.ts
+    revision: head
+    contains: "            materializeBranchReviewTrees(range, leftRoot, rightRoot);"
+  rename-proof:
+    file: test/runTests.js
+    revision: head
+    contains: "    assert.equal(rename?.previousPath, 'src/old-name.txt');"
+
+  canonical-cli-spec:
+    file: cli/commandSpec.js
+    revision: head
+    contains: "const CLI_SPEC = Object.freeze({"
+  generated-completions:
+    file: cli/completions.js
+    revision: head
+    contains: "function generateCompletion(shell) {"
+  command-installation:
+    file: standalone/main.js
+    revision: head
+    contains: "async function installCommandLineTools() {"
+  development-sync:
+    file: scripts/dev-sync.mjs
+    revision: head
+    contains: "await installDesktopApp();"
+  release-gate:
+    file: package.json
+    revision: head
+    contains: "\"release:check\": \"npm run security:audit && npm test && npm run bundle:check && npm run lint && npm run package:vsix && npm run package:npm && npm run package:npm:dry-run\""
+  crisp-hybrid-icon:
+    file: standalone/assets/bygone-icon.svg
+    revision: head
+    contains: "        <path d=\"M110 440 H402 C522 440 502 288 622 288 H914\" stroke=\"#8787ff\" stroke-width=\"10\"/>"
+
+  bounded-change-context:
+    file: src/changeTourContext.ts
+    revision: head
+    contains: "export function buildChangeTourContext("
+  strict-tour-source:
+    file: src/changeTourSource.ts
+    revision: head
+    contains: "    requireOnlyKeys(value, ['version', 'title', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters'], 'source');"
+  complete-file-manifest:
+    file: src/changeTourManifest.ts
+    revision: head
+    contains: "    files: ChangeTourFile[];"
+  file-rail-rendering:
+    file: web/host.js
+    revision: head
+    contains: "        files.replaceChildren(...tour.files.map((file, index) => {"
+  separate-file-navigation:
+    file: web/host.js
+    revision: head
+    contains: "        return getTourFileTarget(tour.files, state.activeTourFilePath, direction);"
+  tour-guide-activation:
+    file: skills/pr-tour-guide/SKILL.md
+    revision: head
+    contains: 'description: Act as a PR Tour Guide by generating, validating, compiling, and presenting evidence-grounded Bygone code-change tours from Git ranges. Use for requests such as "Tour this commit for me,"'
+  tour-navigation-proof:
+    file: test/runTests.js
+    revision: head
+    contains: "    assert.match(hostSource, /getTourFileTarget\\(tour\\.files, state\\.activeTourFilePath, direction\\)/);"
+
+connections:
+  directory-model-to-proof:
+    from: multi-directory-model
+    to: multi-directory-proof
+    label: The union model is proven to retain presence independently across three directories.
+  worker-to-workspace:
+    from: multi-directory-model
+    to: asynchronous-diff-worker
+    label: More comparison columns remain interactive because pairwise diff work can leave the UI thread.
+  highlight-to-click:
+    from: paired-inline-highlight
+    to: line-click-selection
+    label: Visual change blocks and click navigation share the same aligned model boundaries.
+  binary-to-proof:
+    from: binary-comparison
+    to: binary-proof
+    label: Image previews and byte equality are locked by an executable binary fixture.
+  merge-base-to-trees:
+    from: merge-base-range
+    to: materialized-review-trees
+    label: The divergence boundary determines the two filesystem snapshots shown to the reviewer.
+  rename-to-proof:
+    from: rename-pairing
+    to: rename-proof
+    label: Rename identity survives from Git metadata through distinct base and head paths.
+  spec-to-completions:
+    from: canonical-cli-spec
+    to: generated-completions
+    label: Help text and all supported shell completions derive from the same command vocabulary.
+  completions-to-installation:
+    from: generated-completions
+    to: command-installation
+    label: The desktop installer writes the generated shell integrations beside the CLI launcher.
+  context-to-source:
+    from: bounded-change-context
+    to: strict-tour-source
+    label: Bounded Git evidence feeds an authored format that rejects unknown or ungrounded structure.
+  manifest-to-files:
+    from: complete-file-manifest
+    to: file-rail-rendering
+    label: The portable manifest's complete file collection becomes an independent review index.
+  navigation-to-proof:
+    from: separate-file-navigation
+    to: tour-navigation-proof
+    label: Regression coverage prevents file movement from silently advancing the authored narrative.
+
+chapters:
+  - id: comparison-grows-up
+    title: Comparison grows up
+    scenes:
+      - id: beyond-two-panes
+        title: Move from pairs to an N-panel workspace
+        summary: The 0.6 line generalizes directory comparison, moves expensive diff work off the main thread, and keeps file navigation available inside drill-down.
+        bullets:
+          - A union model records file presence across any number of directories.
+          - Pairwise computations are scheduled asynchronously while preserving a synchronous fallback.
+          - Directory drill-down exposes a real file index instead of overloading panel movement.
+        tags: [multi-panel, directories, performance]
+        takeaway: Bygone's core surface is no longer limited to a single left/right comparison.
+        steps:
+          - id: union-the-directories
+            title: Model every directory together
+            body: One ordered entry set carries presence and change state for each participating directory.
+            focus: multi-directory-model
+          - id: move-diffs-off-thread
+            title: Keep larger workspaces responsive
+            body: Diff requests use a worker when available and retain a deterministic synchronous fallback.
+            focus: asynchronous-diff-worker
+            connection: worker-to-workspace
+          - id: preserve-file-context
+            title: Keep files beside drill-down
+            body: The renderer derives a navigable changed-file rail from the active directory comparison.
+            focus: directory-file-state
+          - id: prove-partial-presence
+            title: Prove N-way file presence
+            body: A three-directory fixture verifies that a file can exist on only one side without losing its identity.
+            focus: multi-directory-proof
+            connection: directory-model-to-proof
+
+      - id: align-what-users-see-and-do
+        title: Make highlighting, navigation, and binary evidence agree
+        summary: A concentrated correctness pass aligns replacement lines before highlighting them, maps clicks to real changes, removes duplicate decorations, and gives non-text files an honest comparison.
+        bullets:
+          - Inline emphasis appears only on paired replacement lines.
+          - Clicking a rendered line selects the containing block, including multi-panel pair context.
+          - Images receive previews while other binaries report equality and metadata without pretending to be text.
+        tags: [diff, correctness, binary]
+        takeaway: Visual emphasis and navigation now follow the semantic diff model rather than incidental panel geometry.
+        steps:
+          - id: pair-before-highlighting
+            title: Highlight only aligned replacements
+            body: Word-level emphasis is applied only after removed and added lines have been paired into a replacement.
+            focus: paired-inline-highlight
+          - id: make-lines-selectable
+            title: Let the clicked line choose the change
+            body: Line selection searches containing block ranges and prefers the active adjacent pair in multi-panel mode.
+            focus: line-click-selection
+            connection: highlight-to-click
+          - id: eliminate-stacked-decoration-artifacts
+            title: Deduplicate renderer decorations
+            body: Equivalent Monaco ranges and classes collapse to one decoration so panel edges do not acquire accidental weight.
+            focus: decoration-deduplication
+          - id: compare-binaries-honestly
+            title: Represent files that are not text
+            body: Binary classification produces image previews when safe and a byte-level identical/different result otherwise.
+            focus: binary-comparison
+          - id: prove-image-behavior
+            title: Lock preview and equality behavior
+            body: A real PNG fixture proves inline preview encoding and detects a one-byte difference.
+            focus: binary-proof
+            connection: binary-to-proof
+
+  - id: product-workflow
+    title: Git becomes a product workflow
+    scenes:
+      - id: branch-to-visual-review
+        title: Turn a branch range into ordinary Bygone evidence
+        summary: Git comparison resolves a merge-base range, preserves rename identity, and then reuses the existing directory-diff surface.
+        bullets:
+          - Review starts where the branch diverged, not merely at the named base tip.
+          - Multiple merge bases fail explicitly instead of choosing an arbitrary history.
+          - Renames retain distinct old and new paths through materialization and presentation.
+        tags: [git, branches, renames]
+        takeaway: Branch review is a source adapter for Bygone's comparison model, not a separate review renderer.
+        steps:
+          - id: calculate-divergence
+            title: Resolve the review boundary
+            body: The committed range begins at the merge base between the selected base and head revisions.
+            focus: merge-base-range
+          - id: reject-ambiguous-history
+            title: Fail on criss-cross ambiguity
+            body: Multiple merge bases require the caller to choose one explicitly, keeping the review boundary inspectable.
+            focus: ambiguous-merge-base
+          - id: preserve-rename-identity
+            title: Pair old and new paths
+            body: Rename and copy metadata produce distinct base and head endpoints instead of unrelated deletion and addition rows.
+            focus: rename-pairing
+          - id: materialize-the-range
+            title: Build review snapshots
+            body: Only changed paths are written into temporary base and head trees, with rename endpoints placed on their proper sides.
+            focus: materialized-review-trees
+            connection: merge-base-to-trees
+          - id: reuse-directory-review
+            title: Hand snapshots to the established surface
+            body: The VS Code workflow opens those trees through ordinary directory comparison and inherits its navigation.
+            focus: reuse-directory-surface
+          - id: prove-the-rename
+            title: Verify rename endpoints end to end
+            body: A repository fixture confirms both Git identity and the distinct files materialized for review.
+            focus: rename-proof
+            connection: rename-to-proof
+
+      - id: one-product-across-surfaces
+        title: Ship one coherent CLI, desktop app, and visual identity
+        summary: The release line centralizes command vocabulary, generates completions, automates local installation, strengthens release gates, and adopts the brighter crisp-hybrid icon.
+        bullets:
+          - Help and Zsh, Bash, and Fish completion scripts share one command specification.
+          - The desktop app can install both the launcher and completion files.
+          - Local sync and release checks exercise packaged artifacts rather than only source compilation.
+          - The icon's saturated green and violet boundaries preserve the comparison metaphor at Dock scale.
+        tags: [cli, packaging, quality, identity]
+        takeaway: Bygone 0.6 behaves more like one installable product than a collection of entry points.
+        steps:
+          - id: define-command-language
+            title: Centralize the CLI vocabulary
+            body: Commands, modes, aliases, arguments, and descriptions live in one data structure.
+            focus: canonical-cli-spec
+          - id: derive-shell-completions
+            title: Generate completion behavior
+            body: Zsh, Bash, and Fish integrations are generated from the same vocabulary used by help output.
+            focus: generated-completions
+            connection: spec-to-completions
+          - id: install-from-the-app
+            title: Make the desktop app install its CLI
+            body: A menu action writes the launcher and shell completions, with manual recovery commands on failure.
+            focus: command-installation
+            connection: completions-to-installation
+          - id: close-the-local-loop
+            title: Rebuild every local surface together
+            body: Dev sync compiles, packages, installs, and refreshes the CLI, completions, extension, and desktop app in one workflow.
+            focus: development-sync
+          - id: gate-release-artifacts
+            title: Treat packaging as part of correctness
+            body: Release checks combine security audit, tests, bundle budgets, lint, and package dry runs.
+            focus: release-gate
+          - id: sharpen-the-product-symbol
+            title: Adopt the crisp-hybrid icon
+            body: Saturated violet and green strokes reinforce the same cross-pane change boundaries used by the diff renderer.
+            focus: crisp-hybrid-icon
+
+  - id: guided-review
+    title: Review gains a narrative layer
+    scenes:
+      - id: build-the-pr-tour-guide
+        title: Separate authored explanation from deterministic evidence
+        summary: Bygone adds a bounded evidence dossier, a strict authored source format, portable manifests, and an interactive presenter where narrative and file movement remain independent.
+        bullets:
+          - Agents receive bounded Git evidence rather than unrestricted repository dumps.
+          - Anchors resolve against immutable revisions and invalid source structure fails loudly.
+          - The complete file set stays available beside a deliberately smaller authored path.
+          - The repository includes an agent-agnostic PR Tour Guide skill and natural activation language.
+        tags: [tours, llm, review, dogfood]
+        takeaway: Bygone becomes both a standalone visual diff tool and a deterministic component for LLM-guided code review.
+        steps:
+          - id: package-bounded-evidence
+            title: Give the guide a bounded dossier
+            body: Context generation classifies files, records omissions, and enforces per-file and total patch budgets before an LLM plans the story.
+            focus: bounded-change-context
+          - id: validate-authored-intent
+            title: Keep the narrative contract strict
+            body: The source parser accepts only known fields and requires every anchor, connection, chapter, scene, and step to be structurally valid.
+            focus: strict-tour-source
+            connection: context-to-source
+          - id: preserve-the-complete-range
+            title: Separate scenes from files
+            body: Portable manifests carry a curated narrative and an independent complete changed-file collection.
+            focus: complete-file-manifest
+          - id: render-files-beside-the-tour
+            title: Keep the whole change set in reach
+            body: The presenter renders every changed file, including disabled entries that explain why binary or oversized content is omitted.
+            focus: file-rail-rendering
+            connection: manifest-to-files
+          - id: separate-navigation-meanings
+            title: Let files move without moving the story
+            body: File clicks and double chevrons browse the file collection while scene and step state remain fixed.
+            focus: separate-file-navigation
+          - id: name-the-agent-role
+            title: Activate a PR Tour Guide
+            body: The included skill names the reviewer-facing outcome and recognizes natural requests such as “Tour this commit for me.”
+            focus: tour-guide-activation
+          - id: prove-the-navigation-boundary
+            title: Lock the interaction model
+            body: Regression coverage asserts that file navigation uses the complete file list and remains separate from narrative movement.
+            focus: tour-navigation-proof
+            connection: navigation-to-proof
