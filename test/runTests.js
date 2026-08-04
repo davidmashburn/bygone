@@ -27,6 +27,45 @@ const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('..
 const { buildChangeTourContext, buildChangeTourManifest, parseChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
 const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
+const { getLinearTourTarget, resolveTourPosition } = require('../out/tourNavigation.js');
+
+function testTourLinearNavigationTraversesStepsAndScenes() {
+    const scenes = [
+        { id: 'intro', kind: 'discussion' },
+        { id: 'walkthrough', kind: 'walkthrough', steps: [{ id: 'one' }, { id: 'two' }] },
+        { id: 'appendix', kind: 'text-diff' }
+    ];
+
+    assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 0, stepIndex: 0 }, 1), { sceneIndex: 1, stepIndex: 0 });
+    assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 1, stepIndex: 0 }, 1), { sceneIndex: 1, stepIndex: 1 });
+    assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 1, stepIndex: 1 }, 1), { sceneIndex: 2, stepIndex: 0 });
+    assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 2, stepIndex: 0 }, -1), { sceneIndex: 1, stepIndex: 1 });
+    assert.equal(getLinearTourTarget(scenes, { sceneIndex: 0, stepIndex: 0 }, -1), null);
+    assert.equal(getLinearTourTarget(scenes, { sceneIndex: 2, stepIndex: 0 }, 1), null);
+}
+
+function testTourPositionRestoresStableSceneAndStepIds() {
+    const scenes = [
+        { id: 'intro', kind: 'discussion' },
+        { id: 'walkthrough', kind: 'walkthrough', steps: [{ id: 'one' }, { id: 'two' }] }
+    ];
+
+    assert.deepEqual(resolveTourPosition(scenes, 'walkthrough', 'two'), { sceneIndex: 1, stepIndex: 1 });
+    assert.deepEqual(resolveTourPosition(scenes, 'walkthrough', 'missing'), { sceneIndex: 1, stepIndex: 0 });
+    assert.deepEqual(resolveTourPosition(scenes, 'missing', 'two'), { sceneIndex: 0, stepIndex: 0 });
+}
+
+function testWebTourHostWiresLinearNavigationAndResponsiveLayout() {
+    const hostSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
+    const presenterSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'presenter.css'), 'utf8');
+
+    assert.match(hostSource, /message\.type === 'navigateFile'[\s\S]{0,180}showTourLinear/);
+    assert.match(hostSource, /parameters\.get\('step'\)/);
+    assert.match(hostSource, /parameters\.set\('step', scene\.steps\[state\.activeStepIndex\]\.id\)/);
+    assert.match(hostSource, /isInteractiveKeyTarget\(event\.target\)/);
+    assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+--tour-rail-height/);
+    assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+grid-template-columns: minmax\(190px/);
+}
 
 function testLineClickSelectsContainingTwoWayChange() {
     const model = buildTwoWayDiffModel('one\ntwo\nthree\nfour\n', 'one\nTWO\nthree\nFOUR\n');
@@ -1026,6 +1065,9 @@ function shortCommit(repo, rev) {
 }
 
 function run() {
+    testTourLinearNavigationTraversesStepsAndScenes();
+    testTourPositionRestoresStableSceneAndStepIds();
+    testWebTourHostWiresLinearNavigationAndResponsiveLayout();
     testLineClickSelectsContainingTwoWayChange();
     testLineClickIgnoresCollapsedSideOfOneSidedChange();
     testLineClickPrefersCurrentAdjacentPair();

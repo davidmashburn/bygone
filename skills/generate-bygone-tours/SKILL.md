@@ -19,14 +19,18 @@ Do not install, rebuild, commit, push, publish, or open a browser unless the use
 
 Determine the intended head and base from the request and repository state. Prefer an explicit base; do not guess when different bases would materially change the explanation.
 
-For a PR, derive the true base branch first and use that instead of defaulting to `main`:
+For a hosted review, resolve both immutable endpoint OIDs from provider metadata. Never assume the current checkout is the requested review head. For GitHub:
 
 ```sh
-BASE_REF="$(gh pr view <n> --json baseRefName -q .baseRefName)"
-bygone tour context HEAD --base "origin/${BASE_REF}" --output /tmp/change-context.json
+PR_JSON="$(gh pr view <n> --json baseRefOid,headRefOid)"
+BASE_OID="$(jq -r .baseRefOid <<<"$PR_JSON")"
+HEAD_OID="$(jq -r .headRefOid <<<"$PR_JSON")"
+test -n "$BASE_OID" && test "$BASE_OID" != null
+test -n "$HEAD_OID" && test "$HEAD_OID" != null
+bygone tour context "$HEAD_OID" --base "$BASE_OID" --output /tmp/change-context.json
 ```
 
-If you are not reviewing a PR, compute the merge-base against the intended integration branch and pass that exact base OID or ref. Keep the existing preference for an explicit base and do not guess.
+Use the equivalent API or CLI fields for other providers. If you are not reviewing a hosted change, compute the merge-base against the intended integration branch and pass that exact base OID or ref. Keep the existing preference for explicit endpoints and do not guess.
 
 Use immutable commit IDs in the eventual tour. Dirty working-tree changes are reported but excluded from committed-range context.
 

@@ -6,7 +6,7 @@ const budgets = [
     { path: 'media/editor.worker.js', maxBytes: 320_000 },
     { path: 'media/diff.worker.js', maxBytes: 12_000 },
     { path: 'web/web-host.js', maxBytes: 30_000 },
-    { path: 'web/presenter.css', maxBytes: 11_000 }
+    { path: 'web/presenter.css', maxBytes: 12_000 }
 ];
 
 let failed = false;

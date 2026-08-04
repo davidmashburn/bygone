@@ -94,6 +94,15 @@ await build({
 });
 
 await build({
+    ...sharedOptions,
+    entryPoints: ['src/tourNavigation.ts'],
+    outfile: 'out/tourNavigation.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node16'
+});
+
+await build({
     ...browserOptions,
     entryPoints: ['media/webview-entry.js'],
     outfile: 'media/webview.js',

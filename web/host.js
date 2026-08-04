@@ -1,6 +1,7 @@
 import { buildTwoWayDiffModel } from '../src/diffEngine.ts';
 import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
+import { getLinearTourTarget, resolveTourPosition } from '../src/tourNavigation.ts';
 
 (function initializeWebHost() {
     const state = {
@@ -49,7 +50,7 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         }
 
         if (message.type === 'navigateFile' && state.mode === 'tour') {
-            showTourScene(state.activeSceneIndex + (message.direction === 'previous' ? -1 : 1));
+            showTourLinear(message.direction === 'previous' ? -1 : 1);
             return;
         }
 
@@ -116,7 +117,7 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         tourPrevious?.addEventListener('click', () => showTourLinear(-1));
         tourNext?.addEventListener('click', () => showTourLinear(1));
         window.addEventListener('keydown', (event) => {
-            if (state.mode !== 'tour' || event.metaKey || event.ctrlKey || event.altKey) {
+            if (state.mode !== 'tour' || event.metaKey || event.ctrlKey || event.altKey || isInteractiveKeyTarget(event.target)) {
                 return;
             }
             if (event.key === 'PageUp' || event.key === 'ArrowLeft') {
@@ -140,9 +141,13 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
             state.mode = 'tour';
             document.body.classList.add('tour-mode');
             renderTourShell();
-            const requestedScene = new URLSearchParams(window.location.search).get('scene');
-            const requestedIndex = state.tour.scenes.findIndex((scene) => scene.id === requestedScene);
-            showTourScene(requestedIndex >= 0 ? requestedIndex : 0);
+            const parameters = new URLSearchParams(window.location.search);
+            const requestedPosition = resolveTourPosition(
+                state.tour.scenes,
+                parameters.get('scene'),
+                parameters.get('step')
+            );
+            showTourScene(requestedPosition.sceneIndex, requestedPosition.stepIndex);
             setStatus('');
         } catch (error) {
             setStatus(`Could not load change tour: ${error instanceof Error ? error.message : String(error)}`);
@@ -177,8 +182,8 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         const headLabel = formatTourRef(tour.range.headRef);
         const resolvedHead = tour.range.headOid.slice(0, 7);
         range.textContent = `${baseLabel} → ${headLabel}${headLabel === resolvedHead ? '' : ` · ${resolvedHead}`}`;
-        stats.textContent = `${tour.summary.changedFiles} files · +${tour.summary.additions} −${tour.summary.deletions} · ${tour.summary.commitCount} commits`;
-        commitsSummary.textContent = `${tour.summary.commitCount} commits`;
+        stats.textContent = `${formatCount(tour.summary.changedFiles, 'file')} · +${tour.summary.additions} −${tour.summary.deletions} · ${formatCount(tour.summary.commitCount, 'commit')}`;
+        commitsSummary.textContent = formatCount(tour.summary.commitCount, 'commit');
         scenes.replaceChildren();
         const sceneById = new Map(tour.scenes.map((scene) => [scene.id, scene]));
         for (const chapter of tour.chapters) {
@@ -205,7 +210,7 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
                 copy.className = 'tour-scene-copy';
                 for (const [className, text] of [
                     ['tour-scene-title', scene.title],
-                    ['tour-scene-path', scene.kind === 'text-diff' ? scene.path : scene.kind === 'walkthrough' ? `${scene.steps.length} code steps` : 'Discussion'],
+                    ['tour-scene-path', scene.kind === 'text-diff' ? scene.path : scene.kind === 'walkthrough' ? formatCount(scene.steps.length, 'code step') : 'Discussion'],
                     ['tour-scene-note', scene.takeaway]
                 ]) {
                     const line = document.createElement('span');
@@ -245,6 +250,11 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         renderTourNarrative(scene, location);
         const parameters = new URLSearchParams(window.location.search);
         parameters.set('scene', scene.id);
+        if (scene.kind === 'walkthrough') {
+            parameters.set('step', scene.steps[state.activeStepIndex].id);
+        } else {
+            parameters.delete('step');
+        }
         window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
         if (scene.kind === 'discussion') {
             document.body.classList.add('tour-discussion');
@@ -255,10 +265,10 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
             renderWalkthroughStep(scene);
             return;
         }
-        emitDiffScene(scene, index);
+        emitDiffScene(scene);
     }
 
-    function emitDiffScene(scene, index, annotation = null, comparisonId = scene.id) {
+    function emitDiffScene(scene, annotation = null, comparisonId = scene.id) {
         const tour = state.tour;
         if (!tour) return;
         const diffModel = buildTwoWayDiffModel(scene.leftContent, scene.rightContent);
@@ -274,8 +284,8 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
             diffModel,
             history: null,
             fileNavigation: {
-                canGoPrevious: index > 0,
-                canGoNext: index < tour.scenes.length - 1
+                canGoPrevious: Boolean(getCurrentLinearTourTarget(-1)),
+                canGoNext: Boolean(getCurrentLinearTourTarget(1))
             },
             editableSides: { left: false, right: false },
             comparisonSummary: `${scene.path} · ${scene.takeaway}`,
@@ -295,7 +305,7 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         const step = scene.steps[state.activeStepIndex];
         if (!step) return;
         const side = step.focus.revision === 'base' ? 'left' : 'right';
-        emitDiffScene(step.diff, state.activeSceneIndex, {
+        emitDiffScene(step.diff, {
             side,
             startLine: step.focus.startLine,
             endLine: step.focus.endLine,
@@ -303,36 +313,19 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         }, `${scene.id}-${step.id}`);
     }
 
-    function getLinearTourTarget(direction) {
+    function getCurrentLinearTourTarget(direction) {
         const tour = state.tour;
-        const scene = tour?.scenes[state.activeSceneIndex];
-        if (!tour || !scene || direction === 0) {
+        if (!tour || (direction !== -1 && direction !== 1)) {
             return null;
         }
-        if (direction > 0) {
-            if (scene.kind === 'walkthrough' && state.activeStepIndex < scene.steps.length - 1) {
-                return { sceneIndex: state.activeSceneIndex, stepIndex: state.activeStepIndex + 1 };
-            }
-            if (state.activeSceneIndex < tour.scenes.length - 1) {
-                return { sceneIndex: state.activeSceneIndex + 1, stepIndex: 0 };
-            }
-            return null;
-        }
-        if (scene.kind === 'walkthrough' && state.activeStepIndex > 0) {
-            return { sceneIndex: state.activeSceneIndex, stepIndex: state.activeStepIndex - 1 };
-        }
-        if (state.activeSceneIndex > 0) {
-            const previousScene = tour.scenes[state.activeSceneIndex - 1];
-            return {
-                sceneIndex: state.activeSceneIndex - 1,
-                stepIndex: previousScene.kind === 'walkthrough' ? previousScene.steps.length - 1 : 0
-            };
-        }
-        return null;
+        return getLinearTourTarget(tour.scenes, {
+            sceneIndex: state.activeSceneIndex,
+            stepIndex: state.activeStepIndex
+        }, direction);
     }
 
     function showTourLinear(direction) {
-        const target = getLinearTourTarget(direction);
+        const target = getCurrentLinearTourTarget(direction);
         if (!target) {
             return false;
         }
@@ -382,6 +375,16 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
 
     function formatTourRef(ref) {
         return /^[0-9a-f]{40}$/i.test(ref) ? ref.slice(0, 7) : ref;
+    }
+
+    function formatCount(value, singular) {
+        return `${value} ${value === 1 ? singular : `${singular}s`}`;
+    }
+
+    function isInteractiveKeyTarget(target) {
+        return target instanceof Element && Boolean(target.closest(
+            'a, button, input, select, summary, textarea, [contenteditable="true"], [role="textbox"], .monaco-editor'
+        ));
     }
 
     function renderTourNarrative(scene, location) {
@@ -434,8 +437,8 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
             connection.hidden = true;
             connection.textContent = '';
         }
-        previous.disabled = !getLinearTourTarget(-1);
-        next.disabled = !getLinearTourTarget(1);
+        previous.disabled = !getCurrentLinearTourTarget(-1);
+        next.disabled = !getCurrentLinearTourTarget(1);
     }
 
     function compareTestFiles() {

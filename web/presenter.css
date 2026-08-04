@@ -1,9 +1,7 @@
 :root {
     --tour-rail-width: 360px;
-    --tour-accent: #8075ff;
     --tour-accent-bright: #a99fff;
     --tour-surface: #11131a;
-    --tour-surface-raised: #191c26;
     --tour-border: rgba(255, 255, 255, 0.09);
     --tour-muted: rgba(232, 235, 246, 0.84);
     --tour-faint: rgba(232, 235, 246, 0.72);
@@ -63,6 +61,7 @@ body.tour-mode.tour-discussion #container {
     margin: 0 0 10px;
     font-size: 20px;
     line-height: 1.25;
+    text-wrap: balance;
 }
 
 .tour-source {
@@ -82,13 +81,6 @@ body.tour-mode.tour-discussion #container {
     flex-wrap: wrap;
     gap: 0.5ch;
     align-items: baseline;
-    color: var(--tour-muted);
-    font-size: 11px;
-    line-height: 1.55;
-}
-
-.tour-range,
-.tour-stats {
     color: var(--tour-muted);
     font-size: 11px;
     line-height: 1.55;
@@ -286,6 +278,14 @@ body.tour-mode.tour-discussion #container {
     content: '';
 }
 
+.tour-commits-section summary::before {
+    content: "▸";
+}
+
+.tour-commits-section[open] summary::before {
+    content: "▾";
+}
+
 .tour-commits-section summary::-webkit-details-marker {
     display: none;
 }
@@ -344,6 +344,7 @@ body.tour-mode.tour-discussion #container {
 .tour-narrative h2 {
     margin: 0 0 7px;
     font-size: 19px;
+    text-wrap: balance;
 }
 
 .tour-narrative-summary {
@@ -363,10 +364,6 @@ body.tour-mode.tour-discussion #container {
     line-height: 1.5;
 }
 
-.tour-narrative-bullets li {
-    max-width: none;
-}
-
 .tour-narrative-tags {
     display: flex;
     flex-wrap: wrap;
@@ -374,10 +371,6 @@ body.tour-mode.tour-discussion #container {
     color: var(--tour-muted);
     font-size: 9px;
     line-height: 1.45;
-}
-
-.tour-narrative-tags span {
-    color: var(--tour-muted);
 }
 
 .tour-narrative-tags span + span::before {
@@ -388,8 +381,6 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-narrative-takeaway {
-    position: static;
-    width: 100%;
     box-sizing: border-box;
     padding: 8px 11px 8px 13px;
     color: var(--tour-body);
@@ -399,8 +390,6 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-step {
-    position: static;
-    width: 100%;
     box-sizing: border-box;
     padding: 11px 13px 11px 15px;
     border-left: 2px solid rgba(166, 140, 255, 0.46);
@@ -458,8 +447,6 @@ body.tour-discussion .tour-narrative-bullets {
 }
 
 body.tour-discussion .tour-narrative-takeaway {
-    right: clamp(44px, 8vw, 120px);
-    bottom: clamp(40px, 8vh, 80px);
     max-width: 620px;
     font-size: 14px;
 }
@@ -470,8 +457,83 @@ body.tour-discussion .tour-narrative-takeaway {
     font-family: var(--vscode-editor-font-family, monospace);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
     :root {
         --tour-rail-width: 285px;
+        --tour-narrative-height: 380px;
+    }
+
+    .tour-narrative-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 720px) {
+    :root {
+        --tour-rail-height: clamp(190px, 28vh, 260px);
+        --tour-rail-width: 0px;
+        --tour-narrative-height: clamp(300px, 42vh, 380px);
+    }
+
+    .tour-shell {
+        inset: 0 0 auto;
+        display: grid;
+        width: 100%;
+        height: var(--tour-rail-height);
+        grid-template-columns: minmax(190px, 0.85fr) minmax(0, 1.15fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--tour-border);
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+    }
+
+    .tour-overview {
+        grid-row: 1 / span 2;
+        overflow: auto;
+        padding: 16px;
+        border-right: 1px solid var(--tour-border);
+        border-bottom: 0;
+    }
+
+    .tour-overview h1 {
+        font-size: 17px;
+    }
+
+    .tour-scenes {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    .tour-commits-section {
+        grid-column: 2;
+        grid-row: 2;
+        max-height: 72px;
+    }
+
+    .tour-narrative {
+        top: var(--tour-rail-height);
+        left: 0;
+        padding: 16px 18px;
+    }
+
+    body.tour-mode #container {
+        width: 100vw;
+        height: calc(100vh - var(--tour-rail-height) - var(--tour-narrative-height));
+        margin-top: calc(var(--tour-rail-height) + var(--tour-narrative-height));
+        margin-left: 0;
+    }
+
+    body.tour-discussion .tour-narrative {
+        top: var(--tour-rail-height);
+        padding: clamp(28px, 7vh, 56px) 24px;
+    }
+
+    .tour-narrative-nav {
+        gap: 6px;
+    }
+
+    .tour-narrative-nav button {
+        min-width: 64px;
+        padding-inline: 7px;
     }
 }
