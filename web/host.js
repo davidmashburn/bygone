@@ -262,10 +262,12 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
         const tour = state.tour;
         if (!tour) return;
         const diffModel = buildTwoWayDiffModel(scene.leftContent, scene.rightContent);
+        const leftLabel = formatTourPaneLabel(scene, scene.leftLabel, 'base');
+        const rightLabel = formatTourPaneLabel(scene, scene.rightLabel, 'head');
         emit({
             type: 'showDiff',
-            file1: scene.leftLabel,
-            file2: scene.rightLabel,
+            file1: leftLabel,
+            file2: rightLabel,
             comparisonId: `tour-${comparisonId}`,
             leftContent: scene.leftContent,
             rightContent: scene.rightContent,
@@ -282,6 +284,11 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
                 : scene.focusChangeIndex,
             tourAnnotation: annotation
         });
+    }
+
+    function formatTourPaneLabel(scene, label, role) {
+        const suffix = label.startsWith(scene.path) ? label.slice(scene.path.length).trim() : label.trim();
+        return suffix ? `${role} ${suffix}` : role;
     }
 
     function renderWalkthroughStep(scene) {

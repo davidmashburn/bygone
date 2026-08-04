@@ -6,6 +6,8 @@
     --tour-surface-raised: #191c26;
     --tour-border: rgba(255, 255, 255, 0.09);
     --tour-muted: rgba(232, 235, 246, 0.84);
+    --tour-faint: rgba(232, 235, 246, 0.72);
+    --tour-body: #eef1fa;
     --tour-body-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --tour-narrative-height: 296px;
 }
@@ -21,9 +23,7 @@
     overflow: hidden;
     color: #f5f6fb;
     border-right: 1px solid var(--tour-border);
-    background:
-        radial-gradient(circle at 18% 0%, rgba(91, 72, 255, 0.24), transparent 34%),
-        var(--tour-surface);
+    background: var(--tour-surface);
     box-shadow: 18px 0 45px rgba(0, 0, 0, 0.22);
 }
 
@@ -36,6 +36,10 @@ body.tour-mode {
 }
 
 body.tour-mode .web-toolbar {
+    display: none;
+}
+
+body.tour-mode .change-hint {
     display: none;
 }
 
@@ -115,9 +119,7 @@ body.tour-mode.tour-discussion #container {
     padding: 20px 26px 18px;
     color: #f5f6fb;
     border-bottom: 1px solid var(--tour-border);
-    background:
-        radial-gradient(circle at 92% 0%, rgba(91, 72, 255, 0.18), transparent 35%),
-        #151821;
+    background: #151821;
     scrollbar-gutter: stable;
     font-family: var(--tour-body-font);
 }
@@ -140,11 +142,24 @@ body.tour-mode.tour-discussion #container {
 .tour-narrative-nav button {
     min-width: 72px;
     padding: 7px 10px;
-    color: #eeeff7;
-    border: 1px solid var(--tour-border);
+    color: var(--tour-muted);
+    border: 1px solid transparent;
     border-radius: 6px;
-    background: var(--tour-surface-raised);
+    background: transparent;
     cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.tour-narrative-nav button:hover,
+.tour-narrative-nav button:focus-visible {
+    color: #fff;
+    border-color: var(--tour-border);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tour-narrative-nav button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(128, 117, 255, 0.28);
 }
 
 .tour-narrative-nav button:last-child {
@@ -240,7 +255,7 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-scene-note {
-    color: rgba(223, 227, 239, 0.88);
+    color: var(--tour-muted);
     font-size: 10px;
 }
 
@@ -288,7 +303,7 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-commits li {
-    color: #d7d9e3;
+    color: var(--tour-faint);
     font-size: 10px;
     line-height: 1.35;
 }
@@ -333,7 +348,7 @@ body.tour-mode.tour-discussion #container {
 
 .tour-narrative-summary {
     margin: 0 0 8px;
-    color: #eef1fa;
+    color: var(--tour-body);
     font-size: 13px;
     line-height: 1.45;
 }
@@ -343,7 +358,7 @@ body.tour-mode.tour-discussion #container {
     gap: 7px;
     margin: 0 0 9px;
     padding-left: 18px;
-    color: #d8deea;
+    color: var(--tour-body);
     font-size: 11px;
     line-height: 1.5;
 }
@@ -367,7 +382,7 @@ body.tour-mode.tour-discussion #container {
 
 .tour-narrative-tags span + span::before {
     margin: 0 8px;
-    color: rgba(232, 235, 246, 0.32);
+    color: var(--tour-faint);
     content: "·";
     font-size: 9px;
 }
@@ -376,11 +391,10 @@ body.tour-mode.tour-discussion #container {
     position: static;
     width: 100%;
     box-sizing: border-box;
-    padding: 8px 11px;
-    color: #f2f0ff;
-    border: 1px solid rgba(128, 117, 255, 0.34);
-    border-radius: 9px;
-    background: rgba(31, 27, 62, 0.92);
+    padding: 8px 11px 8px 13px;
+    color: var(--tour-body);
+    border-left: 2px solid rgba(128, 117, 255, 0.28);
+    background: rgba(255, 255, 255, 0.015);
     font-size: 11px;
 }
 
@@ -388,10 +402,9 @@ body.tour-mode.tour-discussion #container {
     position: static;
     width: 100%;
     box-sizing: border-box;
-    padding: 11px 13px;
-    border: 1px solid rgba(166, 140, 255, 0.42);
-    border-radius: 10px;
-    background: rgba(29, 25, 58, 0.94);
+    padding: 11px 13px 11px 15px;
+    border-left: 2px solid rgba(166, 140, 255, 0.46);
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .tour-step[hidden],
@@ -400,12 +413,12 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-step-title { color: #fff; font-size: 13px; font-weight: 750; }
-.tour-step-body { margin: 3px 0 0; color: #e6e9f4; font-size: 11px; line-height: 1.45; }
+.tour-step-body { margin: 3px 0 0; color: var(--tour-body); font-size: 11px; line-height: 1.45; }
 
 .tour-connection {
     margin-top: 7px;
     padding-top: 7px;
-    color: #bfb2ff;
+    color: var(--tour-faint);
     border-top: 1px solid rgba(166, 140, 255, 0.2);
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 9px;
