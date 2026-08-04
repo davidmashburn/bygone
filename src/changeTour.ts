@@ -1,10 +1,12 @@
 import { execFileSync } from 'child_process';
-import { resolveBranchReviewRange, resolveReviewPathPair } from './gitComparison';
+import { GitChangedPath, resolveBranchReviewRange, resolveReviewPathPair } from './gitComparison';
 import {
     CHANGE_TOUR_MANIFEST_VERSION,
     ChangeTourChapter,
     ChangeTourDiffScene,
+    ChangeTourFile,
     ChangeTourManifest,
+    ChangeTourOmittedFile,
     ChangeTourResolvedAnchor,
     ChangeTourScene,
     ChangeTourStory,
@@ -19,6 +21,7 @@ export { buildChangeTourContext } from './changeTourContext';
 export type { BuildChangeTourContextOptions, ChangeTourContext } from './changeTourContext';
 
 const DEFAULT_MAX_TOUR_FILE_BYTES = 2 * 1024 * 1024;
+const DEFAULT_MAX_TOUR_LINE_BYTES = 64 * 1024;
 
 export interface BuildChangeTourOptions {
     headRef?: string;
@@ -27,6 +30,7 @@ export interface BuildChangeTourOptions {
     sourceUrl?: string;
     generatedAt?: string;
     maxFileBytes?: number;
+    maxLineBytes?: number;
     story?: ChangeTourStory;
     source?: ChangeTourSource;
 }
@@ -51,21 +55,14 @@ export function buildChangeTourManifest(
 ): ChangeTourManifest {
     const range = resolveBranchReviewRange(startPath, options.headRef, options.baseRef);
     const maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_TOUR_FILE_BYTES;
+    const maxLineBytes = options.maxLineBytes ?? DEFAULT_MAX_TOUR_LINE_BYTES;
     const omittedFiles: string[] = [];
+    const files: ChangeTourFile[] = [];
     const sceneRecords: Array<{ chapter: ChapterDefinition; scene: ChangeTourDiffScene }> = [];
+    let totalAdditions = 0;
+    let totalDeletions = 0;
 
     for (const changedPath of range.changedPaths) {
-        const pair = resolveReviewPathPair(range.changedPaths, changedPath.path);
-        if (!pair) {
-            omittedFiles.push(changedPath.path);
-            continue;
-        }
-        const left = readGitText(range.repoRoot, range.mergeBaseOid, pair.leftPath, maxFileBytes);
-        const right = readGitText(range.repoRoot, range.headOid, pair.rightPath, maxFileBytes);
-        if (left.kind !== 'text' || right.kind !== 'text') {
-            omittedFiles.push(changedPath.path);
-            continue;
-        }
         const { additions, deletions } = readGitLineStats(
             range.repoRoot,
             range.mergeBaseOid,
@@ -73,33 +70,52 @@ export function buildChangeTourManifest(
             changedPath.path,
             changedPath.previousPath
         );
+        totalAdditions += additions;
+        totalDeletions += deletions;
+        const pair = resolveReviewPathPair(range.changedPaths, changedPath.path);
+        if (!pair) {
+            omittedFiles.push(changedPath.path);
+            files.push(buildOmittedFile(changedPath, additions, deletions, 'Git endpoints could not be resolved.'));
+            continue;
+        }
+        const left = readGitText(range.repoRoot, range.mergeBaseOid, pair.leftPath, maxFileBytes, maxLineBytes);
+        const right = readGitText(range.repoRoot, range.headOid, pair.rightPath, maxFileBytes, maxLineBytes);
+        if (left.kind !== 'text' || right.kind !== 'text') {
+            omittedFiles.push(changedPath.path);
+            files.push(buildOmittedFile(changedPath, additions, deletions, 'Binary, oversized, or contains an oversized line.'));
+            continue;
+        }
         const chapter = chapterForPath(changedPath.path);
+        const scene: ChangeTourDiffScene = {
+            id: `file-${files.length + 1}`,
+            kind: 'text-diff',
+            title: changedPath.path.split('/').pop() || changedPath.path,
+            summary: `${formatChangeKind(changedPath.kind)} ${changedPath.path}.`,
+            bullets: [],
+            tags: [changedPath.kind, `+${additions}`, `−${deletions}`],
+            takeaway: buildSceneNote(changedPath.kind, additions, deletions, changedPath.previousPath),
+            path: changedPath.path,
+            previousPath: changedPath.previousPath,
+            changeKind: changedPath.kind,
+            leftLabel: pair.leftPath
+                ? `${pair.leftPath} @ ${range.mergeBaseOid.slice(0, 7)}`
+                : `${changedPath.path} (absent)`,
+            rightLabel: pair.rightPath
+                ? `${pair.rightPath} @ ${range.headOid.slice(0, 7)}`
+                : `${changedPath.path} (absent)`,
+            leftContent: left.content,
+            rightContent: right.content,
+            additions,
+            deletions
+        };
+        files.push(scene);
         sceneRecords.push({
             chapter,
-            scene: {
-                id: `file-${sceneRecords.length + 1}`,
-                kind: 'text-diff',
-                title: changedPath.path.split('/').pop() || changedPath.path,
-                summary: `${formatChangeKind(changedPath.kind)} ${changedPath.path}.`,
-                bullets: [],
-                tags: [changedPath.kind, `+${additions}`, `−${deletions}`],
-                takeaway: buildSceneNote(changedPath.kind, additions, deletions, changedPath.previousPath),
-                path: changedPath.path,
-                previousPath: changedPath.previousPath,
-                changeKind: changedPath.kind,
-                leftLabel: pair.leftPath
-                    ? `${pair.leftPath} @ ${range.mergeBaseOid.slice(0, 7)}`
-                    : `${changedPath.path} (absent)`,
-                rightLabel: pair.rightPath
-                    ? `${pair.rightPath} @ ${range.headOid.slice(0, 7)}`
-                    : `${changedPath.path} (absent)`,
-                leftContent: left.content,
-                rightContent: right.content,
-                additions,
-                deletions
-            }
+            scene
         });
     }
+
+    files.sort((left, right) => left.path.localeCompare(right.path));
 
     sceneRecords.sort((left, right) => (
         left.chapter.priority - right.chapter.priority
@@ -133,12 +149,13 @@ export function buildChangeTourManifest(
         summary: {
             changedFiles: range.changedPaths.length,
             includedScenes: scenes.length,
-            additions: defaultScenes.reduce((total, scene) => total + scene.additions, 0),
-            deletions: defaultScenes.reduce((total, scene) => total + scene.deletions, 0),
+            additions: totalAdditions,
+            deletions: totalDeletions,
             commitCount: range.commits.length,
             omittedFiles
         },
         commits: range.commits,
+        files,
         chapters,
         scenes
     };
@@ -167,7 +184,6 @@ function applySource(
     }]));
     const scenes: ChangeTourScene[] = [];
     const chapters: ChangeTourChapter[] = [];
-    const authoredPaths = new Set<string>();
 
     for (const chapter of source.chapters) {
         const sceneIds: string[] = [];
@@ -184,7 +200,6 @@ function applySource(
                     const focus = requireResolvedAnchor(resolvedAnchors, step.focus);
                     const diff = available.get(focus.path);
                     if (!diff) throw new Error(`Step ${step.id} has no text diff for ${focus.path}.`);
-                    authoredPaths.add(focus.path);
                     return {
                         id: step.id,
                         title: step.title,
@@ -201,14 +216,6 @@ function applySource(
         chapters.push({ id: chapter.id, title: chapter.title, sceneIds });
     }
 
-    const appendixIds: string[] = [];
-    for (const file of defaultScenes) {
-        if (authoredPaths.has(file.path)) continue;
-        const scene = { ...file, id: `appendix-${appendixIds.length + 1}` };
-        scenes.push(scene);
-        appendixIds.push(scene.id);
-    }
-    if (appendixIds.length > 0) chapters.push({ id: 'appendix', title: 'Complete change set', sceneIds: appendixIds });
     return { scenes, chapters };
 }
 
@@ -296,11 +303,6 @@ function applyStory(
         });
     }
 
-    if (available.size > 0) {
-        for (const scene of available.values()) {
-            addScene('appendix', 'Complete change set', { ...scene, id: `scene-${scenes.length + 1}` });
-        }
-    }
     return { scenes, chapters: chapterRecords };
 }
 
@@ -344,6 +346,25 @@ function buildSceneNote(kind: string, additions: number, deletions: number, prev
     return `${label}${rename} · +${additions} −${deletions}`;
 }
 
+function buildOmittedFile(
+    changedPath: GitChangedPath,
+    additions: number,
+    deletions: number,
+    reason: string
+): ChangeTourOmittedFile {
+    return {
+        id: `file-${changedPath.path}`,
+        kind: 'omitted',
+        title: changedPath.path.split('/').pop() || changedPath.path,
+        path: changedPath.path,
+        previousPath: changedPath.previousPath,
+        changeKind: changedPath.kind,
+        additions,
+        deletions,
+        reason
+    };
+}
+
 function formatChangeKind(kind: string): string {
     return kind.replace('-', ' ').replace(/^./, (letter) => letter.toUpperCase());
 }
@@ -352,7 +373,13 @@ type GitTextResult =
     | { kind: 'text'; content: string }
     | { kind: 'binary-or-large'; content: '' };
 
-function readGitText(repoRoot: string, oid: string, relativePath: string | null, maxBytes: number): GitTextResult {
+function readGitText(
+    repoRoot: string,
+    oid: string,
+    relativePath: string | null,
+    maxBytes: number,
+    maxLineBytes: number
+): GitTextResult {
     if (!relativePath) {
         return { kind: 'text', content: '' };
     }
@@ -362,10 +389,20 @@ function readGitText(repoRoot: string, oid: string, relativePath: string | null,
         maxBuffer: Math.max(maxBytes + 1, DEFAULT_MAX_TOUR_FILE_BYTES + 1),
         stdio: ['ignore', 'pipe', 'pipe']
     });
-    if (content.length > maxBytes || content.includes(0)) {
+    if (content.length > maxBytes || content.includes(0) || hasLineLongerThan(content, maxLineBytes)) {
         return { kind: 'binary-or-large', content: '' };
     }
     return { kind: 'text', content: content.toString('utf8') };
+}
+
+function hasLineLongerThan(content: Buffer, maxLineBytes: number): boolean {
+    let lineStart = 0;
+    for (let index = 0; index < content.length; index += 1) {
+        if (content[index] !== 10) continue;
+        if (index - lineStart > maxLineBytes) return true;
+        lineStart = index + 1;
+    }
+    return content.length - lineStart > maxLineBytes;
 }
 
 function readGitLineStats(

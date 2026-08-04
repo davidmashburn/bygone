@@ -11,7 +11,9 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         comparisonId: 0,
         tour: null,
         activeSceneIndex: -1,
-        activeStepIndex: 0
+        activeStepIndex: 0,
+        activeTourFilePath: null,
+        tourFocusFilePath: null
     };
 
     window.__BYGONE_HOST__ = {
@@ -79,6 +81,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         const diff3Input = document.getElementById('web-diff3-input');
         const tourPrevious = document.getElementById('tour-previous');
         const tourNext = document.getElementById('tour-next');
+        const tourReturnFocus = document.getElementById('tour-return-focus');
 
         compareTestButton?.addEventListener('click', () => {
             compareTestFiles();
@@ -116,6 +119,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
 
         tourPrevious?.addEventListener('click', () => showTourLinear(-1));
         tourNext?.addEventListener('click', () => showTourLinear(1));
+        tourReturnFocus?.addEventListener('click', returnToTourFocus);
         window.addEventListener('keydown', (event) => {
             if (state.mode !== 'tour' || event.metaKey || event.ctrlKey || event.altKey || isInteractiveKeyTarget(event.target)) {
                 return;
@@ -165,9 +169,12 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         const range = document.getElementById('tour-range');
         const stats = document.getElementById('tour-stats');
         const scenes = document.getElementById('tour-scenes');
+        const sceneCount = document.getElementById('tour-scene-count');
+        const files = document.getElementById('tour-files');
+        const fileCount = document.getElementById('tour-file-count');
         const commits = document.getElementById('tour-commits');
         const commitsSummary = document.getElementById('tour-commits-summary');
-        if (!shell || !title || !source || !range || !stats || !scenes || !commits || !commitsSummary) {
+        if (!shell || !title || !source || !range || !stats || !scenes || !sceneCount || !files || !fileCount || !commits || !commitsSummary) {
             throw new Error('Presenter UI is incomplete.');
         }
         shell.hidden = false;
@@ -183,6 +190,8 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         const resolvedHead = tour.range.headOid.slice(0, 7);
         range.textContent = `${baseLabel} → ${headLabel}${headLabel === resolvedHead ? '' : ` · ${resolvedHead}`}`;
         stats.textContent = `${formatCount(tour.summary.changedFiles, 'file')} · +${tour.summary.additions} −${tour.summary.deletions} · ${formatCount(tour.summary.commitCount, 'commit')}`;
+        sceneCount.textContent = String(tour.scenes.length);
+        fileCount.textContent = String(tour.files.length);
         commitsSummary.textContent = formatCount(tour.summary.commitCount, 'commit');
         scenes.replaceChildren();
         const sceneById = new Map(tour.scenes.map((scene) => [scene.id, scene]));
@@ -222,6 +231,33 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
                 scenes.append(button);
             }
         }
+        files.replaceChildren(...tour.files.map((file, index) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `tour-file${file.kind === 'omitted' ? ' is-omitted' : ''}`;
+            button.dataset.filePath = file.path;
+            button.disabled = file.kind === 'omitted';
+            button.title = file.kind === 'omitted' ? `${file.path}: ${file.reason}` : file.path;
+            if (file.kind === 'text-diff') {
+                button.addEventListener('click', () => showTourFileAtIndex(index));
+            }
+            const marker = document.createElement('span');
+            marker.className = 'tour-file-marker';
+            marker.textContent = file.kind === 'omitted' ? '×' : changeKindMarker(file.changeKind);
+            const copy = document.createElement('span');
+            copy.className = 'tour-file-copy';
+            const pathLine = document.createElement('span');
+            pathLine.className = 'tour-file-path';
+            pathLine.textContent = file.path;
+            const meta = document.createElement('span');
+            meta.className = 'tour-file-meta';
+            meta.textContent = file.kind === 'omitted'
+                ? `Not rendered · ${file.reason}`
+                : `${formatChangeKind(file.changeKind)} · +${file.additions} −${file.deletions}`;
+            copy.append(pathLine, meta);
+            button.append(marker, copy);
+            return button;
+        }));
         commits.replaceChildren(...tour.commits.map((commit) => {
             const item = document.createElement('li');
             const oid = document.createElement('span');
@@ -242,6 +278,11 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         state.activeStepIndex = scene.kind === 'walkthrough'
             ? Math.min(Math.max(stepIndex, 0), Math.max(scene.steps.length - 1, 0))
             : 0;
+        state.tourFocusFilePath = scene.kind === 'text-diff'
+            ? scene.path
+            : scene.kind === 'walkthrough'
+                ? scene.steps[state.activeStepIndex]?.diff.path ?? null
+                : null;
         const location = getSceneLocation(tour, index);
         document.querySelectorAll('.tour-scene').forEach((button) => {
             button.classList.toggle('is-active', button.dataset.sceneId === scene.id);
@@ -258,6 +299,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
         if (scene.kind === 'discussion') {
             document.body.classList.add('tour-discussion');
+            updateTourFileSelection();
             return;
         }
         document.body.classList.remove('tour-discussion');
@@ -271,6 +313,8 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
     function emitDiffScene(scene, annotation = null, comparisonId = scene.id) {
         const tour = state.tour;
         if (!tour) return;
+        state.activeTourFilePath = scene.path;
+        updateTourFileSelection();
         const diffModel = buildTwoWayDiffModel(scene.leftContent, scene.rightContent);
         const leftLabel = formatTourPaneLabel(scene, scene.leftLabel, 'base');
         const rightLabel = formatTourPaneLabel(scene, scene.rightLabel, 'head');
@@ -338,19 +382,56 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         if (!tour || (direction !== -1 && direction !== 1)) {
             return null;
         }
-        return getTourFileTarget(tour.scenes, {
-            sceneIndex: state.activeSceneIndex,
-            stepIndex: state.activeStepIndex
-        }, direction);
+        return getTourFileTarget(tour.files, state.activeTourFilePath, direction);
     }
 
     function showTourFile(direction) {
         const target = getCurrentTourFileTarget(direction);
-        if (!target) {
+        return target ? showTourFileAtIndex(target.fileIndex) : false;
+    }
+
+    function showTourFileAtIndex(index) {
+        const file = state.tour?.files[index];
+        if (!file || file.kind !== 'text-diff') {
             return false;
         }
-        showTourScene(target.sceneIndex, target.stepIndex);
+        emitDiffScene(file);
         return true;
+    }
+
+    function returnToTourFocus() {
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        if (!scene || !state.tourFocusFilePath) {
+            return false;
+        }
+        if (scene.kind === 'walkthrough') {
+            renderWalkthroughStep(scene);
+        } else if (scene.kind === 'text-diff') {
+            emitDiffScene(scene);
+        } else {
+            return false;
+        }
+        return true;
+    }
+
+    function updateTourFileSelection() {
+        document.querySelectorAll('.tour-file').forEach((button) => {
+            button.classList.toggle('is-active', button.dataset.filePath === state.activeTourFilePath);
+            button.classList.toggle('is-tour-focus', button.dataset.filePath === state.tourFocusFilePath);
+        });
+        document.querySelector(`.tour-file.is-active`)?.scrollIntoView({ block: 'nearest' });
+        const returnButton = document.getElementById('tour-return-focus');
+        if (returnButton) {
+            returnButton.hidden = !state.tourFocusFilePath || state.activeTourFilePath === state.tourFocusFilePath;
+        }
+    }
+
+    function changeKindMarker(changeKind) {
+        return ({ added: '+', deleted: '−', renamed: '→', modified: '•' })[changeKind] || '•';
+    }
+
+    function formatChangeKind(changeKind) {
+        return `${changeKind.charAt(0).toUpperCase()}${changeKind.slice(1)}`;
     }
 
     function getSceneLocation(tour, sceneIndex) {

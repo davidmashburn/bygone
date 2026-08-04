@@ -174,11 +174,123 @@ body.tour-mode.tour-discussion #container {
     text-overflow: ellipsis;
 }
 
+.tour-rail-sections {
+    display: grid;
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(150px, 1fr) minmax(150px, 1fr);
+}
+
+.tour-rail-section {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.tour-rail-section + .tour-rail-section { border-top: 1px solid var(--tour-border); }
+
+.tour-rail-heading {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    box-sizing: border-box;
+    min-height: 30px;
+    padding: 8px 12px 6px 18px;
+    color: var(--tour-muted);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.tour-rail-count { color: var(--tour-faint); font: 500 10px var(--vscode-editor-font-family, monospace); letter-spacing: 0; }
+
+.tour-return-focus {
+    margin-left: auto;
+    padding: 2px 6px;
+    color: var(--tour-accent-bright);
+    border: 1px solid rgba(169, 159, 255, 0.28);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    font: 9px var(--tour-body-font);
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.tour-return-focus[hidden] { display: none; }
+.tour-return-focus:hover { color: #fff; background: rgba(169, 159, 255, 0.1); }
+
 .tour-scenes {
     flex: 1;
     overflow: auto;
     padding: 10px 8px 18px;
 }
+
+.tour-files { flex: 1; overflow: auto; padding: 2px 8px 12px; }
+
+.tour-file {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: 12px minmax(0, 1fr);
+    gap: 7px;
+    align-items: start;
+    padding: 6px 9px;
+    color: #e5e7f0;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tour-file:hover:not(:disabled) { background: rgba(255, 255, 255, 0.045); }
+
+.tour-file.is-active {
+    border-color: rgba(128, 117, 255, 0.4);
+    background: rgba(101, 83, 255, 0.14);
+}
+
+.tour-file:disabled { opacity: 0.62; cursor: default; }
+
+.tour-file-marker {
+    padding-top: 1px;
+    color: var(--tour-faint);
+    font-size: 10px;
+    text-align: center;
+}
+
+.tour-file.is-tour-focus .tour-file-marker { color: var(--tour-accent-bright); }
+
+.tour-file-copy,
+.tour-file-path,
+.tour-file-meta {
+    min-width: 0;
+}
+
+.tour-file-path,
+.tour-file-meta {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tour-file-path {
+    color: #f5f6fb;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 10px;
+}
+
+.tour-file-meta {
+    margin-top: 2px;
+    color: var(--tour-muted);
+    font-size: 9px;
+}
+
+.tour-file.is-omitted .tour-file-meta { color: #d7aa7b; }
 
 .tour-chapter-title {
     margin: 15px 10px 7px;
@@ -499,7 +611,7 @@ body.tour-discussion .tour-narrative-takeaway {
         font-size: 17px;
     }
 
-    .tour-scenes {
+    .tour-rail-sections {
         grid-column: 2;
         grid-row: 1;
     }

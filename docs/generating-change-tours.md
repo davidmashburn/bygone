@@ -40,7 +40,7 @@ Use `bygone tour schema` to print the current JSON Schema. The checked-in schema
 - Prefer one reviewer question per scene and three to seven steps per scene.
 - Lead with contracts, invariants, or architectural boundaries before their consumers.
 - Pair behavior with the tests or evidence that prove it.
-- Keep mechanical, generated, and lockfile changes in the complete-change appendix unless they alter the reviewer’s conclusion.
+- Keep mechanical, generated, and lockfile changes out of the authored narrative unless they alter the reviewer’s conclusion; they remain visible in the complete Files rail.
 - Make each annotation explain why the focused code matters; do not merely paraphrase its syntax.
 - Avoid claims about runtime behavior, safety, or intent that have no linked evidence.
 - Use connections sparingly. A connection should answer “how are these two facts related?”
@@ -68,7 +68,7 @@ Requirements:
 - link every step to a unique source snippet;
 - connect code locations only when the relationship adds explanatory value;
 - include behavior and its proof;
-- leave secondary files to Bygone's generated appendix;
+- leave secondary files to Bygone's complete Files rail;
 - run `bygone tour validate <file> --json` and repair all errors before finishing.
 ```
 

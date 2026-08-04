@@ -55,53 +55,52 @@ function testTourPositionRestoresStableSceneAndStepIds() {
     assert.deepEqual(resolveTourPosition(scenes, 'missing', 'two'), { sceneIndex: 0, stepIndex: 0 });
 }
 
-function testTourFileNavigationSkipsNarrativeStatesAndDuplicateFiles() {
-    const scenes = [
-        { id: 'intro', kind: 'discussion' },
-        {
-            id: 'walkthrough',
-            kind: 'walkthrough',
-            steps: [
-                { id: 'a-one', diff: { path: 'src/a.ts' } },
-                { id: 'a-two', diff: { path: 'src/a.ts' } },
-                { id: 'b', diff: { path: 'src/b.ts' } }
-            ]
-        },
-        { id: 'appendix-c', kind: 'text-diff', path: 'src/c.ts' }
+function testTourFileNavigationUsesCompleteRenderableFileIndex() {
+    const files = [
+        { id: 'a', kind: 'text-diff', path: 'src/a.ts' },
+        { id: 'generated', kind: 'omitted', path: 'src/generated.js.map' },
+        { id: 'b', kind: 'text-diff', path: 'src/b.ts' },
+        { id: 'c', kind: 'text-diff', path: 'src/c.ts' }
     ];
 
-    assert.deepEqual(getTourFileTarget(scenes, { sceneIndex: 1, stepIndex: 0 }, 1), {
-        sceneIndex: 1,
-        stepIndex: 2,
+    assert.deepEqual(getTourFileTarget(files, 'src/a.ts', 1), {
+        fileIndex: 2,
         path: 'src/b.ts'
     });
-    assert.deepEqual(getTourFileTarget(scenes, { sceneIndex: 1, stepIndex: 1 }, 1), {
-        sceneIndex: 1,
-        stepIndex: 2,
-        path: 'src/b.ts'
-    });
-    assert.deepEqual(getTourFileTarget(scenes, { sceneIndex: 1, stepIndex: 2 }, -1), {
-        sceneIndex: 1,
-        stepIndex: 0,
+    assert.deepEqual(getTourFileTarget(files, 'src/b.ts', -1), {
+        fileIndex: 0,
         path: 'src/a.ts'
     });
-    assert.deepEqual(getTourFileTarget(scenes, { sceneIndex: 1, stepIndex: 2 }, 1), {
-        sceneIndex: 2,
-        stepIndex: 0,
+    assert.deepEqual(getTourFileTarget(files, 'src/b.ts', 1), {
+        fileIndex: 3,
         path: 'src/c.ts'
     });
-    assert.equal(getTourFileTarget(scenes, { sceneIndex: 1, stepIndex: 0 }, -1), null);
-    assert.equal(getTourFileTarget(scenes, { sceneIndex: 2, stepIndex: 0 }, 1), null);
-    assert.equal(getTourFileTarget(scenes, { sceneIndex: 0, stepIndex: 0 }, 1), null);
+    assert.equal(getTourFileTarget(files, 'src/a.ts', -1), null);
+    assert.equal(getTourFileTarget(files, 'src/c.ts', 1), null);
+    assert.equal(getTourFileTarget(files, null, 1), null);
 }
 
 function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     const hostSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
+    const webMarkup = fs.readFileSync(path.join(__dirname, '..', 'web', 'index.html'), 'utf8');
+    const providerSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'diffViewProvider.ts'), 'utf8');
     const presenterSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'presenter.css'), 'utf8');
 
     assert.match(hostSource, /message\.type === 'navigateFile'[\s\S]{0,180}showTourFile/);
     assert.doesNotMatch(hostSource, /message\.type === 'navigateFile'[\s\S]{0,180}showTourLinear/);
+    assert.match(hostSource, /function showTourFileAtIndex[\s\S]{0,300}emitDiffScene\(file\)/);
+    assert.doesNotMatch(hostSource, /function showTourFile[\s\S]{0,500}showTourScene/);
+    assert.match(hostSource, /getTourFileTarget\(tour\.files, state\.activeTourFilePath, direction\)/);
+    assert.match(hostSource, /tourFocusFilePath/);
+    assert.match(hostSource, /function returnToTourFocus/);
+    assert.match(webMarkup, /id="tour-files"/);
+    assert.match(webMarkup, /id="tour-return-focus"/);
+    assert.match(presenterSource, /\.tour-rail-sections[\s\S]{0,180}grid-template-rows/);
     assert.match(hostSource, /tourPrevious\?\.addEventListener\('click', \(\) => showTourLinear\(-1\)\)/);
+    for (const markup of [webMarkup, providerSource]) {
+        assert.match(markup, /id="next-file" class="change-button icon-button"/);
+        assert.doesNotMatch(markup, /id="next-file" class="[^"]*change-button-primary/);
+    }
     assert.match(hostSource, /parameters\.get\('step'\)/);
     assert.match(hostSource, /parameters\.set\('step', scene\.steps\[state\.activeStepIndex\]\.id\)/);
     assert.match(hostSource, /isInteractiveKeyTarget\(event\.target\)/);
@@ -259,6 +258,11 @@ function testChangeTourBuildsPortableNarrativeChapters() {
         'src/models.ts',
         'tests/models.test.ts'
     ]);
+    assert.deepEqual(manifest.files.map((file) => file.path), [
+        'docs/architecture.md',
+        'src/models.ts',
+        'tests/models.test.ts'
+    ]);
     assert.equal(parseChangeTourManifest(JSON.parse(JSON.stringify(manifest))).version, 1);
     assert.throws(() => parseChangeTourManifest({ version: 1 }), /title must be a string/);
 
@@ -295,8 +299,9 @@ function testChangeTourBuildsPortableNarrativeChapters() {
         story
     });
     assert.equal(authored.title, 'Authored event flow');
-    assert.deepEqual(authored.chapters.map((chapter) => chapter.id), ['why', 'model', 'appendix']);
-    assert.deepEqual(authored.scenes.map((scene) => scene.kind), ['discussion', 'text-diff', 'text-diff', 'text-diff']);
+    assert.deepEqual(authored.chapters.map((chapter) => chapter.id), ['why', 'model']);
+    assert.deepEqual(authored.scenes.map((scene) => scene.kind), ['discussion', 'text-diff']);
+    assert.equal(authored.files.length, 3);
     assert.equal(authored.scenes[1].kind === 'text-diff' ? authored.scenes[1].focusChangeIndex : undefined, 0);
     assert.throws(() => parseChangeTourStory({ scenes: [{ kind: 'discussion' }] }), /chapterId/);
 
@@ -339,7 +344,8 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.equal(anchored.scenes[0].kind, 'walkthrough');
     assert.equal(anchored.scenes[0].kind === 'walkthrough' ? anchored.scenes[0].steps[0].focus.startLine : 0, 2);
     assert.equal(anchored.scenes[0].kind === 'walkthrough' ? anchored.scenes[0].steps[0].connection?.from.startLine : 0, 2);
-    assert.deepEqual(anchored.chapters.map((chapter) => chapter.id), ['flow', 'appendix']);
+    assert.deepEqual(anchored.chapters.map((chapter) => chapter.id), ['flow']);
+    assert.equal(anchored.files.length, 3);
     assert.throws(() => buildChangeTourManifest(repo, {
         headRef: 'feature/tour', baseRef: 'main', source: {
             ...source,
@@ -348,6 +354,22 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     }), /did not match/);
     assert.throws(() => parseChangeTourSource({ ...source, inventedField: true }), /unknown field: inventedField/);
     assert.throws(() => parseChangeTourSource({ ...source, chapters: [] }), /non-empty array/);
+
+    fs.mkdirSync(path.join(repo, 'web'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'web', 'app.js.map'), `${'A'.repeat(70 * 1024)}\n`, 'utf8');
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'build: add generated source map']);
+    const guarded = buildChangeTourManifest(repo, {
+        headRef: 'feature/tour',
+        baseRef: 'main',
+        generatedAt: '2026-08-01T00:00:00.000Z'
+    });
+    assert.equal(guarded.summary.changedFiles, 4);
+    assert.equal(guarded.summary.includedScenes, 3);
+    assert.deepEqual(guarded.summary.omittedFiles, ['web/app.js.map']);
+    assert.equal(guarded.files.length, 4);
+    assert.equal(guarded.files.find((file) => file.path === 'web/app.js.map')?.kind, 'omitted');
+    assert.equal(guarded.scenes.some((scene) => scene.kind === 'text-diff' && scene.path === 'web/app.js.map'), false);
 }
 
 function testPresentArgumentsUseSharedBaseAliases() {
@@ -1109,7 +1131,7 @@ function shortCommit(repo, rev) {
 function run() {
     testTourLinearNavigationTraversesStepsAndScenes();
     testTourPositionRestoresStableSceneAndStepIds();
-    testTourFileNavigationSkipsNarrativeStatesAndDuplicateFiles();
+    testTourFileNavigationUsesCompleteRenderableFileIndex();
     testWebTourHostSeparatesFileAndNarrativeNavigation();
     testLineClickSelectsContainingTwoWayChange();
     testLineClickIgnoresCollapsedSideOfOneSidedChange();

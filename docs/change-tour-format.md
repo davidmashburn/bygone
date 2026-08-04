@@ -55,7 +55,7 @@ chapters:
             connection: contract-to-write
 ```
 
-Only the active step's connection is shown. This keeps relationships useful without adding a permanent second layer of curves to Bygone's diff view. Files not used by an authored step remain available in the generated “Complete change set” appendix.
+Only the active step's connection is shown. This keeps relationships useful without adding a permanent second layer of curves to Bygone's diff view. The Tour rail contains only authored scenes; the adjacent Files rail independently lists the complete change set. Browsing a file does not move the narrative, and “Return to tour” restores the file and annotation focused by the current scene.
 
 See [Bygone's self-referencing history tour](../examples/bygone-history.bygone.yaml) for a complete narrative that pins and explains the commit where branch review was introduced.
 

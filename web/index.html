@@ -17,7 +17,23 @@
                 <div id="tour-stats" class="tour-stats"></div>
             </div>
         </header>
-        <nav id="tour-scenes" class="tour-scenes" aria-label="Change tour scenes"></nav>
+        <div class="tour-rail-sections">
+            <section class="tour-rail-section">
+                <header class="tour-rail-heading">
+                    <span>Tour</span>
+                    <span id="tour-scene-count" class="tour-rail-count"></span>
+                </header>
+                <nav id="tour-scenes" class="tour-scenes" aria-label="Change tour scenes"></nav>
+            </section>
+            <section class="tour-rail-section tour-files-section">
+                <header class="tour-rail-heading">
+                    <span>Files</span>
+                    <span id="tour-file-count" class="tour-rail-count"></span>
+                    <button id="tour-return-focus" class="tour-return-focus" type="button" title="Return to the file focused by the current tour step" hidden>Return to tour</button>
+                </header>
+                <nav id="tour-files" class="tour-files" aria-label="Changed files"></nav>
+            </section>
+        </div>
         <details class="tour-commits-section">
             <summary id="tour-commits-summary">0 commits</summary>
             <ol id="tour-commits" class="tour-commits"></ol>
@@ -84,13 +100,13 @@
                         <button id="previous-file" class="change-button icon-button" type="button" title="Previous file" aria-label="Previous file">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M17 11l-5-5-5 5"></path>
-                                <path d="M17 18l-5-5-5 5" opacity="0.7"></path>
+                                <path d="M17 18l-5-5-5 5"></path>
                             </svg>
                         </button>
-                        <button id="next-file" class="change-button change-button-primary icon-button" type="button" title="Next file" aria-label="Next file">
+                        <button id="next-file" class="change-button icon-button" type="button" title="Next file" aria-label="Next file">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M7 13l5 5 5-5"></path>
-                                <path d="M7 6l5 5 5-5" opacity="0.7"></path>
+                                <path d="M7 6l5 5 5-5"></path>
                             </svg>
                         </button>
                     </div>

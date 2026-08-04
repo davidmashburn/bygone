@@ -416,13 +416,13 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                         <button id="previous-file" class="change-button icon-button" type="button" title="Previous file" aria-label="Previous file">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M17 11l-5-5-5 5"></path>
-                                <path d="M17 18l-5-5-5 5" opacity="0.7"></path>
+                                <path d="M17 18l-5-5-5 5"></path>
                             </svg>
                         </button>
-                        <button id="next-file" class="change-button change-button-primary icon-button" type="button" title="Next file" aria-label="Next file">
+                        <button id="next-file" class="change-button icon-button" type="button" title="Next file" aria-label="Next file">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M7 13l5 5 5-5"></path>
-                                <path d="M7 6l5 5 5-5" opacity="0.7"></path>
+                                <path d="M7 6l5 5 5-5"></path>
                             </svg>
                         </button>
                     </div>

@@ -25,6 +25,20 @@ export interface ChangeTourDiffScene extends ChangeTourNarrative {
     focusChangeIndex?: number;
 }
 
+export interface ChangeTourOmittedFile {
+    id: string;
+    kind: 'omitted';
+    title: string;
+    path: string;
+    previousPath?: string;
+    changeKind: GitChangeKind;
+    additions: number;
+    deletions: number;
+    reason: string;
+}
+
+export type ChangeTourFile = ChangeTourDiffScene | ChangeTourOmittedFile;
+
 export interface ChangeTourDiscussionScene extends ChangeTourNarrative {
     id: string;
     kind: 'discussion';
@@ -113,6 +127,7 @@ export interface ChangeTourManifest {
         omittedFiles: string[];
     };
     commits: BranchCommit[];
+    files: ChangeTourFile[];
     chapters: ChangeTourChapter[];
     scenes: ChangeTourScene[];
 }
@@ -142,6 +157,9 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
     if (!Array.isArray(value.commits) || !Array.isArray(value.chapters) || !Array.isArray(value.scenes)) {
         throw new Error('Change-tour manifest commits, chapters, and scenes must be arrays.');
     }
+    if (value.files !== undefined && !Array.isArray(value.files)) {
+        throw new Error('Change-tour manifest files must be an array.');
+    }
 
     const sceneIds = new Set<string>();
     for (const [index, candidate] of value.scenes.entries()) {
@@ -168,7 +186,17 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
         throw new Error('summary.includedScenes must match the number of scenes.');
     }
 
-    return value as unknown as ChangeTourManifest;
+    const files = value.files === undefined
+        ? collectLegacyTourFiles(value.scenes as unknown as ChangeTourScene[])
+        : value.files.map((candidate, index) => {
+            validateTourFile(candidate, index);
+            return candidate;
+        });
+    if (value.files !== undefined && value.summary.changedFiles !== files.length) {
+        throw new Error('summary.changedFiles must match the number of files.');
+    }
+
+    return { ...value, files } as unknown as ChangeTourManifest;
 }
 
 export function parseChangeTourStory(value: unknown): ChangeTourStory {
@@ -249,6 +277,39 @@ function validateScene(value: unknown, index: number): asserts value is ChangeTo
     if (value.focusChangeIndex !== undefined) {
         requireNonNegativeInteger(value.focusChangeIndex, `scenes[${index}].focusChangeIndex`);
     }
+}
+
+function validateTourFile(value: unknown, index: number): asserts value is ChangeTourFile {
+    if (!isRecord(value)) throw new Error(`files[${index}] must be an object.`);
+    if (value.kind === 'text-diff') {
+        validateScene(value, index);
+        return;
+    }
+    if (value.kind !== 'omitted') {
+        throw new Error(`files[${index}].kind must be text-diff or omitted.`);
+    }
+    for (const key of ['id', 'title', 'path', 'changeKind', 'reason']) {
+        requireString(value[key], `files[${index}].${key}`);
+    }
+    if (value.previousPath !== undefined) requireString(value.previousPath, `files[${index}].previousPath`);
+    requireNonNegativeInteger(value.additions, `files[${index}].additions`);
+    requireNonNegativeInteger(value.deletions, `files[${index}].deletions`);
+}
+
+function collectLegacyTourFiles(scenes: readonly ChangeTourScene[]): ChangeTourFile[] {
+    const files = new Map<string, ChangeTourDiffScene>();
+    for (const scene of scenes) {
+        if (scene.kind === 'text-diff') {
+            if (!files.has(scene.path)) files.set(scene.path, scene);
+            continue;
+        }
+        if (scene.kind === 'walkthrough') {
+            for (const step of scene.steps) {
+                if (!files.has(step.diff.path)) files.set(step.diff.path, step.diff);
+            }
+        }
+    }
+    return [...files.values()].sort((left, right) => left.path.localeCompare(right.path));
 }
 
 function validateResolvedAnchor(value: unknown, path: string): void {

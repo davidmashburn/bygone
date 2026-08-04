@@ -320,7 +320,7 @@ The second prototype slice adds an authored story overlay without sacrificing th
 - file scenes can focus an initial diff hunk;
 - chapter tabs show scene counts and jump directly to the chapter;
 - previous/next chapter controls complement scene-level navigation;
-- files omitted from the authored path remain in a generated complete-change appendix.
+- files omitted from the authored path remain in an independent complete-change Files rail.
 
 Authoring is JSON-first for now through `BYGONE_TOUR_STORY`. The next question is whether recording and pinning scenes in the UI is faster than editing that definition directly.
 
