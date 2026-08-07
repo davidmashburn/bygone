@@ -26,11 +26,11 @@ export BYGONE_HOMEBREW_TAP=/path/to/homebrew-tap
 npm whoami
 gh auth status
 npm run release:publish
-gh workflow run publish-vscode.yml -f release_ref=v<version> -f version=<version>
 ```
 
-The VS Code workflow uses GitHub OIDC trusted publishing. It does not use a
-Marketplace PAT or repository secret.
+Upload `bygone-<version>.vsix` from the Visual Studio Marketplace publisher
+page. GitHub OIDC support has merged into `vsce`, but Marketplace has not yet
+exposed the trusted-publisher policy needed to authorize a workflow.
 
 ## What Exists Today
 
@@ -47,10 +47,6 @@ The main scripts are:
   - publishes npm
   - creates a GitHub release with desktop artifacts
   - updates and pushes the Homebrew tap
-- `.github/workflows/publish-vscode.yml`
-  - packages an explicitly selected release commit or tag
-  - verifies its version before publishing
-  - publishes the VS Code extension through a short-lived GitHub OIDC credential
 
 Related packaging commands:
 
@@ -104,33 +100,29 @@ gh auth status
 
 This is required for publishing the VS Code extension.
 
-This is a little different from npm and GitHub. The repository uses trusted
-publishing rather than a long-lived Personal Access Token. You need access to
-the Visual Studio Marketplace publisher to configure the one-time trust policy,
-but routine releases run entirely through GitHub Actions.
+This is a little different from npm and GitHub. Global Azure DevOps Personal
+Access Tokens are being retired, while GitHub OIDC support is not yet usable
+because Marketplace has not exposed its trusted-publisher policy UI. Until
+that rollout completes, publish the packaged VSIX through the Marketplace
+publisher page.
 
 Publisher/admin surface:
 
 - Marketplace management: [Visual Studio Marketplace manage](https://marketplace.visualstudio.com/manage)
 
-Current practical setup:
+Current practical flow:
 
 1. Sign in to the Marketplace manage page with your Microsoft account.
-2. Create or confirm the publisher that matches `package.json`:
+2. Confirm the publisher that matches `package.json`:
    - current publisher: `davidmashburn`
-3. Configure a GitHub trusted-publishing policy for:
-   - owner: `davidmashburn`
-   - repository: `bygone`
-   - workflow: `publish-vscode.yml`
-4. Do not create a `VSCE_PAT` secret. The workflow requests a short-lived token
-   with `id-token: write` and the Marketplace exchanges it only when the policy
-   matches.
+3. Choose **New extension → Visual Studio Code**.
+4. Upload `bygone-<version>.vsix`. A package with the existing publisher,
+   extension ID, and a newer version updates the current listing.
 
 OIDC support is merged into `microsoft/vscode-vsce` but is not present in its
-latest npm release, 3.9.2. The workflow therefore checks out and builds the
-exact reviewed merge commit `c998e2a8604ba07d2b6a364d1742c1bc38e7d8ff`.
-Replace that source-build step with the first stable `@vscode/vsce` release
-that contains `publish --oidc`.
+latest npm release, 3.9.2. Once Marketplace exposes trusted-publisher policies,
+add a workflow scoped to `davidmashburn/bygone` and use the first stable
+`@vscode/vsce` release that contains `publish --oidc`.
 
 ### 4. Homebrew tap repo access
 
@@ -172,17 +164,16 @@ gh auth status
 
 This is required because `release:publish` uses `gh release create`.
 
-### 3. VS Code Marketplace trusted publishing
+### 3. VS Code Marketplace publishing
 
-Confirm the Marketplace policy described above exists. The workflow publishes
-with:
+Package the extension:
 
 ```bash
-vsce publish --oidc --packagePath bygone-<version>.vsix
+npm run package:vsix
 ```
 
-This command is valid only inside the authorized GitHub Actions workflow; local
-shells do not receive GitHub's OIDC token.
+Then upload the resulting VSIX through the publisher page. Do not add a new
+long-lived PAT merely to automate this temporary gap.
 
 ### 4. Homebrew tap checkout
 
@@ -265,17 +256,8 @@ This runs the full publish path:
 2. `gh release create v<version> ... --notes-file CHANGELOG.md`
 3. update, commit, and push the Homebrew tap
 
-Publish the VS Code extension separately after the release commit or tag is on
-GitHub:
-
-```bash
-gh workflow run publish-vscode.yml \
-  -f release_ref=v<version> \
-  -f version=<version>
-```
-
-The workflow checks that `package.json` exactly matches the requested version
-before it packages or publishes anything.
+Publish the VS Code extension separately by uploading the already-built
+`bygone-<version>.vsix` through the Marketplace publisher page.
 
 ## Homebrew Notes
 
@@ -313,15 +295,12 @@ Check:
 - `gh auth status`
 - `echo $BYGONE_HOMEBREW_TAP`
 
-### VS Code trusted publishing fails
+### VS Code publishing is not automated
 
-Check:
-
-- the Marketplace policy names `davidmashburn/bygone`
-- the policy names `.github/workflows/publish-vscode.yml`
-- the workflow has `id-token: write`
-- `release_ref` contains exactly the requested `package.json` version
-- the pinned `vscode-vsce` commit still builds successfully
+This is currently intentional. `vsce` has merged GitHub OIDC support, but the
+Marketplace policy required to authorize the workflow is not publicly
+configurable. Upload the VSIX manually and revisit the workflow when both the
+Marketplace UI and a stable OIDC-enabled `vsce` release are available.
 
 ### DMG build fails on macOS
 
@@ -357,7 +336,7 @@ If we add one later, it should check:
 
 - npm auth
 - GitHub auth
-- the Marketplace trusted-publishing policy
+- Marketplace publisher-page access
 - `BYGONE_HOMEBREW_TAP`
 - presence of required build tools
 - expected artifacts after `release:build`

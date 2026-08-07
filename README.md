@@ -175,7 +175,7 @@ Publishing is intentionally explicit:
 npm run release:publish
 ```
 
-`release:publish` publishes the npm package, creates a GitHub release for desktop artifacts, and updates a Homebrew tap. Set `BYGONE_HOMEBREW_TAP` to a local tap checkout before publishing Homebrew formulas. VS Code Marketplace releases use the repository's manually dispatched, keyless **Publish VS Code Extension** workflow.
+`release:publish` publishes the npm package, creates a GitHub release for desktop artifacts, and updates a Homebrew tap. Set `BYGONE_HOMEBREW_TAP` to a local tap checkout before publishing Homebrew formulas. Until Marketplace trusted-publisher policies are publicly configurable, upload the packaged VSIX from the Visual Studio Marketplace publisher page.
 
 Run the release checks:
 

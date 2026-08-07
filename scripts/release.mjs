@@ -45,7 +45,7 @@ if (shouldPublish) {
     console.log('');
     console.log(`Built Bygone ${version} artifacts without publishing.`);
     console.log('Pass --publish to publish npm, GitHub desktop artifacts, and a Homebrew tap update.');
-    console.log('Publish the VS Code extension with the trusted GitHub Actions workflow.');
+    console.log('Publish the VS Code extension from the Visual Studio Marketplace publisher page.');
 }
 
 async function publishArtifacts() {
