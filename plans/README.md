@@ -27,3 +27,4 @@ grew out of an earlier concept.
 ## Current plans
 
 - [In-document find behavior](find-behavior.md)
+- [Refreshable sessions](session-refresh.md)
