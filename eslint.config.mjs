@@ -35,6 +35,7 @@ export default [
             'eslint.config.mjs',
             'scripts/**/*.mjs',
             'standalone/main.js',
+            'standalone/launchArgs.js',
             'test/**/*.js'
         ],
         languageOptions: {
@@ -42,7 +43,7 @@ export default [
         }
     },
     {
-        files: ['bin/**/*.js', 'cli/**/*.js'],
+        files: ['bin/**/*.js', 'cli/**/*.js', 'standalone/launchArgs.js'],
         languageOptions: {
             sourceType: 'commonjs'
         }

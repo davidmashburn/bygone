@@ -14,10 +14,13 @@ const { buildDirectoryNavigationState } = require('../media/navigationUtils.js')
 const { getMenuCapabilities } = require('./menuUtils.js');
 const { generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const { tokenMatches, tokensFor } = require('../cli/commandSpec.js');
+const { startPresentation } = require('../cli/present.js');
+const { getCliArgsFromArgv, getForwardedLaunchArgs } = require('./launchArgs.js');
 
 const APP_NAME = 'Bygone';
 const APP_VERSION = require('../package.json').version;
 const HELP_URL = 'https://github.com/davidmashburn/bygone';
+const packageRoot = path.join(__dirname, '..');
 const DEFAULT_GIT_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 const parsedGitMaxBufferBytes = Number.parseInt(process.env.BYGONE_GIT_MAX_BUFFER_BYTES || '', 10);
 const GIT_MAX_BUFFER_BYTES = Number.isFinite(parsedGitMaxBufferBytes) && parsedGitMaxBufferBytes > 0
@@ -38,16 +41,21 @@ const captureOutputPath = launchArguments.capturePath ? path.resolve(launchArgum
 const captureMode = Boolean(captureOutputPath);
 const launchWindowWidth = Number.isFinite(launchArguments.windowWidth) ? launchArguments.windowWidth : 1500;
 const launchWindowHeight = Number.isFinite(launchArguments.windowHeight) ? launchArguments.windowHeight : 960;
-const shouldUseSingleInstanceLock = app.isPackaged && launchArguments.kind === 'blank';
+const shouldUseSingleInstanceLock = app.isPackaged && !smokeTestMode && !captureMode;
 
 app.setName(APP_NAME);
 if (typeof app.setAppUserModelId === 'function') {
     app.setAppUserModelId('com.davidmashburn.bygone');
 }
 
-const singleInstanceLock = shouldUseSingleInstanceLock ? app.requestSingleInstanceLock() : true;
+const singleInstanceLock = shouldUseSingleInstanceLock
+    ? app.requestSingleInstanceLock({ launchArgs: getCliArgs() })
+    : true;
 
 let mainWindow;
+let tourWindow;
+let tourServer;
+let tourOrigin;
 let hostReady = false;
 let pendingMessage;
 let closingForSave = false;
@@ -66,10 +74,12 @@ if (!singleInstanceLock) {
 }
 
 app.whenReady().then(async () => {
-    createMainWindow();
+    createMainWindow({ show: launchArguments.kind !== 'tour' && !smokeTestMode });
     installApplicationMenu();
     initializeAutoUpdates();
     await openInitialLaunchTarget();
+}).catch((error) => {
+    void showError(`Could not open Bygone: ${getErrorMessage(error)}`);
 });
 
 app.on('window-all-closed', () => {
@@ -79,27 +89,29 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+    closeTourServer();
     cleanupGitDiffTempRoots([...trackedGitDiffTempRoots]);
 });
 
 app.on('activate', async () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (!BrowserWindow.getAllWindows().some((window) => window.isVisible())) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.show();
+            mainWindow.focus();
+            return;
+        }
         createMainWindow();
         installApplicationMenu();
-        await openInitialLaunchTarget();
+        await openBlankDiff();
     }
 });
 
 if (shouldUseSingleInstanceLock) {
-    app.on('second-instance', (_event, argv) => {
-        if (mainWindow) {
-            if (mainWindow.isMinimized()) {
-                mainWindow.restore();
-            }
-            mainWindow.focus();
-        }
-
-        void routeLaunchTarget(parseLaunchArgs(getCliArgsFromArgv(argv)));
+    app.on('second-instance', (_event, argv, _workingDirectory, additionalData) => {
+        const launchTarget = parseLaunchArgs(getForwardedLaunchArgs(argv, additionalData));
+        void routeLaunchTarget(launchTarget)
+            .then(() => focusLaunchTarget(launchTarget))
+            .catch((error) => showError(`Could not open command-line request: ${getErrorMessage(error)}`));
     });
 }
 
@@ -137,13 +149,13 @@ function isTrustedRendererEvent(event) {
         && event.senderFrame.url === expectedUrl;
 }
 
-function createMainWindow() {
+function createMainWindow({ show = !smokeTestMode } = {}) {
     mainWindow = new BrowserWindow({
         width: launchWindowWidth,
         height: launchWindowHeight,
         minWidth: 960,
         minHeight: 640,
-        show: !smokeTestMode,
+        show,
         title: APP_NAME,
         webPreferences: {
             sandbox: true,
@@ -244,6 +256,112 @@ function createMainWindow() {
         captureScheduled = false;
         captureRenderReady = false;
     });
+}
+
+function ensureMainWindow() {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        createMainWindow();
+        installApplicationMenu();
+    }
+}
+
+async function openTourPresentation(args, cwd) {
+    const presentation = await startPresentation(args, cwd, packageRoot, {
+        announce: false,
+        open: false
+    });
+    const previousServer = tourServer;
+    tourServer = presentation.server;
+
+    try {
+        await showTourWindow(presentation.url);
+    } catch (error) {
+        closeTourServer(presentation.server);
+        tourServer = previousServer;
+        throw error;
+    }
+
+    if (previousServer && previousServer !== presentation.server) {
+        closeTourServer(previousServer);
+    }
+}
+
+async function showTourWindow(url) {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== 'http:' || parsedUrl.hostname !== '127.0.0.1') {
+        throw new Error('Tour presenter URL must use the local Bygone server.');
+    }
+    tourOrigin = parsedUrl.origin;
+
+    if (!tourWindow || tourWindow.isDestroyed()) {
+        tourWindow = new BrowserWindow({
+            width: launchWindowWidth,
+            height: launchWindowHeight,
+            minWidth: 960,
+            minHeight: 640,
+            show: false,
+            title: `${APP_NAME} Tour`,
+            webPreferences: {
+                sandbox: true,
+                contextIsolation: true,
+                nodeIntegration: false,
+                webSecurity: true,
+                backgroundThrottling: false
+            }
+        });
+
+        tourWindow.webContents.setWindowOpenHandler(({ url: externalUrl }) => {
+            if (/^https?:\/\//i.test(externalUrl)) {
+                void shell.openExternal(externalUrl);
+            }
+            return { action: 'deny' };
+        });
+        tourWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+            let navigationOrigin;
+            try {
+                navigationOrigin = new URL(navigationUrl).origin;
+            } catch {
+                navigationOrigin = undefined;
+            }
+            if (navigationOrigin !== tourOrigin) {
+                event.preventDefault();
+                if (/^https?:\/\//i.test(navigationUrl)) {
+                    void shell.openExternal(navigationUrl);
+                }
+            }
+        });
+        tourWindow.on('closed', () => {
+            tourWindow = undefined;
+            tourOrigin = undefined;
+            closeTourServer();
+        });
+    }
+
+    await tourWindow.loadURL(url);
+    tourWindow.show();
+    tourWindow.focus();
+}
+
+function closeTourServer(server = tourServer) {
+    if (!server) {
+        return;
+    }
+    server.close();
+    if (server === tourServer) {
+        tourServer = undefined;
+    }
+}
+
+function focusLaunchTarget(launchTarget) {
+    const targetWindow = launchTarget.kind === 'tour' ? tourWindow : mainWindow;
+    if (!targetWindow || targetWindow.isDestroyed()) {
+        return;
+    }
+    if (targetWindow.isMinimized()) {
+        targetWindow.restore();
+    }
+    targetWindow.show();
+    targetWindow.focus();
 }
 
 function installApplicationMenu() {
@@ -491,7 +609,7 @@ async function installCommandLineTools() {
 
 function buildCommandLineLauncher() {
     if (process.platform === 'darwin') {
-        const content = buildPosixCommandLineLauncher('exec open -W -n -a "Bygone" --args --cwd "$PWD" "$@"');
+        const content = buildPosixCommandLineLauncher(`exec ${shellQuote(process.execPath)} --cwd "$PWD" "$@"`);
         return {
             content,
             manualCommand: `sudo tee ${shellQuote(commandLineToolPath)} >/dev/null <<'EOF'\n${content}EOF\nsudo chmod +x ${shellQuote(commandLineToolPath)}`
@@ -624,6 +742,7 @@ async function checkForUpdates(showNoUpdateMessage) {
 
 async function openInitialLaunchTarget() {
     if (pendingOpenPaths.length > 0) {
+        ensureMainWindow();
         await routePendingOpenPaths();
         return;
     }
@@ -632,6 +751,13 @@ async function openInitialLaunchTarget() {
 }
 
 async function routeLaunchTarget(launchTarget) {
+    if (launchTarget.kind === 'tour') {
+        await openTourPresentation(launchTarget.args, launchTarget.cwd || process.cwd());
+        return;
+    }
+
+    ensureMainWindow();
+
     if (launchTarget.kind === 'blank') {
         await openBlankDiff();
         return;
@@ -699,11 +825,6 @@ async function routeLaunchTarget(launchTarget) {
 
 function getCliArgs() {
     return getCliArgsFromArgv(process.argv);
-}
-
-function getCliArgsFromArgv(argv) {
-    const args = process.defaultApp ? argv.slice(2) : argv.slice(1);
-    return args[0]?.endsWith('standalone-main.js') ? args.slice(1) : args;
 }
 
 function parseLaunchArgs(args) {
@@ -774,6 +895,10 @@ function parseLaunchArgs(args) {
 
     if (tokenMatches('gitDiff', filteredArgs[0]) && filteredArgs.length >= 3) {
         return { kind: 'git-diff', refs: filteredArgs.slice(1), cwd, capturePath, windowWidth, windowHeight };
+    }
+
+    if (tokenMatches('present', filteredArgs[0])) {
+        return { kind: 'tour', args: filteredArgs.slice(1), cwd, capturePath, windowWidth, windowHeight };
     }
 
     if (tokenMatches('branchDiff', filteredArgs[0]) || tokenMatches('review', filteredArgs[0])) {

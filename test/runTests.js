@@ -22,6 +22,7 @@ const {
     resolveFileNavigationAction
 } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
+const { getCliArgsFromArgv, getForwardedLaunchArgs } = require('../standalone/launchArgs.js');
 const { CLI_SPEC, renderCliHelp } = require('../cli/commandSpec.js');
 const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const { buildChangeTourContext, buildChangeTourManifest, parseChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
@@ -715,12 +716,40 @@ function testStaticButtonsHaveTooltips() {
     }
 }
 
-function testMacCliLaunchesASeparateArgumentAwareAppInstance() {
+function testMacCliRoutesThroughCentralAppInstance() {
     const cliSource = fs.readFileSync(path.join(__dirname, '..', 'bin', 'bygone.js'), 'utf8');
     const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
 
-    assert.match(cliSource, /spawn\('open', \['-W', '-n', installedApp, '--args'/);
-    assert.match(standaloneSource, /open -W -n -a "Bygone" --args/);
+    assert.match(cliSource, /path\.join\(installedApp, 'Contents', 'MacOS', executableName\)/);
+    assert.doesNotMatch(cliSource, /spawn\('open', \['-W', '-n'/);
+    assert.match(standaloneSource, /app\.isPackaged && !smokeTestMode && !captureMode/);
+    assert.match(standaloneSource, /requestSingleInstanceLock\(\{ launchArgs: getCliArgs\(\) \}\)/);
+    assert.match(standaloneSource, /targetWindow\.show\(\);/);
+    assert.match(standaloneSource, /shellQuote\(process\.execPath\)/);
+    assert.doesNotMatch(standaloneSource, /open -W -n -a "Bygone" --args/);
+}
+
+function testToursRouteThroughAnAppOwnedWindowAndServer() {
+    const cliSource = fs.readFileSync(path.join(__dirname, '..', 'bin', 'bygone.js'), 'utf8');
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+
+    assert.match(cliSource, /tokenMatches\('present', args\[0\]\)[\s\S]{0,300}launchDesktopApp\(\{ waitForExit: false \}\)/);
+    assert.match(standaloneSource, /kind: 'tour', args: filteredArgs\.slice\(1\), cwd/);
+    assert.match(standaloneSource, /startPresentation\(args, cwd, packageRoot, \{[\s\S]{0,100}open: false/);
+    assert.match(standaloneSource, /await tourWindow\.loadURL\(url\)/);
+    assert.match(standaloneSource, /tourWindow\.on\('closed',[\s\S]{0,150}closeTourServer\(\)/);
+    assert.ok(packageJson.build.files.includes('web/**'));
+}
+
+function testForwardedLaunchArgumentsPreferValidatedAdditionalData() {
+    const fallbackArgv = ['/Applications/Bygone.app/Contents/MacOS/Bygone', '--cwd', '/fallback', 'review', 'fallback'];
+    const forwardedArgs = ['--cwd', '/repo', 'review', 'feature/tour', '--base', 'main'];
+
+    assert.deepEqual(getForwardedLaunchArgs(fallbackArgv, { launchArgs: forwardedArgs }), forwardedArgs);
+    assert.deepEqual(getForwardedLaunchArgs(fallbackArgv, { launchArgs: [42] }), fallbackArgv.slice(1));
+    assert.deepEqual(getForwardedLaunchArgs(fallbackArgv, null), fallbackArgv.slice(1));
+    assert.deepEqual(getCliArgsFromArgv(['electron', 'out/standalone-main.js', '--test'], { defaultApp: true }), ['--test']);
 }
 
 function testDynamicButtonsHaveTooltips() {
@@ -1184,7 +1213,9 @@ function run() {
     testInlineHighlightsAlignAroundInsertedAndDeletedLines();
     testRendererDoesNotAddActiveOrAdjacentSemanticOverrides();
     testStaticButtonsHaveTooltips();
-    testMacCliLaunchesASeparateArgumentAwareAppInstance();
+    testMacCliRoutesThroughCentralAppInstance();
+    testToursRouteThroughAnAppOwnedWindowAndServer();
+    testForwardedLaunchArgumentsPreferValidatedAdditionalData();
     testDynamicButtonsHaveTooltips();
     testDirectoryRowsUseFileKindAffordancesWithoutStatusBadges();
     testDuplicateMultiPanelDecorationsRenderOnce();

@@ -39,7 +39,7 @@ const CLI_SPEC = Object.freeze({
             id: 'present',
             kind: 'command',
             tokens: ['present'],
-            description: 'Open a browser tour of a committed branch range',
+            description: 'Open an app-hosted tour of a committed branch range',
             argument: 'git-ref'
         },
         {
@@ -136,7 +136,7 @@ const CLI_SPEC = Object.freeze({
         'Three or more positional paths auto-select multi-panel file diff or multi-directory compare.',
         '`--git-diff` accepts branches, tags, SHAs, HEAD~1, stash@{0}, INDEX, and WORKTREE.',
         '`review` compares merge-base(BASE,HEAD) with HEAD and detects the default base when omitted.',
-        '`present` turns the same range into a browser-hosted, ordered change tour.',
+        '`present` turns the same range into an app-hosted, ordered change tour.',
         '`tour validate` resolves every authored anchor; add `--json` for agent-readable output.',
         '`tour compile` writes a portable manifest to stdout or `--output`; `tour schema` prints its source schema.',
         '`tour context` emits compact, structured Git evidence for an LLM without invoking a model.',

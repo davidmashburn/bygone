@@ -15,7 +15,7 @@ _bygone() {
     root_items=(
         'review:Review a committed branch against its merge base'
         'completion:Print shell completion source'
-        'present:Open a browser tour of a committed branch range'
+        'present:Open an app-hosted tour of a committed branch range'
         'tour:Validate, compile, or inspect authored change tours'
         '--diff:Compare files, or open a blank editable diff'
         '--history:Open Git history for a file or directory'

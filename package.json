@@ -199,6 +199,7 @@
       "media/editor.worker.js",
       "media/icon.png",
       "standalone/**",
+      "web/**",
       "package.json",
       "README.md",
       "LICENSE.txt",

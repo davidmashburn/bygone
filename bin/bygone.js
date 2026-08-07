@@ -11,6 +11,7 @@ const { runTourCommand } = require('../cli/tour.js');
 
 const args = process.argv.slice(2);
 const cliCwd = process.cwd();
+const packageRoot = path.join(__dirname, '..');
 
 if (args.some((arg) => tokenMatches('help', arg))) {
     process.stdout.write(renderCliHelp(packageJson.version));
@@ -32,7 +33,6 @@ if (tokenMatches('completion', args[0])) {
     process.exit(0);
 }
 
-const packageRoot = path.join(__dirname, '..');
 if (tokenMatches('tourCommand', args[0])) {
     try {
         runTourCommand(args.slice(1), cliCwd, packageRoot);
@@ -44,15 +44,20 @@ if (tokenMatches('tourCommand', args[0])) {
         process.exitCode = 1;
     }
 } else if (tokenMatches('present', args[0])) {
-    startPresentation(args.slice(1), cliCwd, packageRoot).catch((error) => {
-        process.stderr.write(`Could not start change tour: ${error instanceof Error ? error.message : String(error)}\n`);
-        process.exitCode = 1;
-    });
+    const installedApp = findInstalledApp();
+    if (installedApp && process.env.BYGONE_FORCE_BUNDLED !== '1') {
+        launchDesktopApp({ waitForExit: false });
+    } else {
+        startPresentation(args.slice(1), cliCwd, packageRoot).catch((error) => {
+            process.stderr.write(`Could not start change tour: ${error instanceof Error ? error.message : String(error)}\n`);
+            process.exitCode = 1;
+        });
+    }
 } else {
     launchDesktopApp();
 }
 
-function launchDesktopApp() {
+function launchDesktopApp({ waitForExit = true } = {}) {
 const electronBinary = process.platform === 'win32'
     ? '.\\node_modules\\.bin\\electron.cmd'
     : './node_modules/.bin/electron';
@@ -61,12 +66,18 @@ const forwardedArgs = ['--cwd', cliCwd, ...args];
 const installedApp = findInstalledApp();
 
 const child = installedApp && process.env.BYGONE_FORCE_BUNDLED !== '1'
-    ? spawnInstalledApp(installedApp, forwardedArgs)
+    ? spawnInstalledApp(installedApp, forwardedArgs, { waitForExit })
     : spawn(electronBinary, [appEntry, ...forwardedArgs], {
         cwd: packageRoot,
-        stdio: 'inherit',
+        detached: !waitForExit,
+        stdio: waitForExit ? 'inherit' : 'ignore',
         env: electronEnvironment()
     });
+
+if (!waitForExit) {
+    child.unref();
+    return;
+}
 
 child.on('exit', (code, signal) => {
     if (signal) {
@@ -112,18 +123,20 @@ function findInstalledApp() {
     return candidates.find((candidate) => fs.existsSync(candidate));
 }
 
-function spawnInstalledApp(installedApp, launchArgs) {
+function spawnInstalledApp(installedApp, launchArgs, { waitForExit = true } = {}) {
+    const spawnOptions = {
+        detached: !waitForExit,
+        stdio: waitForExit ? 'inherit' : 'ignore',
+        env: electronEnvironment()
+    };
+
     if (process.platform === 'darwin') {
-        return spawn('open', ['-W', '-n', installedApp, '--args', ...launchArgs], {
-            stdio: 'inherit',
-            env: electronEnvironment()
-        });
+        const executableName = path.basename(installedApp, '.app');
+        const executablePath = path.join(installedApp, 'Contents', 'MacOS', executableName);
+        return spawn(executablePath, launchArgs, spawnOptions);
     }
 
-    return spawn(installedApp, launchArgs, {
-        stdio: 'inherit',
-        env: electronEnvironment()
-    });
+    return spawn(installedApp, launchArgs, spawnOptions);
 }
 
 function electronEnvironment() {

@@ -6,7 +6,7 @@ end
 
 complete -c bygone -n '__fish_use_subcommand' -a review -d 'Review a committed branch against its merge base'
 complete -c bygone -n '__fish_use_subcommand' -a completion -d 'Print shell completion source'
-complete -c bygone -n '__fish_use_subcommand' -a present -d 'Open a browser tour of a committed branch range'
+complete -c bygone -n '__fish_use_subcommand' -a present -d 'Open an app-hosted tour of a committed branch range'
 complete -c bygone -n '__fish_use_subcommand' -a tour -d 'Validate, compile, or inspect authored change tours'
 complete -c bygone -n '__fish_use_subcommand' -l diff -r -d 'Compare files, or open a blank editable diff'
 complete -c bygone -n '__fish_use_subcommand' -l history -r -d 'Open Git history for a file or directory'

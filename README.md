@@ -88,9 +88,15 @@ CLI defaults:
 - `bygone <directory>` opens Git directory history for that directory.
 - `bygone --history <path>` opens file or directory history.
 - `bygone review [<head>] [--base <base>]` reviews the committed branch tip against its merge base. The base is detected from `origin/HEAD`, `main`, or `master` when omitted.
-- `bygone present [<head>] [--base <base>]` opens the same committed range as a browser-hosted change tour, grouped into a deterministic suggested reading order.
+- `bygone present [<head>] [--base <base>]` opens the same committed range as an app-hosted change tour, grouped into a deterministic suggested reading order.
 - `bygone <left> <right>` auto-selects file diff or directory compare.
 - `bygone --diff <file1> <file2> <file3> ...` opens multi-panel diff or multi-directory compare.
+
+On macOS, desktop-backed CLI commands and change tours route into the running
+Bygone app instead of opening another app instance and Dock item. Starting a
+new comparison brings the central app window forward and replaces its current
+session after any unsaved-change confirmation. Tours reuse a dedicated window
+owned by that same app process.
 
 Shell completion is generated from the same command specification as `bygone --help`, including contextual file arguments and local Git refs for branch review. `npm run dev:sync`, the desktop app's command-line installer, and the Homebrew packages install completions automatically. To install one manually, choose the command for your shell:
 

@@ -16,7 +16,7 @@ const MIME_TYPES = new Map([
     ['.ttf', 'font/ttf']
 ]);
 
-async function startPresentation(args, cwd, packageRoot) {
+async function startPresentation(args, cwd, packageRoot, options = {}) {
     const { headRef, baseRef, tourPath, explicitHeadRef } = parsePresentArgs(args);
     const story = process.env.BYGONE_TOUR_STORY
         ? parseChangeTourStory(JSON.parse(readFileSync(path.resolve(cwd, process.env.BYGONE_TOUR_STORY), 'utf8')))
@@ -71,10 +71,18 @@ async function startPresentation(args, cwd, packageRoot) {
         throw new Error('Could not determine the presentation server address.');
     }
     const url = `http://127.0.0.1:${address.port}/?manifest=/tour.json`;
-    process.stdout.write(`Bygone change tour running at ${url}\n`);
-    process.stdout.write('Press Ctrl+C to stop.\n');
-    if (process.env.BYGONE_TOUR_NO_OPEN !== '1') {
-        openBrowser(url);
+    if (options.announce !== false) {
+        process.stdout.write(`Bygone change tour running at ${url}\n`);
+        process.stdout.write('Press Ctrl+C to stop.\n');
+    }
+    if (options.open !== false && process.env.BYGONE_TOUR_NO_OPEN !== '1') {
+        const openUrl = typeof options.openUrl === 'function' ? options.openUrl : openBrowser;
+        try {
+            await openUrl(url);
+        } catch (error) {
+            server.close();
+            throw error;
+        }
     }
     return { manifest, server, url };
 }
