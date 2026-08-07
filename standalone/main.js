@@ -12,6 +12,17 @@ const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
 const { materializeBranchReviewTrees, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('./menuUtils.js');
+const {
+    cloneSessionSource,
+    createBranchReviewSource,
+    createDirectoriesSource,
+    createDirectoryHistorySource,
+    createFileHistorySource,
+    createFilesSource,
+    createGitRefsSource,
+    isRefreshableSource,
+    sessionSourcesEqual
+} = require('./sessionSource.js');
 const { generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const { tokenMatches, tokensFor } = require('../cli/commandSpec.js');
 const { startPresentation } = require('../cli/present.js');
@@ -68,6 +79,14 @@ let historySkipUnchangedPreference = false;
 let captureScheduled = false;
 let captureRenderReady = false;
 let nextMultiPanelId = 1;
+let refreshInProgress = false;
+let refreshFailure = null;
+let navigationRequestId = 0;
+const pendingNavigationRequests = new Map();
+let sourceMonitorInterval;
+let sourceChangeTimer;
+let sourceFingerprint = null;
+let sourceStale = false;
 
 if (!singleInstanceLock) {
     app.quit();
@@ -248,6 +267,11 @@ function createMainWindow({ show = !smokeTestMode } = {}) {
 
     mainWindow.on('closed', () => {
         clearWatchers();
+        for (const pending of pendingNavigationRequests.values()) {
+            clearTimeout(pending.timeout);
+            pending.resolve(null);
+        }
+        pendingNavigationRequests.clear();
         mainWindow = undefined;
         session = createEmptySession();
         closingForSave = false;
@@ -371,7 +395,8 @@ function installApplicationMenu() {
         isHistory,
         canReturnToDirectory,
         canAddPanel,
-        canRemovePanel
+        canRemovePanel,
+        canRefreshSession
     } = getMenuCapabilities(session);
     const fileActionItems = isMultiDiff
         ? [
@@ -544,13 +569,18 @@ function installApplicationMenu() {
             label: 'View',
             submenu: [
                 {
+                    label: 'Refresh Session',
+                    accelerator: 'CmdOrCtrl+R',
+                    enabled: canRefreshSession && !refreshInProgress,
+                    click: () => { void refreshSession(); }
+                },
+                {
                     label: 'Back to Directory',
                     accelerator: 'CmdOrCtrl+[',
                     enabled: canReturnToDirectory,
                     click: () => { void returnToDirectoryView(); }
                 },
                 { type: 'separator' },
-                { role: 'reload' },
                 { role: 'toggleDevTools' },
                 { role: 'resetZoom' },
                 { role: 'zoomIn' },
@@ -758,6 +788,12 @@ async function routeLaunchTarget(launchTarget) {
 
     ensureMainWindow();
 
+    const requestedSource = sourceForLaunchTarget(launchTarget);
+    if (isRefreshableSource(requestedSource) && sessionSourcesEqual(session.source, requestedSource)) {
+        await refreshSession();
+        return;
+    }
+
     if (launchTarget.kind === 'blank') {
         await openBlankDiff();
         return;
@@ -821,6 +857,44 @@ async function routeLaunchTarget(launchTarget) {
     if (launchTarget.kind === 'smoke-directory') {
         await compareDirectoryTestFiles();
     }
+}
+
+function sourceForLaunchTarget(launchTarget) {
+    if (launchTarget.kind === 'diff' || launchTarget.kind === 'pair') {
+        return createFilesSource([launchTarget.leftPath, launchTarget.rightPath]);
+    }
+    if (launchTarget.kind === 'multi-diff') {
+        return createFilesSource(launchTarget.paths);
+    }
+    if (launchTarget.kind === 'directory') {
+        return createDirectoriesSource([launchTarget.leftPath, launchTarget.rightPath]);
+    }
+    if (launchTarget.kind === 'multi-directory') {
+        return createDirectoriesSource(launchTarget.paths);
+    }
+    if (launchTarget.kind === 'history') {
+        return createFileHistorySource(launchTarget.filePath, launchTarget.includeStaged, historySkipUnchangedPreference);
+    }
+    if (launchTarget.kind === 'directory-history') {
+        return createDirectoryHistorySource(launchTarget.dirPath, launchTarget.includeStaged, historySkipUnchangedPreference);
+    }
+    if (launchTarget.kind === 'git-diff') {
+        try {
+            const repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], launchTarget.cwd || process.cwd()));
+            return createGitRefsSource(repoRoot, launchTarget.refs);
+        } catch {
+            return null;
+        }
+    }
+    if (launchTarget.kind === 'branch-diff') {
+        try {
+            const repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], launchTarget.cwd || process.cwd()));
+            return createBranchReviewSource(repoRoot, launchTarget.branch, launchTarget.mainRef);
+        } catch {
+            return null;
+        }
+    }
+    return null;
 }
 
 function getCliArgs() {
@@ -1022,6 +1096,21 @@ async function handleRendererMessage(message) {
         captureRenderReady = true;
         if (captureMode) {
             scheduleCaptureIfNeeded();
+        }
+        return;
+    }
+
+    if (message.type === 'refreshSession') {
+        await refreshSession();
+        return;
+    }
+
+    if (message.type === 'navigationState' && Number.isInteger(message.requestId)) {
+        const pending = pendingNavigationRequests.get(message.requestId);
+        if (pending) {
+            pendingNavigationRequests.delete(message.requestId);
+            clearTimeout(pending.timeout);
+            pending.resolve(message.navigation || null);
         }
         return;
     }
@@ -1332,7 +1421,7 @@ async function openDirectories(dirs, options = {}) {
         await showInfo('Directory compare requires at least two distinct directories.');
         return;
     }
-    if (!await confirmSessionReplacement('open another directory comparison')) {
+    if (!options.skipConfirm && !await confirmSessionReplacement('open another directory comparison')) {
         cleanupGitDiffTempRoots(options.tempRoots || []);
         return;
     }
@@ -1343,6 +1432,7 @@ async function openDirectories(dirs, options = {}) {
 
     session = {
         mode: 'directory',
+        source: cloneSessionSource(options.source || createDirectoriesSource(resolvedDirs, options.labels)),
         left: createSideState(resolvedDirs[0], ''),
         right: createSideState(resolvedDirs[1], ''),
         history: null,
@@ -1357,6 +1447,7 @@ async function openDirectories(dirs, options = {}) {
     };
 
     clearWatchers();
+    updateWatchers();
     await sendCurrentDirectoryDiff();
 }
 
@@ -1379,7 +1470,7 @@ async function addDirectoryColumn(side) {
         return;
     }
 
-    if (session.mode !== 'directory' || !session.directory || !mainWindow) {
+    if (session.mode !== 'directory' || !session.directory || !mainWindow || session.source?.kind !== 'directories') {
         return;
     }
 
@@ -1409,6 +1500,7 @@ async function addDirectoryColumn(side) {
 
     session.left = createSideState(session.directory.dirs[0], '');
     session.right = createSideState(session.directory.dirs[session.directory.dirs.length - 1], '');
+    session.source = createDirectoriesSource(session.directory.dirs, session.directory.labels);
     await sendCurrentDirectoryDiff();
 }
 
@@ -1430,7 +1522,7 @@ async function removeDirectoryColumn(sideIndex) {
         return;
     }
 
-    if (session.mode !== 'directory' || !session.directory) {
+    if (session.mode !== 'directory' || !session.directory || session.source?.kind !== 'directories') {
         return;
     }
 
@@ -1446,6 +1538,7 @@ async function removeDirectoryColumn(sideIndex) {
     session.directory.labels.splice(sideIndex, 1);
     session.left = createSideState(session.directory.dirs[0], '');
     session.right = createSideState(session.directory.dirs[session.directory.dirs.length - 1], '');
+    session.source = createDirectoriesSource(session.directory.dirs, session.directory.labels);
     await sendCurrentDirectoryDiff();
 }
 
@@ -1555,10 +1648,15 @@ async function openGitRefs(cwd, refs, options = {}) {
         return;
     }
 
-    await openDirectories(dirs, { labels, tempRoots });
+    await openDirectories(dirs, {
+        labels,
+        tempRoots,
+        skipConfirm: Boolean(options.skipConfirm),
+        source: options.source || createGitRefsSource(repoRoot, refs)
+    });
 }
 
-async function openGitBranchReview(cwd, branch, mainRef) {
+async function openGitBranchReview(cwd, branch, mainRef, options = {}) {
     let review;
     try {
         review = resolveBranchReviewRange(cwd, branch, mainRef);
@@ -1591,6 +1689,8 @@ async function openGitBranchReview(cwd, branch, mainRef) {
             `${review.headRef} @ ${review.headOid.slice(0, 7)}`
         ],
         tempRoots: [leftRoot, rightRoot],
+        skipConfirm: Boolean(options.skipConfirm),
+        source: options.source || createBranchReviewSource(review.repoRoot || cwd, branch, mainRef),
         review: {
             ...review,
             viewedPaths: new Set()
@@ -1598,13 +1698,13 @@ async function openGitBranchReview(cwd, branch, mainRef) {
     });
 }
 
-async function openDirectoryHistory(dirPath, includeStaged = historyIncludeStagedPreference) {
+async function openDirectoryHistory(dirPath, includeStaged = historyIncludeStagedPreference, options = {}) {
     const resolvedDir = path.resolve(dirPath);
     if (getPathKind(resolvedDir) !== 'directory') {
         await showInfo('Directory history requires a directory.');
         return;
     }
-    if (!await confirmSessionReplacement('open directory history')) {
+    if (!options.skipConfirm && !await confirmSessionReplacement('open directory history')) {
         return;
     }
 
@@ -1623,6 +1723,11 @@ async function openDirectoryHistory(dirPath, includeStaged = historyIncludeStage
 
     session = {
         mode: 'directory-history',
+        source: cloneSessionSource(options.source || createDirectoryHistorySource(
+            resolvedDir,
+            includeStaged,
+            historyState.skipUnchanged
+        )),
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,
@@ -1632,6 +1737,7 @@ async function openDirectoryHistory(dirPath, includeStaged = historyIncludeStage
     };
 
     clearWatchers();
+    updateWatchers();
     historyIncludeStagedPreference = Boolean(includeStaged);
     historySkipUnchangedPreference = Boolean(historyState.skipUnchanged);
     await sendCurrentDirectoryHistoryEntry();
@@ -1917,7 +2023,7 @@ async function sendCurrentDirectoryDiff() {
         rightLabel: session.directory.labels[1],
         labels: session.directory.labels,
         entries,
-        canMutate: !review,
+        canMutate: !review && session.source?.kind === 'directories',
         review: buildReviewViewState(review)
     });
 
@@ -2276,14 +2382,15 @@ function releaseDirectoryHistoryEntry(entry) {
     delete entry.materializedRoots;
 }
 
-async function openDiff(leftPath, rightPath) {
+async function openDiff(leftPath, rightPath, options = {}) {
     const binaryComparison = buildBinaryComparison(leftPath, rightPath);
     if (binaryComparison) {
-        if (!await confirmSessionReplacement('open another comparison')) {
+        if (!options.skipConfirm && !await confirmSessionReplacement('open another comparison')) {
             return;
         }
         session = {
             mode: 'diff',
+            source: cloneSessionSource(options.source || createFilesSource([leftPath, rightPath])),
             left: createSideState(leftPath, ''),
             right: createSideState(rightPath, ''),
             binaryComparison,
@@ -2298,11 +2405,11 @@ async function openDiff(leftPath, rightPath) {
         await sendCurrentDiff();
         return;
     }
-    await openMultiDiff([leftPath, rightPath]);
+    await openMultiDiff([leftPath, rightPath], options);
 }
 
-async function openHistory(filePath, includeStaged = historyIncludeStagedPreference) {
-    if (!await confirmSessionReplacement('open file history')) {
+async function openHistory(filePath, includeStaged = historyIncludeStagedPreference, options = {}) {
+    if (!options.skipConfirm && !await confirmSessionReplacement('open file history')) {
         return;
     }
     const resolvedPath = path.resolve(filePath);
@@ -2334,6 +2441,11 @@ async function openHistory(filePath, includeStaged = historyIncludeStagedPrefere
 
     session = {
         mode: 'multi-diff',
+        source: cloneSessionSource(options.source || createFileHistorySource(
+            resolvedPath,
+            includeStaged,
+            historySource.skipUnchanged
+        )),
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,
@@ -2349,6 +2461,7 @@ async function openHistory(filePath, includeStaged = historyIncludeStagedPrefere
     };
 
     clearWatchers();
+    updateWatchers();
     historyIncludeStagedPreference = Boolean(includeStaged);
     historySkipUnchangedPreference = Boolean(historySource.skipUnchanged);
     await sendCurrentMultiDiff();
@@ -2393,13 +2506,13 @@ async function openPathPair(leftPath, rightPath, expectedMode) {
     await showInfo('Select two files for diff or two directories for directory compare.');
 }
 
-async function openMultiDiff(filePaths) {
+async function openMultiDiff(filePaths, options = {}) {
     const resolvedPaths = filePaths.map((filePath) => path.resolve(filePath));
     if (resolvedPaths.length < 1 || !resolvedPaths.every((filePath) => getPathKind(filePath) === 'file')) {
         await showInfo('Multi-file compare requires one or more files.');
         return;
     }
-    if (!await confirmSessionReplacement('open another comparison')) {
+    if (!options.skipConfirm && !await confirmSessionReplacement('open another comparison')) {
         return;
     }
 
@@ -2407,6 +2520,7 @@ async function openMultiDiff(filePaths) {
 
     session = {
         mode: 'multi-diff',
+        source: cloneSessionSource(options.source || createFilesSource(resolvedPaths)),
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,
@@ -2433,6 +2547,7 @@ async function openBlankDiff() {
     const panel = createBlankMultiPanelState();
     session = {
         mode: 'multi-diff',
+        source: { kind: 'blank' },
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,
@@ -2535,6 +2650,7 @@ async function addMultiPanel(anchorPanelId, side) {
     const panel = createBlankMultiPanelState();
     const insertIndex = side === 'left' ? anchorIndex : anchorIndex + 1;
     session.multi.files.splice(insertIndex, 0, panel);
+    session.source = { kind: 'synthetic' };
     session.multi.activePanelId = panel.id;
     session.multi.activePairIndex = normalizeMultiPairIndex(
         side === 'left' ? insertIndex : insertIndex - 1,
@@ -2608,6 +2724,10 @@ async function removeMultiPanel(panelId) {
     }
 
     session.multi.files.splice(panelIndex, 1);
+    const remainingPaths = session.multi.files.map((panel) => panel.path).filter(Boolean);
+    session.source = remainingPaths.length === session.multi.files.length
+        ? createFilesSource(remainingPaths)
+        : { kind: 'synthetic' };
     const nextPanelIndex = Math.min(panelIndex, session.multi.files.length - 1);
     session.multi.activePanelId = session.multi.files[nextPanelIndex]?.id ?? null;
     session.multi.activePairIndex = normalizeMultiPairIndex(
@@ -2673,8 +2793,10 @@ async function openHistoryAsMultiPanel(side) {
         return;
     }
 
+    const source = cloneSessionSource(session.source);
     session = {
         mode: 'multi-diff',
+        source,
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,
@@ -2773,8 +2895,11 @@ async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review =
         };
     });
 
+    const source = cloneSessionSource(session.source);
+    const tempRoots = [...(session.directory?.tempRoots || session.returnDirectory?.tempRoots || [])];
     session = {
         mode: 'multi-diff',
+        source,
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,
@@ -2787,10 +2912,11 @@ async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review =
             historySource: null
         },
         dirHistory: null,
-        returnDirectory: { dirs, labels, relativePath, review }
+        returnDirectory: { dirs, labels, relativePath, review, source, tempRoots }
     };
 
     clearWatchers();
+    updateWatchers();
     await sendCurrentMultiDiff();
 }
 
@@ -2826,8 +2952,11 @@ async function openDirectoryFileDiff(dirs, labels, relativePath, review = null) 
     left.label = `${labels[0]} / ${leftRelativePath}${leftExists ? '' : ' (missing)'}`;
     right.label = `${labels[1]} / ${rightRelativePath}${rightExists ? '' : ' (missing)'}`;
 
+    const source = cloneSessionSource(session.source);
+    const tempRoots = [...(session.directory?.tempRoots || session.returnDirectory?.tempRoots || [])];
     session = {
         mode: 'diff',
+        source,
         left,
         right,
         binaryComparison,
@@ -2840,7 +2969,9 @@ async function openDirectoryFileDiff(dirs, labels, relativePath, review = null) 
             labels: [...labels],
             relativePath: reviewKey,
             comparisonSummary: reviewPair?.summary,
-            review
+            review,
+            source,
+            tempRoots
         }
     };
 
@@ -2859,16 +2990,18 @@ async function returnToDirectoryView() {
         if (!await confirmSessionReplacement('return to the directory comparison')) {
             return;
         }
-        const { dirs, labels, review } = session.returnDirectory;
+        const { dirs, labels, review, source, tempRoots } = session.returnDirectory;
 
         session = {
             mode: 'directory',
+            source: cloneSessionSource(source),
             left: createSideState(dirs[0], ''),
             right: createSideState(dirs[dirs.length - 1], ''),
             history: null,
             directory: {
                 dirs,
                 labels,
+                tempRoots: [...(tempRoots || [])],
                 review: review || null
             },
             multi: null,
@@ -2877,6 +3010,7 @@ async function returnToDirectoryView() {
         };
 
         clearWatchers();
+        updateWatchers();
         await sendCurrentDirectoryDiff();
         return;
     }
@@ -3141,7 +3275,7 @@ async function compareTestFiles() {
     fs.writeFileSync(leftPath, sampleFiles.leftContent, 'utf8');
     fs.writeFileSync(rightPath, sampleFiles.rightContent, 'utf8');
 
-    await openDiff(leftPath, rightPath);
+    await openDiff(leftPath, rightPath, { source: { kind: 'synthetic' } });
 }
 
 async function compareMultiTestFiles() {
@@ -3162,6 +3296,7 @@ async function compareMultiTestFiles() {
 
     session = {
         mode: 'multi-diff',
+        source: { kind: 'synthetic' },
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,
@@ -3190,7 +3325,7 @@ async function compareDirectoryTestFiles() {
     fs.writeFileSync(path.join(right, 'a.txt'), 'right a\n', 'utf8');
     fs.writeFileSync(path.join(left, 'b.txt'), 'left b\n', 'utf8');
     fs.writeFileSync(path.join(right, 'b.txt'), 'right b\n', 'utf8');
-    await openDirectories([left, right]);
+    await openDirectories([left, right], { source: { kind: 'synthetic' } });
 }
 
 async function sendCurrentDiff() {
@@ -3500,6 +3635,7 @@ async function updateHistorySkipUnchanged(skipUnchanged) {
     historySkipUnchangedPreference = skipUnchanged;
 
     if (session.mode === 'history' && session.history) {
+        session.source = createFileHistorySource(session.history.filePath, session.history.includeStaged, skipUnchanged);
         session.history.skipUnchanged = skipUnchanged;
         const normalizedIndex = normalizeHistoryIndex(getVisibleFileHistoryIndices(session.history), session.history.index);
         if (normalizedIndex !== null) {
@@ -3510,6 +3646,7 @@ async function updateHistorySkipUnchanged(skipUnchanged) {
     }
 
     if (session.mode === 'directory-history' && session.dirHistory) {
+        session.source = createDirectoryHistorySource(session.dirHistory.dirPath, session.dirHistory.includeStaged, skipUnchanged);
         session.dirHistory.skipUnchanged = skipUnchanged;
         const normalizedIndex = normalizeHistoryIndex(getVisibleDirectoryHistoryIndices(session.dirHistory), session.dirHistory.index);
         if (normalizedIndex !== null) {
@@ -3602,6 +3739,7 @@ async function saveHistorySide(side) {
 
     fs.writeFileSync(session.history.filePath, entry.rightContent, 'utf8');
     entry.rightDirty = false;
+    acknowledgeCurrentSourceState();
     await sendCurrentHistoryEntry();
     return true;
 }
@@ -3626,6 +3764,7 @@ async function saveDirectoryHistorySide(side) {
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     fs.writeFileSync(targetPath, content, 'utf8');
     entry.rightDirty = false;
+    acknowledgeCurrentSourceState();
     await sendCurrentDirectoryHistoryEntry();
     return true;
 }
@@ -3751,6 +3890,7 @@ async function saveDirtyHistoryEntries() {
         }
     }
 
+    acknowledgeCurrentSourceState();
     await sendCurrentHistoryEntry();
     return true;
 }
@@ -3774,6 +3914,7 @@ async function saveDirtyDirectoryHistoryEntries() {
         entry.rightDirty = false;
     }
 
+    acknowledgeCurrentSourceState();
     await sendCurrentDirectoryHistoryEntry();
     return true;
 }
@@ -3818,117 +3959,47 @@ async function reloadActiveMultiPanel() {
 
 function updateWatchers() {
     clearWatchers();
-
-    if (session.mode === 'multi-diff' && session.multi) {
-        for (const panel of session.multi.files) {
-            if (!panel.path || !fs.existsSync(panel.path)) {
-                continue;
-            }
-
-            const watcher = fs.watch(panel.path, () => {
-                void handleExternalMultiPanelChange(panel.id);
-            });
-            fileWatchers.push(watcher);
-        }
+    if (!isRefreshableSource(session.source)) {
         return;
     }
+    sourceStale = false;
+    refreshFailure = null;
+    sourceFingerprint = computeSourceFingerprint(session.source);
 
-    if (session.mode !== 'diff') {
-        return;
-    }
-
-    for (const side of ['left', 'right']) {
-        const target = session[side];
-        if (!target.path || !fs.existsSync(target.path)) {
+    for (const watchPath of getSourceWatchPaths(session.source)) {
+        if (!fs.existsSync(watchPath)) {
             continue;
         }
-
-        const watcher = fs.watch(target.path, () => {
-            void handleExternalFileChange(side);
-        });
-        fileWatchers.push(watcher);
+        try {
+            const recursive = getPathKind(watchPath) === 'directory'
+                && (process.platform === 'darwin' || process.platform === 'win32');
+            const watcher = fs.watch(watchPath, { recursive }, scheduleSourceCheck);
+            fileWatchers.push(watcher);
+        } catch {
+            // Polling below remains the cross-platform fallback.
+        }
     }
+    sourceMonitorInterval = setInterval(scheduleSourceCheck, 3000);
+    sourceMonitorInterval.unref?.();
 }
 
-async function handleExternalMultiPanelChange(panelId) {
-    if (session.mode !== 'multi-diff' || !session.multi || !mainWindow) {
+function acknowledgeCurrentSourceState() {
+    if (!isRefreshableSource(session.source)) {
         return;
     }
-
-    const panel = session.multi.files.find((entry) => entry.id === panelId);
-    if (!panel?.path || !fs.existsSync(panel.path)) {
-        return;
-    }
-
-    const latestContent = readFileContent(panel.path);
-    if (latestContent === panel.savedContent) {
-        return;
-    }
-
-    const choice = await dialog.showMessageBox(mainWindow, {
-        type: 'question',
-        buttons: ['Reload', 'Keep Current'],
-        defaultId: 0,
-        cancelId: 1,
-        message: `${panel.label} changed on disk.`,
-        detail: panel.dirty
-            ? 'Reloading will discard unsaved Bygone edits for this panel.'
-            : 'Reload the changed file into Bygone?'
-    });
-
-    if (choice.response === 0) {
-        panel.content = latestContent;
-        panel.savedContent = latestContent;
-        panel.dirty = false;
-        await sendCurrentMultiDiff();
-    } else {
-        panel.savedContent = latestContent;
-        panel.dirty = panel.content !== panel.savedContent;
-        updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
-    }
+    sourceFingerprint = computeSourceFingerprint(session.source);
+    sourceStale = false;
+    postRefreshState();
 }
 
 function clearWatchers() {
     fileWatchers.forEach((watcher) => watcher.close());
     fileWatchers = [];
-}
-
-async function handleExternalFileChange(side) {
-    if (session.mode !== 'diff' || !mainWindow) {
-        return;
-    }
-
-    const target = session[side];
-    if (!target.path || !fs.existsSync(target.path)) {
-        return;
-    }
-
-    const latestContent = readFileContent(target.path);
-    if (latestContent === target.savedContent) {
-        return;
-    }
-
-    const choice = await dialog.showMessageBox(mainWindow, {
-        type: 'question',
-        buttons: ['Reload', 'Keep Current'],
-        defaultId: 0,
-        cancelId: 1,
-        message: `${target.label} changed on disk.`,
-        detail: target.dirty
-            ? 'Reloading will discard unsaved Bygone edits for this pane.'
-            : 'Reload the changed file into Bygone?'
-    });
-
-    if (choice.response === 0) {
-        target.content = latestContent;
-        target.savedContent = latestContent;
-        target.dirty = false;
-        await sendCurrentDiff();
-    } else {
-        target.savedContent = latestContent;
-        target.dirty = target.content !== target.savedContent;
-        await sendCurrentDiff();
-    }
+    clearInterval(sourceMonitorInterval);
+    sourceMonitorInterval = undefined;
+    clearTimeout(sourceChangeTimer);
+    sourceChangeTimer = undefined;
+    sourceFingerprint = null;
 }
 
 function updateWindowTitle(title) {
@@ -3965,8 +4036,578 @@ async function confirmSessionReplacement(action) {
     return true;
 }
 
+function getRefreshState() {
+    const enabled = isRefreshableSource(session.source);
+    return {
+        enabled,
+        status: refreshInProgress
+            ? 'refreshing'
+            : (refreshFailure ? 'failed' : (sourceStale ? 'stale' : (enabled ? 'idle' : 'disabled'))),
+        message: refreshFailure
+    };
+}
+
+function postRefreshState() {
+    installApplicationMenu();
+    if (hostReady) {
+        postToRenderer({ type: 'refreshState', refreshState: getRefreshState() });
+    }
+}
+
+function safeRunGit(args, cwd) {
+    try {
+        return runGit(args, cwd);
+    } catch {
+        return 'missing';
+    }
+}
+
+function pathFingerprint(targetPath, recursive = false, limit = 10000) {
+    const pending = [path.resolve(targetPath)];
+    const parts = [];
+    while (pending.length > 0 && parts.length < limit) {
+        const currentPath = pending.pop();
+        let stats;
+        try {
+            stats = fs.statSync(currentPath);
+        } catch {
+            parts.push(`${currentPath}:missing`);
+            continue;
+        }
+        parts.push(`${currentPath}:${stats.size}:${stats.mtimeMs}`);
+        if (recursive && stats.isDirectory()) {
+            let children = [];
+            try {
+                children = fs.readdirSync(currentPath).sort().reverse();
+            } catch {
+                // The next poll will retry unreadable or transient directories.
+            }
+            children.forEach((child) => pending.push(path.join(currentPath, child)));
+        }
+    }
+    if (pending.length > 0) {
+        parts.push(`truncated:${pending.length}`);
+    }
+    return parts.join('|');
+}
+
+function getSourceRepoRoot(source) {
+    if (source.repoRoot) {
+        return source.repoRoot;
+    }
+    try {
+        return fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], source.path));
+    } catch {
+        return null;
+    }
+}
+
+function computeSourceFingerprint(source) {
+    if (!isRefreshableSource(source)) {
+        return null;
+    }
+    if (source.kind === 'files') {
+        return source.paths.map((filePath) => pathFingerprint(filePath)).join('\n');
+    }
+    if (source.kind === 'directories') {
+        return source.paths.map((dirPath) => pathFingerprint(dirPath, true)).join('\n');
+    }
+
+    const repoRoot = getSourceRepoRoot(source);
+    if (!repoRoot) {
+        return `missing-repository:${source.path || source.repoRoot}`;
+    }
+    const gitDir = safeRunGit(['rev-parse', '--git-dir'], repoRoot);
+    const resolvedGitDir = path.resolve(repoRoot, gitDir);
+    const indexFingerprint = pathFingerprint(path.join(resolvedGitDir, 'index'));
+
+    if (source.kind === 'file-history') {
+        return [
+            safeRunGit(['rev-parse', 'HEAD'], repoRoot),
+            indexFingerprint,
+            pathFingerprint(source.path)
+        ].join('\n');
+    }
+    if (source.kind === 'directory-history') {
+        return [
+            safeRunGit(['rev-parse', 'HEAD'], repoRoot),
+            indexFingerprint,
+            pathFingerprint(source.path, true)
+        ].join('\n');
+    }
+    if (source.kind === 'git-refs') {
+        const refs = source.refs.map((ref) => {
+            const normalized = ref.toUpperCase();
+            if (normalized === 'INDEX') {
+                return `INDEX:${indexFingerprint}`;
+            }
+            if (normalized === 'WORKTREE' || normalized === 'WORKDIR' || normalized === 'WORKINGTREE') {
+                return `WORKTREE:${safeRunGit(['status', '--porcelain=v1', '--untracked-files=normal'], repoRoot)}`;
+            }
+            return `${ref}:${safeRunGit(['rev-parse', '--verify', `${ref}^{commit}`], repoRoot)}`;
+        });
+        return refs.join('\n');
+    }
+    if (source.kind === 'branch-review') {
+        try {
+            const review = resolveBranchReviewRange(repoRoot, source.headRef, source.baseRef);
+            return [review.headOid, review.baseOid, review.mergeBaseOid, review.dirty ? 'dirty' : 'clean'].join(':');
+        } catch (error) {
+            return `unresolved:${getErrorMessage(error)}`;
+        }
+    }
+    return null;
+}
+
+function getSourceWatchPaths(source) {
+    if (source.kind === 'files' || source.kind === 'directories') {
+        return [...source.paths];
+    }
+    const repoRoot = getSourceRepoRoot(source);
+    if (!repoRoot) {
+        return source.path ? [source.path] : [];
+    }
+    const gitDir = safeRunGit(['rev-parse', '--git-dir'], repoRoot);
+    const paths = [path.resolve(repoRoot, gitDir), repoRoot];
+    if (source.path) {
+        paths.push(source.path);
+    }
+    return [...new Set(paths)];
+}
+
+function scheduleSourceCheck() {
+    clearTimeout(sourceChangeTimer);
+    sourceChangeTimer = setTimeout(() => {
+        sourceChangeTimer = undefined;
+        void checkForSourceChanges();
+    }, 250);
+}
+
+async function checkForSourceChanges() {
+    if (refreshInProgress || !isRefreshableSource(session.source)) {
+        return;
+    }
+    const latestFingerprint = computeSourceFingerprint(session.source);
+    if (latestFingerprint === sourceFingerprint) {
+        return;
+    }
+    if (session.source.kind === 'files' && !hasUnsavedChanges()) {
+        await refreshSession({ reason: 'automatic', skipConfirm: true });
+        return;
+    }
+    sourceStale = true;
+    refreshFailure = null;
+    postRefreshState();
+}
+
+function getSessionTempRoots(targetSession) {
+    if (Array.isArray(targetSession?.directory?.tempRoots)) {
+        return targetSession.directory.tempRoots;
+    }
+    if (Array.isArray(targetSession?.returnDirectory?.tempRoots)) {
+        return targetSession.returnDirectory.tempRoots;
+    }
+    return [];
+}
+
+async function captureSessionNavigation(targetSession) {
+    const snapshot = {
+        relativePath: targetSession.returnDirectory?.relativePath || targetSession.dirHistory?.viewRelativePath || null,
+        activePanelPath: null,
+        historyCommit: null,
+        historySide: null,
+        directoryHistoryCommit: targetSession.dirHistory?.entries?.[targetSession.dirHistory.index]?.commit || null,
+        viewedPaths: [...(targetSession.directory?.review?.viewedPaths || targetSession.returnDirectory?.review?.viewedPaths || [])],
+        panelIdentities: [],
+        renderer: await requestRendererNavigationState()
+    };
+
+    if (targetSession.mode === 'multi-diff' && targetSession.multi) {
+        snapshot.panelIdentities = targetSession.multi.files.map((panel) => ({
+            id: panel.id,
+            path: panel.path || null,
+            label: panel.label,
+            historyCommit: targetSession.multi.historySource?.entries?.[panel.historyEntryIndex]?.commit || null,
+            historySide: panel.historySide || null
+        }));
+        const activePanel = targetSession.multi.files.find((panel) => panel.id === targetSession.multi.activePanelId);
+        snapshot.activePanelPath = activePanel?.path || null;
+        if (targetSession.multi.sourceKind === 'history' && activePanel) {
+            snapshot.historyCommit = targetSession.multi.historySource?.entries?.[activePanel.historyEntryIndex]?.commit || null;
+            snapshot.historySide = activePanel.historySide || null;
+        }
+    }
+
+    return snapshot;
+}
+
+function requestRendererNavigationState() {
+    if (!hostReady || !mainWindow || mainWindow.isDestroyed()) {
+        return Promise.resolve(null);
+    }
+    const requestId = ++navigationRequestId;
+    return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+            pendingNavigationRequests.delete(requestId);
+            resolve(null);
+        }, 750);
+        pendingNavigationRequests.set(requestId, { resolve, timeout });
+        postToRenderer({ type: 'captureNavigationState', requestId });
+    });
+}
+
+function buildPanelIdMap(snapshot) {
+    if (session.mode !== 'multi-diff' || !session.multi) {
+        return {};
+    }
+    const available = new Set(session.multi.files.map((panel) => panel.id));
+    const result = {};
+    for (const previous of snapshot.panelIdentities) {
+        const matching = session.multi.files.find((panel) => {
+            if (!available.has(panel.id)) {
+                return false;
+            }
+            if (previous.path && panel.path === previous.path) {
+                return true;
+            }
+            const historyEntry = session.multi.historySource?.entries?.[panel.historyEntryIndex];
+            return previous.historyCommit
+                && historyEntry?.commit === previous.historyCommit
+                && panel.historySide === previous.historySide;
+        });
+        if (matching) {
+            result[previous.id] = matching.id;
+            available.delete(matching.id);
+        }
+    }
+    return result;
+}
+
+function postNavigationRestore(snapshot, panelIdMap = {}) {
+    if (!snapshot.renderer || !hostReady) {
+        return;
+    }
+    postToRenderer({
+        type: 'restoreNavigationState',
+        navigation: snapshot.renderer,
+        panelIdMap
+    });
+}
+
+function buildSessionFromSource(source) {
+    if (source.kind === 'files') {
+        const paths = source.paths.map((filePath) => path.resolve(filePath));
+        if (paths.length < 1 || !paths.every((filePath) => getPathKind(filePath) === 'file')) {
+            throw new Error('One or more source files no longer exist.');
+        }
+        const binaryComparison = paths.length === 2 ? buildBinaryComparison(paths[0], paths[1]) : null;
+        if (binaryComparison) {
+            return {
+                mode: 'diff',
+                source: cloneSessionSource(source),
+                left: createSideState(paths[0], ''),
+                right: createSideState(paths[1], ''),
+                binaryComparison,
+                history: null,
+                directory: null,
+                multi: null,
+                dirHistory: null,
+                returnDirectory: null
+            };
+        }
+        const files = paths.map((filePath) => createMultiPanelState(filePath));
+        return {
+            mode: 'multi-diff',
+            source: cloneSessionSource(source),
+            left: createSideState('', ''),
+            right: createSideState('', ''),
+            history: null,
+            directory: null,
+            multi: {
+                sourceKind: 'normal',
+                files,
+                activePanelId: files[0]?.id ?? null,
+                activePairIndex: files.length > 1 ? 0 : null,
+                historySource: null
+            },
+            dirHistory: null,
+            returnDirectory: null
+        };
+    }
+
+    if (source.kind === 'directories') {
+        const dirs = source.paths.map((dirPath) => path.resolve(dirPath));
+        if (dirs.length < 2 || !dirs.every((dirPath) => getPathKind(dirPath) === 'directory')) {
+            throw new Error('One or more source directories no longer exist.');
+        }
+        const labels = Array.isArray(source.labels) && source.labels.length === dirs.length
+            ? [...source.labels]
+            : dirs.map((dirPath) => path.basename(dirPath));
+        return createDirectorySession(dirs, labels, source);
+    }
+
+    if (source.kind === 'file-history') {
+        const entries = gitHistoryService.buildFileHistory(source.path, source.includeStaged);
+        if (entries.length === 0) {
+            throw new Error('No Git history with parents was found for that file.');
+        }
+        const historySource = {
+            filePath: source.path,
+            entries,
+            includeStaged: Boolean(source.includeStaged),
+            skipUnchanged: Boolean(source.skipUnchanged)
+        };
+        const files = [
+            createHistoryMultiPanelState(entries[0], 0, 'left', source.path),
+            createHistoryMultiPanelState(entries[0], 0, 'right', source.path)
+        ];
+        return {
+            mode: 'multi-diff',
+            source: cloneSessionSource(source),
+            left: createSideState('', ''),
+            right: createSideState('', ''),
+            history: null,
+            directory: null,
+            multi: {
+                sourceKind: 'history',
+                files,
+                activePanelId: files[1]?.id ?? null,
+                activePairIndex: 0,
+                historySource
+            },
+            dirHistory: null,
+            returnDirectory: null
+        };
+    }
+
+    if (source.kind === 'directory-history') {
+        const historyState = buildDirectoryHistory(source.path, source.includeStaged);
+        historyState.skipUnchanged = Boolean(source.skipUnchanged);
+        if (historyState.entries.length === 0) {
+            throw new Error('No Git history with parents was found for that directory.');
+        }
+        return {
+            mode: 'directory-history',
+            source: cloneSessionSource(source),
+            left: createSideState('', ''),
+            right: createSideState('', ''),
+            history: null,
+            directory: null,
+            multi: null,
+            dirHistory: historyState,
+            returnDirectory: null
+        };
+    }
+
+    if (source.kind === 'git-refs') {
+        const resolved = source.refs.map((ref) => resolveGitRefForDiff(source.repoRoot, ref));
+        const tempRoots = [];
+        try {
+            const dirs = resolved.map((resolvedSource) => {
+                const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-gitdiff-'));
+                tempRoots.push(root);
+                trackedGitDiffTempRoots.add(root);
+                materializeGitDiffSource(source.repoRoot, resolvedSource, root);
+                return root;
+            });
+            return createDirectorySession(
+                dirs,
+                resolved.map((resolvedSource) => getGitDiffSourceLabel(resolvedSource)),
+                source,
+                { tempRoots }
+            );
+        } catch (error) {
+            cleanupGitDiffTempRoots(tempRoots);
+            throw error;
+        }
+    }
+
+    if (source.kind === 'branch-review') {
+        const review = resolveBranchReviewRange(source.repoRoot, source.headRef, source.baseRef);
+        if (review.changedPaths.length === 0) {
+            throw new Error(`${review.headRef} has no changes relative to ${review.baseRef}.`);
+        }
+        const tempRoots = [];
+        try {
+            tempRoots.push(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-review-base-')));
+            trackedGitDiffTempRoots.add(tempRoots[0]);
+            tempRoots.push(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-review-head-')));
+            trackedGitDiffTempRoots.add(tempRoots[1]);
+            materializeBranchReviewTrees(review, tempRoots[0], tempRoots[1]);
+            return createDirectorySession(
+                tempRoots,
+                [
+                    `${review.baseRef} @ ${review.mergeBaseOid.slice(0, 7)}`,
+                    `${review.headRef} @ ${review.headOid.slice(0, 7)}`
+                ],
+                source,
+                {
+                    tempRoots,
+                    review: { ...review, viewedPaths: new Set() }
+                }
+            );
+        } catch (error) {
+            cleanupGitDiffTempRoots(tempRoots);
+            throw error;
+        }
+    }
+
+    throw new Error(`Session source ${source.kind} cannot be refreshed.`);
+}
+
+function createDirectorySession(dirs, labels, source, options = {}) {
+    return {
+        mode: 'directory',
+        source: cloneSessionSource(source),
+        left: createSideState(dirs[0], ''),
+        right: createSideState(dirs[dirs.length - 1], ''),
+        history: null,
+        directory: {
+            dirs: [...dirs],
+            labels: [...labels],
+            tempRoots: [...(options.tempRoots || [])],
+            review: options.review || null
+        },
+        multi: null,
+        dirHistory: null,
+        returnDirectory: null
+    };
+}
+
+async function restoreSessionNavigation(snapshot) {
+    const review = session.directory?.review || session.returnDirectory?.review;
+    if (review && snapshot.viewedPaths.length > 0) {
+        snapshot.viewedPaths.forEach((relativePath) => review.viewedPaths.add(relativePath));
+    }
+
+    if (session.mode === 'directory-history' && session.dirHistory) {
+        const matchingIndex = session.dirHistory.entries.findIndex((entry) => entry.commit === snapshot.directoryHistoryCommit);
+        if (matchingIndex >= 0) {
+            session.dirHistory.index = matchingIndex;
+            session.dirHistory.displayedRange = [matchingIndex, matchingIndex];
+        }
+        session.dirHistory.viewRelativePath = snapshot.relativePath;
+        await sendCurrentDirectoryHistoryEntry();
+        postNavigationRestore(snapshot);
+        return;
+    }
+
+    if (session.mode === 'multi-diff' && session.multi?.sourceKind === 'history' && snapshot.historyCommit) {
+        const historySource = session.multi.historySource;
+        const matchingIndex = historySource.entries.findIndex((entry) => entry.commit === snapshot.historyCommit);
+        if (matchingIndex >= 0) {
+            const entry = historySource.entries[matchingIndex];
+            const files = [
+                createHistoryMultiPanelState(entry, matchingIndex, 'left', historySource.filePath),
+                createHistoryMultiPanelState(entry, matchingIndex, 'right', historySource.filePath)
+            ];
+            session.multi.files = files;
+            const activeIndex = snapshot.historySide === 'left' ? 0 : 1;
+            session.multi.activePanelId = files[activeIndex]?.id ?? files[0]?.id ?? null;
+            session.multi.activePairIndex = files.length > 1 ? 0 : null;
+        }
+        await sendCurrentMultiDiff();
+        postNavigationRestore(snapshot, buildPanelIdMap(snapshot));
+        return;
+    }
+
+    if (session.mode === 'directory' && snapshot.relativePath) {
+        const entries = session.directory?.review
+            ? session.directory.review.changedPaths.map((entry) => entry.path)
+            : buildChangedFileEntries(buildMultiDirectoryComparison(session.directory?.dirs || []))
+                .map((entry) => entry.relativePath);
+        if (entries.includes(snapshot.relativePath)) {
+            await openDirectoryEntry(snapshot.relativePath);
+            postNavigationRestore(snapshot, buildPanelIdMap(snapshot));
+            return;
+        }
+        await showInfo(`${snapshot.relativePath} is no longer present in this comparison.`);
+    }
+
+    if (session.mode === 'multi-diff' && session.multi && snapshot.activePanelPath) {
+        const matchingPanel = session.multi.files.find((panel) => panel.path === snapshot.activePanelPath);
+        if (matchingPanel) {
+            session.multi.activePanelId = matchingPanel.id;
+            const panelIndex = session.multi.files.indexOf(matchingPanel);
+            session.multi.activePairIndex = normalizeMultiPairIndex(Math.max(0, panelIndex - 1), session.multi.files.length);
+        }
+    }
+
+    await sendCurrentSession();
+    postNavigationRestore(snapshot, buildPanelIdMap(snapshot));
+}
+
+async function refreshSession(options = {}) {
+    if (refreshInProgress || !isRefreshableSource(session.source)) {
+        return;
+    }
+    const previousSession = session;
+    if (!options.skipConfirm && !await confirmSessionReplacement('refresh this session')) {
+        return;
+    }
+    if (session !== previousSession) {
+        return;
+    }
+
+    const source = cloneSessionSource(session.source);
+    const previousTempRoots = [...getSessionTempRoots(previousSession)];
+    const navigation = await captureSessionNavigation(previousSession);
+    if (session !== previousSession) {
+        return;
+    }
+    refreshInProgress = true;
+    refreshFailure = null;
+    postRefreshState();
+
+    try {
+        const replacementSession = buildSessionFromSource(source);
+        if (session !== previousSession) {
+            cleanupGitDiffTempRoots(getSessionTempRoots(replacementSession));
+            return;
+        }
+        session = replacementSession;
+        historyIncludeStagedPreference = Boolean(source.includeStaged ?? historyIncludeStagedPreference);
+        historySkipUnchangedPreference = Boolean(source.skipUnchanged ?? historySkipUnchangedPreference);
+        clearWatchers();
+        updateWatchers();
+        await sendCurrentSession();
+        if (session !== replacementSession) {
+            cleanupGitDiffTempRoots(getSessionTempRoots(replacementSession));
+            return;
+        }
+        await restoreSessionNavigation(navigation);
+        const retainedRoots = new Set(getSessionTempRoots(session));
+        cleanupGitDiffTempRoots(previousTempRoots.filter((root) => !retainedRoots.has(root)));
+    } catch (error) {
+        if (session !== previousSession) {
+            const replacementRoots = getSessionTempRoots(session);
+            session = previousSession;
+            cleanupGitDiffTempRoots(replacementRoots);
+            clearWatchers();
+            updateWatchers();
+            await sendCurrentSession();
+        }
+        if (options.reason === 'automatic') {
+            sourceStale = true;
+            refreshFailure = null;
+        } else {
+            refreshFailure = getErrorMessage(error);
+            await showError(`Could not refresh session: ${refreshFailure}`);
+        }
+    } finally {
+        refreshInProgress = false;
+        postRefreshState();
+    }
+}
+
 function postOrQueue(message) {
     installApplicationMenu();
+    if (message && typeof message === 'object' && typeof message.type === 'string' && message.type.startsWith('show')) {
+        if (!refreshInProgress) {
+            refreshFailure = null;
+        }
+        message.refreshState = getRefreshState();
+    }
     if (captureMode
         && message
         && typeof message === 'object'
@@ -4019,6 +4660,7 @@ function hasUnsavedChanges() {
 function createEmptySession() {
     return {
         mode: 'empty',
+        source: { kind: 'blank' },
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,

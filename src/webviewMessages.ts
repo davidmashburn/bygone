@@ -236,6 +236,10 @@ export interface MultiSavePanelMessage {
     panelId?: string;
 }
 
+export interface RefreshSessionMessage {
+    type: 'refreshSession';
+}
+
 export type WebviewInboundMessage =
     | ReadyMessage
     | RecomputeDiffMessage
@@ -251,7 +255,8 @@ export type WebviewInboundMessage =
     | MultiAddPanelMessage
     | MultiRemovePanelMessage
     | MultiUpdatePanelContentMessage
-    | MultiSavePanelMessage;
+    | MultiSavePanelMessage
+    | RefreshSessionMessage;
 export type WebviewOutboundMessage = ShowDiffMessage | ShowBinaryDiffMessage | ShowDirectoryDiffMessage | ShowMultiDiffMessage | ShowThreeWayMergeMessage;
 
 export function isReadyMessage(message: unknown): message is ReadyMessage {

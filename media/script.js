@@ -70,6 +70,8 @@ let activePaneSide = 'right';
 let activeDirectoryEntryPath = null;
 let currentTwoWayComparisonKey = null;
 let suppressDirectoryScrollSync = false;
+let refreshSessionState = { enabled: false, status: 'disabled', message: null };
+let pendingNavigationRestore = null;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -89,6 +91,7 @@ const connectorController = window.BygoneConnectors.createConnectorController({
 function notifyRenderComplete() {
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
+            applyPendingNavigationRestore();
             host.postMessage({
                 type: 'renderComplete',
                 mode: currentMode
@@ -99,6 +102,32 @@ function notifyRenderComplete() {
 
 host.onMessage((message) => {
     if (!message || typeof message !== 'object') {
+        return;
+    }
+
+    if (message.refreshState) {
+        updateRefreshSessionState(message.refreshState);
+    }
+
+    if (message.type === 'refreshState') {
+        return;
+    }
+
+    if (message.type === 'captureNavigationState' && Number.isInteger(message.requestId)) {
+        host.postMessage({
+            type: 'navigationState',
+            requestId: message.requestId,
+            navigation: captureNavigationState()
+        });
+        return;
+    }
+
+    if (message.type === 'restoreNavigationState') {
+        pendingNavigationRestore = {
+            navigation: message.navigation || null,
+            panelIdMap: message.panelIdMap || {}
+        };
+        applyPendingNavigationRestore();
         return;
     }
 
@@ -1710,9 +1739,22 @@ function initializeChangeToolbar() {
     getElement('next-change').addEventListener('click', () => navigateDiff(1));
     getElement('copy-left-to-right').addEventListener('click', () => copyCurrentChange('left-to-right'));
     getElement('copy-right-to-left').addEventListener('click', () => copyCurrentChange('right-to-left'));
+    getElement('refresh-session').addEventListener('click', requestSessionRefresh);
 
     window.addEventListener('keydown', (event) => {
-        if (event.defaultPrevented || (currentMode !== MODE_TWO_WAY && currentMode !== MODE_MULTI_WAY)) {
+        if (event.defaultPrevented) {
+            return;
+        }
+
+        if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'r') {
+            event.preventDefault();
+            if (refreshSessionState.enabled && refreshSessionState.status !== 'refreshing') {
+                requestSessionRefresh();
+            }
+            return;
+        }
+
+        if (currentMode !== MODE_TWO_WAY && currentMode !== MODE_MULTI_WAY) {
             return;
         }
 
@@ -1754,6 +1796,169 @@ function initializeChangeToolbar() {
             copyCurrentChange('right-to-left');
         }
     });
+}
+
+function requestSessionRefresh() {
+    if (!refreshSessionState.enabled || refreshSessionState.status === 'refreshing') {
+        return;
+    }
+    host.postMessage({ type: 'refreshSession' });
+}
+
+function updateRefreshSessionState(nextState) {
+    refreshSessionState = {
+        enabled: Boolean(nextState?.enabled),
+        status: typeof nextState?.status === 'string' ? nextState.status : 'disabled',
+        message: typeof nextState?.message === 'string' ? nextState.message : null
+    };
+    const button = getElement('refresh-session');
+    if (!button) {
+        return;
+    }
+    const refreshing = refreshSessionState.status === 'refreshing';
+    const failed = refreshSessionState.status === 'failed';
+    const stale = refreshSessionState.status === 'stale';
+    button.disabled = !refreshSessionState.enabled || refreshing;
+    button.classList.toggle('is-refreshing', refreshing);
+    button.classList.toggle('is-failed', failed);
+    button.classList.toggle('is-stale', stale);
+    button.setAttribute('aria-busy', refreshing ? 'true' : 'false');
+    const label = refreshing
+        ? 'Refreshing Session'
+        : (failed
+            ? `Refresh failed${refreshSessionState.message ? `: ${refreshSessionState.message}` : ''}`
+            : (stale ? 'Changes available' : 'Refresh Session'));
+    button.title = `${label} (Cmd/Ctrl+R)`;
+    button.setAttribute('aria-label', label);
+    updateChangeToolbarState();
+}
+
+function captureEditorNavigation(editor) {
+    if (!editor) {
+        return null;
+    }
+    const selection = editor.getSelection();
+    return {
+        selection: selection ? {
+            startLineNumber: selection.startLineNumber,
+            startColumn: selection.startColumn,
+            endLineNumber: selection.endLineNumber,
+            endColumn: selection.endColumn
+        } : null,
+        scrollTop: editor.getScrollTop(),
+        scrollLeft: editor.getScrollLeft()
+    };
+}
+
+function captureActiveChangeAnchor() {
+    const block = diffBlocks[activeDiffIndex];
+    if (!block) {
+        return null;
+    }
+    return {
+        leftStart: block.leftStart,
+        leftEnd: block.leftEnd,
+        rightStart: block.rightStart,
+        rightEnd: block.rightEnd
+    };
+}
+
+function captureNavigationState() {
+    const editorStates = {};
+    if (currentMode === MODE_TWO_WAY) {
+        editorStates.left = captureEditorNavigation(leftEditor);
+        editorStates.right = captureEditorNavigation(rightEditor);
+    } else if (currentMode === MODE_MULTI_WAY) {
+        multiPanels.forEach((panel, index) => {
+            editorStates[panel.id] = captureEditorNavigation(multiEditors[index]);
+        });
+    }
+    return {
+        mode: currentMode,
+        activePaneSide,
+        activeMultiPanelId,
+        activeMultiPairIndex,
+        activeDiffIndex,
+        activeChange: captureActiveChangeAnchor(),
+        activeDirectoryEntryPath,
+        editorStates
+    };
+}
+
+function restoreEditorNavigation(editor, state) {
+    if (!editor || !state) {
+        return;
+    }
+    if (state.selection) {
+        editor.setSelection(state.selection);
+    }
+    editor.setScrollPosition({
+        scrollTop: Number.isFinite(state.scrollTop) ? state.scrollTop : 0,
+        scrollLeft: Number.isFinite(state.scrollLeft) ? state.scrollLeft : 0
+    });
+}
+
+function findRestoredChangeIndex(anchor, fallbackIndex) {
+    if (!anchor || diffBlocks.length === 0) {
+        return clamp(fallbackIndex ?? 0, 0, Math.max(0, diffBlocks.length - 1));
+    }
+    const exactIndex = diffBlocks.findIndex((block) => (
+        block.leftStart === anchor.leftStart
+        && block.leftEnd === anchor.leftEnd
+        && block.rightStart === anchor.rightStart
+        && block.rightEnd === anchor.rightEnd
+    ));
+    if (exactIndex >= 0) {
+        return exactIndex;
+    }
+    let nearestIndex = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    diffBlocks.forEach((block, index) => {
+        const distance = Math.abs(block.leftStart - anchor.leftStart)
+            + Math.abs(block.rightStart - anchor.rightStart);
+        if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestIndex = index;
+        }
+    });
+    return nearestIndex;
+}
+
+function applyPendingNavigationRestore() {
+    if (!pendingNavigationRestore?.navigation) {
+        return;
+    }
+    const { navigation, panelIdMap } = pendingNavigationRestore;
+    pendingNavigationRestore = null;
+    suppressEditorEvents = true;
+    try {
+        if (currentMode === MODE_TWO_WAY) {
+            if (navigation.activePaneSide === 'left' || navigation.activePaneSide === 'right') {
+                setActivePane(navigation.activePaneSide, false);
+            }
+            restoreEditorNavigation(leftEditor, navigation.editorStates?.left);
+            restoreEditorNavigation(rightEditor, navigation.editorStates?.right);
+        } else if (currentMode === MODE_MULTI_WAY) {
+            const restoredActivePanelId = panelIdMap[navigation.activeMultiPanelId] || navigation.activeMultiPanelId;
+            if (multiPanels.some((panel) => panel.id === restoredActivePanelId)) {
+                setActiveMultiPanel(restoredActivePanelId, false);
+            }
+            multiPanels.forEach((panel, index) => {
+                const previousPanelId = Object.keys(panelIdMap).find((candidate) => panelIdMap[candidate] === panel.id) || panel.id;
+                restoreEditorNavigation(multiEditors[index], navigation.editorStates?.[previousPanelId]);
+            });
+        } else if (currentMode === 'directory' && navigation.activeDirectoryEntryPath) {
+            activeDirectoryEntryPath = navigation.activeDirectoryEntryPath;
+            updateDirectoryEntrySelection();
+        }
+
+        if ((currentMode === MODE_TWO_WAY || currentMode === MODE_MULTI_WAY) && diffBlocks.length > 0) {
+            setActiveDiffIndex(findRestoredChangeIndex(navigation.activeChange, navigation.activeDiffIndex), false);
+        }
+    } finally {
+        suppressEditorEvents = false;
+        connectorController.scheduleDrawConnections();
+    }
 }
 
 function navigateFile(direction) {
@@ -2069,7 +2274,7 @@ function updateChangeToolbarState() {
     }
 
     if (hasBinaryMode) {
-        toolbar.hidden = !hasDirectoryNavigation;
+        toolbar.hidden = !hasDirectoryNavigation && !refreshSessionState.enabled;
         toolbarCenter.hidden = true;
         if (toolbarHint) {
             toolbarHint.hidden = true;
@@ -2079,8 +2284,8 @@ function updateChangeToolbarState() {
         getElement('copy-right-to-left').hidden = true;
         getElement('previous-change').disabled = true;
         getElement('next-change').disabled = true;
-        getElement('previous-file').hidden = false;
-        getElement('next-file').hidden = false;
+        getElement('previous-file').hidden = !hasDirectoryNavigation;
+        getElement('next-file').hidden = !hasDirectoryNavigation;
         getElement('previous-file').disabled = !currentFileNavigation.canGoPrevious;
         getElement('next-file').disabled = !currentFileNavigation.canGoNext;
         return;

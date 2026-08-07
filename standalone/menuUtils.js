@@ -1,4 +1,6 @@
-/* global module */
+/* global module, require */
+
+const { isRefreshableSource } = require('./sessionSource.js');
 
 function getMenuCapabilities(session) {
     const isMultiDiff = session?.mode === 'multi-diff';
@@ -8,6 +10,7 @@ function getMenuCapabilities(session) {
         isMultiDiff,
         isTwoWayDiff,
         isHistory,
+        canRefreshSession: isRefreshableSource(session?.source),
         canReturnToDirectory: Boolean(session?.returnDirectory || session?.dirHistory?.viewRelativePath),
         canAddPanel: session?.mode === 'history' || (isMultiDiff && Boolean(session?.multi?.activePanelId)),
         canRemovePanel: isMultiDiff && (session?.multi?.files?.length || 0) > 1

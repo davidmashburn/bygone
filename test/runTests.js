@@ -23,6 +23,16 @@ const {
 } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
 const { getCliArgsFromArgv, getForwardedLaunchArgs } = require('../standalone/launchArgs.js');
+const {
+    createBranchReviewSource,
+    createDirectoriesSource,
+    createDirectoryHistorySource,
+    createFileHistorySource,
+    createFilesSource,
+    createGitRefsSource,
+    isRefreshableSource,
+    sessionSourcesEqual
+} = require('../standalone/sessionSource.js');
 const { CLI_SPEC, renderCliHelp } = require('../cli/commandSpec.js');
 const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const { buildChangeTourContext, buildChangeTourManifest, parseChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
@@ -586,18 +596,77 @@ function testMenuCapabilitiesFollowSessionMode() {
         isMultiDiff: false,
         isTwoWayDiff: false,
         isHistory: false,
+        canRefreshSession: false,
         canReturnToDirectory: false,
         canAddPanel: false,
         canRemovePanel: false
     });
     const multi = getMenuCapabilities({
         mode: 'multi-diff',
+        source: createFilesSource(['/tmp/left', '/tmp/right']),
         multi: { activePanelId: 'middle', files: [{}, {}, {}] },
         returnDirectory: { relativePath: 'a.txt' }
     });
     assert.equal(multi.canAddPanel, true);
     assert.equal(multi.canRemovePanel, true);
     assert.equal(multi.canReturnToDirectory, true);
+    assert.equal(multi.canRefreshSession, true);
+}
+
+function testSessionSourcesRetainRefreshIntent() {
+    const files = createFilesSource(['relative-left.txt', 'relative-right.txt']);
+    assert.deepEqual(files.paths, [
+        path.resolve('relative-left.txt'),
+        path.resolve('relative-right.txt')
+    ]);
+    assert.equal(isRefreshableSource(files), true);
+    assert.equal(isRefreshableSource({ kind: 'blank' }), false);
+    assert.equal(sessionSourcesEqual(files, createFilesSource(['relative-left.txt', 'relative-right.txt'])), true);
+    assert.equal(sessionSourcesEqual(files, createFilesSource(['relative-right.txt', 'relative-left.txt'])), false);
+
+    assert.deepEqual(createDirectoriesSource(['/tmp/left', '/tmp/right'], ['Old', 'New']).labels, ['Old', 'New']);
+    assert.deepEqual(createFileHistorySource('/tmp/file.txt', true, false), {
+        kind: 'file-history',
+        path: '/tmp/file.txt',
+        includeStaged: true,
+        skipUnchanged: false
+    });
+    assert.deepEqual(createDirectoryHistorySource('/tmp/project', false, true), {
+        kind: 'directory-history',
+        path: '/tmp/project',
+        includeStaged: false,
+        skipUnchanged: true
+    });
+    assert.deepEqual(createGitRefsSource('/tmp/repo', ['main', 'INDEX', 'WORKTREE']), {
+        kind: 'git-refs',
+        repoRoot: '/tmp/repo',
+        refs: ['main', 'INDEX', 'WORKTREE']
+    });
+    assert.deepEqual(createBranchReviewSource('/tmp/repo', 'feature', 'main'), {
+        kind: 'branch-review',
+        repoRoot: '/tmp/repo',
+        headRef: 'feature',
+        baseRef: 'main'
+    });
+}
+
+function testRefreshSessionUsesSemanticRendererAndMenuCommands() {
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const standaloneMarkup = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'index.html'), 'utf8');
+
+    assert.match(standaloneSource, /label: 'Refresh Session'[\s\S]{0,120}accelerator: 'CmdOrCtrl\+R'/);
+    assert.match(standaloneSource, /async function refreshSession\(options = \{\}\)/);
+    assert.match(standaloneSource, /buildSessionFromSource\(source\)/);
+    assert.match(standaloneSource, /computeSourceFingerprint\(session\.source\)/);
+    assert.match(standaloneSource, /options\.reason === 'automatic'/);
+    assert.doesNotMatch(standaloneSource, /\{ role: 'reload' \}/);
+    assert.match(rendererSource, /host\.postMessage\(\{ type: 'refreshSession' \}\)/);
+    assert.match(rendererSource, /message\.type === 'refreshState'/);
+    assert.match(rendererSource, /message\.type === 'captureNavigationState'/);
+    assert.match(rendererSource, /message\.type === 'restoreNavigationState'/);
+    assert.match(rendererSource, /Changes available/);
+    assert.match(standaloneMarkup, /id="refresh-session"[^>]+title="Refresh Session \(Cmd\/Ctrl\+R\)"/);
 }
 
 function testTwoWayDiffAlignsInsertions() {
@@ -1204,6 +1273,8 @@ function run() {
     testBinaryComparisonBuildsImagePreviewsAndEquality();
     testBinaryComparisonDetectsGenericBinaryWithoutPreview();
     testMenuCapabilitiesFollowSessionMode();
+    testSessionSourcesRetainRefreshIntent();
+    testRefreshSessionUsesSemanticRendererAndMenuCommands();
     testTwoWayDiffAlignsInsertions();
     testInlineHighlightsSingleWordReplacement();
     testInlineHighlightsPunctuationChange();

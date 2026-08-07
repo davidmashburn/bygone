@@ -455,6 +455,12 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                         </svg>
                     </button>
                     </div>
+                    <button id="refresh-session" class="change-button refresh-session-button icon-button" type="button" title="Refresh Session (Cmd/Ctrl+R)" aria-label="Refresh Session" disabled>
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M20 11a8 8 0 1 0-2.3 5.7"></path>
+                            <path d="M20 5v6h-6"></path>
+                        </svg>
+                    </button>
                 </div>
                 <div class="change-hint">Cmd/Ctrl+Alt+Up/Down to jump.</div>
             </div>
