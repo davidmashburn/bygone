@@ -44,15 +44,14 @@ if (shouldPublish) {
 } else {
     console.log('');
     console.log(`Built Bygone ${version} artifacts without publishing.`);
-    console.log('Pass --publish to publish npm, VS Code Marketplace, GitHub desktop artifacts, and a Homebrew tap update.');
+    console.log('Pass --publish to publish npm, GitHub desktop artifacts, and a Homebrew tap update.');
+    console.log('Publish the VS Code extension with the trusted GitHub Actions workflow.');
 }
 
 async function publishArtifacts() {
-    const vsixPath = path.join(repoRoot, `bygone-${version}.vsix`);
     const npmPackagePath = path.join(repoRoot, 'dist', 'npm-package');
     const desktopArtifacts = await findDesktopArtifacts();
 
-    requireFile(vsixPath, 'VSIX package');
     requireFile(path.join(npmPackagePath, 'package.json'), 'staged npm package');
 
     if (!(await isPublishedNpmVersion(npmPackagePath))) {
@@ -61,7 +60,6 @@ async function publishArtifacts() {
         console.log(`\n$ npm publish ${npmPackagePath} --access public`);
         console.log(`npm ${version} is already published, skipping npm publish and continuing with the remaining release steps.`);
     }
-    await run('npx', ['vsce', 'publish', '--packagePath', vsixPath]);
     await run('gh', [
         'release',
         'create',
@@ -87,10 +85,6 @@ async function isPublishedNpmVersion(packagePath) {
 async function preflightPublish() {
     if (skipDmg) {
         throw new Error('Publishing requires a DMG because the Homebrew cask hash is computed from it. Remove --skip-dmg before publishing.');
-    }
-
-    if (!process.env.VSCE_PAT) {
-        throw new Error('Set VSCE_PAT before publishing the VS Code extension.');
     }
 
     const tapRoot = process.env.BYGONE_HOMEBREW_TAP;

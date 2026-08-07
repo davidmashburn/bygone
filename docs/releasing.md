@@ -22,12 +22,15 @@ npm run release:build
 Publish everything:
 
 ```bash
-export VSCE_PAT=...
 export BYGONE_HOMEBREW_TAP=/path/to/homebrew-tap
 npm whoami
 gh auth status
 npm run release:publish
+gh workflow run publish-vscode.yml -f release_ref=v<version> -f version=<version>
 ```
+
+The VS Code workflow uses GitHub OIDC trusted publishing. It does not use a
+Marketplace PAT or repository secret.
 
 ## What Exists Today
 
@@ -42,9 +45,12 @@ The main scripts are:
   - runs the full local artifact build without publishing
 - `npm run release:publish`
   - publishes npm
-  - publishes the VS Code extension
   - creates a GitHub release with desktop artifacts
   - updates and pushes the Homebrew tap
+- `.github/workflows/publish-vscode.yml`
+  - packages an explicitly selected release commit or tag
+  - verifies its version before publishing
+  - publishes the VS Code extension through a short-lived GitHub OIDC credential
 
 Related packaging commands:
 
@@ -98,31 +104,33 @@ gh auth status
 
 This is required for publishing the VS Code extension.
 
-This is a little different from npm and GitHub:
-
-- you need a Microsoft account to use the Marketplace publisher/admin side
-- you need a Visual Studio Marketplace publisher
-- you need an Azure DevOps Personal Access Token for `vsce`
+This is a little different from npm and GitHub. The repository uses trusted
+publishing rather than a long-lived Personal Access Token. You need access to
+the Visual Studio Marketplace publisher to configure the one-time trust policy,
+but routine releases run entirely through GitHub Actions.
 
 Publisher/admin surface:
 
 - Marketplace management: [Visual Studio Marketplace manage](https://marketplace.visualstudio.com/manage)
-
-Token/admin surface:
-
-- Azure DevOps PATs: [Azure DevOps personal access tokens](https://dev.azure.com/)
 
 Current practical setup:
 
 1. Sign in to the Marketplace manage page with your Microsoft account.
 2. Create or confirm the publisher that matches `package.json`:
    - current publisher: `davidmashburn`
-3. In Azure DevOps, create a PAT with Marketplace management/publish permissions.
-4. Export it before publishing:
+3. Configure a GitHub trusted-publishing policy for:
+   - owner: `davidmashburn`
+   - repository: `bygone`
+   - workflow: `publish-vscode.yml`
+4. Do not create a `VSCE_PAT` secret. The workflow requests a short-lived token
+   with `id-token: write` and the Marketplace exchanges it only when the policy
+   matches.
 
-```bash
-export VSCE_PAT=...
-```
+OIDC support is merged into `microsoft/vscode-vsce` but is not present in its
+latest npm release, 3.9.2. The workflow therefore checks out and builds the
+exact reviewed merge commit `c998e2a8604ba07d2b6a364d1742c1bc38e7d8ff`.
+Replace that source-build step with the first stable `@vscode/vsce` release
+that contains `publish --oidc`.
 
 ### 4. Homebrew tap repo access
 
@@ -164,19 +172,17 @@ gh auth status
 
 This is required because `release:publish` uses `gh release create`.
 
-### 3. VS Code Marketplace authentication
+### 3. VS Code Marketplace trusted publishing
 
-Set a Personal Access Token for `vsce`:
-
-```bash
-export VSCE_PAT=...
-```
-
-The publish script uses:
+Confirm the Marketplace policy described above exists. The workflow publishes
+with:
 
 ```bash
-npx vsce publish --packagePath bygone-<version>.vsix
+vsce publish --oidc --packagePath bygone-<version>.vsix
 ```
+
+This command is valid only inside the authorized GitHub Actions workflow; local
+shells do not receive GitHub's OIDC token.
 
 ### 4. Homebrew tap checkout
 
@@ -256,9 +262,20 @@ npm run release:publish
 This runs the full publish path:
 
 1. `npm publish dist/npm-package --access public`
-2. `npx vsce publish --packagePath bygone-<version>.vsix`
-3. `gh release create v<version> ... --notes-file CHANGELOG.md`
-4. update, commit, and push the Homebrew tap
+2. `gh release create v<version> ... --notes-file CHANGELOG.md`
+3. update, commit, and push the Homebrew tap
+
+Publish the VS Code extension separately after the release commit or tag is on
+GitHub:
+
+```bash
+gh workflow run publish-vscode.yml \
+  -f release_ref=v<version> \
+  -f version=<version>
+```
+
+The workflow checks that `package.json` exactly matches the requested version
+before it packages or publishes anything.
 
 ## Homebrew Notes
 
@@ -294,8 +311,17 @@ Check:
 
 - `npm whoami`
 - `gh auth status`
-- `echo $VSCE_PAT`
 - `echo $BYGONE_HOMEBREW_TAP`
+
+### VS Code trusted publishing fails
+
+Check:
+
+- the Marketplace policy names `davidmashburn/bygone`
+- the policy names `.github/workflows/publish-vscode.yml`
+- the workflow has `id-token: write`
+- `release_ref` contains exactly the requested `package.json` version
+- the pinned `vscode-vsce` commit still builds successfully
 
 ### DMG build fails on macOS
 
@@ -331,7 +357,7 @@ If we add one later, it should check:
 
 - npm auth
 - GitHub auth
-- `VSCE_PAT`
+- the Marketplace trusted-publishing policy
 - `BYGONE_HOMEBREW_TAP`
 - presence of required build tools
 - expected artifacts after `release:build`
