@@ -23,3 +23,7 @@ A practical outline is:
 
 Keep plans focused and link back to related material in `ideas/` when the plan
 grew out of an earlier concept.
+
+## Current plans
+
+- [In-document find behavior](find-behavior.md)
