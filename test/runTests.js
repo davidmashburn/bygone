@@ -23,6 +23,12 @@ const {
 } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
 const { dispatchFindCommand, resolveFindTarget, runFindCommand } = require('../media/findController.js');
+const {
+    WORD_WRAP_STORAGE_KEY,
+    applyWordWrap,
+    readWordWrapPreference,
+    writeWordWrapPreference
+} = require('../media/wrapController.js');
 const { getCliArgsFromArgv, getForwardedLaunchArgs } = require('../standalone/launchArgs.js');
 const {
     createBranchReviewSource,
@@ -674,6 +680,40 @@ function testFindCommandsUseRendererRatherThanPageSearch() {
     assert.doesNotMatch(standaloneSource, /findInPage/);
     assert.match(rendererSource, /message\.type === 'find'/);
     assert.match(rendererSource, /runActiveEditorFindCommand\(message\.command\)/);
+}
+
+function testWordWrapControllerPersistsAndAppliesPreference() {
+    const values = new Map();
+    const storage = {
+        getItem: (key) => values.get(key) ?? null,
+        setItem: (key, value) => values.set(key, value)
+    };
+    assert.equal(readWordWrapPreference(storage), false);
+    assert.equal(writeWordWrapPreference(storage, true), true);
+    assert.equal(values.get(WORD_WRAP_STORAGE_KEY), 'true');
+    assert.equal(readWordWrapPreference(storage), true);
+
+    const options = [];
+    assert.equal(applyWordWrap([
+        { updateOptions: (value) => options.push(value) },
+        null,
+        { updateOptions: (value) => options.push(value) }
+    ], true), 2);
+    assert.deepEqual(options, [{ wordWrap: 'on' }, { wordWrap: 'on' }]);
+    assert.equal(applyWordWrap([{ updateOptions: () => { throw new Error('disposed'); } }], false), 0);
+    assert.equal(readWordWrapPreference({ getItem: () => { throw new Error('blocked'); } }), false);
+}
+
+function testWordWrapUsesSharedRendererAndStandaloneMenu() {
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const standaloneMarkup = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'index.html'), 'utf8');
+
+    assert.match(standaloneSource, /label: 'Wrap Long Lines'[\s\S]{0,120}accelerator: 'Alt\+Z'/);
+    assert.match(standaloneSource, /postToRenderer\(\{ type: 'toggleWordWrap' \}\)/);
+    assert.match(rendererSource, /wordWrap: wordWrapEnabled \? 'on' : 'off'/);
+    assert.match(rendererSource, /KeyMod\.Alt \| monacoInstance\.KeyCode\.KeyZ/);
+    assert.match(standaloneMarkup, /id="toggle-word-wrap"[^>]+aria-pressed="false"/);
 }
 
 function testSessionSourcesRetainRefreshIntent() {
@@ -1338,6 +1378,8 @@ function run() {
     testMenuCapabilitiesFollowSessionMode();
     testFindControllerTargetsOneActiveEditor();
     testFindCommandsUseRendererRatherThanPageSearch();
+    testWordWrapControllerPersistsAndAppliesPreference();
+    testWordWrapUsesSharedRendererAndStandaloneMenu();
     testSessionSourcesRetainRefreshIntent();
     testRefreshSessionUsesSemanticRendererAndMenuCommands();
     testTwoWayDiffAlignsInsertions();

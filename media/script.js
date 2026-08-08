@@ -2,6 +2,7 @@ import { buildTwoWayDiffModel } from '../src/diffEngine';
 import { dedupeDecorations } from './decorationUtils';
 import { buildBlockChanges, findChangeIndexAtLine, resolveFileNavigationAction } from './navigationUtils';
 import { dispatchFindCommand, runFindCommand } from './findController';
+import { applyWordWrap, readWordWrapPreference, writeWordWrapPreference } from './wrapController';
 
 const host = createHostBridge();
 const {
@@ -73,6 +74,8 @@ let currentTwoWayComparisonKey = null;
 let suppressDirectoryScrollSync = false;
 let refreshSessionState = { enabled: false, status: 'disabled', message: null };
 let pendingNavigationRestore = null;
+let wordWrapEnabled = readWordWrapPreference(window.localStorage);
+let lastPostedWordWrapState = null;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -134,6 +137,11 @@ host.onMessage((message) => {
 
     if (message.type === 'find' && ['open', 'next', 'previous'].includes(message.command)) {
         runActiveEditorFindCommand(message.command);
+        return;
+    }
+
+    if (message.type === 'toggleWordWrap') {
+        toggleWordWrap();
         return;
     }
 
@@ -208,6 +216,7 @@ window.addEventListener('load', async () => {
     initializeStandaloneDropTarget();
     initializeDiffWorker();
     await initializeMonaco();
+    postWordWrapState();
     host.postMessage({ type: 'ready' });
 
     if (pendingTwoWayPayload) {
@@ -667,7 +676,7 @@ function createEditor(container, editorMode, side = null) {
         lineNumbersMinChars: 3,
         lineDecorationsWidth: 8,
         scrollBeyondLastLine: false,
-        wordWrap: 'off',
+        wordWrap: wordWrapEnabled ? 'on' : 'off',
         renderWhitespace: 'selection',
         overviewRulerLanes: 0,
         scrollbar: {
@@ -1746,6 +1755,7 @@ function initializeChangeToolbar() {
     getElement('copy-left-to-right').addEventListener('click', () => copyCurrentChange('left-to-right'));
     getElement('copy-right-to-left').addEventListener('click', () => copyCurrentChange('right-to-left'));
     getElement('refresh-session').addEventListener('click', requestSessionRefresh);
+    getElement('toggle-word-wrap').addEventListener('click', toggleWordWrap);
 
     window.addEventListener('keydown', (event) => {
         if (event.defaultPrevented) {
@@ -1767,6 +1777,12 @@ function initializeChangeToolbar() {
         if (!findWidgetOwnsEvent && event.key === 'F3') {
             event.preventDefault();
             runActiveEditorFindCommand(event.shiftKey ? 'previous' : 'next');
+            return;
+        }
+
+        if (!event.metaKey && !event.ctrlKey && event.altKey && !event.shiftKey && event.key.toLowerCase() === 'z') {
+            event.preventDefault();
+            toggleWordWrap();
             return;
         }
 
@@ -1820,6 +1836,72 @@ function initializeChangeToolbar() {
             copyCurrentChange('right-to-left');
         }
     });
+}
+
+function getTextEditors() {
+    if (currentMode === MODE_TWO_WAY) {
+        return [leftEditor, rightEditor].filter(Boolean);
+    }
+    if (currentMode === MODE_MULTI_WAY) {
+        return multiEditors.filter(Boolean);
+    }
+    return [];
+}
+
+function hasWordWrapTarget() {
+    if (currentMode === MODE_TWO_WAY) {
+        return Boolean(leftEditor || rightEditor);
+    }
+    return currentMode === MODE_MULTI_WAY
+        && multiPanels.some((panel) => panel.path || panel.content);
+}
+
+function updateWordWrapControl() {
+    const button = getElement('toggle-word-wrap');
+    if (!button) {
+        return;
+    }
+    const available = hasWordWrapTarget();
+    button.hidden = !available;
+    button.disabled = !available;
+    button.classList.toggle('is-active', wordWrapEnabled);
+    button.setAttribute('aria-pressed', wordWrapEnabled ? 'true' : 'false');
+    button.title = `${wordWrapEnabled ? 'Disable' : 'Enable'} line wrapping (Alt+Z)`;
+    button.setAttribute('aria-label', wordWrapEnabled ? 'Disable line wrapping' : 'Enable line wrapping');
+}
+
+function postWordWrapState() {
+    const available = hasWordWrapTarget();
+    const stateKey = `${wordWrapEnabled}:${available}`;
+    if (stateKey === lastPostedWordWrapState) {
+        return;
+    }
+    lastPostedWordWrapState = stateKey;
+    host.postMessage({ type: 'wordWrapState', enabled: wordWrapEnabled, available });
+}
+
+function setWordWrapEnabled(enabled) {
+    wordWrapEnabled = Boolean(enabled);
+    writeWordWrapPreference(window.localStorage, wordWrapEnabled);
+    applyWordWrap(getTextEditors(), wordWrapEnabled);
+    updateWordWrapControl();
+    postWordWrapState();
+    requestAnimationFrame(() => {
+        layoutEditors();
+        if (activeDiffIndex >= 0) {
+            revealActiveDiff(false);
+        }
+        connectorController.resizeCanvas();
+        connectorController.scheduleDrawConnections();
+    });
+}
+
+function toggleWordWrap() {
+    if (!hasWordWrapTarget()) {
+        return false;
+    }
+    setWordWrapEnabled(!wordWrapEnabled);
+    return true;
 }
 
 function requestSessionRefresh() {
@@ -2055,6 +2137,7 @@ function registerEditorKeybindings(editor, editorMode) {
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyF, () => dispatchFindCommand(editor, 'open'));
     editor.addCommand(monacoInstance.KeyCode.F3, () => dispatchFindCommand(editor, 'next'));
     editor.addCommand(monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.F3, () => dispatchFindCommand(editor, 'previous'));
+    editor.addCommand(monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.KeyZ, toggleWordWrap);
 
     if (editorMode === MODE_MULTI_WAY) {
         editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS, () => {
@@ -2257,6 +2340,8 @@ function setActiveDiffIndex(index, shouldReveal) {
 
 function updateChangeToolbarState() {
     const toolbar = getElement('change-toolbar');
+    updateWordWrapControl();
+    postWordWrapState();
     const toolbarCenter = toolbar.querySelector('.change-toolbar-center');
     const toolbarHint = toolbar.parentElement?.querySelector('.change-hint');
     const isCompareMode = currentMode === MODE_TWO_WAY || currentMode === 'binary' || currentMode === 'directory' || currentMode === MODE_MULTI_WAY || currentMode === 'three-way';

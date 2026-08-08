@@ -275,6 +275,11 @@ body.web-host {
     margin-left: auto;
 }
 
+#toggle-word-wrap.is-active {
+    border-color: var(--vscode-focusBorder, #007fd4);
+    background: var(--vscode-button-secondaryHoverBackground, rgba(0, 127, 212, 0.18));
+}
+
 .refresh-session-button.is-refreshing svg {
     animation: bygone-refresh-spin 0.8s linear infinite;
 }

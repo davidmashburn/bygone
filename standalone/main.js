@@ -87,6 +87,8 @@ let sourceMonitorInterval;
 let sourceChangeTimer;
 let sourceFingerprint = null;
 let sourceStale = false;
+let wordWrapEnabled = false;
+let wordWrapAvailable = false;
 
 if (!singleInstanceLock) {
     app.quit();
@@ -593,6 +595,14 @@ function installApplicationMenu() {
                     accelerator: 'CmdOrCtrl+R',
                     enabled: canRefreshSession && !refreshInProgress,
                     click: () => { void refreshSession(); }
+                },
+                {
+                    label: 'Wrap Long Lines',
+                    accelerator: 'Alt+Z',
+                    type: 'checkbox',
+                    checked: wordWrapEnabled,
+                    enabled: wordWrapAvailable,
+                    click: () => postToRenderer({ type: 'toggleWordWrap' })
                 },
                 {
                     label: 'Back to Directory',
@@ -1139,6 +1149,13 @@ async function handleRendererMessage(message) {
             clearTimeout(pending.timeout);
             pending.resolve(message.navigation || null);
         }
+        return;
+    }
+
+    if (message.type === 'wordWrapState') {
+        wordWrapEnabled = Boolean(message.enabled);
+        wordWrapAvailable = Boolean(message.available);
+        installApplicationMenu();
         return;
     }
 
