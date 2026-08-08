@@ -1,6 +1,7 @@
 import { buildTwoWayDiffModel } from '../src/diffEngine';
 import { dedupeDecorations } from './decorationUtils';
 import { buildBlockChanges, findChangeIndexAtLine, resolveFileNavigationAction } from './navigationUtils';
+import { dispatchFindCommand, runFindCommand } from './findController';
 
 const host = createHostBridge();
 const {
@@ -128,6 +129,11 @@ host.onMessage((message) => {
             panelIdMap: message.panelIdMap || {}
         };
         applyPendingNavigationRestore();
+        return;
+    }
+
+    if (message.type === 'find' && ['open', 'next', 'previous'].includes(message.command)) {
+        runActiveEditorFindCommand(message.command);
         return;
     }
 
@@ -1746,6 +1752,24 @@ function initializeChangeToolbar() {
             return;
         }
 
+        const findWidgetOwnsEvent = event.target instanceof Element
+            && Boolean(event.target.closest('.find-widget'));
+        if (!findWidgetOwnsEvent
+            && (event.metaKey || event.ctrlKey)
+            && !event.altKey
+            && !event.shiftKey
+            && event.key.toLowerCase() === 'f') {
+            event.preventDefault();
+            runActiveEditorFindCommand('open');
+            return;
+        }
+
+        if (!findWidgetOwnsEvent && event.key === 'F3') {
+            event.preventDefault();
+            runActiveEditorFindCommand(event.shiftKey ? 'previous' : 'next');
+            return;
+        }
+
         if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'r') {
             event.preventDefault();
             if (refreshSessionState.enabled && refreshSessionState.status !== 'refreshing') {
@@ -2028,6 +2052,9 @@ function registerEditorKeybindings(editor, editorMode) {
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.DownArrow, () => navigateDiff(1));
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.RightArrow, () => copyCurrentChange('left-to-right'));
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.LeftArrow, () => copyCurrentChange('right-to-left'));
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyF, () => dispatchFindCommand(editor, 'open'));
+    editor.addCommand(monacoInstance.KeyCode.F3, () => dispatchFindCommand(editor, 'next'));
+    editor.addCommand(monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.F3, () => dispatchFindCommand(editor, 'previous'));
 
     if (editorMode === MODE_MULTI_WAY) {
         editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS, () => {
@@ -2037,6 +2064,22 @@ function registerEditorKeybindings(editor, editorMode) {
             });
         });
     }
+}
+
+function getFindControllerState() {
+    return {
+        mode: currentMode,
+        activePaneSide,
+        activeMultiPanelId,
+        leftEditor,
+        rightEditor,
+        multiPanels,
+        multiEditors
+    };
+}
+
+function runActiveEditorFindCommand(command) {
+    return runFindCommand(getFindControllerState(), command);
 }
 
 function navigateDiff(direction) {

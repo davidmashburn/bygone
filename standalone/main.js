@@ -393,6 +393,7 @@ function installApplicationMenu() {
         isMultiDiff,
         isTwoWayDiff,
         isHistory,
+        canFind,
         canReturnToDirectory,
         canAddPanel,
         canRemovePanel,
@@ -545,7 +546,26 @@ function installApplicationMenu() {
                 { role: 'paste' },
                 { role: 'pasteAndMatchStyle' },
                 { role: 'delete' },
-                { role: 'selectAll' }
+                { role: 'selectAll' },
+                { type: 'separator' },
+                {
+                    label: 'Find',
+                    accelerator: 'CmdOrCtrl+F',
+                    enabled: canFind,
+                    click: () => postFindCommand('open')
+                },
+                {
+                    label: 'Find Next',
+                    accelerator: 'F3',
+                    enabled: canFind,
+                    click: () => postFindCommand('next')
+                },
+                {
+                    label: 'Find Previous',
+                    accelerator: 'Shift+F3',
+                    enabled: canFind,
+                    click: () => postFindCommand('previous')
+                }
             ]
         },
         {
@@ -614,6 +634,13 @@ function installApplicationMenu() {
     ];
 
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function postFindCommand(command) {
+    if (!getMenuCapabilities(session).canFind) {
+        return;
+    }
+    postToRenderer({ type: 'find', command });
 }
 
 async function installCommandLineTools() {

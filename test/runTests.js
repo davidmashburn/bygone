@@ -22,6 +22,7 @@ const {
     resolveFileNavigationAction
 } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
+const { dispatchFindCommand, resolveFindTarget, runFindCommand } = require('../media/findController.js');
 const { getCliArgsFromArgv, getForwardedLaunchArgs } = require('../standalone/launchArgs.js');
 const {
     createBranchReviewSource,
@@ -596,6 +597,7 @@ function testMenuCapabilitiesFollowSessionMode() {
         isMultiDiff: false,
         isTwoWayDiff: false,
         isHistory: false,
+        canFind: false,
         canRefreshSession: false,
         canReturnToDirectory: false,
         canAddPanel: false,
@@ -604,13 +606,74 @@ function testMenuCapabilitiesFollowSessionMode() {
     const multi = getMenuCapabilities({
         mode: 'multi-diff',
         source: createFilesSource(['/tmp/left', '/tmp/right']),
-        multi: { activePanelId: 'middle', files: [{}, {}, {}] },
+        multi: {
+            activePanelId: 'middle',
+            files: [{ path: '/tmp/left' }, { path: '/tmp/middle' }, { path: '/tmp/right' }]
+        },
         returnDirectory: { relativePath: 'a.txt' }
     });
     assert.equal(multi.canAddPanel, true);
     assert.equal(multi.canRemovePanel, true);
     assert.equal(multi.canReturnToDirectory, true);
     assert.equal(multi.canRefreshSession, true);
+    assert.equal(multi.canFind, true);
+}
+
+function createFindEditor(name, actionLog, available = true) {
+    return {
+        getModel: () => available ? { name } : null,
+        focus: () => actionLog.push(`${name}:focus`),
+        getAction: (actionId) => ({ run: () => actionLog.push(`${name}:${actionId}`) })
+    };
+}
+
+function testFindControllerTargetsOneActiveEditor() {
+    const actions = [];
+    const left = createFindEditor('left', actions);
+    const right = createFindEditor('right', actions);
+    const middle = createFindEditor('middle', actions);
+
+    assert.equal(resolveFindTarget({
+        mode: 'two-way', activePaneSide: 'left', leftEditor: left, rightEditor: right
+    }), left);
+    assert.equal(resolveFindTarget({
+        mode: 'two-way', activePaneSide: 'right', leftEditor: left, rightEditor: right
+    }), right);
+    assert.equal(resolveFindTarget({
+        mode: 'multi-way',
+        activeMultiPanelId: 'middle',
+        multiPanels: [{ id: 'left' }, { id: 'middle' }],
+        multiEditors: [left, middle]
+    }), middle);
+    assert.equal(resolveFindTarget({ mode: 'directory', leftEditor: left, rightEditor: right }), null);
+    assert.equal(resolveFindTarget({
+        mode: 'two-way',
+        activePaneSide: 'left',
+        leftEditor: createFindEditor('disposed', actions, false),
+        rightEditor: right
+    }), right);
+
+    assert.equal(dispatchFindCommand(left, 'open'), true);
+    assert.deepEqual(actions, ['left:focus', 'left:actions.find']);
+    actions.length = 0;
+    assert.equal(runFindCommand({
+        mode: 'two-way', activePaneSide: 'right', leftEditor: left, rightEditor: right
+    }, 'previous'), true);
+    assert.deepEqual(actions, ['right:focus', 'right:editor.action.previousMatchFindAction']);
+    assert.equal(runFindCommand({ mode: 'binary' }, 'next'), false);
+}
+
+function testFindCommandsUseRendererRatherThanPageSearch() {
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+
+    assert.match(standaloneSource, /label: 'Find'[\s\S]{0,100}accelerator: 'CmdOrCtrl\+F'/);
+    assert.match(standaloneSource, /label: 'Find Next'[\s\S]{0,100}accelerator: 'F3'/);
+    assert.match(standaloneSource, /label: 'Find Previous'[\s\S]{0,100}accelerator: 'Shift\+F3'/);
+    assert.match(standaloneSource, /postToRenderer\(\{ type: 'find', command \}\)/);
+    assert.doesNotMatch(standaloneSource, /findInPage/);
+    assert.match(rendererSource, /message\.type === 'find'/);
+    assert.match(rendererSource, /runActiveEditorFindCommand\(message\.command\)/);
 }
 
 function testSessionSourcesRetainRefreshIntent() {
@@ -1273,6 +1336,8 @@ function run() {
     testBinaryComparisonBuildsImagePreviewsAndEquality();
     testBinaryComparisonDetectsGenericBinaryWithoutPreview();
     testMenuCapabilitiesFollowSessionMode();
+    testFindControllerTargetsOneActiveEditor();
+    testFindCommandsUseRendererRatherThanPageSearch();
     testSessionSourcesRetainRefreshIntent();
     testRefreshSessionUsesSemanticRendererAndMenuCommands();
     testTwoWayDiffAlignsInsertions();
