@@ -63,7 +63,37 @@ export interface ChangeTourSourceStackedScene extends ChangeTourNarrative {
     steps: ChangeTourSourceStackStep[];
 }
 
-export type ChangeTourSourceScene = ChangeTourSourceWalkthroughScene | ChangeTourSourceStackedScene;
+export interface ChangeTourSourceDeconstructedChange {
+    file: string;
+    hunks: string[];
+}
+
+export interface ChangeTourSourceDeconstructedStage {
+    id: string;
+    title: string;
+    narration: string;
+    changes: ChangeTourSourceDeconstructedChange[];
+}
+
+export interface ChangeTourSourceDeconstructedExclusion {
+    file: string;
+    hunks?: string[];
+    reason: string;
+}
+
+export interface ChangeTourSourceDeconstructedScene extends ChangeTourNarrative {
+    id: string;
+    kind: 'deconstructed-diff';
+    title: string;
+    base?: string;
+    target?: string;
+    stages: ChangeTourSourceDeconstructedStage[];
+    exclusions?: ChangeTourSourceDeconstructedExclusion[];
+}
+
+export type ChangeTourSourceScene = ChangeTourSourceWalkthroughScene
+    | ChangeTourSourceStackedScene
+    | ChangeTourSourceDeconstructedScene;
 
 export interface ChangeTourSourceChapter {
     id: string;
@@ -169,19 +199,26 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         chapterIds.add(chapter.id);
         for (const [sceneIndex, scene] of chapter.scenes.entries()) {
             const path = `chapters[${chapterIndex}].scenes[${sceneIndex}]`;
-            if (!isRecord(scene) || !Array.isArray(scene.steps) || scene.steps.length === 0) {
-                throw new Error(`${path} must contain a non-empty steps array.`);
-            }
+            if (!isRecord(scene)) throw new Error(`${path} must be an object.`);
             requireString(scene.id, `${path}.id`);
             requireString(scene.title, `${path}.title`);
             if (sceneIds.has(scene.id)) throw new Error(`Duplicate scene id: ${scene.id}`);
             sceneIds.add(scene.id);
             validateNarrative(scene, path);
+            if (scene.kind === 'deconstructed-diff') {
+                validateDeconstructedScene(scene, path);
+                continue;
+            }
+            if (!Array.isArray(scene.steps) || scene.steps.length === 0) {
+                throw new Error(`${path} must contain a non-empty steps array.`);
+            }
             if (scene.kind === 'stacked-diff') {
                 validateStackedScene(scene, path);
                 continue;
             }
-            if (scene.kind !== undefined && scene.kind !== 'walkthrough') throw new Error(`${path}.kind must be walkthrough or stacked-diff.`);
+            if (scene.kind !== undefined && scene.kind !== 'walkthrough') {
+                throw new Error(`${path}.kind must be walkthrough, stacked-diff, or deconstructed-diff.`);
+            }
             requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'steps'], path);
             const stepIds = new Set<string>();
             for (const [stepIndex, step] of scene.steps.entries()) {
@@ -212,6 +249,53 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         }
     }
     return { ...value, connections: rawConnections } as unknown as ChangeTourSource;
+}
+
+function validateDeconstructedScene(scene: Record<string, unknown>, path: string): void {
+    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'base', 'target', 'stages', 'exclusions'], path);
+    optionalString(scene.base, `${path}.base`);
+    optionalString(scene.target, `${path}.target`);
+    if (!Array.isArray(scene.stages) || scene.stages.length === 0) {
+        throw new Error(`${path}.stages must be a non-empty array.`);
+    }
+    const stageIds = new Set<string>();
+    for (const [stageIndex, stage] of scene.stages.entries()) {
+        const stagePath = `${path}.stages[${stageIndex}]`;
+        if (!isRecord(stage)) throw new Error(`${stagePath} must be an object.`);
+        requireOnlyKeys(stage, ['id', 'title', 'narration', 'changes'], stagePath);
+        requireString(stage.id, `${stagePath}.id`);
+        requireString(stage.title, `${stagePath}.title`);
+        requireString(stage.narration, `${stagePath}.narration`);
+        if (!Array.isArray(stage.changes) || stage.changes.length === 0) {
+            throw new Error(`${stagePath}.changes must be a non-empty array.`);
+        }
+        if (stageIds.has(stage.id)) throw new Error(`Duplicate deconstructed stage id: ${stage.id}`);
+        stageIds.add(stage.id);
+        stage.changes.forEach((change, changeIndex) => validateDeconstructedSelection(
+            change,
+            `${stagePath}.changes[${changeIndex}]`,
+            false
+        ));
+    }
+    if (scene.exclusions !== undefined) {
+        if (!Array.isArray(scene.exclusions)) throw new Error(`${path}.exclusions must be an array.`);
+        scene.exclusions.forEach((exclusion, exclusionIndex) => validateDeconstructedSelection(
+            exclusion,
+            `${path}.exclusions[${exclusionIndex}]`,
+            true
+        ));
+    }
+}
+
+function validateDeconstructedSelection(value: unknown, path: string, requiresReason: boolean): void {
+    if (!isRecord(value)) throw new Error(`${path} must be an object.`);
+    requireOnlyKeys(value, requiresReason ? ['file', 'hunks', 'reason'] : ['file', 'hunks'], path);
+    requireString(value.file, `${path}.file`);
+    if (!requiresReason || value.hunks !== undefined) {
+        requireStringArray(value.hunks, `${path}.hunks`);
+        if (value.hunks.length === 0) throw new Error(`${path}.hunks must not be empty.`);
+    }
+    if (requiresReason) requireString(value.reason, `${path}.reason`);
 }
 
 function validateStackedScene(scene: Record<string, unknown>, path: string): void {

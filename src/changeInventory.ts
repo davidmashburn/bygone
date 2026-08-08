@@ -28,6 +28,8 @@ export interface ChangeInventoryFile {
     additions: number | null;
     deletions: number | null;
     units: ChangeUnit[];
+    baseContent?: string;
+    headContent?: string;
 }
 
 export interface ChangeInventory {
@@ -153,7 +155,9 @@ function buildInventoryFile(
         material: 'text',
         additions: Number.parseInt(added, 10) || 0,
         deletions: Number.parseInt(deleted, 10) || 0,
-        units
+        units,
+        baseContent: baseBlob.toString('utf8'),
+        headContent: headBlob.toString('utf8')
     };
 }
 

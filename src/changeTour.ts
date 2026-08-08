@@ -21,6 +21,13 @@ export { buildChangeTourContext } from './changeTourContext';
 export type { BuildChangeTourContextOptions, ChangeTourContext } from './changeTourContext';
 export { buildChangeInventory, materializeChangeUnits } from './changeInventory';
 export type { BuildChangeInventoryOptions, ChangeInventory, ChangeInventoryFile, ChangeUnit } from './changeInventory';
+export { buildDeconstructedScene, compileDeconstructedScene } from './deconstructedChange';
+export type {
+    BuildDeconstructedSceneOptions,
+    CompiledDeconstructedScene,
+    DeconstructedFileState,
+    DeconstructedStageState
+} from './deconstructedChange';
 
 const DEFAULT_MAX_TOUR_FILE_BYTES = 2 * 1024 * 1024;
 const DEFAULT_MAX_TOUR_LINE_BYTES = 64 * 1024;
@@ -192,6 +199,9 @@ function applySource(
     for (const chapter of source.chapters) {
         const sceneIds: string[] = [];
         for (const authoredScene of chapter.scenes) {
+            if (authoredScene.kind === 'deconstructed-diff') {
+                throw new Error(`Deconstructed scene ${authoredScene.id} is valid source but presenter compilation is not implemented yet.`);
+            }
             if (authoredScene.kind === 'stacked-diff') {
                 const stackedScene = buildStackedScene(repoRoot, authoredScene);
                 scenes.push(stackedScene);

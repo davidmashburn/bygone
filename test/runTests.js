@@ -42,7 +42,15 @@ const {
 } = require('../standalone/sessionSource.js');
 const { CLI_SPEC, renderCliHelp } = require('../cli/commandSpec.js');
 const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
-const { buildChangeTourContext, buildChangeTourManifest, parseChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
+const {
+    buildChangeTourContext,
+    buildChangeTourManifest,
+    buildDeconstructedScene,
+    compileDeconstructedScene,
+    parseChangeTourManifest,
+    parseChangeTourSource,
+    parseChangeTourStory
+} = require('../out/changeTour.js');
 const { buildChangeInventory, materializeChangeUnits, parsePatchUnits } = require('../out/changeInventory.js');
 const { buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { parsePresentArgs } = require('../cli/present.js');
@@ -1575,6 +1583,152 @@ function testChangeUnitsPreserveWhitespaceAndFinalNewlines() {
     assert.equal(materializeChangeUnits('one\ntwo', deletion, [deletion[0].id]), '');
 }
 
+function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
+    const repo = createTempGitRepo();
+    fs.writeFileSync(path.join(repo, 'app.txt'), 'alpha\nbeta\ngamma\ndelta\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'delete.txt'), 'remove me\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'rename.txt'), 'same content\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'asset.bin'), Buffer.from([1, 0, 2]));
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'base']);
+    runGit(repo, ['branch', '-M', 'main']);
+    runGit(repo, ['checkout', '-b', 'feature/deconstructed']);
+    fs.writeFileSync(path.join(repo, 'app.txt'), 'alpha\nBETA\ngamma\nDELTA\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'added.txt'), 'introduced\n', 'utf8');
+    fs.rmSync(path.join(repo, 'delete.txt'));
+    fs.renameSync(path.join(repo, 'rename.txt'), path.join(repo, 'renamed.txt'));
+    fs.writeFileSync(path.join(repo, 'asset.bin'), Buffer.from([1, 0, 3]));
+    runGit(repo, ['add', '-A']);
+    runGit(repo, ['commit', '-m', 'deconstruct this change']);
+
+    const inventory = buildChangeInventory(repo, { headRef: 'HEAD', baseRef: 'main' });
+    const app = inventory.files.find((file) => file.path === 'app.txt');
+    const added = inventory.files.find((file) => file.path === 'added.txt');
+    const deleted = inventory.files.find((file) => file.path === 'delete.txt');
+    assert.equal(app.units.length, 2);
+    assert.equal(added.units.length, 1);
+    assert.equal(deleted.units.length, 1);
+
+    const source = parseChangeTourSource({
+        version: 1,
+        title: 'Deconstructed example',
+        range: { base: 'main', head: 'HEAD' },
+        anchors: {},
+        connections: [],
+        chapters: [{
+            id: 'explanation',
+            title: 'Explanation',
+            scenes: [{
+                id: 'build-feature',
+                kind: 'deconstructed-diff',
+                title: 'Build the feature',
+                summary: 'Explain the change in conceptual order.',
+                bullets: [],
+                tags: ['deconstructed'],
+                takeaway: 'The real target is reconstructed exactly.',
+                base: 'main',
+                target: 'HEAD',
+                stages: [{
+                    id: 'model',
+                    title: 'Introduce the model',
+                    narration: 'Start with the first behavior and the new file.',
+                    changes: [
+                        { file: 'app.txt', hunks: [app.units[0].id] },
+                        { file: 'added.txt', hunks: [added.units[0].id] }
+                    ]
+                }, {
+                    id: 'behavior',
+                    title: 'Finish the behavior',
+                    narration: 'Apply the remaining text changes.',
+                    changes: [
+                        { file: 'app.txt', hunks: [app.units[1].id] },
+                        { file: 'delete.txt', hunks: [deleted.units[0].id] }
+                    ]
+                }],
+                exclusions: [
+                    { file: 'asset.bin', reason: 'Binary material is explained separately.' },
+                    { file: 'renamed.txt', reason: 'Path transitions are not supported yet.' }
+                ]
+            }]
+        }]
+    });
+    const scene = source.chapters[0].scenes[0];
+    assert.equal(scene.kind, 'deconstructed-diff');
+    const compiled = compileDeconstructedScene(inventory, scene);
+    const built = buildDeconstructedScene(repo, scene);
+
+    assert.equal(compiled.stages.length, 2);
+    assert.equal(built.targetOid, inventory.range.headOid);
+    assert.equal(compiled.excludedFiles.length, 2);
+    assert.equal(compiled.baselineFiles.find((file) => file.path === 'added.txt').exists, false);
+    assert.equal(compiled.baselineFiles.find((file) => file.path === 'delete.txt').exists, true);
+    assert.equal(compiled.stages[0].files.find((file) => file.path === 'app.txt').content, 'alpha\nBETA\ngamma\ndelta\n');
+    assert.equal(compiled.stages[0].files.find((file) => file.path === 'added.txt').exists, true);
+    assert.equal(compiled.stages[1].files.find((file) => file.path === 'app.txt').content, 'alpha\nBETA\ngamma\nDELTA\n');
+    assert.equal(compiled.stages[1].files.find((file) => file.path === 'delete.txt').exists, false);
+
+    const excludedCompiled = compileDeconstructedScene(inventory, {
+        ...scene,
+        stages: [{
+            ...scene.stages[0],
+            changes: scene.stages[0].changes.filter((change) => change.file !== 'app.txt')
+        }, scene.stages[1]],
+        exclusions: [
+            ...(scene.exclusions || []),
+            { file: 'app.txt', hunks: [app.units[0].id], reason: 'Established setup shown without a dedicated stage.' }
+        ]
+    });
+    assert.equal(excludedCompiled.baselineFiles.find((file) => file.path === 'app.txt').content, 'alpha\nBETA\ngamma\ndelta\n');
+    assert.equal(excludedCompiled.stages[1].files.find((file) => file.path === 'app.txt').content, 'alpha\nBETA\ngamma\nDELTA\n');
+}
+
+function testDeconstructedStagesRejectInvalidAssignments() {
+    const repo = createTempGitRepo();
+    fs.writeFileSync(path.join(repo, 'app.txt'), 'one\ntwo\nthree\nfour\n', 'utf8');
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'base']);
+    runGit(repo, ['branch', '-M', 'main']);
+    runGit(repo, ['checkout', '-b', 'feature/invalid-deconstruction']);
+    fs.writeFileSync(path.join(repo, 'app.txt'), 'ONE\ntwo\nthree\nFOUR\n', 'utf8');
+    runGit(repo, ['commit', '-am', 'two units']);
+    const inventory = buildChangeInventory(repo, { headRef: 'HEAD', baseRef: 'main' });
+    const units = inventory.files[0].units;
+    const baseScene = {
+        id: 'invalid',
+        kind: 'deconstructed-diff',
+        title: 'Invalid assignments',
+        summary: 'Exercise validation.',
+        bullets: [],
+        tags: [],
+        takeaway: 'Invalid ownership fails.',
+        stages: [{
+            id: 'one',
+            title: 'One',
+            narration: 'Only one unit.',
+            changes: [{ file: 'app.txt', hunks: [units[0].id] }]
+        }]
+    };
+
+    assert.throws(() => compileDeconstructedScene(inventory, baseScene), /Unassigned change unit/);
+    assert.throws(() => compileDeconstructedScene(inventory, {
+        ...baseScene,
+        stages: [{ ...baseScene.stages[0], changes: [{ file: 'app.txt', hunks: [units[0].id, units[0].id] }] }]
+    }), /assigned to both/);
+    assert.throws(() => compileDeconstructedScene(inventory, {
+        ...baseScene,
+        stages: [{ ...baseScene.stages[0], changes: [{ file: 'app.txt', hunks: ['hunk-missing'] }] }]
+    }), /unknown hunk/);
+    assert.throws(() => parseChangeTourSource({
+        version: 1,
+        anchors: {},
+        connections: [],
+        chapters: [{ id: 'chapter', title: 'Chapter', scenes: [{ ...baseScene, stages: [
+            baseScene.stages[0],
+            { ...baseScene.stages[0] }
+        ] }] }]
+    }), /Duplicate deconstructed stage id/);
+}
+
 function createTempGitRepo() {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-history-test-'));
 
@@ -1667,6 +1821,8 @@ function run() {
     testPatchUnitIdsUseContentAndDisambiguateDuplicates();
     testChangeUnitsMaterializeIndependentCumulativeStates();
     testChangeUnitsPreserveWhitespaceAndFinalNewlines();
+    testDeconstructedStagesValidateAndMaterializeCumulativeFiles();
+    testDeconstructedStagesRejectInvalidAssignments();
     console.log('All tests passed.');
 }
 

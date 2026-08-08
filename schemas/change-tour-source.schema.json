@@ -195,6 +195,73 @@
         "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/stackStep" } }
       }
     },
+    "deconstructedChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "hunks"],
+      "properties": {
+        "file": { "$ref": "#/$defs/nonEmptyString" },
+        "hunks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "deconstructedExclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "reason"],
+      "properties": {
+        "file": { "$ref": "#/$defs/nonEmptyString" },
+        "hunks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "reason": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "deconstructedStage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "narration", "changes"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "narration": { "$ref": "#/$defs/nonEmptyString" },
+        "changes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/deconstructedChange" }
+        }
+      }
+    },
+    "deconstructedScene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "title", "summary", "bullets", "tags", "takeaway", "stages"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "kind": { "const": "deconstructed-diff" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "summary": { "$ref": "#/$defs/nonEmptyString" },
+        "bullets": { "$ref": "#/$defs/stringArray" },
+        "tags": { "$ref": "#/$defs/stringArray" },
+        "takeaway": { "$ref": "#/$defs/nonEmptyString" },
+        "base": { "$ref": "#/$defs/nonEmptyString" },
+        "target": { "$ref": "#/$defs/nonEmptyString" },
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/deconstructedStage" }
+        },
+        "exclusions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/deconstructedExclusion" }
+        }
+      }
+    },
     "chapter": {
       "type": "object",
       "additionalProperties": false,
@@ -205,7 +272,13 @@
         "scenes": {
           "type": "array",
           "minItems": 1,
-          "items": { "oneOf": [{ "$ref": "#/$defs/scene" }, { "$ref": "#/$defs/stackedScene" }] }
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/scene" },
+              { "$ref": "#/$defs/stackedScene" },
+              { "$ref": "#/$defs/deconstructedScene" }
+            ]
+          }
         }
       }
     }
