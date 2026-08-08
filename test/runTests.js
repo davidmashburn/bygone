@@ -783,6 +783,35 @@ function testFindCommandsUseRendererRatherThanPageSearch() {
     assert.match(rendererSource, /runActiveEditorFindCommand\(message\.command\)/);
 }
 
+function testFindShortcutCapturesControlAndCommandBeforeEditors() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const entrySource = fs.readFileSync(path.join(__dirname, '..', 'media', 'webview-entry.js'), 'utf8');
+
+    assert.match(entrySource, /contrib\/find\/browser\/findController\.js/);
+    assert.match(rendererSource, /\(event\.metaKey \|\| event\.ctrlKey\)[\s\S]{0,180}event\.key\.toLowerCase\(\) === 'f'/);
+    assert.match(rendererSource, /runActiveEditorFindCommand\('open'\);[\s\S]{0,40}\}, true\);/);
+    assert.match(rendererSource, /event\.stopPropagation\(\)/);
+}
+
+function testSidebarsExposeResizeCollapseAndRestoreControls() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const styleSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'style.css'), 'utf8');
+    for (const relativePath of ['standalone/index.html', 'web/index.html', 'src/diffViewProvider.ts']) {
+        const markup = fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
+        assert.match(markup, /id="show-navigation-sidebar"[^>]+title="Show navigation sidebar"/);
+    }
+    assert.match(rendererSource, /data-rail-collapse/);
+    assert.match(rendererSource, /data-rail-resizer/);
+    assert.match(styleSource, /--history-rail-width/);
+
+    const presenterMarkup = fs.readFileSync(path.join(__dirname, '..', 'web', 'index.html'), 'utf8');
+    const presenterHost = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
+    assert.match(presenterMarkup, /id="tour-sidebar-hide"/);
+    assert.match(presenterMarkup, /id="tour-sidebar-show"/);
+    assert.match(presenterMarkup, /id="tour-sidebar-resizer"[^>]+role="separator"/);
+    assert.match(presenterHost, /TOUR_SIDEBAR_STORAGE_KEY/);
+}
+
 function testWordWrapControllerPersistsAndAppliesPreference() {
     const values = new Map();
     const storage = {
@@ -1524,6 +1553,8 @@ function run() {
     testMenuCapabilitiesFollowSessionMode();
     testFindControllerTargetsOneActiveEditor();
     testFindCommandsUseRendererRatherThanPageSearch();
+    testFindShortcutCapturesControlAndCommandBeforeEditors();
+    testSidebarsExposeResizeCollapseAndRestoreControls();
     testWordWrapControllerPersistsAndAppliesPreference();
     testWordWrapUsesSharedRendererAndStandaloneMenu();
     testSessionSourcesRetainRefreshIntent();

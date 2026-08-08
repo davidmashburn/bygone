@@ -29,6 +29,67 @@
     display: none;
 }
 
+.tour-sidebar-hide,
+.tour-sidebar-show {
+    border: 1px solid var(--tour-border);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.07);
+    color: #f5f6fb;
+    cursor: pointer;
+    font: inherit;
+}
+
+.tour-sidebar-hide {
+    position: absolute;
+    z-index: 2;
+    top: 14px;
+    right: 12px;
+    width: 28px;
+    height: 26px;
+}
+
+.tour-sidebar-show {
+    position: fixed;
+    z-index: 140;
+    top: 14px;
+    left: 0;
+    width: 28px;
+    height: 38px;
+    border-left: 0;
+    border-radius: 0 6px 6px 0;
+    background: var(--tour-surface);
+}
+
+.tour-sidebar-show[hidden] {
+    display: none;
+}
+
+.tour-sidebar-resizer {
+    position: absolute;
+    z-index: 4;
+    top: 0;
+    right: -4px;
+    bottom: 0;
+    width: 8px;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.tour-sidebar-resizer:hover,
+.tour-sidebar-resizer:focus-visible,
+body.is-resizing-tour-sidebar .tour-sidebar-resizer {
+    background: rgba(169, 159, 255, 0.75);
+    outline: none;
+}
+
+body.tour-sidebar-hidden {
+    --tour-rail-width: 0px;
+}
+
+body.tour-sidebar-hidden .tour-shell {
+    display: none;
+}
+
 body.tour-mode {
     background: var(--tour-surface);
 }
@@ -53,7 +114,8 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-overview {
-    padding: 24px 22px 18px;
+    position: relative;
+    padding: 24px 46px 18px 22px;
     border-bottom: 1px solid var(--tour-border);
 }
 
@@ -587,6 +649,10 @@ body.tour-discussion .tour-narrative-takeaway {
         --tour-narrative-height: clamp(300px, 42vh, 380px);
     }
 
+    body.tour-mode {
+        --tour-rail-width: 0px;
+    }
+
     .tour-shell {
         inset: 0 0 auto;
         display: grid;
@@ -597,6 +663,14 @@ body.tour-discussion .tour-narrative-takeaway {
         border-right: 0;
         border-bottom: 1px solid var(--tour-border);
         box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+    }
+
+    .tour-sidebar-resizer {
+        display: none;
+    }
+
+    body.tour-sidebar-hidden {
+        --tour-rail-height: 0px;
     }
 
     .tour-overview {

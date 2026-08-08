@@ -10,6 +10,7 @@
 <body class="web-host">
     <aside id="tour-shell" class="tour-shell" hidden>
         <header class="tour-overview">
+            <button id="tour-sidebar-hide" class="tour-sidebar-hide" type="button" title="Hide tour sidebar" aria-label="Hide tour sidebar">‹</button>
             <h1 id="tour-title"></h1>
             <a id="tour-source" class="tour-source" target="_blank" rel="noreferrer" hidden>Open source ↗</a>
             <div class="tour-meta">
@@ -38,7 +39,9 @@
             <summary id="tour-commits-summary">0 commits</summary>
             <ol id="tour-commits" class="tour-commits"></ol>
         </details>
+        <div id="tour-sidebar-resizer" class="tour-sidebar-resizer" role="separator" aria-label="Resize tour sidebar" aria-orientation="vertical" aria-valuemin="240" aria-valuemax="600" tabindex="0"></div>
     </aside>
+    <button id="tour-sidebar-show" class="tour-sidebar-show" type="button" title="Show tour sidebar" aria-label="Show tour sidebar" hidden>›</button>
     <section id="tour-narrative" class="tour-narrative" hidden>
         <nav class="tour-narrative-nav" aria-label="Tour navigation">
             <button id="tour-previous" type="button" title="Previous tour item (Left or Page Up)">← Prev</button>
@@ -214,6 +217,7 @@
         </div>
         <div id="diff-workspace">
             <aside id="history-rail" class="history-rail hidden" hidden></aside>
+            <button id="show-navigation-sidebar" class="navigation-sidebar-show" type="button" title="Show navigation sidebar" aria-label="Show navigation sidebar" hidden>›</button>
             <div id="diff-container">
                 <div id="two-way-diff" class="diff-view">
                     <div class="file-panel">

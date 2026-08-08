@@ -4,6 +4,9 @@ import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
 import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../src/tourNavigation.ts';
 
 (function initializeWebHost() {
+    const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
+    const TOUR_SIDEBAR_MIN_WIDTH = 240;
+    const TOUR_SIDEBAR_MAX_WIDTH = 600;
     const state = {
         mode: 'empty',
         left: null,
@@ -13,7 +16,9 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         activeSceneIndex: -1,
         activeStepIndex: 0,
         activeTourFilePath: null,
-        tourFocusFilePath: null
+        tourFocusFilePath: null,
+        tourSidebarWidth: readStoredTourSidebarWidth(),
+        tourSidebarHidden: false
     };
 
     window.__BYGONE_HOST__ = {
@@ -83,6 +88,8 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         const tourNext = document.getElementById('tour-next');
         const tourReturnFocus = document.getElementById('tour-return-focus');
 
+        initializeTourSidebar();
+
         compareTestButton?.addEventListener('click', () => {
             compareTestFiles();
         });
@@ -132,6 +139,89 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
                 showTourLinear(1);
             }
         });
+    }
+
+    function initializeTourSidebar() {
+        const shell = document.getElementById('tour-shell');
+        const resizer = document.getElementById('tour-sidebar-resizer');
+        const hideButton = document.getElementById('tour-sidebar-hide');
+        const showButton = document.getElementById('tour-sidebar-show');
+        if (!shell || !resizer || !hideButton || !showButton) {
+            return;
+        }
+
+        applyTourSidebarWidth();
+        hideButton.addEventListener('click', () => setTourSidebarHidden(true));
+        showButton.addEventListener('click', () => setTourSidebarHidden(false));
+
+        resizer.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+            document.body.classList.add('is-resizing-tour-sidebar');
+            resizer.setPointerCapture?.(event.pointerId);
+
+            const move = (moveEvent) => setTourSidebarWidth(moveEvent.clientX);
+            const finish = () => {
+                document.body.classList.remove('is-resizing-tour-sidebar');
+                window.removeEventListener('pointermove', move);
+                window.removeEventListener('pointerup', finish);
+                window.removeEventListener('pointercancel', finish);
+                window.localStorage.setItem(TOUR_SIDEBAR_STORAGE_KEY, String(state.tourSidebarWidth));
+            };
+            window.addEventListener('pointermove', move);
+            window.addEventListener('pointerup', finish);
+            window.addEventListener('pointercancel', finish);
+        });
+
+        resizer.addEventListener('keydown', (event) => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                return;
+            }
+            event.preventDefault();
+            let nextWidth = state.tourSidebarWidth;
+            if (event.key === 'Home') {
+                nextWidth = TOUR_SIDEBAR_MIN_WIDTH;
+            } else if (event.key === 'End') {
+                nextWidth = maximumTourSidebarWidth();
+            } else {
+                nextWidth += event.key === 'ArrowLeft' ? -16 : 16;
+            }
+            setTourSidebarWidth(nextWidth);
+            window.localStorage.setItem(TOUR_SIDEBAR_STORAGE_KEY, String(state.tourSidebarWidth));
+        });
+    }
+
+    function readStoredTourSidebarWidth() {
+        const stored = Number.parseInt(window.localStorage.getItem(TOUR_SIDEBAR_STORAGE_KEY) || '', 10);
+        return Number.isFinite(stored)
+            ? Math.min(TOUR_SIDEBAR_MAX_WIDTH, Math.max(TOUR_SIDEBAR_MIN_WIDTH, stored))
+            : 360;
+    }
+
+    function maximumTourSidebarWidth() {
+        return Math.max(TOUR_SIDEBAR_MIN_WIDTH, Math.min(TOUR_SIDEBAR_MAX_WIDTH, Math.floor(window.innerWidth * 0.6)));
+    }
+
+    function setTourSidebarWidth(width) {
+        state.tourSidebarWidth = Math.min(maximumTourSidebarWidth(), Math.max(TOUR_SIDEBAR_MIN_WIDTH, Math.round(width)));
+        applyTourSidebarWidth();
+        window.dispatchEvent(new Event('resize'));
+    }
+
+    function applyTourSidebarWidth() {
+        document.documentElement.style.setProperty('--tour-rail-width', `${state.tourSidebarWidth}px`);
+        const resizer = document.getElementById('tour-sidebar-resizer');
+        resizer?.setAttribute('aria-valuemax', String(maximumTourSidebarWidth()));
+        resizer?.setAttribute('aria-valuenow', String(state.tourSidebarWidth));
+    }
+
+    function setTourSidebarHidden(hidden) {
+        state.tourSidebarHidden = hidden;
+        document.body.classList.toggle('tour-sidebar-hidden', hidden);
+        const showButton = document.getElementById('tour-sidebar-show');
+        if (showButton) {
+            showButton.hidden = !hidden;
+        }
+        window.dispatchEvent(new Event('resize'));
     }
 
     async function loadTour(manifestUrl) {

@@ -26,6 +26,9 @@ const {
 const MODE_TWO_WAY = 'two-way';
 const MODE_MULTI_WAY = 'multi-way';
 const MULTI_GUTTER_WIDTH = 96;
+const NAVIGATION_SIDEBAR_STORAGE_KEY = 'bygone.navigationSidebarWidth';
+const NAVIGATION_SIDEBAR_MIN_WIDTH = 220;
+const NAVIGATION_SIDEBAR_MAX_WIDTH = 520;
 
 let currentMode = MODE_TWO_WAY;
 let diffBlocks = [];
@@ -65,6 +68,13 @@ let historyRailState = null;
 let activeHistoryRailTabId = null;
 let historyRailKind = null;
 let directoryRailVisible = true;
+let navigationRailCollapsed = false;
+let navigationRailWidth = readStoredSidebarWidth(
+    NAVIGATION_SIDEBAR_STORAGE_KEY,
+    282,
+    NAVIGATION_SIDEBAR_MIN_WIDTH,
+    NAVIGATION_SIDEBAR_MAX_WIDTH
+);
 let hasDirectoryNavigation = false;
 let hostFileNavigation = null;
 let currentFileNavigation = { canGoPrevious: false, canGoNext: false };
@@ -1336,10 +1346,27 @@ function initializeDirectoryTreeToolbar() {
 
 function initializeHistoryRail() {
     const rail = getElement('history-rail');
+    const showButton = getElement('show-navigation-sidebar');
+
+    applyNavigationSidebarWidth();
+    showButton.addEventListener('click', () => {
+        navigationRailCollapsed = false;
+        directoryRailVisible = true;
+        renderHistoryRail();
+        updateDirectorySidebarToggle();
+        resizeDiffWorkspace();
+    });
 
     rail.addEventListener('click', (event) => {
-        const target = event.target instanceof Element ? event.target.closest('[data-rail-tab], [data-rail-item]') : null;
+        const target = event.target instanceof Element ? event.target.closest('[data-rail-tab], [data-rail-item], [data-rail-collapse]') : null;
         if (!target) {
+            return;
+        }
+
+        if (target.hasAttribute('data-rail-collapse')) {
+            navigationRailCollapsed = true;
+            renderHistoryRail();
+            resizeDiffWorkspace();
             return;
         }
 
@@ -1370,6 +1397,43 @@ function initializeHistoryRail() {
             }
         }
     });
+
+    rail.addEventListener('pointerdown', (event) => {
+        const resizer = event.target instanceof Element ? event.target.closest('[data-rail-resizer]') : null;
+        if (!resizer) {
+            return;
+        }
+        event.preventDefault();
+        document.body.classList.add('is-resizing-sidebar');
+        resizer.setPointerCapture?.(event.pointerId);
+
+        const move = (moveEvent) => setNavigationSidebarWidth(moveEvent.clientX);
+        const finish = () => {
+            document.body.classList.remove('is-resizing-sidebar');
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', finish);
+            window.removeEventListener('pointercancel', finish);
+            storeSidebarWidth(NAVIGATION_SIDEBAR_STORAGE_KEY, navigationRailWidth);
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', finish);
+        window.addEventListener('pointercancel', finish);
+    });
+
+    rail.addEventListener('keydown', (event) => {
+        const resizer = event.target instanceof Element ? event.target.closest('[data-rail-resizer]') : null;
+        if (!resizer || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+            return;
+        }
+        event.preventDefault();
+        const nextWidth = event.key === 'Home'
+            ? NAVIGATION_SIDEBAR_MIN_WIDTH
+            : event.key === 'End'
+                ? maximumNavigationSidebarWidth()
+                : navigationRailWidth + (event.key === 'ArrowLeft' ? -16 : 16);
+        setNavigationSidebarWidth(nextWidth);
+        storeSidebarWidth(NAVIGATION_SIDEBAR_STORAGE_KEY, navigationRailWidth);
+    });
 }
 
 function initializeDirectoryReturnToolbar() {
@@ -1378,9 +1442,15 @@ function initializeDirectoryReturnToolbar() {
         if (!hasDirectoryNavigation) {
             return;
         }
-        directoryRailVisible = !directoryRailVisible;
+        if (navigationRailCollapsed) {
+            navigationRailCollapsed = false;
+            directoryRailVisible = true;
+        } else {
+            directoryRailVisible = !directoryRailVisible;
+        }
         renderHistoryRail();
         updateDirectorySidebarToggle();
+        resizeDiffWorkspace();
     });
 }
 
@@ -1761,10 +1831,6 @@ function initializeChangeToolbar() {
     getElement('toggle-word-wrap').addEventListener('click', toggleWordWrap);
 
     window.addEventListener('keydown', (event) => {
-        if (event.defaultPrevented) {
-            return;
-        }
-
         const findWidgetOwnsEvent = event.target instanceof Element
             && Boolean(event.target.closest('.find-widget'));
         if (!findWidgetOwnsEvent
@@ -1773,10 +1839,18 @@ function initializeChangeToolbar() {
             && !event.shiftKey
             && event.key.toLowerCase() === 'f') {
             event.preventDefault();
+            event.stopPropagation();
             runActiveEditorFindCommand('open');
+        }
+    }, true);
+
+    window.addEventListener('keydown', (event) => {
+        if (event.defaultPrevented) {
             return;
         }
 
+        const findWidgetOwnsEvent = event.target instanceof Element
+            && Boolean(event.target.closest('.find-widget'));
         if (!findWidgetOwnsEvent && event.key === 'F3') {
             event.preventDefault();
             runActiveEditorFindCommand(event.shiftKey ? 'previous' : 'next');
@@ -2109,7 +2183,7 @@ function updateDirectoryReturnToolbar(canReturnToDirectory) {
 
 function updateDirectorySidebarToggle() {
     const button = getElement('toggle-directory-sidebar');
-    const isVisible = hasDirectoryNavigation && directoryRailVisible;
+    const isVisible = hasDirectoryNavigation && directoryRailVisible && !navigationRailCollapsed;
     button.setAttribute('aria-pressed', isVisible ? 'true' : 'false');
     button.setAttribute('aria-label', isVisible ? 'Hide directory files' : 'Show directory files');
     button.title = isVisible ? 'Hide directory files' : 'Show directory files';
@@ -3055,12 +3129,18 @@ function updateNavigationRail(historyRail, kind) {
 function renderHistoryRail() {
     const rail = getElement('history-rail');
     const container = getElement('container');
+    const showButton = getElement('show-navigation-sidebar');
+    const railAvailable = Boolean(historyRailState);
+    const railRequested = railAvailable
+        && !navigationRailCollapsed
+        && !(historyRailKind === 'directory' && !directoryRailVisible);
 
-    if (!historyRailState || (historyRailKind === 'directory' && !directoryRailVisible)) {
+    if (!railRequested) {
         rail.hidden = true;
         rail.classList.add('hidden');
         rail.innerHTML = '';
         container.classList.remove('history-rail-visible');
+        showButton.hidden = !railAvailable;
         return;
     }
 
@@ -3071,8 +3151,13 @@ function renderHistoryRail() {
 
     rail.hidden = false;
     rail.classList.remove('hidden');
+    showButton.hidden = true;
     container.classList.add('history-rail-visible');
     rail.innerHTML = [
+        '<div class="history-rail-controls">',
+        `<span>${historyRailKind === 'directory' ? 'Files' : 'History'}</span>`,
+        '<button class="history-rail-collapse" type="button" title="Hide navigation sidebar" aria-label="Hide navigation sidebar" data-rail-collapse>‹</button>',
+        '</div>',
         '<div class="history-rail-tabs">',
         ...tabs.map((tab) => {
             const isActive = tab.id === (activeTab?.id || null);
@@ -3083,8 +3168,39 @@ function renderHistoryRail() {
         ...(items.length > 0
             ? items.map((item, index) => renderHistoryRailItem(item, activeTab?.id || '', index))
             : ['<div class="history-rail-empty">No entries</div>']),
-        '</div>'
+        '</div>',
+        `<div class="history-rail-resizer" role="separator" aria-label="Resize navigation sidebar" aria-orientation="vertical" aria-valuemin="${NAVIGATION_SIDEBAR_MIN_WIDTH}" aria-valuemax="${maximumNavigationSidebarWidth()}" aria-valuenow="${navigationRailWidth}" tabindex="0" data-rail-resizer></div>`
     ].join('');
+}
+
+function maximumNavigationSidebarWidth() {
+    return Math.max(NAVIGATION_SIDEBAR_MIN_WIDTH, Math.min(NAVIGATION_SIDEBAR_MAX_WIDTH, Math.floor(window.innerWidth * 0.6)));
+}
+
+function setNavigationSidebarWidth(width) {
+    navigationRailWidth = clamp(Math.round(width), NAVIGATION_SIDEBAR_MIN_WIDTH, maximumNavigationSidebarWidth());
+    applyNavigationSidebarWidth();
+    getElement('history-rail').querySelector('[data-rail-resizer]')?.setAttribute('aria-valuenow', String(navigationRailWidth));
+    resizeDiffWorkspace();
+}
+
+function applyNavigationSidebarWidth() {
+    getElement('container').style.setProperty('--history-rail-width', `${navigationRailWidth}px`);
+}
+
+function resizeDiffWorkspace() {
+    layoutEditors();
+    connectorController.resizeCanvas();
+    connectorController.scheduleDrawConnections();
+}
+
+function readStoredSidebarWidth(key, fallback, minimum, maximum) {
+    const stored = Number.parseInt(window.localStorage.getItem(key) || '', 10);
+    return Number.isFinite(stored) ? clamp(stored, minimum, maximum) : fallback;
+}
+
+function storeSidebarWidth(key, width) {
+    window.localStorage.setItem(key, String(width));
 }
 
 function renderHistoryRailItem(item, tabId, index) {

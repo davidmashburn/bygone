@@ -111,6 +111,7 @@ body.web-host {
 }
 
 #container {
+    --history-rail-width: 282px;
     height: 100vh;
     display: flex;
     flex-direction: column;
@@ -124,7 +125,7 @@ body.web-host {
 }
 
 #container.history-rail-visible #header {
-    --history-rail-offset: 282px;
+    --history-rail-offset: var(--history-rail-width);
 }
 
 #header h1 {
@@ -507,6 +508,7 @@ button.file-header:hover {
 }
 
 #diff-workspace {
+    position: relative;
     flex: 1;
     min-width: 0;
     min-height: 0;
@@ -516,13 +518,14 @@ button.file-header:hover {
 }
 
 #history-rail {
-    width: 282px;
-    flex: 0 0 282px;
-    min-width: 242px;
-    max-width: 340px;
+    position: relative;
+    width: var(--history-rail-width);
+    flex: 0 0 var(--history-rail-width);
+    display: flex;
+    flex-direction: column;
     border-right: 1px solid var(--vscode-panel-border);
     background: var(--vscode-sideBar-background);
-    overflow: auto;
+    overflow: hidden;
     padding: 10px 10px 12px;
     box-sizing: border-box;
 }
@@ -532,6 +535,7 @@ button.file-header:hover {
 }
 
 .history-rail-tabs {
+    flex: 0 0 auto;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -556,9 +560,74 @@ button.file-header:hover {
 }
 
 .history-rail-list {
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 4px;
+    overflow: auto;
+}
+
+.history-rail-controls {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.history-rail-collapse,
+.navigation-sidebar-show {
+    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+    border-radius: 5px;
+    background: var(--vscode-button-secondaryBackground, var(--vscode-sideBar-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+    cursor: pointer;
+    font: inherit;
+}
+
+.history-rail-collapse {
+    width: 26px;
+    height: 24px;
+}
+
+.history-rail-resizer {
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    right: -4px;
+    bottom: 0;
+    width: 8px;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.history-rail-resizer:hover,
+.history-rail-resizer:focus-visible,
+body.is-resizing-sidebar .history-rail-resizer {
+    background: color-mix(in srgb, var(--vscode-focusBorder, #4f7cff) 70%, transparent);
+    outline: none;
+}
+
+.navigation-sidebar-show {
+    position: absolute;
+    z-index: 20;
+    left: 0;
+    top: 10px;
+    width: 25px;
+    height: 36px;
+    border-left: 0;
+    border-radius: 0 6px 6px 0;
+}
+
+.navigation-sidebar-show[hidden] {
+    display: none;
 }
 
 .history-rail-empty {
