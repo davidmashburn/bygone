@@ -19,7 +19,7 @@ export { parseChangeTourManifest, parseChangeTourStory } from './changeTourManif
 export { parseChangeTourSource } from './changeTourSource';
 export { buildChangeTourContext } from './changeTourContext';
 export type { BuildChangeTourContextOptions, ChangeTourContext } from './changeTourContext';
-export { buildChangeInventory } from './changeInventory';
+export { buildChangeInventory, materializeChangeUnits } from './changeInventory';
 export type { BuildChangeInventoryOptions, ChangeInventory, ChangeInventoryFile, ChangeUnit } from './changeInventory';
 
 const DEFAULT_MAX_TOUR_FILE_BYTES = 2 * 1024 * 1024;

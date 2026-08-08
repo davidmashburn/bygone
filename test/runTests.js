@@ -43,7 +43,7 @@ const {
 const { CLI_SPEC, renderCliHelp } = require('../cli/commandSpec.js');
 const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const { buildChangeTourContext, buildChangeTourManifest, parseChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
-const { buildChangeInventory, parsePatchUnits } = require('../out/changeInventory.js');
+const { buildChangeInventory, materializeChangeUnits, parsePatchUnits } = require('../out/changeInventory.js');
 const { buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
@@ -1464,29 +1464,38 @@ function testChangeInventoryBuildsStableTextUnitsAndClassifiesBinaryFiles() {
     const repo = createTempGitRepo();
     fs.writeFileSync(path.join(repo, 'app.txt'), 'alpha\nbeta\ngamma\n', 'utf8');
     fs.writeFileSync(path.join(repo, 'asset.bin'), Buffer.from([1, 0, 2]));
+    fs.writeFileSync(path.join(repo, 'invalid-utf8.txt'), Buffer.from([0xc3, 0x28]));
     runGit(repo, ['add', '.']);
     runGit(repo, ['commit', '-m', 'base']);
     runGit(repo, ['branch', '-M', 'main']);
     runGit(repo, ['checkout', '-b', 'feature/inventory']);
     fs.writeFileSync(path.join(repo, 'app.txt'), 'alpha\nchanged\ngamma\ndelta\n', 'utf8');
     fs.writeFileSync(path.join(repo, 'asset.bin'), Buffer.from([1, 0, 3]));
+    fs.writeFileSync(path.join(repo, 'invalid-utf8.txt'), Buffer.from([0xc3, 0x29]));
     runGit(repo, ['add', '.']);
     runGit(repo, ['commit', '-m', 'change files']);
 
     const first = buildChangeInventory(repo, { headRef: 'HEAD', baseRef: 'main' });
     const second = buildChangeInventory(repo, { headRef: 'HEAD', baseRef: 'main' });
-    assert.equal(first.version, 1);
-    assert.equal(first.summary.changedFiles, 2);
+    assert.equal(first.version, 2);
+    assert.equal(first.summary.changedFiles, 3);
     assert.equal(first.summary.textualFiles, 1);
-    assert.equal(first.summary.binaryFiles, 1);
-    assert.equal(first.summary.changeUnits, 1);
+    assert.equal(first.summary.binaryFiles, 2);
+    assert.equal(first.summary.changeUnits, 2);
     const textFile = first.files.find((file) => file.path === 'app.txt');
     assert.equal(textFile.material, 'text');
-    assert.equal(textFile.units[0].additions, 2);
+    assert.equal(textFile.units[0].additions, 1);
     assert.equal(textFile.units[0].deletions, 1);
+    assert.equal(textFile.units[0].oldText, 'beta\n');
+    assert.equal(textFile.units[0].newText, 'changed\n');
     assert.match(textFile.units[0].id, /^hunk-[0-9a-f]{12}$/);
     assert.equal(textFile.units[0].id, second.files.find((file) => file.path === 'app.txt').units[0].id);
+    assert.equal(
+        materializeChangeUnits('alpha\nbeta\ngamma\n', textFile.units, textFile.units.map((unit) => unit.id)),
+        'alpha\nchanged\ngamma\ndelta\n'
+    );
     assert.equal(first.files.find((file) => file.path === 'asset.bin').material, 'binary');
+    assert.equal(first.files.find((file) => file.path === 'invalid-utf8.txt').material, 'binary');
 }
 
 function testPatchUnitIdsUseContentAndDisambiguateDuplicates() {
@@ -1502,6 +1511,68 @@ function testPatchUnitIdsUseContentAndDisambiguateDuplicates() {
     assert.equal(units.length, 2);
     assert.match(units[0].id, /^hunk-[0-9a-f]{12}$/);
     assert.equal(units[1].id, `${units[0].id}-2`);
+}
+
+function testChangeUnitsMaterializeIndependentCumulativeStates() {
+    const base = 'alpha\nbeta\ngamma\ndelta\n';
+    const patch = [
+        '@@ -2 +2 @@',
+        '-beta',
+        '+BETA',
+        '@@ -4 +4,2 @@',
+        '-delta',
+        '+DELTA',
+        '+omega',
+        ''
+    ].join('\n');
+    const units = parsePatchUnits(patch, { kind: 'modified', path: 'app.txt' });
+
+    assert.equal(units.length, 2);
+    assert.equal(
+        materializeChangeUnits(base, units, [units[0].id]),
+        'alpha\nBETA\ngamma\ndelta\n'
+    );
+    assert.equal(
+        materializeChangeUnits(base, units, [units[1].id]),
+        'alpha\nbeta\ngamma\nDELTA\nomega\n'
+    );
+    assert.equal(
+        materializeChangeUnits(base, units, units.map((unit) => unit.id)),
+        'alpha\nBETA\ngamma\nDELTA\nomega\n'
+    );
+    assert.throws(() => materializeChangeUnits(base, units, ['missing']), /Unknown change unit/);
+    assert.throws(() => materializeChangeUnits('stale\n', units, [units[0].id]), /invalid base range|no longer matches/);
+}
+
+function testChangeUnitsPreserveWhitespaceAndFinalNewlines() {
+    const replacement = parsePatchUnits([
+        '@@ -1 +1 @@',
+        '-old  ',
+        '\\ No newline at end of file',
+        '+new\t ',
+        '\\ No newline at end of file',
+        ''
+    ].join('\n'), { kind: 'modified', path: 'spacing.txt' });
+    assert.equal(replacement[0].oldText, 'old  ');
+    assert.equal(replacement[0].newText, 'new\t ');
+    assert.equal(materializeChangeUnits('old  ', replacement, [replacement[0].id]), 'new\t ');
+
+    const addition = parsePatchUnits([
+        '@@ -0,0 +1,2 @@',
+        '+one',
+        '+two',
+        ''
+    ].join('\n'), { kind: 'added', path: 'added.txt' });
+    assert.equal(materializeChangeUnits('', addition, [addition[0].id]), 'one\ntwo\n');
+
+    const deletion = parsePatchUnits([
+        '@@ -1,2 +0,0 @@',
+        '-one',
+        '-two',
+        '\\ No newline at end of file',
+        ''
+    ].join('\n'), { kind: 'deleted', path: 'deleted.txt' });
+    assert.equal(materializeChangeUnits('one\ntwo', deletion, [deletion[0].id]), '');
 }
 
 function createTempGitRepo() {
@@ -1594,6 +1665,8 @@ function run() {
     testBranchReviewMaterializesRenameEndpointsAsOneReviewPair();
     testChangeInventoryBuildsStableTextUnitsAndClassifiesBinaryFiles();
     testPatchUnitIdsUseContentAndDisambiguateDuplicates();
+    testChangeUnitsMaterializeIndependentCumulativeStates();
+    testChangeUnitsPreserveWhitespaceAndFinalNewlines();
     console.log('All tests passed.');
 }
 
