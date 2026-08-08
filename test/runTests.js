@@ -1088,6 +1088,20 @@ function testDynamicButtonsHaveTooltips() {
     assert.match(directorySource, /return `<button class="dir-entry[\s\S]{0,300}title=/);
 }
 
+function testMultiDiffShellCreatesHorizontalOverflow() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+
+    assert.match(rendererSource, /const MULTI_PANE_MIN_WIDTH = 360/);
+    assert.match(rendererSource, /columns\.push\(`minmax\(\$\{MULTI_PANE_MIN_WIDTH\}px, 1fr\)`\)/);
+    assert.match(rendererSource, /min-width:max\(100%, \$\{minimumTrackWidth\}px\)/);
+    assert.match(rendererSource, /scrollIntoView\(\{ block: 'nearest', inline: 'nearest' \}\)/);
+    assert.match(rendererSource, /closest\('\.multi-pane-content'\)[\s\S]{0,100}overEditor && !event\.shiftKey/);
+    assert.doesNotMatch(rendererSource, /multi-gutter-title/);
+    assert.doesNotMatch(rendererSource, /multi-gutter-header/);
+    assert.match(rendererSource, /function revealFirstMultiPanelChanges\(\)/);
+    assert.match(rendererSource, /revealFirstChangeInEachPanel[\s\S]{0,200}revealFirstMultiPanelChanges\(\)/);
+}
+
 function testDirectoryRowsUseFileKindAffordancesWithoutStatusBadges() {
     const source = fs.readFileSync(path.join(__dirname, '..', 'media', 'dom.js'), 'utf8');
     assert.match(source, /dir-file-kind-icon/);
@@ -1827,6 +1841,7 @@ function run() {
     testToursRouteThroughAnAppOwnedWindowAndServer();
     testForwardedLaunchArgumentsPreferValidatedAdditionalData();
     testDynamicButtonsHaveTooltips();
+    testMultiDiffShellCreatesHorizontalOverflow();
     testDirectoryRowsUseFileKindAffordancesWithoutStatusBadges();
     testDuplicateMultiPanelDecorationsRenderOnce();
     testDirectoryDiffDetectsModifiedFiles();

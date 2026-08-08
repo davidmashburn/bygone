@@ -25,6 +25,7 @@ const {
 
 const MODE_TWO_WAY = 'two-way';
 const MODE_MULTI_WAY = 'multi-way';
+const MULTI_PANE_MIN_WIDTH = 360;
 const MULTI_GUTTER_WIDTH = 96;
 const NAVIGATION_SIDEBAR_STORAGE_KEY = 'bygone.navigationSidebarWidth';
 const NAVIGATION_SIDEBAR_MIN_WIDTH = 220;
@@ -204,7 +205,7 @@ host.onMessage((message) => {
             return;
         }
 
-        showMultiDiff(message.panels, message.pairs, message.activePanelId ?? null, message.activePairIndex ?? null, message.history ?? null, message.fileNavigation ?? null, Boolean(message.canReturnToDirectory), message.directoryNavigation || null, message.mutationEnabled !== false, message.initialChangeIndex);
+        showMultiDiff(message.panels, message.pairs, message.activePanelId ?? null, message.activePairIndex ?? null, message.history ?? null, message.fileNavigation ?? null, Boolean(message.canReturnToDirectory), message.directoryNavigation || null, message.mutationEnabled !== false, message.initialChangeIndex, Boolean(message.revealFirstChangeInEachPanel));
         return;
     }
 
@@ -259,7 +260,9 @@ window.addEventListener('load', async () => {
             pendingMultiPayload.fileNavigation ?? null,
             Boolean(pendingMultiPayload.canReturnToDirectory),
             pendingMultiPayload.directoryNavigation || null,
-            pendingMultiPayload.mutationEnabled !== false
+            pendingMultiPayload.mutationEnabled !== false,
+            pendingMultiPayload.initialChangeIndex,
+            Boolean(pendingMultiPayload.revealFirstChangeInEachPanel)
         );
         pendingMultiPayload = undefined;
     }
@@ -529,7 +532,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
     notifyRenderComplete();
 }
 
-function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined) {
+function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false) {
     if (!Array.isArray(panels) || panels.length < 1) {
         return;
     }
@@ -580,11 +583,20 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     suppressEditorEvents = false;
     multiDecorationIds = multiEditors.map(() => []);
     updateMultiActivePairModel(false);
-    if (Number.isInteger(initialChangeIndex)) {
-        setActiveMultiPanelChangeIndex(initialChangeIndex, true);
-    }
     resetMultiScrollPositions();
     layoutEditors();
+    requestAnimationFrame(() => {
+        layoutEditors();
+        if (revealFirstChangeInEachPanel) {
+            revealFirstMultiPanelChanges();
+        }
+        if (Number.isInteger(initialChangeIndex)) {
+            setActiveMultiPanelChangeIndex(initialChangeIndex, true);
+        }
+        revealActiveMultiPanel();
+        connectorController.resizeCanvas();
+        connectorController.scheduleDrawConnections();
+    });
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
     notifyRenderComplete();
@@ -836,7 +848,7 @@ function renderMultiDiffShell(panels) {
     const children = [];
 
     panels.forEach((panel, index) => {
-        columns.push('minmax(0, 1fr)');
+        columns.push(`minmax(${MULTI_PANE_MIN_WIDTH}px, 1fr)`);
         children.push(
             `<div class="multi-pane" data-index="${index}" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header" data-panel-id="${escapeAttr(panel.id)}">`
@@ -868,15 +880,15 @@ function renderMultiDiffShell(panels) {
         if (index < panels.length - 1) {
             columns.push(`${MULTI_GUTTER_WIDTH}px`);
             children.push(
-                `<button class="multi-gutter" type="button" title="Compare ${escapeAttr(panel.label)} with ${escapeAttr(panels[index + 1].label)}" data-pair-index="${index}" aria-label="Compare ${escapeAttr(panel.label)} with ${escapeAttr(panels[index + 1].label)}" aria-pressed="false">`
-                + `<span class="multi-gutter-header"><span class="multi-gutter-title">${escapeHtml(panel.label)}:${escapeHtml(panels[index + 1].label)}</span></span>`
-                + '</button>'
+                `<button class="multi-gutter" type="button" title="Compare ${escapeAttr(panel.label)} with ${escapeAttr(panels[index + 1].label)}" data-pair-index="${index}" aria-label="Compare ${escapeAttr(panel.label)} with ${escapeAttr(panels[index + 1].label)}" aria-pressed="false"></button>`
             );
         }
     });
 
     const container = getElement(VIEW_IDS.multiWay);
-    container.innerHTML = `<div class="multi-view-track" style="grid-template-columns:${columns.join(' ')};width:100%;min-width:100%;">${children.join('')}</div>`;
+    const minimumTrackWidth = (panels.length * MULTI_PANE_MIN_WIDTH)
+        + (Math.max(0, panels.length - 1) * MULTI_GUTTER_WIDTH);
+    container.innerHTML = `<div class="multi-view-track" style="grid-template-columns:${columns.join(' ')};width:100%;min-width:max(100%, ${minimumTrackWidth}px);">${children.join('')}</div>`;
 }
 
 function recomputeMultiDiffState(changedPanelIds = null) {
@@ -1016,6 +1028,35 @@ function updateActiveMultiShellState() {
         const panelId = button.getAttribute('data-panel-id') || '';
         const direction = button.getAttribute('data-multi-panel-copy') || '';
         button.disabled = !canCopyFromPanel(panelId, direction);
+    });
+}
+
+function revealActiveMultiPanel() {
+    const container = getElement(VIEW_IDS.multiWay);
+    const panel = [...container.querySelectorAll('.multi-pane')]
+        .find((pane) => pane.getAttribute('data-panel-id') === activeMultiPanelId);
+    panel?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
+function revealFirstMultiPanelChanges() {
+    multiEditors.forEach((editor, panelIndex) => {
+        const pair = multiDiffPairs[panelIndex === 0 ? 0 : panelIndex - 1];
+        const block = pair?.diffModel?.blocks?.[0];
+        if (!block) return;
+        const start = panelIndex === 0 ? block.leftStart : block.rightStart;
+        const lineCount = editor.getModel()?.getLineCount() ?? 0;
+        if (lineCount === 0) return;
+        const lineNumber = clamp(start + 1, 1, lineCount);
+        editor.setSelection({
+            startLineNumber: lineNumber,
+            startColumn: 1,
+            endLineNumber: lineNumber,
+            endColumn: 1
+        });
+        editor.revealLineInCenterIfOutsideViewport(
+            lineNumber,
+            monacoInstance.editor.ScrollType.Immediate
+        );
     });
 }
 
@@ -1468,6 +1509,12 @@ function initializeMultiDiffInteractions() {
             return;
         }
 
+        const overEditor = event.target instanceof Element
+            && Boolean(event.target.closest('.multi-pane-content'));
+        if (overEditor && !event.shiftKey) {
+            return;
+        }
+
         const deltaX = Math.abs(event.deltaX) > 0 ? event.deltaX : (event.shiftKey ? event.deltaY : 0);
         if (deltaX === 0) {
             return;
@@ -1612,6 +1659,7 @@ function setActiveMultiPanel(panelId, notifyHost) {
     }
     updateMultiActivePairModel(false);
     updateActiveMultiShellState();
+    revealActiveMultiPanel();
 
     if (notifyHost) {
         host.postMessage({
@@ -1638,6 +1686,7 @@ function setActiveMultiPair(pairIndex, notifyHost) {
     activeMultiPairIndex = pairIndex;
     updateMultiActivePairModel(false, pairIndex);
     updateActiveMultiShellState();
+    revealActiveMultiPanel();
 
     if (notifyHost) {
         host.postMessage({

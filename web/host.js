@@ -496,6 +496,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
             activePanelId: panels[step.pairIndex + (step.side === 'right' ? 1 : 0)]?.id,
             activePairIndex: step.pairIndex,
             initialChangeIndex,
+            revealFirstChangeInEachPanel: scene.kind === 'deconstructed-diff',
             history: null,
             fileNavigation: {
                 canGoPrevious: scene.files.indexOf(file) > 0,

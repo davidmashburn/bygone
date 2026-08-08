@@ -117,6 +117,7 @@
             }
 
             const containerRect = connectionCanvas.getBoundingClientRect();
+            const viewportRect = options.getElement('multi-way-diff').getBoundingClientRect();
 
             state.pairs.forEach((pair) => {
                 const leftEditor = state.editors[pair.leftIndex];
@@ -127,6 +128,11 @@
 
                 const leftRect = leftEditor.getDomNode().getBoundingClientRect();
                 const rightRect = rightEditor.getDomNode().getBoundingClientRect();
+                const leftVisibleWidth = Math.max(0, Math.min(leftRect.right, viewportRect.right) - Math.max(leftRect.left, viewportRect.left));
+                const rightVisibleWidth = Math.max(0, Math.min(rightRect.right, viewportRect.right) - Math.max(rightRect.left, viewportRect.left));
+                if (leftVisibleWidth === 0 || rightVisibleWidth === 0) {
+                    return;
+                }
 
                 (pair.diffModel?.blocks || []).forEach((block) => {
                     drawBlockRegion(
