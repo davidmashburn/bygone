@@ -115,9 +115,9 @@ Current practical flow:
 1. Sign in to the Marketplace manage page with your Microsoft account.
 2. Confirm the publisher that matches `package.json`:
    - current publisher: `davidmashburn`
-3. Choose **New extension → Visual Studio Code**.
-4. Upload `bygone-<version>.vsix`. A package with the existing publisher,
-   extension ID, and a newer version updates the current listing.
+3. Open the existing extension's **More Actions** menu and choose **Update**.
+4. Upload `bygone-<version>.vsix` on the update page. Do not use
+   **New extension** for a listing that already exists.
 
 OIDC support is merged into `microsoft/vscode-vsce` but is not present in its
 latest npm release, 3.9.2. Once Marketplace exposes trusted-publisher policies,
