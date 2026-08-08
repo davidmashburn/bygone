@@ -19,6 +19,17 @@
         "head": { "$ref": "#/$defs/nonEmptyString" }
       }
     },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exclusions"],
+      "properties": {
+        "exclusions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/coverageExclusion" }
+        }
+      }
+    },
     "anchors": {
       "type": "object",
       "minProperties": 1,
@@ -101,7 +112,18 @@
         "title": { "$ref": "#/$defs/nonEmptyString" },
         "body": { "$ref": "#/$defs/nonEmptyString" },
         "focus": { "$ref": "#/$defs/nonEmptyString" },
-        "connection": { "$ref": "#/$defs/nonEmptyString" }
+        "connection": { "$ref": "#/$defs/nonEmptyString" },
+        "depth": { "enum": ["mentioned", "explained", "contextualized"] }
+      }
+    },
+    "coverageExclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "reason"],
+      "properties": {
+        "path": { "$ref": "#/$defs/nonEmptyString" },
+        "hunks": { "$ref": "#/$defs/stringArray" },
+        "reason": { "$ref": "#/$defs/nonEmptyString" }
       }
     },
     "scene": {

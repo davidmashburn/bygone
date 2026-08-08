@@ -206,6 +206,7 @@ function applySource(
                         id: step.id,
                         title: step.title,
                         body: step.body,
+                        depth: step.depth,
                         focus,
                         connection: step.connection ? connections.get(step.connection) : undefined,
                         diff: { ...diff, id: `${authoredScene.id}-${step.id}` }

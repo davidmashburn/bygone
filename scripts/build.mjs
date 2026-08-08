@@ -104,6 +104,15 @@ await build({
 
 await build({
     ...sharedOptions,
+    entryPoints: ['src/tourCoverage.ts'],
+    outfile: 'out/tourCoverage.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node16'
+});
+
+await build({
+    ...sharedOptions,
     entryPoints: ['src/tourNavigation.ts'],
     outfile: 'out/tourNavigation.js',
     platform: 'node',

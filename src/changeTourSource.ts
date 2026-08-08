@@ -22,6 +22,13 @@ export interface ChangeTourSourceStep {
     body: string;
     focus: string;
     connection?: string;
+    depth?: 'mentioned' | 'explained' | 'contextualized';
+}
+
+export interface ChangeTourCoverageExclusion {
+    path: string;
+    hunks?: string[];
+    reason: string;
 }
 
 export interface ChangeTourSourceScene extends ChangeTourNarrative {
@@ -47,13 +54,14 @@ export interface ChangeTourSource {
     anchors: Record<string, ChangeTourSourceAnchor>;
     connections: ChangeTourSourceConnection[];
     chapters: ChangeTourSourceChapter[];
+    coverage?: { exclusions: ChangeTourCoverageExclusion[] };
 }
 
 export function parseChangeTourSource(value: unknown): ChangeTourSource {
     if (!isRecord(value) || value.version !== CHANGE_TOUR_SOURCE_VERSION) {
         throw new Error('Unsupported or missing change-tour source version.');
     }
-    requireOnlyKeys(value, ['version', 'title', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters'], 'source');
+    requireOnlyKeys(value, ['version', 'title', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'coverage'], 'source');
     optionalString(value.title, 'title');
     optionalString(value.sourceUrl, 'sourceUrl');
     if (value.range !== undefined) {
@@ -61,6 +69,20 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         requireOnlyKeys(value.range, ['base', 'head'], 'range');
         requireString(value.range.base, 'range.base');
         requireString(value.range.head, 'range.head');
+    }
+    if (value.coverage !== undefined) {
+        if (!isRecord(value.coverage) || !Array.isArray(value.coverage.exclusions)) {
+            throw new Error('coverage must contain an exclusions array.');
+        }
+        requireOnlyKeys(value.coverage, ['exclusions'], 'coverage');
+        for (const [index, exclusion] of value.coverage.exclusions.entries()) {
+            const exclusionPath = `coverage.exclusions[${index}]`;
+            if (!isRecord(exclusion)) throw new Error(`${exclusionPath} must be an object.`);
+            requireOnlyKeys(exclusion, ['path', 'hunks', 'reason'], exclusionPath);
+            requireString(exclusion.path, `${exclusionPath}.path`);
+            requireString(exclusion.reason, `${exclusionPath}.reason`);
+            if (exclusion.hunks !== undefined) requireStringArray(exclusion.hunks, `${exclusionPath}.hunks`);
+        }
     }
     if (!isRecord(value.anchors) || Object.keys(value.anchors).length === 0) {
         throw new Error('anchors must be a non-empty object.');
@@ -138,7 +160,10 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
                 requireString(step.title, `${stepPath}.title`);
                 requireString(step.body, `${stepPath}.body`);
                 requireString(step.focus, `${stepPath}.focus`);
-                requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection'], stepPath);
+                requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth'], stepPath);
+                if (step.depth !== undefined && !['mentioned', 'explained', 'contextualized'].includes(String(step.depth))) {
+                    throw new Error(`${stepPath}.depth must be mentioned, explained, or contextualized.`);
+                }
                 if (stepIds.has(step.id)) throw new Error(`Duplicate step id in scene ${scene.id}: ${step.id}`);
                 stepIds.add(step.id);
                 const focus = step.focus;

@@ -1,9 +1,10 @@
 const { mkdirSync, readFileSync, writeFileSync } = require('fs');
 const path = require('path');
 const { buildChangeTourContext } = require('../out/changeTour.js');
+const { buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { buildManifestForTourSource, loadTourSource } = require('./tourFile.js');
 
-const TOUR_ACTIONS = Object.freeze(['context', 'validate', 'compile', 'schema']);
+const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'compile', 'schema']);
 
 function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
     const options = parseTourArgs(args);
@@ -22,6 +23,14 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
     }
 
     const { resolvedPath, source } = loadTourSource(cwd, options.sourcePath);
+    if (options.action === 'coverage') {
+        const report = buildTourCoverageReport(cwd, source);
+        output.write(options.json ? `${JSON.stringify(report, null, 2)}\n` : renderCoverageReport(report));
+        if (options.minimumCoverage !== undefined && report.totals.coveragePercent < options.minimumCoverage) {
+            throw new Error(`Tour coverage ${report.totals.coveragePercent}% is below the required ${options.minimumCoverage}%.`);
+        }
+        return { action: 'coverage', sourcePath: resolvedPath, report };
+    }
     const manifest = buildManifestForTourSource(cwd, source);
     if (options.action === 'validate') {
         const result = buildValidationResult(resolvedPath, manifest);
@@ -56,10 +65,18 @@ function parseTourArgs(args) {
     let sourcePath;
     let outputPath;
     let json = false;
+    let minimumCoverage;
     for (let index = 0; index < rest.length; index += 1) {
         const arg = rest[index];
         if (arg === '--json') {
             json = true;
+            continue;
+        }
+        if (arg === '--minimum-coverage') {
+            minimumCoverage = Number.parseInt(rest[++index], 10);
+            if (!Number.isInteger(minimumCoverage) || minimumCoverage < 0 || minimumCoverage > 100) {
+                throw new Error('--minimum-coverage requires an integer from 0 to 100.');
+            }
             continue;
         }
         if (arg === '--output' || arg === '-o') {
@@ -73,8 +90,24 @@ function parseTourArgs(args) {
     }
     if (!sourcePath) throw new Error(`tour ${action} requires a .bygone.yaml source file.`);
     if (action === 'validate' && outputPath) throw new Error('--output is only valid with tour compile.');
-    if (action === 'compile' && json) throw new Error('--json is only valid with tour validate.');
-    return { action, sourcePath, outputPath, json };
+    if (action === 'compile' && json) throw new Error('--json is only valid with tour validate or coverage.');
+    if (action !== 'coverage' && minimumCoverage !== undefined) {
+        throw new Error('--minimum-coverage is only valid with tour coverage.');
+    }
+    return { action, sourcePath, outputPath, json, ...(action === 'coverage' ? { minimumCoverage } : {}) };
+}
+
+function renderCoverageReport(report) {
+    const lines = [
+        `Tour coverage: ${report.totals.coveredUnits}/${report.totals.includedUnits} hunks (${report.totals.coveragePercent}%)`,
+        `Depth: ${report.depth.mentioned} mentioned · ${report.depth.explained} explained · ${report.depth.contextualized} contextualized`
+    ];
+    if (report.totals.excludedUnits > 0) lines.push(`Excluded: ${report.totals.excludedUnits}/${report.totals.originalUnits} hunks`);
+    for (const file of report.files.filter((entry) => entry.uncoveredHunks.length > 0)) {
+        lines.push(`${file.path}: ${file.uncoveredHunks.length} uncovered (${file.uncoveredHunks.join(', ')})`);
+    }
+    for (const unsupported of report.unsupported) lines.push(`${unsupported.path}: ${unsupported.material} material not scored`);
+    return `${lines.join('\n')}\n`;
 }
 
 function parseContextArgs(args) {

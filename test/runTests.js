@@ -44,6 +44,7 @@ const { CLI_SPEC, renderCliHelp } = require('../cli/commandSpec.js');
 const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const { buildChangeTourContext, buildChangeTourManifest, parseChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
 const { buildChangeInventory, parsePatchUnits } = require('../out/changeInventory.js');
+const { buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
 const { getLinearTourTarget, getTourFileTarget, resolveTourPosition } = require('../out/tourNavigation.js');
@@ -349,10 +350,14 @@ function testChangeTourBuildsPortableNarrativeChapters() {
                     title: 'Add the contract',
                     body: 'The new interface is the reviewer focus.',
                     focus: 'contract',
-                    connection: 'contractToVersion'
+                    connection: 'contractToVersion',
+                    depth: 'contextualized'
                 }]
             }]
-        }]
+        }],
+        coverage: {
+            exclusions: [{ path: 'docs/architecture.md', reason: 'Narrative documentation is reviewed separately.' }]
+        }
     });
     const anchored = buildChangeTourManifest(repo, {
         headRef: 'feature/tour',
@@ -365,6 +370,16 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.equal(anchored.scenes[0].kind === 'walkthrough' ? anchored.scenes[0].steps[0].connection?.from.startLine : 0, 2);
     assert.deepEqual(anchored.chapters.map((chapter) => chapter.id), ['flow']);
     assert.equal(anchored.files.length, 3);
+    assert.equal(anchored.scenes[0].kind === 'walkthrough' ? anchored.scenes[0].steps[0].depth : undefined, 'contextualized');
+    const coverage = buildTourCoverageReport(repo, source);
+    assert.equal(coverage.version, 1);
+    assert.equal(coverage.totals.originalUnits, 3);
+    assert.equal(coverage.totals.excludedUnits, 1);
+    assert.equal(coverage.totals.includedUnits, 2);
+    assert.equal(coverage.totals.coveredUnits, 1);
+    assert.equal(coverage.totals.coveragePercent, 50);
+    assert.deepEqual(coverage.depth, { mentioned: 0, explained: 0, contextualized: 1 });
+    assert.equal(coverage.files.find((file) => file.path === 'tests/models.test.ts').uncoveredHunks.length, 1);
     assert.throws(() => buildChangeTourManifest(repo, {
         headRef: 'feature/tour', baseRef: 'main', source: {
             ...source,
@@ -455,6 +470,9 @@ function testAgentTourCommandsValidateCompileAndExposeSchema() {
     assert.deepEqual(parseTourArgs(['context', 'feature/tour', '--base', 'main', '--max-patch-bytes', '4096']), {
         action: 'context', headRef: 'feature/tour', baseRef: 'main', outputPath: undefined,
         maxPatchBytes: 4096, maxTotalPatchBytes: undefined
+    });
+    assert.deepEqual(parseTourArgs(['coverage', 'review.bygone.yaml', '--json', '--minimum-coverage', '75']), {
+        action: 'coverage', sourcePath: 'review.bygone.yaml', outputPath: undefined, json: true, minimumCoverage: 75
     });
     assert.throws(() => parseTourArgs(['validate']), /requires a \.bygone\.yaml/);
     assert.throws(() => parseTourArgs(['compile', 'review.bygone.yaml', '--json']), /only valid with tour validate/);

@@ -68,6 +68,7 @@ export interface ChangeTourWalkthroughStep {
     focus: ChangeTourResolvedAnchor;
     connection?: ChangeTourResolvedConnection;
     diff: ChangeTourDiffScene;
+    depth?: 'mentioned' | 'explained' | 'contextualized';
 }
 
 export interface ChangeTourWalkthroughScene extends ChangeTourNarrative {
@@ -252,6 +253,9 @@ function validateScene(value: unknown, index: number): asserts value is ChangeTo
                 throw new Error(`${path} must contain focus and diff objects.`);
             }
             for (const key of ['id', 'title', 'body']) requireString(step[key], `${path}.${key}`);
+            if (step.depth !== undefined && !['mentioned', 'explained', 'contextualized'].includes(String(step.depth))) {
+                throw new Error(`${path}.depth must be mentioned, explained, or contextualized.`);
+            }
             validateResolvedAnchor(step.focus, `${path}.focus`);
             validateScene(step.diff, index);
             if (step.diff.kind !== 'text-diff') throw new Error(`${path}.diff must be a text-diff scene.`);
