@@ -18,7 +18,7 @@ export function resolveTourPosition(
     const requestedSceneIndex = scenes.findIndex((scene) => scene.id === requestedSceneId);
     const sceneIndex = requestedSceneIndex >= 0 ? requestedSceneIndex : 0;
     const scene = scenes[sceneIndex];
-    if (!scene || (scene.kind !== 'walkthrough' && scene.kind !== 'stacked-diff') || !requestedStepId) {
+    if (!scene || (scene.kind !== 'walkthrough' && scene.kind !== 'stacked-diff' && scene.kind !== 'deconstructed-diff') || !requestedStepId) {
         return { sceneIndex, stepIndex: 0 };
     }
     const requestedStepIndex = scene.steps.findIndex((step) => step.id === requestedStepId);
@@ -35,14 +35,14 @@ export function getLinearTourTarget(
         return null;
     }
     if (direction > 0) {
-        if ((scene.kind === 'walkthrough' || scene.kind === 'stacked-diff') && position.stepIndex < scene.steps.length - 1) {
+        if ((scene.kind === 'walkthrough' || scene.kind === 'stacked-diff' || scene.kind === 'deconstructed-diff') && position.stepIndex < scene.steps.length - 1) {
             return { sceneIndex: position.sceneIndex, stepIndex: position.stepIndex + 1 };
         }
         return position.sceneIndex < scenes.length - 1
             ? { sceneIndex: position.sceneIndex + 1, stepIndex: 0 }
             : null;
     }
-    if ((scene.kind === 'walkthrough' || scene.kind === 'stacked-diff') && position.stepIndex > 0) {
+    if ((scene.kind === 'walkthrough' || scene.kind === 'stacked-diff' || scene.kind === 'deconstructed-diff') && position.stepIndex > 0) {
         return { sceneIndex: position.sceneIndex, stepIndex: position.stepIndex - 1 };
     }
     if (position.sceneIndex === 0) {
@@ -51,7 +51,7 @@ export function getLinearTourTarget(
     const previousScene = scenes[position.sceneIndex - 1];
     return {
         sceneIndex: position.sceneIndex - 1,
-        stepIndex: previousScene.kind === 'walkthrough' || previousScene.kind === 'stacked-diff'
+        stepIndex: previousScene.kind === 'walkthrough' || previousScene.kind === 'stacked-diff' || previousScene.kind === 'deconstructed-diff'
             ? previousScene.steps.length - 1
             : 0
     };

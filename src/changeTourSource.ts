@@ -255,8 +255,8 @@ function validateDeconstructedScene(scene: Record<string, unknown>, path: string
     requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'base', 'target', 'stages', 'exclusions'], path);
     optionalString(scene.base, `${path}.base`);
     optionalString(scene.target, `${path}.target`);
-    if (!Array.isArray(scene.stages) || scene.stages.length === 0) {
-        throw new Error(`${path}.stages must be a non-empty array.`);
+    if (!Array.isArray(scene.stages) || scene.stages.length === 0 || scene.stages.length > 12) {
+        throw new Error(`${path}.stages must contain between 1 and 12 stages.`);
     }
     const stageIds = new Set<string>();
     for (const [stageIndex, stage] of scene.stages.entries()) {

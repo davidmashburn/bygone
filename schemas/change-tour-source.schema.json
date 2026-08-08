@@ -254,6 +254,7 @@
         "stages": {
           "type": "array",
           "minItems": 1,
+          "maxItems": 12,
           "items": { "$ref": "#/$defs/deconstructedStage" }
         },
         "exclusions": {

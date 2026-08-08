@@ -3,6 +3,7 @@ import { GitChangedPath, parseNameStatusZ, resolveBranchReviewRange, resolveRevi
 import {
     CHANGE_TOUR_MANIFEST_VERSION,
     ChangeTourChapter,
+    ChangeTourDeconstructedScene,
     ChangeTourDiffScene,
     ChangeTourFile,
     ChangeTourManifest,
@@ -14,6 +15,7 @@ import {
     parseChangeTourManifest
 } from './changeTourManifest';
 import { ChangeTourSource, parseChangeTourSource } from './changeTourSource';
+import { buildDeconstructedScene } from './deconstructedChange';
 
 export { parseChangeTourManifest, parseChangeTourStory } from './changeTourManifest';
 export { parseChangeTourSource } from './changeTourSource';
@@ -200,7 +202,15 @@ function applySource(
         const sceneIds: string[] = [];
         for (const authoredScene of chapter.scenes) {
             if (authoredScene.kind === 'deconstructed-diff') {
-                throw new Error(`Deconstructed scene ${authoredScene.id} is valid source but presenter compilation is not implemented yet.`);
+                const deconstructedScene = buildDeconstructedManifestScene(
+                    repoRoot,
+                    authoredScene,
+                    authoredScene.base || source.range?.base,
+                    authoredScene.target || source.range?.head
+                );
+                scenes.push(deconstructedScene);
+                sceneIds.push(deconstructedScene.id);
+                continue;
             }
             if (authoredScene.kind === 'stacked-diff') {
                 const stackedScene = buildStackedScene(repoRoot, authoredScene);
@@ -238,6 +248,85 @@ function applySource(
     }
 
     return { scenes, chapters };
+}
+
+function buildDeconstructedManifestScene(
+    repoRoot: string,
+    source: Extract<ChangeTourSource['chapters'][number]['scenes'][number], { kind: 'deconstructed-diff' }>,
+    baseRef?: string,
+    targetRef?: string
+): ChangeTourDeconstructedScene {
+    const compiled = buildDeconstructedScene(repoRoot, source, { baseRef, headRef: targetRef });
+    const panels = [{
+        id: 'explanation-baseline',
+        label: 'Explanation baseline',
+        role: 'baseline' as const
+    }, ...compiled.stages.map((stage, index) => ({
+        id: `explanation-stage-${stage.id}`,
+        label: `Stage ${index + 1}: ${stage.title}`,
+        role: 'stage' as const,
+        stageId: stage.id
+    }))];
+    const includedPaths = [...new Set(compiled.stages.flatMap((stage) => stage.introducedFiles))];
+    let totalContentBytes = 0;
+    const files = includedPaths.map((filePath) => {
+        const states = [
+            compiled.baselineFiles.find((file) => file.path === filePath),
+            ...compiled.stages.map((stage) => stage.files.find((file) => file.path === filePath))
+        ];
+        if (states.some((state) => !state)) {
+            throw new Error(`Deconstructed scene ${source.id} is missing virtual state for ${filePath}.`);
+        }
+        return {
+            path: filePath,
+            panels: states.map((state, index) => {
+                if (!state) throw new Error(`Missing virtual state for ${filePath}.`);
+                const content = Buffer.from(state.content, 'utf8');
+                if (content.length > DEFAULT_MAX_TOUR_FILE_BYTES || hasLineLongerThan(content, DEFAULT_MAX_TOUR_LINE_BYTES)) {
+                    throw new Error(`Deconstructed tour file is too large to present: ${filePath}`);
+                }
+                totalContentBytes += content.length;
+                if (totalContentBytes > DEFAULT_MAX_STACK_CONTENT_BYTES) {
+                    throw new Error(`Deconstructed tour content exceeds ${DEFAULT_MAX_STACK_CONTENT_BYTES} bytes.`);
+                }
+                return {
+                    id: panels[index].id,
+                    label: `${panels[index].label} / ${filePath}${state.exists ? '' : ' (absent)'}`,
+                    path: state.exists ? filePath : undefined,
+                    content: state.content,
+                    exists: state.exists
+                };
+            })
+        };
+    });
+    if (files.length === 0) throw new Error(`Deconstructed scene ${source.id} has no staged files.`);
+    return {
+        id: source.id,
+        kind: 'deconstructed-diff',
+        title: source.title,
+        summary: source.summary,
+        bullets: source.bullets,
+        tags: source.tags,
+        takeaway: source.takeaway,
+        stageLabel: 'Explanation stages',
+        realRange: {
+            baseRef: baseRef || compiled.baseOid,
+            targetRef: targetRef || compiled.targetOid,
+            baseOid: compiled.baseOid,
+            targetOid: compiled.targetOid
+        },
+        panels,
+        files,
+        steps: compiled.stages.map((stage, index) => ({
+            id: stage.id,
+            title: stage.title,
+            body: stage.narration,
+            file: stage.introducedFiles[0],
+            pairIndex: index,
+            side: 'right',
+            introducedHunks: stage.introducedHunks
+        }))
+    };
 }
 
 function buildStackedScene(

@@ -118,7 +118,38 @@ export interface ChangeTourStackedScene extends ChangeTourNarrative {
     steps: ChangeTourStackStep[];
 }
 
-export type ChangeTourScene = ChangeTourDiffScene | ChangeTourDiscussionScene | ChangeTourWalkthroughScene | ChangeTourStackedScene;
+export interface ChangeTourVirtualPanel {
+    id: string;
+    label: string;
+    role: 'baseline' | 'stage';
+    stageId?: string;
+}
+
+export interface ChangeTourDeconstructedStep extends ChangeTourStackStep {
+    introducedHunks: string[];
+}
+
+export interface ChangeTourDeconstructedScene extends ChangeTourNarrative {
+    id: string;
+    kind: 'deconstructed-diff';
+    title: string;
+    stageLabel: 'Explanation stages';
+    realRange: {
+        baseRef: string;
+        targetRef: string;
+        baseOid: string;
+        targetOid: string;
+    };
+    panels: ChangeTourVirtualPanel[];
+    files: ChangeTourStackFile[];
+    steps: ChangeTourDeconstructedStep[];
+}
+
+export type ChangeTourScene = ChangeTourDiffScene
+    | ChangeTourDiscussionScene
+    | ChangeTourWalkthroughScene
+    | ChangeTourStackedScene
+    | ChangeTourDeconstructedScene;
 
 export interface ChangeTourStory {
     title?: string;
@@ -273,8 +304,8 @@ export function parseChangeTourStory(value: unknown): ChangeTourStory {
 }
 
 function validateScene(value: unknown, index: number): asserts value is ChangeTourScene {
-    if (!isRecord(value) || !['text-diff', 'discussion', 'walkthrough', 'stacked-diff'].includes(String(value.kind))) {
-        throw new Error(`scenes[${index}] must be a text-diff, discussion, walkthrough, or stacked-diff scene.`);
+    if (!isRecord(value) || !['text-diff', 'discussion', 'walkthrough', 'stacked-diff', 'deconstructed-diff'].includes(String(value.kind))) {
+        throw new Error(`scenes[${index}] must be a text-diff, discussion, walkthrough, stacked-diff, or deconstructed-diff scene.`);
     }
     for (const key of ['id', 'title']) {
         requireString(value[key], `scenes[${index}].${key}`);
@@ -313,6 +344,10 @@ function validateScene(value: unknown, index: number): asserts value is ChangeTo
         validateStackedScene(value, index);
         return;
     }
+    if (value.kind === 'deconstructed-diff') {
+        validateDeconstructedScene(value, index);
+        return;
+    }
     for (const key of ['path', 'leftLabel', 'rightLabel', 'leftContent', 'rightContent']) {
         requireString(value[key], `scenes[${index}].${key}`);
     }
@@ -335,12 +370,51 @@ function validateStackedScene(value: Record<string, unknown>, index: number): vo
         if (!isRecord(panel)) throw new Error(`scenes[${index}].stack[${panelIndex}] must be an object.`);
         for (const key of ['id', 'ref', 'oid', 'label']) requireString(panel[key], `scenes[${index}].stack[${panelIndex}].${key}`);
     }
-    if (!Array.isArray(value.files) || value.files.length === 0) throw new Error(`scenes[${index}].files must be non-empty.`);
-    for (const [fileIndex, file] of value.files.entries()) {
+    validateMultiPanelFiles(value.files, value.stack.length, index);
+    validateMultiPanelSteps(value.steps, value.stack.length, index, false);
+}
+
+function validateDeconstructedScene(value: Record<string, unknown>, index: number): void {
+    if (value.stageLabel !== 'Explanation stages') {
+        throw new Error(`scenes[${index}].stageLabel must be Explanation stages.`);
+    }
+    if (!isRecord(value.realRange)) throw new Error(`scenes[${index}].realRange must be an object.`);
+    for (const key of ['baseRef', 'targetRef', 'baseOid', 'targetOid']) {
+        requireString(value.realRange[key], `scenes[${index}].realRange.${key}`);
+    }
+    if (!Array.isArray(value.panels) || value.panels.length < 2 || value.panels.length > 13) {
+        throw new Error(`scenes[${index}].panels must contain a baseline and between 1 and 12 stages.`);
+    }
+    const panels = value.panels;
+    for (const [panelIndex, panel] of panels.entries()) {
+        if (!isRecord(panel)) throw new Error(`scenes[${index}].panels[${panelIndex}] must be an object.`);
+        for (const key of ['id', 'label', 'role']) requireString(panel[key], `scenes[${index}].panels[${panelIndex}].${key}`);
+        const expectedRole = panelIndex === 0 ? 'baseline' : 'stage';
+        if (panel.role !== expectedRole) throw new Error(`scenes[${index}].panels[${panelIndex}].role must be ${expectedRole}.`);
+        if (panelIndex > 0) requireString(panel.stageId, `scenes[${index}].panels[${panelIndex}].stageId`);
+    }
+    validateMultiPanelFiles(value.files, panels.length, index);
+    validateMultiPanelSteps(value.steps, panels.length, index, true);
+    if (Array.isArray(value.steps) && value.steps.length !== panels.length - 1) {
+        throw new Error(`scenes[${index}].steps must match the number of explanation stages.`);
+    }
+    if (Array.isArray(value.steps)) {
+        value.steps.forEach((step, stepIndex) => {
+            const panel = panels[stepIndex + 1];
+            if (!isRecord(step) || !isRecord(panel) || panel.stageId !== step.id) {
+                throw new Error(`scenes[${index}].panels must align with explanation stage ids.`);
+            }
+        });
+    }
+}
+
+function validateMultiPanelFiles(value: unknown, panelCount: number, index: number): void {
+    if (!Array.isArray(value) || value.length === 0) throw new Error(`scenes[${index}].files must be non-empty.`);
+    for (const [fileIndex, file] of value.entries()) {
         if (!isRecord(file)) throw new Error(`scenes[${index}].files[${fileIndex}] must be an object.`);
         requireString(file.path, `scenes[${index}].files[${fileIndex}].path`);
-        if (!Array.isArray(file.panels) || file.panels.length !== value.stack.length) {
-            throw new Error(`scenes[${index}].files[${fileIndex}].panels must match stack length.`);
+        if (!Array.isArray(file.panels) || file.panels.length !== panelCount) {
+            throw new Error(`scenes[${index}].files[${fileIndex}].panels must match panel count.`);
         }
         for (const [panelIndex, panel] of file.panels.entries()) {
             if (!isRecord(panel)) throw new Error(`scenes[${index}].files[${fileIndex}].panels[${panelIndex}] must be an object.`);
@@ -349,12 +423,20 @@ function validateStackedScene(value: Record<string, unknown>, index: number): vo
             if (typeof panel.exists !== 'boolean') throw new Error(`scenes[${index}].files[${fileIndex}].panels[${panelIndex}].exists must be boolean.`);
         }
     }
-    if (!Array.isArray(value.steps) || value.steps.length === 0) throw new Error(`scenes[${index}].steps must be non-empty.`);
-    for (const [stepIndex, step] of value.steps.entries()) {
+}
+
+function validateMultiPanelSteps(value: unknown, panelCount: number, index: number, deconstructed: boolean): void {
+    if (!Array.isArray(value) || value.length === 0) throw new Error(`scenes[${index}].steps must be non-empty.`);
+    for (const [stepIndex, step] of value.entries()) {
         if (!isRecord(step)) throw new Error(`scenes[${index}].steps[${stepIndex}] must be an object.`);
         for (const key of ['id', 'title', 'body', 'file', 'side']) requireString(step[key], `scenes[${index}].steps[${stepIndex}].${key}`);
         requireNonNegativeInteger(step.pairIndex, `scenes[${index}].steps[${stepIndex}].pairIndex`);
-        if (Number(step.pairIndex) >= value.stack.length - 1) throw new Error(`scenes[${index}].steps[${stepIndex}].pairIndex is outside the stack.`);
+        if (Number(step.pairIndex) >= panelCount - 1) throw new Error(`scenes[${index}].steps[${stepIndex}].pairIndex is outside the panels.`);
+        if (deconstructed) {
+            requireStringArray(step.introducedHunks, `scenes[${index}].steps[${stepIndex}].introducedHunks`);
+            if (step.introducedHunks.length === 0) throw new Error(`scenes[${index}].steps[${stepIndex}].introducedHunks must be non-empty.`);
+            if (Number(step.pairIndex) !== stepIndex) throw new Error(`scenes[${index}].steps[${stepIndex}].pairIndex must match its explanation stage.`);
+        }
         if (step.side !== 'left' && step.side !== 'right') throw new Error(`scenes[${index}].steps[${stepIndex}].side must be left or right.`);
         if (step.startLine !== undefined) requirePositiveInteger(step.startLine, `scenes[${index}].steps[${stepIndex}].startLine`);
         if (step.endLine !== undefined) requirePositiveInteger(step.endLine, `scenes[${index}].steps[${stepIndex}].endLine`);

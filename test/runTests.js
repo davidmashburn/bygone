@@ -72,6 +72,18 @@ function testTourLinearNavigationTraversesStepsAndScenes() {
     assert.equal(getLinearTourTarget(scenes, { sceneIndex: 2, stepIndex: 0 }, 1), null);
 }
 
+function testDeconstructedTourNavigationTraversesExplanationStages() {
+    const scenes = [
+        { id: 'intro', kind: 'discussion' },
+        { id: 'deconstructed', kind: 'deconstructed-diff', steps: [{ id: 'model' }, { id: 'behavior' }] },
+        { id: 'appendix', kind: 'text-diff' }
+    ];
+
+    assert.deepEqual(resolveTourPosition(scenes, 'deconstructed', 'behavior'), { sceneIndex: 1, stepIndex: 1 });
+    assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 1, stepIndex: 0 }, 1), { sceneIndex: 1, stepIndex: 1 });
+    assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 2, stepIndex: 0 }, -1), { sceneIndex: 1, stepIndex: 1 });
+}
+
 function testTourPositionRestoresStableSceneAndStepIds() {
     const scenes = [
         { id: 'intro', kind: 'discussion' },
@@ -121,7 +133,10 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /getTourFileTarget\(tour\.files, state\.activeTourFilePath, direction\)/);
     assert.match(hostSource, /tourFocusFilePath/);
     assert.match(hostSource, /function returnToTourFocus/);
-    assert.match(hostSource, /function renderStackedStep/);
+    assert.match(hostSource, /function renderMultiPanelStep/);
+    assert.match(hostSource, /scene\.kind === 'deconstructed-diff'/);
+    assert.match(hostSource, /scene\.stageLabel/);
+    assert.match(hostSource, /getMultiPanelDefinitions/);
     assert.match(hostSource, /type: 'showMultiDiff'/);
     assert.match(webMarkup, /id="tour-files"/);
     assert.match(webMarkup, /id="tour-return-focus"/);
@@ -1656,9 +1671,23 @@ function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
     assert.equal(scene.kind, 'deconstructed-diff');
     const compiled = compileDeconstructedScene(inventory, scene);
     const built = buildDeconstructedScene(repo, scene);
+    const manifest = buildChangeTourManifest(repo, {
+        source,
+        generatedAt: '2026-08-08T00:00:00.000Z'
+    });
+    const manifestScene = manifest.scenes.find((candidate) => candidate.id === 'build-feature');
 
     assert.equal(compiled.stages.length, 2);
     assert.equal(built.targetOid, inventory.range.headOid);
+    assert.equal(manifestScene.kind, 'deconstructed-diff');
+    assert.equal(manifestScene.stageLabel, 'Explanation stages');
+    assert.equal(manifestScene.panels.length, 3);
+    assert.deepEqual(manifestScene.panels.map((panel) => panel.role), ['baseline', 'stage', 'stage']);
+    assert.equal('oid' in manifestScene.panels[1], false);
+    assert.equal('ref' in manifestScene.panels[1], false);
+    assert.equal(manifestScene.realRange.baseOid, inventory.range.baseOid);
+    assert.equal(manifestScene.steps[1].pairIndex, 1);
+    assert.equal(manifestScene.files.find((file) => file.path === 'delete.txt').panels[2].exists, false);
     assert.equal(compiled.excludedFiles.length, 2);
     assert.equal(compiled.baselineFiles.find((file) => file.path === 'added.txt').exists, false);
     assert.equal(compiled.baselineFiles.find((file) => file.path === 'delete.txt').exists, true);
@@ -1753,6 +1782,7 @@ function shortCommit(repo, rev) {
 
 function run() {
     testTourLinearNavigationTraversesStepsAndScenes();
+    testDeconstructedTourNavigationTraversesExplanationStages();
     testTourPositionRestoresStableSceneAndStepIds();
     testTourFileNavigationUsesCompleteRenderableFileIndex();
     testWebTourHostSeparatesFileAndNarrativeNavigation();

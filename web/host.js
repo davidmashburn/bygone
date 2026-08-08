@@ -309,7 +309,13 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
                 copy.className = 'tour-scene-copy';
                 for (const [className, text] of [
                     ['tour-scene-title', scene.title],
-                    ['tour-scene-path', scene.kind === 'text-diff' ? scene.path : (scene.kind === 'walkthrough' || scene.kind === 'stacked-diff') ? formatCount(scene.steps.length, 'code step') : 'Discussion'],
+                    ['tour-scene-path', scene.kind === 'text-diff'
+                        ? scene.path
+                        : scene.kind === 'deconstructed-diff'
+                            ? formatCount(scene.steps.length, 'explanation stage')
+                            : isSteppedTourScene(scene)
+                                ? formatCount(scene.steps.length, 'code step')
+                                : 'Discussion'],
                     ['tour-scene-note', scene.takeaway]
                 ]) {
                     const line = document.createElement('span');
@@ -329,7 +335,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
             button.disabled = file.kind === 'omitted';
             button.title = file.kind === 'omitted' ? `${file.path}: ${file.reason}` : file.path;
             if (file.kind === 'text-diff') {
-                button.addEventListener('click', () => showTourFileAtIndex(index));
+                button.addEventListener('click', () => showTourFileSelection(index));
             }
             const marker = document.createElement('span');
             marker.className = 'tour-file-marker';
@@ -365,14 +371,14 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         }
         const scene = tour.scenes[index];
         state.activeSceneIndex = index;
-        state.activeStepIndex = scene.kind === 'walkthrough' || scene.kind === 'stacked-diff'
+        state.activeStepIndex = isSteppedTourScene(scene)
             ? Math.min(Math.max(stepIndex, 0), Math.max(scene.steps.length - 1, 0))
             : 0;
         state.tourFocusFilePath = scene.kind === 'text-diff'
             ? scene.path
             : scene.kind === 'walkthrough'
                 ? scene.steps[state.activeStepIndex]?.diff.path ?? null
-                : scene.kind === 'stacked-diff'
+                : isMultiPanelTourScene(scene)
                     ? scene.steps[state.activeStepIndex]?.file ?? null
                 : null;
         const location = getSceneLocation(tour, index);
@@ -383,7 +389,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         renderTourNarrative(scene, location);
         const parameters = new URLSearchParams(window.location.search);
         parameters.set('scene', scene.id);
-        if (scene.kind === 'walkthrough' || scene.kind === 'stacked-diff') {
+        if (isSteppedTourScene(scene)) {
             parameters.set('step', scene.steps[state.activeStepIndex].id);
         } else {
             parameters.delete('step');
@@ -399,8 +405,8 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
             renderWalkthroughStep(scene);
             return;
         }
-        if (scene.kind === 'stacked-diff') {
-            renderStackedStep(scene);
+        if (isMultiPanelTourScene(scene)) {
+            renderMultiPanelStep(scene);
             return;
         }
         emitDiffScene(scene);
@@ -453,13 +459,13 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         }, `${scene.id}-${step.id}`);
     }
 
-    function renderStackedStep(scene) {
+    function renderMultiPanelStep(scene) {
         const step = scene.steps[state.activeStepIndex];
         if (!step) return;
-        emitStackedFile(scene, step.file, step);
+        emitMultiPanelFile(scene, step.file, step);
     }
 
-    function emitStackedFile(scene, filePath, step) {
+    function emitMultiPanelFile(scene, filePath, step) {
         const file = scene.files.find((candidate) => candidate.path === filePath);
         if (!step || !file) return;
         state.activeTourFilePath = file.path;
@@ -472,7 +478,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
             savedContent: panel.content,
             dirty: false,
             editable: false,
-            stackId: scene.stack[index].id
+            stackId: getMultiPanelDefinitions(scene)[index].id
         }));
         const pairs = panels.slice(0, -1).map((panel, index) => ({
             leftIndex: index,
@@ -496,7 +502,9 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
                 canGoNext: scene.files.indexOf(file) < scene.files.length - 1
             },
             mutationEnabled: false,
-            comparisonSummary: `${file.path} · ${scene.takeaway}`
+            comparisonSummary: scene.kind === 'deconstructed-diff'
+                ? `${scene.stageLabel} · ${file.path} · ${formatTourRef(scene.realRange.baseRef)} → ${formatTourRef(scene.realRange.targetRef)}`
+                : `${file.path} · ${scene.takeaway}`
         });
     }
 
@@ -530,12 +538,12 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
 
     function showTourFile(direction) {
         const activeScene = state.tour?.scenes[state.activeSceneIndex];
-        if (activeScene?.kind === 'stacked-diff') {
+        if (activeScene && isMultiPanelTourScene(activeScene)) {
             const currentIndex = activeScene.files.findIndex((file) => file.path === state.activeTourFilePath);
             const target = activeScene.files[currentIndex + direction];
             const step = activeScene.steps[state.activeStepIndex];
             if (!target || !step) return false;
-            emitStackedFile(activeScene, target.path, step);
+            emitMultiPanelFile(activeScene, target.path, step);
             return true;
         }
         const target = getCurrentTourFileTarget(direction);
@@ -551,6 +559,19 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         return true;
     }
 
+    function showTourFileSelection(index) {
+        const selected = state.tour?.files[index];
+        const activeScene = state.tour?.scenes[state.activeSceneIndex];
+        if (selected?.kind === 'text-diff' && activeScene && isMultiPanelTourScene(activeScene)) {
+            const step = activeScene.steps[state.activeStepIndex];
+            if (step && activeScene.files.some((file) => file.path === selected.path)) {
+                emitMultiPanelFile(activeScene, selected.path, step);
+                return true;
+            }
+        }
+        return showTourFileAtIndex(index);
+    }
+
     function returnToTourFocus() {
         const scene = state.tour?.scenes[state.activeSceneIndex];
         if (!scene || !state.tourFocusFilePath) {
@@ -558,8 +579,8 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         }
         if (scene.kind === 'walkthrough') {
             renderWalkthroughStep(scene);
-        } else if (scene.kind === 'stacked-diff') {
-            renderStackedStep(scene);
+        } else if (isMultiPanelTourScene(scene)) {
+            renderMultiPanelStep(scene);
         } else if (scene.kind === 'text-diff') {
             emitDiffScene(scene);
         } else {
@@ -578,6 +599,20 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         if (returnButton) {
             returnButton.hidden = !state.tourFocusFilePath || state.activeTourFilePath === state.tourFocusFilePath;
         }
+    }
+
+    function isSteppedTourScene(scene) {
+        return scene.kind === 'walkthrough'
+            || scene.kind === 'stacked-diff'
+            || scene.kind === 'deconstructed-diff';
+    }
+
+    function isMultiPanelTourScene(scene) {
+        return scene.kind === 'stacked-diff' || scene.kind === 'deconstructed-diff';
+    }
+
+    function getMultiPanelDefinitions(scene) {
+        return scene.kind === 'deconstructed-diff' ? scene.panels : scene.stack;
     }
 
     function changeKindMarker(changeKind) {
@@ -605,7 +640,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
 
     function formatTourBreadcrumb(location, scene, stepIndex) {
         const parts = [`Ch ${location.chapterNumber}`, `Scene ${location.sceneInChapter}/${location.scenesInChapter}`];
-        if (scene.kind === 'walkthrough' || scene.kind === 'stacked-diff') {
+        if (isSteppedTourScene(scene)) {
             parts.push(`Step ${stepIndex + 1}/${scene.steps.length}`);
         }
         return parts.join(' · ');
@@ -662,7 +697,9 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         }
         narrative.hidden = false;
         breadcrumb.textContent = formatTourBreadcrumb(location, scene, state.activeStepIndex);
-        chapter.textContent = location.chapter?.title || 'Change tour';
+        chapter.textContent = scene.kind === 'deconstructed-diff'
+            ? `${location.chapter?.title || 'Change tour'} · ${scene.stageLabel}`
+            : location.chapter?.title || 'Change tour';
         title.textContent = scene.title;
         summary.textContent = scene.summary;
         bullets.replaceChildren(...scene.bullets.map((text) => {
@@ -676,12 +713,14 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
             return tag;
         }));
         takeaway.textContent = scene.takeaway;
-        const step = scene.kind === 'walkthrough' || scene.kind === 'stacked-diff'
+        const step = isSteppedTourScene(scene)
             ? scene.steps[state.activeStepIndex]
             : null;
         stepPanel.hidden = !step;
         if (step) {
-            stepTitle.textContent = step.title;
+            stepTitle.textContent = scene.kind === 'deconstructed-diff'
+                ? `Stage ${state.activeStepIndex + 1}: ${step.title}`
+                : step.title;
             stepBody.textContent = step.body;
             if ('connection' in step && step.connection) {
                 connection.hidden = false;

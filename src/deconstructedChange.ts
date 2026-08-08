@@ -16,6 +16,7 @@ export interface DeconstructedStageState {
     title: string;
     narration: string;
     introducedHunks: string[];
+    introducedFiles: string[];
     cumulativeHunks: string[];
     files: DeconstructedFileState[];
 }
@@ -130,6 +131,7 @@ export function compileDeconstructedScene(
 
     for (const { stage, claims } of stageClaims) {
         const introducedHunks: string[] = [];
+        const introducedFiles: string[] = [];
         for (const claim of claims) {
             const cumulative = cumulativeByFile.get(claim.file) || new Set<string>();
             claim.ids.forEach((id) => {
@@ -137,12 +139,14 @@ export function compileDeconstructedScene(
                 introducedHunks.push(id);
             });
             cumulativeByFile.set(claim.file, cumulative);
+            if (!introducedFiles.includes(claim.file.path)) introducedFiles.push(claim.file.path);
         }
         stages.push({
             id: stage.id,
             title: stage.title,
             narration: stage.narration,
             introducedHunks,
+            introducedFiles,
             cumulativeHunks: [...cumulativeByFile.values()].flatMap((ids) => [...ids]),
             files: materializableFiles.map((file) => buildFileState(
                 file,
