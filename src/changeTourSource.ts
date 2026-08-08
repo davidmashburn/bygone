@@ -31,11 +31,39 @@ export interface ChangeTourCoverageExclusion {
     reason: string;
 }
 
-export interface ChangeTourSourceScene extends ChangeTourNarrative {
+export interface ChangeTourSourceWalkthroughScene extends ChangeTourNarrative {
     id: string;
+    kind?: 'walkthrough';
     title: string;
     steps: ChangeTourSourceStep[];
 }
+
+export interface ChangeTourSourceStackEntry {
+    id: string;
+    ref: string;
+    label?: string;
+}
+
+export interface ChangeTourSourceStackStep {
+    id: string;
+    title: string;
+    body: string;
+    file: string;
+    pair: [string, string];
+    side?: 'left' | 'right';
+    lines?: [number, number];
+}
+
+export interface ChangeTourSourceStackedScene extends ChangeTourNarrative {
+    id: string;
+    kind: 'stacked-diff';
+    title: string;
+    stack: ChangeTourSourceStackEntry[];
+    files?: string[];
+    steps: ChangeTourSourceStackStep[];
+}
+
+export type ChangeTourSourceScene = ChangeTourSourceWalkthroughScene | ChangeTourSourceStackedScene;
 
 export interface ChangeTourSourceChapter {
     id: string;
@@ -84,8 +112,8 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             if (exclusion.hunks !== undefined) requireStringArray(exclusion.hunks, `${exclusionPath}.hunks`);
         }
     }
-    if (!isRecord(value.anchors) || Object.keys(value.anchors).length === 0) {
-        throw new Error('anchors must be a non-empty object.');
+    if (!isRecord(value.anchors)) {
+        throw new Error('anchors must be an object.');
     }
     for (const [id, anchor] of Object.entries(value.anchors)) {
         if (!isRecord(anchor)) {
@@ -146,10 +174,15 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             }
             requireString(scene.id, `${path}.id`);
             requireString(scene.title, `${path}.title`);
-            requireOnlyKeys(scene, ['id', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'steps'], path);
             if (sceneIds.has(scene.id)) throw new Error(`Duplicate scene id: ${scene.id}`);
             sceneIds.add(scene.id);
             validateNarrative(scene, path);
+            if (scene.kind === 'stacked-diff') {
+                validateStackedScene(scene, path);
+                continue;
+            }
+            if (scene.kind !== undefined && scene.kind !== 'walkthrough') throw new Error(`${path}.kind must be walkthrough or stacked-diff.`);
+            requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'steps'], path);
             const stepIds = new Set<string>();
             for (const [stepIndex, step] of scene.steps.entries()) {
                 const stepPath = `${path}.steps[${stepIndex}]`;
@@ -179,6 +212,52 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         }
     }
     return { ...value, connections: rawConnections } as unknown as ChangeTourSource;
+}
+
+function validateStackedScene(scene: Record<string, unknown>, path: string): void {
+    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'stack', 'files', 'steps'], path);
+    if (!Array.isArray(scene.stack) || scene.stack.length < 3 || scene.stack.length > 6) {
+        throw new Error(`${path}.stack must contain between 3 and 6 revisions.`);
+    }
+    const stackIds = new Set<string>();
+    for (const [index, entry] of scene.stack.entries()) {
+        const entryPath = `${path}.stack[${index}]`;
+        if (!isRecord(entry)) throw new Error(`${entryPath} must be an object.`);
+        requireOnlyKeys(entry, ['id', 'ref', 'label'], entryPath);
+        requireString(entry.id, `${entryPath}.id`);
+        requireString(entry.ref, `${entryPath}.ref`);
+        optionalString(entry.label, `${entryPath}.label`);
+        if (stackIds.has(entry.id)) throw new Error(`Duplicate stack entry id: ${entry.id}`);
+        stackIds.add(entry.id);
+    }
+    if (scene.files !== undefined) requireStringArray(scene.files, `${path}.files`);
+    if (!Array.isArray(scene.steps) || scene.steps.length === 0) throw new Error(`${path}.steps must be a non-empty array.`);
+    const stepIds = new Set<string>();
+    for (const [index, step] of scene.steps.entries()) {
+        const stepPath = `${path}.steps[${index}]`;
+        if (!isRecord(step)) throw new Error(`${stepPath} must be an object.`);
+        requireOnlyKeys(step, ['id', 'title', 'body', 'file', 'pair', 'side', 'lines'], stepPath);
+        requireString(step.id, `${stepPath}.id`);
+        requireString(step.title, `${stepPath}.title`);
+        requireString(step.body, `${stepPath}.body`);
+        requireString(step.file, `${stepPath}.file`);
+        const stepId = step.id;
+        if (stepIds.has(stepId)) throw new Error(`Duplicate step id in scene ${scene.id}: ${stepId}`);
+        stepIds.add(stepId);
+        if (!Array.isArray(step.pair) || step.pair.length !== 2 || step.pair.some((id) => typeof id !== 'string')) {
+            throw new Error(`${stepPath}.pair must contain two stack entry ids.`);
+        }
+        const pair = step.pair as string[];
+        const leftIndex = scene.stack.findIndex((entry) => isRecord(entry) && entry.id === pair[0]);
+        const rightIndex = scene.stack.findIndex((entry) => isRecord(entry) && entry.id === pair[1]);
+        if (leftIndex < 0 || rightIndex !== leftIndex + 1) throw new Error(`${stepPath}.pair must reference adjacent stack entries in order.`);
+        if (step.side !== undefined && step.side !== 'left' && step.side !== 'right') throw new Error(`${stepPath}.side must be left or right.`);
+        if (step.lines !== undefined && (!Array.isArray(step.lines) || step.lines.length !== 2
+            || step.lines.some((line) => !Number.isInteger(line) || Number(line) < 1)
+            || Number(step.lines[1]) < Number(step.lines[0]))) {
+            throw new Error(`${stepPath}.lines must contain an ordered positive line range.`);
+        }
+    }
 }
 
 function validateNarrative(value: Record<string, unknown>, path: string): void {

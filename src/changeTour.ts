@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { GitChangedPath, resolveBranchReviewRange, resolveReviewPathPair } from './gitComparison';
+import { GitChangedPath, parseNameStatusZ, resolveBranchReviewRange, resolveReviewPathPair } from './gitComparison';
 import {
     CHANGE_TOUR_MANIFEST_VERSION,
     ChangeTourChapter,
@@ -24,6 +24,7 @@ export type { BuildChangeInventoryOptions, ChangeInventory, ChangeInventoryFile,
 
 const DEFAULT_MAX_TOUR_FILE_BYTES = 2 * 1024 * 1024;
 const DEFAULT_MAX_TOUR_LINE_BYTES = 64 * 1024;
+const DEFAULT_MAX_STACK_CONTENT_BYTES = 8 * 1024 * 1024;
 
 export interface BuildChangeTourOptions {
     headRef?: string;
@@ -128,7 +129,7 @@ export function buildChangeTourManifest(
         throw new Error('A change tour can use either a legacy story or a source file, not both.');
     }
     const authored = options.source
-        ? applySource(parseChangeTourSource(options.source), defaultScenes)
+        ? applySource(parseChangeTourSource(options.source), defaultScenes, range.repoRoot)
         : options.story
         ? applyStory(options.story, defaultScenes)
         : {
@@ -166,7 +167,8 @@ export function buildChangeTourManifest(
 
 function applySource(
     source: ChangeTourSource,
-    defaultScenes: ChangeTourDiffScene[]
+    defaultScenes: ChangeTourDiffScene[],
+    repoRoot: string
 ): { scenes: ChangeTourScene[]; chapters: ChangeTourChapter[] } {
     const available = new Map(defaultScenes.map((scene) => [scene.path, scene]));
     const resolvedAnchors = new Map<string, ChangeTourResolvedAnchor>();
@@ -190,6 +192,12 @@ function applySource(
     for (const chapter of source.chapters) {
         const sceneIds: string[] = [];
         for (const authoredScene of chapter.scenes) {
+            if (authoredScene.kind === 'stacked-diff') {
+                const stackedScene = buildStackedScene(repoRoot, authoredScene);
+                scenes.push(stackedScene);
+                sceneIds.push(stackedScene.id);
+                continue;
+            }
             const scene: ChangeTourWalkthroughScene = {
                 id: authoredScene.id,
                 kind: 'walkthrough',
@@ -220,6 +228,112 @@ function applySource(
     }
 
     return { scenes, chapters };
+}
+
+function buildStackedScene(
+    repoRoot: string,
+    source: Extract<ChangeTourSource['chapters'][number]['scenes'][number], { kind: 'stacked-diff' }>
+): ChangeTourScene {
+    const stack = source.stack.map((entry) => ({
+        id: entry.id,
+        ref: entry.ref,
+        oid: runGitText(repoRoot, ['rev-parse', '--verify', `${entry.ref}^{commit}`]),
+        label: entry.label || entry.ref
+    }));
+    const adjacentChanges = stack.slice(0, -1).map((entry, index) => parseNameStatusZ(execFileSync('git', [
+        'diff', '--name-status', '-z', '--find-renames=20%', entry.oid, stack[index + 1].oid
+    ], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe']
+    })));
+    const renamedPreviousPaths = new Set(adjacentChanges.flatMap((changes) => (
+        changes.map((change) => change.previousPath).filter((candidate): candidate is string => Boolean(candidate))
+    )));
+    const changedFiles = [...new Set(adjacentChanges.flatMap((changes) => changes.map((change) => change.path)))]
+        .filter((filePath) => !renamedPreviousPaths.has(filePath))
+        .sort();
+    const filePaths = source.files?.length ? [...new Set(source.files)] : changedFiles;
+    for (const step of source.steps) {
+        if (!filePaths.includes(step.file)) throw new Error(`Stacked step ${step.id} references undeclared file ${step.file}.`);
+    }
+    if (filePaths.length === 0) throw new Error(`Stacked scene ${source.id} has no changed files.`);
+
+    let totalContentBytes = 0;
+    const files = filePaths.map((filePath) => {
+        const aliases = new Set([filePath]);
+        for (const changes of adjacentChanges) {
+            for (const change of changes) {
+                if (aliases.has(change.path) || (change.previousPath && aliases.has(change.previousPath))) {
+                    aliases.add(change.path);
+                    if (change.previousPath) aliases.add(change.previousPath);
+                }
+            }
+        }
+        const panels = stack.map((entry) => {
+            const resolvedPath = [...aliases].find((candidate) => gitBlobExists(repoRoot, entry.oid, candidate));
+            if (!resolvedPath) {
+                return { id: entry.id, label: `${entry.label} / ${filePath} (missing)`, content: '', exists: false };
+            }
+            const content = readGitText(repoRoot, entry.oid, resolvedPath, DEFAULT_MAX_TOUR_FILE_BYTES, DEFAULT_MAX_TOUR_LINE_BYTES);
+            if (content.kind !== 'text') throw new Error(`Stacked tour file is binary or too large: ${resolvedPath}`);
+            totalContentBytes += Buffer.byteLength(content.content);
+            if (totalContentBytes > DEFAULT_MAX_STACK_CONTENT_BYTES) {
+                throw new Error(`Stacked tour content exceeds ${DEFAULT_MAX_STACK_CONTENT_BYTES} bytes.`);
+            }
+            return {
+                id: entry.id,
+                label: `${entry.label} / ${resolvedPath}`,
+                path: resolvedPath,
+                content: content.content,
+                exists: true
+            };
+        });
+        return { path: filePath, panels };
+    });
+    const stackIds = stack.map((entry) => entry.id);
+    return {
+        id: source.id,
+        kind: 'stacked-diff',
+        title: source.title,
+        summary: source.summary,
+        bullets: source.bullets,
+        tags: source.tags,
+        takeaway: source.takeaway,
+        stack,
+        files,
+        steps: source.steps.map((step) => ({
+            id: step.id,
+            title: step.title,
+            body: step.body,
+            file: step.file,
+            pairIndex: stackIds.indexOf(step.pair[0]),
+            side: step.side || 'right',
+            startLine: step.lines?.[0],
+            endLine: step.lines?.[1]
+        }))
+    };
+}
+
+function gitBlobExists(repoRoot: string, oid: string, relativePath: string): boolean {
+    try {
+        execFileSync('git', ['cat-file', '-e', `${oid}:${relativePath}`], {
+            cwd: repoRoot,
+            stdio: ['ignore', 'ignore', 'ignore']
+        });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function runGitText(repoRoot: string, args: string[]): string {
+    return execFileSync('git', args, {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+    }).trim();
 }
 
 function resolveAnchor(

@@ -219,7 +219,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
                 copy.className = 'tour-scene-copy';
                 for (const [className, text] of [
                     ['tour-scene-title', scene.title],
-                    ['tour-scene-path', scene.kind === 'text-diff' ? scene.path : scene.kind === 'walkthrough' ? formatCount(scene.steps.length, 'code step') : 'Discussion'],
+                    ['tour-scene-path', scene.kind === 'text-diff' ? scene.path : (scene.kind === 'walkthrough' || scene.kind === 'stacked-diff') ? formatCount(scene.steps.length, 'code step') : 'Discussion'],
                     ['tour-scene-note', scene.takeaway]
                 ]) {
                     const line = document.createElement('span');
@@ -275,13 +275,15 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         }
         const scene = tour.scenes[index];
         state.activeSceneIndex = index;
-        state.activeStepIndex = scene.kind === 'walkthrough'
+        state.activeStepIndex = scene.kind === 'walkthrough' || scene.kind === 'stacked-diff'
             ? Math.min(Math.max(stepIndex, 0), Math.max(scene.steps.length - 1, 0))
             : 0;
         state.tourFocusFilePath = scene.kind === 'text-diff'
             ? scene.path
             : scene.kind === 'walkthrough'
                 ? scene.steps[state.activeStepIndex]?.diff.path ?? null
+                : scene.kind === 'stacked-diff'
+                    ? scene.steps[state.activeStepIndex]?.file ?? null
                 : null;
         const location = getSceneLocation(tour, index);
         document.querySelectorAll('.tour-scene').forEach((button) => {
@@ -291,7 +293,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         renderTourNarrative(scene, location);
         const parameters = new URLSearchParams(window.location.search);
         parameters.set('scene', scene.id);
-        if (scene.kind === 'walkthrough') {
+        if (scene.kind === 'walkthrough' || scene.kind === 'stacked-diff') {
             parameters.set('step', scene.steps[state.activeStepIndex].id);
         } else {
             parameters.delete('step');
@@ -305,6 +307,10 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         document.body.classList.remove('tour-discussion');
         if (scene.kind === 'walkthrough') {
             renderWalkthroughStep(scene);
+            return;
+        }
+        if (scene.kind === 'stacked-diff') {
+            renderStackedStep(scene);
             return;
         }
         emitDiffScene(scene);
@@ -357,6 +363,53 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         }, `${scene.id}-${step.id}`);
     }
 
+    function renderStackedStep(scene) {
+        const step = scene.steps[state.activeStepIndex];
+        if (!step) return;
+        emitStackedFile(scene, step.file, step);
+    }
+
+    function emitStackedFile(scene, filePath, step) {
+        const file = scene.files.find((candidate) => candidate.path === filePath);
+        if (!step || !file) return;
+        state.activeTourFilePath = file.path;
+        updateTourFileSelection();
+        const panels = file.panels.map((panel, index) => ({
+            id: `${scene.id}-${file.path}-${panel.id}`,
+            label: panel.label,
+            path: panel.path || '',
+            content: panel.content,
+            savedContent: panel.content,
+            dirty: false,
+            editable: false,
+            stackId: scene.stack[index].id
+        }));
+        const pairs = panels.slice(0, -1).map((panel, index) => ({
+            leftIndex: index,
+            rightIndex: index + 1,
+            diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
+        }));
+        const focusModel = pairs[step.pairIndex]?.diffModel;
+        const initialChangeIndex = file.path === step.file && focusModel && step.startLine
+            ? findChangeIndexAtSourceLine(focusModel, step.side, step.startLine)
+            : 0;
+        emit({
+            type: 'showMultiDiff',
+            panels,
+            pairs,
+            activePanelId: panels[step.pairIndex + (step.side === 'right' ? 1 : 0)]?.id,
+            activePairIndex: step.pairIndex,
+            initialChangeIndex,
+            history: null,
+            fileNavigation: {
+                canGoPrevious: scene.files.indexOf(file) > 0,
+                canGoNext: scene.files.indexOf(file) < scene.files.length - 1
+            },
+            mutationEnabled: false,
+            comparisonSummary: `${file.path} · ${scene.takeaway}`
+        });
+    }
+
     function getCurrentLinearTourTarget(direction) {
         const tour = state.tour;
         if (!tour || (direction !== -1 && direction !== 1)) {
@@ -386,6 +439,15 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
     }
 
     function showTourFile(direction) {
+        const activeScene = state.tour?.scenes[state.activeSceneIndex];
+        if (activeScene?.kind === 'stacked-diff') {
+            const currentIndex = activeScene.files.findIndex((file) => file.path === state.activeTourFilePath);
+            const target = activeScene.files[currentIndex + direction];
+            const step = activeScene.steps[state.activeStepIndex];
+            if (!target || !step) return false;
+            emitStackedFile(activeScene, target.path, step);
+            return true;
+        }
         const target = getCurrentTourFileTarget(direction);
         return target ? showTourFileAtIndex(target.fileIndex) : false;
     }
@@ -406,6 +468,8 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         }
         if (scene.kind === 'walkthrough') {
             renderWalkthroughStep(scene);
+        } else if (scene.kind === 'stacked-diff') {
+            renderStackedStep(scene);
         } else if (scene.kind === 'text-diff') {
             emitDiffScene(scene);
         } else {
@@ -451,7 +515,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
 
     function formatTourBreadcrumb(location, scene, stepIndex) {
         const parts = [`Ch ${location.chapterNumber}`, `Scene ${location.sceneInChapter}/${location.scenesInChapter}`];
-        if (scene.kind === 'walkthrough') {
+        if (scene.kind === 'walkthrough' || scene.kind === 'stacked-diff') {
             parts.push(`Step ${stepIndex + 1}/${scene.steps.length}`);
         }
         return parts.join(' · ');
@@ -522,12 +586,14 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
             return tag;
         }));
         takeaway.textContent = scene.takeaway;
-        const step = scene.kind === 'walkthrough' ? scene.steps[state.activeStepIndex] : null;
+        const step = scene.kind === 'walkthrough' || scene.kind === 'stacked-diff'
+            ? scene.steps[state.activeStepIndex]
+            : null;
         stepPanel.hidden = !step;
         if (step) {
             stepTitle.textContent = step.title;
             stepBody.textContent = step.body;
-            if (step.connection) {
+            if ('connection' in step && step.connection) {
                 connection.hidden = false;
                 connection.textContent = `${step.connection.from.path} → ${step.connection.to.path} · ${step.connection.label}`;
             } else {

@@ -113,6 +113,8 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /getTourFileTarget\(tour\.files, state\.activeTourFilePath, direction\)/);
     assert.match(hostSource, /tourFocusFilePath/);
     assert.match(hostSource, /function returnToTourFocus/);
+    assert.match(hostSource, /function renderStackedStep/);
+    assert.match(hostSource, /type: 'showMultiDiff'/);
     assert.match(webMarkup, /id="tour-files"/);
     assert.match(webMarkup, /id="tour-return-focus"/);
     assert.match(presenterSource, /\.tour-rail-sections[\s\S]{0,180}grid-template-rows/);
@@ -404,6 +406,86 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.equal(guarded.files.length, 4);
     assert.equal(guarded.files.find((file) => file.path === 'web/app.js.map')?.kind, 'omitted');
     assert.equal(guarded.scenes.some((scene) => scene.kind === 'text-diff' && scene.path === 'web/app.js.map'), false);
+}
+
+function testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases() {
+    const repo = createTempGitRepo();
+    fs.mkdirSync(path.join(repo, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'src', 'base.ts'), 'export const base = true;\n', 'utf8');
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'base']);
+    runGit(repo, ['branch', '-M', 'main']);
+    runGit(repo, ['checkout', '-b', 'stack/model']);
+    fs.writeFileSync(path.join(repo, 'src', 'model.ts'), 'export interface Event {}\n', 'utf8');
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'add model']);
+    runGit(repo, ['checkout', '-b', 'stack/behavior']);
+    runGit(repo, ['mv', 'src/model.ts', 'src/event.ts']);
+    fs.appendFileSync(path.join(repo, 'src', 'event.ts'), 'export const emit = () => true;\n');
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'add behavior']);
+
+    const source = parseChangeTourSource({
+        version: 1,
+        title: 'Stacked event tour',
+        range: { base: 'main', head: 'stack/behavior' },
+        anchors: {},
+        connections: [],
+        chapters: [{
+            id: 'stack',
+            title: 'Stack',
+            scenes: [{
+                id: 'event-stack',
+                kind: 'stacked-diff',
+                title: 'Build the event stack',
+                summary: 'Follow the event API through two layers.',
+                bullets: [],
+                tags: ['stack'],
+                takeaway: 'Each layer remains independently reviewable.',
+                stack: [
+                    { id: 'base', ref: 'main', label: 'Main' },
+                    { id: 'model', ref: 'stack/model', label: 'Model' },
+                    { id: 'behavior', ref: 'stack/behavior', label: 'Behavior' }
+                ],
+                files: ['src/event.ts'],
+                steps: [
+                    { id: 'model-step', title: 'Model', body: 'Introduce the contract.', file: 'src/event.ts', pair: ['base', 'model'], side: 'right', lines: [1, 1] },
+                    { id: 'behavior-step', title: 'Behavior', body: 'Extend the contract.', file: 'src/event.ts', pair: ['model', 'behavior'], side: 'right', lines: [2, 2] }
+                ]
+            }]
+        }]
+    });
+    const manifest = buildChangeTourManifest(repo, { source, baseRef: 'main', headRef: 'stack/behavior' });
+    const scene = manifest.scenes[0];
+    assert.equal(scene.kind, 'stacked-diff');
+    assert.equal(scene.stack.length, 3);
+    assert.equal(scene.files.length, 1);
+    assert.equal(scene.files[0].panels[0].exists, false);
+    assert.equal(scene.files[0].panels[1].path, 'src/model.ts');
+    assert.equal(scene.files[0].panels[2].path, 'src/event.ts');
+    assert.equal(scene.steps[0].pairIndex, 0);
+    assert.equal(scene.steps[1].pairIndex, 1);
+    assert.equal(parseChangeTourManifest(JSON.parse(JSON.stringify(manifest))).scenes[0].kind, 'stacked-diff');
+    const automaticSource = {
+        ...source,
+        chapters: [{
+            ...source.chapters[0],
+            scenes: [{ ...source.chapters[0].scenes[0], files: undefined }]
+        }]
+    };
+    const automaticManifest = buildChangeTourManifest(repo, {
+        source: automaticSource,
+        baseRef: 'main',
+        headRef: 'stack/behavior'
+    });
+    assert.deepEqual(automaticManifest.scenes[0].files.map((file) => file.path), ['src/event.ts']);
+
+    assert.throws(() => parseChangeTourSource({
+        ...source,
+        chapters: [{ ...source.chapters[0], scenes: [{ ...source.chapters[0].scenes[0], steps: [
+            { id: 'bad', title: 'Bad', body: 'Bad pair.', file: 'src/event.ts', pair: ['base', 'behavior'] }
+        ] }] }]
+    }), /adjacent stack entries/);
 }
 
 function testPresentArgumentsUseSharedBaseAliases() {
@@ -1429,6 +1511,7 @@ function run() {
     testCliSpecificationDrivesHelpAndEveryCompletionFormat();
     testCliPrintsGeneratedCompletionsWithoutStartingElectron();
     testChangeTourBuildsPortableNarrativeChapters();
+    testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases();
     testPresentArgumentsUseSharedBaseAliases();
     testCheckedInBygoneHistoryTourRemainsReproducible();
     testVersionTourChangelogRemainsReproducible();

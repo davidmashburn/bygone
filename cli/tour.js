@@ -173,7 +173,9 @@ function buildValidationResult(sourcePath, manifest) {
         summary: manifest.summary,
         chapters: manifest.chapters.length,
         walkthroughSteps: manifest.scenes.reduce(
-            (total, scene) => total + (scene.kind === 'walkthrough' ? scene.steps.length : 0),
+            (total, scene) => total + (
+                scene.kind === 'walkthrough' || scene.kind === 'stacked-diff' ? scene.steps.length : 0
+            ),
             0
         )
     };

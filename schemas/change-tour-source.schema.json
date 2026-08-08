@@ -32,7 +32,6 @@
     },
     "anchors": {
       "type": "object",
-      "minProperties": 1,
       "propertyNames": { "minLength": 1 },
       "additionalProperties": { "$ref": "#/$defs/anchor" }
     },
@@ -145,6 +144,57 @@
         }
       ]
     },
+    "stackEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ref"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "ref": { "$ref": "#/$defs/nonEmptyString" },
+        "label": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "stackStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "body", "file", "pair"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "body": { "$ref": "#/$defs/nonEmptyString" },
+        "file": { "$ref": "#/$defs/nonEmptyString" },
+        "pair": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "side": { "enum": ["left", "right"] },
+        "lines": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "stackedScene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "title", "summary", "bullets", "tags", "takeaway", "stack", "steps"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "kind": { "const": "stacked-diff" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "summary": { "$ref": "#/$defs/nonEmptyString" },
+        "bullets": { "$ref": "#/$defs/stringArray" },
+        "tags": { "$ref": "#/$defs/stringArray" },
+        "takeaway": { "$ref": "#/$defs/nonEmptyString" },
+        "stack": { "type": "array", "minItems": 3, "maxItems": 6, "items": { "$ref": "#/$defs/stackEntry" } },
+        "files": { "$ref": "#/$defs/stringArray" },
+        "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/stackStep" } }
+      }
+    },
     "chapter": {
       "type": "object",
       "additionalProperties": false,
@@ -152,7 +202,11 @@
       "properties": {
         "id": { "$ref": "#/$defs/nonEmptyString" },
         "title": { "$ref": "#/$defs/nonEmptyString" },
-        "scenes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/scene" } }
+        "scenes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "oneOf": [{ "$ref": "#/$defs/scene" }, { "$ref": "#/$defs/stackedScene" }] }
+        }
       }
     }
   }

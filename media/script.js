@@ -194,7 +194,7 @@ host.onMessage((message) => {
             return;
         }
 
-        showMultiDiff(message.panels, message.pairs, message.activePanelId ?? null, message.activePairIndex ?? null, message.history ?? null, message.fileNavigation ?? null, Boolean(message.canReturnToDirectory), message.directoryNavigation || null, message.mutationEnabled !== false);
+        showMultiDiff(message.panels, message.pairs, message.activePanelId ?? null, message.activePairIndex ?? null, message.history ?? null, message.fileNavigation ?? null, Boolean(message.canReturnToDirectory), message.directoryNavigation || null, message.mutationEnabled !== false, message.initialChangeIndex);
         return;
     }
 
@@ -519,7 +519,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
     notifyRenderComplete();
 }
 
-function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true) {
+function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined) {
     if (!Array.isArray(panels) || panels.length < 1) {
         return;
     }
@@ -570,6 +570,9 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     suppressEditorEvents = false;
     multiDecorationIds = multiEditors.map(() => []);
     updateMultiActivePairModel(false);
+    if (Number.isInteger(initialChangeIndex)) {
+        setActiveMultiPanelChangeIndex(initialChangeIndex, true);
+    }
     resetMultiScrollPositions();
     layoutEditors();
     connectorController.resizeCanvas();
