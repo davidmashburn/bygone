@@ -43,6 +43,7 @@ const {
 const { CLI_SPEC, renderCliHelp } = require('../cli/commandSpec.js');
 const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const { buildChangeTourContext, buildChangeTourManifest, parseChangeTourManifest, parseChangeTourSource, parseChangeTourStory } = require('../out/changeTour.js');
+const { buildChangeInventory, parsePatchUnits } = require('../out/changeInventory.js');
 const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
 const { getLinearTourTarget, getTourFileTarget, resolveTourPosition } = require('../out/tourNavigation.js');
@@ -1330,6 +1331,50 @@ function testBranchReviewMaterializesRenameEndpointsAsOneReviewPair() {
     assert.equal(fs.existsSync(path.join(right, 'src', 'old-name.txt')), false);
 }
 
+function testChangeInventoryBuildsStableTextUnitsAndClassifiesBinaryFiles() {
+    const repo = createTempGitRepo();
+    fs.writeFileSync(path.join(repo, 'app.txt'), 'alpha\nbeta\ngamma\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'asset.bin'), Buffer.from([1, 0, 2]));
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'base']);
+    runGit(repo, ['branch', '-M', 'main']);
+    runGit(repo, ['checkout', '-b', 'feature/inventory']);
+    fs.writeFileSync(path.join(repo, 'app.txt'), 'alpha\nchanged\ngamma\ndelta\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'asset.bin'), Buffer.from([1, 0, 3]));
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'change files']);
+
+    const first = buildChangeInventory(repo, { headRef: 'HEAD', baseRef: 'main' });
+    const second = buildChangeInventory(repo, { headRef: 'HEAD', baseRef: 'main' });
+    assert.equal(first.version, 1);
+    assert.equal(first.summary.changedFiles, 2);
+    assert.equal(first.summary.textualFiles, 1);
+    assert.equal(first.summary.binaryFiles, 1);
+    assert.equal(first.summary.changeUnits, 1);
+    const textFile = first.files.find((file) => file.path === 'app.txt');
+    assert.equal(textFile.material, 'text');
+    assert.equal(textFile.units[0].additions, 2);
+    assert.equal(textFile.units[0].deletions, 1);
+    assert.match(textFile.units[0].id, /^hunk-[0-9a-f]{12}$/);
+    assert.equal(textFile.units[0].id, second.files.find((file) => file.path === 'app.txt').units[0].id);
+    assert.equal(first.files.find((file) => file.path === 'asset.bin').material, 'binary');
+}
+
+function testPatchUnitIdsUseContentAndDisambiguateDuplicates() {
+    const patch = [
+        '@@ -1 +1 @@',
+        '-old',
+        '+new',
+        '@@ -10 +10 @@',
+        '-old',
+        '+new'
+    ].join('\n');
+    const units = parsePatchUnits(patch, { kind: 'modified', path: 'same.txt' });
+    assert.equal(units.length, 2);
+    assert.match(units[0].id, /^hunk-[0-9a-f]{12}$/);
+    assert.equal(units[1].id, `${units[0].id}-2`);
+}
+
 function createTempGitRepo() {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-history-test-'));
 
@@ -1415,6 +1460,8 @@ function run() {
     testBranchReviewUsesMergeBaseAndDetectsDefaultBase();
     testBranchReviewPreservesMergeCommitParents();
     testBranchReviewMaterializesRenameEndpointsAsOneReviewPair();
+    testChangeInventoryBuildsStableTextUnitsAndClassifiesBinaryFiles();
+    testPatchUnitIdsUseContentAndDisambiguateDuplicates();
     console.log('All tests passed.');
 }
 

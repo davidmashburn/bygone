@@ -95,6 +95,15 @@ await build({
 
 await build({
     ...sharedOptions,
+    entryPoints: ['src/changeInventory.ts'],
+    outfile: 'out/changeInventory.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node16'
+});
+
+await build({
+    ...sharedOptions,
     entryPoints: ['src/tourNavigation.ts'],
     outfile: 'out/tourNavigation.js',
     platform: 'node',
