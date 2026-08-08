@@ -23,7 +23,5 @@ clear enough to discuss as an actionable plan.
 
 ## Current ideas
 
-- [Text wrap option](text-wrap-option.md)
-- [Multi-panel diff tours for stacked PRs](multi-panel-diff-tours-for-stacked-prs.md)
-- [Deconstructed commits](deconstructed-commits.md)
-- [Tour coverage and depth](tour-coverage-and-depth.md)
+There are no unpromoted ideas at present. Concepts that are ready for
+execution are tracked in [`plans/`](../plans/README.md).
