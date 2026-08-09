@@ -1,4 +1,3 @@
-import { buildTwoWayDiffModel } from '../src/diffEngine';
 import { dedupeDecorations } from './decorationUtils';
 import { buildBlockChanges, findChangeIndexAtLine, resolveFileNavigationAction } from './navigationUtils';
 import { dispatchFindCommand, runFindCommand } from './findController';
@@ -47,6 +46,7 @@ const multiRecomputePendingPanelIds = new Set();
 let diffWorker = null;
 let diffRequestIdCounter = 0;
 const diffPendingRequests = new Map();
+let twoWayDiffEpoch = 0;
 let multiDiffEpoch = 0;
 let pendingDiffJobs = 0;
 let pendingTwoWayPayload;
@@ -344,6 +344,7 @@ function isDarkColor(color) {
 }
 
 function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotation = null) {
+    const diffEpoch = ++twoWayDiffEpoch;
     const comparisonKey = comparisonId || `${file1}\u0000${file2}`;
     const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
     currentMode = MODE_TWO_WAY;
@@ -356,7 +357,8 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     } else if (hostEditableSides.right) {
         activePaneSide = 'right';
     }
-    setCurrentDiffModel(diffModel);
+    const suppliedDiffModel = diffModel || { rows: [], leftLines: [], rightLines: [], blocks: [], hasChanges: false };
+    setCurrentDiffModel(suppliedDiffModel);
     const nextActiveDiffIndex = comparisonChanged ? (initialChangeIndex ?? 0) : activeDiffIndex;
     setActiveDiffIndex(diffBlocks.length > 0 ? clamp(nextActiveDiffIndex, 0, diffBlocks.length - 1) : -1, false);
     directoryEntries = [];
@@ -378,7 +380,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     updateActivePaneHeader();
     updateEditorValues(leftContent, rightContent);
     updateTwoWayEditorOptions();
-    applyDiffDecorations(diffModel, tourAnnotation);
+    applyDiffDecorations(suppliedDiffModel, tourAnnotation);
     updateChangeToolbarState();
     resetTwoWayScrollPositions();
     layoutEditors();
@@ -394,7 +396,36 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     }
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
-    notifyRenderComplete();
+
+    if (!diffModel) {
+        computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, tourAnnotation, diffEpoch);
+    } else {
+        notifyRenderComplete();
+    }
+}
+
+function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, tourAnnotation, epoch) {
+    beginDiffJob();
+    requestDiffAsync(leftContent, rightContent)
+        .then((model) => {
+            if (epoch !== twoWayDiffEpoch || currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey) {
+                return;
+            }
+            setCurrentDiffModel(model);
+            setActiveDiffIndex(diffBlocks.length > 0 ? clamp(nextActiveDiffIndex, 0, diffBlocks.length - 1) : -1, false);
+            applyDiffDecorations(model, tourAnnotation);
+            updateChangeToolbarState();
+            connectorController.scheduleDrawConnections();
+            revealActiveDiff(false);
+            notifyRenderComplete();
+        })
+        .catch((error) => {
+            if (epoch === twoWayDiffEpoch && currentMode === MODE_TWO_WAY && currentTwoWayComparisonKey === comparisonKey) {
+                setStatus(`Unable to compute diff: ${error.message}`, true);
+                notifyRenderComplete();
+            }
+        })
+        .finally(endDiffJob);
 }
 
 function showBinaryDiff(message) {
@@ -615,14 +646,14 @@ function computeMissingPairDiffsAsync() {
     Promise.all(missing.map(({ pair, index }) =>
         requestDiffAsync(multiPanels[pair.leftIndex]?.content ?? '', multiPanels[pair.rightIndex]?.content ?? '')
             .then((model) => ({ index, model }))
-            .catch(() => ({ index, model: buildTwoWayDiffModel(multiPanels[pair.leftIndex]?.content ?? '', multiPanels[pair.rightIndex]?.content ?? '') }))
+            .catch(() => ({ index, model: null }))
     )).then((results) => {
         endDiffJob();
         if (epoch !== multiDiffEpoch || currentMode !== MODE_MULTI_WAY) {
             return;
         }
         for (const { index, model } of results) {
-            if (multiDiffPairs[index]) {
+            if (multiDiffPairs[index] && model) {
                 multiDiffPairs[index] = { ...multiDiffPairs[index], diffModel: model };
             }
         }
@@ -946,14 +977,14 @@ function recomputeMultiDiffState(changedPanelIds = null) {
     Promise.all(pairsToBuild.map(({ pair, index }) =>
         requestDiffAsync(nextPanels[pair.leftIndex].content, nextPanels[pair.rightIndex].content)
             .then((model) => ({ index, model }))
-            .catch(() => ({ index, model: buildTwoWayDiffModel(nextPanels[pair.leftIndex].content, nextPanels[pair.rightIndex].content) }))
+            .catch(() => ({ index, model: null }))
     )).then((results) => {
         endDiffJob();
         if (epoch !== multiDiffEpoch || currentMode !== MODE_MULTI_WAY) {
             return;
         }
         for (const { index, model } of results) {
-            if (multiDiffPairs[index]) {
+            if (multiDiffPairs[index] && model) {
                 multiDiffPairs[index] = { ...multiDiffPairs[index], diffModel: model };
             }
         }
@@ -3453,7 +3484,7 @@ function initializeDiffWorker() {
         }
     });
     diffWorker.addEventListener('error', () => {
-        // Worker failed; future requests will fall back to synchronous diff
+        // Keep expensive model construction off the UI thread if the worker fails.
         for (const pending of diffPendingRequests.values()) {
             pending.reject(new Error('diff worker error'));
         }
@@ -3464,7 +3495,7 @@ function initializeDiffWorker() {
 
 function requestDiffAsync(leftContent, rightContent) {
     if (!diffWorker) {
-        return Promise.resolve(buildTwoWayDiffModel(leftContent, rightContent));
+        return Promise.reject(new Error('diff worker unavailable'));
     }
     const id = ++diffRequestIdCounter;
     return new Promise((resolve, reject) => {

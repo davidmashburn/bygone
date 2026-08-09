@@ -4,7 +4,12 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 const { load: loadYaml } = require('js-yaml');
-const { buildTwoWayDiffModel, mergeText } = require('../out/diffEngine.js');
+const {
+    alignReplacementLines,
+    buildTwoWayDiffModel,
+    mergeText,
+    scoreReplacementLinePair
+} = require('../out/diffEngine.js');
 const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
 const { buildBinaryComparison, classifyFile } = require('../out/binaryComparison.js');
@@ -936,6 +941,94 @@ function testTwoWayDiffAlignsInsertions() {
     assert.equal(model.rightLines[1].segments, undefined);
 }
 
+function testReplacementMatchingRejectsLowInformationLines() {
+    assert.equal(scoreReplacementLinePair('},', '});').eligible, false);
+    assert.equal(scoreReplacementLinePair('   ', '\t').eligible, false);
+
+    const aligned = alignReplacementLines(['},'], ['});']);
+    assert.equal(aligned.some((row) => row.left !== undefined && row.right !== undefined), false);
+}
+
+function testReplacementMatchingUsesPositionForInformativeSingletonHunks() {
+    assert.deepEqual(
+        alignReplacementLines(['left a'], ['right a']),
+        [{ left: 'left a', right: 'right a' }]
+    );
+    assert.deepEqual(
+        alignReplacementLines(['foo'], ['bar']),
+        [{ left: 'foo' }, { right: 'bar' }]
+    );
+}
+
+function testReplacementMatchingLeavesAmbiguousBoilerplateUnpaired() {
+    const aligned = alignReplacementLines(
+        ['return first;', 'return second;'],
+        ['return other;', 'return final;']
+    );
+    const repeated = alignReplacementLines(
+        ['const item = oldValue;', 'const item = oldValue;'],
+        ['const item = newValue;', 'const item = newValue;']
+    );
+
+    assert.equal(aligned.some((row) => row.left !== undefined && row.right !== undefined), false);
+    assert.equal(repeated.some((row) => row.left !== undefined && row.right !== undefined), false);
+}
+
+function testReplacementMatchingPairsDistinctiveLinesAcrossUnevenHunks() {
+    const aligned = alignReplacementLines(
+        ['const one = 1;', 'const two = 2;', 'const three = 3;'],
+        ['const zero = 0;', 'const one = 10;', 'const three = 30;']
+    );
+    const pairs = aligned
+        .filter((row) => row.left !== undefined && row.right !== undefined)
+        .map((row) => [row.left, row.right]);
+
+    assert.deepEqual(pairs, [
+        ['const one = 1;', 'const one = 10;'],
+        ['const three = 3;', 'const three = 30;']
+    ]);
+}
+
+function testReplacementMatchingUsesBoundedLargeHunkAlignment() {
+    const left = Array.from({ length: 101 }, (_value, index) => `const item${index} = oldValue${index};`);
+    const right = [
+        'unrelated setup line',
+        ...Array.from({ length: 101 }, (_value, index) => `const item${index} = newValue${index};`)
+    ];
+    const aligned = alignReplacementLines(left, right);
+    const pairs = aligned.filter((row) => row.left !== undefined && row.right !== undefined);
+
+    assert.equal(left.length * right.length > 10_000, true);
+    assert.deepEqual(aligned.find((row) => row.right === 'unrelated setup line'), { right: 'unrelated setup line' });
+    assert.equal(pairs.length, 101);
+    assert.deepEqual(pairs[0], { left: 'const item0 = oldValue0;', right: 'const item0 = newValue0;' });
+    assert.deepEqual(pairs[100], { left: 'const item100 = oldValue100;', right: 'const item100 = newValue100;' });
+}
+
+function testReplacementMatchingFallsBackConservativelyWhenAnchorBudgetIsExceeded() {
+    const left = Array.from({ length: 2_001 }, (_value, index) => `const item${index} = oldValue${index};`);
+    const right = [
+        'unrelated setup line',
+        ...Array.from({ length: 2_001 }, (_value, index) => `const item${index} = newValue${index};`)
+    ];
+    const aligned = alignReplacementLines(left, right);
+
+    assert.equal(aligned.some((row) => row.left !== undefined && row.right !== undefined), false);
+    assert.equal(aligned.length, left.length + right.length);
+}
+
+function testReplacementMatchingStaysConsistentAcrossThreePanels() {
+    const first = ['const account = loadLegacyAccount();', 'return account;'];
+    const middle = ['const account = loadAccount();', 'validate(account);', 'return account;'];
+    const last = ['const account = await loadAccount();', 'validateAccount(account);', 'return account;'];
+    const leftPairs = alignReplacementLines(first, middle);
+    const rightPairs = alignReplacementLines(middle, last);
+
+    assert.equal(leftPairs.some((row) => row.left === first[0] && row.right === middle[0]), true);
+    assert.equal(rightPairs.some((row) => row.left === middle[0] && row.right === last[0]), true);
+    assert.equal(rightPairs.some((row) => row.left === middle[1] && row.right === last[1]), true);
+}
+
 function testInlineHighlightsSingleWordReplacement() {
     const model = buildTwoWayDiffModel('const value = oldName;\n', 'const value = newName;\n');
 
@@ -1829,6 +1922,13 @@ function run() {
     testSessionSourcesRetainRefreshIntent();
     testRefreshSessionUsesSemanticRendererAndMenuCommands();
     testTwoWayDiffAlignsInsertions();
+    testReplacementMatchingRejectsLowInformationLines();
+    testReplacementMatchingUsesPositionForInformativeSingletonHunks();
+    testReplacementMatchingLeavesAmbiguousBoilerplateUnpaired();
+    testReplacementMatchingPairsDistinctiveLinesAcrossUnevenHunks();
+    testReplacementMatchingUsesBoundedLargeHunkAlignment();
+    testReplacementMatchingFallsBackConservativelyWhenAnchorBudgetIsExceeded();
+    testReplacementMatchingStaysConsistentAcrossThreePanels();
     testInlineHighlightsSingleWordReplacement();
     testInlineHighlightsPunctuationChange();
     testInlineHighlightsWhitespaceSensitiveChange();
