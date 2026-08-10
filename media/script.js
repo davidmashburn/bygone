@@ -39,6 +39,7 @@ let leftDecorationIds = [];
 let rightDecorationIds = [];
 let activeDiffIndex = -1;
 let currentDiffModel = null;
+let currentTourAnnotation = null;
 let suppressEditorEvents = false;
 let recomputeTimer;
 let multiRecomputeTimer;
@@ -349,6 +350,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
     currentMode = MODE_TWO_WAY;
     currentTwoWayComparisonKey = comparisonKey;
+    currentTourAnnotation = tourAnnotation;
     historyMode = Boolean(history);
     activeDirectoryEntryPath = null;
     hostEditableSides = normalizeEditableSides(nextEditableSides, historyMode);
@@ -380,7 +382,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     updateActivePaneHeader();
     updateEditorValues(leftContent, rightContent);
     updateTwoWayEditorOptions();
-    applyDiffDecorations(suppliedDiffModel, tourAnnotation);
+    applyDiffDecorations(suppliedDiffModel, currentTourAnnotation);
     updateChangeToolbarState();
     resetTwoWayScrollPositions();
     layoutEditors();
@@ -398,13 +400,13 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     connectorController.scheduleDrawConnections();
 
     if (!diffModel) {
-        computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, tourAnnotation, diffEpoch);
+        computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, diffEpoch);
     } else {
         notifyRenderComplete();
     }
 }
 
-function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, tourAnnotation, epoch) {
+function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, epoch) {
     beginDiffJob();
     requestDiffAsync(leftContent, rightContent)
         .then((model) => {
@@ -413,7 +415,7 @@ function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextAc
             }
             setCurrentDiffModel(model);
             setActiveDiffIndex(diffBlocks.length > 0 ? clamp(nextActiveDiffIndex, 0, diffBlocks.length - 1) : -1, false);
-            applyDiffDecorations(model, tourAnnotation);
+            applyDiffDecorations(model, currentTourAnnotation);
             updateChangeToolbarState();
             connectorController.scheduleDrawConnections();
             revealActiveDiff(false);
@@ -2485,7 +2487,7 @@ function setActiveDiffIndex(index, shouldReveal) {
     updateChangeToolbarState();
 
     if (leftEditor && rightEditor && currentDiffModel) {
-        applyDiffDecorations(currentDiffModel);
+        applyDiffDecorations(currentDiffModel, currentTourAnnotation);
     } else if (currentMode === MODE_MULTI_WAY) {
         applyMultiDiffDecorations(multiDiffPairs);
     }

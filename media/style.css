@@ -1162,8 +1162,6 @@ button.file-header {
 
 .monaco-editor .bygone-tour-anchor {
     background: rgba(154, 126, 255, 0.22);
-    border-top: 1px solid rgba(178, 157, 255, 0.95);
-    border-bottom: 1px solid rgba(178, 157, 255, 0.95);
     box-shadow: inset 3px 0 0 #b29dff;
 }
 

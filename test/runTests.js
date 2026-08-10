@@ -158,6 +158,14 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+grid-template-columns: minmax\(190px/);
 }
 
+function testTourAnnotationPersistsAcrossChangeNavigation() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+
+    assert.match(rendererSource, /let currentTourAnnotation = null;/);
+    assert.match(rendererSource, /currentTwoWayComparisonKey = comparisonKey;\s+currentTourAnnotation = tourAnnotation;/);
+    assert.match(rendererSource, /function setActiveDiffIndex[\s\S]{0,300}applyDiffDecorations\(currentDiffModel, currentTourAnnotation\)/);
+}
+
 function testLineClickSelectsContainingTwoWayChange() {
     const model = buildTwoWayDiffModel('one\ntwo\nthree\nfour\n', 'one\nTWO\nthree\nFOUR\n');
     const rightChanges = buildBlockChanges(model.blocks, 'right');
@@ -2017,6 +2025,7 @@ function run() {
     testTourPositionRestoresStableSceneAndStepIds();
     testTourFileNavigationUsesCompleteRenderableFileIndex();
     testWebTourHostSeparatesFileAndNarrativeNavigation();
+    testTourAnnotationPersistsAcrossChangeNavigation();
     testLineClickSelectsContainingTwoWayChange();
     testLineClickIgnoresCollapsedSideOfOneSidedChange();
     testLineClickPrefersCurrentAdjacentPair();
