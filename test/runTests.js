@@ -675,12 +675,21 @@ function testChangeTourContextPackagesBoundedGitEvidence() {
 }
 
 function testGeneratedCompletionScriptsPassAvailableShellSyntaxChecks() {
-    execFileSync('zsh', ['-n', path.join(__dirname, '..', 'completions', '_bygone')]);
-    execFileSync('bash', ['-n', path.join(__dirname, '..', 'completions', 'bygone')]);
+    const checks = [
+        ['zsh', path.join(__dirname, '..', 'completions', '_bygone')],
+        ['bash', path.join(__dirname, '..', 'completions', 'bygone')],
+        ['fish', path.join(__dirname, '..', 'completions', 'bygone.fish')]
+    ];
 
-    const fish = spawnSync('fish', ['-n', path.join(__dirname, '..', 'completions', 'bygone.fish')]);
-    if (!fish.error || fish.error.code !== 'ENOENT') {
-        assert.equal(fish.status, 0, fish.stderr?.toString() || 'Fish completion syntax failed');
+    for (const [shell, completionPath] of checks) {
+        const result = spawnSync(shell, ['-n', completionPath]);
+        if (result.error?.code === 'ENOENT') {
+            continue;
+        }
+        if (result.error) {
+            throw result.error;
+        }
+        assert.equal(result.status, 0, result.stderr?.toString() || `${shell} completion syntax failed`);
     }
 }
 
