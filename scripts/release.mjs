@@ -124,12 +124,12 @@ async function publishHomebrewTap() {
 
     await writeFile(
         path.join(formulaDir, 'bygone.rb'),
-        formula.replace(/sha256 "[0-9a-f]{64}"/, `sha256 "${await sha256(npmTarball)}"`),
+        renderHomebrewDefinition(formula, await sha256(npmTarball)),
         'utf8'
     );
     await writeFile(
         path.join(caskDir, 'bygone-desktop.rb'),
-        cask.replace(/sha256 "[0-9a-f]{64}"/, `sha256 "${await sha256(dmgPath)}"`),
+        renderHomebrewDefinition(cask, await sha256(dmgPath)),
         'utf8'
     );
 
@@ -137,6 +137,13 @@ async function publishHomebrewTap() {
     await run('git', ['-C', resolvedTapRoot, 'add', 'Formula/bygone.rb', 'Casks/bygone-desktop.rb']);
     await run('git', ['-C', resolvedTapRoot, 'commit', '-m', `Update Bygone to ${version}`]);
     await run('git', ['-C', resolvedTapRoot, 'push']);
+}
+
+function renderHomebrewDefinition(contents, digest) {
+    return contents
+        .replace(/(bygone-)[^/"]+(\.tgz")/, `$1${version}$2`)
+        .replace(/version "[^"]+"/, `version "${version}"`)
+        .replace(/sha256 "[0-9a-f]{64}"/, `sha256 "${digest}"`);
 }
 
 async function packNpmTarball() {

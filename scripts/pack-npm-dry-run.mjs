@@ -16,4 +16,18 @@ if (result.error) {
     throw result.error;
 }
 
-process.exit(result.status ?? 1);
+if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+}
+
+const smoke = spawnSync(process.execPath, ['./dist/npm-package/bin/bygone.js', '--version'], {
+    cwd: process.cwd(),
+    env: process.env,
+    stdio: 'inherit'
+});
+
+if (smoke.error) {
+    throw smoke.error;
+}
+
+process.exit(smoke.status ?? 1);

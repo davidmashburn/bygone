@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.7.1
+
+- Fixed the standalone npm package so the installed `bygone` command includes its tour coverage runtime
+- Made Homebrew release staging update formula and cask versions and declare the cask's macOS requirement
+
 ## 0.7.0
 
 - Expanded directory comparison into an N-panel workspace with asynchronous diff computation, drill-down, and complete file navigation

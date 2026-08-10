@@ -63,6 +63,7 @@ await copyFile('completions');
 await copyFile('out/standalone-main.js');
 await copyFile('out/standalone-preload.js');
 await copyFile('out/changeTour.js');
+await copyFile('out/tourCoverage.js');
 await copyFile('standalone/index.html');
 await copyFile('web/index.html');
 await copyFile('web/presenter.css');
