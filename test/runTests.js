@@ -989,6 +989,130 @@ function testReplacementMatchingPairsDistinctiveLinesAcrossUnevenHunks() {
     ]);
 }
 
+function testReplacementMatchingUsesUniqueDeclarationAnchors() {
+    const aligned = alignReplacementLines(
+        [
+            'def encode_record(',
+            '    value: LegacyRecord,',
+            ') -> dict[str, object]:',
+            '    return legacy_encoder(value)',
+        ],
+        [
+            'logger.debug("encoding")',
+            'def encode_record(record: CurrentRecord) -> EncodedRecord:',
+            '    validate_record(record)',
+            '    return encoder.encode(record)',
+            'metrics.increment("records.encoded")',
+        ]
+    );
+
+    assert.equal(aligned.some((row) => (
+        row.left === 'def encode_record('
+        && row.right === 'def encode_record(record: CurrentRecord) -> EncodedRecord:'
+    )), true);
+}
+
+function testReplacementMatchingDoesNotConfuseDeclarationsWithCalls() {
+    assert.deepEqual(
+        alignReplacementLines(
+            ['encoded = encode_record(legacy_record)'],
+            ['def encode_record(record: CurrentRecord) -> EncodedRecord:']
+        ),
+        [
+            { left: 'encoded = encode_record(legacy_record)' },
+            { right: 'def encode_record(record: CurrentRecord) -> EncodedRecord:' }
+        ]
+    );
+}
+
+function testReplacementMatchingUsesDeclarationAnchorsInLargeHunks() {
+    const left = [
+        'def render_report(source: LegacySource) -> str:',
+        ...Array.from({ length: 100 }, (_value, index) => `legacy step ${index}`)
+    ];
+    const right = [
+        ...Array.from({ length: 100 }, (_value, index) => `current stage ${index}`),
+        'def render_report(source: CurrentSource, format: OutputFormat) -> RenderedReport:'
+    ];
+    const aligned = alignReplacementLines(left, right);
+
+    assert.equal(left.length * right.length > 10_000, true);
+    assert.equal(aligned.some((row) => (
+        row.left === 'def render_report(source: LegacySource) -> str:'
+        && row.right === 'def render_report(source: CurrentSource, format: OutputFormat) -> RenderedReport:'
+    )), true);
+}
+
+function testReplacementMatchingUsesStrongNeighborForWeakContext() {
+    const aligned = alignReplacementLines(
+        [
+            'def validate_record(value: LegacyRecord) -> bool:',
+            '    Malformed identifiers can corrupt record matching.',
+        ],
+        [
+            'def validate_record(record: CurrentRecord, strict: bool = True) -> ValidationResult:',
+            '    Validation prevents malformed values from corrupting matches.',
+        ]
+    );
+
+    assert.deepEqual(aligned, [
+        {
+            left: 'def validate_record(value: LegacyRecord) -> bool:',
+            right: 'def validate_record(record: CurrentRecord, strict: bool = True) -> ValidationResult:'
+        },
+        {
+            left: '    Malformed identifiers can corrupt record matching.',
+            right: '    Validation prevents malformed values from corrupting matches.'
+        }
+    ]);
+}
+
+function testReplacementMatchingUsesConsecutiveWeakContextAfterInsertion() {
+    const aligned = alignReplacementLines(
+        [
+            'Malformed identifiers can corrupt record matching.',
+            'The next pass then rebuilds the cached result.',
+            'This behavior keeps downstream reads consistent.',
+        ],
+        [
+            'def validate_record(record: CurrentRecord) -> ValidationResult:',
+            '    """Create the validator dependency graph.',
+            '',
+            'Validation prevents malformed values from corrupting matches.',
+            'The following pass rebuilds its cached result.',
+            'This keeps later reads consistent.',
+        ]
+    );
+
+    assert.equal(aligned.some((row) => (
+        row.left === 'Malformed identifiers can corrupt record matching.'
+        && row.right === 'Validation prevents malformed values from corrupting matches.'
+    )), true);
+    assert.equal(aligned.some((row) => (
+        row.left === 'The next pass then rebuilds the cached result.'
+        && row.right === 'The following pass rebuilds its cached result.'
+    )), true);
+}
+
+function testReplacementMatchingKeepsUnsupportedWeakOverlapUnpaired() {
+    const aligned = alignReplacementLines(
+        [
+            'Malformed identifiers can corrupt record matching.',
+            'return cached_record;',
+        ],
+        [
+            'initialize the record cache;',
+            'Validation prevents malformed values from corrupting matches.',
+            'flush pending metrics;',
+        ]
+    );
+
+    assert.equal(aligned.some((row) => (
+        row.left === 'Malformed identifiers can corrupt record matching.'
+        && row.right === 'Validation prevents malformed values from corrupting matches.'
+    )), false);
+}
+
 function testReplacementMatchingUsesBoundedLargeHunkAlignment() {
     const left = Array.from({ length: 101 }, (_value, index) => `const item${index} = oldValue${index};`);
     const right = [
@@ -1926,6 +2050,12 @@ function run() {
     testReplacementMatchingUsesPositionForInformativeSingletonHunks();
     testReplacementMatchingLeavesAmbiguousBoilerplateUnpaired();
     testReplacementMatchingPairsDistinctiveLinesAcrossUnevenHunks();
+    testReplacementMatchingUsesUniqueDeclarationAnchors();
+    testReplacementMatchingDoesNotConfuseDeclarationsWithCalls();
+    testReplacementMatchingUsesDeclarationAnchorsInLargeHunks();
+    testReplacementMatchingUsesStrongNeighborForWeakContext();
+    testReplacementMatchingUsesConsecutiveWeakContextAfterInsertion();
+    testReplacementMatchingKeepsUnsupportedWeakOverlapUnpaired();
     testReplacementMatchingUsesBoundedLargeHunkAlignment();
     testReplacementMatchingFallsBackConservativelyWhenAnchorBudgetIsExceeded();
     testReplacementMatchingStaysConsistentAcrossThreePanels();

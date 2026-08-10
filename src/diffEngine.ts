@@ -380,12 +380,17 @@ const MAX_ALIGNMENT_CELLS = 10_000;
 const MAX_SCORING_LINE_LENGTH = 2_000;
 const MINIMUM_MATCH_SCORE = 0.52;
 const MINIMUM_SINGLE_PAIR_SCORE = 0.35;
+const MINIMUM_CONTEXTUAL_MATCH_SCORE = 0.38;
+const MINIMUM_CONTEXTUAL_RUN_SCORE = 0.33;
 const HIGH_CONFIDENCE_MATCH_SCORE = 0.86;
 const AMBIGUITY_MARGIN = 0.08;
+const CONTEXTUAL_AMBIGUITY_MARGIN = 0.05;
 const GAP_PENALTY = -0.12;
 const MAX_BOUNDED_CANDIDATES = 5_000;
 const MAX_LARGE_HUNK_ANCHORS = 2_000;
 const MAX_RARE_TOKEN_OCCURRENCES = 4;
+const MAX_CONTEXTUAL_HUNK_LINES = 8;
+const MAX_CONTEXTUAL_LENGTH_DELTA = 4;
 
 export function alignReplacementLines(leftLines: string[], rightLines: string[]): AlignedReplacementLine[] {
     if (leftLines.length === 0) {
@@ -397,6 +402,7 @@ export function alignReplacementLines(leftLines: string[], rightLines: string[])
     if (leftLines.length === 1 && rightLines.length === 1) {
         const singletonScore = scoreReplacementLinePair(leftLines[0], rightLines[0]);
         if ((singletonScore.eligible || singletonScore.score >= MINIMUM_SINGLE_PAIR_SCORE)
+            && haveCompatibleLineRoles(leftLines[0], rightLines[0])
             && isInformativeLine(normalizeMatchingContent(leftLines[0]))
             && isInformativeLine(normalizeMatchingContent(rightLines[0]))) {
             return [{ left: leftLines[0], right: rightLines[0] }];
@@ -519,12 +525,15 @@ export function scoreReplacementLinePair(left: string, right: string): Replaceme
 
 function buildPairScores(leftLines: string[], rightLines: string[]): Array<Array<number | null>> {
     const scored = leftLines.map((left) => rightLines.map((right) => scoreReplacementLinePair(left, right)));
+    const structuralPairs = collectUniqueStructuralPairs(leftLines, rightLines);
     const leftRankings = scored.map((row) => rankEligibleScores(row));
     const rightRankings = rightLines.map((_right, rightIndex) => (
         rankEligibleScores(scored.map((row) => row[rightIndex]))
     ));
-
-    return scored.map((row, leftIndex) => row.map((candidate, rightIndex) => {
+    const accepted = scored.map((row, leftIndex) => row.map((candidate, rightIndex) => {
+        if (structuralPairs.has(`${leftIndex}:${rightIndex}`)) {
+            return Math.max(candidate.score, 1);
+        }
         if (!candidate.eligible) {
             return null;
         }
@@ -540,6 +549,176 @@ function buildPairScores(leftLines: string[], rightLines: string[]): Array<Array
         const hasRightMargin = rightRanking.best - rightRanking.second >= requiredMargin;
         return isBestOnBothSides && hasLeftMargin && hasRightMargin ? candidate.score : null;
     }));
+
+    if (Math.max(leftLines.length, rightLines.length) > MAX_CONTEXTUAL_HUNK_LINES
+        || Math.abs(leftLines.length - rightLines.length) > MAX_CONTEXTUAL_LENGTH_DELTA) {
+        return accepted;
+    }
+
+    const isContextualCandidate = (candidate: ReplacementLineScore, leftIndex: number, rightIndex: number) => (
+        candidate.score >= MINIMUM_CONTEXTUAL_MATCH_SCORE
+        && haveCompatibleLineRoles(leftLines[leftIndex], rightLines[rightIndex])
+        && Math.abs(leftIndex - rightIndex) <= MAX_CONTEXTUAL_LENGTH_DELTA
+    );
+    const leftContextRankings = scored.map((row, leftIndex) => (
+        rankScores(row, (candidate, rightIndex) => isContextualCandidate(candidate, leftIndex, rightIndex))
+    ));
+    const rightContextRankings = rightLines.map((_right, rightIndex) => (
+        rankScores(
+            scored.map((row) => row[rightIndex]),
+            (candidate, leftIndex) => isContextualCandidate(candidate, leftIndex, rightIndex)
+        )
+    ));
+    const isWeakRunCandidate = (candidate: ReplacementLineScore, leftIndex: number, rightIndex: number) => (
+        candidate.score >= MINIMUM_CONTEXTUAL_RUN_SCORE
+        && haveCompatibleLineRoles(leftLines[leftIndex], rightLines[rightIndex])
+        && Math.abs(leftIndex - rightIndex) <= MAX_CONTEXTUAL_LENGTH_DELTA
+    );
+    const leftWeakRankings = scored.map((row, leftIndex) => (
+        rankScores(row, (candidate, rightIndex) => isWeakRunCandidate(candidate, leftIndex, rightIndex))
+    ));
+    const rightWeakRankings = rightLines.map((_right, rightIndex) => (
+        rankScores(
+            scored.map((row) => row[rightIndex]),
+            (candidate, leftIndex) => isWeakRunCandidate(candidate, leftIndex, rightIndex)
+        )
+    ));
+
+    const isUnambiguousContextualCandidate = (leftIndex: number, rightIndex: number): boolean => {
+        const candidate = scored[leftIndex][rightIndex];
+        if (!isContextualCandidate(candidate, leftIndex, rightIndex)) {
+            return false;
+        }
+        const leftRanking = leftContextRankings[leftIndex];
+        const rightRanking = rightContextRankings[rightIndex];
+        return candidate.score === leftRanking.best
+            && candidate.score === rightRanking.best
+            && leftRanking.best - leftRanking.second >= CONTEXTUAL_AMBIGUITY_MARGIN
+            && rightRanking.best - rightRanking.second >= CONTEXTUAL_AMBIGUITY_MARGIN;
+    };
+    const isUnambiguousWeakRunAnchor = (leftIndex: number, rightIndex: number): boolean => {
+        const candidate = scored[leftIndex][rightIndex];
+        if (!isWeakRunCandidate(candidate, leftIndex, rightIndex)) {
+            return false;
+        }
+        const leftRanking = leftWeakRankings[leftIndex];
+        const rightRanking = rightWeakRankings[rightIndex];
+        return candidate.score === leftRanking.best
+            && candidate.score === rightRanking.best
+            && leftRanking.best - leftRanking.second >= CONTEXTUAL_AMBIGUITY_MARGIN
+            && rightRanking.best - rightRanking.second >= CONTEXTUAL_AMBIGUITY_MARGIN;
+    };
+
+    return accepted.map((row, leftIndex) => row.map((acceptedScore, rightIndex) => {
+        if (acceptedScore !== null) {
+            return acceptedScore;
+        }
+        const hasLocalSupport = isUnambiguousContextualCandidate(leftIndex, rightIndex)
+            && (hasAcceptedDiagonalNeighbor(accepted, leftIndex, rightIndex)
+                || hasContextualDiagonalNeighbor(
+                    scored,
+                    leftIndex,
+                    rightIndex,
+                    isUnambiguousContextualCandidate
+                ));
+        const hasRunSupport = hasAnchoredWeakDiagonalRun(
+            scored,
+            leftIndex,
+            rightIndex,
+            (candidateLeftIndex, candidateRightIndex) => isWeakRunCandidate(
+                scored[candidateLeftIndex][candidateRightIndex],
+                candidateLeftIndex,
+                candidateRightIndex
+            ),
+            isUnambiguousWeakRunAnchor
+        );
+        if (!hasLocalSupport && !hasRunSupport) {
+            return null;
+        }
+        return scored[leftIndex][rightIndex].score;
+    }));
+}
+
+function hasAcceptedDiagonalNeighbor(
+    accepted: Array<Array<number | null>>,
+    leftIndex: number,
+    rightIndex: number
+): boolean {
+    return (leftIndex > 0 && rightIndex > 0 && accepted[leftIndex - 1][rightIndex - 1] !== null)
+        || (leftIndex + 1 < accepted.length
+            && rightIndex + 1 < accepted[leftIndex + 1].length
+            && accepted[leftIndex + 1][rightIndex + 1] !== null);
+}
+
+function hasContextualDiagonalNeighbor(
+    scored: ReplacementLineScore[][],
+    leftIndex: number,
+    rightIndex: number,
+    isCandidate: (leftIndex: number, rightIndex: number) => boolean
+): boolean {
+    return (leftIndex > 0 && rightIndex > 0 && isCandidate(leftIndex - 1, rightIndex - 1))
+        || (leftIndex + 1 < scored.length
+            && rightIndex + 1 < scored[leftIndex + 1].length
+            && isCandidate(leftIndex + 1, rightIndex + 1));
+}
+
+function hasAnchoredWeakDiagonalRun(
+    scored: ReplacementLineScore[][],
+    leftIndex: number,
+    rightIndex: number,
+    isCandidate: (leftIndex: number, rightIndex: number) => boolean,
+    isAnchor: (leftIndex: number, rightIndex: number) => boolean
+): boolean {
+    let startLeft = leftIndex;
+    let startRight = rightIndex;
+    while (startLeft > 0 && startRight > 0 && isCandidate(startLeft - 1, startRight - 1)) {
+        startLeft--;
+        startRight--;
+    }
+
+    let endLeft = leftIndex;
+    let endRight = rightIndex;
+    let scoreTotal = scored[leftIndex][rightIndex].score;
+    let length = 1;
+    while (endLeft + 1 < scored.length
+        && endRight + 1 < scored[endLeft + 1].length
+        && isCandidate(endLeft + 1, endRight + 1)) {
+        endLeft++;
+        endRight++;
+        scoreTotal += scored[endLeft][endRight].score;
+        length++;
+    }
+    for (let scanLeft = leftIndex - 1, scanRight = rightIndex - 1;
+        scanLeft >= startLeft && scanRight >= startRight;
+        scanLeft--, scanRight--) {
+        scoreTotal += scored[scanLeft][scanRight].score;
+        length++;
+    }
+
+    return length >= 3
+        && scoreTotal / length >= MINIMUM_CONTEXTUAL_MATCH_SCORE
+        && isAnchor(startLeft, startRight)
+        && isAnchor(endLeft, endRight);
+}
+
+function rankScores(
+    scores: ReplacementLineScore[],
+    include: (candidate: ReplacementLineScore, index: number) => boolean
+): { best: number; second: number } {
+    let best = Number.NEGATIVE_INFINITY;
+    let second = Number.NEGATIVE_INFINITY;
+    scores.forEach((candidate, index) => {
+        if (!include(candidate, index)) {
+            return;
+        }
+        if (candidate.score > best) {
+            second = best;
+            best = candidate.score;
+        } else if (candidate.score > second) {
+            second = candidate.score;
+        }
+    });
+    return { best, second };
 }
 
 function rankEligibleScores(scores: ReplacementLineScore[]): { best: number; second: number } {
@@ -587,18 +766,20 @@ function collectLargeHunkAnchors(
     if (candidatePairs === null) {
         return [];
     }
+    const structuralPairs = collectUniqueStructuralPairs(leftLines, rightLines);
     const scored = candidatePairs
         .map(({ leftIndex, rightIndex, exact }) => ({
             leftIndex,
             rightIndex,
             exact,
+            structural: structuralPairs.has(`${leftIndex}:${rightIndex}`),
             match: scoreReplacementLinePair(leftLines[leftIndex], rightLines[rightIndex])
         }))
-        .filter((candidate) => candidate.exact || candidate.match.eligible);
+        .filter((candidate) => candidate.exact || candidate.structural || candidate.match.eligible);
     const leftRankings = rankAnchorCandidates(scored, 'leftIndex');
     const rightRankings = rankAnchorCandidates(scored, 'rightIndex');
     const confident = scored.filter((candidate) => {
-        if (candidate.exact) {
+        if (candidate.exact || candidate.structural) {
             return true;
         }
         const leftRanking = leftRankings.get(candidate.leftIndex);
@@ -622,6 +803,7 @@ interface ReplacementAnchorCandidate {
     leftIndex: number;
     rightIndex: number;
     exact: boolean;
+    structural: boolean;
     match: ReplacementLineScore;
 }
 
@@ -733,7 +915,8 @@ function selectMaximumWeightMonotonicAnchors(
         }
         for (let index = start; index < end; index++) {
             const prior = queryAnchorTree(treeScores, treeCandidates, ordered[index].rightIndex);
-            bestScores[index] = prior.score + ordered[index].match.score + (ordered[index].exact ? 0.5 : 0);
+            const anchorBonus = ordered[index].exact || ordered[index].structural ? 0.5 : 0;
+            bestScores[index] = prior.score + ordered[index].match.score + anchorBonus;
             previous[index] = prior.candidateIndex;
         }
         for (let index = start; index < end; index++) {
@@ -802,6 +985,60 @@ function appendBoundedSegment(
 
 function normalizeMatchingContent(line: string): string {
     return line.trim().replace(/\s+/g, ' ');
+}
+
+function collectUniqueStructuralPairs(leftLines: string[], rightLines: string[]): Set<string> {
+    const leftPostings = buildStructuralPostings(leftLines);
+    const rightPostings = buildStructuralPostings(rightLines);
+    const pairs = new Set<string>();
+    for (const [key, leftIndices] of leftPostings) {
+        const rightIndices = rightPostings.get(key);
+        if (leftIndices.length === 1 && rightIndices?.length === 1) {
+            pairs.add(`${leftIndices[0]}:${rightIndices[0]}`);
+        }
+    }
+    return pairs;
+}
+
+function buildStructuralPostings(lines: string[]): Map<string, number[]> {
+    const postings = new Map<string, number[]>();
+    lines.forEach((line, index) => {
+        const key = declarationAnchorKey(line);
+        if (!key) {
+            return;
+        }
+        const indices = postings.get(key) ?? [];
+        indices.push(index);
+        postings.set(key, indices);
+    });
+    return postings;
+}
+
+function haveCompatibleLineRoles(left: string, right: string): boolean {
+    const leftKey = declarationAnchorKey(left);
+    const rightKey = declarationAnchorKey(right);
+    if (!leftKey || !rightKey) {
+        return leftKey === rightKey;
+    }
+    return leftKey.split(':', 1)[0] === rightKey.split(':', 1)[0];
+}
+
+function declarationAnchorKey(line: string): string | null {
+    const normalized = normalizeMatchingContent(line);
+    const patterns: Array<[string, RegExp]> = [
+        ['function', /^(?:(?:export|default)\s+)*(?:async\s+)?function\s*\*?\s*([\p{L}_$][\p{L}\p{N}_$]*)\s*\(/u],
+        ['function', /^(?:async\s+)?def\s+([\p{L}_][\p{L}\p{N}_]*)\s*\(/u],
+        ['function', /^(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+([\p{L}_][\p{L}\p{N}_]*)\s*(?:<[^>]*>)?\s*\(/u],
+        ['function', /^func\s+(?:\([^)]*\)\s*)?([\p{L}_][\p{L}\p{N}_]*)\s*\(/u],
+        ['class', /^(?:(?:export|default|abstract|public)\s+)*class\s+([\p{L}_$][\p{L}\p{N}_$]*)\b/u]
+    ];
+    for (const [kind, pattern] of patterns) {
+        const match = normalized.match(pattern);
+        if (match) {
+            return `${kind}:${match[1]}`;
+        }
+    }
+    return null;
 }
 
 function isInformativeLine(line: string): boolean {
