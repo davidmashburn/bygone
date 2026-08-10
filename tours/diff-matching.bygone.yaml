@@ -1,0 +1,188 @@
+version: 1
+title: "Matcher refinement: structural anchors with bounded context"
+range:
+  base: 1d65666621fe02512cf4c64919300ed6a52f225d
+  head: fa0ba840c283978d4dd6d982ec47b17f6fd6baf9
+
+anchors:
+  structural-acceptance:
+    file: src/diffEngine.ts
+    revision: head
+    contains: |-
+      if (structuralPairs.has(`${leftIndex}:${rightIndex}`)) {
+                  return Math.max(candidate.score, 1);
+              }
+  declaration-role-guard:
+    file: src/diffEngine.ts
+    revision: head
+    contains: |-
+      if ((singletonScore.eligible || singletonScore.score >= MINIMUM_SINGLE_PAIR_SCORE)
+                  && haveCompatibleLineRoles(leftLines[0], rightLines[0])
+                  && isInformativeLine(normalizeMatchingContent(leftLines[0]))
+                  && isInformativeLine(normalizeMatchingContent(rightLines[0]))) {
+  declaration-parser:
+    file: src/diffEngine.ts
+    revision: head
+    contains: |-
+      const patterns: Array<[string, RegExp]> = [
+              ['function', /^(?:(?:export|default)\s+)*(?:async\s+)?function\s*\*?\s*([\p{L}_$][\p{L}\p{N}_$]*)\s*\(/u],
+              ['function', /^(?:async\s+)?def\s+([\p{L}_][\p{L}\p{N}_]*)\s*\(/u],
+              ['function', /^(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+([\p{L}_][\p{L}\p{N}_]*)\s*(?:<[^>]*>)?\s*\(/u],
+              ['function', /^func\s+(?:\([^)]*\)\s*)?([\p{L}_][\p{L}\p{N}_]*)\s*\(/u],
+              ['class', /^(?:(?:export|default|abstract|public)\s+)*class\s+([\p{L}_$][\p{L}\p{N}_$]*)\b/u]
+          ];
+  large-hunk-structural-anchor:
+    file: src/diffEngine.ts
+    revision: head
+    contains: |-
+      const structuralPairs = collectUniqueStructuralPairs(leftLines, rightLines);
+          const scored = candidatePairs
+              .map(({ leftIndex, rightIndex, exact }) => ({
+                  leftIndex,
+                  rightIndex,
+                  exact,
+                  structural: structuralPairs.has(`${leftIndex}:${rightIndex}`),
+                  match: scoreReplacementLinePair(leftLines[leftIndex], rightLines[rightIndex])
+              }))
+              .filter((candidate) => candidate.exact || candidate.structural || candidate.match.eligible);
+  structural-proof:
+    file: test/runTests.js
+    revision: head
+    contains: |-
+      assert.equal(aligned.some((row) => (
+              row.left === 'def encode_record('
+              && row.right === 'def encode_record(record: CurrentRecord) -> EncodedRecord:'
+          )), true);
+  call-guard-proof:
+    file: test/runTests.js
+    revision: head
+    contains: |-
+      assert.deepEqual(
+              alignReplacementLines(
+                  ['encoded = encode_record(legacy_record)'],
+                  ['def encode_record(record: CurrentRecord) -> EncodedRecord:']
+              ),
+              [
+                  { left: 'encoded = encode_record(legacy_record)' },
+                  { right: 'def encode_record(record: CurrentRecord) -> EncodedRecord:' }
+              ]
+          );
+  local-context:
+    file: src/diffEngine.ts
+    revision: head
+    contains: |-
+      const hasLocalSupport = isUnambiguousContextualCandidate(leftIndex, rightIndex)
+                  && (hasAcceptedDiagonalNeighbor(accepted, leftIndex, rightIndex)
+                      || hasContextualDiagonalNeighbor(
+                          scored,
+                          leftIndex,
+                          rightIndex,
+                          isUnambiguousContextualCandidate
+                      ));
+  run-context:
+    file: src/diffEngine.ts
+    revision: head
+    contains: |-
+      return length >= 3
+              && scoreTotal / length >= MINIMUM_CONTEXTUAL_MATCH_SCORE
+              && isAnchor(startLeft, startRight)
+              && isAnchor(endLeft, endRight);
+  context-proof:
+    file: test/runTests.js
+    revision: head
+    contains: |-
+      assert.equal(aligned.some((row) => (
+              row.left === 'Malformed identifiers can corrupt record matching.'
+              && row.right === 'Validation prevents malformed values from corrupting matches.'
+          )), true);
+  rejection-proof:
+    file: test/runTests.js
+    revision: head
+    contains: |-
+      assert.equal(aligned.some((row) => (
+              row.left === 'Malformed identifiers can corrupt record matching.'
+              && row.right === 'Validation prevents malformed values from corrupting matches.'
+          )), false);
+
+connections:
+  parser-to-proof:
+    from: declaration-parser
+    to: structural-proof
+    label: "Language-shaped declaration identities are exercised by a signature rewrite."
+  guard-to-proof:
+    from: declaration-role-guard
+    to: call-guard-proof
+    label: "The singleton guard prevents lexical overlap from pairing a call with a declaration."
+  context-to-proof:
+    from: run-context
+    to: context-proof
+    label: "A synthetic insertion case proves that a coherent weak diagonal survives without lowering the global threshold."
+  context-to-rejection:
+    from: local-context
+    to: rejection-proof
+    label: "The negative case proves that isolated weak overlap still lacks enough support to pair."
+
+chapters:
+  - id: matcher-contract
+    title: "How the matcher gains structure without losing ambiguity guards"
+    scenes:
+      - id: structural-identity
+        title: "Recognize declarations as identity-bearing anchors"
+        summary: "Replacement alignment now distinguishes declared symbols from incidental token overlap, promotes unique declarations to anchors, and carries the same evidence into the bounded large-hunk path."
+        bullets:
+          - "Unique function and class declarations can survive substantial signature rewrites."
+          - "Declarations remain incompatible with ordinary calls and assignments."
+          - "Large hunks reuse the structural signal without expanding the candidate budget."
+        tags: ["structure", "identity", "bounded-alignment"]
+        takeaway: "The matcher adds a narrow syntax-aware identity signal while retaining uniqueness and bounded-work constraints."
+        steps:
+          - id: accept-unique-declarations
+            title: "Promote unique structural pairs"
+            body: "The normal alignment matrix accepts a precomputed structural pair before applying the ordinary lexical eligibility gate."
+            focus: structural-acceptance
+          - id: keep-roles-compatible
+            title: "Reject declaration-to-call pairings"
+            body: "Even singleton replacement hunks must carry compatible line roles, closing the positional shortcut that could join a declaration to an invocation."
+            focus: declaration-role-guard
+            connection: guard-to-proof
+          - id: derive-language-shaped-keys
+            title: "Extract a small cross-language declaration key"
+            body: "A compact pattern table recognizes named function forms across JavaScript, Python, Rust, and Go alongside class declarations."
+            focus: declaration-parser
+            connection: parser-to-proof
+          - id: reuse-structure-at-scale
+            title: "Feed structure into large-hunk anchors"
+            body: "Structural candidates join exact and high-confidence lexical anchors before the existing monotonic selection and anchor-count guard."
+            focus: large-hunk-structural-anchor
+
+  - id: contextual-proof
+    title: "How weaker rewrites stay conservative"
+    scenes:
+      - id: bounded-context
+        title: "Require neighboring or run-level support"
+        summary: "Lower-scoring lines are reconsidered only in small, near-diagonal hunks when either a trusted neighboring match or an anchored consecutive run supplies context."
+        bullets:
+          - "Global lexical eligibility remains unchanged."
+          - "Mutual-best margins gate local contextual matches."
+          - "Weak runs need three lines, an average-score floor, and unambiguous endpoints."
+        tags: ["context", "ambiguity", "regression-proof"]
+        takeaway: "Context recovers coherent rewrites without converting isolated resemblance into a match."
+        steps:
+          - id: use-local-support
+            title: "Start from an unambiguous neighbor"
+            body: "A weak candidate can join the alignment when it is mutually preferred and touches either an accepted pair or another unambiguous contextual candidate."
+            focus: local-context
+            connection: context-to-rejection
+          - id: recognize-coherent-runs
+            title: "Recover a shifted explanatory rewrite"
+            body: "A three-line diagonal can survive an insertion when its average clears the contextual floor and both endpoints are unambiguous anchors."
+            focus: run-context
+            connection: context-to-proof
+          - id: prove-structural-positive
+            title: "Exercise the signature rewrite"
+            body: "The synthetic declaration fixture verifies that the same named function remains paired across a multiline-to-single-line signature change."
+            focus: structural-proof
+          - id: prove-isolated-negative
+            title: "Leave unsupported overlap unpaired"
+            body: "The negative fixture confirms that a lone prose resemblance, without neighboring or run support, still produces placeholders."
+            focus: rejection-proof
