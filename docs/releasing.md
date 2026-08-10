@@ -283,7 +283,7 @@ brew audit --new --cask Casks/bygone-desktop.rb
 
 The repository-local packaging notes are also in:
 
-- [packaging/homebrew/README.md](/Users/davmash/Git/melden/packaging/homebrew/README.md)
+- [packaging/homebrew/README.md](../packaging/homebrew/README.md)
 
 ## Troubleshooting
 

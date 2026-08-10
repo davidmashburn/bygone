@@ -1,0 +1,399 @@
+version: 1
+title: Bygone 0.7 — from visual comparison to explainable review
+sourceUrl: https://github.com/davidmashburn/bygone/compare/v0.6.3...a18023f
+range:
+  base: ba0509e450e399eec7c8a3e660ac940649f4379d
+  head: a18023f209a7016545108f18048ef2dd7bd94292
+
+anchors:
+  multi-directory-model:
+    file: src/directoryDiff.ts
+    revision: head
+    contains: |-
+      export function buildMultiDirectoryComparison(dirs: string[]): DirectoryEntry[] {
+          const entries: DirectoryEntry[] = [];
+          collectUnionEntries(dirs, '', 0, entries);
+          return entries;
+      }
+  merge-base-boundary:
+    file: src/gitComparison.ts
+    revision: head
+    contains: |-
+      const mergeBaseOids = runGit(['merge-base', '--all', baseOid, headOid], repoRoot)
+              .split('\n')
+              .filter(Boolean);
+          if (mergeBaseOids.length === 0) {
+  rename-materialization:
+    file: src/gitComparison.ts
+    revision: head
+    contains: |-
+      if (changedPath.kind === 'renamed') {
+                  materializeGitPath(review.repoRoot, review.mergeBaseOid, changedPath.previousPath, leftRoot);
+                  materializeGitPath(review.repoRoot, review.headOid, changedPath.path, rightRoot);
+                  continue;
+              }
+  binary-result:
+    file: src/binaryComparison.ts
+    revision: head
+    contains: |-
+      return {
+              kind: comparisonKind,
+              identical: filesEqual(leftPath, rightPath, left.exists, right.exists),
+              left,
+              right
+          };
+  multi-directory-proof:
+    file: test/runTests.js
+    revision: head
+    contains: |-
+      assert.equal(appEntry?.status, 'modified');
+          assert.deepEqual(appEntry?.sides, [true, true, true]);
+          assert.equal(partialEntry?.status, 'partial');
+          assert.deepEqual(partialEntry?.sides, [true, false, false]);
+
+  bounded-context:
+    file: src/changeTourContext.ts
+    revision: head
+    contains: |-
+      const files = range.changedPaths.map((changedPath) => buildContextFile(
+              range.repoRoot,
+              range.mergeBaseOid,
+              range.headOid,
+              changedPath,
+              maxPatchBytes
+          ));
+          applyTotalPatchBudget(files, maxTotalPatchBytes);
+  strict-tour-source:
+    file: src/changeTourSource.ts
+    revision: head
+    contains: |-
+      if (!isRecord(value) || value.version !== CHANGE_TOUR_SOURCE_VERSION) {
+              throw new Error('Unsupported or missing change-tour source version.');
+          }
+          requireOnlyKeys(value, ['version', 'title', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'coverage'], 'source');
+          optionalString(value.title, 'title');
+          optionalString(value.sourceUrl, 'sourceUrl');
+  deconstructed-scene:
+    file: src/deconstructedChange.ts
+    revision: head
+    contains: |-
+      export function buildDeconstructedScene(
+          startPath: string,
+          scene: ChangeTourSourceDeconstructedScene,
+          options: BuildDeconstructedSceneOptions = {}
+      ): CompiledDeconstructedScene {
+          return compileDeconstructedScene(buildChangeInventory(startPath, {
+              headRef: options.headRef || scene.target,
+              baseRef: options.baseRef || scene.base
+          }), scene);
+      }
+  multi-panel-focus:
+    file: web/host.js
+    revision: head
+    contains: |2-
+              const focusModel = pairs[step.pairIndex]?.diffModel;
+              const initialChangeIndex = file.path === step.file && focusModel && step.startLine
+                  ? findChangeIndexAtSourceLine(focusModel, step.side, step.startLine)
+                  : 0;
+              emit({
+                  type: 'showMultiDiff',
+                  panels,
+                  pairs,
+  deconstructed-proof:
+    file: test/runTests.js
+    revision: head
+    contains: |-
+      assert.deepEqual(resolveTourPosition(scenes, 'deconstructed', 'behavior'), { sceneIndex: 1, stepIndex: 1 });
+          assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 1, stepIndex: 0 }, 1), { sceneIndex: 1, stepIndex: 1 });
+          assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 2, stepIndex: 0 }, -1), { sceneIndex: 1, stepIndex: 1 });
+
+  structural-acceptance:
+    file: src/diffEngine.ts
+    revision: head
+    contains: |-
+      if (structuralPairs.has(`${leftIndex}:${rightIndex}`)) {
+                  return Math.max(candidate.score, 1);
+              }
+  contextual-support:
+    file: src/diffEngine.ts
+    revision: head
+    contains: |-
+      const hasLocalSupport = isUnambiguousContextualCandidate(leftIndex, rightIndex)
+                  && (hasAcceptedDiagonalNeighbor(accepted, leftIndex, rightIndex)
+                      || hasContextualDiagonalNeighbor(
+                          scored,
+                          leftIndex,
+                          rightIndex,
+                          isUnambiguousContextualCandidate
+                      ));
+  line-selection:
+    file: media/navigationUtils.js
+    revision: head
+    contains: |-
+      const matches = [];
+          changes.forEach((change, index) => {
+              if (containsModelLine(change, modelLineNumber)) {
+                  matches.push({ change, index });
+              }
+          });
+
+          if (matches.length === 0) {
+  persistent-tour-focus:
+    file: media/script.js
+    revision: head
+    contains: |-
+      function setActiveDiffIndex(index, shouldReveal) {
+          activeDiffIndex = index;
+          updateChangeToolbarState();
+
+          if (leftEditor && rightEditor && currentDiffModel) {
+              applyDiffDecorations(currentDiffModel, currentTourAnnotation);
+          } else if (currentMode === MODE_MULTI_WAY) {
+              applyMultiDiffDecorations(multiDiffPairs);
+  matcher-proof:
+    file: test/runTests.js
+    revision: head
+    contains: |-
+      assert.equal(aligned.some((row) => (
+              row.left === 'def encode_record('
+              && row.right === 'def encode_record(record: CurrentRecord) -> EncodedRecord:'
+          )), true);
+
+  canonical-cli-output:
+    file: cli/commandSpec.js
+    revision: head
+    contains: |-
+      function renderCliHelp(version) {
+          const usage = CLI_SPEC.usages.map((line) => `  ${line}`).join('\n');
+          const entries = CLI_SPEC.entries.map((entry) => (
+              `  ${entry.tokens.join(', ')}\n      ${entry.description}`
+          )).join('\n');
+          const notes = CLI_SPEC.notes.map((line) => `  - ${line}`).join('\n');
+          return `Bygone ${version}\n\nUsage:\n${usage}\n\nCommands and options:\n${entries}\n\nNotes:\n${notes}\n`;
+  desktop-tour-routing:
+    file: bin/bygone.js
+    revision: head
+    contains: |-
+      } else if (tokenMatches('present', args[0])) {
+          const installedApp = findInstalledApp();
+          if (installedApp && process.env.BYGONE_FORCE_BUNDLED !== '1') {
+              launchDesktopApp({ waitForExit: false });
+          } else {
+              startPresentation(args.slice(1), cliCwd, packageRoot).catch((error) => {
+                  process.stderr.write(`Could not start change tour: ${error instanceof Error ? error.message : String(error)}\n`);
+                  process.exitCode = 1;
+              });
+  nonpublishing-release:
+    file: scripts/release.mjs
+    revision: head
+    contains: |-
+      if (shouldPublish) {
+          await publishArtifacts();
+      } else {
+          console.log('');
+          console.log(`Built Bygone ${version} artifacts without publishing.`);
+          console.log('Pass --publish to publish npm, GitHub desktop artifacts, and a Homebrew tap update.');
+          console.log('Publish the VS Code extension from the Visual Studio Marketplace publisher page.');
+  release-check-job:
+    file: .github/workflows/release-check.yml
+    revision: head
+    contains: |-
+      - name: Install dependencies
+              run: npm ci
+
+            - name: Run release checks
+              run: npm run release:check
+  completion-proof:
+    file: test/runTests.js
+    revision: head
+    contains: |-
+      for (const shell of SUPPORTED_SHELLS) {
+              const generated = generateCompletion(shell);
+              const checkedIn = fs.readFileSync(
+                  path.join(__dirname, '..', 'completions', completionFileName(shell)),
+                  'utf8'
+              );
+              assert.equal(checkedIn, generated, `${shell} completion is stale`);
+
+connections:
+  directories-to-proof:
+    from: multi-directory-model
+    to: multi-directory-proof
+    label: The union model is proven against files present in all panels and in only one panel.
+  boundary-to-snapshots:
+    from: merge-base-boundary
+    to: rename-materialization
+    label: The resolved divergence boundary determines which old and new rename endpoints enter the review trees.
+  context-to-source:
+    from: bounded-context
+    to: strict-tour-source
+    label: Bounded Git evidence feeds a source contract that rejects unknown or malformed narrative structure.
+  stages-to-presenter:
+    from: deconstructed-scene
+    to: multi-panel-focus
+    label: Materialized explanation stages become adjacent read-only panels focused on the authored change.
+  stages-to-proof:
+    from: multi-panel-focus
+    to: deconstructed-proof
+    label: Navigation tests preserve stage order when moving through and back out of a deconstructed explanation.
+  matcher-to-proof:
+    from: structural-acceptance
+    to: matcher-proof
+    label: A signature rewrite proves that unique declaration identity survives substantial lexical change.
+  spec-to-proof:
+    from: canonical-cli-output
+    to: completion-proof
+    label: Checked-in shell completions are required to agree with the same command vocabulary used by help output.
+  checks-to-build:
+    from: release-check-job
+    to: nonpublishing-release
+    label: CI gates source and package correctness before the local artifact builder reaches any optional publish path.
+
+chapters:
+  - id: comparison-workflows
+    title: Comparison becomes a complete workflow
+    scenes:
+      - id: from-files-to-review-ranges
+        title: Compare many sources without losing Git identity
+        summary: Bygone generalizes directory comparison, resolves review ranges at their merge base, preserves rename endpoints, and represents binary evidence honestly.
+        bullets:
+          - One union model records presence across any number of directories.
+          - Branch review starts at an explicit, unambiguous merge base.
+          - Renames retain their old and new paths through materialization.
+          - Images receive previews while other binary files report byte equality.
+        tags: [multi-panel, git, renames, binary]
+        takeaway: Files, directories, and committed ranges now converge on one inspectable comparison model.
+        steps:
+          - id: union-directory-inputs
+            title: Model every directory together
+            body: One ordered collection accumulates the union of paths and records each directory's participation.
+            focus: multi-directory-model
+          - id: resolve-review-divergence
+            title: Start review at divergence
+            body: Branch review computes every merge base and refuses to proceed when history supplies no boundary.
+            focus: merge-base-boundary
+            connection: boundary-to-snapshots
+          - id: retain-rename-endpoints
+            title: Preserve rename identity
+            body: Renamed files materialize their previous path on the base side and current path on the head side.
+            focus: rename-materialization
+          - id: represent-binary-evidence
+            title: Compare files that are not text
+            body: Binary classification returns explicit kind, equality, and side metadata instead of forcing a textual diff.
+            focus: binary-result
+          - id: prove-panel-presence
+            title: Verify N-way presence
+            body: A three-directory fixture locks both all-panel and one-panel file states.
+            focus: multi-directory-proof
+            connection: directories-to-proof
+
+  - id: guided-review
+    title: Review gains a deterministic narrative layer
+    scenes:
+      - id: from-evidence-to-explanation
+        title: Turn bounded evidence into staged walkthroughs
+        summary: Tour tooling separates deterministic Git evidence from authored narrative, validates the boundary strictly, and presents both linear and deconstructed explanations.
+        bullets:
+          - Per-file and total patch budgets constrain agent context.
+          - Authored sources reject unknown structure before compilation.
+          - Deconstructed scenes materialize cumulative explanation stages from real changes.
+          - The presenter focuses the intended adjacent panel pair and source location.
+        tags: [tours, evidence, validation, explanation]
+        takeaway: Bygone can explain a change without making the narrative—not the repository—the source of truth.
+        steps:
+          - id: bound-agent-evidence
+            title: Bound the evidence dossier
+            body: Context generation resolves every changed path, applies a per-file budget, and then enforces a total patch budget.
+            focus: bounded-context
+          - id: reject-unknown-narrative
+            title: Validate authored intent strictly
+            body: The source parser checks version and allowed top-level fields before accepting the range or narrative graph.
+            focus: strict-tour-source
+            connection: context-to-source
+          - id: materialize-explanation-stages
+            title: Build stages from real change units
+            body: A deconstructed scene starts from a deterministic inventory and compiles only the authored stage sequence.
+            focus: deconstructed-scene
+            connection: stages-to-presenter
+          - id: focus-the-stage-pair
+            title: Present the authored comparison
+            body: The host derives the active pair and source change before emitting a read-only multi-panel scene.
+            focus: multi-panel-focus
+            connection: stages-to-proof
+          - id: prove-stage-navigation
+            title: Keep stage order stable
+            body: Regression assertions preserve direct restoration and forward and backward movement through deconstructed stages.
+            focus: deconstructed-proof
+
+  - id: trustworthy-detail
+    title: Diff detail becomes more trustworthy
+    scenes:
+      - id: align-rewrites-and-review-focus
+        title: Recover meaningful rewrites without broadening ambiguity
+        summary: Replacement alignment adds narrow structural and contextual evidence while line selection and tour focus remain tied to the same diff model.
+        bullets:
+          - Unique declarations can anchor heavily rewritten signatures.
+          - Weak lexical matches require nearby unambiguous support.
+          - Click navigation resolves the containing semantic change.
+          - Tour annotations survive movement among changes in the same file.
+        tags: [matching, ambiguity, navigation, focus]
+        takeaway: Bygone recovers more human-obvious matches while retaining conservative failure behavior and stable review focus.
+        steps:
+          - id: accept-structural-identity
+            title: Promote unique declarations
+            body: A precomputed structural pair can enter the alignment before the ordinary lexical eligibility gate.
+            focus: structural-acceptance
+            connection: matcher-to-proof
+          - id: require-neighboring-support
+            title: Constrain weaker matches
+            body: Lower-scoring candidates must be unambiguous and touch an accepted or equally unambiguous diagonal neighbor.
+            focus: contextual-support
+          - id: map-clicks-to-changes
+            title: Select the containing change
+            body: Line navigation gathers only blocks that contain the clicked model line before applying adjacent-pair preference.
+            focus: line-selection
+          - id: preserve-tour-focus
+            title: Keep authored evidence visible
+            body: Change navigation reapplies the active tour annotation together with the ordinary diff decorations.
+            focus: persistent-tour-focus
+          - id: prove-signature-rewrites
+            title: Exercise a structural rewrite
+            body: A focused fixture proves that a multiline Python declaration remains paired with its rewritten single-line signature.
+            focus: matcher-proof
+
+  - id: distribution
+    title: One product ships across every surface
+    scenes:
+      - id: from-command-language-to-artifacts
+        title: Keep CLI, desktop, CI, and packages in agreement
+        summary: A canonical command vocabulary drives help and completions, installed desktop routing remains transparent, and release automation cleanly separates building from publishing.
+        bullets:
+          - Help and all supported completion formats derive from one command specification.
+          - The CLI prefers an installed desktop app while retaining a bundled fallback.
+          - CI executes security, test, bundle, lint, and package checks.
+          - Artifact building cannot publish unless the explicit flag is present.
+        tags: [cli, desktop, ci, release]
+        takeaway: The 0.7 release can be built and inspected end to end before any registry, release, or tap is changed.
+        steps:
+          - id: render-one-command-language
+            title: Centralize CLI output
+            body: Help text renders its usage, entries, and notes from the same immutable command specification.
+            focus: canonical-cli-output
+            connection: spec-to-proof
+          - id: route-to-installed-desktop
+            title: Reuse the installed app
+            body: Tour presentation routes through the installed desktop app when available and falls back to the bundled presenter otherwise.
+            focus: desktop-tour-routing
+          - id: keep-building-nonpublishing
+            title: Require an explicit publish path
+            body: The release builder reports completed artifacts and names the separate publish flag when publishing was not requested.
+            focus: nonpublishing-release
+          - id: gate-release-inputs
+            title: Run the release checks in CI
+            body: A clean dependency install precedes the repository's complete release-check command on every main push and pull request.
+            focus: release-check-job
+            connection: checks-to-build
+          - id: prove-generated-completions
+            title: Reject stale shell integration
+            body: Tests regenerate every supported completion script and require byte-for-byte agreement with the checked-in files.
+            focus: completion-proof

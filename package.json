@@ -2,6 +2,7 @@
   "name": "bygone",
   "publisher": "davidmashburn",
   "displayName": "Bygone",
+  "desktopName": "com.davidmashburn.bygone.desktop",
   "description": "See how change happened. Visual diff and file history for VS Code.",
   "version": "0.7.0",
   "author": "David Mashburn",
@@ -240,7 +241,8 @@
         "AppImage"
       ],
       "category": "Development",
-      "icon": "media/icon.png"
+      "icon": "media/icon.png",
+      "syncDesktopName": true
     },
     "publish": [
       {

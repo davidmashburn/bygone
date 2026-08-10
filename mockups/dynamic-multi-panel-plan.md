@@ -196,7 +196,7 @@ This is already close to the current renderer model, which is why adjacent-pair 
 
 ### 1. Shared message model
 
-Update [src/webviewMessages.ts](/Users/davmash/Git/melden/src/webviewMessages.ts):
+Update [src/webviewMessages.ts](../src/webviewMessages.ts):
 
 - add stable `id` to `MultiDiffPanel`
 - keep `label` and `content`
@@ -217,7 +217,7 @@ Index-only identity is not robust once insertion and deletion are supported.
 
 ### 2. Webview runtime state
 
-Refactor [media/script.js](/Users/davmash/Git/melden/media/script.js):
+Refactor [media/script.js](../media/script.js):
 
 - replace the current stateless `showMultiDiff(panels, pairs)` behavior with persistent multi-panel session state
 - track:
@@ -235,7 +235,7 @@ Required behavior changes:
 
 ### 3. Shell rendering
 
-Update [media/script.js](/Users/davmash/Git/melden/media/script.js) shell rendering so:
+Update [media/script.js](../media/script.js) shell rendering so:
 
 - panel DOM nodes are keyed by stable ids where possible
 - active panel styling is applied to headers
@@ -246,7 +246,7 @@ The first pass may still rebuild the shell on mutation, but that should be treat
 
 ### 4. Connector rendering
 
-Review [media/connectors.js](/Users/davmash/Git/melden/media/connectors.js):
+Review [media/connectors.js](../media/connectors.js):
 
 - preserve arbitrary adjacent-pair rendering
 - add active-pair emphasis
@@ -256,7 +256,7 @@ This area is already relatively well-positioned for N panels because it thinks i
 
 ### 5. Host session model
 
-Refactor standalone session handling in [standalone/main.js](/Users/davmash/Git/melden/standalone/main.js):
+Refactor standalone session handling in [standalone/main.js](../standalone/main.js):
 
 - replace fixed multi-file launch assumptions with mutable session state
 - keep an ordered panel array
@@ -269,7 +269,7 @@ The host should be the source of truth for panel contents and pair diff models.
 
 ### 6. VS Code host surface
 
-Update [src/fileComparator.ts](/Users/davmash/Git/melden/src/fileComparator.ts):
+Update [src/fileComparator.ts](../src/fileComparator.ts):
 
 - generalize `compareThreeFiles()` into a real multi-file compare flow
 - support arbitrary file counts for the multi-panel mode
@@ -279,7 +279,7 @@ The extension command surface should not keep implying that the feature is inher
 
 ### 7. CLI surface
 
-Update standalone launch parsing in [standalone/main.js](/Users/davmash/Git/melden/standalone/main.js):
+Update standalone launch parsing in [standalone/main.js](../standalone/main.js):
 
 - use the general multi-panel launch form instead of the legacy three-file flag
 
