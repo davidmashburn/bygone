@@ -15,6 +15,11 @@ Windows and Linux, enter a query, and move among matches in the active text
 pane. It should behave consistently in the standalone app, VS Code webview,
 and browser-hosted diff or tour wherever the shared Monaco renderer is used.
 
+Pane-local Replace and Replace All are the immediate follow-up needed for the
+standalone application's conventional Edit menu. They use Monaco only when the
+active model is writable. Broader comparison, repository, history, and tour
+search remain separate scopes in the multi-scale search plan.
+
 ## Context
 
 Bygone already renders textual two-way and multi-panel comparisons with one
@@ -58,9 +63,10 @@ surface and command rather than silently changing the meaning of `Cmd/Ctrl+F`.
 - `F3` and `Shift+F3` perform Find Next and Find Previous while a text pane or
   its find widget is active.
 - `Escape` closes the widget and returns focus to its editor.
-- The standalone Edit menu exposes **Find**, **Find Next**, and
-  **Find Previous** with platform-standard accelerators and routes them to the
-  same active-pane behavior.
+- The standalone Edit menu exposes **Find**, **Find Next**, **Find Previous**,
+  **Replace**, and **Replace All** with platform-standard accelerators and
+  routes them to the same active-pane behavior. Replace commands disable for
+  read-only models until the immediate follow-up slice is implemented.
 - Monaco's built-in case-sensitive, whole-word, and regular-expression
   toggles remain available. The initial defaults are case-insensitive with
   whole-word and regular-expression matching off.
@@ -156,8 +162,9 @@ Not included:
 - Searching all changed files, commits, tour scenes, directory entries, or
   repository content.
 - Filtering history rails or directory trees.
-- Replacement, replace-all, structural search, fuzzy search, or Git-aware
-  search.
+- Cross-pane or cross-file replacement, structural search, fuzzy search, or
+  Git-aware search. Pane-local Replace/Replace All are an immediate follow-up
+  after the initial find-only slice.
 - Search in binary payloads, image metadata, rendered discussion text, or
   other application chrome.
 - Persisting queries between files, sessions, or app launches.
@@ -223,6 +230,13 @@ Verify on at least the standalone app and VS Code webview:
 4. Compile generated assets and run the automated suite.
 5. Complete the manual mode/host matrix, then document any host-specific
    shortcut limitations before expanding scope.
+
+## Related plans
+
+- [Standalone product surface](standalone-product-surface.md)
+- [VS Code companion surface](vscode-companion-surface.md)
+- [Multi-scale search](multi-scale-search.md)
+- [Product implementation roadmap](implementation-roadmap.md)
 
 ## Follow-up questions
 

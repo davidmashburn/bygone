@@ -287,15 +287,19 @@ Not included:
 
 ## Related plans
 
+- [VS Code companion surface](vscode-companion-surface.md), which owns the
+  contextual editor host and desktop hand-off boundary
 - [In-document find behavior](find-behavior.md)
 - [Multi-scale search](multi-scale-search.md)
 - [Focused multi-panel strip](focused-multi-panel-strip.md)
 - [Deconstructed commits](deconstructed-commits.md), whose shipped product
   terminology should be **deconstructed diff**
+- [Product implementation roadmap](implementation-roadmap.md)
 
 ## Delivery sequence
 
-1. Inventory every current menu item, CLI launch form, session mode, and tour
+1. Agree on the standalone/VS Code ownership boundary and inventory every
+   current menu item, CLI launch form, session mode, extension command, and tour
    entry point against the product-surface overview fields.
 2. Add the full Edit menu and active-target command routing, including
    pane-local Find and writable-pane Replace.

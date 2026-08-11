@@ -32,3 +32,7 @@ grew out of an earlier concept.
 - [Tour coverage and depth](tour-coverage-and-depth.md)
 - [In-document find behavior](find-behavior.md)
 - [Refreshable sessions](session-refresh.md)
+- [Standalone product surface](standalone-product-surface.md)
+- [VS Code companion surface](vscode-companion-surface.md)
+- [Multi-scale search](multi-scale-search.md)
+- [Product implementation roadmap](implementation-roadmap.md)

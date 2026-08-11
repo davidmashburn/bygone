@@ -238,9 +238,11 @@ Define a shared query and result contract, with host-owned adapters:
 The standalone application owns process spawning, filesystem roots, Git
 access, cancellation, and result limits. The shared renderer owns query UI,
 result presentation, navigation, and in-memory model search. The VS Code host
-can initially expose only active-pane Find/Replace and later implement the
-same broader contract through extension-host capabilities rather than a
-webview shell process.
+can initially expose active-pane Find/Replace and visible-panel search. It
+should delegate repository/workspace search to VS Code's native Search surface
+rather than spawn a second ripgrep process or reproduce ignore/filter controls
+inside a webview. Git-history, directory, branch-change, and tour search remain
+standalone-owned until a specific in-editor need justifies another adapter.
 
 ## Performance and resource boundaries
 
@@ -282,6 +284,10 @@ Not included in the initial delivery:
 
 - [In-document find behavior](find-behavior.md)
 - [Standalone product surface](standalone-product-surface.md)
+- [VS Code companion surface](vscode-companion-surface.md)
+- [Refreshable sessions](session-refresh.md), whose source descriptors and
+  invalidation policy should precede session-wide search
+- [Product implementation roadmap](implementation-roadmap.md)
 
 ## Delivery sequence
 
