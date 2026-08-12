@@ -443,7 +443,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     const suppliedDiffModel = diffModel || { rows: [], leftLines: [], rightLines: [], blocks: [], hasChanges: false };
     setCurrentDiffModel(suppliedDiffModel);
     const nextActiveDiffIndex = comparisonChanged ? (initialChangeIndex ?? 0) : activeDiffIndex;
-    setActiveDiffIndex(diffBlocks.length > 0 ? clamp(nextActiveDiffIndex, 0, diffBlocks.length - 1) : -1, false);
+    activeDiffIndex = diffBlocks.length > 0 ? clamp(nextActiveDiffIndex, 0, diffBlocks.length - 1) : -1;
     directoryEntries = [];
     disposeMultiEditors();
 

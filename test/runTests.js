@@ -213,6 +213,8 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(rendererSource, /let currentTourAnnotations = \[\];/);
     assert.match(rendererSource, /currentTwoWayComparisonKey = comparisonKey;\s+currentTourAnnotations = tourAnnotations;/);
     assert.match(rendererSource, /function setActiveDiffIndex[\s\S]{0,300}applyDiffDecorations\(currentDiffModel, currentTourAnnotations\)/);
+    assert.match(rendererSource, /function showTwoWayDiff[\s\S]{0,1400}activeDiffIndex = diffBlocks\.length[\s\S]{0,900}updateEditorValues\(leftContent, rightContent\)[\s\S]{0,300}applyDiffDecorations\(suppliedDiffModel, currentTourAnnotations\)/);
+    assert.doesNotMatch(rendererSource, /function showTwoWayDiff[\s\S]{0,1400}setActiveDiffIndex\(/);
     assert.match(rendererSource, /className: tourAnnotation\.active \? 'bygone-tour-anchor' : undefined/);
     assert.match(rendererSource, /linesDecorationsClassName: 'bygone-tour-anchor-gutter'/);
     assert.match(hostSource, /scene\.steps\s+\.filter\(\(candidate\) => candidate\.diff\.path === step\.diff\.path\)/);
