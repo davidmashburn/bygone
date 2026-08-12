@@ -735,7 +735,7 @@ body.tour-discussion .tour-narrative-takeaway {
         width: 100%;
         height: var(--tour-rail-height);
         grid-template-columns: minmax(190px, 0.85fr) minmax(0, 1.15fr);
-        grid-template-rows: minmax(0, 1fr) auto;
+        grid-template-rows: auto minmax(0, 1fr) auto;
         border-right: 0;
         border-bottom: 1px solid var(--tour-border);
         box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
@@ -750,7 +750,7 @@ body.tour-discussion .tour-narrative-takeaway {
     }
 
     .tour-overview {
-        grid-row: 1 / span 2;
+        grid-row: 1 / span 3;
         overflow: auto;
         padding: 16px;
         border-right: 1px solid var(--tour-border);
@@ -761,14 +761,22 @@ body.tour-discussion .tour-narrative-takeaway {
         font-size: 17px;
     }
 
-    .tour-rail-sections {
+    .tour-search {
         grid-column: 2;
         grid-row: 1;
+        padding: 7px 8px 4px;
+    }
+
+    .tour-search-results { max-height: 72px; }
+
+    .tour-rail-sections {
+        grid-column: 2;
+        grid-row: 2;
     }
 
     .tour-commits-section {
         grid-column: 2;
-        grid-row: 2;
+        grid-row: 3;
         max-height: 72px;
     }
 

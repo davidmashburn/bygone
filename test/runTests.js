@@ -194,6 +194,9 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /isInteractiveKeyTarget\(event\.target\)/);
     assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+--tour-rail-height/);
     assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+grid-template-columns: minmax\(190px/);
+    assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+\.tour-search \{[\s\S]{0,100}grid-column: 2;[\s\S]{0,100}grid-row: 1;/);
+    assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+\.tour-rail-sections \{[\s\S]{0,100}grid-row: 2;/);
+    assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+\.tour-commits-section \{[\s\S]{0,100}grid-row: 3;/);
 }
 
 function testTourAnnotationPersistsAcrossChangeNavigation() {
