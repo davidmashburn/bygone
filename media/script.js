@@ -92,6 +92,7 @@ let refreshSessionState = { enabled: false, status: 'disabled', message: null };
 let pendingNavigationRestore = null;
 let wordWrapEnabled = readWordWrapPreference(window.localStorage);
 let lastPostedWordWrapState = null;
+let workspaceResizeScrollSnapshot = null;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -281,9 +282,23 @@ window.addEventListener('load', async () => {
 
 window.addEventListener('resize', () => {
     applyFocusedStripLayout(false);
-    layoutEditors();
+    layoutEditors(workspaceResizeScrollSnapshot?.editors || null);
+    restoreWorkspaceResizeScrollSnapshot();
+    if (workspaceResizeScrollSnapshot) requestAnimationFrame(restoreWorkspaceResizeScrollSnapshot);
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
+});
+
+window.addEventListener('bygone:workspace-resize-start', () => {
+    workspaceResizeScrollSnapshot = captureWorkspaceResizeScrollSnapshot();
+});
+
+window.addEventListener('bygone:workspace-resize-end', () => {
+    restoreWorkspaceResizeScrollSnapshot();
+    requestAnimationFrame(() => {
+        restoreWorkspaceResizeScrollSnapshot();
+        workspaceResizeScrollSnapshot = null;
+    });
 });
 
 async function initializeMonaco() {
@@ -3764,10 +3779,58 @@ function scheduleMultiRecompute(changedPanelId) {
     }, 120);
 }
 
-function layoutEditors() {
-    leftEditor?.layout();
-    rightEditor?.layout();
-    multiEditors.forEach((editor) => editor.layout());
+function layoutEditors(scrollSnapshot = null) {
+    const previousSuppression = suppressEditorEvents;
+    if (scrollSnapshot) suppressEditorEvents = true;
+    try {
+        leftEditor?.layout();
+        rightEditor?.layout();
+        multiEditors.forEach((editor) => editor.layout());
+        restoreEditorScrollSnapshot(scrollSnapshot);
+    } finally {
+        suppressEditorEvents = previousSuppression;
+    }
+}
+
+function captureWorkspaceResizeScrollSnapshot() {
+    const editors = [leftEditor, rightEditor, ...multiEditors]
+        .filter(Boolean)
+        .map((editor) => ({
+            editor,
+            scrollTop: editor.getScrollTop(),
+            scrollLeft: editor.getScrollLeft()
+        }));
+    const elements = Array.from(document.querySelectorAll('.dir-column, .binary-preview-host'))
+        .map((element) => ({
+            element,
+            scrollTop: element.scrollTop,
+            scrollLeft: element.scrollLeft
+        }));
+    return { editors, elements };
+}
+
+function restoreWorkspaceResizeScrollSnapshot() {
+    if (!workspaceResizeScrollSnapshot) return;
+    const previousSuppression = suppressEditorEvents;
+    suppressEditorEvents = true;
+    try {
+        restoreEditorScrollSnapshot(workspaceResizeScrollSnapshot.editors);
+        workspaceResizeScrollSnapshot.elements.forEach(({ element, scrollTop, scrollLeft }) => {
+            if (element.isConnected) {
+                element.scrollTop = scrollTop;
+                element.scrollLeft = scrollLeft;
+            }
+        });
+    } finally {
+        suppressEditorEvents = previousSuppression;
+    }
+}
+
+function restoreEditorScrollSnapshot(snapshot) {
+    snapshot?.forEach(({ editor, scrollTop, scrollLeft }) => {
+        editor.setScrollTop(scrollTop, monacoInstance.editor.ScrollType.Immediate);
+        editor.setScrollLeft(scrollLeft, monacoInstance.editor.ScrollType.Immediate);
+    });
 }
 
 function getScrollRatio(value, extent) {

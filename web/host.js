@@ -7,6 +7,9 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
     const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
     const TOUR_SIDEBAR_MIN_WIDTH = 240;
     const TOUR_SIDEBAR_MAX_WIDTH = 600;
+    const TOUR_NARRATIVE_STORAGE_KEY = 'bygone.tourNarrativeHeight';
+    const TOUR_NARRATIVE_MIN_HEIGHT = 180;
+    const TOUR_DIFF_MIN_HEIGHT = 180;
     const state = {
         mode: 'empty',
         left: null,
@@ -18,7 +21,8 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         activeTourFilePath: null,
         tourFocusFilePath: null,
         tourSidebarWidth: readStoredTourSidebarWidth(),
-        tourSidebarHidden: false
+        tourSidebarHidden: false,
+        tourNarrativeHeight: readStoredTourNarrativeHeight()
     };
 
     window.__BYGONE_HOST__ = {
@@ -89,6 +93,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         const tourReturnFocus = document.getElementById('tour-return-focus');
 
         initializeTourSidebar();
+        initializeTourNarrativeResizer();
 
         compareTestButton?.addEventListener('click', () => {
             compareTestFiles();
@@ -222,6 +227,85 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
             showButton.hidden = !hidden;
         }
         window.dispatchEvent(new Event('resize'));
+    }
+
+    function initializeTourNarrativeResizer() {
+        const resizer = document.getElementById('tour-narrative-resizer');
+        if (!resizer) return;
+
+        applyTourNarrativeHeight();
+        resizer.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+            document.body.classList.add('is-resizing-tour-narrative');
+            resizer.setPointerCapture?.(event.pointerId);
+            window.dispatchEvent(new CustomEvent('bygone:workspace-resize-start'));
+
+            const narrativeTop = document.getElementById('tour-narrative')?.getBoundingClientRect().top || 0;
+            const move = (moveEvent) => setTourNarrativeHeight(moveEvent.clientY - narrativeTop);
+            const finish = () => {
+                document.body.classList.remove('is-resizing-tour-narrative');
+                window.removeEventListener('pointermove', move);
+                window.removeEventListener('pointerup', finish);
+                window.removeEventListener('pointercancel', finish);
+                window.dispatchEvent(new CustomEvent('bygone:workspace-resize-end'));
+                storeTourNarrativeHeight();
+            };
+            window.addEventListener('pointermove', move);
+            window.addEventListener('pointerup', finish);
+            window.addEventListener('pointercancel', finish);
+        });
+
+        resizer.addEventListener('keydown', (event) => {
+            if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const nextHeight = event.key === 'Home'
+                ? TOUR_NARRATIVE_MIN_HEIGHT
+                : event.key === 'End'
+                    ? maximumTourNarrativeHeight()
+                    : state.tourNarrativeHeight + (event.key === 'ArrowUp' ? -16 : 16);
+            setTourNarrativeHeight(nextHeight);
+            storeTourNarrativeHeight();
+        });
+
+        window.addEventListener('resize', () => {
+            state.tourNarrativeHeight = Math.min(maximumTourNarrativeHeight(), state.tourNarrativeHeight);
+            applyTourNarrativeHeight();
+        });
+    }
+
+    function readStoredTourNarrativeHeight() {
+        const stored = Number.parseInt(window.localStorage.getItem(TOUR_NARRATIVE_STORAGE_KEY) || '', 10);
+        if (Number.isFinite(stored)) return Math.max(TOUR_NARRATIVE_MIN_HEIGHT, stored);
+        const cssDefault = Number.parseInt(
+            window.getComputedStyle(document.documentElement).getPropertyValue('--tour-narrative-height'),
+            10
+        );
+        return Number.isFinite(cssDefault) ? cssDefault : 296;
+    }
+
+    function maximumTourNarrativeHeight() {
+        const narrativeTop = document.getElementById('tour-narrative')?.getBoundingClientRect().top || 0;
+        return Math.max(TOUR_NARRATIVE_MIN_HEIGHT, window.innerHeight - narrativeTop - TOUR_DIFF_MIN_HEIGHT);
+    }
+
+    function setTourNarrativeHeight(height) {
+        state.tourNarrativeHeight = Math.min(
+            maximumTourNarrativeHeight(),
+            Math.max(TOUR_NARRATIVE_MIN_HEIGHT, Math.round(height))
+        );
+        applyTourNarrativeHeight();
+        window.dispatchEvent(new Event('resize'));
+    }
+
+    function applyTourNarrativeHeight() {
+        document.documentElement.style.setProperty('--tour-narrative-height', `${state.tourNarrativeHeight}px`);
+        const resizer = document.getElementById('tour-narrative-resizer');
+        resizer?.setAttribute('aria-valuemax', String(maximumTourNarrativeHeight()));
+        resizer?.setAttribute('aria-valuenow', String(state.tourNarrativeHeight));
+    }
+
+    function storeTourNarrativeHeight() {
+        window.localStorage.setItem(TOUR_NARRATIVE_STORAGE_KEY, String(state.tourNarrativeHeight));
     }
 
     async function loadTour(manifestUrl) {

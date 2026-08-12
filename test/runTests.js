@@ -954,6 +954,12 @@ function testSidebarsExposeResizeCollapseAndRestoreControls() {
     assert.match(presenterMarkup, /id="tour-sidebar-show"/);
     assert.match(presenterMarkup, /id="tour-sidebar-resizer"[^>]+role="separator"/);
     assert.match(presenterHost, /TOUR_SIDEBAR_STORAGE_KEY/);
+    assert.match(presenterMarkup, /id="tour-narrative-resizer"[^>]+aria-orientation="horizontal"/);
+    assert.match(presenterHost, /TOUR_NARRATIVE_STORAGE_KEY/);
+    assert.match(presenterHost, /maximumTourNarrativeHeight/);
+    assert.match(presenterHost, /bygone:workspace-resize-start/);
+    assert.match(rendererSource, /captureWorkspaceResizeScrollSnapshot/);
+    assert.match(rendererSource, /restoreWorkspaceResizeScrollSnapshot/);
 }
 
 function testWordWrapControllerPersistsAndAppliesPreference() {
