@@ -171,6 +171,22 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(hostSource, /active: candidate\.id === step\.id/);
 }
 
+function testStandaloneMenusExposeProductAreasAndReplace() {
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    const findSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'findController.js'), 'utf8');
+
+    for (const label of ['Git', 'Present', 'Navigate', 'View', 'Window']) {
+        assert.match(standaloneSource, new RegExp(`label: '${label}'`));
+    }
+    assert.match(standaloneSource, /label: 'Explore Current Branch Change'/);
+    assert.match(standaloneSource, /label: 'Open Authored Tour…'/);
+    assert.match(standaloneSource, /label: 'Replace…'[\s\S]{0,220}postFindCommand\('replace'\)/);
+    assert.match(standaloneSource, /label: 'Replace All'[\s\S]{0,220}postFindCommand\('replaceAll'\)/);
+    assert.match(standaloneSource, /const isDevelopment = !app\.isPackaged/);
+    assert.match(findSource, /replace: 'editor\.action\.startFindReplaceAction'/);
+    assert.match(findSource, /replaceAll: 'editor\.action\.replaceAll'/);
+}
+
 function testLineClickSelectsContainingTwoWayChange() {
     const model = buildTwoWayDiffModel('one\ntwo\nthree\nfour\n', 'one\nTWO\nthree\nFOUR\n');
     const rightChanges = buildBlockChanges(model.blocks, 'right');
@@ -2043,6 +2059,7 @@ function run() {
     testTourFileNavigationUsesCompleteRenderableFileIndex();
     testWebTourHostSeparatesFileAndNarrativeNavigation();
     testTourAnnotationPersistsAcrossChangeNavigation();
+    testStandaloneMenusExposeProductAreasAndReplace();
     testLineClickSelectsContainingTwoWayChange();
     testLineClickIgnoresCollapsedSideOfOneSidedChange();
     testLineClickPrefersCurrentAdjacentPair();

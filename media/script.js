@@ -147,7 +147,7 @@ host.onMessage((message) => {
         return;
     }
 
-    if (message.type === 'find' && ['open', 'next', 'previous'].includes(message.command)) {
+    if (message.type === 'find' && ['open', 'next', 'previous', 'replace', 'replaceAll'].includes(message.command)) {
         runActiveEditorFindCommand(message.command);
         return;
     }
@@ -2295,6 +2295,7 @@ function registerEditorKeybindings(editor, editorMode) {
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.RightArrow, () => copyCurrentChange('left-to-right'));
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.LeftArrow, () => copyCurrentChange('right-to-left'));
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyF, () => dispatchFindCommand(editor, 'open'));
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyH, () => dispatchFindCommand(editor, 'replace'));
     editor.addCommand(monacoInstance.KeyCode.F3, () => dispatchFindCommand(editor, 'next'));
     editor.addCommand(monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.F3, () => dispatchFindCommand(editor, 'previous'));
     editor.addCommand(monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.KeyZ, toggleWordWrap);

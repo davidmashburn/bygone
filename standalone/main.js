@@ -458,6 +458,7 @@ function installApplicationMenu() {
         ];
 
     const isMac = process.platform === 'darwin';
+    const isDevelopment = !app.isPackaged;
     const aboutItem = {
         label: `About ${APP_NAME}`,
         click: () => {
@@ -508,12 +509,6 @@ function installApplicationMenu() {
                     click: () => { void openCompareMultipleDirectoriesDialog(); }
                 },
                 {
-                    label: 'Review Current Branch',
-                    accelerator: 'CmdOrCtrl+Shift+R',
-                    click: () => { void openBranchReviewDialog(); }
-                },
-                { type: 'separator' },
-                {
                     label: 'Add Panel to Left…',
                     enabled: canAddPanel,
                     click: () => { void addPanelFromMenu('left'); }
@@ -527,16 +522,6 @@ function installApplicationMenu() {
                     label: 'Remove Active Panel',
                     enabled: canRemovePanel,
                     click: () => { void removeActivePanelFromMenu(); }
-                },
-                {
-                    label: 'Compare File History…',
-                    accelerator: 'CmdOrCtrl+Shift+H',
-                    click: () => { void openHistoryDialog(); }
-                },
-                {
-                    label: 'Compare Test Files',
-                    accelerator: 'CmdOrCtrl+Shift+T',
-                    click: () => { void compareTestFiles(); }
                 },
                 { type: 'separator' },
                 ...fileActionItems,
@@ -573,12 +558,35 @@ function installApplicationMenu() {
                     accelerator: 'Shift+F3',
                     enabled: canFind,
                     click: () => postFindCommand('previous')
+                },
+                {
+                    label: 'Replace…',
+                    accelerator: 'CmdOrCtrl+H',
+                    enabled: canFind,
+                    click: () => postFindCommand('replace')
+                },
+                {
+                    label: 'Replace All',
+                    accelerator: 'CmdOrCtrl+Alt+Enter',
+                    enabled: canFind,
+                    click: () => postFindCommand('replaceAll')
                 }
             ]
         },
         {
-            label: 'History',
+            label: 'Git',
             submenu: [
+                {
+                    label: 'View File or Directory History…',
+                    accelerator: 'CmdOrCtrl+Shift+H',
+                    click: () => { void openHistoryDialog(); }
+                },
+                {
+                    label: 'Explore Current Branch Change',
+                    accelerator: 'CmdOrCtrl+Shift+R',
+                    click: () => { void openBranchReviewDialog(); }
+                },
+                { type: 'separator' },
                 {
                     label: 'Older Commit',
                     accelerator: 'Alt+Left',
@@ -590,6 +598,30 @@ function installApplicationMenu() {
                     accelerator: 'Alt+Right',
                     enabled: isHistory,
                     click: () => { void navigateHistory('forward'); }
+                }
+            ]
+        },
+        {
+            label: 'Present',
+            submenu: [
+                {
+                    label: 'Present Current Branch',
+                    click: () => { void presentCurrentBranch(); }
+                },
+                {
+                    label: 'Open Authored Tour…',
+                    click: () => { void openAuthoredTourDialog(); }
+                }
+            ]
+        },
+        {
+            label: 'Navigate',
+            submenu: [
+                {
+                    label: 'Back to Directory',
+                    accelerator: 'CmdOrCtrl+[',
+                    enabled: canReturnToDirectory,
+                    click: () => { void returnToDirectoryView(); }
                 }
             ]
         },
@@ -610,19 +642,32 @@ function installApplicationMenu() {
                     enabled: wordWrapAvailable,
                     click: () => postToRenderer({ type: 'toggleWordWrap' })
                 },
-                {
-                    label: 'Back to Directory',
-                    accelerator: 'CmdOrCtrl+[',
-                    enabled: canReturnToDirectory,
-                    click: () => { void returnToDirectoryView(); }
-                },
                 { type: 'separator' },
-                { role: 'toggleDevTools' },
                 { role: 'resetZoom' },
                 { role: 'zoomIn' },
                 { role: 'zoomOut' }
             ]
         },
+        {
+            label: 'Window',
+            role: 'windowMenu',
+            submenu: [
+                { role: 'minimize' },
+                { role: 'zoom' },
+                ...(isMac ? [{ type: 'separator' }, { role: 'front' }] : [{ role: 'close' }])
+            ]
+        },
+        ...(isDevelopment ? [{
+            label: 'Developer',
+            submenu: [
+                {
+                    label: 'Compare Test Fixtures',
+                    accelerator: 'CmdOrCtrl+Shift+T',
+                    click: () => { void compareTestFiles(); }
+                },
+                { role: 'toggleDevTools' }
+            ]
+        }] : []),
         {
             label: 'Help',
             submenu: [
@@ -650,6 +695,27 @@ function installApplicationMenu() {
     ];
 
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+async function presentCurrentBranch() {
+    const cwd = getSourceRepoRoot(session.source) || process.cwd();
+    await openTourPresentation([], cwd);
+}
+
+async function openAuthoredTourDialog() {
+    const result = await dialog.showOpenDialog(mainWindow ?? undefined, {
+        title: 'Open Authored Bygone Tour',
+        properties: ['openFile'],
+        filters: [
+            { name: 'Bygone tours', extensions: ['yaml', 'yml'] },
+            { name: 'All files', extensions: ['*'] }
+        ]
+    });
+    const tourPath = result.filePaths[0];
+    if (result.canceled || !tourPath) {
+        return;
+    }
+    await openTourPresentation(['--tour', tourPath], path.dirname(tourPath));
 }
 
 function postFindCommand(command) {

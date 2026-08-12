@@ -3,7 +3,9 @@
 const FIND_ACTION_IDS = {
     open: 'actions.find',
     next: 'editor.action.nextMatchFindAction',
-    previous: 'editor.action.previousMatchFindAction'
+    previous: 'editor.action.previousMatchFindAction',
+    replace: 'editor.action.startFindReplaceAction',
+    replaceAll: 'editor.action.replaceAll'
 };
 
 function isUsableEditor(editor) {
