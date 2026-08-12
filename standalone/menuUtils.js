@@ -10,11 +10,17 @@ function getMenuCapabilities(session) {
         || (isMultiDiff && Boolean(session?.multi?.files?.some((panel) => panel.path || panel.content)))
         || (session?.mode === 'history')
         || (session?.mode === 'directory-history' && Boolean(session?.dirHistory?.viewRelativePath));
+    const activeMultiPanel = isMultiDiff
+        ? session?.multi?.files?.find((panel) => panel.id === session?.multi?.activePanelId)
+        : null;
+    const canReplace = (isTwoWayDiff && !session?.binaryComparison && !session?.returnDirectory?.review)
+        || Boolean(activeMultiPanel?.editable);
     return {
         isMultiDiff,
         isTwoWayDiff,
         isHistory,
         canFind,
+        canReplace,
         canRefreshSession: isRefreshableSource(session?.source),
         canReturnToDirectory: Boolean(session?.returnDirectory || session?.dirHistory?.viewRelativePath),
         canAddPanel: session?.mode === 'history' || (isMultiDiff && Boolean(session?.multi?.activePanelId)),

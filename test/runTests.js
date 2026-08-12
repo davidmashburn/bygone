@@ -28,6 +28,7 @@ const {
 } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
 const { computeFocusedStripLayout } = require('../media/focusedStripController.js');
+const { findVisibleMatches } = require('../media/visibleSearchController.js');
 const { dispatchFindCommand, resolveFindTarget, runFindCommand } = require('../media/findController.js');
 const {
     WORD_WRAP_STORAGE_KEY,
@@ -811,6 +812,7 @@ function testMenuCapabilitiesFollowSessionMode() {
         isTwoWayDiff: false,
         isHistory: false,
         canFind: false,
+        canReplace: false,
         canRefreshSession: false,
         canReturnToDirectory: false,
         canAddPanel: false,
@@ -821,7 +823,7 @@ function testMenuCapabilitiesFollowSessionMode() {
         source: createFilesSource(['/tmp/left', '/tmp/right']),
         multi: {
             activePanelId: 'middle',
-            files: [{ path: '/tmp/left' }, { path: '/tmp/middle' }, { path: '/tmp/right' }]
+            files: [{ path: '/tmp/left' }, { id: 'middle', path: '/tmp/middle', editable: true }, { path: '/tmp/right' }]
         },
         returnDirectory: { relativePath: 'a.txt' }
     });
@@ -830,6 +832,7 @@ function testMenuCapabilitiesFollowSessionMode() {
     assert.equal(multi.canReturnToDirectory, true);
     assert.equal(multi.canRefreshSession, true);
     assert.equal(multi.canFind, true);
+    assert.equal(multi.canReplace, true);
 }
 
 function createFindEditor(name, actionLog, available = true) {
@@ -897,6 +900,41 @@ function testFindShortcutCapturesControlAndCommandBeforeEditors() {
     assert.match(rendererSource, /\(event\.metaKey \|\| event\.ctrlKey\)[\s\S]{0,180}event\.key\.toLowerCase\(\) === 'f'/);
     assert.match(rendererSource, /runActiveEditorFindCommand\('open'\);[\s\S]{0,40}\}, true\);/);
     assert.match(rendererSource, /event\.stopPropagation\(\)/);
+}
+
+function testVisiblePaneSearchCombinesOnlyProvidedEditors() {
+    const calls = [];
+    const makeTarget = (id, line) => ({
+        id,
+        label: id.toUpperCase(),
+        editor: {
+            getModel: () => ({
+                findMatches(query, _editable, regex, matchCase) {
+                    calls.push({ id, query, regex, matchCase });
+                    return [{ range: { startLineNumber: line } }];
+                },
+                getLineContent: () => `result from ${id}`
+            })
+        }
+    });
+    const matches = findVisibleMatches([makeTarget('left', 3), makeTarget('right', 7)], 'needle', {
+        regex: true,
+        caseSensitive: true
+    });
+    assert.deepEqual(matches.map(({ targetId, lineNumber }) => ({ targetId, lineNumber })), [
+        { targetId: 'left', lineNumber: 3 },
+        { targetId: 'right', lineNumber: 7 }
+    ]);
+    assert.deepEqual(calls, [
+        { id: 'left', query: 'needle', regex: true, matchCase: true },
+        { id: 'right', query: 'needle', regex: true, matchCase: true }
+    ]);
+
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    assert.match(rendererSource, /function getVisibleSearchTargets/);
+    assert.match(rendererSource, /focusedStripLayout\.mode === 'pair'/);
+    assert.match(standaloneSource, /label: 'Search Visible Panes…'/);
 }
 
 function testSidebarsExposeResizeCollapseAndRestoreControls() {
@@ -2154,6 +2192,7 @@ function run() {
     testFindControllerTargetsOneActiveEditor();
     testFindCommandsUseRendererRatherThanPageSearch();
     testFindShortcutCapturesControlAndCommandBeforeEditors();
+    testVisiblePaneSearchCombinesOnlyProvidedEditors();
     testSidebarsExposeResizeCollapseAndRestoreControls();
     testWordWrapControllerPersistsAndAppliesPreference();
     testWordWrapUsesSharedRendererAndStandaloneMenu();

@@ -3,6 +3,7 @@ import { buildBlockChanges, findChangeIndexAtLine, resolveFileNavigationAction }
 import { dispatchFindCommand, runFindCommand } from './findController';
 import { applyWordWrap, readWordWrapPreference, writeWordWrapPreference } from './wrapController';
 import { computeFocusedStripLayout } from './focusedStripController';
+import { findVisibleMatches } from './visibleSearchController';
 
 const host = createHostBridge();
 const {
@@ -155,6 +156,11 @@ host.onMessage((message) => {
         return;
     }
 
+    if (message.type === 'visibleSearch') {
+        openVisiblePaneSearch();
+        return;
+    }
+
     if (message.type === 'toggleWordWrap') {
         toggleWordWrap();
         return;
@@ -224,6 +230,7 @@ window.addEventListener('load', async () => {
     initializeHistoryToolbar();
     initializeDirectoryTreeToolbar();
     initializeChangeToolbar();
+    initializeVisiblePaneSearch();
     initializeDirectoryReturnToolbar();
     initializeEditModeToolbar();
     initializeDirectoryViewEvents();
@@ -1108,6 +1115,7 @@ function applyFocusedStripLayout(animate = true) {
     container.classList.toggle('multi-strip-panel-mode', focusedStripLayout.mode === 'panel');
     container.classList.toggle('multi-strip-pair-mode', focusedStripLayout.mode === 'pair');
     updateFocusedStripControls();
+    updateVisiblePaneSearch();
     if (!animate) requestAnimationFrame(() => track.classList.remove('is-positioning'));
 }
 
@@ -1986,6 +1994,123 @@ function getActiveMultiPair() {
     return multiDiffPairs[activeMultiPairIndex];
 }
 
+let visibleSearchMatches = [];
+
+function initializeVisiblePaneSearch() {
+    const palette = document.createElement('section');
+    palette.id = 'visible-pane-search';
+    palette.className = 'visible-pane-search hidden';
+    palette.setAttribute('aria-label', 'Search visible panes');
+    palette.innerHTML = [
+        '<div class="visible-search-header">',
+        '<input class="visible-search-input" type="search" aria-label="Search visible panes" placeholder="Search visible panes">',
+        '<button class="visible-search-option" type="button" data-visible-search-option="case" aria-pressed="false" title="Match case">Aa</button>',
+        '<button class="visible-search-option" type="button" data-visible-search-option="regex" aria-pressed="false" title="Use regular expression">.*</button>',
+        '<button class="visible-search-close" type="button" aria-label="Close visible-pane search" title="Close">×</button>',
+        '</div>',
+        '<div class="visible-search-summary" aria-live="polite"></div>',
+        '<div class="visible-search-results" role="listbox"></div>'
+    ].join('');
+    document.body.appendChild(palette);
+
+    const input = palette.querySelector('.visible-search-input');
+    input.addEventListener('input', updateVisiblePaneSearch);
+    palette.addEventListener('click', (event) => {
+        const option = event.target instanceof Element
+            ? event.target.closest('[data-visible-search-option]')
+            : null;
+        if (option) {
+            option.setAttribute('aria-pressed', option.getAttribute('aria-pressed') !== 'true' ? 'true' : 'false');
+            updateVisiblePaneSearch();
+            return;
+        }
+        if (event.target instanceof Element && event.target.closest('.visible-search-close')) {
+            closeVisiblePaneSearch();
+            return;
+        }
+        const result = event.target instanceof Element
+            ? event.target.closest('[data-visible-search-result]')
+            : null;
+        if (result) revealVisibleSearchMatch(Number(result.getAttribute('data-visible-search-result')));
+    });
+    palette.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeVisiblePaneSearch();
+        }
+    });
+}
+
+function openVisiblePaneSearch() {
+    if (currentMode !== MODE_TWO_WAY && currentMode !== MODE_MULTI_WAY) return;
+    const palette = getElement('visible-pane-search');
+    palette.classList.remove('hidden');
+    const input = palette.querySelector('.visible-search-input');
+    input.focus();
+    input.select();
+    updateVisiblePaneSearch();
+}
+
+function closeVisiblePaneSearch() {
+    getElement('visible-pane-search')?.classList.add('hidden');
+    visibleSearchMatches = [];
+}
+
+function getVisibleSearchTargets() {
+    if (currentMode === MODE_TWO_WAY) {
+        return [
+            { id: 'left', label: getElement('file1-header').textContent || 'Left', editor: leftEditor },
+            { id: 'right', label: getElement('file2-header').textContent || 'Right', editor: rightEditor }
+        ];
+    }
+    if (currentMode !== MODE_MULTI_WAY || !focusedStripLayout) return [];
+    const indices = focusedStripLayout.mode === 'pair'
+        ? [focusedStripLayout.pairIndex, focusedStripLayout.pairIndex + 1]
+        : [focusedStripLayout.panelIndex];
+    return indices.map((index) => ({
+        id: multiPanels[index]?.id,
+        label: multiPanels[index]?.label || `Panel ${index + 1}`,
+        editor: multiEditors[index]
+    })).filter((target) => target.id && target.editor);
+}
+
+function updateVisiblePaneSearch() {
+    const palette = getElement('visible-pane-search');
+    if (!palette || palette.classList.contains('hidden')) return;
+    const query = palette.querySelector('.visible-search-input').value;
+    const caseSensitive = palette.querySelector('[data-visible-search-option="case"]').getAttribute('aria-pressed') === 'true';
+    const regex = palette.querySelector('[data-visible-search-option="regex"]').getAttribute('aria-pressed') === 'true';
+    const summary = palette.querySelector('.visible-search-summary');
+    const results = palette.querySelector('.visible-search-results');
+    try {
+        visibleSearchMatches = findVisibleMatches(getVisibleSearchTargets(), query, { caseSensitive, regex });
+        summary.textContent = query ? `${visibleSearchMatches.length} result${visibleSearchMatches.length === 1 ? '' : 's'} in visible panes` : 'Type to search visible panes';
+        results.innerHTML = visibleSearchMatches.map((match, index) => (
+            `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="${escapeAttr(match.label)}:${match.lineNumber}">`
+            + `<span class="visible-search-location">${escapeHtml(match.label)}:${match.lineNumber}</span>`
+            + `<span class="visible-search-preview">${escapeHtml(match.preview.trim())}</span>`
+            + '</button>'
+        )).join('');
+    } catch (error) {
+        visibleSearchMatches = [];
+        summary.textContent = regex ? `Invalid regular expression: ${error.message}` : error.message;
+        results.innerHTML = '';
+    }
+}
+
+function revealVisibleSearchMatch(index) {
+    const match = visibleSearchMatches[index];
+    if (!match) return;
+    if (currentMode === MODE_TWO_WAY) {
+        setActivePane(match.targetId, false);
+    } else if (currentMode === MODE_MULTI_WAY) {
+        setActiveMultiPanel(match.targetId, true);
+    }
+    match.editor.setSelection(match.range);
+    match.editor.revealRangeInCenter(match.range, monacoInstance.editor.ScrollType.Smooth);
+    match.editor.focus();
+}
+
 function initializeChangeToolbar() {
     getElement('previous-file').addEventListener('click', () => navigateFile('previous'));
     getElement('next-file').addEventListener('click', () => navigateFile('next'));
@@ -2000,6 +2125,14 @@ function initializeChangeToolbar() {
         const findWidgetOwnsEvent = event.target instanceof Element
             && Boolean(event.target.closest('.find-widget'));
         if (!findWidgetOwnsEvent
+            && (event.metaKey || event.ctrlKey)
+            && !event.altKey
+            && event.shiftKey
+            && event.key.toLowerCase() === 'f') {
+            event.preventDefault();
+            event.stopPropagation();
+            openVisiblePaneSearch();
+        } else if (!findWidgetOwnsEvent
             && (event.metaKey || event.ctrlKey)
             && !event.altKey
             && !event.shiftKey

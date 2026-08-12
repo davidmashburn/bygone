@@ -1008,6 +1008,94 @@ body.is-resizing-sidebar .history-rail-resizer {
     }
 }
 
+.visible-pane-search {
+    position: fixed;
+    z-index: 500;
+    top: 48px;
+    right: 20px;
+    width: min(520px, calc(100vw - 40px));
+    max-height: min(520px, calc(100vh - 80px));
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+    border-radius: 7px;
+    background: var(--vscode-editorWidget-background, #252526);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
+}
+
+.visible-search-header {
+    display: flex;
+    gap: 5px;
+    padding: 8px;
+}
+
+.visible-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 5px 8px;
+    border: 1px solid var(--vscode-input-border, transparent);
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+}
+
+.visible-search-option,
+.visible-search-close {
+    min-width: 28px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.visible-search-option[aria-pressed="true"] {
+    border-color: var(--vscode-focusBorder);
+    background: var(--vscode-toolbar-activeBackground, rgba(128, 128, 128, 0.25));
+}
+
+.visible-search-summary {
+    padding: 0 10px 7px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+}
+
+.visible-search-results {
+    overflow: auto;
+    padding: 0 5px 6px;
+}
+
+.visible-search-result {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(120px, 0.35fr) minmax(0, 1fr);
+    gap: 10px;
+    padding: 6px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.visible-search-result:hover,
+.visible-search-result:focus-visible {
+    background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.16));
+    outline: none;
+}
+
+.visible-search-location,
+.visible-search-preview {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.visible-search-location {
+    color: var(--vscode-descriptionForeground);
+}
+
 .hidden {
     display: none !important;
 }

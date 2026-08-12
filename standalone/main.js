@@ -402,6 +402,7 @@ function installApplicationMenu() {
         isTwoWayDiff,
         isHistory,
         canFind,
+        canReplace,
         canReturnToDirectory,
         canAddPanel,
         canRemovePanel,
@@ -560,15 +561,22 @@ function installApplicationMenu() {
                     click: () => postFindCommand('previous')
                 },
                 {
+                    label: 'Search Visible Panes…',
+                    accelerator: 'CmdOrCtrl+Shift+F',
+                    enabled: canFind,
+                    click: postVisibleSearchCommand
+                },
+                { type: 'separator' },
+                {
                     label: 'Replace…',
                     accelerator: 'CmdOrCtrl+H',
-                    enabled: canFind,
+                    enabled: canReplace,
                     click: () => postFindCommand('replace')
                 },
                 {
                     label: 'Replace All',
                     accelerator: 'CmdOrCtrl+Alt+Enter',
-                    enabled: canFind,
+                    enabled: canReplace,
                     click: () => postFindCommand('replaceAll')
                 }
             ]
@@ -723,6 +731,11 @@ function postFindCommand(command) {
         return;
     }
     postToRenderer({ type: 'find', command });
+}
+
+function postVisibleSearchCommand() {
+    if (!getMenuCapabilities(session).canFind) return;
+    postToRenderer({ type: 'visibleSearch' });
 }
 
 async function installCommandLineTools() {
