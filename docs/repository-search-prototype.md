@@ -16,8 +16,15 @@ Bygone contains an experimental host-side adapter for filesystem search using
 
 ## Distribution gate
 
-Development and benchmarks currently use a detected system `rg`. Do not expose
-repository search as a core feature until one of these contracts is chosen:
+Bygone has chosen a detected system `rg` for the experimental phase. It
+requires ripgrep 14 or newer, uses `BYGONE_RG_PATH` as an explicit executable
+override, and exposes **Help → Repository Search Status…**. Missing,
+unparseable, and unsupported versions are explicit capability states. Bygone
+does not silently use a different regex/search engine.
+
+This keeps desktop packages small while the feature and update burden are
+evaluated. Revisit the choice before advertising repository search as a
+zero-setup core feature. The alternatives remain:
 
 1. Bundle verified, signed ripgrep binaries for every supported desktop target
    and maintain their license/provenance/security updates.
@@ -27,7 +34,7 @@ repository search as a core feature until one of these contracts is chosen:
    symlink, binary, Unicode, and cancellation behavior matches the advertised
    contract.
 
-Silent fallback to a different search language is not acceptable.
+Silent fallback to a different search language remains unacceptable.
 
 ## Open-source benchmark
 

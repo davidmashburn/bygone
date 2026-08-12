@@ -10,6 +10,7 @@ const { GitHistoryService } = require('../src/gitHistory.ts');
 const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
 const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
 const { searchChangeSetSnapshots } = require('../src/changeSetSearch.ts');
+const { detectRipgrepCapability } = require('../src/repositorySearch.ts');
 const { materializeBranchReviewTrees, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('./menuUtils.js');
@@ -702,6 +703,10 @@ function installApplicationMenu() {
                     label: 'Check for Updates…',
                     click: () => { void checkForUpdates(true); }
                 },
+                {
+                    label: 'Repository Search Status…',
+                    click: () => { void showRepositorySearchStatus(); }
+                },
                 ...(isMac ? [] : [{ type: 'separator' }, aboutItem])
             ]
         }
@@ -713,6 +718,19 @@ function installApplicationMenu() {
 async function presentCurrentBranch() {
     const cwd = getSourceRepoRoot(session.source) || process.cwd();
     await openTourPresentation([], cwd);
+}
+
+async function showRepositorySearchStatus() {
+    const capability = detectRipgrepCapability();
+    if (capability.kind === 'available') {
+        await showInfo(`Experimental repository search can use ${capability.version} at ${capability.executable}.`);
+        return;
+    }
+    if (capability.kind === 'unsupported') {
+        await showInfo(`${capability.version} is below Bygone's minimum supported ripgrep major version ${capability.minimumMajorVersion}. Set BYGONE_RG_PATH to a newer executable.`);
+        return;
+    }
+    await showInfo(`Experimental repository search is unavailable: ${capability.message}. Install ripgrep or set BYGONE_RG_PATH to an executable.`);
 }
 
 async function openAuthoredTourDialog() {

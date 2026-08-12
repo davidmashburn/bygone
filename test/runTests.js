@@ -11,7 +11,7 @@ const {
     scoreReplacementLinePair
 } = require('../out/diffEngine.js');
 const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
-const { buildRipgrepArgs, parseRipgrepJsonLine } = require('../out/repositorySearch.js');
+const { buildRipgrepArgs, detectRipgrepCapability, parseRipgrepJsonLine } = require('../out/repositorySearch.js');
 const { searchChangeSetSnapshots } = require('../out/changeSetSearch.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
 const { buildBinaryComparison, classifyFile } = require('../out/binaryComparison.js');
@@ -1033,6 +1033,14 @@ function testRepositorySearchBuildsStructuredRipgrepBoundary() {
     assert.match(source, /spawn\(executable, args,[\s\S]{0,140}shell: false/);
     assert.match(source, /child\?\.kill\('SIGTERM'\)/);
     assert.match(source, /slice\(-16_384\)/);
+
+    const capability = detectRipgrepCapability();
+    assert.ok(['available', 'missing', 'unsupported'].includes(capability.kind));
+    assert.equal(detectRipgrepCapability('/definitely/missing/bygone-rg').kind, 'missing');
+    assert.match(source, /BYGONE_RG_PATH/);
+    assert.match(source, /minimumRipgrepMajorVersion = 14/);
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    assert.match(standaloneSource, /label: 'Repository Search Status…'/);
 }
 
 function testChangeSetSearchFindsUnopenedSnapshotContent() {

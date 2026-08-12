@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import * as path from 'node:path';
 
 export type RepositorySearchQuery = Readonly<{
@@ -32,6 +32,30 @@ export type RepositorySearchHandle = Readonly<{
     completion: Promise<RepositorySearchCompletion>;
     cancel(): void;
 }>;
+
+export type RipgrepCapability =
+    | { kind: 'available'; executable: string; version: string; majorVersion: number }
+    | { kind: 'missing'; executable: string; message: string }
+    | { kind: 'unsupported'; executable: string; version: string; majorVersion: number; minimumMajorVersion: number };
+
+const minimumRipgrepMajorVersion = 14;
+
+export function detectRipgrepCapability(executable = process.env.BYGONE_RG_PATH || 'rg'): RipgrepCapability {
+    const result = spawnSync(executable, ['--version'], {
+        encoding: 'utf8',
+        shell: false,
+        timeout: 3_000,
+        windowsHide: true
+    });
+    if (result.error) return { kind: 'missing', executable, message: result.error.message };
+    const version = String(result.stdout || '').split(/\r?\n/, 1)[0].trim();
+    const match = /^ripgrep\s+(\d+)(?:\.\d+){1,2}/.exec(version);
+    if (!match) return { kind: 'missing', executable, message: `Could not parse ripgrep version output: ${version || '(empty)'}` };
+    const majorVersion = Number.parseInt(match[1], 10);
+    return majorVersion >= minimumRipgrepMajorVersion
+        ? { kind: 'available', executable, version, majorVersion }
+        : { kind: 'unsupported', executable, version, majorVersion, minimumMajorVersion: minimumRipgrepMajorVersion };
+}
 
 export function buildRipgrepArgs(query: RepositorySearchQuery): string[] {
     validateQuery(query);
