@@ -18,6 +18,9 @@ Delivered on `main`:
 - `dba3580` moves the comparison renderer into an editor tab and removes the
   empty Activity Bar host.
 - `16f7101` makes the panel's read-only persistence contract explicit.
+- `69e8849` uses open VS Code document content for file comparisons and the
+  working-tree edge of history, so unsaved buffers are not replaced by stale
+  on-disk reads.
 
 Next implementation slice: bridge writable worktree inputs through
 `TextDocument` and `WorkspaceEdit`, preserving dirty buffers, undo, save, and
