@@ -66,6 +66,7 @@ const { buildChangeInventory, materializeChangeUnits, parsePatchUnits } = requir
 const { buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
+const { readTourSourceDocument } = require('../cli/tourFile.js');
 const { getLinearTourTarget, getTourFileTarget, resolveTourPosition } = require('../out/tourNavigation.js');
 const { searchTour } = require('../out/tourSearch.js');
 
@@ -759,6 +760,75 @@ function testAgentTourCommandsValidateCompileAndExposeSchema() {
     const schema = JSON.parse(schemaOutput);
     assert.equal(schema.$schema, 'https://json-schema.org/draft/2020-12/schema');
     assert.deepEqual(schema.required, ['version', 'anchors', 'connections', 'chapters']);
+}
+
+function testAuthoredTourSourceLoadingIsBoundedAndStrict() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-source-loader-'));
+    const sourcePath = path.join(root, 'review.bygone');
+    const validSource = [
+        'version: 1',
+        'anchors:',
+        '  start:',
+        '    file: src/example.js',
+        '    revision: head',
+        '    contains: example',
+        'connections: []',
+        'chapters:',
+        '  - id: overview',
+        '    title: Overview',
+        '    scenes:',
+        '      - id: walkthrough',
+        '        title: Walkthrough',
+        '        summary: Explain the example.',
+        '        bullets: []',
+        '        tags: [example]',
+        '        takeaway: The source is valid.',
+        '        steps:',
+        '          - id: start',
+        '            title: Start',
+        '            body: Explain the example.',
+        '            focus: start',
+        ''
+    ].join('\n');
+
+    fs.writeFileSync(sourcePath, `\uFEFF${validSource}`, 'utf8');
+    assert.equal(readTourSourceDocument(sourcePath).version, 1);
+
+    assert.throws(
+        () => readTourSourceDocument(sourcePath, { maxBytes: 10 }),
+        /Could not read Bygone source .* limit is 10 bytes/
+    );
+
+    fs.writeFileSync(sourcePath, Buffer.from([0x76, 0x65, 0x72, 0x00, 0x73]));
+    assert.throws(() => readTourSourceDocument(sourcePath), /NUL bytes are not allowed/);
+
+    fs.writeFileSync(sourcePath, Buffer.from([0xff, 0xfe, 0xfd]));
+    assert.throws(() => readTourSourceDocument(sourcePath), /as UTF-8/);
+
+    fs.writeFileSync(sourcePath, `${validSource}---\n${validSource}`, 'utf8');
+    assert.throws(() => readTourSourceDocument(sourcePath), /expected one YAML document, found 2/);
+
+    fs.writeFileSync(sourcePath, 'version: 1\nversion: 1\n', 'utf8');
+    assert.throws(() => readTourSourceDocument(sourcePath), /duplicated mapping key/);
+
+    fs.writeFileSync(sourcePath, 'version: [\n', 'utf8');
+    assert.throws(() => readTourSourceDocument(sourcePath), /Could not parse Bygone source .*review\.bygone as YAML/);
+
+    fs.writeFileSync(sourcePath, 'version: 1\nanchors: {}\nconnections: []\nchapters: []\n', 'utf8');
+    assert.throws(() => readTourSourceDocument(sourcePath), /Invalid Bygone source .* non-empty array/);
+
+    fs.writeFileSync(sourcePath, [
+        'defaults: &anchor',
+        '  file: src/example.js',
+        '  revision: head',
+        '  contains: example',
+        validSource.replace(
+            '  start:\n    file: src/example.js\n    revision: head\n    contains: example',
+            '  start:\n    <<: *anchor'
+        )
+    ].join('\n'), 'utf8');
+    assert.throws(() => readTourSourceDocument(sourcePath), /unknown field: defaults/);
+    fs.rmSync(root, { recursive: true, force: true });
 }
 
 function testChangeTourContextPackagesBoundedGitEvidence() {
@@ -2487,6 +2557,7 @@ function run() {
     testAdvancedTourExamplesRemainReproducible();
     testVersionTourChangelogRemainsReproducible();
     testAgentTourCommandsValidateCompileAndExposeSchema();
+    testAuthoredTourSourceLoadingIsBoundedAndStrict();
     testChangeTourContextPackagesBoundedGitEvidence();
     testGeneratedCompletionScriptsPassAvailableShellSyntaxChecks();
     testReviewPathPairUsesDistinctRenameEndpoints();
