@@ -14,7 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         fileComparator,
-        vscode.window.registerWebviewViewProvider(DiffViewProvider.viewType, diffViewProvider),
+        diffViewProvider,
         vscode.window.registerUriHandler(uriHandler),
         registerCommand('bygone.compareFiles', () => fileComparator.selectAndCompareFiles()),
         registerCommand('bygone.compareDirectoriesInDesktop', () => pickPathsAndLaunchDesktop('directories')),

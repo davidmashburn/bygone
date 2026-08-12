@@ -271,6 +271,7 @@ function testProductSurfaceOverviewTracksHostsAndBoundaries() {
 function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
     const extensionSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'extension.ts'), 'utf8');
+    const providerSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'diffViewProvider.ts'), 'utf8');
     const launcherSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'desktopLauncher.ts'), 'utf8');
     const intentSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'desktopIntent.ts'), 'utf8');
     const packageCheck = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'check-vsix-contents.mjs'), 'utf8');
@@ -303,6 +304,13 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
         assert.equal(packageJson.contributes.commands.find((entry) => entry.command === command)?.enablement, 'isWorkspaceTrusted');
     }
     assert.ok(packageJson.contributes.menus['explorer/context'].every((entry) => typeof entry.when === 'string'));
+    assert.equal(packageJson.contributes.viewsContainers, undefined);
+    assert.equal(packageJson.contributes.views, undefined);
+    assert.ok(!packageJson.activationEvents.some((event) => event.startsWith('onView:')));
+    assert.doesNotMatch(extensionSource, /registerWebviewViewProvider/);
+    assert.match(providerSource, /createWebviewPanel\(/);
+    assert.match(providerSource, /retainContextWhenHidden: true/);
+    assert.match(providerSource, /vscode\.ViewColumn\.Active/);
     assert.match(packageJson.scripts['package:vsix'], /check-vsix-contents/);
     assert.match(packageCheck, /Unexpected VSIX files/);
     assert.match(packageCheck, /maximumBytes/);

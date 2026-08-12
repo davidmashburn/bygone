@@ -45,8 +45,7 @@
     "onCommand:bygone.compareActiveFileHistory",
     "onCommand:bygone.exploreBranchInDesktop",
     "onCommand:bygone.presentBranchInDesktop",
-    "onCommand:bygone.openTourInDesktop",
-    "onView:bygone.diffView"
+    "onCommand:bygone.openTourInDesktop"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -166,24 +165,6 @@
           "description": "Existing absolute path to the local Bygone Desktop executable used for trusted branch and tour hand-off commands."
         }
       }
-    },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "bygonediff",
-          "title": "Bygone",
-          "icon": "$(compare-changes)"
-        }
-      ]
-    },
-    "views": {
-      "bygonediff": [
-        {
-          "id": "bygone.diffView",
-          "name": "Diff View",
-          "type": "webview"
-        }
-      ]
     }
   },
   "scripts": {

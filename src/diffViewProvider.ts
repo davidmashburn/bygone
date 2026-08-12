@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { BinaryComparison } from './binaryComparison';
 import { buildTwoWayDiffModel, ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
-import { openDiffPreview } from './fallbackViews';
 import {
     BranchReviewViewState,
     DirectoryEntry,
@@ -37,10 +36,9 @@ export interface DirectoryDiffOptions {
     review?: BranchReviewViewState | null;
 }
 
-export class DiffViewProvider implements vscode.WebviewViewProvider {
-    public static readonly viewType = 'bygone.diffView';
-    private static readonly containerCommand = 'workbench.view.extension.bygonediff';
-    private view?: vscode.WebviewView;
+export class DiffViewProvider implements vscode.Disposable {
+    public static readonly viewType = 'bygone.diffPanel';
+    private panel?: vscode.WebviewPanel;
     private isReady = false;
     private pendingMessage?: WebviewOutboundMessage;
     private currentMessage?: WebviewOutboundMessage;
@@ -88,28 +86,33 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         this.directoryReturnHandler = handler;
     }
 
-    public resolveWebviewView(
-        webviewView: vscode.WebviewView,
-        _context: vscode.WebviewViewResolveContext,
-        _token: vscode.CancellationToken
-    ) {
-        this.view = webviewView;
+    public dispose(): void {
+        this.panel?.dispose();
+        this.panel = undefined;
+    }
+
+    private createPanel(title: string): vscode.WebviewPanel {
+        const panel = vscode.window.createWebviewPanel(
+            DiffViewProvider.viewType,
+            title,
+            vscode.ViewColumn.Active,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true,
+                localResourceRoots: [this.extensionUri]
+            }
+        );
+        this.panel = panel;
         this.isReady = false;
-
-        webviewView.webview.options = {
-            enableScripts: true,
-            localResourceRoots: [this.extensionUri]
-        };
-
-        webviewView.webview.onDidReceiveMessage((message) => {
+        panel.webview.onDidReceiveMessage((message) => {
             if (isReadyMessage(message)) {
                 this.isReady = true;
 
                 if (this.pendingMessage) {
-                    void webviewView.webview.postMessage(this.pendingMessage);
+                    void panel.webview.postMessage(this.pendingMessage);
                     this.pendingMessage = undefined;
                 } else if (this.currentMessage) {
-                    void webviewView.webview.postMessage(this.currentMessage);
+                    void panel.webview.postMessage(this.currentMessage);
                 }
             }
 
@@ -161,7 +164,15 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
                 void this.handleMultiSavePanel(message.panelId);
             }
         });
-        webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
+        panel.onDidDispose(() => {
+            if (this.panel === panel) {
+                this.panel = undefined;
+                this.isReady = false;
+                this.pendingMessage = undefined;
+            }
+        });
+        panel.webview.html = this.getHtmlForWebview(panel.webview);
+        return panel;
     }
 
     public async showDiff(
@@ -172,12 +183,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         diffModel: TwoWayDiffModel,
         directoryContext?: DirectoryDiffContext
     ) {
-        const view = await this.revealView();
-        if (!view) {
-            vscode.window.showWarningMessage('Bygone view is unavailable. Opening the diff in a text tab instead.');
-            void openDiffPreview(file1, file2, diffModel);
-            return;
-        }
+        this.revealPanel(`${path.basename(file1.path)} ↔ ${path.basename(file2.path)}`);
 
         this.currentTwoWayDiff = {
             file1: directoryContext?.labels?.[0] ?? path.basename(file1.path),
@@ -202,11 +208,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         comparison: BinaryComparison,
         directoryContext?: DirectoryDiffContext
     ) {
-        const view = await this.revealView();
-        if (!view) {
-            vscode.window.showWarningMessage('Bygone view is unavailable.');
-            return;
-        }
+        this.revealPanel(`${comparison.left.label} ↔ ${comparison.right.label}`);
 
         this.currentTwoWayDiff = undefined;
         this.postOrQueueMessage({
@@ -226,11 +228,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         diffModel: TwoWayDiffModel,
         history: HistoryViewState
     ) {
-        const view = await this.revealView();
-        if (!view) {
-            vscode.window.showErrorMessage('Bygone view is unavailable');
-            return;
-        }
+        this.revealPanel(`${path.basename(file.path)} History`);
 
         this.currentTwoWayDiff = {
             file1: leftLabel,
@@ -253,11 +251,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     }
 
     public async showDirectoryDiff(dirs: vscode.Uri[], entries: DirectoryEntry[], options: DirectoryDiffOptions = {}) {
-        const view = await this.revealView();
-        if (!view) {
-            vscode.window.showWarningMessage('Bygone view is unavailable.');
-            return;
-        }
+        this.revealPanel(`${options.labels?.[0] ?? path.basename(dirs[0].path)} ↔ ${options.labels?.[1] ?? path.basename(dirs[1].path)}`);
 
         this.currentTwoWayDiff = undefined;
 
@@ -276,11 +270,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         files: Array<{ uri: vscode.Uri; content: string; label?: string }>,
         directoryContext?: Pick<ShowMultiDiffMessage, 'canReturnToDirectory' | 'fileNavigation' | 'directoryNavigation'>
     ) {
-        const view = await this.revealView();
-        if (!view) {
-            vscode.window.showWarningMessage('Bygone view is unavailable.');
-            return;
-        }
+        this.revealPanel(`${files.length}-file comparison`);
 
         this.currentTwoWayDiff = undefined;
 
@@ -292,11 +282,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
     }
 
     public async showThreeWayMerge(base: vscode.Uri, left: vscode.Uri, right: vscode.Uri, mergeModel: ThreeWayMergeModel) {
-        const view = await this.revealView();
-        if (!view) {
-            vscode.window.showErrorMessage('Bygone view is unavailable');
-            return;
-        }
+        this.revealPanel(`${path.basename(left.path)} ↔ ${path.basename(right.path)}`);
 
         this.postOrQueueMessage({
             type: 'showThreeWayMerge',
@@ -323,20 +309,19 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
         } satisfies ShowThreeWayMergeMessage);
     }
 
-    private async revealView(): Promise<vscode.WebviewView | undefined> {
-        if (this.view) {
-            return this.view;
+    private revealPanel(title: string): vscode.WebviewPanel {
+        if (!this.panel) {
+            return this.createPanel(title);
         }
-
-        await vscode.commands.executeCommand(DiffViewProvider.containerCommand);
-
-        return this.view;
+        this.panel.title = title;
+        this.panel.reveal(this.panel.viewColumn, false);
+        return this.panel;
     }
 
     private postOrQueueMessage(message: WebviewOutboundMessage): void {
         this.currentMessage = message;
 
-        if (!this.view) {
+        if (!this.panel) {
             return;
         }
 
@@ -345,7 +330,7 @@ export class DiffViewProvider implements vscode.WebviewViewProvider {
             return;
         }
 
-        void this.view.webview.postMessage(message);
+        void this.panel.webview.postMessage(message);
     }
 
     private postOrQueueDiffMessage(message: Omit<ShowDiffMessage, 'type'>): void {
