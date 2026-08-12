@@ -657,7 +657,11 @@ export class FileComparator implements vscode.Disposable {
     }
 
     private async loadFileHistory(targetFile: vscode.Uri, includeStaged: boolean): Promise<void> {
-        const history = this.gitHistoryService.buildFileHistory(targetFile.fsPath, includeStaged);
+        const history = this.gitHistoryService.buildFileHistory(
+            targetFile.fsPath,
+            includeStaged,
+            this.readFileContent(targetFile)
+        );
         if (history.length === 0) {
             vscode.window.showWarningMessage('No git history with parents was found for that file.');
             return;
@@ -678,6 +682,12 @@ export class FileComparator implements vscode.Disposable {
     }
 
     private readFileContent(file: vscode.Uri): string {
+        const openDocument = vscode.workspace.textDocuments.find((document) => (
+            document.uri.toString() === file.toString()
+        ));
+        if (openDocument) {
+            return openDocument.getText();
+        }
         return fs.readFileSync(file.fsPath, 'utf8');
     }
 

@@ -55,11 +55,16 @@ interface CommitMetadata {
 }
 
 export class GitHistoryService {
-    public buildFileHistory(filePath: string, includeStaged = false): FileHistoryEntry[] {
-        return this.buildFileHistoryDescriptors(filePath, includeStaged).map((entry) => this.materializeFileHistoryEntry(entry));
+    public buildFileHistory(filePath: string, includeStaged = false, workingTreeContent?: string): FileHistoryEntry[] {
+        return this.buildFileHistoryDescriptors(filePath, includeStaged, workingTreeContent)
+            .map((entry) => this.materializeFileHistoryEntry(entry));
     }
 
-    public buildFileHistoryDescriptors(filePath: string, includeStaged = false): FileHistoryEntryDescriptor[] {
+    public buildFileHistoryDescriptors(
+        filePath: string,
+        includeStaged = false,
+        workingTreeContent?: string
+    ): FileHistoryEntryDescriptor[] {
         const canonicalFilePath = fs.realpathSync(filePath);
         const repoRoot = fs.realpathSync(this.runGitCommand(['rev-parse', '--show-toplevel'], path.dirname(canonicalFilePath)));
         const relativePath = path.relative(repoRoot, canonicalFilePath).replace(/\\/g, '/');
@@ -78,7 +83,13 @@ export class GitHistoryService {
                 parentMetadataByCommit
             ))
             .filter((entry): entry is FileHistoryEntryDescriptor => entry !== undefined);
-        const topEntries = this.buildTopHistoryDescriptors(canonicalFilePath, repoRoot, relativePath, includeStaged);
+        const topEntries = this.buildTopHistoryDescriptors(
+            canonicalFilePath,
+            repoRoot,
+            relativePath,
+            includeStaged,
+            workingTreeContent
+        );
 
         return [...topEntries, ...commitEntries];
     }
@@ -91,7 +102,7 @@ export class GitHistoryService {
             return this.toFileHistoryEntry(
                 entry,
                 leftContent,
-                this.readWorkingTreeFile(entry.filePath)
+                entry.rightContent ?? this.readWorkingTreeFile(entry.filePath)
             );
         }
 
@@ -114,13 +125,14 @@ export class GitHistoryService {
         filePath: string,
         repoRoot: string,
         relativePath: string,
-        includeStaged: boolean
+        includeStaged: boolean,
+        workingTreeOverride?: string
     ): FileHistoryEntryDescriptor[] {
         const headCommit = this.readHeadCommit(repoRoot);
 
         const headContent = this.readGitFile(repoRoot, headCommit, relativePath);
         const indexContent = this.readGitFile(repoRoot, '', relativePath);
-        const workingTreeContent = this.readWorkingTreeFile(filePath);
+        const workingTreeContent = workingTreeOverride ?? this.readWorkingTreeFile(filePath);
         const headMetadata = headCommit ? this.readCommitMetadata(repoRoot, headCommit) : { summary: '', timestamp: '' };
 
         const fileName = path.basename(filePath);
@@ -140,7 +152,8 @@ export class GitHistoryService {
                     rightLabel: `${fileName} @ Working Tree`,
                     filePath,
                     repoRoot,
-                    relativePath
+                    relativePath,
+                    rightContent: workingTreeContent
                 });
             }
 
@@ -173,7 +186,8 @@ export class GitHistoryService {
                 rightLabel: `${fileName} @ Working Tree`,
                 filePath,
                 repoRoot,
-                relativePath
+                relativePath,
+                rightContent: workingTreeContent
             });
         }
 

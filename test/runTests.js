@@ -272,6 +272,7 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
     const extensionSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'extension.ts'), 'utf8');
     const providerSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'diffViewProvider.ts'), 'utf8');
+    const comparatorSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'fileComparator.ts'), 'utf8');
     const launcherSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'desktopLauncher.ts'), 'utf8');
     const intentSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'desktopIntent.ts'), 'utf8');
     const packageCheck = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'check-vsix-contents.mjs'), 'utf8');
@@ -312,6 +313,8 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     assert.match(providerSource, /retainContextWhenHidden: true/);
     assert.match(providerSource, /vscode\.ViewColumn\.Active/);
     assert.match(providerSource, /editableSides: \{ left: false, right: false \}/);
+    assert.match(comparatorSource, /workspace\.textDocuments\.find/);
+    assert.match(comparatorSource, /openDocument\.getText\(\)/);
     assert.match(packageJson.scripts['package:vsix'], /check-vsix-contents/);
     assert.match(packageCheck, /Unexpected VSIX files/);
     assert.match(packageCheck, /maximumBytes/);
@@ -2170,6 +2173,22 @@ function testHistoryPrependsDirtyWorkingTree() {
     assert.equal(history[1].shortCommit, shortCommit(repo, 'HEAD'));
 }
 
+function testHistoryUsesOpenDocumentWorkingTreeContent() {
+    const repo = createTempGitRepo();
+    const filePath = path.join(repo, 'example.txt');
+
+    fs.writeFileSync(filePath, 'saved\n', 'utf8');
+    runGit(repo, ['add', 'example.txt']);
+    runGit(repo, ['commit', '-m', 'initial']);
+
+    const history = new GitHistoryService().buildFileHistory(filePath, false, 'unsaved buffer\n');
+
+    assert.equal(history[0].commit, 'WORKTREE');
+    assert.equal(history[0].leftContent, 'saved\n');
+    assert.equal(history[0].rightContent, 'unsaved buffer\n');
+    assert.equal(fs.readFileSync(filePath, 'utf8'), 'saved\n');
+}
+
 function testHistoryIncludeStagedSplitsIndexAndWorkingTree() {
     const repo = createTempGitRepo();
     const filePath = path.join(repo, 'example.txt');
@@ -2689,6 +2708,7 @@ function run() {
     testMergeCreatesConflictForDivergentEdits();
     testHistoryOmitsCleanWorkingTree();
     testHistoryPrependsDirtyWorkingTree();
+    testHistoryUsesOpenDocumentWorkingTreeContent();
     testHistoryIncludeStagedSplitsIndexAndWorkingTree();
     testHistoryIncludeStagedShowsIndexWhenNoUnstagedChanges();
     testBranchReviewUsesMergeBaseAndDetectsDefaultBase();
