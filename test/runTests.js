@@ -187,6 +187,12 @@ function testStandaloneMenusExposeProductAreasAndReplace() {
     assert.match(findSource, /replaceAll: 'editor\.action\.replaceAll'/);
 }
 
+function testTextPanelsExposeMutabilityProvenance() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    assert.match(rendererSource, /panel\.editable \? 'Writable file' : 'Read-only snapshot'/);
+    assert.match(rendererSource, /button\.textContent = !hasEditableSide \? 'Read-only snapshot'/);
+}
+
 function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
     const extensionSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'extension.ts'), 'utf8');
@@ -2093,6 +2099,7 @@ function run() {
     testWebTourHostSeparatesFileAndNarrativeNavigation();
     testTourAnnotationPersistsAcrossChangeNavigation();
     testStandaloneMenusExposeProductAreasAndReplace();
+    testTextPanelsExposeMutabilityProvenance();
     testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime();
     testLineClickSelectsContainingTwoWayChange();
     testLineClickIgnoresCollapsedSideOfOneSidedChange();

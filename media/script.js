@@ -891,6 +891,7 @@ function renderMultiDiffShell(panels) {
             + `<span class="multi-pane-title">${escapeHtml(panel.label)}</span>`
             + `<span class="multi-pane-dirty${panel.dirty ? ' is-visible' : ''}" aria-hidden="true" title="Unsaved changes">•</span>`
             + `</button>`
+            + `<span class="multi-pane-provenance ${panel.editable ? 'is-writable' : 'is-readonly'}">${panel.editable ? 'Writable file' : 'Read-only snapshot'}</span>`
             + `<span class="multi-pane-actions">`
             + `<button class="multi-pane-action" type="button" data-multi-add-side="left" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the left" aria-label="Add panel to the left"${panel.addLeftEnabled ? '' : ' disabled'}>+</button>`
             + `<button class="multi-pane-action multi-pane-action-danger" type="button" data-multi-remove-panel="${escapeAttr(panel.id)}" title="Remove panel" aria-label="Remove panel"${panel.removeEnabled ? '' : ' disabled'}>×</button>`
@@ -2277,10 +2278,13 @@ function updateEditModeToolbar() {
     const button = getElement('toggle-readonly');
     const hasEditableSide = currentMode === MODE_TWO_WAY && hasHostEditableSide();
 
-    toolbar.hidden = !hasEditableSide;
+    toolbar.hidden = currentMode !== MODE_TWO_WAY;
+    button.disabled = !hasEditableSide;
     button.classList.toggle('is-readonly', userReadOnly);
-    button.textContent = userReadOnly ? 'Read-only' : 'Editing On';
-    button.title = userReadOnly
+    button.textContent = !hasEditableSide ? 'Read-only snapshot' : (userReadOnly ? 'Read-only' : 'Editing On');
+    button.title = !hasEditableSide
+        ? 'This comparison contains historical, committed, or synthetic snapshots'
+        : userReadOnly
         ? 'Allow editing for writable panes'
         : 'Freeze writable panes';
 }
