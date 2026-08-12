@@ -24,7 +24,7 @@ Bygone is a VS Code extension and standalone desktop app for visual diff and fil
 - Dynamic adjacent multi-panel diff view
 - Flowing connectors, block contours, and inline change highlighting
 - Git file history viewer with commit-by-commit navigation
-- Local branch-review workspace using merge-base-to-tip semantics and changed-file progress
+- Local branch-change exploration using merge-base-to-tip semantics and changed-file progress
 - Binary-aware comparisons with side-by-side image previews and byte-equality reporting
 
 ## Status

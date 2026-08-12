@@ -181,6 +181,9 @@ function testStandaloneMenusExposeProductAreasAndReplace() {
         assert.match(standaloneSource, new RegExp(`label: '${label}'`));
     }
     assert.match(standaloneSource, /label: 'Explore Current Branch Change'/);
+    assert.doesNotMatch(standaloneSource, /Branch Review/);
+    const extensionSurface = fs.readFileSync(path.join(__dirname, '..', 'src', 'fileComparator.ts'), 'utf8');
+    assert.doesNotMatch(extensionSurface, /title: 'Review Branch'/);
     assert.match(standaloneSource, /label: 'Open Authored Tour…'/);
     assert.match(standaloneSource, /label: 'Replace…'[\s\S]{0,220}postFindCommand\('replace'\)/);
     assert.match(standaloneSource, /label: 'Replace All'[\s\S]{0,220}postFindCommand\('replaceAll'\)/);

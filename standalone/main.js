@@ -2110,7 +2110,7 @@ async function sendCurrentDirectoryDiff() {
     });
 
     updateWindowTitle(review
-        ? `${review.headRef} Branch Review`
+        ? `${review.headRef} Branch Change`
         : session.directory.labels.join(' ↔ '));
     if (launchArguments.kind === 'smoke-directory' && mainWindow && !mainWindow.isDestroyed()) {
         setTimeout(() => {

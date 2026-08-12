@@ -578,7 +578,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
     toggleView(VIEW_IDS.directory);
     setStatus('', false);
     setTextContent('file-info', review
-        ? `Reviewing ${review.headRef} against ${review.baseRef} · ${review.viewedCount}/${review.changedFileCount} files viewed · ${review.commitCount} commits${review.mergeCommitCount ? ` (${review.mergeCommitCount} merge)` : ''}${review.dirty ? ' · working tree dirty (not included)' : ''}`
+        ? `Exploring ${review.headRef} against ${review.baseRef} · ${review.viewedCount}/${review.changedFileCount} files viewed · ${review.commitCount} commits${review.mergeCommitCount ? ` (${review.mergeCommitCount} merge)` : ''}${review.dirty ? ' · working tree dirty (not included)' : ''}`
         : `Comparing directories ${directoryLabels.join(' and ')}`);
 
     resetDirectoryView();

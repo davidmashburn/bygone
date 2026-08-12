@@ -235,7 +235,7 @@ export class FileComparator implements vscode.Disposable {
                 return;
             }
             const headRef = await vscode.window.showInputBox({
-                title: 'Review Branch',
+                title: 'Explore Branch Change',
                 prompt: 'Branch or commit to review',
                 value: 'HEAD',
                 validateInput: (value) => value.trim() ? undefined : 'Enter a branch or commit.'
@@ -244,7 +244,7 @@ export class FileComparator implements vscode.Disposable {
                 return;
             }
             const baseRef = await vscode.window.showInputBox({
-                title: 'Review Branch',
+                title: 'Explore Branch Change',
                 prompt: 'Base branch (leave blank to detect the repository default)',
                 placeHolder: 'origin/main'
             });
@@ -334,7 +334,7 @@ export class FileComparator implements vscode.Disposable {
     private async selectReviewWorkspace(): Promise<vscode.WorkspaceFolder | undefined> {
         const folders = vscode.workspace.workspaceFolders ?? [];
         if (folders.length === 0) {
-            void vscode.window.showErrorMessage('Open a Git repository workspace before reviewing a branch.');
+            void vscode.window.showErrorMessage('Open a Git repository workspace before exploring a branch change.');
             return undefined;
         }
         if (folders.length === 1) {
