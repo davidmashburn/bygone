@@ -2019,6 +2019,10 @@ function initializeVisiblePaneSearch() {
     palette.innerHTML = [
         '<div class="visible-search-header">',
         '<input class="visible-search-input" type="search" aria-label="Search visible panes" placeholder="Search visible panes">',
+        '<select class="visible-search-scope" aria-label="Search scope" title="Search scope">',
+        '<option value="visible">Visible panes</option>',
+        '<option value="comparison">All comparison panels</option>',
+        '</select>',
         '<button class="visible-search-option" type="button" data-visible-search-option="case" aria-pressed="false" title="Match case">Aa</button>',
         '<button class="visible-search-option" type="button" data-visible-search-option="regex" aria-pressed="false" title="Use regular expression">.*</button>',
         '<button class="visible-search-close" type="button" aria-label="Close visible-pane search" title="Close">×</button>',
@@ -2030,6 +2034,7 @@ function initializeVisiblePaneSearch() {
 
     const input = palette.querySelector('.visible-search-input');
     input.addEventListener('input', updateVisiblePaneSearch);
+    palette.querySelector('.visible-search-scope').addEventListener('change', updateVisiblePaneSearch);
     palette.addEventListener('click', (event) => {
         const option = event.target instanceof Element
             ? event.target.closest('[data-visible-search-option]')
@@ -2089,17 +2094,30 @@ function getVisibleSearchTargets() {
     })).filter((target) => target.id && target.editor);
 }
 
+function getComparisonSearchTargets() {
+    if (currentMode === MODE_TWO_WAY) return getVisibleSearchTargets();
+    if (currentMode !== MODE_MULTI_WAY) return [];
+    return multiPanels.map((panel, index) => ({
+        id: panel.id,
+        label: panel.label || `Panel ${index + 1}`,
+        editor: multiEditors[index]
+    })).filter((target) => target.id && target.editor);
+}
+
 function updateVisiblePaneSearch() {
     const palette = getElement('visible-pane-search');
     if (!palette || palette.classList.contains('hidden')) return;
     const query = palette.querySelector('.visible-search-input').value;
+    const scope = palette.querySelector('.visible-search-scope').value;
     const caseSensitive = palette.querySelector('[data-visible-search-option="case"]').getAttribute('aria-pressed') === 'true';
     const regex = palette.querySelector('[data-visible-search-option="regex"]').getAttribute('aria-pressed') === 'true';
     const summary = palette.querySelector('.visible-search-summary');
     const results = palette.querySelector('.visible-search-results');
     try {
-        visibleSearchMatches = findVisibleMatches(getVisibleSearchTargets(), query, { caseSensitive, regex });
-        summary.textContent = query ? `${visibleSearchMatches.length} result${visibleSearchMatches.length === 1 ? '' : 's'} in visible panes` : 'Type to search visible panes';
+        const targets = scope === 'comparison' ? getComparisonSearchTargets() : getVisibleSearchTargets();
+        visibleSearchMatches = findVisibleMatches(targets, query, { caseSensitive, regex });
+        const scopeLabel = scope === 'comparison' ? 'all comparison panels' : 'visible panes';
+        summary.textContent = query ? `${visibleSearchMatches.length} result${visibleSearchMatches.length === 1 ? '' : 's'} in ${scopeLabel}` : `Type to search ${scopeLabel}`;
         results.innerHTML = visibleSearchMatches.map((match, index) => (
             `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="${escapeAttr(match.label)}:${match.lineNumber}">`
             + `<span class="visible-search-location">${escapeHtml(match.label)}:${match.lineNumber}</span>`

@@ -35,7 +35,8 @@ panel on narrow windows. Use the strip buttons, panel headers, gutters, wheel,
 or `Alt+Left`/`Alt+Right` to change focus.
 
 - `Cmd/Ctrl+F` searches the active pane.
-- `Cmd/Ctrl+Shift+F` searches all panes currently displayed by the strip.
+- `Cmd/Ctrl+Shift+F` searches either the panes currently displayed by the strip
+  or every loaded panel in the comparison, using the explicit scope selector.
 - `Cmd/Ctrl+H` replaces only in the active writable pane.
 - `Alt+Z` toggles long-line wrapping.
 - `Cmd/Ctrl+R` refreshes sessions whose source can be rebuilt safely.

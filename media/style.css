@@ -1039,6 +1039,14 @@ body.is-resizing-sidebar .history-rail-resizer {
     color: var(--vscode-input-foreground);
 }
 
+.visible-search-scope {
+    max-width: 170px;
+    padding: 4px 6px;
+    border: 1px solid var(--vscode-dropdown-border, transparent);
+    background: var(--vscode-dropdown-background, var(--vscode-input-background));
+    color: var(--vscode-dropdown-foreground, var(--vscode-input-foreground));
+}
+
 .visible-search-option,
 .visible-search-close {
     min-width: 28px;
@@ -1094,6 +1102,18 @@ body.is-resizing-sidebar .history-rail-resizer {
 
 .visible-search-location {
     color: var(--vscode-descriptionForeground);
+}
+
+@media (max-width: 640px) {
+    .visible-search-header {
+        flex-wrap: wrap;
+    }
+
+    .visible-search-scope {
+        order: 2;
+        max-width: none;
+        width: 100%;
+    }
 }
 
 .hidden {

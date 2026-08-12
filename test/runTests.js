@@ -976,7 +976,9 @@ function testVisiblePaneSearchCombinesOnlyProvidedEditors() {
     const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
     assert.match(rendererSource, /function getVisibleSearchTargets/);
     assert.match(rendererSource, /focusedStripLayout\.mode === 'pair'/);
-    assert.match(standaloneSource, /label: 'Search Visible Panes…'/);
+    assert.match(standaloneSource, /label: 'Search Comparison…'/);
+    assert.match(rendererSource, /option value="comparison">All comparison panels/);
+    assert.match(rendererSource, /function getComparisonSearchTargets/);
 }
 
 function testRepositorySearchBuildsStructuredRipgrepBoundary() {

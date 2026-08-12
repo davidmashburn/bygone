@@ -555,7 +555,7 @@ function installApplicationMenu() {
                     click: () => postFindCommand('previous')
                 },
                 {
-                    label: 'Search Visible Panes…',
+                    label: 'Search Comparison…',
                     accelerator: 'CmdOrCtrl+Shift+F',
                     enabled: canFind,
                     click: postVisibleSearchCommand
