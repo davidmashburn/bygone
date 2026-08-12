@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Active
 
 ## Goal
 
@@ -51,8 +51,8 @@ Before feature work, perform a short evidence pass across every plan:
 1. Record whether each acceptance criterion is implemented, partially
    implemented, or absent on current `main`.
 2. Mark completed plans or split remaining work into a smaller follow-up.
-3. Rename the planning concept **Deconstructed commits** to **Deconstructed
-   diffs** so internal terminology cannot leak a false historical claim.
+3. Keep the planning and product term **Deconstructed diffs** so internal
+   terminology cannot leak a false historical claim. Completed.
 4. Ensure each plan links to the owning product surface and lists its host
    behavior.
 5. Add the internal product-surface overview to the development branch and
@@ -178,8 +178,7 @@ scene identities.
 Reconcile the inventory requirements in:
 
 - [Tour coverage and depth](tour-coverage-and-depth.md)
-- [Deconstructed commits](deconstructed-commits.md), to be renamed
-  **Deconstructed diffs**
+- [Deconstructed diffs](deconstructed-diffs.md)
 
 Design one versioned inventory that supports stable evidence mapping and exact
 lossless hunk materialization. Do not build two subtly incompatible hunk-ID

@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Implemented on `main`; checked-in source examples and final authoring guidance remain.
 
 ## Goal
 

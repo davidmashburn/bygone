@@ -28,7 +28,7 @@ grew out of an earlier concept.
 
 - [Text wrap option](text-wrap-option.md)
 - [Multi-panel diff tours for stacked PRs](multi-panel-diff-tours-for-stacked-prs.md)
-- [Deconstructed commits](deconstructed-commits.md)
+- [Deconstructed diffs](deconstructed-diffs.md)
 - [Tour coverage and depth](tour-coverage-and-depth.md)
 - [In-document find behavior](find-behavior.md)
 - [Refreshable sessions](session-refresh.md)

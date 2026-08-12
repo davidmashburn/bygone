@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+In progress; an uncommitted prototype must be ported and validated against current `main`.
 
 ## Goal
 

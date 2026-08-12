@@ -292,8 +292,7 @@ Not included:
 - [In-document find behavior](find-behavior.md)
 - [Multi-scale search](multi-scale-search.md)
 - [Focused multi-panel strip](focused-multi-panel-strip.md)
-- [Deconstructed commits](deconstructed-commits.md), whose shipped product
-  terminology should be **deconstructed diff**
+- [Deconstructed diffs](deconstructed-diffs.md)
 - [Product implementation roadmap](implementation-roadmap.md)
 
 ## Delivery sequence

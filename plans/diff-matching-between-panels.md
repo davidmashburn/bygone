@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Implemented on `main`; retain the corpus and benchmark gates for future matcher changes.
 
 ## Goal
 

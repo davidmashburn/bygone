@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Implemented on `main`; pane-local Replace and Replace All remain an immediate follow-up.
 
 ## Goal
 
