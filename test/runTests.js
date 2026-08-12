@@ -11,6 +11,7 @@ const {
     scoreReplacementLinePair
 } = require('../out/diffEngine.js');
 const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
+const { buildRipgrepArgs, parseRipgrepJsonLine } = require('../out/repositorySearch.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
 const { buildBinaryComparison, classifyFile } = require('../out/binaryComparison.js');
 const {
@@ -976,6 +977,51 @@ function testVisiblePaneSearchCombinesOnlyProvidedEditors() {
     assert.match(rendererSource, /function getVisibleSearchTargets/);
     assert.match(rendererSource, /focusedStripLayout\.mode === 'pair'/);
     assert.match(standaloneSource, /label: 'Search Visible Panes…'/);
+}
+
+function testRepositorySearchBuildsStructuredRipgrepBoundary() {
+    const args = buildRipgrepArgs({
+        root: '/tmp/bygone-search',
+        pattern: '-needle.*',
+        literal: false,
+        caseSensitive: true,
+        hidden: true,
+        globs: ['*.ts', '!vendor/**']
+    });
+    assert.deepEqual(args, [
+        '--json', '--line-number', '--column', '--with-filename', '--no-heading', '--color=never',
+        '--regexp', '-needle.*', '--case-sensitive', '--hidden',
+        '--glob', '*.ts', '--glob', '!vendor/**', '--', '.'
+    ]);
+    assert.throws(() => buildRipgrepArgs({ root: 'relative', pattern: 'x' }), /root must be absolute/);
+    assert.throws(() => buildRipgrepArgs({ root: '/tmp', pattern: '' }), /must not be empty/);
+
+    const jsonLine = JSON.stringify({
+        type: 'match',
+        data: {
+            path: { text: 'src/example.ts' },
+            lines: { text: 'const café = needle;\n' },
+            line_number: 4,
+            submatches: [{ start: 14, end: 20, match: { text: 'needle' } }]
+        }
+    });
+    assert.deepEqual(parseRipgrepJsonLine(jsonLine, '/tmp/bygone-search'), [{
+        kind: 'filesystem-match',
+        path: '/tmp/bygone-search/src/example.ts',
+        line: 4,
+        column: 14,
+        endColumn: 20,
+        preview: 'const café = needle;',
+        writable: false
+    }]);
+    assert.deepEqual(parseRipgrepJsonLine('{bad json', '/tmp/bygone-search'), []);
+    const escaping = jsonLine.replace('src/example.ts', '../outside.ts');
+    assert.deepEqual(parseRipgrepJsonLine(escaping, '/tmp/bygone-search'), []);
+
+    const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'repositorySearch.ts'), 'utf8');
+    assert.match(source, /spawn\(executable, args,[\s\S]{0,140}shell: false/);
+    assert.match(source, /child\?\.kill\('SIGTERM'\)/);
+    assert.match(source, /slice\(-16_384\)/);
 }
 
 function testSidebarsExposeResizeCollapseAndRestoreControls() {
@@ -2266,6 +2312,7 @@ function run() {
     testFindCommandsUseRendererRatherThanPageSearch();
     testFindShortcutCapturesControlAndCommandBeforeEditors();
     testVisiblePaneSearchCombinesOnlyProvidedEditors();
+    testRepositorySearchBuildsStructuredRipgrepBoundary();
     testSidebarsExposeResizeCollapseAndRestoreControls();
     testWordWrapControllerPersistsAndAppliesPreference();
     testWordWrapUsesSharedRendererAndStandaloneMenu();
