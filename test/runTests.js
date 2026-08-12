@@ -1033,12 +1033,14 @@ function testRepositorySearchBuildsStructuredRipgrepBoundary() {
         pattern: '-needle.*',
         literal: false,
         caseSensitive: true,
+        wholeWord: true,
         hidden: true,
+        respectIgnores: false,
         globs: ['*.ts', '!vendor/**']
     });
     assert.deepEqual(args, [
         '--json', '--line-number', '--column', '--with-filename', '--no-heading', '--color=never',
-        '--regexp', '-needle.*', '--case-sensitive', '--hidden',
+        '--regexp', '-needle.*', '--case-sensitive', '--word-regexp', '--hidden', '--no-ignore',
         '--glob', '*.ts', '--glob', '!vendor/**', '--', '.'
     ]);
     assert.throws(() => buildRipgrepArgs({ root: 'relative', pattern: 'x' }), /root must be absolute/);
@@ -1078,6 +1080,16 @@ function testRepositorySearchBuildsStructuredRipgrepBoundary() {
     assert.match(source, /minimumRipgrepMajorVersion = 14/);
     const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
     assert.match(standaloneSource, /label: 'Repository Search Status…'/);
+    assert.match(standaloneSource, /label: 'Search in Files…'/);
+    assert.match(standaloneSource, /function runRepositorySearch/);
+    assert.match(standaloneSource, /repositorySearch\.resultKeys\.has/);
+    assert.match(standaloneSource, /stats\.mtimeMs > repositorySearch\.startedAt/);
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    assert.match(rendererSource, /id = 'repository-search'/);
+    assert.match(rendererSource, /type: 'cancelRepositorySearch'/);
+    assert.match(rendererSource, /class="repository-search-cancel"/);
+    assert.match(rendererSource, /Respect ignore files/);
+    assert.match(rendererSource, /limit reached/);
 }
 
 function testChangeSetSearchFindsUnopenedSnapshotContent() {

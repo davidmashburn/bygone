@@ -97,6 +97,9 @@ let changeSetSearchRequestId = 0;
 let changeSetSearchTimer = null;
 let gitHistorySearchRequestId = 0;
 let gitHistorySearchTimer = null;
+let repositorySearchRequestId = 0;
+let repositorySearchRoot = '';
+let repositorySearchMatches = [];
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -163,6 +166,22 @@ host.onMessage((message) => {
 
     if (message.type === 'visibleSearch') {
         openVisiblePaneSearch();
+        return;
+    }
+
+    if (message.type === 'openRepositorySearch' && typeof message.root === 'string') {
+        openRepositorySearch(message.root);
+        return;
+    }
+
+    if (message.type === 'repositorySearchBatch' && message.requestId === repositorySearchRequestId) {
+        repositorySearchMatches.push(...(message.matches || []));
+        renderRepositorySearchResults();
+        return;
+    }
+
+    if (message.type === 'repositorySearchComplete' && message.requestId === repositorySearchRequestId) {
+        completeRepositorySearch(message.completion);
         return;
     }
 
@@ -251,6 +270,7 @@ window.addEventListener('load', async () => {
     initializeDirectoryTreeToolbar();
     initializeChangeToolbar();
     initializeVisiblePaneSearch();
+    initializeRepositorySearch();
     initializeDirectoryReturnToolbar();
     initializeEditModeToolbar();
     initializeDirectoryViewEvents();
@@ -2029,6 +2049,139 @@ function getActiveMultiPair() {
 }
 
 let visibleSearchMatches = [];
+
+function initializeRepositorySearch() {
+    const palette = document.createElement('section');
+    palette.id = 'repository-search';
+    palette.className = 'repository-search hidden';
+    palette.setAttribute('aria-label', 'Search in files');
+    palette.innerHTML = [
+        '<form class="repository-search-form">',
+        '<div class="repository-search-header">',
+        '<input class="repository-search-input" type="search" aria-label="Search query" placeholder="Search in files">',
+        '<button class="repository-search-run" type="submit">Search</button>',
+        '<button class="repository-search-cancel" type="button" hidden>Cancel</button>',
+        '<button class="repository-search-close" type="button" aria-label="Close Search in Files" title="Close">×</button>',
+        '</div>',
+        '<div class="repository-search-root"></div>',
+        '<div class="repository-search-options">',
+        '<label><input type="checkbox" name="caseSensitive"> Match case</label>',
+        '<label><input type="checkbox" name="wholeWord"> Whole word</label>',
+        '<label><input type="checkbox" name="regex"> Regular expression</label>',
+        '<label><input type="checkbox" name="hidden"> Hidden files</label>',
+        '<label><input type="checkbox" name="respectIgnores" checked> Respect ignore files</label>',
+        '</div>',
+        '<div class="repository-search-filters">',
+        '<input name="include" aria-label="Files to include" placeholder="Include: *.ts, src/**">',
+        '<input name="exclude" aria-label="Files to exclude" placeholder="Exclude: dist/**">',
+        '<select name="limit" aria-label="Maximum results" title="Maximum results">',
+        '<option value="100">100 results</option>',
+        '<option value="500">500 results</option>',
+        '<option value="1000" selected>1,000 results</option>',
+        '<option value="5000">5,000 results</option>',
+        '</select>',
+        '</div>',
+        '</form>',
+        '<div class="repository-search-summary" aria-live="polite">Choose a query, then run the search.</div>',
+        '<div class="repository-search-results" role="listbox"></div>'
+    ].join('');
+    document.body.appendChild(palette);
+    palette.querySelector('form').addEventListener('submit', (event) => {
+        event.preventDefault();
+        runRepositorySearch();
+    });
+    palette.querySelector('.repository-search-close').addEventListener('click', closeRepositorySearch);
+    palette.querySelector('.repository-search-cancel').addEventListener('click', () => {
+        host.postMessage({ type: 'cancelRepositorySearch' });
+        palette.querySelector('.repository-search-summary').textContent = `Cancelling search · ${repositorySearchMatches.length} results…`;
+    });
+    palette.querySelector('.repository-search-results').addEventListener('click', (event) => {
+        const result = event.target instanceof Element
+            ? event.target.closest('[data-repository-search-result]')
+            : null;
+        if (!result) return;
+        const match = repositorySearchMatches[Number(result.getAttribute('data-repository-search-result'))];
+        if (match) host.postMessage({ type: 'openRepositorySearchResult', ...match });
+    });
+    palette.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeRepositorySearch();
+        }
+    });
+}
+
+function openRepositorySearch(root) {
+    repositorySearchRoot = root;
+    repositorySearchMatches = [];
+    closeVisiblePaneSearch();
+    const palette = getElement('repository-search');
+    palette.classList.remove('hidden');
+    palette.querySelector('.repository-search-root').textContent = root;
+    palette.querySelector('.repository-search-summary').textContent = 'Choose a query, then run the search.';
+    palette.querySelector('.repository-search-cancel').hidden = true;
+    palette.querySelector('.repository-search-results').replaceChildren();
+    const input = palette.querySelector('.repository-search-input');
+    input.focus();
+    input.select();
+}
+
+function closeRepositorySearch() {
+    const palette = getElement('repository-search');
+    palette?.classList.add('hidden');
+    if (palette) palette.querySelector('.repository-search-cancel').hidden = true;
+    repositorySearchRequestId += 1;
+    repositorySearchMatches = [];
+    host.postMessage({ type: 'cancelRepositorySearch' });
+}
+
+function runRepositorySearch() {
+    const palette = getElement('repository-search');
+    const form = palette.querySelector('form');
+    const query = form.querySelector('.repository-search-input').value;
+    if (!query) {
+        palette.querySelector('.repository-search-summary').textContent = 'Enter a query before searching.';
+        return;
+    }
+    repositorySearchRequestId += 1;
+    repositorySearchMatches = [];
+    palette.querySelector('.repository-search-results').replaceChildren();
+    palette.querySelector('.repository-search-summary').textContent = `Searching ${repositorySearchRoot}…`;
+    palette.querySelector('.repository-search-cancel').hidden = false;
+    host.postMessage({
+        type: 'runRepositorySearch', requestId: repositorySearchRequestId, query,
+        regex: form.elements.regex.checked,
+        caseSensitive: form.elements.caseSensitive.checked,
+        wholeWord: form.elements.wholeWord.checked,
+        hidden: form.elements.hidden.checked,
+        respectIgnores: form.elements.respectIgnores.checked,
+        include: form.elements.include.value,
+        exclude: form.elements.exclude.value,
+        limit: form.elements.limit.value
+    });
+}
+
+function renderRepositorySearchResults() {
+    const palette = getElement('repository-search');
+    if (!palette || palette.classList.contains('hidden')) return;
+    palette.querySelector('.repository-search-summary').textContent = `${repositorySearchMatches.length} result${repositorySearchMatches.length === 1 ? '' : 's'}…`;
+    palette.querySelector('.repository-search-results').innerHTML = repositorySearchMatches.map((match, index) => (
+        `<button class="repository-search-result" type="button" role="option" data-repository-search-result="${index}" title="${escapeAttr(match.relativePath)}:${match.line}">`
+        + `<span class="repository-search-location">${escapeHtml(match.relativePath)}:${match.line}</span>`
+        + `<span class="repository-search-preview">${escapeHtml(match.preview.trim())}</span>`
+        + '</button>'
+    )).join('');
+}
+
+function completeRepositorySearch(completion) {
+    const palette = getElement('repository-search');
+    if (!palette || palette.classList.contains('hidden') || !completion) return;
+    const summary = palette.querySelector('.repository-search-summary');
+    palette.querySelector('.repository-search-cancel').hidden = true;
+    if (completion.kind === 'failed') summary.textContent = `Search failed: ${completion.message}`;
+    else if (completion.kind === 'cancelled') summary.textContent = `Search cancelled · ${repositorySearchMatches.length} results`;
+    else summary.textContent = `${repositorySearchMatches.length} result${repositorySearchMatches.length === 1 ? '' : 's'}${completion.truncated ? ' · limit reached' : ''}`;
+}
 
 function initializeVisiblePaneSearch() {
     const palette = document.createElement('section');

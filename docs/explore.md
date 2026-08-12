@@ -51,6 +51,12 @@ query meaning: **Content occurrence** finds every revision snapshot containing
 the text, while **Introduction or removal** finds revisions where the number of
 matches changed. Selecting a result opens that exact parent-to-commit comparison.
 
+Use **Edit → Search in Files…** for a read-only filesystem search rooted at a
+directory you choose. It supports literal or regular-expression queries,
+case and whole-word matching, include/exclude globs, hidden files, ignore-file
+policy, cancellation, and explicit result limits. It requires ripgrep 14 or
+newer; **Help → Repository Search Status…** reports the detected capability.
+
 ## Move into Present
 
 **Present Current Branch** creates a guided tour of the committed branch range.

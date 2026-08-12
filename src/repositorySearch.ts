@@ -6,7 +6,9 @@ export type RepositorySearchQuery = Readonly<{
     pattern: string;
     literal?: boolean;
     caseSensitive?: boolean;
+    wholeWord?: boolean;
     hidden?: boolean;
+    respectIgnores?: boolean;
     followSymlinks?: boolean;
     globs?: readonly string[];
     maxResults?: number;
@@ -62,7 +64,9 @@ export function buildRipgrepArgs(query: RepositorySearchQuery): string[] {
     const args = ['--json', '--line-number', '--column', '--with-filename', '--no-heading', '--color=never'];
     args.push(query.literal === false ? '--regexp' : '--fixed-strings', query.pattern);
     args.push(query.caseSensitive ? '--case-sensitive' : '--ignore-case');
+    if (query.wholeWord) args.push('--word-regexp');
     if (query.hidden) args.push('--hidden');
+    if (query.respectIgnores === false) args.push('--no-ignore');
     if (query.followSymlinks) args.push('--follow');
     for (const glob of query.globs || []) args.push('--glob', glob);
     args.push('--', '.');

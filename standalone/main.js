@@ -10,7 +10,7 @@ const { GitHistoryService } = require('../src/gitHistory.ts');
 const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
 const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
 const { searchChangeSetSnapshots } = require('../src/changeSetSearch.ts');
-const { detectRipgrepCapability } = require('../src/repositorySearch.ts');
+const { detectRipgrepCapability, startRepositorySearch } = require('../src/repositorySearch.ts');
 const { searchFileHistory } = require('../src/gitHistorySearch.ts');
 const { materializeBranchReviewTrees, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
@@ -94,6 +94,7 @@ let sourceFingerprint = null;
 let sourceStale = false;
 let wordWrapEnabled = false;
 let wordWrapAvailable = false;
+let repositorySearch = null;
 
 if (!singleInstanceLock) {
     app.quit();
@@ -115,6 +116,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+    repositorySearch?.handle?.cancel();
     for (const server of [...activeTourServers]) {
         closeTourServer(server);
     }
@@ -564,6 +566,11 @@ function installApplicationMenu() {
                     enabled: canSearchComparison,
                     click: postVisibleSearchCommand
                 },
+                {
+                    label: 'Search in Files…',
+                    accelerator: 'CmdOrCtrl+Alt+F',
+                    click: () => { void openRepositorySearchDialog(); }
+                },
                 { type: 'separator' },
                 {
                     label: 'Replace…',
@@ -724,7 +731,7 @@ async function presentCurrentBranch() {
 async function showRepositorySearchStatus() {
     const capability = detectRipgrepCapability();
     if (capability.kind === 'available') {
-        await showInfo(`Experimental repository search can use ${capability.version} at ${capability.executable}.`);
+        await showInfo(`Search in Files can use ${capability.version} at ${capability.executable}.`);
         return;
     }
     if (capability.kind === 'unsupported') {
@@ -732,6 +739,30 @@ async function showRepositorySearchStatus() {
         return;
     }
     await showInfo(`Experimental repository search is unavailable: ${capability.message}. Install ripgrep or set BYGONE_RG_PATH to an executable.`);
+}
+
+async function openRepositorySearchDialog() {
+    const capability = detectRipgrepCapability();
+    if (capability.kind !== 'available') {
+        await showRepositorySearchStatus();
+        return;
+    }
+    const result = await dialog.showOpenDialog(mainWindow ?? undefined, {
+        title: 'Choose Search Root',
+        properties: ['openDirectory']
+    });
+    const root = result.filePaths[0];
+    if (result.canceled || !root) return;
+    repositorySearch?.handle?.cancel();
+    repositorySearch = {
+        root: fs.realpathSync(root),
+        executable: capability.executable,
+        requestId: 0,
+        handle: null,
+        startedAt: 0,
+        resultKeys: new Set()
+    };
+    postToRenderer({ type: 'openRepositorySearch', root: repositorySearch.root });
 }
 
 async function openAuthoredTourDialog() {
@@ -1273,6 +1304,25 @@ async function handleRendererMessage(message) {
 
     if (message.type === 'searchGitHistory' && Number.isInteger(message.requestId)) {
         searchCurrentFileHistory(message);
+        return;
+    }
+
+    if (message.type === 'runRepositorySearch' && Number.isInteger(message.requestId)) {
+        runRepositorySearch(message);
+        return;
+    }
+
+    if (message.type === 'cancelRepositorySearch') {
+        repositorySearch?.handle?.cancel();
+        return;
+    }
+
+    if (message.type === 'openRepositorySearchResult'
+        && typeof message.path === 'string'
+        && Number.isInteger(message.line)
+        && Number.isInteger(message.column)
+        && Number.isInteger(message.endColumn)) {
+        await openRepositorySearchResult(message);
         return;
     }
 
@@ -3087,6 +3137,120 @@ function searchCurrentFileHistory(message) {
     } catch (error) {
         postToRenderer({ type: 'gitHistorySearchResults', requestId: message.requestId, matches: [], error: getErrorMessage(error) });
     }
+}
+
+function runRepositorySearch(message) {
+    if (!repositorySearch) return;
+    repositorySearch.handle?.cancel();
+    repositorySearch.requestId = message.requestId;
+    repositorySearch.startedAt = Date.now();
+    repositorySearch.resultKeys.clear();
+    const globs = normalizeRepositorySearchGlobs(message.include, message.exclude);
+    const pendingMatches = [];
+    let flushTimer = null;
+    const flush = () => {
+        if (flushTimer) clearTimeout(flushTimer);
+        flushTimer = null;
+        if (!repositorySearch || repositorySearch.requestId !== message.requestId || pendingMatches.length === 0) return;
+        const matches = pendingMatches.splice(0).map((match) => ({
+            ...match,
+            relativePath: path.relative(repositorySearch.root, match.path).replace(/\\/g, '/')
+        }));
+        matches.forEach((match) => repositorySearch.resultKeys.add(repositorySearchResultKey(match)));
+        postToRenderer({ type: 'repositorySearchBatch', requestId: message.requestId, matches });
+    };
+    try {
+        const handle = startRepositorySearch({
+            root: repositorySearch.root,
+            executable: repositorySearch.executable,
+            pattern: String(message.query || ''),
+            literal: !message.regex,
+            caseSensitive: Boolean(message.caseSensitive),
+            wholeWord: Boolean(message.wholeWord),
+            hidden: Boolean(message.hidden),
+            respectIgnores: message.respectIgnores !== false,
+            globs,
+            maxResults: normalizeRepositorySearchLimit(message.limit)
+        }, (match) => {
+            if (!repositorySearch || repositorySearch.requestId !== message.requestId) return;
+            pendingMatches.push(match);
+            if (pendingMatches.length >= 100) flush();
+            else if (!flushTimer) flushTimer = setTimeout(flush, 40);
+        });
+        repositorySearch.handle = handle;
+        void handle.completion.then((completion) => {
+            flush();
+            if (!repositorySearch || repositorySearch.requestId !== message.requestId) return;
+            repositorySearch.handle = null;
+            postToRenderer({ type: 'repositorySearchComplete', requestId: message.requestId, completion });
+        });
+    } catch (error) {
+        postToRenderer({
+            type: 'repositorySearchComplete', requestId: message.requestId,
+            completion: { kind: 'failed', matchCount: 0, message: getErrorMessage(error) }
+        });
+    }
+}
+
+function normalizeRepositorySearchGlobs(include, exclude) {
+    const split = (value) => String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
+    return [...split(include), ...split(exclude).map((glob) => glob.startsWith('!') ? glob : `!${glob}`)].slice(0, 50);
+}
+
+function normalizeRepositorySearchLimit(value) {
+    const parsed = Number.parseInt(String(value || ''), 10);
+    return Number.isInteger(parsed) ? Math.min(5_000, Math.max(1, parsed)) : 1_000;
+}
+
+function repositorySearchResultKey(match) {
+    return `${match.path}\0${match.line}\0${match.column}\0${match.endColumn}`;
+}
+
+async function openRepositorySearchResult(message) {
+    if (!repositorySearch || !repositorySearch.resultKeys.has(repositorySearchResultKey({
+        path: message.path, line: message.line, column: message.column, endColumn: message.endColumn
+    }))) return;
+    let realPath, stats;
+    try {
+        realPath = fs.realpathSync(message.path);
+        stats = fs.statSync(realPath);
+    } catch {
+        await showError('This search result no longer exists. Run the search again.');
+        return;
+    }
+    const relativePath = path.relative(repositorySearch.root, realPath);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath) || !stats.isFile()) return;
+    if (stats.mtimeMs > repositorySearch.startedAt) {
+        await showError('This file changed after the search started. Run the search again before opening the result.');
+        return;
+    }
+    if (classifyFile(realPath) !== 'text') {
+        await showError('This result is no longer a supported text file.');
+        return;
+    }
+    if (!await confirmSessionReplacement('open a repository search result')) return;
+    const content = readFileContent(realPath);
+    const panel = {
+        id: `panel-${nextMultiPanelId++}`,
+        path: '',
+        label: relativePath || path.basename(realPath),
+        content,
+        savedContent: content,
+        dirty: false,
+        editable: false
+    };
+    session = {
+        mode: 'multi-diff', source: { kind: 'repository-search-result', root: repositorySearch.root, path: realPath },
+        left: createSideState('', ''), right: createSideState('', ''), history: null, directory: null,
+        multi: { sourceKind: 'files', files: [panel], activePanelId: panel.id, activePairIndex: 0, historySource: null },
+        dirHistory: null, returnDirectory: null
+    };
+    clearWatchers();
+    await sendCurrentMultiDiff();
+    postToRenderer({
+        type: 'revealSearchResult', sideIndex: 0, lineNumber: message.line,
+        startColumn: message.column, endColumn: message.endColumn
+    });
 }
 
 async function openFileHistorySearchResult(historyIndex) {

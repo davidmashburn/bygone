@@ -1,7 +1,9 @@
 # Repository search prototype
 
-Bygone contains an experimental host-side adapter for filesystem search using
-`rg --json`. It is not yet exposed as a production repository-search command.
+Bygone exposes a read-only desktop **Edit → Search in Files…** workflow backed
+by the host-side `rg --json` adapter. Choose an explicit root, enter a query,
+and run the search; results stream into a bounded panel and open as read-only
+single-panel source views at the exact matched line.
 
 ## Current contract
 
@@ -11,20 +13,25 @@ Bygone contains an experimental host-side adapter for filesystem search using
 - Result paths must remain inside the selected root.
 - Result and stderr sizes are bounded.
 - Cancellation and truncation terminate the child process.
+- A superseding query cancels the previous process and stale batches are ignored.
+- Result navigation accepts only identities emitted by the active search,
+  rechecks root containment and file type, and rejects files modified after
+  the search began.
 - Unsaved editors, Git blobs, index content, tours, and synthetic stages are
   outside this filesystem adapter and require their owning source adapters.
 
-## Distribution gate
+## Distribution decision
 
-Bygone has chosen a detected system `rg` for the experimental phase. It
+Bygone currently requires a detected system `rg`. It
 requires ripgrep 14 or newer, uses `BYGONE_RG_PATH` as an explicit executable
-override, and exposes **Help → Repository Search Status…**. Missing,
+override, and exposes **Help → Repository Search Status…**. **Search in Files…**
+routes to that status when the capability is unavailable. Missing,
 unparseable, and unsupported versions are explicit capability states. Bygone
 does not silently use a different regex/search engine.
 
-This keeps desktop packages small while the feature and update burden are
-evaluated. Revisit the choice before advertising repository search as a
-zero-setup core feature. The alternatives remain:
+This keeps desktop packages small and makes availability explicit; repository
+search is therefore an optional system capability rather than a zero-setup
+core feature. The alternatives remain:
 
 1. Bundle verified, signed ripgrep binaries for every supported desktop target
    and maintain their license/provenance/security updates.
