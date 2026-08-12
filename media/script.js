@@ -93,6 +93,8 @@ let pendingNavigationRestore = null;
 let wordWrapEnabled = readWordWrapPreference(window.localStorage);
 let lastPostedWordWrapState = null;
 let workspaceResizeScrollSnapshot = null;
+let changeSetSearchRequestId = 0;
+let changeSetSearchTimer = null;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -159,6 +161,16 @@ host.onMessage((message) => {
 
     if (message.type === 'visibleSearch') {
         openVisiblePaneSearch();
+        return;
+    }
+
+    if (message.type === 'changeSetSearchResults' && message.requestId === changeSetSearchRequestId) {
+        receiveChangeSetSearchResults(message);
+        return;
+    }
+
+    if (message.type === 'revealSearchResult' && Number.isInteger(message.lineNumber)) {
+        revealHostSearchResult(message);
         return;
     }
 
@@ -2022,6 +2034,7 @@ function initializeVisiblePaneSearch() {
         '<select class="visible-search-scope" aria-label="Search scope" title="Search scope">',
         '<option value="visible">Visible panes</option>',
         '<option value="comparison">All comparison panels</option>',
+        '<option value="changeSet">Current change set</option>',
         '</select>',
         '<button class="visible-search-option" type="button" data-visible-search-option="case" aria-pressed="false" title="Match case">Aa</button>',
         '<button class="visible-search-option" type="button" data-visible-search-option="regex" aria-pressed="false" title="Use regular expression">.*</button>',
@@ -2062,7 +2075,7 @@ function initializeVisiblePaneSearch() {
 }
 
 function openVisiblePaneSearch() {
-    if (currentMode !== MODE_TWO_WAY && currentMode !== MODE_MULTI_WAY) return;
+    if (currentMode !== MODE_TWO_WAY && currentMode !== MODE_MULTI_WAY && currentMode !== 'directory') return;
     const palette = getElement('visible-pane-search');
     palette.classList.remove('hidden');
     const input = palette.querySelector('.visible-search-input');
@@ -2073,6 +2086,7 @@ function openVisiblePaneSearch() {
 
 function closeVisiblePaneSearch() {
     getElement('visible-pane-search')?.classList.add('hidden');
+    clearTimeout(changeSetSearchTimer);
     visibleSearchMatches = [];
 }
 
@@ -2113,6 +2127,27 @@ function updateVisiblePaneSearch() {
     const regex = palette.querySelector('[data-visible-search-option="regex"]').getAttribute('aria-pressed') === 'true';
     const summary = palette.querySelector('.visible-search-summary');
     const results = palette.querySelector('.visible-search-results');
+    if (scope === 'changeSet') {
+        clearTimeout(changeSetSearchTimer);
+        visibleSearchMatches = [];
+        results.innerHTML = '';
+        if (!query) {
+            summary.textContent = 'Type to search the current change set';
+            return;
+        }
+        summary.textContent = 'Searching current change set…';
+        changeSetSearchTimer = window.setTimeout(() => {
+            changeSetSearchRequestId += 1;
+            host.postMessage({
+                type: 'searchChangeSet',
+                requestId: changeSetSearchRequestId,
+                query,
+                caseSensitive,
+                regex
+            });
+        }, 150);
+        return;
+    }
     try {
         const targets = scope === 'comparison' ? getComparisonSearchTargets() : getVisibleSearchTargets();
         visibleSearchMatches = findVisibleMatches(targets, query, { caseSensitive, regex });
@@ -2131,9 +2166,38 @@ function updateVisiblePaneSearch() {
     }
 }
 
+function receiveChangeSetSearchResults(message) {
+    const palette = getElement('visible-pane-search');
+    if (!palette || palette.classList.contains('hidden')) return;
+    const summary = palette.querySelector('.visible-search-summary');
+    const results = palette.querySelector('.visible-search-results');
+    if (message.error) {
+        summary.textContent = message.error;
+        results.innerHTML = '';
+        return;
+    }
+    if (message.unavailable) {
+        summary.textContent = 'Current change-set search is available in desktop directory and branch sessions.';
+        results.innerHTML = '';
+        return;
+    }
+    visibleSearchMatches = (message.matches || []).map((match) => ({ ...match, hostResult: true }));
+    summary.textContent = `${visibleSearchMatches.length} result${visibleSearchMatches.length === 1 ? '' : 's'} in current change set`;
+    results.innerHTML = visibleSearchMatches.map((match, index) => (
+        `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="${escapeAttr(match.label)}:${match.lineNumber}">`
+        + `<span class="visible-search-location">${escapeHtml(match.label)}:${match.lineNumber}</span>`
+        + `<span class="visible-search-preview">${escapeHtml(match.preview.trim())}</span>`
+        + '</button>'
+    )).join('');
+}
+
 function revealVisibleSearchMatch(index) {
     const match = visibleSearchMatches[index];
     if (!match) return;
+    if (match.hostResult) {
+        host.postMessage({ type: 'openChangeSetSearchResult', ...match });
+        return;
+    }
     if (currentMode === MODE_TWO_WAY) {
         setActivePane(match.targetId, false);
     } else if (currentMode === MODE_MULTI_WAY) {
@@ -2142,6 +2206,22 @@ function revealVisibleSearchMatch(index) {
     match.editor.setSelection(match.range);
     match.editor.revealRangeInCenter(match.range, monacoInstance.editor.ScrollType.Smooth);
     match.editor.focus();
+}
+
+function revealHostSearchResult(message) {
+    const editor = currentMode === MODE_TWO_WAY
+        ? (message.sideIndex === 0 ? leftEditor : rightEditor)
+        : multiEditors[message.sideIndex];
+    if (!editor) return;
+    const range = {
+        startLineNumber: message.lineNumber,
+        endLineNumber: message.lineNumber,
+        startColumn: Number.isInteger(message.startColumn) ? message.startColumn : 1,
+        endColumn: Number.isInteger(message.endColumn) ? message.endColumn : 1
+    };
+    editor.setSelection(range);
+    editor.revealRangeInCenter(range, monacoInstance.editor.ScrollType.Smooth);
+    editor.focus();
 }
 
 function initializeChangeToolbar() {

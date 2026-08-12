@@ -12,6 +12,7 @@ const {
 } = require('../out/diffEngine.js');
 const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
 const { buildRipgrepArgs, parseRipgrepJsonLine } = require('../out/repositorySearch.js');
+const { searchChangeSetSnapshots } = require('../out/changeSetSearch.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
 const { buildBinaryComparison, classifyFile } = require('../out/binaryComparison.js');
 const {
@@ -856,6 +857,7 @@ function testMenuCapabilitiesFollowSessionMode() {
         isTwoWayDiff: false,
         isHistory: false,
         canFind: false,
+        canSearchComparison: false,
         canReplace: false,
         canRefreshSession: false,
         canReturnToDirectory: false,
@@ -876,7 +878,12 @@ function testMenuCapabilitiesFollowSessionMode() {
     assert.equal(multi.canReturnToDirectory, true);
     assert.equal(multi.canRefreshSession, true);
     assert.equal(multi.canFind, true);
+    assert.equal(multi.canSearchComparison, true);
     assert.equal(multi.canReplace, true);
+
+    const directory = getMenuCapabilities({ mode: 'directory' });
+    assert.equal(directory.canFind, false);
+    assert.equal(directory.canSearchComparison, true);
 }
 
 function createFindEditor(name, actionLog, available = true) {
@@ -1026,6 +1033,29 @@ function testRepositorySearchBuildsStructuredRipgrepBoundary() {
     assert.match(source, /spawn\(executable, args,[\s\S]{0,140}shell: false/);
     assert.match(source, /child\?\.kill\('SIGTERM'\)/);
     assert.match(source, /slice\(-16_384\)/);
+}
+
+function testChangeSetSearchFindsUnopenedSnapshotContent() {
+    const snapshots = [
+        { relativePath: 'src/a.ts', sideIndex: 0, label: 'base / src/a.ts', content: 'alpha\nCafé needle\n' },
+        { relativePath: 'src/a.ts', sideIndex: 1, label: 'head / src/a.ts', content: 'alpha\nneedle twice needle\n' },
+        { relativePath: 'src/b.ts', sideIndex: 1, label: 'head / src/b.ts', content: 'unrelated\n' }
+    ];
+    const matches = searchChangeSetSnapshots(snapshots, 'needle', { caseSensitive: false });
+    assert.deepEqual(matches.map(({ relativePath, sideIndex, lineNumber, startColumn }) => ({ relativePath, sideIndex, lineNumber, startColumn })), [
+        { relativePath: 'src/a.ts', sideIndex: 0, lineNumber: 2, startColumn: 6 },
+        { relativePath: 'src/a.ts', sideIndex: 1, lineNumber: 2, startColumn: 1 },
+        { relativePath: 'src/a.ts', sideIndex: 1, lineNumber: 2, startColumn: 14 }
+    ]);
+    assert.equal(searchChangeSetSnapshots(snapshots, '^unrelated$', { regex: true }).length, 1);
+    assert.throws(() => searchChangeSetSnapshots(snapshots, '[', { regex: true }), /Invalid regular expression/);
+
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    assert.match(rendererSource, /option value="changeSet">Current change set/);
+    assert.match(rendererSource, /type: 'openChangeSetSearchResult'/);
+    assert.match(standaloneSource, /function searchCurrentChangeSet/);
+    assert.match(standaloneSource, /classifyFile\(filePath\) !== 'text'/);
 }
 
 function testSidebarsExposeResizeCollapseAndRestoreControls() {
@@ -2317,6 +2347,7 @@ function run() {
     testFindShortcutCapturesControlAndCommandBeforeEditors();
     testVisiblePaneSearchCombinesOnlyProvidedEditors();
     testRepositorySearchBuildsStructuredRipgrepBoundary();
+    testChangeSetSearchFindsUnopenedSnapshotContent();
     testSidebarsExposeResizeCollapseAndRestoreControls();
     testWordWrapControllerPersistsAndAppliesPreference();
     testWordWrapUsesSharedRendererAndStandaloneMenu();

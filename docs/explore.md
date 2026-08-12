@@ -42,8 +42,10 @@ or `Alt+Left`/`Alt+Right` to change focus.
 - `Cmd/Ctrl+R` refreshes sessions whose source can be rebuilt safely.
 
 Search results identify the panel and line they came from. Repository-wide and
-Git-history search are separate future scopes; visible-pane search does not
-silently search files that are not displayed.
+Git-history search are separate future scopes. In a directory or branch
+session, choose **Current change set** to search changed text files that are not
+currently open; selecting a result opens its comparison and reveals the exact
+side and line.
 
 ## Move into Present
 

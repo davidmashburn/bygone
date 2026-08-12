@@ -5,10 +5,11 @@ const { pathToFileURL } = require('url');
 const { execFileSync } = require('child_process');
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const { buildTwoWayDiffModel } = require('../src/diffEngine.ts');
-const { buildBinaryComparison } = require('../src/binaryComparison.ts');
+const { buildBinaryComparison, classifyFile } = require('../src/binaryComparison.ts');
 const { GitHistoryService } = require('../src/gitHistory.ts');
 const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
 const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
+const { searchChangeSetSnapshots } = require('../src/changeSetSearch.ts');
 const { materializeBranchReviewTrees, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('./menuUtils.js');
@@ -404,6 +405,7 @@ function installApplicationMenu() {
         isTwoWayDiff,
         isHistory,
         canFind,
+        canSearchComparison,
         canReplace,
         canReturnToDirectory,
         canAddPanel,
@@ -557,7 +559,7 @@ function installApplicationMenu() {
                 {
                     label: 'Search Comparison…',
                     accelerator: 'CmdOrCtrl+Shift+F',
-                    enabled: canFind,
+                    enabled: canSearchComparison,
                     click: postVisibleSearchCommand
                 },
                 { type: 'separator' },
@@ -737,7 +739,7 @@ function postFindCommand(command) {
 }
 
 function postVisibleSearchCommand() {
-    if (!getMenuCapabilities(session).canFind) return;
+    if (!getMenuCapabilities(session).canSearchComparison) return;
     postToRenderer({ type: 'visibleSearch' });
 }
 
@@ -1242,6 +1244,26 @@ async function handleRendererMessage(message) {
 
     if (message.type === 'refreshSession') {
         await refreshSession();
+        return;
+    }
+
+    if (message.type === 'searchChangeSet' && Number.isInteger(message.requestId)) {
+        searchCurrentChangeSet(message);
+        return;
+    }
+
+    if (message.type === 'openChangeSetSearchResult'
+        && typeof message.relativePath === 'string'
+        && Number.isInteger(message.sideIndex)
+        && Number.isInteger(message.lineNumber)) {
+        await openDirectoryEntry(message.relativePath);
+        postToRenderer({
+            type: 'revealSearchResult',
+            sideIndex: message.sideIndex,
+            lineNumber: message.lineNumber,
+            startColumn: message.startColumn,
+            endColumn: message.endColumn
+        });
         return;
     }
 
@@ -2956,6 +2978,61 @@ async function openDirectoryEntry(relativePath) {
     }
 
     await openDirectoryEntryMultiPanel(session.directory.dirs, session.directory.labels, relativePath, review);
+}
+
+function searchCurrentChangeSet(message) {
+    const context = getCurrentChangeSetContext();
+    if (!context) {
+        postToRenderer({ type: 'changeSetSearchResults', requestId: message.requestId, matches: [], unavailable: true });
+        return;
+    }
+    try {
+        const entries = applyReviewMetadata(buildMultiDirectoryComparison(context.dirs), context.review)
+            .filter((entry) => !entry.isDirectory && entry.status !== 'same');
+        const snapshots = [];
+        for (const entry of entries) {
+            const reviewPair = context.review ? resolveReviewPathPair(context.review.changedPaths, entry.reviewKey || entry.relativePath) : null;
+            context.dirs.forEach((root, sideIndex) => {
+                const relativePath = sideIndex === 0
+                    ? reviewPair?.leftPath || entry.relativePath
+                    : sideIndex === 1
+                        ? reviewPair?.rightPath || entry.relativePath
+                        : entry.relativePath;
+                if (!relativePath) return;
+                const filePath = path.join(root, relativePath);
+                if (getPathKind(filePath) !== 'file' || classifyFile(filePath) !== 'text') return;
+                snapshots.push({
+                    relativePath: reviewPair?.key || entry.relativePath,
+                    sideIndex,
+                    label: `${context.labels[sideIndex]} / ${relativePath}`,
+                    content: readFileContent(filePath)
+                });
+            });
+        }
+        const matches = searchChangeSetSnapshots(snapshots, String(message.query || ''), {
+            regex: Boolean(message.regex),
+            caseSensitive: Boolean(message.caseSensitive),
+            limit: 500
+        });
+        postToRenderer({ type: 'changeSetSearchResults', requestId: message.requestId, matches });
+    } catch (error) {
+        postToRenderer({
+            type: 'changeSetSearchResults',
+            requestId: message.requestId,
+            matches: [],
+            error: getErrorMessage(error)
+        });
+    }
+}
+
+function getCurrentChangeSetContext() {
+    if (session.mode === 'directory' && session.directory) {
+        return session.directory;
+    }
+    if ((session.mode === 'diff' || session.mode === 'multi-diff') && session.returnDirectory) {
+        return session.returnDirectory;
+    }
+    return null;
 }
 
 async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review = null) {

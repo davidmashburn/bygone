@@ -15,11 +15,13 @@ function getMenuCapabilities(session) {
         : null;
     const canReplace = (isTwoWayDiff && !session?.binaryComparison && !session?.returnDirectory?.review)
         || Boolean(activeMultiPanel?.editable);
+    const canSearchComparison = canFind || session?.mode === 'directory';
     return {
         isMultiDiff,
         isTwoWayDiff,
         isHistory,
         canFind,
+        canSearchComparison,
         canReplace,
         canRefreshSession: isRefreshableSource(session?.source),
         canReturnToDirectory: Boolean(session?.returnDirectory || session?.dirHistory?.viewRelativePath),

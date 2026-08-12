@@ -95,6 +95,15 @@ await build({
 
 await build({
     ...sharedOptions,
+    entryPoints: ['src/changeSetSearch.ts'],
+    outfile: 'out/changeSetSearch.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node18'
+});
+
+await build({
+    ...sharedOptions,
     entryPoints: ['src/changeTour.ts'],
     outfile: 'out/changeTour.js',
     platform: 'node',

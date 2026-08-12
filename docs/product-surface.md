@@ -31,7 +31,7 @@ renderer does not make every workflow appropriate in every host.
 | Follow one file or directory through Git | Git → View File or Directory History; one path; `--history` | Git commits plus supported index/worktree states | Commits are read-only; worktree/index provenance is explicit | Core | Git history and directory-history tests |
 | Compare named revisions | `bygone --git-diff <refs…>` | Git blobs/revisions | Read-only snapshots | Secondary; CLI discovery needs improvement | Git comparison tests |
 | Explore the current branch change | Git → Explore Current Branch Change; `bygone review` | Merge-base-to-tip branch inventory | Read-only review snapshots; dirty state is reported, not silently included | Core | branch comparison and review-path tests |
-| Search comparison code | Edit → Find or Search Comparison | Active, visible, or all loaded comparison-panel Monaco models | Find is read-only; Replace requires the active writable model | Core | find and comparison-search tests |
+| Search comparison code | Edit → Find or Search Comparison | Active, visible, all loaded panels, or unopened changed text snapshots | Search is read-only; Replace requires the active writable model | Core | find, comparison-search, and change-set-search tests |
 | Move through a multi-panel comparison | Strip buttons, panel headers, gutters, wheel, or `Alt+Arrow` | Active panel and adjacent pair | Does not change source identity | Core | focused-strip controller and standalone smoke tests |
 
 The File menu owns sources and persistence; Edit owns focused text operations;
