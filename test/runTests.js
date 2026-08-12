@@ -12,6 +12,7 @@ const {
 } = require('../out/diffEngine.js');
 const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../out/directoryDiff.js');
 const { buildRipgrepArgs, detectRipgrepCapability, parseRipgrepJsonLine } = require('../out/repositorySearch.js');
+const { buildRepositoryReplacementPlan, applyRepositoryReplacementPlan, undoRepositoryReplacementPlan } = require('../out/repositoryReplace.js');
 const { searchChangeSetSnapshots } = require('../out/changeSetSearch.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
 const { searchFileHistory } = require('../out/gitHistorySearch.js');
@@ -1090,6 +1091,39 @@ function testRepositorySearchBuildsStructuredRipgrepBoundary() {
     assert.match(rendererSource, /class="repository-search-cancel"/);
     assert.match(rendererSource, /Respect ignore files/);
     assert.match(rendererSource, /limit reached/);
+}
+
+function testRepositoryReplacementPreviewsRevalidatesAndUndoes() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-replace-'));
+    try {
+        const first = path.join(root, 'first.txt');
+        const second = path.join(root, 'second.txt');
+        fs.writeFileSync(first, 'needle one\nneedle two\n', 'utf8');
+        fs.writeFileSync(second, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('needle without newline')]));
+        const plan = buildRepositoryReplacementPlan(root, [first, second], 'needle', 'value');
+        assert.equal(plan.occurrenceCount, 3);
+        assert.deepEqual(plan.files.map((file) => [file.relativePath, file.occurrenceCount]), [
+            ['first.txt', 2], ['second.txt', 1]
+        ]);
+        const [plannedFirst, plannedSecond] = plan.files.map((file) => file.path);
+        assert.equal(applyRepositoryReplacementPlan(plan, [plannedFirst]), 1);
+        assert.equal(fs.readFileSync(first, 'utf8'), 'value one\nvalue two\n');
+        assert.deepEqual(fs.readFileSync(second).subarray(0, 3), Buffer.from([0xef, 0xbb, 0xbf]));
+        assert.equal(undoRepositoryReplacementPlan(plan, [plannedFirst]), 1);
+        assert.equal(fs.readFileSync(first, 'utf8'), 'needle one\nneedle two\n');
+        assert.equal(applyRepositoryReplacementPlan(plan, [plannedSecond]), 1);
+        const replacedBomFile = fs.readFileSync(second);
+        assert.deepEqual(replacedBomFile.subarray(0, 3), Buffer.from([0xef, 0xbb, 0xbf]));
+        assert.equal(replacedBomFile.subarray(3).toString('utf8'), 'value without newline');
+        assert.equal(undoRepositoryReplacementPlan(plan, [plannedSecond]), 1);
+
+        const stale = buildRepositoryReplacementPlan(root, [first], 'needle', 'value');
+        fs.appendFileSync(first, 'changed\n');
+        assert.throws(() => applyRepositoryReplacementPlan(stale, [stale.files[0].path]), /changed since the preview/);
+        assert.throws(() => buildRepositoryReplacementPlan(root, [path.join(root, 'missing.txt')], 'x', 'y'), /ENOENT/);
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
 }
 
 function testChangeSetSearchFindsUnopenedSnapshotContent() {
@@ -2458,6 +2492,7 @@ function run() {
     testFindShortcutCapturesControlAndCommandBeforeEditors();
     testVisiblePaneSearchCombinesOnlyProvidedEditors();
     testRepositorySearchBuildsStructuredRipgrepBoundary();
+    testRepositoryReplacementPreviewsRevalidatesAndUndoes();
     testChangeSetSearchFindsUnopenedSnapshotContent();
     testGitHistorySearchSeparatesContentFromChanges();
     testSidebarsExposeResizeCollapseAndRestoreControls();
