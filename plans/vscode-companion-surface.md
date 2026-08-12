@@ -2,7 +2,13 @@
 
 ## Status
 
-Draft
+In progress; production cleanup and a minimal desktop hand-off are implemented.
+
+The extension no longer contributes Compare Test Files, packages through a
+checked allowlist assertion, and exposes safe argument-array hand-offs for
+branch exploration, branch presentation, and authored tours through a
+configured desktop executable. The editor-area WebviewPanel migration is
+explicitly deferred.
 
 ## Goal
 

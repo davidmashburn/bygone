@@ -2,7 +2,12 @@
 
 ## Status
 
-Draft
+In progress; the quick surface cleanup is implemented and broader guidance remains.
+
+The development branch now has conventional File/Edit/Git/Present/Navigate/
+View/Window menus, pane-local Find/Replace with read-only replacement
+disablement, production-only removal of fixtures and developer tools, Open
+Authored Tour, visible panel mutability labels, and visible-pane search.
 
 ## Goal
 

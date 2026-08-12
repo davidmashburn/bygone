@@ -4,6 +4,38 @@
 
 Active
 
+## Current implementation order
+
+The quick and near-quick pass completed plan reconciliation, standalone menu
+organization, writable-pane Replace, production command cleanup, Open Authored
+Tour, panel mutability labels, advanced checked-in tour examples, focused
+multi-panel navigation, visible-pane search, minimal VS Code desktop hand-off,
+and VSIX content assertions.
+
+Remaining work is ordered as follows:
+
+1. Finish standalone product guidance and platform QA: complete the internal
+   surface overview, session-kind/provenance detail, command enablement and
+   focus testing, Help/documentation entry points, and platform-native menu
+   polish.
+2. Harden the VS Code boundary without moving the UI yet: define a versioned
+   launch-intent contract, handle trust, remote and multi-root workspaces,
+   tighten contextual command visibility, add missing-app behavior, and add a
+   VSIX size budget.
+3. Validate the focused strip across browser and VS Code hosts at narrow,
+   medium and wide sizes; profile large panel stacks before considering
+   virtualization.
+4. Implement current-comparison/change-set search on the shared session result
+   contract, including provenance and stale-result invalidation.
+5. Prototype cancellable repository search with `rg --json`, benchmark only
+   open-source fixtures, and decide executable distribution before shipping.
+6. Add Git-history search, then tour narrative/code search after stable result
+   identities and Return to Tour behavior are verified.
+7. Design previewed Replace in Files only after read-only repository search is
+   stable.
+8. Revisit the deferred VS Code editor-area WebviewPanel and native document
+   bridge as a separate, larger project.
+
 ## Goal
 
 Order the current plans by dependency and product risk so each implementation

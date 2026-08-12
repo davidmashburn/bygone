@@ -2,7 +2,12 @@
 
 ## Status
 
-Draft
+In progress; active-pane Find/Replace and visible-pane search are implemented.
+
+The implemented visible-pane slice searches the Monaco models actually shown
+by the focused strip, combines panel/line results, supports case and regular-
+expression options, and activates and reveals the selected match. Repository,
+session, history, and tour scopes remain future work.
 
 ## Goal
 

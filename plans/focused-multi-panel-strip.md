@@ -2,7 +2,12 @@
 
 ## Status
 
-In progress; an uncommitted prototype must be ported and validated against current `main`.
+Implemented on the development branch; cross-host interaction QA and large-stack profiling remain.
+
+The focused strip now uses a pure layout controller, pair/panel responsive
+anchors, visible previous/next controls, keyboard and wheel navigation,
+active-pair-only connectors, reduced-motion handling, and an overflow-hidden
+translated track. Unit tests and standalone smoke coverage are in place.
 
 ## Goal
 
