@@ -1792,12 +1792,20 @@ function testToursRouteThroughAnAppOwnedWindowAndServer() {
 
     assert.match(cliSource, /tokenMatches\('present', args\[0\]\)[\s\S]{0,300}launchDesktopApp\(\{ waitForExit: false \}\)/);
     assert.match(standaloneSource, /kind: 'tour', args: filteredArgs\.slice\(1\), cwd/);
+    assert.match(standaloneSource, /kind: 'tour-document', documentPath: tourSelection\.path/);
+    assert.match(standaloneSource, /async function openAuthoredTourDocument\(sourcePath\)[\s\S]{0,220}discoverAuthoredTourDocument\(sourcePath\)[\s\S]{0,220}document\.repoRoot/);
+    assert.match(standaloneSource, /async function openDroppedFiles\(paths\)[\s\S]{0,500}classifyAuthoredTourPaths\(normalizedPaths\)/);
+    assert.match(standaloneSource, /Open an authored Bygone presentation separately from ordinary files and directories/);
     assert.match(standaloneSource, /startPresentation\(args, cwd, packageRoot, \{[\s\S]{0,100}open: false/);
     assert.match(standaloneSource, /const tourPresentations = new Map\(\)/);
     assert.match(standaloneSource, /async function showTourWindow\(url, server\)[\s\S]{0,500}const tourWindow = new BrowserWindow/);
     assert.match(standaloneSource, /tourPresentations\.set\(tourWindow, \{ server, origin: tourOrigin \}\)/);
     assert.match(standaloneSource, /tourWindow\.on\('closed',[\s\S]{0,180}tourPresentations\.delete\(tourWindow\);[\s\S]{0,80}closeTourServer\(server\)/);
     assert.doesNotMatch(standaloneSource, /previousServer|await tourWindow\.loadURL\(url\)[\s\S]{0,120}closeTourServer\(previousServer\)/);
+    assert.deepEqual(packageJson.build.mac.fileAssociations, [{
+        ext: 'bygone', name: 'Bygone Presentation', role: 'Viewer', rank: 'Owner'
+    }]);
+    assert.equal(packageJson.build.win.fileAssociations, undefined);
     assert.ok(packageJson.build.files.includes('web/**'));
 }
 

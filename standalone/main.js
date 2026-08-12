@@ -13,6 +13,7 @@ const { searchChangeSetSnapshots } = require('../src/changeSetSearch.ts');
 const { detectRipgrepCapability, startRepositorySearch } = require('../src/repositorySearch.ts');
 const { buildRepositoryReplacementPlan, applyRepositoryReplacementPlan, undoRepositoryReplacementPlan } = require('../src/repositoryReplace.ts');
 const { searchFileHistory } = require('../src/gitHistorySearch.ts');
+const { classifyAuthoredTourPaths, discoverAuthoredTourDocument } = require('../src/tourDocument.ts');
 const { materializeBranchReviewTrees, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('./menuUtils.js');
@@ -103,12 +104,12 @@ if (!singleInstanceLock) {
 }
 
 app.whenReady().then(async () => {
-    createMainWindow({ show: launchArguments.kind !== 'tour' && !smokeTestMode });
     installApplicationMenu();
     initializeAutoUpdates();
     await openInitialLaunchTarget();
-}).catch((error) => {
-    void showError(`Could not open Bygone: ${getErrorMessage(error)}`);
+}).catch(async (error) => {
+    ensureMainWindow();
+    await showError(`Could not open Bygone: ${getErrorMessage(error)}`);
 });
 
 app.on('window-all-closed', () => {
@@ -152,12 +153,10 @@ app.on('open-file', (event, filePath) => {
     pendingOpenPaths.push(filePath);
 
     if (app.isReady()) {
-        if (!mainWindow) {
-            createMainWindow();
-            installApplicationMenu();
-        }
-
-        void routePendingOpenPaths();
+        void routePendingOpenPaths().catch(async (error) => {
+            ensureMainWindow();
+            await showError(`Could not open Bygone presentation: ${getErrorMessage(error)}`);
+        });
     }
 });
 
@@ -317,6 +316,11 @@ async function openTourPresentation(args, cwd) {
     }
 }
 
+async function openAuthoredTourDocument(sourcePath) {
+    const document = discoverAuthoredTourDocument(sourcePath);
+    await openTourPresentation(['--tour', document.documentPath], document.repoRoot);
+}
+
 async function showTourWindow(url, server) {
     const parsedUrl = new URL(url);
     if (parsedUrl.protocol !== 'http:' || parsedUrl.hostname !== '127.0.0.1') {
@@ -394,7 +398,9 @@ function closeTourServer(server) {
 }
 
 function focusLaunchTarget(launchTarget) {
-    const targetWindow = launchTarget.kind === 'tour' ? latestTourWindow : mainWindow;
+    const targetWindow = launchTarget.kind === 'tour' || launchTarget.kind === 'tour-document'
+        ? latestTourWindow
+        : mainWindow;
     if (!targetWindow || targetWindow.isDestroyed()) {
         return;
     }
@@ -625,7 +631,11 @@ function installApplicationMenu() {
                 },
                 {
                     label: 'Open Authored Tour…',
-                    click: () => { void openAuthoredTourDialog(); }
+                    click: () => {
+                        void openAuthoredTourDialog().catch((error) => (
+                            showError(`Could not open Bygone presentation: ${getErrorMessage(error)}`)
+                        ));
+                    }
                 }
             ]
         },
@@ -775,7 +785,7 @@ async function openAuthoredTourDialog() {
         title: 'Open Authored Bygone Tour',
         properties: ['openFile'],
         filters: [
-            { name: 'Bygone tours', extensions: ['yaml', 'yml'] },
+            { name: 'Bygone presentations', extensions: ['bygone', 'yaml', 'yml'] },
             { name: 'All files', extensions: ['*'] }
         ]
     });
@@ -783,7 +793,7 @@ async function openAuthoredTourDialog() {
     if (result.canceled || !tourPath) {
         return;
     }
-    await openTourPresentation(['--tour', tourPath], path.dirname(tourPath));
+    await openAuthoredTourDocument(tourPath);
 }
 
 function postFindCommand(command) {
@@ -954,7 +964,6 @@ async function checkForUpdates(showNoUpdateMessage) {
 
 async function openInitialLaunchTarget() {
     if (pendingOpenPaths.length > 0) {
-        ensureMainWindow();
         await routePendingOpenPaths();
         return;
     }
@@ -970,6 +979,15 @@ async function routeLaunchTarget(launchTarget) {
     }
     if (launchTarget.kind === 'tour') {
         await openTourPresentation(launchTarget.args, launchTarget.cwd || process.cwd());
+        return;
+    }
+    if (launchTarget.kind === 'tour-document') {
+        await openAuthoredTourDocument(launchTarget.documentPath);
+        return;
+    }
+    if (launchTarget.kind === 'invalid-tour-selection') {
+        ensureMainWindow();
+        await showInfo(launchTarget.message);
         return;
     }
 
@@ -1204,17 +1222,39 @@ function parseLaunchArgs(args) {
         return { kind: 'smoke-directory', capturePath, windowWidth, windowHeight };
     }
 
-    if (filteredArgs.length === 1 && !filteredArgs[0].startsWith('--')) {
-        const targetPath = resolveLaunchPath(filteredArgs[0], cwd);
-        return getPathKind(targetPath) === 'directory'
-            ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
-            : { kind: 'history', filePath: targetPath, includeStaged, capturePath, windowWidth, windowHeight };
-    }
-
-    if (filteredArgs.length >= 2 && !filteredArgs[0].startsWith('--')) {
+    if (filteredArgs.length >= 1 && !filteredArgs[0].startsWith('--')) {
         const resolvedPaths = filteredArgs.map((candidate) => resolveLaunchPath(candidate, cwd));
-        const kinds = resolvedPaths.map((candidate) => getPathKind(candidate));
+        const tourSelection = classifyAuthoredTourPaths(resolvedPaths);
+        if (tourSelection.kind === 'single') {
+            return { kind: 'tour-document', documentPath: tourSelection.path, capturePath, windowWidth, windowHeight };
+        }
+        if (tourSelection.kind === 'multiple') {
+            return {
+                kind: 'invalid-tour-selection',
+                message: 'Open one authored Bygone presentation at a time.',
+                capturePath,
+                windowWidth,
+                windowHeight
+            };
+        }
+        if (tourSelection.kind === 'mixed') {
+            return {
+                kind: 'invalid-tour-selection',
+                message: 'Open an authored Bygone presentation separately from ordinary files and directories.',
+                capturePath,
+                windowWidth,
+                windowHeight
+            };
+        }
 
+        if (resolvedPaths.length === 1) {
+            const targetPath = resolvedPaths[0];
+            return getPathKind(targetPath) === 'directory'
+                ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
+                : { kind: 'history', filePath: targetPath, includeStaged, capturePath, windowWidth, windowHeight };
+        }
+
+        const kinds = resolvedPaths.map((candidate) => getPathKind(candidate));
         if (kinds.every((kind) => kind === 'directory')) {
             return resolvedPaths.length === 2
                 ? { kind: 'directory', leftPath: resolvedPaths[0], rightPath: resolvedPaths[1], capturePath, windowWidth, windowHeight }
@@ -1526,6 +1566,22 @@ async function openDroppedFiles(paths) {
         .filter((candidate) => typeof candidate === 'string' && candidate.length > 0)
         .map((candidate) => path.resolve(candidate))
         .filter((candidate, index, all) => all.indexOf(candidate) === index);
+
+    const tourSelection = classifyAuthoredTourPaths(normalizedPaths);
+    if (tourSelection.kind === 'single') {
+        await openAuthoredTourDocument(tourSelection.path);
+        return;
+    }
+    if (tourSelection.kind === 'multiple') {
+        await showInfo('Open one authored Bygone presentation at a time.');
+        return;
+    }
+    if (tourSelection.kind === 'mixed') {
+        await showInfo('Open an authored Bygone presentation separately from ordinary files and directories.');
+        return;
+    }
+
+    ensureMainWindow();
 
     if (normalizedPaths.length === 1) {
         const targetPath = normalizedPaths[0];
@@ -5331,25 +5387,27 @@ function getPathKind(filePath) {
 }
 
 async function showInfo(message) {
-    if (!mainWindow) {
-        return;
-    }
-
-    await dialog.showMessageBox(mainWindow, {
+    const options = {
         type: 'info',
         message
-    });
+    };
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        await dialog.showMessageBox(mainWindow, options);
+        return;
+    }
+    await dialog.showMessageBox(options);
 }
 
 async function showError(message) {
-    if (!mainWindow) {
-        return;
-    }
-
-    await dialog.showMessageBox(mainWindow, {
+    const options = {
         type: 'error',
         message
-    });
+    };
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        await dialog.showMessageBox(mainWindow, options);
+        return;
+    }
+    await dialog.showMessageBox(options);
 }
 
 function getErrorMessage(error) {

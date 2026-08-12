@@ -258,7 +258,15 @@
         "zip"
       ],
       "category": "public.app-category.developer-tools",
-      "icon": "standalone/assets/Bygone.icns"
+      "icon": "standalone/assets/Bygone.icns",
+      "fileAssociations": [
+        {
+          "ext": "bygone",
+          "name": "Bygone Presentation",
+          "role": "Viewer",
+          "rank": "Owner"
+        }
+      ]
     },
     "dmg": {
       "writeUpdateInfo": true
