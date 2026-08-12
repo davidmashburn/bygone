@@ -2,13 +2,26 @@
 
 ## Status
 
-In progress; production cleanup and a minimal desktop hand-off are implemented.
+In progress; the production cleanup, desktop hand-off, and initial editor-area
+panel are implemented.
 
-The extension no longer contributes Compare Test Files, packages through a
-checked allowlist assertion, and exposes safe argument-array hand-offs for
-branch exploration, branch presentation, and authored tours through a
-configured desktop executable. The editor-area WebviewPanel migration is
-explicitly deferred.
+The extension no longer contributes Compare Test Files or an Activity Bar
+container, packages through a checked allowlist assertion, and exposes safe
+argument-array hand-offs for branch exploration, branch presentation, and
+authored tours through a configured desktop executable. Two-file and file
+history comparisons now open in a reusable editor-area `WebviewPanel` with a
+comparison-specific title. The first panel slice is intentionally read-only
+until workspace-file editing is backed by VS Code's document APIs.
+
+Delivered on `main`:
+
+- `dba3580` moves the comparison renderer into an editor tab and removes the
+  empty Activity Bar host.
+- `16f7101` makes the panel's read-only persistence contract explicit.
+
+Next implementation slice: bridge writable worktree inputs through
+`TextDocument` and `WorkspaceEdit`, preserving dirty buffers, undo, save, and
+external-change behavior before enabling copy or replace controls.
 
 ## Goal
 
