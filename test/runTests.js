@@ -69,6 +69,11 @@ const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
 const { readTourSourceDocument } = require('../cli/tourFile.js');
 const { getLinearTourTarget, getTourFileTarget, resolveTourPosition } = require('../out/tourNavigation.js');
 const { searchTour } = require('../out/tourSearch.js');
+const {
+    classifyAuthoredTourPaths,
+    discoverAuthoredTourDocument,
+    isAuthoredTourPath
+} = require('../out/tourDocument.js');
 
 function testTourLinearNavigationTraversesStepsAndScenes() {
     const scenes = [
@@ -835,6 +840,44 @@ function testAuthoredTourSourceLoadingIsBoundedAndStrict() {
     ].join('\n'), 'utf8');
     assert.throws(() => readTourSourceDocument(sourcePath), /unknown field: defaults/);
     fs.rmSync(root, { recursive: true, force: true });
+}
+
+function testAuthoredTourDocumentsClassifyAndDiscoverTheirRepository() {
+    assert.equal(isAuthoredTourPath('/repo/review.bygone', 'linux'), true);
+    assert.equal(isAuthoredTourPath('/repo/review.bygone.yaml', 'linux'), true);
+    assert.equal(isAuthoredTourPath('/repo/REVIEW.BYGONE', 'linux'), false);
+    assert.equal(isAuthoredTourPath('C:\\repo\\REVIEW.BYGONE', 'win32'), true);
+    assert.deepEqual(classifyAuthoredTourPaths(['/repo/review.bygone']), {
+        kind: 'single', path: '/repo/review.bygone'
+    });
+    assert.deepEqual(classifyAuthoredTourPaths(['/repo/review.bygone', '/repo/file.ts']), {
+        kind: 'mixed', tourPaths: ['/repo/review.bygone'], otherPaths: ['/repo/file.ts']
+    });
+    assert.equal(classifyAuthoredTourPaths(['/repo/a.bygone', '/repo/b.bygone.yaml']).kind, 'multiple');
+    assert.equal(classifyAuthoredTourPaths(['/repo/a.ts', '/repo/b.ts']).kind, 'none');
+
+    const repo = createTempGitRepo();
+    const nested = path.join(repo, 'docs', 'tours');
+    fs.mkdirSync(nested, { recursive: true });
+    const sourcePath = path.join(nested, 'review.bygone');
+    fs.writeFileSync(sourcePath, 'version: 1\n');
+    const discovered = discoverAuthoredTourDocument(sourcePath);
+    assert.equal(discovered.documentPath, fs.realpathSync(sourcePath));
+    assert.equal(discovered.repoRoot, fs.realpathSync(repo));
+
+    const linkedPath = path.join(path.dirname(repo), `${path.basename(repo)}-linked.bygone`);
+    fs.symlinkSync(sourcePath, linkedPath);
+    assert.deepEqual(discoverAuthoredTourDocument(linkedPath), discovered);
+
+    const detachedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-detached-source-'));
+    const detachedPath = path.join(detachedRoot, 'review.bygone');
+    fs.writeFileSync(detachedPath, 'version: 1\n');
+    assert.throws(() => discoverAuthoredTourDocument(detachedPath), /needs its Git repository/);
+    assert.throws(() => discoverAuthoredTourDocument(path.join(detachedRoot, 'missing.bygone')), /Could not open Bygone source/);
+
+    fs.rmSync(linkedPath, { force: true });
+    fs.rmSync(detachedRoot, { recursive: true, force: true });
+    fs.rmSync(repo, { recursive: true, force: true });
 }
 
 function testChangeTourContextPackagesBoundedGitEvidence() {
@@ -2564,6 +2607,7 @@ function run() {
     testVersionTourChangelogRemainsReproducible();
     testAgentTourCommandsValidateCompileAndExposeSchema();
     testAuthoredTourSourceLoadingIsBoundedAndStrict();
+    testAuthoredTourDocumentsClassifyAndDiscoverTheirRepository();
     testChangeTourContextPackagesBoundedGitEvidence();
     testGeneratedCompletionScriptsPassAvailableShellSyntaxChecks();
     testReviewPathPairUsesDistinctRenameEndpoints();
