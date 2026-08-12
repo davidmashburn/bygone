@@ -64,9 +64,9 @@ const singleInstanceLock = shouldUseSingleInstanceLock
     : true;
 
 let mainWindow;
-let tourWindow;
-let tourServer;
-let tourOrigin;
+let latestTourWindow;
+const tourPresentations = new Map();
+const activeTourServers = new Set();
 let hostReady = false;
 let pendingMessage;
 let closingForSave = false;
@@ -110,7 +110,9 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
-    closeTourServer();
+    for (const server of [...activeTourServers]) {
+        closeTourServer(server);
+    }
     cleanupGitDiffTempRoots([...trackedGitDiffTempRoots]);
 });
 
@@ -296,90 +298,94 @@ async function openTourPresentation(args, cwd) {
         announce: false,
         open: false
     });
-    const previousServer = tourServer;
-    tourServer = presentation.server;
+    activeTourServers.add(presentation.server);
 
     try {
-        await showTourWindow(presentation.url);
+        await showTourWindow(presentation.url, presentation.server);
     } catch (error) {
         closeTourServer(presentation.server);
-        tourServer = previousServer;
         throw error;
-    }
-
-    if (previousServer && previousServer !== presentation.server) {
-        closeTourServer(previousServer);
     }
 }
 
-async function showTourWindow(url) {
+async function showTourWindow(url, server) {
     const parsedUrl = new URL(url);
     if (parsedUrl.protocol !== 'http:' || parsedUrl.hostname !== '127.0.0.1') {
         throw new Error('Tour presenter URL must use the local Bygone server.');
     }
-    tourOrigin = parsedUrl.origin;
+    const tourOrigin = parsedUrl.origin;
+    const tourWindow = new BrowserWindow({
+        width: launchWindowWidth,
+        height: launchWindowHeight,
+        minWidth: 960,
+        minHeight: 640,
+        show: false,
+        title: `${APP_NAME} Tour`,
+        webPreferences: {
+            sandbox: true,
+            contextIsolation: true,
+            nodeIntegration: false,
+            webSecurity: true,
+            backgroundThrottling: false
+        }
+    });
+    latestTourWindow = tourWindow;
+    tourPresentations.set(tourWindow, { server, origin: tourOrigin });
 
-    if (!tourWindow || tourWindow.isDestroyed()) {
-        tourWindow = new BrowserWindow({
-            width: launchWindowWidth,
-            height: launchWindowHeight,
-            minWidth: 960,
-            minHeight: 640,
-            show: false,
-            title: `${APP_NAME} Tour`,
-            webPreferences: {
-                sandbox: true,
-                contextIsolation: true,
-                nodeIntegration: false,
-                webSecurity: true,
-                backgroundThrottling: false
+    tourWindow.webContents.setWindowOpenHandler(({ url: externalUrl }) => {
+        if (/^https?:\/\//i.test(externalUrl)) {
+            void shell.openExternal(externalUrl);
+        }
+        return { action: 'deny' };
+    });
+    tourWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+        let navigationOrigin;
+        try {
+            navigationOrigin = new URL(navigationUrl).origin;
+        } catch {
+            navigationOrigin = undefined;
+        }
+        if (navigationOrigin !== tourOrigin) {
+            event.preventDefault();
+            if (/^https?:\/\//i.test(navigationUrl)) {
+                void shell.openExternal(navigationUrl);
             }
-        });
+        }
+    });
+    tourWindow.on('closed', () => {
+        tourPresentations.delete(tourWindow);
+        closeTourServer(server);
+        if (latestTourWindow === tourWindow) {
+            latestTourWindow = getLatestTourWindow();
+        }
+    });
 
-        tourWindow.webContents.setWindowOpenHandler(({ url: externalUrl }) => {
-            if (/^https?:\/\//i.test(externalUrl)) {
-                void shell.openExternal(externalUrl);
-            }
-            return { action: 'deny' };
-        });
-        tourWindow.webContents.on('will-navigate', (event, navigationUrl) => {
-            let navigationOrigin;
-            try {
-                navigationOrigin = new URL(navigationUrl).origin;
-            } catch {
-                navigationOrigin = undefined;
-            }
-            if (navigationOrigin !== tourOrigin) {
-                event.preventDefault();
-                if (/^https?:\/\//i.test(navigationUrl)) {
-                    void shell.openExternal(navigationUrl);
-                }
-            }
-        });
-        tourWindow.on('closed', () => {
-            tourWindow = undefined;
-            tourOrigin = undefined;
-            closeTourServer();
-        });
+    try {
+        await tourWindow.loadURL(url);
+    } catch (error) {
+        tourWindow.destroy();
+        throw error;
     }
-
-    await tourWindow.loadURL(url);
     tourWindow.show();
     tourWindow.focus();
+    return tourWindow;
 }
 
-function closeTourServer(server = tourServer) {
-    if (!server) {
+function getLatestTourWindow() {
+    return [...tourPresentations.keys()]
+        .reverse()
+        .find((window) => !window.isDestroyed());
+}
+
+function closeTourServer(server) {
+    if (!server || !activeTourServers.delete(server)) {
         return;
     }
     server.close();
-    if (server === tourServer) {
-        tourServer = undefined;
-    }
 }
 
 function focusLaunchTarget(launchTarget) {
-    const targetWindow = launchTarget.kind === 'tour' ? tourWindow : mainWindow;
+    const targetWindow = launchTarget.kind === 'tour' ? latestTourWindow : mainWindow;
     if (!targetWindow || targetWindow.isDestroyed()) {
         return;
     }

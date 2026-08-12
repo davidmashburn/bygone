@@ -1301,8 +1301,11 @@ function testToursRouteThroughAnAppOwnedWindowAndServer() {
     assert.match(cliSource, /tokenMatches\('present', args\[0\]\)[\s\S]{0,300}launchDesktopApp\(\{ waitForExit: false \}\)/);
     assert.match(standaloneSource, /kind: 'tour', args: filteredArgs\.slice\(1\), cwd/);
     assert.match(standaloneSource, /startPresentation\(args, cwd, packageRoot, \{[\s\S]{0,100}open: false/);
-    assert.match(standaloneSource, /await tourWindow\.loadURL\(url\)/);
-    assert.match(standaloneSource, /tourWindow\.on\('closed',[\s\S]{0,150}closeTourServer\(\)/);
+    assert.match(standaloneSource, /const tourPresentations = new Map\(\)/);
+    assert.match(standaloneSource, /async function showTourWindow\(url, server\)[\s\S]{0,500}const tourWindow = new BrowserWindow/);
+    assert.match(standaloneSource, /tourPresentations\.set\(tourWindow, \{ server, origin: tourOrigin \}\)/);
+    assert.match(standaloneSource, /tourWindow\.on\('closed',[\s\S]{0,180}tourPresentations\.delete\(tourWindow\);[\s\S]{0,80}closeTourServer\(server\)/);
+    assert.doesNotMatch(standaloneSource, /previousServer|await tourWindow\.loadURL\(url\)[\s\S]{0,120}closeTourServer\(previousServer\)/);
     assert.ok(packageJson.build.files.includes('web/**'));
 }
 
