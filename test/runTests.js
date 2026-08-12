@@ -195,6 +195,24 @@ function testTextPanelsExposeMutabilityProvenance() {
     assert.match(rendererSource, /button\.textContent = !hasEditableSide \? 'Read-only snapshot'/);
 }
 
+function testProductSurfaceOverviewTracksHostsAndBoundaries() {
+    const overview = fs.readFileSync(path.join(__dirname, '..', 'docs', 'product-surface.md'), 'utf8');
+    for (const heading of [
+        '## Standalone Explore',
+        '## Standalone Present and browser presenter',
+        '## VS Code companion',
+        '## CLI and authoring tools',
+        '## Provenance and mutability vocabulary',
+        '## Artifacts and production boundary'
+    ]) {
+        assert.match(overview, new RegExp(heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+    for (const term of ['Writable file', 'Read-only snapshot', 'Explanation stage', 'INDEX', 'WORKTREE']) {
+        assert.match(overview, new RegExp(term));
+    }
+    assert.match(overview, /Only open-source Bygone fixtures/);
+}
+
 function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
     const extensionSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'extension.ts'), 'utf8');
@@ -2175,6 +2193,7 @@ function run() {
     testTourAnnotationPersistsAcrossChangeNavigation();
     testStandaloneMenusExposeProductAreasAndReplace();
     testTextPanelsExposeMutabilityProvenance();
+    testProductSurfaceOverviewTracksHostsAndBoundaries();
     testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime();
     testLineClickSelectsContainingTwoWayChange();
     testLineClickIgnoresCollapsedSideOfOneSidedChange();
