@@ -5,6 +5,15 @@ by the host-side `rg --json` adapter. Choose an explicit root, enter a query,
 and run the search; results stream into a bounded panel and open as read-only
 single-panel source views at the exact matched line.
 
+After a complete case-sensitive literal search, enter replacement text and
+choose **Preview Replace**. The preview groups occurrences by file and allows
+individual files to be excluded. Bygone confirms the selected totals, hashes
+and revalidates every file before writing, uses atomic same-directory writes,
+rolls back completed writes if a later write fails, and offers immediate Undo.
+Undo is rejected if any replaced file changed afterward. Regex and
+case-insensitive Replace in Files are intentionally unavailable because their
+match semantics must not diverge from ripgrep search results.
+
 ## Current contract
 
 - The host passes an absolute root and structured options.

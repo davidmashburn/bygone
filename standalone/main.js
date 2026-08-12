@@ -11,6 +11,7 @@ const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
 const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
 const { searchChangeSetSnapshots } = require('../src/changeSetSearch.ts');
 const { detectRipgrepCapability, startRepositorySearch } = require('../src/repositorySearch.ts');
+const { buildRepositoryReplacementPlan, applyRepositoryReplacementPlan, undoRepositoryReplacementPlan } = require('../src/repositoryReplace.ts');
 const { searchFileHistory } = require('../src/gitHistorySearch.ts');
 const { materializeBranchReviewTrees, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
@@ -95,6 +96,7 @@ let sourceStale = false;
 let wordWrapEnabled = false;
 let wordWrapAvailable = false;
 let repositorySearch = null;
+let lastRepositoryReplacement = null;
 
 if (!singleInstanceLock) {
     app.quit();
@@ -760,7 +762,10 @@ async function openRepositorySearchDialog() {
         requestId: 0,
         handle: null,
         startedAt: 0,
-        resultKeys: new Set()
+        resultKeys: new Set(),
+        resultPaths: new Set(),
+        completedQuery: null,
+        replacementPlan: null
     };
     postToRenderer({ type: 'openRepositorySearch', root: repositorySearch.root });
 }
@@ -1323,6 +1328,21 @@ async function handleRendererMessage(message) {
         && Number.isInteger(message.column)
         && Number.isInteger(message.endColumn)) {
         await openRepositorySearchResult(message);
+        return;
+    }
+
+    if (message.type === 'previewRepositoryReplacement' && Number.isInteger(message.requestId)) {
+        previewRepositoryReplacement(message);
+        return;
+    }
+
+    if (message.type === 'applyRepositoryReplacement' && Array.isArray(message.paths)) {
+        await applyRepositoryReplacement(message.paths);
+        return;
+    }
+
+    if (message.type === 'undoRepositoryReplacement') {
+        await undoLastRepositoryReplacement();
         return;
     }
 
@@ -3145,6 +3165,9 @@ function runRepositorySearch(message) {
     repositorySearch.requestId = message.requestId;
     repositorySearch.startedAt = Date.now();
     repositorySearch.resultKeys.clear();
+    repositorySearch.resultPaths.clear();
+    repositorySearch.completedQuery = null;
+    repositorySearch.replacementPlan = null;
     const globs = normalizeRepositorySearchGlobs(message.include, message.exclude);
     const pendingMatches = [];
     let flushTimer = null;
@@ -3157,6 +3180,7 @@ function runRepositorySearch(message) {
             relativePath: path.relative(repositorySearch.root, match.path).replace(/\\/g, '/')
         }));
         matches.forEach((match) => repositorySearch.resultKeys.add(repositorySearchResultKey(match)));
+        matches.forEach((match) => repositorySearch.resultPaths.add(match.path));
         postToRenderer({ type: 'repositorySearchBatch', requestId: message.requestId, matches });
     };
     try {
@@ -3182,6 +3206,14 @@ function runRepositorySearch(message) {
             flush();
             if (!repositorySearch || repositorySearch.requestId !== message.requestId) return;
             repositorySearch.handle = null;
+            if (completion.kind === 'complete') {
+                repositorySearch.completedQuery = {
+                    requestId: message.requestId,
+                    query: String(message.query || ''),
+                    regex: Boolean(message.regex),
+                    caseSensitive: Boolean(message.caseSensitive)
+                };
+            }
             postToRenderer({ type: 'repositorySearchComplete', requestId: message.requestId, completion });
         });
     } catch (error) {
@@ -3189,6 +3221,73 @@ function runRepositorySearch(message) {
             type: 'repositorySearchComplete', requestId: message.requestId,
             completion: { kind: 'failed', matchCount: 0, message: getErrorMessage(error) }
         });
+    }
+}
+
+function previewRepositoryReplacement(message) {
+    const completed = repositorySearch?.completedQuery;
+    if (!repositorySearch || !completed || completed.requestId !== message.requestId) return;
+    if (completed.regex || !completed.caseSensitive) {
+        postToRenderer({
+            type: 'repositoryReplacementPreview', requestId: message.requestId,
+            error: 'Replace in Files currently requires a completed case-sensitive literal search.'
+        });
+        return;
+    }
+    try {
+        const plan = buildRepositoryReplacementPlan(
+            repositorySearch.root,
+            [...repositorySearch.resultPaths],
+            completed.query,
+            String(message.replacement ?? '')
+        );
+        repositorySearch.replacementPlan = plan;
+        postToRenderer({
+            type: 'repositoryReplacementPreview', requestId: message.requestId,
+            files: plan.files.map((file) => ({ path: file.path, relativePath: file.relativePath, occurrenceCount: file.occurrenceCount })),
+            occurrenceCount: plan.occurrenceCount
+        });
+    } catch (error) {
+        postToRenderer({ type: 'repositoryReplacementPreview', requestId: message.requestId, error: getErrorMessage(error) });
+    }
+}
+
+async function applyRepositoryReplacement(paths) {
+    const plan = repositorySearch?.replacementPlan;
+    if (!plan || paths.length === 0) return;
+    const selected = plan.files.filter((file) => paths.includes(file.path));
+    if (selected.length !== new Set(paths).size) {
+        await showError('Replace in Files selection contains an unknown file. Build a new preview.');
+        return;
+    }
+    const occurrences = selected.reduce((sum, file) => sum + file.occurrenceCount, 0);
+    const confirmation = await dialog.showMessageBox(mainWindow ?? undefined, {
+        type: 'warning',
+        buttons: ['Replace', 'Cancel'],
+        defaultId: 1,
+        cancelId: 1,
+        message: `Replace ${occurrences} occurrence${occurrences === 1 ? '' : 's'} in ${selected.length} file${selected.length === 1 ? '' : 's'}?`,
+        detail: 'Bygone will revalidate every selected file before writing. You can undo immediately unless a file changes afterward.'
+    });
+    if (confirmation.response !== 0) return;
+    try {
+        const fileCount = applyRepositoryReplacementPlan(plan, paths);
+        lastRepositoryReplacement = { plan, paths: [...paths] };
+        repositorySearch.replacementPlan = null;
+        postToRenderer({ type: 'repositoryReplacementApplied', fileCount, occurrenceCount: occurrences });
+    } catch (error) {
+        await showError(`Replace in Files failed without leaving a partial write where rollback succeeded: ${getErrorMessage(error)}`);
+    }
+}
+
+async function undoLastRepositoryReplacement() {
+    if (!lastRepositoryReplacement) return;
+    try {
+        const fileCount = undoRepositoryReplacementPlan(lastRepositoryReplacement.plan, lastRepositoryReplacement.paths);
+        lastRepositoryReplacement = null;
+        postToRenderer({ type: 'repositoryReplacementUndone', fileCount });
+    } catch (error) {
+        await showError(`Could not undo Replace in Files: ${getErrorMessage(error)}`);
     }
 }
 

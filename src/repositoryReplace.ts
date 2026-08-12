@@ -90,7 +90,20 @@ export function applyRepositoryReplacementPlan(plan: RepositoryReplacementPlan, 
 export function undoRepositoryReplacementPlan(plan: RepositoryReplacementPlan, includedPaths: readonly string[]): number {
     const selected = selectPlanFiles(plan, includedPaths);
     selected.forEach((file) => assertHash(file.path, file.afterHash, 'changed after replacement'));
-    selected.forEach((file) => writeAtomic(file.path, file.before, file.mode));
+    const restored: RepositoryReplacementFile[] = [];
+    try {
+        for (const file of selected) {
+            writeAtomic(file.path, file.before, file.mode);
+            restored.push(file);
+        }
+    } catch (error) {
+        const rollbackFailures: string[] = [];
+        for (const file of restored.reverse()) {
+            try { writeAtomic(file.path, file.after, file.mode); } catch { rollbackFailures.push(file.relativePath); }
+        }
+        const suffix = rollbackFailures.length ? ` Undo rollback failed for: ${rollbackFailures.join(', ')}` : '';
+        throw new Error(`${error instanceof Error ? error.message : String(error)}${suffix}`);
+    }
     return selected.length;
 }
 

@@ -23,6 +23,9 @@ that their regex dialects or lifecycle rules are identical.
   navigation stays lightweight and predictable.
 - Whole-word matching is currently a ripgrep/Monaco capability, not a promise
   made by every snapshot adapter.
+- Replace in Files is narrower than Search in Files: only completed,
+  case-sensitive literal searches can produce a preview. This lets the write
+  core reproduce exact matches without claiming regex-dialect compatibility.
 - Binary contents, OCR, submodules, remote workspaces, Git blobs outside the
   loaded history, and unsaved Monaco text are not filesystem-search inputs.
 
@@ -34,6 +37,9 @@ or tour scene/step/file side. Filesystem result paths must remain within the
 selected real root, must have been emitted by the active request, and are
 rejected if the file changed after the search began. Superseding or closing a
 filesystem search cancels the ripgrep process and ignores late batches.
+Replacement previews additionally retain before/after hashes and bytes,
+revalidate all selected files before any write, roll back on write failure,
+and permit undo only while the after-hashes still match.
 
 ## Performance fixtures
 

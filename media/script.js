@@ -100,6 +100,7 @@ let gitHistorySearchTimer = null;
 let repositorySearchRequestId = 0;
 let repositorySearchRoot = '';
 let repositorySearchMatches = [];
+let repositoryReplacementFiles = [];
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -182,6 +183,21 @@ host.onMessage((message) => {
 
     if (message.type === 'repositorySearchComplete' && message.requestId === repositorySearchRequestId) {
         completeRepositorySearch(message.completion);
+        return;
+    }
+
+    if (message.type === 'repositoryReplacementPreview' && message.requestId === repositorySearchRequestId) {
+        receiveRepositoryReplacementPreview(message);
+        return;
+    }
+
+    if (message.type === 'repositoryReplacementApplied') {
+        receiveRepositoryReplacementApplied(message);
+        return;
+    }
+
+    if (message.type === 'repositoryReplacementUndone') {
+        receiveRepositoryReplacementUndone(message);
         return;
     }
 
@@ -2081,8 +2097,15 @@ function initializeRepositorySearch() {
         '<option value="5000">5,000 results</option>',
         '</select>',
         '</div>',
+        '<div class="repository-replace-controls">',
+        '<input name="replacement" aria-label="Replacement text" placeholder="Replace with" disabled>',
+        '<button class="repository-replace-preview" type="button" disabled>Preview Replace</button>',
+        '<button class="repository-replace-apply" type="button" hidden>Apply Selected</button>',
+        '<button class="repository-replace-undo" type="button" hidden>Undo Replace</button>',
+        '</div>',
         '</form>',
         '<div class="repository-search-summary" aria-live="polite">Choose a query, then run the search.</div>',
+        '<div class="repository-replace-preview" hidden></div>',
         '<div class="repository-search-results" role="listbox"></div>'
     ].join('');
     document.body.appendChild(palette);
@@ -2091,6 +2114,12 @@ function initializeRepositorySearch() {
         runRepositorySearch();
     });
     palette.querySelector('.repository-search-close').addEventListener('click', closeRepositorySearch);
+    palette.querySelector('form').addEventListener('input', (event) => {
+        if (event.target?.name !== 'replacement') resetRepositoryReplacementPreview();
+    });
+    palette.querySelector('.repository-replace-preview').addEventListener('click', previewRepositoryReplacement);
+    palette.querySelector('.repository-replace-apply').addEventListener('click', applyRepositoryReplacement);
+    palette.querySelector('.repository-replace-undo').addEventListener('click', () => host.postMessage({ type: 'undoRepositoryReplacement' }));
     palette.querySelector('.repository-search-cancel').addEventListener('click', () => {
         host.postMessage({ type: 'cancelRepositorySearch' });
         palette.querySelector('.repository-search-summary').textContent = `Cancelling search · ${repositorySearchMatches.length} results…`;
@@ -2114,12 +2143,14 @@ function initializeRepositorySearch() {
 function openRepositorySearch(root) {
     repositorySearchRoot = root;
     repositorySearchMatches = [];
+    repositoryReplacementFiles = [];
     closeVisiblePaneSearch();
     const palette = getElement('repository-search');
     palette.classList.remove('hidden');
     palette.querySelector('.repository-search-root').textContent = root;
     palette.querySelector('.repository-search-summary').textContent = 'Choose a query, then run the search.';
     palette.querySelector('.repository-search-cancel').hidden = true;
+    resetRepositoryReplacementPreview();
     palette.querySelector('.repository-search-results').replaceChildren();
     const input = palette.querySelector('.repository-search-input');
     input.focus();
@@ -2132,6 +2163,7 @@ function closeRepositorySearch() {
     if (palette) palette.querySelector('.repository-search-cancel').hidden = true;
     repositorySearchRequestId += 1;
     repositorySearchMatches = [];
+    repositoryReplacementFiles = [];
     host.postMessage({ type: 'cancelRepositorySearch' });
 }
 
@@ -2148,6 +2180,7 @@ function runRepositorySearch() {
     palette.querySelector('.repository-search-results').replaceChildren();
     palette.querySelector('.repository-search-summary').textContent = `Searching ${repositorySearchRoot}…`;
     palette.querySelector('.repository-search-cancel').hidden = false;
+    resetRepositoryReplacementPreview();
     host.postMessage({
         type: 'runRepositorySearch', requestId: repositorySearchRequestId, query,
         regex: form.elements.regex.checked,
@@ -2180,7 +2213,78 @@ function completeRepositorySearch(completion) {
     palette.querySelector('.repository-search-cancel').hidden = true;
     if (completion.kind === 'failed') summary.textContent = `Search failed: ${completion.message}`;
     else if (completion.kind === 'cancelled') summary.textContent = `Search cancelled · ${repositorySearchMatches.length} results`;
-    else summary.textContent = `${repositorySearchMatches.length} result${repositorySearchMatches.length === 1 ? '' : 's'}${completion.truncated ? ' · limit reached' : ''}`;
+    else {
+        summary.textContent = `${repositorySearchMatches.length} result${repositorySearchMatches.length === 1 ? '' : 's'}${completion.truncated ? ' · limit reached' : ''}`;
+        const form = palette.querySelector('form');
+        const replacement = form.elements.replacement;
+        const preview = palette.querySelector('.repository-replace-preview');
+        const eligible = !completion.truncated && form.elements.caseSensitive.checked && !form.elements.regex.checked && repositorySearchMatches.length > 0;
+        replacement.disabled = !eligible;
+        preview.disabled = !eligible;
+        preview.title = eligible ? 'Build a revalidated literal replacement preview' : 'Requires a complete case-sensitive literal search';
+    }
+}
+
+function resetRepositoryReplacementPreview() {
+    const palette = getElement('repository-search');
+    if (!palette) return;
+    repositoryReplacementFiles = [];
+    const container = palette.querySelector('div.repository-replace-preview');
+    container.hidden = true;
+    container.replaceChildren();
+    palette.querySelector('.repository-replace-apply').hidden = true;
+    palette.querySelector('input[name="replacement"]').disabled = true;
+    palette.querySelector('button.repository-replace-preview').disabled = true;
+}
+
+function previewRepositoryReplacement() {
+    const palette = getElement('repository-search');
+    host.postMessage({
+        type: 'previewRepositoryReplacement',
+        requestId: repositorySearchRequestId,
+        replacement: palette.querySelector('input[name="replacement"]').value
+    });
+    palette.querySelector('.repository-search-summary').textContent = 'Building replacement preview…';
+}
+
+function receiveRepositoryReplacementPreview(message) {
+    const palette = getElement('repository-search');
+    const summary = palette.querySelector('.repository-search-summary');
+    if (message.error) {
+        summary.textContent = `Could not preview replacement: ${message.error}`;
+        return;
+    }
+    repositoryReplacementFiles = message.files || [];
+    const container = palette.querySelector('div.repository-replace-preview');
+    container.hidden = false;
+    container.innerHTML = repositoryReplacementFiles.map((file, index) => (
+        `<label><input type="checkbox" data-repository-replace-file="${index}" checked> `
+        + `<span>${escapeHtml(file.relativePath)}</span><span>${file.occurrenceCount} occurrence${file.occurrenceCount === 1 ? '' : 's'}</span></label>`
+    )).join('');
+    palette.querySelector('.repository-replace-apply').hidden = repositoryReplacementFiles.length === 0;
+    summary.textContent = `Preview: ${message.occurrenceCount} occurrence${message.occurrenceCount === 1 ? '' : 's'} in ${repositoryReplacementFiles.length} file${repositoryReplacementFiles.length === 1 ? '' : 's'}`;
+}
+
+function applyRepositoryReplacement() {
+    const palette = getElement('repository-search');
+    const paths = [...palette.querySelectorAll('[data-repository-replace-file]:checked')]
+        .map((input) => repositoryReplacementFiles[Number(input.getAttribute('data-repository-replace-file'))]?.path)
+        .filter(Boolean);
+    if (paths.length > 0) host.postMessage({ type: 'applyRepositoryReplacement', paths });
+}
+
+function receiveRepositoryReplacementApplied(message) {
+    const palette = getElement('repository-search');
+    palette.querySelector('.repository-search-summary').textContent = `Replaced ${message.occurrenceCount} occurrence${message.occurrenceCount === 1 ? '' : 's'} in ${message.fileCount} file${message.fileCount === 1 ? '' : 's'}`;
+    palette.querySelector('.repository-replace-undo').hidden = false;
+    resetRepositoryReplacementPreview();
+    palette.querySelector('.repository-replace-undo').hidden = false;
+}
+
+function receiveRepositoryReplacementUndone(message) {
+    const palette = getElement('repository-search');
+    palette.querySelector('.repository-search-summary').textContent = `Undid replacement in ${message.fileCount} file${message.fileCount === 1 ? '' : 's'}`;
+    palette.querySelector('.repository-replace-undo').hidden = true;
 }
 
 function initializeVisiblePaneSearch() {

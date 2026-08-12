@@ -1091,6 +1091,12 @@ function testRepositorySearchBuildsStructuredRipgrepBoundary() {
     assert.match(rendererSource, /class="repository-search-cancel"/);
     assert.match(rendererSource, /Respect ignore files/);
     assert.match(rendererSource, /limit reached/);
+    assert.match(rendererSource, /Requires a complete case-sensitive literal search/);
+    assert.match(rendererSource, /type: 'previewRepositoryReplacement'/);
+    assert.match(rendererSource, /type: 'applyRepositoryReplacement'/);
+    assert.match(rendererSource, /type: 'undoRepositoryReplacement'/);
+    assert.match(standaloneSource, /buildRepositoryReplacementPlan/);
+    assert.match(standaloneSource, /buttons: \['Replace', 'Cancel'\]/);
 }
 
 function testRepositoryReplacementPreviewsRevalidatesAndUndoes() {
