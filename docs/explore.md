@@ -56,6 +56,8 @@ directory you choose. It supports literal or regular-expression queries,
 case and whole-word matching, include/exclude globs, hidden files, ignore-file
 policy, cancellation, and explicit result limits. It requires ripgrep 14 or
 newer; **Help → Repository Search Status…** reports the detected capability.
+The [search scopes and semantics](./search.md) reference records the different
+engines, options, limits, provenance, and stale-result rules.
 
 ## Move into Present
 
