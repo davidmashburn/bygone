@@ -31,6 +31,8 @@ const { getCliArgsFromArgv, getForwardedLaunchArgs } = require('./launchArgs.js'
 const APP_NAME = 'Bygone';
 const APP_VERSION = require('../package.json').version;
 const HELP_URL = 'https://github.com/davidmashburn/bygone';
+const EXPLORE_HELP_URL = `${HELP_URL}/blob/main/docs/explore.md`;
+const PRESENT_HELP_URL = `${HELP_URL}/blob/main/docs/present.md`;
 const packageRoot = path.join(__dirname, '..');
 const DEFAULT_GIT_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 const parsedGitMaxBufferBytes = Number.parseInt(process.env.BYGONE_GIT_MAX_BUFFER_BYTES || '', 10);
@@ -502,14 +504,6 @@ function installApplicationMenu() {
                     click: () => { void openCompareDirectoriesDialog(); }
                 },
                 {
-                    label: 'Compare Multiple Files…',
-                    click: () => { void openCompareMultiFilesDialog(); }
-                },
-                {
-                    label: 'Compare Multiple Directories…',
-                    click: () => { void openCompareMultipleDirectoriesDialog(); }
-                },
-                {
                     label: 'Add Panel to Left…',
                     enabled: canAddPanel,
                     click: () => { void addPanelFromMenu('left'); }
@@ -679,6 +673,15 @@ function installApplicationMenu() {
         {
             label: 'Help',
             submenu: [
+                {
+                    label: 'Explore Guide',
+                    click: () => { void shell.openExternal(EXPLORE_HELP_URL); }
+                },
+                {
+                    label: 'Present and Tour Guide',
+                    click: () => { void shell.openExternal(PRESENT_HELP_URL); }
+                },
+                { type: 'separator' },
                 {
                     label: 'Bygone on GitHub',
                     click: () => { void shell.openExternal(HELP_URL); }
@@ -1462,34 +1465,7 @@ async function openBranchReviewDialog() {
     await openGitBranchReview(reviewRoot, 'HEAD');
 }
 
-async function openCompareMultiFilesDialog() {
-    if (!mainWindow) {
-        return;
-    }
-
-    const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Select files to compare',
-        properties: ['openFile', 'multiSelections']
-    });
-
-    if (result.canceled || result.filePaths.length < 1) {
-        return;
-    }
-
-    if (result.filePaths.length === 1) {
-        await openHistory(result.filePaths[0], historyIncludeStagedPreference);
-        return;
-    }
-
-    if (result.filePaths.length === 2) {
-        await openDiff(result.filePaths[0], result.filePaths[1]);
-        return;
-    }
-
-    await openMultiDiff(result.filePaths);
-}
-
-async function openCompareMultipleDirectoriesDialog() {
+async function openCompareDirectoriesDialog() {
     if (!mainWindow) {
         return;
     }
@@ -1499,49 +1475,11 @@ async function openCompareMultipleDirectoriesDialog() {
         properties: ['openDirectory', 'multiSelections']
     });
 
-    if (result.canceled || result.filePaths.length === 0) {
+    if (result.canceled || result.filePaths.length < 2) {
+        if (!result.canceled) await showInfo('Select at least two directories to compare.');
         return;
     }
-
-    const selectedDirectories = [...result.filePaths];
-    if (selectedDirectories.length === 1) {
-        const second = await dialog.showOpenDialog(mainWindow, {
-            title: 'Select another directory to compare',
-            properties: ['openDirectory']
-        });
-        if (second.canceled || second.filePaths.length === 0) {
-            return;
-        }
-        selectedDirectories.push(second.filePaths[0]);
-    }
-
-    await openDirectories(selectedDirectories);
-}
-
-async function openCompareDirectoriesDialog() {
-    if (!mainWindow) {
-        return;
-    }
-
-    const left = await dialog.showOpenDialog(mainWindow, {
-        title: 'Select left directory to compare',
-        properties: ['openDirectory']
-    });
-
-    if (left.canceled || left.filePaths.length === 0) {
-        return;
-    }
-
-    const right = await dialog.showOpenDialog(mainWindow, {
-        title: 'Select right directory to compare',
-        properties: ['openDirectory']
-    });
-
-    if (right.canceled || right.filePaths.length === 0) {
-        return;
-    }
-
-    await openDirectories([left.filePaths[0], right.filePaths[0]]);
+    await openDirectories(result.filePaths);
 }
 
 async function openDirectories(dirs, options = {}) {

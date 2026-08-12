@@ -185,6 +185,10 @@ function testStandaloneMenusExposeProductAreasAndReplace() {
     assert.match(standaloneSource, /label: 'Replace…'[\s\S]{0,220}postFindCommand\('replace'\)/);
     assert.match(standaloneSource, /label: 'Replace All'[\s\S]{0,220}postFindCommand\('replaceAll'\)/);
     assert.match(standaloneSource, /const isDevelopment = !app\.isPackaged/);
+    assert.doesNotMatch(standaloneSource, /label: 'Compare Multiple (?:Files|Directories)…'/);
+    assert.match(standaloneSource, /label: 'Explore Guide'/);
+    assert.match(standaloneSource, /label: 'Present and Tour Guide'/);
+    assert.match(standaloneSource, /title: 'Select directories to compare'[\s\S]{0,100}multiSelections/);
     assert.match(findSource, /replace: 'editor\.action\.startFindReplaceAction'/);
     assert.match(findSource, /replaceAll: 'editor\.action\.replaceAll'/);
 }
