@@ -19,10 +19,13 @@ differences and in-memory adapter budgets are documented and tested.
 
 Remaining work is ordered as follows:
 
-1. Finish browser and VS Code manual QA for the focused strip, presenter, and
+1. Implement the [`.bygone` document format and native opening](bygone-document-format.md),
+   beginning with the safe source-loader boundary and canonical extension
+   alias before desktop routing and platform registration.
+2. Finish browser and VS Code manual QA for the focused strip, presenter, and
    shared search surface at narrow, medium, and wide sizes. Desktop captures
    at 960, 1200, and 1500 pixels plus all desktop smoke modes are complete.
-2. Revisit the explicitly deferred VS Code editor-area WebviewPanel and native
+3. Revisit the explicitly deferred VS Code editor-area WebviewPanel and native
    document bridge as a separate, larger project.
 
 ## Goal
