@@ -2,7 +2,25 @@
 
 ## Status
 
-Active
+Implemented for the canonical format and macOS native opening; Windows and
+Linux associations are deferred.
+
+Delivered on `main`:
+
+- `9ce31ce` bounds and validates untrusted authored-source loading.
+- `0c200f2` makes `.bygone` canonical across CLI help, completions, dialogs,
+  and VS Code YAML association while preserving explicit legacy paths.
+- `e3e7c9c` migrates checked-in open-source examples, tours, documentation,
+  and the PR Tour Guide skill.
+- `d5348f9` adds case-aware document classification, symlink resolution, and
+  enclosing-worktree discovery.
+- `6d961e3` routes direct argv, second-instance, macOS `open-file`, drop, and
+  dialog inputs to dedicated tour windows and registers the macOS Viewer
+  document type.
+
+Verification included the full test and lint suites, all desktop smoke modes,
+validation of every checked-in `.bygone`, VSIX packaging, and inspection of a
+packaged macOS app's `CFBundleDocumentTypes` entry.
 
 ## Goal
 
@@ -126,6 +144,9 @@ preserving the actual path.
 - Consider a repository chooser only after there is evidence that sources
   commonly live outside their repositories.
 
+This phase remains deferred and should be reopened as platform-specific
+packaging work rather than treated as a gap in the macOS rollout.
+
 ## Verification
 
 - Typecheck, lint, and full unit/integration suite.
@@ -150,4 +171,3 @@ preserving the actual path.
   repository.
 - Compiled manifests contain source snapshots and may disclose private code;
   portability is not the same as safe publication.
-
