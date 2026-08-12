@@ -221,6 +221,7 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
     const extensionSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'extension.ts'), 'utf8');
     const launcherSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'desktopLauncher.ts'), 'utf8');
+    const intentSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'desktopIntent.ts'), 'utf8');
     const packageCheck = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'check-vsix-contents.mjs'), 'utf8');
 
     assert.ok(!packageJson.activationEvents.includes('onCommand:bygone.compareTestFiles'));
@@ -229,10 +230,25 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
         assert.ok(packageJson.contributes.commands.some((entry) => entry.command === command));
         assert.match(extensionSource, new RegExp(command.replaceAll('.', '\\.')));
     }
-    assert.match(launcherSource, /spawn\(executable, args,[\s\S]{0,180}shell: false/);
+    assert.match(launcherSource, /spawn\(executable, serializeDesktopIntent\(intent\),[\s\S]{0,180}shell: false/);
     assert.match(launcherSource, /getConfiguration\('bygone'\).*desktopExecutable/);
+    assert.match(launcherSource, /workspace\.isTrusted/);
+    assert.match(launcherSource, /target\.scheme !== 'file'/);
+    assert.match(launcherSource, /showQuickPick/);
+    assert.match(intentSource, /desktopIntentVersion = 1/);
+    assert.match(intentSource, /\['--launch-intent-version', String\(desktopIntentVersion\)\]/);
+    assert.match(intentSource, /intent\.kind === 'explore-branch'[\s\S]{0,100}'review'/);
+    assert.match(intentSource, /'present', '--tour', intent\.tourPath/);
+    assert.equal(
+        packageJson.contributes.commands.find((entry) => entry.command === 'bygone.reviewBranch')?.title,
+        'Explore Current Branch Change'
+    );
+    for (const command of ['bygone.exploreBranchInDesktop', 'bygone.presentBranchInDesktop', 'bygone.openTourInDesktop']) {
+        assert.equal(packageJson.contributes.commands.find((entry) => entry.command === command)?.enablement, 'isWorkspaceTrusted');
+    }
     assert.match(packageJson.scripts['package:vsix'], /check-vsix-contents/);
     assert.match(packageCheck, /Unexpected VSIX files/);
+    assert.match(packageCheck, /maximumBytes/);
 }
 
 function testLineClickSelectsContainingTwoWayChange() {

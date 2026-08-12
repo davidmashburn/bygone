@@ -90,23 +90,26 @@
       },
       {
         "command": "bygone.reviewBranch",
-        "title": "Review Branch",
+        "title": "Explore Current Branch Change",
         "category": "Bygone"
       },
       {
         "command": "bygone.exploreBranchInDesktop",
         "title": "Explore Current Branch in Desktop",
-        "category": "Bygone"
+        "category": "Bygone",
+        "enablement": "isWorkspaceTrusted"
       },
       {
         "command": "bygone.presentBranchInDesktop",
         "title": "Present Current Branch in Desktop",
-        "category": "Bygone"
+        "category": "Bygone",
+        "enablement": "isWorkspaceTrusted"
       },
       {
         "command": "bygone.openTourInDesktop",
         "title": "Open Authored Tour in Desktop…",
-        "category": "Bygone"
+        "category": "Bygone",
+        "enablement": "isWorkspaceTrusted"
       },
       {
         "command": "bygone.openStandaloneDownloads",
@@ -155,7 +158,7 @@
           "type": "string",
           "default": "",
           "scope": "machine",
-          "description": "Absolute path to the Bygone Desktop executable used for branch and tour hand-off commands."
+          "description": "Existing absolute path to the local Bygone Desktop executable used for trusted branch and tour hand-off commands."
         }
       }
     },

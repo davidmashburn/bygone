@@ -906,6 +906,11 @@ async function openInitialLaunchTarget() {
 }
 
 async function routeLaunchTarget(launchTarget) {
+    if (launchTarget.kind === 'unsupported-launch-intent') {
+        ensureMainWindow();
+        await showError(`This version of Bygone does not support desktop launch intent version ${launchTarget.version}.`);
+        return;
+    }
     if (launchTarget.kind === 'tour') {
         await openTourPresentation(launchTarget.args, launchTarget.cwd || process.cwd());
         return;
@@ -1032,11 +1037,17 @@ function parseLaunchArgs(args) {
     let capturePath = null;
     let windowWidth = null;
     let windowHeight = null;
+    let launchIntentVersion = null;
     const filteredArgs = [];
 
     for (let index = 0; index < launchArgs.length; index += 1) {
         const arg = launchArgs[index];
         if (tokenMatches('includeStaged', arg)) {
+            continue;
+        }
+        if (arg === '--launch-intent-version' && typeof launchArgs[index + 1] === 'string') {
+            launchIntentVersion = Number.parseInt(launchArgs[index + 1], 10);
+            index += 1;
             continue;
         }
         if (arg === '--capture' && typeof launchArgs[index + 1] === 'string') {
@@ -1061,6 +1072,10 @@ function parseLaunchArgs(args) {
             continue;
         }
         filteredArgs.push(arg);
+    }
+
+    if (launchIntentVersion !== null && launchIntentVersion !== 1) {
+        return { kind: 'unsupported-launch-intent', version: launchIntentVersion };
     }
 
     if (filteredArgs.length === 0) {

@@ -24,8 +24,8 @@ export function activate(context: vscode.ExtensionContext) {
         registerCommand('bygone.compareFileHistory', (resource?: vscode.Uri) => fileComparator.compareFileHistory(resource)),
         registerCommand('bygone.compareActiveFileHistory', () => fileComparator.compareFileHistory()),
         registerCommand('bygone.reviewBranch', () => fileComparator.reviewCurrentBranch()),
-        registerCommand('bygone.exploreBranchInDesktop', (resource?: vscode.Uri) => launchDesktop(['review'], resource)),
-        registerCommand('bygone.presentBranchInDesktop', (resource?: vscode.Uri) => launchDesktop(['present'], resource)),
+        registerCommand('bygone.exploreBranchInDesktop', (resource?: vscode.Uri) => launchDesktop({ kind: 'explore-branch' }, resource)),
+        registerCommand('bygone.presentBranchInDesktop', (resource?: vscode.Uri) => launchDesktop({ kind: 'present-branch' }, resource)),
         registerCommand('bygone.openTourInDesktop', async () => {
             const selected = await vscode.window.showOpenDialog({
                 canSelectFiles: true,
@@ -35,7 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
                 openLabel: 'Open in Bygone Desktop'
             });
             const tour = selected?.[0];
-            return tour ? launchDesktop(['present', '--tour', tour.fsPath], tour) : false;
+            return tour ? launchDesktop({ kind: 'open-tour', tourPath: tour.fsPath }, tour) : false;
         }),
         registerCommand('bygone.openStandaloneDownloads', () => vscode.env.openExternal(standaloneDownloadUrl))
     );
