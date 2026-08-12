@@ -12,24 +12,17 @@ Tour, panel mutability labels, advanced checked-in tour examples, focused
 multi-panel navigation, visible/all-panel/change-set search, Git-history search,
 authored-tour narrative/code search, minimal VS Code desktop hand-off, and VSIX
 content assertions. The repository-search adapter is benchmarked and reports
-its ripgrep capability, but is not yet a user-facing Search in Files workflow.
+its ripgrep capability; standalone now exposes read-only Search in Files and a
+guarded case-sensitive literal Replace in Files preview with exclusion,
+revalidation, atomic writes, rollback, and hash-guarded undo. Search-engine
+differences and in-memory adapter budgets are documented and tested.
 
 Remaining work is ordered as follows:
 
-1. Finish platform QA: validate the focused strip and presenter at narrow,
-   medium, and wide sizes across desktop, browser, and VS Code hosts; complete
-   remaining platform-native menu and focus checks.
-2. Turn the standalone `rg --json` prototype into read-only Search in Files:
-   decide executable distribution, expose include/exclude, ignore, hidden,
-   file-type, context, and limit controls, and verify cancellation plus stale
-   result handling.
-3. Unify and document source-specific search behavior: literal, case,
-   whole-word, regex, Unicode, multiline, provenance, and performance budgets
-   for comparison, change-set, repository, Git-history, and tour adapters.
-4. Design previewed Replace in Files only after step 2 is stable. Require
-   revalidation, recoverability, exclusions, encoding policy, symlink-root
-   containment, and partial-failure reporting before any batch write ships.
-5. Revisit the explicitly deferred VS Code editor-area WebviewPanel and native
+1. Finish browser and VS Code manual QA for the focused strip, presenter, and
+   shared search surface at narrow, medium, and wide sizes. Desktop captures
+   at 960, 1200, and 1500 pixels plus all desktop smoke modes are complete.
+2. Revisit the explicitly deferred VS Code editor-area WebviewPanel and native
    document bridge as a separate, larger project.
 
 ## Goal
