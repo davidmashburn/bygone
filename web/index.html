@@ -18,6 +18,18 @@
                 <div id="tour-stats" class="tour-stats"></div>
             </div>
         </header>
+        <section class="tour-search" aria-label="Search tour">
+            <div class="tour-search-controls">
+                <input id="tour-search-input" type="search" placeholder="Search tour" aria-label="Search tour narrative and code">
+                <select id="tour-search-scope" aria-label="Tour search scope" title="Tour search scope">
+                    <option value="all">Narrative + code</option>
+                    <option value="narrative">Narrative</option>
+                    <option value="code">Code</option>
+                </select>
+            </div>
+            <div id="tour-search-status" class="tour-search-status" role="status" aria-live="polite"></div>
+            <div id="tour-search-results" class="tour-search-results" role="listbox"></div>
+        </section>
         <div class="tour-rail-sections">
             <section class="tour-rail-section">
                 <header class="tour-rail-heading">

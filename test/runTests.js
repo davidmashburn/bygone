@@ -66,6 +66,7 @@ const { buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
 const { getLinearTourTarget, getTourFileTarget, resolveTourPosition } = require('../out/tourNavigation.js');
+const { searchTour } = require('../out/tourSearch.js');
 
 function testTourLinearNavigationTraversesStepsAndScenes() {
     const scenes = [
@@ -80,6 +81,38 @@ function testTourLinearNavigationTraversesStepsAndScenes() {
     assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 2, stepIndex: 0 }, -1), { sceneIndex: 1, stepIndex: 1 });
     assert.equal(getLinearTourTarget(scenes, { sceneIndex: 0, stepIndex: 0 }, -1), null);
     assert.equal(getLinearTourTarget(scenes, { sceneIndex: 2, stepIndex: 0 }, 1), null);
+}
+
+function testTourSearchFindsNarrativeStepsAndExactCodeLocations() {
+    const tour = {
+        chapters: [{ id: 'flow', title: 'Request flow', sceneIds: ['walk'] }],
+        scenes: [{
+            id: 'walk', kind: 'walkthrough', title: 'Dispatch safely',
+            summary: 'Follow the request boundary.', bullets: ['Validate first'], tags: ['safety'], takeaway: 'Reject invalid work.',
+            steps: [{ id: 'validate', title: 'Validate input', body: 'The guard rejects malformed requests.', focus: {}, diff: {} }]
+        }],
+        files: [{
+            id: 'file', kind: 'text-diff', path: 'src/dispatch.ts',
+            leftContent: 'dispatch(request);\n', rightContent: 'validate(request);\ndispatch(request);\n'
+        }]
+    };
+
+    assert.deepEqual(searchTour(tour, 'malformed', 'narrative'), [{
+        kind: 'narrative', sceneIndex: 0, stepIndex: 0,
+        label: 'Dispatch safely · Validate input', preview: 'The guard rejects malformed requests.'
+    }]);
+    assert.deepEqual(searchTour(tour, 'validate', 'code'), [{
+        kind: 'code', fileIndex: 0, sideIndex: 1, lineNumber: 1,
+        startColumn: 1, endColumn: 9, label: 'src/dispatch.ts · head', preview: 'validate(request);'
+    }]);
+    assert.equal(searchTour(tour, 'request', 'all', 2).length, 2);
+
+    const markup = fs.readFileSync(path.join(__dirname, '..', 'web', 'index.html'), 'utf8');
+    const host = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
+    assert.match(markup, /id="tour-search-input"/);
+    assert.match(markup, /Narrative \+ code/);
+    assert.match(host, /type: 'revealSearchResult'/);
+    assert.match(host, /showTourScene\(match\.sceneIndex, match\.stepIndex \?\? 0\)/);
 }
 
 function testDeconstructedTourNavigationTraversesExplanationStages() {
@@ -2374,6 +2407,7 @@ function shortCommit(repo, rev) {
 
 function run() {
     testTourLinearNavigationTraversesStepsAndScenes();
+    testTourSearchFindsNarrativeStepsAndExactCodeLocations();
     testDeconstructedTourNavigationTraversesExplanationStages();
     testTourPositionRestoresStableSceneAndStepIds();
     testTourFileNavigationUsesCompleteRenderableFileIndex();

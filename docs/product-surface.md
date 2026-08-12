@@ -33,6 +33,7 @@ renderer does not make every workflow appropriate in every host.
 | Explore the current branch change | Git → Explore Current Branch Change; `bygone review` | Merge-base-to-tip branch inventory | Read-only review snapshots; dirty state is reported, not silently included | Core | branch comparison and review-path tests |
 | Search comparison code | Edit → Find or Search Comparison | Active, visible, all loaded panels, unopened changed text snapshots, or one file's Git history | Search is read-only; history distinguishes content occurrence from introduction/removal; Replace requires the active writable model | Core | find, comparison-search, change-set-search, and history-search tests |
 | Move through a multi-panel comparison | Strip buttons, panel headers, gutters, wheel, or `Alt+Arrow` | Active panel and adjacent pair | Does not change source identity | Core | focused-strip controller and standalone smoke tests |
+| Search an authored tour | Presenter search or `Cmd/Ctrl+Shift+F` | Authored narrative plus compiled base/head code snapshots | Read-only; narrative hits navigate scenes/steps and code hits preserve Return to tour | Core | tour-search and presenter-host tests |
 
 The File menu owns sources and persistence; Edit owns focused text operations;
 Git owns historical/revision questions; Present changes product area; Navigate

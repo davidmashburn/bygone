@@ -57,6 +57,12 @@ chapters:
 
 Only the active step's connection is shown. This keeps relationships useful without adding a permanent second layer of curves to Bygone's diff view. The Tour rail contains only authored scenes; the adjacent Files rail independently lists the complete change set. Browsing a file does not move the narrative, and “Return to tour” restores the file and annotation focused by the current scene.
 
+The presenter search (`Cmd/Ctrl+Shift+F`) can search narrative and code together
+or restrict either scope. Narrative results open the exact scene or step. Code
+results search the compiled base and head snapshots, open the exact file and
+side, and preserve **Return to tour** so exploration does not lose authored
+context.
+
 Use a walkthrough by default. Use a [stacked-diff example](../examples/stacked-diff.bygone.yaml)
 only when every panel is a real selected Git revision. Use a
 [deconstructed-diff example](../examples/deconstructed-diff.bygone.yaml) when

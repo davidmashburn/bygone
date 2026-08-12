@@ -158,6 +158,78 @@ body.tour-mode.tour-discussion #container {
     white-space: nowrap;
 }
 
+.tour-search {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--tour-border);
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.tour-search-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+}
+
+.tour-search input,
+.tour-search select {
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    color: #f5f6fb;
+    border: 1px solid var(--tour-border);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.055);
+    font: inherit;
+}
+
+.tour-search input:focus,
+.tour-search select:focus {
+    border-color: rgba(169, 159, 255, 0.7);
+    outline: none;
+}
+
+.tour-search-status {
+    min-height: 16px;
+    padding: 5px 2px 0;
+    color: var(--tour-faint);
+}
+
+.tour-search-results {
+    display: grid;
+    max-height: min(230px, 28vh);
+    gap: 2px;
+    overflow: auto;
+}
+
+.tour-search-result {
+    display: grid;
+    min-width: 0;
+    padding: 6px 8px;
+    color: #e5e7f0;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tour-search-result:hover,
+.tour-search-result:focus-visible {
+    border-color: rgba(169, 159, 255, 0.28);
+    background: rgba(255, 255, 255, 0.055);
+    outline: none;
+}
+
+.tour-search-location,
+.tour-search-preview {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tour-search-location { color: #fff; font-weight: 650; }
+.tour-search-preview { margin-top: 2px; color: var(--tour-muted); font-family: var(--vscode-editor-font-family, monospace); }
+
 .tour-narrative {
     position: fixed;
     top: 0;

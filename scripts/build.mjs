@@ -148,6 +148,15 @@ await build({
 });
 
 await build({
+    ...sharedOptions,
+    entryPoints: ['src/tourSearch.ts'],
+    outfile: 'out/tourSearch.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node18'
+});
+
+await build({
     ...browserOptions,
     entryPoints: ['media/webview-entry.js'],
     outfile: 'media/webview.js',

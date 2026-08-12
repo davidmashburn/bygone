@@ -2,6 +2,7 @@ import { buildTwoWayDiffModel } from '../src/diffEngine.ts';
 import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
 import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../src/tourNavigation.ts';
+import { searchTour } from '../src/tourSearch.ts';
 
 (function initializeWebHost() {
     const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
@@ -91,6 +92,8 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         const tourPrevious = document.getElementById('tour-previous');
         const tourNext = document.getElementById('tour-next');
         const tourReturnFocus = document.getElementById('tour-return-focus');
+        const tourSearchInput = document.getElementById('tour-search-input');
+        const tourSearchScope = document.getElementById('tour-search-scope');
 
         initializeTourSidebar();
         initializeTourNarrativeResizer();
@@ -132,7 +135,23 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         tourPrevious?.addEventListener('click', () => showTourLinear(-1));
         tourNext?.addEventListener('click', () => showTourLinear(1));
         tourReturnFocus?.addEventListener('click', returnToTourFocus);
+        tourSearchInput?.addEventListener('input', renderTourSearchResults);
+        tourSearchScope?.addEventListener('change', renderTourSearchResults);
+        document.getElementById('tour-search-results')?.addEventListener('click', (event) => {
+            const result = event.target instanceof Element
+                ? event.target.closest('[data-tour-search-result]')
+                : null;
+            if (result) openTourSearchResult(Number(result.getAttribute('data-tour-search-result')));
+        });
         window.addEventListener('keydown', (event) => {
+            if (state.mode === 'tour' && (event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLocaleLowerCase() === 'f') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                if (state.tourSidebarHidden) setTourSidebarHidden(false);
+                tourSearchInput?.focus();
+                tourSearchInput?.select();
+                return;
+            }
             if (state.mode !== 'tour' || event.metaKey || event.ctrlKey || event.altKey || isInteractiveKeyTarget(event.target)) {
                 return;
             }
@@ -143,7 +162,56 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
                 event.preventDefault();
                 showTourLinear(1);
             }
-        });
+        }, true);
+    }
+
+    let currentTourSearchMatches = [];
+
+    function renderTourSearchResults() {
+        const input = document.getElementById('tour-search-input');
+        const scope = document.getElementById('tour-search-scope');
+        const status = document.getElementById('tour-search-status');
+        const results = document.getElementById('tour-search-results');
+        if (!state.tour || !input || !scope || !status || !results) return;
+        currentTourSearchMatches = searchTour(state.tour, input.value, scope.value);
+        if (!input.value.trim()) {
+            status.textContent = 'Cmd/Ctrl+Shift+F';
+            results.replaceChildren();
+            return;
+        }
+        status.textContent = `${currentTourSearchMatches.length} result${currentTourSearchMatches.length === 1 ? '' : 's'}`;
+        results.replaceChildren(...currentTourSearchMatches.map((match, index) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'tour-search-result';
+            button.setAttribute('role', 'option');
+            button.dataset.tourSearchResult = String(index);
+            const location = document.createElement('span');
+            location.className = 'tour-search-location';
+            location.textContent = match.kind === 'code' ? `${match.label}:${match.lineNumber}` : match.label;
+            const preview = document.createElement('span');
+            preview.className = 'tour-search-preview';
+            preview.textContent = match.preview.trim();
+            button.append(location, preview);
+            return button;
+        }));
+    }
+
+    function openTourSearchResult(index) {
+        const match = currentTourSearchMatches[index];
+        if (!match) return;
+        if (match.kind === 'narrative') {
+            showTourScene(match.sceneIndex, match.stepIndex ?? 0);
+            return;
+        }
+        if (!showTourFileAtIndex(match.fileIndex)) return;
+        window.requestAnimationFrame(() => emit({
+            type: 'revealSearchResult',
+            sideIndex: match.sideIndex,
+            lineNumber: match.lineNumber,
+            startColumn: match.startColumn,
+            endColumn: match.endColumn
+        }));
     }
 
     function initializeTourSidebar() {
@@ -319,6 +387,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
             state.mode = 'tour';
             document.body.classList.add('tour-mode');
             renderTourShell();
+            renderTourSearchResults();
             const parameters = new URLSearchParams(window.location.search);
             const requestedPosition = resolveTourPosition(
                 state.tour.scenes,
