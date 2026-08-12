@@ -230,7 +230,7 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
 
     assert.ok(!packageJson.activationEvents.includes('onCommand:bygone.compareTestFiles'));
     assert.ok(!packageJson.contributes.commands.some((entry) => entry.command === 'bygone.compareTestFiles'));
-    for (const command of ['bygone.exploreBranchInDesktop', 'bygone.presentBranchInDesktop', 'bygone.openTourInDesktop']) {
+    for (const command of ['bygone.compareDirectoriesInDesktop', 'bygone.compareMultipleFilesInDesktop', 'bygone.exploreBranchInDesktop', 'bygone.presentBranchInDesktop', 'bygone.openTourInDesktop']) {
         assert.ok(packageJson.contributes.commands.some((entry) => entry.command === command));
         assert.match(extensionSource, new RegExp(command.replaceAll('.', '\\.')));
     }
@@ -243,13 +243,15 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     assert.match(intentSource, /\['--launch-intent-version', String\(desktopIntentVersion\)\]/);
     assert.match(intentSource, /intent\.kind === 'explore-branch'[\s\S]{0,100}'review'/);
     assert.match(intentSource, /'present', '--tour', intent\.tourPath/);
-    assert.equal(
-        packageJson.contributes.commands.find((entry) => entry.command === 'bygone.reviewBranch')?.title,
-        'Explore Current Branch Change'
-    );
-    for (const command of ['bygone.exploreBranchInDesktop', 'bygone.presentBranchInDesktop', 'bygone.openTourInDesktop']) {
+    assert.match(intentSource, /intent\.paths/);
+    for (const removed of ['bygone.compareDirectories', 'bygone.compareMultipleDirectories', 'bygone.compareMultipleFiles', 'bygone.reviewBranch']) {
+        assert.ok(!packageJson.contributes.commands.some((entry) => entry.command === removed));
+        assert.ok(!packageJson.activationEvents.includes(`onCommand:${removed}`));
+    }
+    for (const command of ['bygone.compareDirectoriesInDesktop', 'bygone.compareMultipleFilesInDesktop', 'bygone.exploreBranchInDesktop', 'bygone.presentBranchInDesktop', 'bygone.openTourInDesktop']) {
         assert.equal(packageJson.contributes.commands.find((entry) => entry.command === command)?.enablement, 'isWorkspaceTrusted');
     }
+    assert.ok(packageJson.contributes.menus['explorer/context'].every((entry) => typeof entry.when === 'string'));
     assert.match(packageJson.scripts['package:vsix'], /check-vsix-contents/);
     assert.match(packageCheck, /Unexpected VSIX files/);
     assert.match(packageCheck, /maximumBytes/);

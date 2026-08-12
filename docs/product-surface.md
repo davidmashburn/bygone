@@ -62,7 +62,8 @@ tours but does not attempt to duplicate schema-aware authoring forms.
 | Explore Current Branch in Desktop | Desktop hand-off | Implemented for local configured executable | No source content crosses the boundary | Add trust, remote, multi-root, and versioned-intent checks |
 | Present Current Branch in Desktop | Desktop hand-off | Implemented | Read-only presentation | Same launch-contract hardening |
 | Open Authored Tour in Desktop | Desktop hand-off | Implemented | Read-only presentation | Same launch-contract hardening |
-| Directory, multiple-file, multiple-directory, and Review Branch commands | Desktop-owned | Transitional legacy commands remain contributed | Parallel extension state is not the target product | Redirect or remove after contextual visibility and migration mapping |
+| Compare Directories / Three or More Files in Desktop | Desktop hand-off | Implemented with local multi-selection | Desktop owns the comparison and writable lifecycle | Keep contextual visibility narrow |
+| Legacy in-extension directory, N-panel, and branch-review commands | Desktop-owned | Removed from production contributions | Parallel extension state is not the target product | Internal compatibility code can be removed with the deferred host rewrite |
 | Open Standalone App Downloads | Setup fallback | Implemented | Not applicable | Prefer installed-app detection and actionable missing-app guidance |
 
 The production extension does not contribute test fixtures. The VSIX is checked

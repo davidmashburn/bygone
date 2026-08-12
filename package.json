@@ -38,13 +38,11 @@
   "activationEvents": [
     "onUri",
     "onCommand:bygone.compareFiles",
-    "onCommand:bygone.compareDirectories",
-    "onCommand:bygone.compareMultipleDirectories",
-    "onCommand:bygone.compareMultipleFiles",
+    "onCommand:bygone.compareDirectoriesInDesktop",
+    "onCommand:bygone.compareMultipleFilesInDesktop",
     "onCommand:bygone.compareWithSelected",
     "onCommand:bygone.compareFileHistory",
     "onCommand:bygone.compareActiveFileHistory",
-    "onCommand:bygone.reviewBranch",
     "onCommand:bygone.exploreBranchInDesktop",
     "onCommand:bygone.presentBranchInDesktop",
     "onCommand:bygone.openTourInDesktop",
@@ -59,19 +57,16 @@
         "category": "Bygone"
       },
       {
-        "command": "bygone.compareDirectories",
-        "title": "Compare Directories",
-        "category": "Bygone"
+        "command": "bygone.compareDirectoriesInDesktop",
+        "title": "Compare Directories in Desktop…",
+        "category": "Bygone",
+        "enablement": "isWorkspaceTrusted"
       },
       {
-        "command": "bygone.compareMultipleDirectories",
-        "title": "Compare Multiple Directories",
-        "category": "Bygone"
-      },
-      {
-        "command": "bygone.compareMultipleFiles",
-        "title": "Compare Multiple Files",
-        "category": "Bygone"
+        "command": "bygone.compareMultipleFilesInDesktop",
+        "title": "Compare Three or More Files in Desktop…",
+        "category": "Bygone",
+        "enablement": "isWorkspaceTrusted"
       },
       {
         "command": "bygone.compareWithSelected",
@@ -86,11 +81,6 @@
       {
         "command": "bygone.compareActiveFileHistory",
         "title": "Compare Active File History",
-        "category": "Bygone"
-      },
-      {
-        "command": "bygone.reviewBranch",
-        "title": "Explore Current Branch Change",
         "category": "Bygone"
       },
       {
@@ -121,33 +111,40 @@
       "explorer/context": [
         {
           "command": "bygone.compareWithSelected",
-          "group": "compare"
+          "group": "compare",
+          "when": "resourceScheme == file && !explorerResourceIsFolder"
         },
         {
-          "command": "bygone.compareDirectories",
-          "group": "compare"
+          "command": "bygone.compareDirectoriesInDesktop",
+          "group": "compare",
+          "when": "explorerResourceIsFolder && isWorkspaceTrusted"
         },
         {
           "command": "bygone.compareFileHistory",
-          "group": "compare"
+          "group": "compare",
+          "when": "resourceScheme == file && !explorerResourceIsFolder"
         },
         {
           "command": "bygone.compareActiveFileHistory",
-          "group": "navigation"
+          "group": "navigation",
+          "when": "resourceScheme == file && !explorerResourceIsFolder"
         }
       ],
       "editor/context": [
         {
           "command": "bygone.compareWithSelected",
-          "group": "compare"
+          "group": "compare",
+          "when": "resourceScheme == file"
         },
         {
           "command": "bygone.compareFileHistory",
-          "group": "compare"
+          "group": "compare",
+          "when": "resourceScheme == file"
         },
         {
           "command": "bygone.compareActiveFileHistory",
-          "group": "navigation"
+          "group": "navigation",
+          "when": "resourceScheme == file"
         }
       ]
     },

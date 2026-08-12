@@ -17,13 +17,11 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.registerWebviewViewProvider(DiffViewProvider.viewType, diffViewProvider),
         vscode.window.registerUriHandler(uriHandler),
         registerCommand('bygone.compareFiles', () => fileComparator.selectAndCompareFiles()),
-        registerCommand('bygone.compareDirectories', () => fileComparator.selectAndCompareDirectories()),
-        registerCommand('bygone.compareMultipleDirectories', () => fileComparator.compareMultipleDirectoriesCommand()),
-        registerCommand('bygone.compareMultipleFiles', () => fileComparator.compareMultipleFilesCommand()),
+        registerCommand('bygone.compareDirectoriesInDesktop', () => pickPathsAndLaunchDesktop('directories')),
+        registerCommand('bygone.compareMultipleFilesInDesktop', () => pickPathsAndLaunchDesktop('files')),
         registerCommand('bygone.compareWithSelected', (resource: vscode.Uri) => fileComparator.compareWithSelected(resource)),
         registerCommand('bygone.compareFileHistory', (resource?: vscode.Uri) => fileComparator.compareFileHistory(resource)),
         registerCommand('bygone.compareActiveFileHistory', () => fileComparator.compareFileHistory()),
-        registerCommand('bygone.reviewBranch', () => fileComparator.reviewCurrentBranch()),
         registerCommand('bygone.exploreBranchInDesktop', (resource?: vscode.Uri) => launchDesktop({ kind: 'explore-branch' }, resource)),
         registerCommand('bygone.presentBranchInDesktop', (resource?: vscode.Uri) => launchDesktop({ kind: 'present-branch' }, resource)),
         registerCommand('bygone.openTourInDesktop', async () => {
@@ -45,4 +43,29 @@ export function deactivate() {}
 
 function registerCommand<TArgs extends unknown[]>(command: string, callback: (...args: TArgs) => unknown): vscode.Disposable {
     return vscode.commands.registerCommand(command, callback);
+}
+
+async function pickPathsAndLaunchDesktop(kind: 'files' | 'directories'): Promise<boolean> {
+    const selected = await vscode.window.showOpenDialog({
+        canSelectFiles: kind === 'files',
+        canSelectFolders: kind === 'directories',
+        canSelectMany: true,
+        openLabel: 'Open in Bygone Desktop',
+        title: kind === 'files' ? 'Select three or more files' : 'Select two or more directories'
+    });
+    const minimum = kind === 'files' ? 3 : 2;
+    if (!selected) return false;
+    if (selected.length < minimum) {
+        await vscode.window.showInformationMessage(
+            kind === 'files'
+                ? 'Select three or more files for a desktop multi-panel comparison.'
+                : 'Select two or more directories for a desktop comparison.'
+        );
+        return false;
+    }
+    if (selected.some((uri) => uri.scheme !== 'file')) {
+        await vscode.window.showInformationMessage('Bygone Desktop can open only local filesystem paths.');
+        return false;
+    }
+    return launchDesktop({ kind: 'compare-paths', paths: selected.map((uri) => uri.fsPath) }, selected[0]);
 }
