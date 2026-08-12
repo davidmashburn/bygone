@@ -1495,6 +1495,29 @@ function testFocusedStripLayoutUsesPairAndPanelAnchors() {
     assert.equal(narrow.paneWidth, 407);
     assert.equal(narrow.gutterWidth, 0);
     assert.equal(narrow.offset, 1628);
+
+    const boundary = computeFocusedStripLayout({
+        panelCount: 3,
+        activePanelIndex: 2,
+        activePairIndex: 1,
+        viewportWidth: 816,
+        minimumPaneWidth: 360,
+        gutterWidth: 96
+    });
+    assert.equal(boundary.mode, 'pair');
+    assert.equal(boundary.offset, boundary.trackWidth - 816);
+
+    const largeStack = computeFocusedStripLayout({
+        panelCount: 10_000,
+        activePanelIndex: 9_999,
+        activePairIndex: 9_998,
+        viewportWidth: 640,
+        minimumPaneWidth: 360,
+        gutterWidth: 96
+    });
+    assert.equal(largeStack.mode, 'panel');
+    assert.equal(largeStack.panelIndex, 9_999);
+    assert.equal(largeStack.offset, largeStack.trackWidth - 640);
 }
 
 function testMultiDiffShellUsesFocusedStripNavigation() {

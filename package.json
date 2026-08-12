@@ -202,6 +202,7 @@
     "package:npm": "npm run compile && node ./scripts/package-npm.mjs",
     "package:npm:dry-run": "node ./scripts/pack-npm-dry-run.mjs",
     "perf:bench": "npm run compile && node ./scripts/perf-benchmarks.mjs",
+    "perf:strip": "node ./scripts/focused-strip-benchmark.mjs",
     "bundle:check": "node ./scripts/check-bundle-size.mjs",
     "security:audit": "npm audit --audit-level=high",
     "dev:sync": "node ./scripts/dev-sync.mjs",
