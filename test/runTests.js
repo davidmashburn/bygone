@@ -311,6 +311,7 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     assert.match(providerSource, /createWebviewPanel\(/);
     assert.match(providerSource, /retainContextWhenHidden: true/);
     assert.match(providerSource, /vscode\.ViewColumn\.Active/);
+    assert.match(providerSource, /editableSides: \{ left: false, right: false \}/);
     assert.match(packageJson.scripts['package:vsix'], /check-vsix-contents/);
     assert.match(packageCheck, /Unexpected VSIX files/);
     assert.match(packageCheck, /maximumBytes/);

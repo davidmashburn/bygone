@@ -200,7 +200,8 @@ export class DiffViewProvider implements vscode.Disposable {
             rightContent,
             diffModel,
             history: null,
-            ...toDirectoryMessageContext(directoryContext)
+            ...toDirectoryMessageContext(directoryContext),
+            editableSides: { left: false, right: false }
         });
     }
 
@@ -246,7 +247,8 @@ export class DiffViewProvider implements vscode.Disposable {
             history: {
                 ...history,
                 fileName: path.basename(file.path)
-            }
+            },
+            editableSides: { left: false, right: false }
         });
     }
 
@@ -590,7 +592,8 @@ export class DiffViewProvider implements vscode.Disposable {
             rightContent,
             diffModel: buildTwoWayDiffModel(leftContent, rightContent),
             history: null,
-            ...toDirectoryMessageContext(this.currentTwoWayDiff.directoryContext)
+            ...toDirectoryMessageContext(this.currentTwoWayDiff.directoryContext),
+            editableSides: { left: false, right: false }
         });
     }
 
