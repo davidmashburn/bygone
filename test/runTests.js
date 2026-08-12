@@ -160,10 +160,15 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
 
 function testTourAnnotationPersistsAcrossChangeNavigation() {
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const hostSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
 
-    assert.match(rendererSource, /let currentTourAnnotation = null;/);
-    assert.match(rendererSource, /currentTwoWayComparisonKey = comparisonKey;\s+currentTourAnnotation = tourAnnotation;/);
-    assert.match(rendererSource, /function setActiveDiffIndex[\s\S]{0,300}applyDiffDecorations\(currentDiffModel, currentTourAnnotation\)/);
+    assert.match(rendererSource, /let currentTourAnnotations = \[\];/);
+    assert.match(rendererSource, /currentTwoWayComparisonKey = comparisonKey;\s+currentTourAnnotations = tourAnnotations;/);
+    assert.match(rendererSource, /function setActiveDiffIndex[\s\S]{0,300}applyDiffDecorations\(currentDiffModel, currentTourAnnotations\)/);
+    assert.match(rendererSource, /className: tourAnnotation\.active \? 'bygone-tour-anchor' : undefined/);
+    assert.match(rendererSource, /linesDecorationsClassName: 'bygone-tour-anchor-gutter'/);
+    assert.match(hostSource, /scene\.steps\s+\.filter\(\(candidate\) => candidate\.diff\.path === step\.diff\.path\)/);
+    assert.match(hostSource, /active: candidate\.id === step\.id/);
 }
 
 function testLineClickSelectsContainingTwoWayChange() {

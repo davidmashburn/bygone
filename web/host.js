@@ -412,7 +412,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         emitDiffScene(scene);
     }
 
-    function emitDiffScene(scene, annotation = null, comparisonId = scene.id) {
+    function emitDiffScene(scene, annotations = [], comparisonId = scene.id) {
         const tour = state.tour;
         if (!tour) return;
         state.activeTourFilePath = scene.path;
@@ -420,6 +420,7 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
         const diffModel = buildTwoWayDiffModel(scene.leftContent, scene.rightContent);
         const leftLabel = formatTourPaneLabel(scene, scene.leftLabel, 'base');
         const rightLabel = formatTourPaneLabel(scene, scene.rightLabel, 'head');
+        const activeAnnotation = annotations.find((annotation) => annotation.active);
         emit({
             type: 'showDiff',
             file1: leftLabel,
@@ -435,10 +436,14 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
             },
             editableSides: { left: false, right: false },
             comparisonSummary: `${scene.path} · ${scene.takeaway}`,
-            initialChangeIndex: annotation
-                ? findChangeIndexAtSourceLine(diffModel, annotation.side, annotation.startLine)
+            initialChangeIndex: activeAnnotation
+                ? findChangeIndexAtSourceLine(
+                    diffModel,
+                    activeAnnotation.side,
+                    activeAnnotation.startLine
+                )
                 : scene.focusChangeIndex,
-            tourAnnotation: annotation
+            tourAnnotations: annotations
         });
     }
 
@@ -450,13 +455,16 @@ import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../
     function renderWalkthroughStep(scene) {
         const step = scene.steps[state.activeStepIndex];
         if (!step) return;
-        const side = step.focus.revision === 'base' ? 'left' : 'right';
-        emitDiffScene(step.diff, {
-            side,
-            startLine: step.focus.startLine,
-            endLine: step.focus.endLine,
-            label: `${step.title}: ${step.body}`
-        }, `${scene.id}-${step.id}`);
+        const annotations = scene.steps
+            .filter((candidate) => candidate.diff.path === step.diff.path)
+            .map((candidate) => ({
+                side: candidate.focus.revision === 'base' ? 'left' : 'right',
+                startLine: candidate.focus.startLine,
+                endLine: candidate.focus.endLine,
+                label: `${candidate.title}: ${candidate.body}`,
+                active: candidate.id === step.id
+            }));
+        emitDiffScene(step.diff, annotations, `${scene.id}-${step.id}`);
     }
 
     function renderMultiPanelStep(scene) {

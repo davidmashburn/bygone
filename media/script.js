@@ -39,7 +39,7 @@ let leftDecorationIds = [];
 let rightDecorationIds = [];
 let activeDiffIndex = -1;
 let currentDiffModel = null;
-let currentTourAnnotation = null;
+let currentTourAnnotations = [];
 let suppressEditorEvents = false;
 let recomputeTimer;
 let multiRecomputeTimer;
@@ -177,7 +177,7 @@ host.onMessage((message) => {
             message.directoryNavigation || null,
             message.comparisonSummary || null,
             message.initialChangeIndex,
-            message.tourAnnotation || null
+            message.tourAnnotations || []
         );
         return;
     }
@@ -246,7 +246,7 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.directoryNavigation || null,
             pendingTwoWayPayload.comparisonSummary || null,
             pendingTwoWayPayload.initialChangeIndex,
-            pendingTwoWayPayload.tourAnnotation || null
+            pendingTwoWayPayload.tourAnnotations || []
         );
         pendingTwoWayPayload = undefined;
     }
@@ -344,13 +344,13 @@ function isDarkColor(color) {
     return luminance < 140;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotation = null) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = []) {
     const diffEpoch = ++twoWayDiffEpoch;
     const comparisonKey = comparisonId || `${file1}\u0000${file2}`;
     const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
     currentMode = MODE_TWO_WAY;
     currentTwoWayComparisonKey = comparisonKey;
-    currentTourAnnotation = tourAnnotation;
+    currentTourAnnotations = tourAnnotations;
     historyMode = Boolean(history);
     activeDirectoryEntryPath = null;
     hostEditableSides = normalizeEditableSides(nextEditableSides, historyMode);
@@ -382,16 +382,17 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     updateActivePaneHeader();
     updateEditorValues(leftContent, rightContent);
     updateTwoWayEditorOptions();
-    applyDiffDecorations(suppliedDiffModel, currentTourAnnotation);
+    applyDiffDecorations(suppliedDiffModel, currentTourAnnotations);
     updateChangeToolbarState();
     resetTwoWayScrollPositions();
     layoutEditors();
     revealActiveDiff(false);
-    if (tourAnnotation) {
-        const editor = tourAnnotation.side === 'left' ? leftEditor : rightEditor;
+    const activeTourAnnotation = tourAnnotations.find((annotation) => annotation.active);
+    if (activeTourAnnotation) {
+        const editor = activeTourAnnotation.side === 'left' ? leftEditor : rightEditor;
         requestAnimationFrame(() => requestAnimationFrame(() => {
             editor.revealLineInCenter(
-                tourAnnotation.startLine,
+                activeTourAnnotation.startLine,
                 monacoInstance.editor.ScrollType.Immediate
             );
         }));
@@ -415,7 +416,7 @@ function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextAc
             }
             setCurrentDiffModel(model);
             setActiveDiffIndex(diffBlocks.length > 0 ? clamp(nextActiveDiffIndex, 0, diffBlocks.length - 1) : -1, false);
-            applyDiffDecorations(model, currentTourAnnotation);
+            applyDiffDecorations(model, currentTourAnnotations);
             updateChangeToolbarState();
             connectorController.scheduleDrawConnections();
             revealActiveDiff(false);
@@ -1156,7 +1157,7 @@ function setCurrentDiffModel(diffModel) {
         };
 }
 
-function applyDiffDecorations(diffModel, tourAnnotation = null) {
+function applyDiffDecorations(diffModel, tourAnnotations = []) {
     const leftDecorations = [];
     const rightDecorations = [];
 
@@ -1180,7 +1181,7 @@ function applyDiffDecorations(diffModel, tourAnnotation = null) {
     addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
     addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
 
-    if (tourAnnotation) {
+    for (const tourAnnotation of tourAnnotations) {
         const target = tourAnnotation.side === 'left' ? leftDecorations : rightDecorations;
         const editor = tourAnnotation.side === 'left' ? leftEditor : rightEditor;
         const endColumn = editor.getModel()?.getLineMaxColumn(tourAnnotation.endLine) ?? 1;
@@ -1193,7 +1194,7 @@ function applyDiffDecorations(diffModel, tourAnnotation = null) {
             ),
             options: {
                 isWholeLine: true,
-                className: 'bygone-tour-anchor',
+                className: tourAnnotation.active ? 'bygone-tour-anchor' : undefined,
                 linesDecorationsClassName: 'bygone-tour-anchor-gutter',
                 hoverMessage: { value: tourAnnotation.label }
             }
@@ -2487,7 +2488,7 @@ function setActiveDiffIndex(index, shouldReveal) {
     updateChangeToolbarState();
 
     if (leftEditor && rightEditor && currentDiffModel) {
-        applyDiffDecorations(currentDiffModel, currentTourAnnotation);
+        applyDiffDecorations(currentDiffModel, currentTourAnnotations);
     } else if (currentMode === MODE_MULTI_WAY) {
         applyMultiDiffDecorations(multiDiffPairs);
     }
