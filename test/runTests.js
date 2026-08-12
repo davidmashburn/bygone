@@ -594,6 +594,21 @@ function testCheckedInBygoneHistoryTourRemainsReproducible() {
     assert.equal(manifest.range.mergeBaseOid, source.range?.base);
 }
 
+function testAdvancedTourExamplesRemainReproducible() {
+    for (const [fileName, expectedKind] of [
+        ['stacked-diff.bygone.yaml', 'stacked-diff'],
+        ['deconstructed-diff.bygone.yaml', 'deconstructed-diff']
+    ]) {
+        const source = parseChangeTourSource(loadYaml(fs.readFileSync(
+            path.join(__dirname, '..', 'examples', fileName),
+            'utf8'
+        )));
+        const manifest = buildChangeTourManifest(path.join(__dirname, '..'), { source });
+        assert.equal(manifest.scenes[0].kind, expectedKind);
+        assert.equal(manifest.scenes[0].steps.length, 3);
+    }
+}
+
 function testVersionTourChangelogRemainsReproducible() {
     const source = parseChangeTourSource(loadYaml(fs.readFileSync(
         path.join(__dirname, '..', 'tours', 'v0.6.bygone.yaml'),
@@ -2091,6 +2106,7 @@ function run() {
     testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases();
     testPresentArgumentsUseSharedBaseAliases();
     testCheckedInBygoneHistoryTourRemainsReproducible();
+    testAdvancedTourExamplesRemainReproducible();
     testVersionTourChangelogRemainsReproducible();
     testAgentTourCommandsValidateCompileAndExposeSchema();
     testChangeTourContextPackagesBoundedGitEvidence();

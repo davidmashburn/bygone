@@ -57,6 +57,13 @@ chapters:
 
 Only the active step's connection is shown. This keeps relationships useful without adding a permanent second layer of curves to Bygone's diff view. The Tour rail contains only authored scenes; the adjacent Files rail independently lists the complete change set. Browsing a file does not move the narrative, and “Return to tour” restores the file and annotation focused by the current scene.
 
-See [Bygone's self-referencing history tour](../examples/bygone-history.bygone.yaml) for a complete narrative that pins and explains the commit where branch review was introduced.
+Use a walkthrough by default. Use a [stacked-diff example](../examples/stacked-diff.bygone.yaml)
+only when every panel is a real selected Git revision. Use a
+[deconstructed-diff example](../examples/deconstructed-diff.bygone.yaml) when
+the teaching order is clearer than the real commit history; its cumulative
+panels are synthetic explanation stages and must never be described as
+commits. Every changed hunk must be assigned once or explicitly excluded.
+
+See [Bygone's self-referencing history tour](../examples/bygone-history.bygone.yaml) for a complete walkthrough that pins and explains the commit where branch review was introduced.
 
 For agent workflows, see [Generating change tours with an LLM](./generating-change-tours.md) and the machine-readable [JSON Schema](../schemas/change-tour-source.schema.json).

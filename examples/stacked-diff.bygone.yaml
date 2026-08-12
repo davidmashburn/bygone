@@ -1,0 +1,55 @@
+version: 1
+title: Real revisions build the tour system
+range:
+  base: 23aa253d130338096a28860498bee67f7727636b
+  head: 7a6d000203a25410e44fac0f2393fb4ef4b6b9d1
+anchors: {}
+connections: []
+chapters:
+  - id: revision-stack
+    title: Follow real Git milestones
+    scenes:
+      - id: tour-capabilities
+        kind: stacked-diff
+        title: Grow the authored-tour contract
+        summary: Each panel is a real immutable revision in Bygone's open-source history.
+        bullets:
+          - The inventory establishes stable changed units.
+          - Coverage maps authored evidence onto those units.
+          - Stacked scenes then expose selected revisions as adjacent panels.
+        tags: [git, tours, history]
+        takeaway: Use stacked diffs only when the real revisions are meaningful milestones.
+        stack:
+          - id: baseline
+            ref: f66275c808b3dedca74f95cb355e3693287eeedd
+            label: Before tour inventory
+          - id: inventory
+            ref: fa61c9e7be161792531e6568db774a03c2fba3ba
+            label: Stable inventory
+          - id: coverage
+            ref: a532c60c2e44335efcee5c2d3bafa77bfd5628c4
+            label: Coverage reporting
+          - id: stacked
+            ref: 7a6d000203a25410e44fac0f2393fb4ef4b6b9d1
+            label: Stacked tours
+        files:
+          - src/changeTour.ts
+        steps:
+          - id: inventory-stage
+            title: Establish change identity
+            body: The first selected revision gives later authored evidence a stable change model.
+            file: src/changeTour.ts
+            pair: [baseline, inventory]
+            side: right
+          - id: coverage-stage
+            title: Connect evidence to coverage
+            body: The next real revision makes explanation depth and omitted work measurable.
+            file: src/changeTour.ts
+            pair: [inventory, coverage]
+            side: right
+          - id: stacked-stage
+            title: Present the historical sequence
+            body: The final revision compiles these real milestones into adjacent panels.
+            file: src/changeTour.ts
+            pair: [coverage, stacked]
+            side: right

@@ -1,0 +1,49 @@
+version: 1
+title: Explain persistent tour markers in conceptual stages
+range:
+  base: d040a442657547340e5fa4dcc58bfc0d233ab989
+  head: b05ecc2c8998aa7569934dc7914c2e9924f7d0be
+anchors: {}
+connections: []
+chapters:
+  - id: explanation-order
+    title: Synthetic explanation stages
+    scenes:
+      - id: persistent-markers
+        kind: deconstructed-diff
+        title: Separate persistent markers from active emphasis
+        summary: Reorder one real commit into synthetic cumulative stages for teaching.
+        bullets:
+          - The source contract first permits several annotations.
+          - The presenter then marks every anchor and identifies the active one.
+          - The renderer finally separates persistent gutter markers from active text emphasis.
+        tags: [tours, explanation, synthetic]
+        takeaway: These panels are explanation stages, not historical commits.
+        base: d040a442657547340e5fa4dcc58bfc0d233ab989
+        target: b05ecc2c8998aa7569934dc7914c2e9924f7d0be
+        stages:
+          - id: contract
+            title: Carry every anchor
+            narration: Expand the host contract from one annotation to an active-marked collection.
+            changes:
+              - file: src/webviewMessages.ts
+                hunks: [hunk-64e041c7407c, hunk-f81ce869a41a]
+          - id: presentation
+            title: Build persistent and active annotations
+            narration: The tour host emits all anchors for the file and marks the current step active.
+            changes:
+              - file: web/host.js
+                hunks: [hunk-baa2982f00b2, hunk-a11ba6c61eab, hunk-c32fa33b08c9, hunk-3d642f820720, hunk-34282593627a]
+          - id: rendering
+            title: Emphasize only the active anchor
+            narration: The renderer gives every anchor a gutter decoration while reserving the text class and reveal target for the active one.
+            changes:
+              - file: media/script.js
+                hunks: [hunk-7ab25ee9fe44, hunk-229ff9b95257, hunk-208bf1e2739a, hunk-195c64e7ce9d, hunk-ca648f8b7f6d, hunk-0a640980b9b7, hunk-d005d43f28c8, hunk-814c1fb6cdf3, hunk-208dd701b2db, hunk-cd8f327f0940, hunk-9f54024f461a, hunk-56e6f514f9ae, hunk-45626d68d23d]
+              - file: test/runTests.js
+                hunks: [hunk-69f71617ff01, hunk-55f5ba472e6c]
+        exclusions:
+          - file: web/web-host.js
+            reason: Generated browser bundle; the source host is assigned above.
+          - file: web/web-host.js.map
+            reason: Generated source map; it carries no independent product behavior.
