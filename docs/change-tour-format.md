@@ -1,15 +1,31 @@
 # Change tour authoring format
 
-A `.bygone.yaml` file contains the human-authored reading order and narrative. It points to code with named anchors; it does not store generated hunk indexes or line numbers.
+A `.bygone` file is a UTF-8, single-document YAML source containing the
+human-authored reading order and narrative. It points to code with named
+anchors; it does not store generated hunk indexes or line numbers. The legacy
+`.bygone.yaml` spelling remains supported for editors that depend on a `.yaml`
+suffix, and explicitly supplied files are validated by content rather than
+rejected by extension.
+
+An authored source is Git-backed, not portable: resolving refs and anchors
+requires the corresponding local repository and Git objects. A compiled
+`.tour.json` manifest contains the resolved source snapshots and is the
+portable artifact, although those snapshots may contain sensitive code.
 
 Run it against a committed branch range, or omit the refs when the source file pins its own range:
 
 ```sh
-bygone present <head> --base <base> --tour path/to/review.bygone.yaml
-bygone present --tour path/to/self-contained-review.bygone.yaml
+bygone present <head> --base <base> --tour path/to/review.bygone
+bygone present --tour path/to/pinned-review.bygone
 ```
 
-The optional `range` makes a tour self-contained and reproducible; explicit command-line refs take precedence. The compiler resolves every anchor against the exact merge-base or head commit and writes the resulting commit IDs, line ranges, excerpts, file contents, and diffs into the portable JSON manifest served by the presenter. Compilation fails if an anchor has no match or has multiple matches without an explicit `occurrence`.
+The optional `range` pins the source's revisions for reproducibility; explicit
+command-line refs take precedence. Pinned OIDs still require their Git object
+database. The compiler resolves every anchor against the exact merge-base or
+head commit and writes the resulting commit IDs, line ranges, excerpts, file
+contents, and diffs into the portable JSON manifest served by the presenter.
+Compilation fails if an anchor has no match or has multiple matches without an
+explicit `occurrence`.
 
 ## Structure
 
@@ -63,13 +79,13 @@ results search the compiled base and head snapshots, open the exact file and
 side, and preserve **Return to tour** so exploration does not lose authored
 context.
 
-Use a walkthrough by default. Use a [stacked-diff example](../examples/stacked-diff.bygone.yaml)
+Use a walkthrough by default. Use a [stacked-diff example](../examples/stacked-diff.bygone)
 only when every panel is a real selected Git revision. Use a
-[deconstructed-diff example](../examples/deconstructed-diff.bygone.yaml) when
+[deconstructed-diff example](../examples/deconstructed-diff.bygone) when
 the teaching order is clearer than the real commit history; its cumulative
 panels are synthetic explanation stages and must never be described as
 commits. Every changed hunk must be assigned once or explicitly excluded.
 
-See [Bygone's self-referencing history tour](../examples/bygone-history.bygone.yaml) for a complete walkthrough that pins and explains the commit where branch review was introduced.
+See [Bygone's self-referencing history tour](../examples/bygone-history.bygone) for a complete walkthrough that pins and explains the commit where branch review was introduced.
 
 For agent workflows, see [Generating change tours with an LLM](./generating-change-tours.md) and the machine-readable [JSON Schema](../schemas/change-tour-source.schema.json).

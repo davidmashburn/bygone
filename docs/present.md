@@ -7,7 +7,7 @@ source evidence while keeping the complete changed-file set available.
 
 - **Present Current Branch** or `bygone present` generates a deterministic
   reading order for the committed merge-base-to-tip range.
-- **Open Authored Tour…** or `bygone present --tour path.bygone.yaml` opens a
+- **Open Authored Tour…** or `bygone present --tour path.bygone` opens a
   narrative whose anchors have been compiled to exact source locations.
 
 The Files rail is independent of the narrative. Browsing another file keeps
@@ -30,8 +30,8 @@ Use the CLI or the repository's tour-generation skill:
 
 ```bash
 bygone tour context HEAD --base origin/main
-bygone tour validate tour.bygone.yaml --json
-bygone tour compile tour.bygone.yaml --output tour.json
+bygone tour validate tour.bygone --json
+bygone tour compile tour.bygone --output tour.json
 bygone tour schema
 ```
 

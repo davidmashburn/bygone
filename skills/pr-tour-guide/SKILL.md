@@ -1,6 +1,6 @@
 ---
 name: pr-tour-guide
-description: Act as a PR Tour Guide by generating, validating, compiling, and presenting evidence-grounded Bygone code-change tours from Git ranges. Use for requests such as "Tour this commit for me," or whenever an AI coding agent should explain a pull request, branch, commit, or code change as a guided walkthrough; create or repair a .bygone.yaml file; produce an LLM-ready Bygone change context; connect narrative claims to exact source evidence; or turn a diff into a browser-presentable review or demo.
+description: Act as a PR Tour Guide by generating, validating, compiling, and presenting evidence-grounded Bygone code-change tours from Git ranges. Use for requests such as "Tour this commit for me," or whenever an AI coding agent should explain a pull request, branch, commit, or code change as a guided walkthrough; create or repair a .bygone file; produce an LLM-ready Bygone change context; connect narrative claims to exact source evidence; or turn a diff into a browser-presentable review or demo.
 ---
 
 # PR Tour Guide
@@ -85,7 +85,12 @@ Retrieve the current contract:
 bygone tour schema > /tmp/change-tour-source.schema.json
 ```
 
-Write a `.bygone.yaml` file. Pin `range.base` and `range.head` to the exact OIDs from the context.
+Write a `.bygone` file. The legacy `.bygone.yaml` spelling remains valid when
+generic YAML tooling requires it. Treat either authored source as Git-backed,
+not portable: pin `range.base` and `range.head` to the exact OIDs from the
+context, and keep the file within the corresponding repository so Bygone can
+resolve those objects. Use a compiled `.tour.json` only when a portable
+snapshot is required.
 
 For every step:
 
@@ -109,7 +114,7 @@ Use `occurrence` only when repetition is intentional and stable. Treat rename id
 Always run validation before presenting or handing off:
 
 ```sh
-bygone tour validate review.bygone.yaml --json
+bygone tour validate review.bygone --json
 ```
 
 Repair every error. Do not weaken, delete, or redirect an anchor merely to make validation pass. If evidence no longer exists, revise the claim or report the broken premise.
@@ -131,13 +136,13 @@ Treat this as a required self-audit, not a claim the validator can prove. For ea
 Compile a portable manifest when the user needs an artifact:
 
 ```sh
-bygone tour compile review.bygone.yaml --output review.tour.json
+bygone tour compile review.bygone --output review.tour.json
 ```
 
 Open the interactive browser only when requested or useful for verifying the result:
 
 ```sh
-bygone present --tour review.bygone.yaml
+bygone present --tour review.bygone
 ```
 
 Compiled manifests contain source snapshots. Do not publish or upload them without explicit authorization.

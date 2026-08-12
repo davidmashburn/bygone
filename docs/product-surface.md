@@ -48,8 +48,8 @@ not packaged.
 | --- | --- | --- | --- | --- | --- |
 | Explain the current branch automatically | Present → Present Current Branch; `bygone present` | Committed merge-base-to-tip range | Read-only | Core | presentation launch and generated-tour tests |
 | Open an authored walkthrough | Present → Open Authored Tour; `bygone present --tour`; VS Code hand-off | Manifest range, scene, step, exact source anchor | Read-only | Core | reproducible example and tour validation tests |
-| Explain a real stack | `stacked-diff` scene | Exact real Git revisions per panel | Read-only | Advanced | `examples/stacked-diff.bygone.yaml` |
-| Explain a change in conceptual stages | `deconstructed-diff` scene | Explicitly labeled synthetic explanation stages backed by exact hunk IDs | Read-only | Advanced/experimental authoring | `examples/deconstructed-diff.bygone.yaml` |
+| Explain a real stack | `stacked-diff` scene | Exact real Git revisions per panel | Read-only | Advanced | `examples/stacked-diff.bygone` |
+| Explain a change in conceptual stages | `deconstructed-diff` scene | Explicitly labeled synthetic explanation stages backed by exact hunk IDs | Read-only | Advanced/experimental authoring | `examples/deconstructed-diff.bygone` |
 | Browse away from the narration | Files rail, change navigation | Browsed file versus active tour focus remain distinct | Read-only; Return to Tour restores narrative focus | Core | tour focus and persistent-anchor tests |
 
 Tour authoring remains file/CLI/agent driven. The desktop UI opens and presents

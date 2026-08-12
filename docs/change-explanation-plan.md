@@ -185,7 +185,7 @@ Support deterministic rendering of scenes to PNG, SVG where practical, or HTML f
 
 ### Live PR Tour Guide Loop
 
-Treat the saved `.bygone.yaml` as the shared boundary between an author, an agent, and the open presenter. When the author asks a question, the PR Tour Guide can revise the narrative or its evidence links and save the file; Bygone should validate, compile, and refresh the browser without restarting the presentation.
+Treat the saved `.bygone` as the shared boundary between an author, an agent, and the open presenter. When the author asks a question, the PR Tour Guide can revise the narrative or its evidence links and save the file; Bygone should validate, compile, and refresh the browser without restarting the presentation.
 
 The refresh loop should:
 

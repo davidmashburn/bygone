@@ -16,7 +16,7 @@
 - Added authored, code-connected change tours, bounded LLM context, coverage reporting, stacked and deconstructed explanations, the PR Tour Guide skill, and independent narrative and file navigation
 - Added refreshable sessions, pane-local find, persistent line wrapping, resizable sidebars, and horizontal multi-panel scrolling
 - Adopted the crisp-hybrid Bygone icon and strengthened release packaging across npm, VS Code, desktop, and Homebrew artifacts
-- Added a [guided 0.7 release tour](./tours/v0.7.bygone.yaml) covering the complete range from `v0.6.3`
+- Added a [guided 0.7 release tour](./tours/v0.7.bygone) covering the complete range from `v0.6.3`
 
 ## 0.2.0
 

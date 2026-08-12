@@ -1,6 +1,6 @@
 # Generating change tours with an LLM
 
-Bygone treats an LLM as a narrative planner and evidence selector, not as the authority on Git or source locations. The model writes `.bygone.yaml`; Bygone resolves its anchors against pinned commits and rejects missing, ambiguous, or structurally invalid references.
+Bygone treats an LLM as a narrative planner and evidence selector, not as the authority on Git or source locations. The model writes `.bygone`; Bygone resolves its anchors against pinned commits and rejects missing, ambiguous, or structurally invalid references.
 
 For agents that support repository skills, use the agent-agnostic [`pr-tour-guide` skill](../skills/pr-tour-guide/SKILL.md). It packages the complete evidence, authoring, validation, and handoff workflow without depending on a particular agent vendor.
 
@@ -19,18 +19,18 @@ For agents that support repository skills, use the agent-agnostic [`pr-tour-guid
 4. Arrange those questions into conceptual chapters rather than filename order.
 5. Attach every walkthrough step to an exact snippet in either the base or head revision.
 6. Add a connection only when it explains a meaningful relationship between two pieces of evidence.
-7. Write the `.bygone.yaml` source.
+7. Write the `.bygone` source.
 8. Validate it and repair every reported problem:
 
    ```sh
-   bygone tour validate review.bygone.yaml --json
+   bygone tour validate review.bygone --json
    ```
 
 9. Compile or present the verified result:
 
    ```sh
-   bygone tour compile review.bygone.yaml --output review.tour.json
-   bygone present --tour review.bygone.yaml
+   bygone tour compile review.bygone --output review.tour.json
+   bygone present --tour review.bygone
    ```
 
 Use `bygone tour schema` to print the current JSON Schema. The checked-in schema is also available at [`schemas/change-tour-source.schema.json`](../schemas/change-tour-source.schema.json).

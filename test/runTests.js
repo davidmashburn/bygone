@@ -674,7 +674,7 @@ function testPresentArgumentsUseSharedBaseAliases() {
 
 function testCheckedInBygoneHistoryTourRemainsReproducible() {
     const source = parseChangeTourSource(loadYaml(fs.readFileSync(
-        path.join(__dirname, '..', 'examples', 'bygone-history.bygone.yaml'),
+        path.join(__dirname, '..', 'examples', 'bygone-history.bygone'),
         'utf8'
     )));
     assert.equal(source.range?.base, '292fe9248c5c49f762489dc688296fc100d120bc');
@@ -692,8 +692,8 @@ function testCheckedInBygoneHistoryTourRemainsReproducible() {
 
 function testAdvancedTourExamplesRemainReproducible() {
     for (const [fileName, expectedKind] of [
-        ['stacked-diff.bygone.yaml', 'stacked-diff'],
-        ['deconstructed-diff.bygone.yaml', 'deconstructed-diff']
+        ['stacked-diff.bygone', 'stacked-diff'],
+        ['deconstructed-diff.bygone', 'deconstructed-diff']
     ]) {
         const source = parseChangeTourSource(loadYaml(fs.readFileSync(
             path.join(__dirname, '..', 'examples', fileName),
@@ -707,7 +707,7 @@ function testAdvancedTourExamplesRemainReproducible() {
 
 function testVersionTourChangelogRemainsReproducible() {
     const source = parseChangeTourSource(loadYaml(fs.readFileSync(
-        path.join(__dirname, '..', 'tours', 'v0.6.bygone.yaml'),
+        path.join(__dirname, '..', 'tours', 'v0.6.bygone'),
         'utf8'
     )));
     assert.equal(source.range?.base, '18fa9dda779309663c290ea8a3efff6217ea5757');
@@ -748,7 +748,7 @@ function testAgentTourCommandsValidateCompileAndExposeSchema() {
     assert.throws(() => parseTourArgs(['compile', 'review.bygone', '--json']), /only valid with tour validate/);
 
     const repoRoot = path.join(__dirname, '..');
-    const sourcePath = 'examples/bygone-history.bygone.yaml';
+    const sourcePath = 'examples/bygone-history.bygone';
     let validationOutput = '';
     const validation = runTourCommand(['validate', sourcePath, '--json'], repoRoot, repoRoot, {
         write(chunk) { validationOutput += chunk; }

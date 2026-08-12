@@ -62,5 +62,5 @@ engines, options, limits, provenance, and stale-result rules.
 ## Move into Present
 
 **Present Current Branch** creates a guided tour of the committed branch range.
-**Open Authored Tour…** opens a checked and compiled `.bygone.yaml` narrative in
+**Open Authored Tour…** opens a checked and compiled `.bygone` narrative in
 its own presentation window, leaving the Explore window available.
