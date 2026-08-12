@@ -119,7 +119,12 @@
             const containerRect = connectionCanvas.getBoundingClientRect();
             const viewportRect = options.getElement('multi-way-diff').getBoundingClientRect();
 
-            state.pairs.forEach((pair) => {
+            const activePair = Number.isInteger(state.activePairIndex)
+                ? state.pairs[state.activePairIndex]
+                : null;
+            if (!activePair) return;
+
+            [activePair].forEach((pair) => {
                 const leftEditor = state.editors[pair.leftIndex];
                 const rightEditor = state.editors[pair.rightIndex];
                 if (!leftEditor || !rightEditor) {

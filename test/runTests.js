@@ -27,6 +27,7 @@ const {
     resolveFileNavigationAction
 } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
+const { computeFocusedStripLayout } = require('../media/focusedStripController.js');
 const { dispatchFindCommand, resolveFindTarget, runFindCommand } = require('../media/findController.js');
 const {
     WORD_WRAP_STORAGE_KEY,
@@ -1385,13 +1386,41 @@ function testDynamicButtonsHaveTooltips() {
     assert.match(directorySource, /return `<button class="dir-entry[\s\S]{0,300}title=/);
 }
 
-function testMultiDiffShellCreatesHorizontalOverflow() {
+function testFocusedStripLayoutUsesPairAndPanelAnchors() {
+    const wide = computeFocusedStripLayout({
+        panelCount: 5,
+        activePanelIndex: 3,
+        activePairIndex: 2,
+        viewportWidth: 1000,
+        minimumPaneWidth: 360,
+        gutterWidth: 96
+    });
+    assert.equal(wide.mode, 'pair');
+    assert.equal(wide.paneWidth, 452);
+    assert.equal(wide.offset, 1096);
+
+    const narrow = computeFocusedStripLayout({
+        panelCount: 5,
+        activePanelIndex: 4,
+        activePairIndex: 3,
+        viewportWidth: 407,
+        minimumPaneWidth: 360,
+        gutterWidth: 96
+    });
+    assert.equal(narrow.mode, 'panel');
+    assert.equal(narrow.paneWidth, 407);
+    assert.equal(narrow.gutterWidth, 0);
+    assert.equal(narrow.offset, 1628);
+}
+
+function testMultiDiffShellUsesFocusedStripNavigation() {
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
 
     assert.match(rendererSource, /const MULTI_PANE_MIN_WIDTH = 360/);
-    assert.match(rendererSource, /columns\.push\(`minmax\(\$\{MULTI_PANE_MIN_WIDTH\}px, 1fr\)`\)/);
-    assert.match(rendererSource, /min-width:max\(100%, \$\{minimumTrackWidth\}px\)/);
-    assert.match(rendererSource, /scrollIntoView\(\{ block: 'nearest', inline: 'nearest' \}\)/);
+    assert.match(rendererSource, /computeFocusedStripLayout/);
+    assert.match(rendererSource, /data-multi-strip-direction="previous"/);
+    assert.match(rendererSource, /translate3d\(\$\{-focusedStripLayout\.offset\}px/);
+    assert.doesNotMatch(rendererSource, /container\.scrollLeft =/);
     assert.match(rendererSource, /closest\('\.multi-pane-content'\)[\s\S]{0,100}overEditor && !event\.shiftKey/);
     assert.doesNotMatch(rendererSource, /multi-gutter-title/);
     assert.doesNotMatch(rendererSource, /multi-gutter-header/);
@@ -2156,7 +2185,8 @@ function run() {
     testToursRouteThroughAnAppOwnedWindowAndServer();
     testForwardedLaunchArgumentsPreferValidatedAdditionalData();
     testDynamicButtonsHaveTooltips();
-    testMultiDiffShellCreatesHorizontalOverflow();
+    testFocusedStripLayoutUsesPairAndPanelAnchors();
+    testMultiDiffShellUsesFocusedStripNavigation();
     testDirectoryRowsUseFileKindAffordancesWithoutStatusBadges();
     testDuplicateMultiPanelDecorationsRenderOnce();
     testDirectoryDiffDetectsModifiedFiles();

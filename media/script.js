@@ -2,6 +2,7 @@ import { dedupeDecorations } from './decorationUtils';
 import { buildBlockChanges, findChangeIndexAtLine, resolveFileNavigationAction } from './navigationUtils';
 import { dispatchFindCommand, runFindCommand } from './findController';
 import { applyWordWrap, readWordWrapPreference, writeWordWrapPreference } from './wrapController';
+import { computeFocusedStripLayout } from './focusedStripController';
 
 const host = createHostBridge();
 const {
@@ -66,6 +67,8 @@ let activeMultiPanelId = null;
 let activeMultiPairIndex = null;
 let multiPanelChangeIndices = new Map();
 let multiPanelMutationEnabled = false;
+let focusedStripLayout = null;
+let focusedStripWheelDelta = 0;
 let historyRailState = null;
 let activeHistoryRailTabId = null;
 let historyRailKind = null;
@@ -270,6 +273,7 @@ window.addEventListener('load', async () => {
 });
 
 window.addEventListener('resize', () => {
+    applyFocusedStripLayout(false);
     layoutEditors();
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
@@ -607,6 +611,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     );
 
     renderMultiDiffShell(panels);
+    applyFocusedStripLayout(false);
     suppressEditorEvents = true;
     multiEditors = panels.map((panel, index) => {
         const editor = createEditor(getElement(`multi-pane-${index}-content`), MODE_MULTI_WAY, panel.id);
@@ -868,6 +873,8 @@ function disposeMultiEditors(resetState = true) {
         activeMultiPanelId = null;
         activeMultiPairIndex = null;
         multiPanelMutationEnabled = true;
+        focusedStripLayout = null;
+        focusedStripWheelDelta = 0;
     }
     const container = getElement(VIEW_IDS.multiWay);
     if (container) {
@@ -882,7 +889,7 @@ function renderMultiDiffShell(panels) {
     const children = [];
 
     panels.forEach((panel, index) => {
-        columns.push(`minmax(${MULTI_PANE_MIN_WIDTH}px, 1fr)`);
+        columns.push(`${MULTI_PANE_MIN_WIDTH}px`);
         children.push(
             `<div class="multi-pane" data-index="${index}" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header" data-panel-id="${escapeAttr(panel.id)}">`
@@ -921,9 +928,14 @@ function renderMultiDiffShell(panels) {
     });
 
     const container = getElement(VIEW_IDS.multiWay);
-    const minimumTrackWidth = (panels.length * MULTI_PANE_MIN_WIDTH)
-        + (Math.max(0, panels.length - 1) * MULTI_GUTTER_WIDTH);
-    container.innerHTML = `<div class="multi-view-track" style="grid-template-columns:${columns.join(' ')};width:100%;min-width:max(100%, ${minimumTrackWidth}px);">${children.join('')}</div>`;
+    container.innerHTML = [
+        '<div class="multi-strip-controls" role="group" aria-label="Multi-panel navigation">',
+        '<button class="multi-strip-button" type="button" data-multi-strip-direction="previous" aria-label="Previous panel or comparison" title="Previous panel or comparison">‹</button>',
+        '<span class="multi-strip-position" aria-live="polite" data-multi-strip-position></span>',
+        '<button class="multi-strip-button" type="button" data-multi-strip-direction="next" aria-label="Next panel or comparison" title="Next panel or comparison">›</button>',
+        '</div>',
+        `<div class="multi-view-track" style="grid-template-columns:${columns.join(' ')};">${children.join('')}</div>`
+    ].join('');
 }
 
 function recomputeMultiDiffState(changedPanelIds = null) {
@@ -1067,10 +1079,67 @@ function updateActiveMultiShellState() {
 }
 
 function revealActiveMultiPanel() {
+    applyFocusedStripLayout();
+}
+
+function applyFocusedStripLayout(animate = true) {
+    if (currentMode !== MODE_MULTI_WAY || multiPanels.length === 0) return;
     const container = getElement(VIEW_IDS.multiWay);
-    const panel = [...container.querySelectorAll('.multi-pane')]
-        .find((pane) => pane.getAttribute('data-panel-id') === activeMultiPanelId);
-    panel?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const track = container.querySelector('.multi-view-track');
+    if (!track) return;
+    const activePanelIndex = Math.max(0, multiPanels.findIndex((panel) => panel.id === activeMultiPanelId));
+    focusedStripLayout = computeFocusedStripLayout({
+        panelCount: multiPanels.length,
+        activePanelIndex,
+        activePairIndex: activeMultiPairIndex,
+        viewportWidth: Math.max(1, container.clientWidth - 24),
+        minimumPaneWidth: MULTI_PANE_MIN_WIDTH,
+        gutterWidth: MULTI_GUTTER_WIDTH
+    });
+    const columns = [];
+    multiPanels.forEach((_panel, index) => {
+        columns.push(`${focusedStripLayout.paneWidth}px`);
+        if (index < multiPanels.length - 1) columns.push(`${focusedStripLayout.gutterWidth}px`);
+    });
+    track.classList.toggle('is-positioning', !animate);
+    track.style.gridTemplateColumns = columns.join(' ');
+    track.style.width = `${focusedStripLayout.trackWidth}px`;
+    track.style.transform = `translate3d(${-focusedStripLayout.offset}px, 0, 0)`;
+    container.classList.toggle('multi-strip-panel-mode', focusedStripLayout.mode === 'panel');
+    container.classList.toggle('multi-strip-pair-mode', focusedStripLayout.mode === 'pair');
+    updateFocusedStripControls();
+    if (!animate) requestAnimationFrame(() => track.classList.remove('is-positioning'));
+}
+
+function updateFocusedStripControls() {
+    const container = getElement(VIEW_IDS.multiWay);
+    const position = container.querySelector('[data-multi-strip-position]');
+    const previous = container.querySelector('[data-multi-strip-direction="previous"]');
+    const next = container.querySelector('[data-multi-strip-direction="next"]');
+    if (!focusedStripLayout || !position || !previous || !next) return;
+    const pairMode = focusedStripLayout.mode === 'pair';
+    const current = pairMode ? focusedStripLayout.pairIndex : focusedStripLayout.panelIndex;
+    const total = pairMode ? Math.max(1, multiPanels.length - 1) : multiPanels.length;
+    position.textContent = pairMode
+        ? `Comparison ${current + 1}–${current + 2} of ${multiPanels.length}`
+        : `Panel ${current + 1} of ${multiPanels.length}`;
+    previous.disabled = current <= 0;
+    next.disabled = current >= total - 1;
+}
+
+function moveFocusedStrip(direction) {
+    if (!focusedStripLayout || (direction !== -1 && direction !== 1)) return false;
+    if (focusedStripLayout.mode === 'pair') {
+        const nextPair = focusedStripLayout.pairIndex + direction;
+        if (nextPair < 0 || nextPair >= multiDiffPairs.length) return false;
+        setActiveMultiPair(nextPair, true);
+        return true;
+    }
+    const nextPanel = focusedStripLayout.panelIndex + direction;
+    const panel = multiPanels[nextPanel];
+    if (!panel) return false;
+    setActiveMultiPanel(panel.id, true);
+    return true;
 }
 
 function revealFirstMultiPanelChanges() {
@@ -1533,12 +1602,6 @@ function initializeDirectoryReturnToolbar() {
 function initializeMultiDiffInteractions() {
     const container = getElement(VIEW_IDS.multiWay);
 
-    container.addEventListener('scroll', () => {
-        if (currentMode === MODE_MULTI_WAY) {
-            connectorController.scheduleDrawConnections();
-        }
-    });
-
     container.addEventListener('wheel', (event) => {
         if (currentMode !== MODE_MULTI_WAY) {
             return;
@@ -1550,27 +1613,24 @@ function initializeMultiDiffInteractions() {
             return;
         }
 
-        const deltaX = Math.abs(event.deltaX) > 0 ? event.deltaX : (event.shiftKey ? event.deltaY : 0);
-        if (deltaX === 0) {
-            return;
+        const delta = Math.abs(event.deltaX) > 0 ? event.deltaX : event.deltaY;
+        if (delta === 0) return;
+        focusedStripWheelDelta += delta;
+        if (Math.abs(focusedStripWheelDelta) >= 80) {
+            moveFocusedStrip(focusedStripWheelDelta > 0 ? 1 : -1);
+            focusedStripWheelDelta = 0;
         }
-
-        const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth);
-        if (maxScrollLeft <= 0) {
-            return;
-        }
-
-        const nextScrollLeft = clamp(container.scrollLeft + deltaX, 0, maxScrollLeft);
-        if (nextScrollLeft === container.scrollLeft) {
-            return;
-        }
-
-        container.scrollLeft = nextScrollLeft;
-        connectorController.scheduleDrawConnections();
         event.preventDefault();
     }, { passive: false, capture: true });
 
     container.addEventListener('click', (event) => {
+        const stripDirection = event.target instanceof Element
+            ? event.target.closest('[data-multi-strip-direction]')?.getAttribute('data-multi-strip-direction')
+            : null;
+        if (stripDirection) {
+            moveFocusedStrip(stripDirection === 'previous' ? -1 : 1);
+            return;
+        }
         const target = event.target instanceof Element ? event.target.closest('[data-panel-id], [data-pair-index], [data-multi-add-side], [data-multi-remove-panel], [data-multi-panel-copy]') : null;
         if (!target) {
             return;
@@ -1622,6 +1682,13 @@ function initializeMultiDiffInteractions() {
         if (panelId && selectsPanel) {
             setActiveMultiPanel(panelId, true);
         }
+    });
+
+    window.addEventListener('keydown', (event) => {
+        if (currentMode !== MODE_MULTI_WAY || !event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
+        if (event.target instanceof Element && event.target.closest('.monaco-editor')) return;
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        if (moveFocusedStrip(event.key === 'ArrowLeft' ? -1 : 1)) event.preventDefault();
     });
 }
 
@@ -1694,7 +1761,7 @@ function setActiveMultiPanel(panelId, notifyHost) {
     }
     updateMultiActivePairModel(false);
     updateActiveMultiShellState();
-    revealActiveMultiPanel();
+    applyFocusedStripLayout();
 
     if (notifyHost) {
         host.postMessage({
@@ -1716,12 +1783,12 @@ function setActiveMultiPair(pairIndex, notifyHost) {
 
     const activePanelIndex = multiPanels.findIndex((panel) => panel.id === activeMultiPanelId);
     if (activePanelIndex < 0 || (pair.leftIndex !== activePanelIndex && pair.rightIndex !== activePanelIndex)) {
-        activeMultiPanelId = multiPanels[pair.leftIndex]?.id ?? activeMultiPanelId;
+        activeMultiPanelId = multiPanels[pair.rightIndex]?.id ?? activeMultiPanelId;
     }
     activeMultiPairIndex = pairIndex;
     updateMultiActivePairModel(false, pairIndex);
     updateActiveMultiShellState();
-    revealActiveMultiPanel();
+    applyFocusedStripLayout();
 
     if (notifyHost) {
         host.postMessage({
@@ -1853,13 +1920,28 @@ function updateMultiActivePairModel(shouldReveal, preferredPairIndex = null) {
         return;
     }
 
-    let nextChangeIndex = -1;
-    if (previousChange) {
-        nextChangeIndex = panelChanges.findIndex((change) => change.key === previousChange.key);
+    if (Number.isInteger(preferredPairIndex)
+        && !panelChanges.some((change) => change.pairIndex === preferredPairIndex)) {
+        const preferredPair = multiDiffPairs[preferredPairIndex];
+        if (preferredPair) {
+            activeMultiPairIndex = preferredPairIndex;
+            setMultiPanelChangeIndex(activeMultiPanelId, -1);
+            setCurrentDiffModel(preferredPair.diffModel);
+            setActiveDiffIndex(-1, false);
+            applyMultiDiffDecorations(multiDiffPairs);
+            updateActiveMultiShellState();
+            connectorController.scheduleDrawConnections();
+            return;
+        }
     }
 
-    if (nextChangeIndex < 0 && Number.isInteger(preferredPairIndex)) {
+    let nextChangeIndex = -1;
+    if (Number.isInteger(preferredPairIndex)) {
         nextChangeIndex = panelChanges.findIndex((change) => change.pairIndex === preferredPairIndex);
+    }
+
+    if (nextChangeIndex < 0 && previousChange) {
+        nextChangeIndex = panelChanges.findIndex((change) => change.key === previousChange.key);
     }
 
     const currentPanelChangeIndex = getMultiPanelChangeIndex(activeMultiPanelId, panelChanges);
@@ -3277,6 +3359,7 @@ function applyNavigationSidebarWidth() {
 }
 
 function resizeDiffWorkspace() {
+    applyFocusedStripLayout(false);
     layoutEditors();
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();

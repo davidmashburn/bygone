@@ -741,17 +741,62 @@ body.is-resizing-sidebar .history-rail-resizer {
     height: 100%;
     padding: 12px;
     box-sizing: border-box;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.multi-strip-controls {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 30px;
+}
+
+.multi-strip-button {
+    width: 30px;
+    height: 26px;
+    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+    border-radius: 5px;
+    background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+    cursor: pointer;
+    font: 16px/1 inherit;
+}
+
+.multi-strip-button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.multi-strip-position {
+    min-width: 150px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
 }
 
 .multi-view-track {
     display: grid;
-    height: 100%;
+    flex: 1 1 auto;
     min-height: 0;
     align-content: stretch;
-    width: 100%;
-    min-width: 100%;
+    transform: translate3d(0, 0, 0);
+    transition: transform 180ms ease-out;
+    will-change: transform;
+}
+
+.multi-view-track.is-positioning {
+    transition: none;
+}
+
+.multi-strip-panel-mode .multi-gutter {
+    visibility: hidden;
+    pointer-events: none;
 }
 
 .multi-pane {
@@ -955,6 +1000,12 @@ body.is-resizing-sidebar .history-rail-resizer {
 
 .multi-gutter:hover {
     filter: brightness(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .multi-view-track {
+        transition: none;
+    }
 }
 
 .hidden {
