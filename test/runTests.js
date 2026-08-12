@@ -950,6 +950,7 @@ function testSidebarsExposeResizeCollapseAndRestoreControls() {
 
     const presenterMarkup = fs.readFileSync(path.join(__dirname, '..', 'web', 'index.html'), 'utf8');
     const presenterHost = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
+    const presenterSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'presenter.css'), 'utf8');
     assert.match(presenterMarkup, /id="tour-sidebar-hide"/);
     assert.match(presenterMarkup, /id="tour-sidebar-show"/);
     assert.match(presenterMarkup, /id="tour-sidebar-resizer"[^>]+role="separator"/);
@@ -960,6 +961,7 @@ function testSidebarsExposeResizeCollapseAndRestoreControls() {
     assert.match(presenterHost, /bygone:workspace-resize-start/);
     assert.match(rendererSource, /captureWorkspaceResizeScrollSnapshot/);
     assert.match(rendererSource, /restoreWorkspaceResizeScrollSnapshot/);
+    assert.doesNotMatch(presenterSource, /font(?:-size)?:\s*(?:500\s+)?(?:9|10|11)px\b/);
 }
 
 function testWordWrapControllerPersistsAndAppliesPreference() {

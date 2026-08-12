@@ -144,7 +144,7 @@ body.tour-mode.tour-discussion #container {
     gap: 0.5ch;
     align-items: baseline;
     color: var(--tour-muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.55;
 }
 
@@ -252,7 +252,7 @@ body.tour-discussion .tour-narrative-resizer {
     min-width: 0;
     color: var(--tour-muted);
     font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 10px;
+    font-size: 12px;
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
@@ -283,13 +283,13 @@ body.tour-discussion .tour-narrative-resizer {
     min-height: 30px;
     padding: 8px 12px 6px 18px;
     color: var(--tour-muted);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 750;
     letter-spacing: 0.09em;
     text-transform: uppercase;
 }
 
-.tour-rail-count { color: var(--tour-faint); font: 500 10px var(--vscode-editor-font-family, monospace); letter-spacing: 0; }
+.tour-rail-count { color: var(--tour-faint); font: 500 12px var(--vscode-editor-font-family, monospace); letter-spacing: 0; }
 
 .tour-return-focus {
     margin-left: auto;
@@ -299,7 +299,7 @@ body.tour-discussion .tour-narrative-resizer {
     border-radius: 4px;
     background: transparent;
     cursor: pointer;
-    font: 9px var(--tour-body-font);
+    font: 12px var(--tour-body-font);
     letter-spacing: 0;
     text-transform: none;
 }
@@ -343,7 +343,7 @@ body.tour-discussion .tour-narrative-resizer {
 .tour-file-marker {
     padding-top: 1px;
     color: var(--tour-faint);
-    font-size: 10px;
+    font-size: 12px;
     text-align: center;
 }
 
@@ -366,13 +366,13 @@ body.tour-discussion .tour-narrative-resizer {
 .tour-file-path {
     color: #f5f6fb;
     font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .tour-file-meta {
     margin-top: 2px;
     color: var(--tour-muted);
-    font-size: 9px;
+    font-size: 12px;
 }
 
 .tour-file.is-omitted .tour-file-meta { color: #d7aa7b; }
@@ -380,7 +380,7 @@ body.tour-discussion .tour-narrative-resizer {
 .tour-chapter-title {
     margin: 15px 10px 7px;
     color: var(--tour-muted);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 750;
     letter-spacing: 0.09em;
     text-transform: uppercase;
@@ -413,7 +413,7 @@ body.tour-discussion .tour-narrative-resizer {
 .tour-scene-number {
     padding-top: 1px;
     color: var(--tour-muted);
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .tour-scene-copy {
@@ -440,12 +440,12 @@ body.tour-discussion .tour-narrative-resizer {
     margin-bottom: 3px;
     color: var(--tour-muted);
     font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .tour-scene-note {
     color: var(--tour-muted);
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .tour-commits-section {
@@ -462,7 +462,7 @@ body.tour-discussion .tour-narrative-resizer {
     gap: 8px;
     margin: 0;
     color: var(--tour-muted);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 750;
     letter-spacing: 0.09em;
     text-transform: uppercase;
@@ -501,7 +501,7 @@ body.tour-discussion .tour-narrative-resizer {
 
 .tour-commits li {
     color: var(--tour-faint);
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.35;
 }
 
@@ -532,7 +532,7 @@ body.tour-discussion .tour-narrative-resizer {
 .tour-narrative-chapter {
     margin-bottom: 5px;
     color: var(--tour-accent-bright);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -557,7 +557,7 @@ body.tour-discussion .tour-narrative-resizer {
     margin: 0 0 9px;
     padding-left: 18px;
     color: var(--tour-body);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
 }
 
@@ -566,7 +566,7 @@ body.tour-discussion .tour-narrative-resizer {
     flex-wrap: wrap;
     gap: 0;
     color: var(--tour-muted);
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.45;
 }
 
@@ -574,7 +574,7 @@ body.tour-discussion .tour-narrative-resizer {
     margin: 0 8px;
     color: var(--tour-faint);
     content: "·";
-    font-size: 9px;
+    font-size: 12px;
 }
 
 .tour-narrative-takeaway {
@@ -583,7 +583,7 @@ body.tour-discussion .tour-narrative-resizer {
     color: var(--tour-body);
     border-left: 2px solid rgba(128, 117, 255, 0.28);
     background: rgba(255, 255, 255, 0.015);
-    font-size: 11px;
+    font-size: 12px;
 }
 
 .tour-step {
@@ -599,7 +599,7 @@ body.tour-discussion .tour-narrative-resizer {
 }
 
 .tour-step-title { color: #fff; font-size: 13px; font-weight: 750; }
-.tour-step-body { margin: 3px 0 0; color: var(--tour-body); font-size: 11px; line-height: 1.45; }
+.tour-step-body { margin: 3px 0 0; color: var(--tour-body); font-size: 12px; line-height: 1.45; }
 
 .tour-connection {
     margin-top: 7px;
@@ -607,7 +607,7 @@ body.tour-discussion .tour-narrative-resizer {
     color: var(--tour-faint);
     border-top: 1px solid rgba(166, 140, 255, 0.2);
     font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 9px;
+    font-size: 12px;
 }
 
 body.tour-discussion .tour-narrative {
