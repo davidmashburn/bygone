@@ -55,7 +55,7 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
 function parseTourArgs(args) {
     const [action, ...rest] = args;
     if (!TOUR_ACTIONS.includes(action)) {
-        throw new Error(`Usage: bygone tour <${TOUR_ACTIONS.join('|')}> [file.bygone.yaml]`);
+        throw new Error(`Usage: bygone tour <${TOUR_ACTIONS.join('|')}> [file.bygone]`);
     }
     if (action === 'schema') {
         if (rest.length > 0) throw new Error('tour schema does not accept additional arguments.');
@@ -88,7 +88,7 @@ function parseTourArgs(args) {
         if (sourcePath) throw new Error(`tour ${action} accepts exactly one source file.`);
         sourcePath = arg;
     }
-    if (!sourcePath) throw new Error(`tour ${action} requires a .bygone.yaml source file.`);
+    if (!sourcePath) throw new Error(`tour ${action} requires a .bygone source file.`);
     if (action === 'validate' && outputPath) throw new Error('--output is only valid with tour compile.');
     if (action === 'compile' && json) throw new Error('--json is only valid with tour validate or coverage.');
     if (action !== 'coverage' && minimumCoverage !== undefined) {

@@ -38,7 +38,7 @@ _bygone() {
         '--base:Set the branch-review base ref'
         '-m:Set the branch-review base ref'
         '--main:Set the branch-review base ref'
-        '--tour:Use an authored change-tour YAML file'
+        '--tour:Use an authored .bygone presentation'
         '-h:Show command help'
         '--help:Show command help'
     )
@@ -58,7 +58,7 @@ _bygone() {
         '--help:Show command help'
     )
     shells=('zsh:Z shell' 'bash:Bash' 'fish:Fish shell')
-    tour_actions=('context:Build structured change evidence' 'validate:Validate source and anchors' 'compile:Compile a portable manifest' 'schema:Print the source schema')
+    tour_actions=('context:Build structured change evidence' 'coverage:Measure authored tour coverage' 'validate:Validate source and anchors' 'compile:Compile a portable manifest' 'schema:Print the source schema')
 
     if (( CURRENT == 2 )); then
         _describe 'bygone command' root_items
@@ -82,8 +82,8 @@ _bygone() {
                     compadd -- --base --output -o --max-patch-bytes --max-total-patch-bytes
                     _bygone_git_refs
                 fi
-            elif [[ "$words[3]" == "validate" || "$words[3]" == "compile" ]]; then
-                _files -g '*.bygone.yaml'
+            elif [[ "$words[3]" == "coverage" || "$words[3]" == "validate" || "$words[3]" == "compile" ]]; then
+                _files -g '*.bygone' -g '*.bygone.yaml'
             fi
             ;;
         review)
@@ -96,7 +96,7 @@ _bygone() {
             ;;
         present)
             if [[ "$previous" == (--tour) ]]; then
-                _files -g '*.bygone.yaml'
+                _files -g '*.bygone' -g '*.bygone.yaml'
             elif [[ "$previous" == (--base|-m|--main) ]]; then
                 _bygone_git_refs
             else

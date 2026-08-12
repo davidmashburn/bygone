@@ -284,6 +284,10 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     assert.match(intentSource, /intent\.kind === 'explore-branch'[\s\S]{0,100}'review'/);
     assert.match(intentSource, /'present', '--tour', intent\.tourPath/);
     assert.match(intentSource, /intent\.paths/);
+    assert.ok(packageJson.contributes.languages.some((entry) => (
+        entry.id === 'yaml' && entry.extensions.includes('.bygone')
+    )));
+    assert.match(extensionSource, /'Bygone presentations': \['bygone', 'yaml', 'yml'\]/);
     for (const removed of ['bygone.compareDirectories', 'bygone.compareMultipleDirectories', 'bygone.compareMultipleFiles', 'bygone.reviewBranch']) {
         assert.ok(!packageJson.contributes.commands.some((entry) => entry.command === removed));
         assert.ok(!packageJson.activationEvents.includes(`onCommand:${removed}`));
@@ -662,8 +666,8 @@ function testPresentArgumentsUseSharedBaseAliases() {
         tourPath: undefined,
         explicitHeadRef: 'feature/tour'
     });
-    assert.deepEqual(parsePresentArgs(['-m', 'main', '--tour', 'review.bygone.yaml']), {
-        headRef: 'HEAD', baseRef: 'main', tourPath: 'review.bygone.yaml', explicitHeadRef: undefined
+    assert.deepEqual(parsePresentArgs(['-m', 'main', '--tour', 'review.bygone']), {
+        headRef: 'HEAD', baseRef: 'main', tourPath: 'review.bygone', explicitHeadRef: undefined
     });
     assert.throws(() => parsePresentArgs(['--unknown']), /Unknown present option/);
 }
@@ -725,21 +729,23 @@ function testVersionTourChangelogRemainsReproducible() {
 }
 
 function testAgentTourCommandsValidateCompileAndExposeSchema() {
-    assert.deepEqual(parseTourArgs(['validate', 'review.bygone.yaml', '--json']), {
-        action: 'validate', sourcePath: 'review.bygone.yaml', outputPath: undefined, json: true
+    assert.deepEqual(parseTourArgs(['validate', 'review.bygone', '--json']), {
+        action: 'validate', sourcePath: 'review.bygone', outputPath: undefined, json: true
     });
-    assert.deepEqual(parseTourArgs(['compile', 'review.bygone.yaml', '-o', 'tour.json']), {
-        action: 'compile', sourcePath: 'review.bygone.yaml', outputPath: 'tour.json', json: false
+    assert.deepEqual(parseTourArgs(['compile', 'review.bygone', '-o', 'tour.json']), {
+        action: 'compile', sourcePath: 'review.bygone', outputPath: 'tour.json', json: false
     });
+    assert.equal(parseTourArgs(['validate', 'legacy.bygone.yaml']).sourcePath, 'legacy.bygone.yaml');
+    assert.equal(parseTourArgs(['validate', 'explicit-source.txt']).sourcePath, 'explicit-source.txt');
     assert.deepEqual(parseTourArgs(['context', 'feature/tour', '--base', 'main', '--max-patch-bytes', '4096']), {
         action: 'context', headRef: 'feature/tour', baseRef: 'main', outputPath: undefined,
         maxPatchBytes: 4096, maxTotalPatchBytes: undefined
     });
-    assert.deepEqual(parseTourArgs(['coverage', 'review.bygone.yaml', '--json', '--minimum-coverage', '75']), {
-        action: 'coverage', sourcePath: 'review.bygone.yaml', outputPath: undefined, json: true, minimumCoverage: 75
+    assert.deepEqual(parseTourArgs(['coverage', 'review.bygone', '--json', '--minimum-coverage', '75']), {
+        action: 'coverage', sourcePath: 'review.bygone', outputPath: undefined, json: true, minimumCoverage: 75
     });
-    assert.throws(() => parseTourArgs(['validate']), /requires a \.bygone\.yaml/);
-    assert.throws(() => parseTourArgs(['compile', 'review.bygone.yaml', '--json']), /only valid with tour validate/);
+    assert.throws(() => parseTourArgs(['validate']), /requires a \.bygone source/);
+    assert.throws(() => parseTourArgs(['compile', 'review.bygone', '--json']), /only valid with tour validate/);
 
     const repoRoot = path.join(__dirname, '..');
     const sourcePath = 'examples/bygone-history.bygone.yaml';

@@ -50,6 +50,14 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "yaml",
+        "extensions": [
+          ".bygone"
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "bygone.compareFiles",

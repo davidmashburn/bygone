@@ -29,7 +29,7 @@ export function activate(context: vscode.ExtensionContext) {
                 canSelectFiles: true,
                 canSelectFolders: false,
                 canSelectMany: false,
-                filters: { 'Bygone tours': ['yaml', 'yml'] },
+                filters: { 'Bygone presentations': ['bygone', 'yaml', 'yml'] },
                 openLabel: 'Open in Bygone Desktop'
             });
             const tour = selected?.[0];

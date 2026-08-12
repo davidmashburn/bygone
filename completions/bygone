@@ -23,7 +23,7 @@ _bygone() {
             ;;
         tour)
             if (( COMP_CWORD == 2 )); then
-                COMPREPLY=( $(compgen -W 'context validate compile schema' -- "$cur") )
+                COMPREPLY=( $(compgen -W 'context coverage validate compile schema' -- "$cur") )
             elif [[ "${COMP_WORDS[2]}" == "context" ]]; then
                 refs="$(_bygone_git_refs)"
                 if [[ "$prev" =~ ^(--base|-m|--main)$ ]]; then
@@ -50,7 +50,7 @@ _bygone() {
         present)
             refs="$(_bygone_git_refs)"
             if [[ "$prev" == "--tour" ]]; then
-                COMPREPLY=( $(compgen -f -X '!*.bygone.yaml' -- "$cur") )
+                COMPREPLY=( $(compgen -f -- "$cur") )
                 compopt -o filenames 2>/dev/null || true
             elif [[ "$prev" =~ ^(--base|-m|--main)$ ]]; then
                 COMPREPLY=( $(compgen -W "$refs" -- "$cur") )
