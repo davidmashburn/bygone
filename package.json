@@ -42,10 +42,12 @@
     "onCommand:bygone.compareMultipleDirectories",
     "onCommand:bygone.compareMultipleFiles",
     "onCommand:bygone.compareWithSelected",
-    "onCommand:bygone.compareTestFiles",
     "onCommand:bygone.compareFileHistory",
     "onCommand:bygone.compareActiveFileHistory",
     "onCommand:bygone.reviewBranch",
+    "onCommand:bygone.exploreBranchInDesktop",
+    "onCommand:bygone.presentBranchInDesktop",
+    "onCommand:bygone.openTourInDesktop",
     "onView:bygone.diffView"
   ],
   "main": "./out/extension.js",
@@ -77,11 +79,6 @@
         "category": "Bygone"
       },
       {
-        "command": "bygone.compareTestFiles",
-        "title": "Compare Test Files",
-        "category": "Bygone"
-      },
-      {
         "command": "bygone.compareFileHistory",
         "title": "Compare File History",
         "category": "Bygone"
@@ -94,6 +91,21 @@
       {
         "command": "bygone.reviewBranch",
         "title": "Review Branch",
+        "category": "Bygone"
+      },
+      {
+        "command": "bygone.exploreBranchInDesktop",
+        "title": "Explore Current Branch in Desktop",
+        "category": "Bygone"
+      },
+      {
+        "command": "bygone.presentBranchInDesktop",
+        "title": "Present Current Branch in Desktop",
+        "category": "Bygone"
+      },
+      {
+        "command": "bygone.openTourInDesktop",
+        "title": "Open Authored Tour in Desktop…",
         "category": "Bygone"
       },
       {
@@ -136,6 +148,17 @@
         }
       ]
     },
+    "configuration": {
+      "title": "Bygone",
+      "properties": {
+        "bygone.desktopExecutable": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Absolute path to the Bygone Desktop executable used for branch and tour hand-off commands."
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -162,7 +185,7 @@
     "compile": "npm run typecheck && node ./scripts/build.mjs",
     "completions:generate": "node ./scripts/generate-completions.mjs",
     "icons:generate": "node ./scripts/generate-icons.mjs",
-    "package:vsix": "vsce package",
+    "package:vsix": "node ./scripts/check-vsix-contents.mjs && vsce package",
     "standalone:start": "npm run compile && node ./scripts/run-electron.mjs ./out/standalone-main.js",
     "standalone:smoke": "npm run compile && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-multi && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-directory",
     "walkthrough:refresh": "node ./scripts/refresh-walkthrough-screenshots.mjs",

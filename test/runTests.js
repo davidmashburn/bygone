@@ -187,6 +187,24 @@ function testStandaloneMenusExposeProductAreasAndReplace() {
     assert.match(findSource, /replaceAll: 'editor\.action\.replaceAll'/);
 }
 
+function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
+    const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+    const extensionSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'extension.ts'), 'utf8');
+    const launcherSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'desktopLauncher.ts'), 'utf8');
+    const packageCheck = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'check-vsix-contents.mjs'), 'utf8');
+
+    assert.ok(!packageJson.activationEvents.includes('onCommand:bygone.compareTestFiles'));
+    assert.ok(!packageJson.contributes.commands.some((entry) => entry.command === 'bygone.compareTestFiles'));
+    for (const command of ['bygone.exploreBranchInDesktop', 'bygone.presentBranchInDesktop', 'bygone.openTourInDesktop']) {
+        assert.ok(packageJson.contributes.commands.some((entry) => entry.command === command));
+        assert.match(extensionSource, new RegExp(command.replaceAll('.', '\\.')));
+    }
+    assert.match(launcherSource, /spawn\(executable, args,[\s\S]{0,180}shell: false/);
+    assert.match(launcherSource, /getConfiguration\('bygone'\).*desktopExecutable/);
+    assert.match(packageJson.scripts['package:vsix'], /check-vsix-contents/);
+    assert.match(packageCheck, /Unexpected VSIX files/);
+}
+
 function testLineClickSelectsContainingTwoWayChange() {
     const model = buildTwoWayDiffModel('one\ntwo\nthree\nfour\n', 'one\nTWO\nthree\nFOUR\n');
     const rightChanges = buildBlockChanges(model.blocks, 'right');
@@ -2060,6 +2078,7 @@ function run() {
     testWebTourHostSeparatesFileAndNarrativeNavigation();
     testTourAnnotationPersistsAcrossChangeNavigation();
     testStandaloneMenusExposeProductAreasAndReplace();
+    testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime();
     testLineClickSelectsContainingTwoWayChange();
     testLineClickIgnoresCollapsedSideOfOneSidedChange();
     testLineClickPrefersCurrentAdjacentPair();

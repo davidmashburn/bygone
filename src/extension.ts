@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { FileComparator } from './fileComparator';
 import { DiffViewProvider } from './diffViewProvider';
 import { BygoneUriHandler } from './uriHandler';
+import { launchDesktop } from './desktopLauncher';
 
 export function activate(context: vscode.ExtensionContext) {
     const fileComparator = new FileComparator();
@@ -20,10 +21,22 @@ export function activate(context: vscode.ExtensionContext) {
         registerCommand('bygone.compareMultipleDirectories', () => fileComparator.compareMultipleDirectoriesCommand()),
         registerCommand('bygone.compareMultipleFiles', () => fileComparator.compareMultipleFilesCommand()),
         registerCommand('bygone.compareWithSelected', (resource: vscode.Uri) => fileComparator.compareWithSelected(resource)),
-        registerCommand('bygone.compareTestFiles', () => fileComparator.compareTestFiles()),
         registerCommand('bygone.compareFileHistory', (resource?: vscode.Uri) => fileComparator.compareFileHistory(resource)),
         registerCommand('bygone.compareActiveFileHistory', () => fileComparator.compareFileHistory()),
         registerCommand('bygone.reviewBranch', () => fileComparator.reviewCurrentBranch()),
+        registerCommand('bygone.exploreBranchInDesktop', (resource?: vscode.Uri) => launchDesktop(['review'], resource)),
+        registerCommand('bygone.presentBranchInDesktop', (resource?: vscode.Uri) => launchDesktop(['present'], resource)),
+        registerCommand('bygone.openTourInDesktop', async () => {
+            const selected = await vscode.window.showOpenDialog({
+                canSelectFiles: true,
+                canSelectFolders: false,
+                canSelectMany: false,
+                filters: { 'Bygone tours': ['yaml', 'yml'] },
+                openLabel: 'Open in Bygone Desktop'
+            });
+            const tour = selected?.[0];
+            return tour ? launchDesktop(['present', '--tour', tour.fsPath], tour) : false;
+        }),
         registerCommand('bygone.openStandaloneDownloads', () => vscode.env.openExternal(standaloneDownloadUrl))
     );
 }
