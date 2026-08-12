@@ -41,11 +41,15 @@ or `Alt+Left`/`Alt+Right` to change focus.
 - `Alt+Z` toggles long-line wrapping.
 - `Cmd/Ctrl+R` refreshes sessions whose source can be rebuilt safely.
 
-Search results identify the panel and line they came from. Repository-wide and
-Git-history search are separate future scopes. In a directory or branch
-session, choose **Current change set** to search changed text files that are not
+Search results identify the panel and line they came from. In a directory or
+branch session, choose **Current change set** to search changed text files that are not
 currently open; selecting a result opens its comparison and reveals the exact
 side and line.
+
+While viewing one file's history, choose **Git history** and then select the
+query meaning: **Content occurrence** finds every revision snapshot containing
+the text, while **Introduction or removal** finds revisions where the number of
+matches changed. Selecting a result opens that exact parent-to-commit comparison.
 
 ## Move into Present
 

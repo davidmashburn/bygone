@@ -11,6 +11,7 @@ const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
 const { buildMultiDirectoryComparison } = require('../src/directoryDiff.ts');
 const { searchChangeSetSnapshots } = require('../src/changeSetSearch.ts');
 const { detectRipgrepCapability } = require('../src/repositorySearch.ts');
+const { searchFileHistory } = require('../src/gitHistorySearch.ts');
 const { materializeBranchReviewTrees, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('./menuUtils.js');
@@ -1267,6 +1268,20 @@ async function handleRendererMessage(message) {
 
     if (message.type === 'searchChangeSet' && Number.isInteger(message.requestId)) {
         searchCurrentChangeSet(message);
+        return;
+    }
+
+    if (message.type === 'searchGitHistory' && Number.isInteger(message.requestId)) {
+        searchCurrentFileHistory(message);
+        return;
+    }
+
+    if (message.type === 'openGitHistorySearchResult'
+        && Number.isInteger(message.historyIndex)
+        && Number.isInteger(message.sideIndex)
+        && Number.isInteger(message.lineNumber)) {
+        await openFileHistorySearchResult(message.historyIndex);
+        postToRenderer({ type: 'revealSearchResult', sideIndex: message.sideIndex, lineNumber: message.lineNumber, startColumn: message.startColumn, endColumn: message.endColumn });
         return;
     }
 
@@ -3051,6 +3066,41 @@ function getCurrentChangeSetContext() {
         return session.returnDirectory;
     }
     return null;
+}
+
+function searchCurrentFileHistory(message) {
+    const source = session.mode === 'multi-diff' && session.multi?.sourceKind === 'history'
+        ? session.multi.historySource
+        : null;
+    if (!source) {
+        postToRenderer({ type: 'gitHistorySearchResults', requestId: message.requestId, matches: [], unavailable: true });
+        return;
+    }
+    try {
+        const matches = searchFileHistory(
+            source.entries,
+            String(message.query || ''),
+            message.historyMode === 'change' ? 'change' : 'content',
+            { regex: Boolean(message.regex), caseSensitive: Boolean(message.caseSensitive), limit: 500 }
+        );
+        postToRenderer({ type: 'gitHistorySearchResults', requestId: message.requestId, matches });
+    } catch (error) {
+        postToRenderer({ type: 'gitHistorySearchResults', requestId: message.requestId, matches: [], error: getErrorMessage(error) });
+    }
+}
+
+async function openFileHistorySearchResult(historyIndex) {
+    if (session.mode !== 'multi-diff' || session.multi?.sourceKind !== 'history' || !session.multi.historySource) return;
+    const source = session.multi.historySource;
+    const entry = source.entries[historyIndex];
+    if (!entry) return;
+    session.multi.files = [
+        createHistoryMultiPanelState(entry, historyIndex, 'left', source.filePath),
+        createHistoryMultiPanelState(entry, historyIndex, 'right', source.filePath)
+    ];
+    session.multi.activePanelId = session.multi.files[1].id;
+    session.multi.activePairIndex = 0;
+    await sendCurrentMultiDiff();
 }
 
 async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review = null) {

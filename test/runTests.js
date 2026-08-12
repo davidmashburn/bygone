@@ -14,6 +14,7 @@ const { buildDirectoryComparison, buildMultiDirectoryComparison } = require('../
 const { buildRipgrepArgs, detectRipgrepCapability, parseRipgrepJsonLine } = require('../out/repositorySearch.js');
 const { searchChangeSetSnapshots } = require('../out/changeSetSearch.js');
 const { GitHistoryService } = require('../out/gitHistory.js');
+const { searchFileHistory } = require('../out/gitHistorySearch.js');
 const { buildBinaryComparison, classifyFile } = require('../out/binaryComparison.js');
 const {
     materializeBranchReviewTrees,
@@ -1064,6 +1065,59 @@ function testChangeSetSearchFindsUnopenedSnapshotContent() {
     assert.match(rendererSource, /type: 'openChangeSetSearchResult'/);
     assert.match(standaloneSource, /function searchCurrentChangeSet/);
     assert.match(standaloneSource, /classifyFile\(filePath\) !== 'text'/);
+}
+
+function testGitHistorySearchSeparatesContentFromChanges() {
+    const entries = [
+        {
+            commit: 'new',
+            parentCommit: 'old',
+            shortCommit: '2222222',
+            summary: 'remove one marker',
+            timestamp: '',
+            parentSummary: '',
+            parentTimestamp: '',
+            leftLabel: 'old',
+            rightLabel: 'new',
+            leftContent: 'marker\nkeep marker\n',
+            rightContent: 'keep marker\n'
+        },
+        {
+            commit: 'old',
+            parentCommit: 'base',
+            shortCommit: '1111111',
+            summary: 'introduce markers',
+            timestamp: '',
+            parentSummary: '',
+            parentTimestamp: '',
+            leftLabel: 'base',
+            rightLabel: 'old',
+            leftContent: 'nothing yet\n',
+            rightContent: 'marker\nkeep marker\n'
+        }
+    ];
+
+    const contentMatches = searchFileHistory(entries, 'marker', 'content');
+    assert.deepEqual(contentMatches.map(({ historyIndex, lineNumber }) => ({ historyIndex, lineNumber })), [
+        { historyIndex: 0, lineNumber: 1 },
+        { historyIndex: 1, lineNumber: 1 },
+        { historyIndex: 1, lineNumber: 2 }
+    ]);
+
+    const changeMatches = searchFileHistory(entries, 'marker', 'change');
+    assert.deepEqual(changeMatches.map(({ historyIndex, sideIndex, occurrenceDelta }) => ({ historyIndex, sideIndex, occurrenceDelta })), [
+        { historyIndex: 0, sideIndex: 0, occurrenceDelta: -1 },
+        { historyIndex: 1, sideIndex: 1, occurrenceDelta: 2 }
+    ]);
+    assert.equal(searchFileHistory(entries, '^keep', 'content', { regex: true }).length, 2);
+    assert.throws(() => searchFileHistory(entries, '[', 'content', { regex: true }), /Invalid regular expression/);
+
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    assert.match(rendererSource, /option value="gitHistory">Git history/);
+    assert.match(rendererSource, /Introduction or removal/);
+    assert.match(rendererSource, /type: 'openGitHistorySearchResult'/);
+    assert.match(standaloneSource, /function searchCurrentFileHistory/);
 }
 
 function testSidebarsExposeResizeCollapseAndRestoreControls() {
@@ -2356,6 +2410,7 @@ function run() {
     testVisiblePaneSearchCombinesOnlyProvidedEditors();
     testRepositorySearchBuildsStructuredRipgrepBoundary();
     testChangeSetSearchFindsUnopenedSnapshotContent();
+    testGitHistorySearchSeparatesContentFromChanges();
     testSidebarsExposeResizeCollapseAndRestoreControls();
     testWordWrapControllerPersistsAndAppliesPreference();
     testWordWrapUsesSharedRendererAndStandaloneMenu();

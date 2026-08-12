@@ -95,6 +95,8 @@ let lastPostedWordWrapState = null;
 let workspaceResizeScrollSnapshot = null;
 let changeSetSearchRequestId = 0;
 let changeSetSearchTimer = null;
+let gitHistorySearchRequestId = 0;
+let gitHistorySearchTimer = null;
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -166,6 +168,11 @@ host.onMessage((message) => {
 
     if (message.type === 'changeSetSearchResults' && message.requestId === changeSetSearchRequestId) {
         receiveChangeSetSearchResults(message);
+        return;
+    }
+
+    if (message.type === 'gitHistorySearchResults' && message.requestId === gitHistorySearchRequestId) {
+        receiveGitHistorySearchResults(message);
         return;
     }
 
@@ -2035,6 +2042,11 @@ function initializeVisiblePaneSearch() {
         '<option value="visible">Visible panes</option>',
         '<option value="comparison">All comparison panels</option>',
         '<option value="changeSet">Current change set</option>',
+        '<option value="gitHistory">Git history</option>',
+        '</select>',
+        '<select class="visible-search-history-mode" aria-label="Git history query meaning" title="Git history query meaning" hidden>',
+        '<option value="content">Content occurrence</option>',
+        '<option value="change">Introduction or removal</option>',
         '</select>',
         '<button class="visible-search-option" type="button" data-visible-search-option="case" aria-pressed="false" title="Match case">Aa</button>',
         '<button class="visible-search-option" type="button" data-visible-search-option="regex" aria-pressed="false" title="Use regular expression">.*</button>',
@@ -2048,6 +2060,7 @@ function initializeVisiblePaneSearch() {
     const input = palette.querySelector('.visible-search-input');
     input.addEventListener('input', updateVisiblePaneSearch);
     palette.querySelector('.visible-search-scope').addEventListener('change', updateVisiblePaneSearch);
+    palette.querySelector('.visible-search-history-mode').addEventListener('change', updateVisiblePaneSearch);
     palette.addEventListener('click', (event) => {
         const option = event.target instanceof Element
             ? event.target.closest('[data-visible-search-option]')
@@ -2087,6 +2100,7 @@ function openVisiblePaneSearch() {
 function closeVisiblePaneSearch() {
     getElement('visible-pane-search')?.classList.add('hidden');
     clearTimeout(changeSetSearchTimer);
+    clearTimeout(gitHistorySearchTimer);
     visibleSearchMatches = [];
 }
 
@@ -2123,10 +2137,34 @@ function updateVisiblePaneSearch() {
     if (!palette || palette.classList.contains('hidden')) return;
     const query = palette.querySelector('.visible-search-input').value;
     const scope = palette.querySelector('.visible-search-scope').value;
+    const historyModeControl = palette.querySelector('.visible-search-history-mode');
+    historyModeControl.hidden = scope !== 'gitHistory';
     const caseSensitive = palette.querySelector('[data-visible-search-option="case"]').getAttribute('aria-pressed') === 'true';
     const regex = palette.querySelector('[data-visible-search-option="regex"]').getAttribute('aria-pressed') === 'true';
     const summary = palette.querySelector('.visible-search-summary');
     const results = palette.querySelector('.visible-search-results');
+    if (scope === 'gitHistory') {
+        clearTimeout(gitHistorySearchTimer);
+        visibleSearchMatches = [];
+        results.innerHTML = '';
+        if (!query) {
+            summary.textContent = 'Type to search this file’s Git history';
+            return;
+        }
+        summary.textContent = 'Searching Git history…';
+        gitHistorySearchTimer = window.setTimeout(() => {
+            gitHistorySearchRequestId += 1;
+            host.postMessage({
+                type: 'searchGitHistory',
+                requestId: gitHistorySearchRequestId,
+                query,
+                historyMode: historyModeControl.value,
+                caseSensitive,
+                regex
+            });
+        }, 150);
+        return;
+    }
     if (scope === 'changeSet') {
         clearTimeout(changeSetSearchTimer);
         visibleSearchMatches = [];
@@ -2168,7 +2206,8 @@ function updateVisiblePaneSearch() {
 
 function receiveChangeSetSearchResults(message) {
     const palette = getElement('visible-pane-search');
-    if (!palette || palette.classList.contains('hidden')) return;
+    if (!palette || palette.classList.contains('hidden')
+        || palette.querySelector('.visible-search-scope').value !== 'changeSet') return;
     const summary = palette.querySelector('.visible-search-summary');
     const results = palette.querySelector('.visible-search-results');
     if (message.error) {
@@ -2181,7 +2220,7 @@ function receiveChangeSetSearchResults(message) {
         results.innerHTML = '';
         return;
     }
-    visibleSearchMatches = (message.matches || []).map((match) => ({ ...match, hostResult: true }));
+    visibleSearchMatches = (message.matches || []).map((match) => ({ ...match, hostResultKind: 'changeSet' }));
     summary.textContent = `${visibleSearchMatches.length} result${visibleSearchMatches.length === 1 ? '' : 's'} in current change set`;
     results.innerHTML = visibleSearchMatches.map((match, index) => (
         `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="${escapeAttr(match.label)}:${match.lineNumber}">`
@@ -2191,11 +2230,41 @@ function receiveChangeSetSearchResults(message) {
     )).join('');
 }
 
+function receiveGitHistorySearchResults(message) {
+    const palette = getElement('visible-pane-search');
+    if (!palette || palette.classList.contains('hidden')
+        || palette.querySelector('.visible-search-scope').value !== 'gitHistory') return;
+    const summary = palette.querySelector('.visible-search-summary');
+    const results = palette.querySelector('.visible-search-results');
+    if (message.error) {
+        summary.textContent = message.error;
+        results.innerHTML = '';
+        return;
+    }
+    if (message.unavailable) {
+        summary.textContent = 'Git-history search is available while viewing file history in desktop.';
+        results.innerHTML = '';
+        return;
+    }
+    visibleSearchMatches = (message.matches || []).map((match) => ({ ...match, hostResultKind: 'gitHistory' }));
+    summary.textContent = `${visibleSearchMatches.length} result${visibleSearchMatches.length === 1 ? '' : 's'} in Git history`;
+    results.innerHTML = visibleSearchMatches.map((match, index) => (
+        `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="${escapeAttr(match.label)}:${match.lineNumber}">`
+        + `<span class="visible-search-location">${escapeHtml(match.label)}</span>`
+        + `<span class="visible-search-preview">${escapeHtml(match.preview.trim())}</span>`
+        + '</button>'
+    )).join('');
+}
+
 function revealVisibleSearchMatch(index) {
     const match = visibleSearchMatches[index];
     if (!match) return;
-    if (match.hostResult) {
+    if (match.hostResultKind === 'changeSet') {
         host.postMessage({ type: 'openChangeSetSearchResult', ...match });
+        return;
+    }
+    if (match.hostResultKind === 'gitHistory') {
+        host.postMessage({ type: 'openGitHistorySearchResult', ...match });
         return;
     }
     if (currentMode === MODE_TWO_WAY) {
