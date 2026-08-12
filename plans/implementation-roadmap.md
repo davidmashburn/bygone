@@ -9,32 +9,28 @@ Active
 The quick and near-quick pass completed plan reconciliation, standalone menu
 organization, writable-pane Replace, production command cleanup, Open Authored
 Tour, panel mutability labels, advanced checked-in tour examples, focused
-multi-panel navigation, visible-pane search, minimal VS Code desktop hand-off,
-and VSIX content assertions.
+multi-panel navigation, visible/all-panel/change-set search, Git-history search,
+authored-tour narrative/code search, minimal VS Code desktop hand-off, and VSIX
+content assertions. The repository-search adapter is benchmarked and reports
+its ripgrep capability, but is not yet a user-facing Search in Files workflow.
 
 Remaining work is ordered as follows:
 
-1. Finish standalone product guidance and platform QA: complete the internal
-   surface overview, session-kind/provenance detail, command enablement and
-   focus testing, Help/documentation entry points, and platform-native menu
-   polish.
-2. Harden the VS Code boundary without moving the UI yet: define a versioned
-   launch-intent contract, handle trust, remote and multi-root workspaces,
-   tighten contextual command visibility, add missing-app behavior, and add a
-   VSIX size budget.
-3. Validate the focused strip across browser and VS Code hosts at narrow,
-   medium and wide sizes; profile large panel stacks before considering
-   virtualization.
-4. Implement current-comparison/change-set search on the shared session result
-   contract, including provenance and stale-result invalidation.
-5. Prototype cancellable repository search with `rg --json`, benchmark only
-   open-source fixtures, and decide executable distribution before shipping.
-6. Add Git-history search, then tour narrative/code search after stable result
-   identities and Return to Tour behavior are verified.
-7. Design previewed Replace in Files only after read-only repository search is
-   stable.
-8. Revisit the deferred VS Code editor-area WebviewPanel and native document
-   bridge as a separate, larger project.
+1. Finish platform QA: validate the focused strip and presenter at narrow,
+   medium, and wide sizes across desktop, browser, and VS Code hosts; complete
+   remaining platform-native menu and focus checks.
+2. Turn the standalone `rg --json` prototype into read-only Search in Files:
+   decide executable distribution, expose include/exclude, ignore, hidden,
+   file-type, context, and limit controls, and verify cancellation plus stale
+   result handling.
+3. Unify and document source-specific search behavior: literal, case,
+   whole-word, regex, Unicode, multiline, provenance, and performance budgets
+   for comparison, change-set, repository, Git-history, and tour adapters.
+4. Design previewed Replace in Files only after step 2 is stable. Require
+   revalidation, recoverability, exclusions, encoding policy, symlink-root
+   containment, and partial-failure reporting before any batch write ships.
+5. Revisit the explicitly deferred VS Code editor-area WebviewPanel and native
+   document bridge as a separate, larger project.
 
 ## Goal
 
