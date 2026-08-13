@@ -238,14 +238,23 @@ The wrapper scripts are:
 
 ## Commands
 
-- `Bygone: Compare Files`
-- `Bygone: Compare Directories`
-- `Bygone: Compare Multiple Directories`
-- `Bygone: Compare Multiple Files`
+- `Bygone: Compare Active File With…`
+- `Bygone: Compare Selected Files`
 - `Bygone: Compare with Selected`
-- `Bygone: Compare Test Files`
-- `Bygone: Compare File History`
-- `Bygone: Compare Active File History`
+- `Bygone: Cancel Staged Comparison`
+- `Bygone: View Active File History`
+- `Bygone: Open This Comparison in Desktop`
+- `Bygone: Compare Directories in Desktop…`
+- `Bygone: Compare Three or More Files in Desktop…`
+- `Bygone: Explore Current Branch in Desktop`
+- `Bygone: Present Current Branch in Desktop`
+- `Bygone: Open Authored Tour in Desktop…`
+- `Bygone: Install or Open Desktop App`
+
+Two-file comparisons open as independent editor tabs. Trusted local worktree
+panes edit through VS Code documents, so changes participate in dirty state,
+undo, save, and external-document updates. Historical and non-local inputs are
+read-only. Desktop hand-offs are unavailable in remote extension hosts.
 
 ## Limitations
 

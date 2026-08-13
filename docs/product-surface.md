@@ -59,14 +59,15 @@ tours but does not attempt to duplicate schema-aware authoring forms.
 
 | Command | Intended ownership | Current state | Editing contract | Follow-up |
 | --- | --- | --- | --- | --- |
-| Compare Files / Compare With Selected | VS Code contextual comparison | Implemented in shared Activity Bar host | Treat cautiously until VS Code documents own writable state | Move to an editor-area tab in the deferred host project |
-| Compare File History / Active File History | VS Code contextual history | Implemented | Historical content is read-only | Retain in the eventual editor-area lifecycle |
-| Explore Current Branch in Desktop | Desktop hand-off | Implemented for local configured executable | No source content crosses the boundary | Add trust, remote, multi-root, and versioned-intent checks |
+| Compare Active File With / Compare Selected Files / Compare With Selected | VS Code contextual comparison | Independent, restorable editor-area tabs | Trusted local panes use `TextDocument` and `WorkspaceEdit`; non-local panes are read-only | Core |
+| View Active File History | VS Code contextual history | Implemented in the editor area | Historical content is read-only; an open unsaved worktree buffer is preserved | Core |
+| Open This Comparison in Desktop | Desktop hand-off | Implemented for active local file pairs | No source content crosses the boundary | Core |
+| Explore Current Branch in Desktop | Desktop hand-off | Implemented for a local configured executable | No source content crosses the boundary | Disabled for untrusted, remote, and virtual workspaces |
 | Present Current Branch in Desktop | Desktop hand-off | Implemented | Read-only presentation | Same launch-contract hardening |
 | Open Authored Tour in Desktop | Desktop hand-off | Implemented | Read-only presentation | Same launch-contract hardening |
 | Compare Directories / Three or More Files in Desktop | Desktop hand-off | Implemented with local multi-selection | Desktop owns the comparison and writable lifecycle | Keep contextual visibility narrow |
 | Legacy in-extension directory, N-panel, and branch-review commands | Desktop-owned | Removed from production contributions | Parallel extension state is not the target product | Internal compatibility code can be removed with the deferred host rewrite |
-| Open Standalone App Downloads | Setup fallback | Implemented | Not applicable | Prefer installed-app detection and actionable missing-app guidance |
+| Install or Open Desktop App | Setup fallback | Implemented | Not applicable | Opens settings or release downloads when no executable is configured |
 
 The production extension does not contribute test fixtures. The VSIX is checked
 against an explicit runtime-file allowlist. VS Code repository search should use
