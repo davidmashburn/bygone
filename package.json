@@ -11,14 +11,14 @@
   "preview": true,
   "icon": "media/icon.png",
   "bin": {
-    "bygone": "./bin/bygone.js"
+    "bygone": "bin/bygone.js"
   },
   "engines": {
     "vscode": "^1.74.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/davidmashburn/bygone.git"
+    "url": "git+https://github.com/davidmashburn/bygone.git"
   },
   "bugs": {
     "url": "https://github.com/davidmashburn/bygone/issues"

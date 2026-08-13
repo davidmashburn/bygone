@@ -16,7 +16,7 @@ const npmPackageJson = {
     repository: rootPackageJson.repository,
     bugs: rootPackageJson.bugs,
     bin: {
-        bygone: './bin/bygone.js'
+        bygone: 'bin/bygone.js'
     },
     main: './out/standalone-main.js',
     files: [

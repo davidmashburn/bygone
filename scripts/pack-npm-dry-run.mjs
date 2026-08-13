@@ -1,8 +1,15 @@
 import { spawnSync } from 'child_process';
+import { readFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const packageJson = JSON.parse(readFileSync('./dist/npm-package/package.json', 'utf8'));
+
+if (packageJson.bin?.bygone !== 'bin/bygone.js') {
+    throw new Error('Staged npm package must expose bygone through bin/bygone.js without a leading ./');
+}
+
 const result = spawnSync(npm, ['pack', '--dry-run', './dist/npm-package'], {
     cwd: process.cwd(),
     env: {
