@@ -62,6 +62,14 @@ interface SerializedFileComparison {
     rightUri: string;
 }
 
+interface SerializedHistoryComparison {
+    version: 1;
+    kind: 'history';
+    fileUri: string;
+}
+
+type SerializedPanel = SerializedFileComparison | SerializedHistoryComparison;
+
 export class DiffViewProvider implements vscode.Disposable {
     public static readonly viewType = 'bygone.diffPanel';
     private readonly panels = new Map<string, PanelState>();
@@ -78,6 +86,7 @@ export class DiffViewProvider implements vscode.Disposable {
     private historyStagedToggleHandler?: (includeStaged: boolean) => void;
     private historySkipUnchangedToggleHandler?: (skipUnchanged: boolean) => void;
     private historySelectionHandler?: (index: number) => void;
+    private historyRestoreHandler?: (file: vscode.Uri) => Promise<void>;
     private directoryEntryOpenHandler?: (relativePath: string) => void;
     private fileNavigationHandler?: (direction: 'previous' | 'next') => void;
     private directoryReturnHandler?: () => void;
@@ -112,6 +121,10 @@ export class DiffViewProvider implements vscode.Disposable {
         this.historySelectionHandler = handler;
     }
 
+    public setHistoryRestoreHandler(handler: (file: vscode.Uri) => Promise<void>): void {
+        this.historyRestoreHandler = handler;
+    }
+
     public setDirectoryEntryOpenHandler(handler: (relativePath: string) => void): void {
         this.directoryEntryOpenHandler = handler;
     }
@@ -141,33 +154,31 @@ export class DiffViewProvider implements vscode.Disposable {
     }
 
     public async deserializeWebviewPanel(panel: vscode.WebviewPanel, rawState: unknown): Promise<void> {
-        const serialized = parseSerializedFileComparison(rawState);
+        const serialized = parseSerializedPanel(rawState);
         if (!serialized) {
             panel.dispose();
             return;
         }
+        if (serialized.kind === 'history') {
+            this.createPanel(panel.title, 'history', panel, serialized);
+            await this.historyRestoreHandler?.(vscode.Uri.parse(serialized.fileUri));
+            return;
+        }
         const leftUri = vscode.Uri.parse(serialized.leftUri);
         const rightUri = vscode.Uri.parse(serialized.rightUri);
-        const key = fileComparisonKey(leftUri, rightUri);
-        this.createPanel(panel.title, key, panel, serialized);
+        this.createPanel(panel.title, fileComparisonKey(leftUri, rightUri), panel, serialized);
         const [leftDocument, rightDocument] = await Promise.all([
             vscode.workspace.openTextDocument(leftUri),
             vscode.workspace.openTextDocument(rightUri)
         ]);
-        await this.showDiff(
-            leftUri,
-            rightUri,
-            leftDocument.getText(),
-            rightDocument.getText(),
-            buildTwoWayDiffModel(leftDocument.getText(), rightDocument.getText())
-        );
+        await this.showDiff(leftUri, rightUri, leftDocument.getText(), rightDocument.getText(), buildTwoWayDiffModel(leftDocument.getText(), rightDocument.getText()));
     }
 
     private createPanel(
         title: string,
         key: string,
         restoredPanel?: vscode.WebviewPanel,
-        serialized?: SerializedFileComparison
+        serialized?: SerializedPanel
     ): PanelState {
         const panel = restoredPanel ?? vscode.window.createWebviewPanel(
             DiffViewProvider.viewType,
@@ -331,7 +342,11 @@ export class DiffViewProvider implements vscode.Disposable {
         diffModel: TwoWayDiffModel,
         history: HistoryViewState
     ) {
-        this.revealPanel(`${path.basename(file.path)} History`, `history:${file.toString()}`);
+        this.revealPanel(
+            `${path.basename(file.path)} History`,
+            'history',
+            { version: 1, kind: 'history', fileUri: file.toString() }
+        );
 
         this.currentTwoWayDiff = {
             file1: leftLabel,
@@ -414,7 +429,7 @@ export class DiffViewProvider implements vscode.Disposable {
         } satisfies ShowThreeWayMergeMessage);
     }
 
-    private revealPanel(title: string, key: string, serialized?: SerializedFileComparison): vscode.WebviewPanel {
+    private revealPanel(title: string, key: string, serialized?: SerializedPanel): vscode.WebviewPanel {
         const existing = this.panels.get(key);
         if (!existing) {
             return this.createPanel(title, key, undefined, serialized).panel;
@@ -482,7 +497,7 @@ export class DiffViewProvider implements vscode.Disposable {
         };
     }
 
-    private getHtmlForWebview(webview: vscode.Webview, serialized?: SerializedFileComparison) {
+    private getHtmlForWebview(webview: vscode.Webview, serialized?: SerializedPanel) {
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'webview.css'));
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'webview.js'));
         const editorWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'editor.worker.js'));
@@ -928,15 +943,18 @@ function isTwoWayStateDocument(state: TwoWayDiffState | undefined, uri: vscode.U
         || state?.rightUri?.toString() === uri.toString();
 }
 
-function parseSerializedFileComparison(value: unknown): SerializedFileComparison | undefined {
+function parseSerializedPanel(value: unknown): SerializedPanel | undefined {
     if (!value || typeof value !== 'object') {
         return undefined;
     }
-    const candidate = value as Partial<SerializedFileComparison>;
-    return candidate.version === 1
-        && candidate.kind === 'files'
-        && typeof candidate.leftUri === 'string'
-        && typeof candidate.rightUri === 'string'
-        ? candidate as SerializedFileComparison
+    const candidate = value as Record<string, unknown>;
+    if (candidate.version !== 1) {
+        return undefined;
+    }
+    if (candidate.kind === 'files' && typeof candidate.leftUri === 'string' && typeof candidate.rightUri === 'string') {
+        return { version: 1, kind: 'files', leftUri: candidate.leftUri, rightUri: candidate.rightUri };
+    }
+    return candidate.kind === 'history' && typeof candidate.fileUri === 'string'
+        ? { version: 1, kind: 'history', fileUri: candidate.fileUri }
         : undefined;
 }

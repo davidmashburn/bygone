@@ -76,6 +76,7 @@ export class FileComparator implements vscode.Disposable {
         this.diffViewProvider.setHistorySelectionHandler((index) => {
             void this.selectFileHistoryEntry(index);
         });
+        this.diffViewProvider.setHistoryRestoreHandler((file) => this.loadFileHistory(file, false));
         this.diffViewProvider.setDirectoryEntryOpenHandler((relativePath) => {
             void this.openDirectoryEntry(relativePath);
         });

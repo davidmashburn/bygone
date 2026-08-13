@@ -353,6 +353,8 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     assert.match(providerSource, /private readonly panels = new Map/);
     assert.match(providerSource, /vscodeApi\.setState/);
     assert.match(providerSource, /deserializeWebviewPanel/);
+    assert.match(providerSource, /kind: 'history', fileUri: file\.toString\(\)/);
+    assert.match(providerSource, /setHistoryRestoreHandler/);
     assert.match(providerSource, /workspace\.applyEdit\(edit\)/);
     assert.match(providerSource, /onDidChangeTextDocument/);
     assert.match(providerSource, /workspace\.isTrusted && uri\.scheme === 'file'/);
