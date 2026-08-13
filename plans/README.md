@@ -26,6 +26,9 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [Native editor power in Bygone](editor-power.md) — use native VS Code editors
+  for full language and extension behavior, and keep standalone language work
+  deliberately bounded.
 - [`.bygone` document format and native opening](bygone-document-format.md) —
   add Windows and Linux native associations when packaging support is ready.
 - [Focused multi-panel strip](focused-multi-panel-strip.md) — profile unusually
