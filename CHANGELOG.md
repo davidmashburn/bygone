@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.8.1
+
+- Added familiar multi-cursor, selection, line, comment, indentation, folding, drag-and-drop, and context-menu editing across Bygone's two-way and multi-panel editors
+- Added source-aware Monaco models and bounded syntax support while preserving comparison state, model disposal, tour rendering, and connector geometry
+- Returned `Cmd/Ctrl+Alt+Up/Down` to Monaco's cursor controls and added change navigation through `F7`, `Shift+F7`, and simultaneous `Cmd/Ctrl+Shift+Up/Down`
+- Added standalone Selection and Lines menus backed by allowlisted native Monaco actions
+
 ## 0.8.0
 
 - Added full-surface search across visible panes, comparison panels, unopened change-set files, file history, authored tours, and repositories, plus previewable safe repository replacement
