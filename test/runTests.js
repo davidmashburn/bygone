@@ -328,13 +328,17 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
         assert.ok(!packageJson.activationEvents.includes(`onCommand:${removed}`));
     }
     for (const command of ['bygone.compareDirectoriesInDesktop', 'bygone.compareMultipleFilesInDesktop', 'bygone.openComparisonInDesktop', 'bygone.exploreBranchInDesktop', 'bygone.presentBranchInDesktop', 'bygone.openTourInDesktop']) {
-        assert.equal(packageJson.contributes.commands.find((entry) => entry.command === command)?.enablement, 'isWorkspaceTrusted && bygone.desktopHandoffAvailable');
+        assert.equal(packageJson.contributes.commands.find((entry) => entry.command === command)?.enablement, 'isWorkspaceTrusted && !remoteName && !virtualWorkspace');
     }
     assert.equal(packageJson.contributes.commands.find((entry) => entry.command === 'bygone.compareFiles')?.title, 'Compare Active File With…');
     assert.ok(packageJson.contributes.commands.some((entry) => entry.command === 'bygone.compareSelectedFiles'));
     assert.ok(packageJson.contributes.commands.some((entry) => entry.command === 'bygone.cancelCompareSelection'));
+    assert.equal(packageJson.contributes.commands.find((entry) => entry.command === 'bygone.cancelCompareSelection')?.enablement, 'bygone.hasCompareSelection');
+    assert.equal(packageJson.contributes.menus.commandPalette.find((entry) => entry.command === 'bygone.compareSelectedFiles')?.when, 'false');
     assert.ok(!packageJson.contributes.commands.some((entry) => entry.command === 'bygone.compareFileHistory'));
-    assert.match(extensionSource, /bygone\.desktopHandoffAvailable/);
+    assert.match(comparatorSource, /setContext', 'bygone\.hasCompareSelection', true/);
+    assert.match(comparatorSource, /setContext', 'bygone\.hasCompareSelection', false/);
+    assert.doesNotMatch(extensionSource, /bygone\.desktopHandoffAvailable/);
     assert.match(launcherSource, /vscode\.env\.remoteName/);
     assert.ok(packageJson.contributes.menus['explorer/context'].every((entry) => typeof entry.when === 'string'));
     assert.equal(packageJson.contributes.viewsContainers, undefined);
@@ -345,6 +349,7 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     assert.match(providerSource, /retainContextWhenHidden: true/);
     assert.match(providerSource, /vscode\.ViewColumn\.Active/);
     assert.match(extensionSource, /registerWebviewPanelSerializer/);
+    assert.ok(packageJson.activationEvents.includes('onWebviewPanel:bygone.diffPanel'));
     assert.match(providerSource, /private readonly panels = new Map/);
     assert.match(providerSource, /vscodeApi\.setState/);
     assert.match(providerSource, /deserializeWebviewPanel/);

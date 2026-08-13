@@ -11,26 +11,19 @@ export function activate(context: vscode.ExtensionContext) {
     const standaloneDownloadUrl = vscode.Uri.parse('https://github.com/davidmashburn/bygone/releases');
 
     fileComparator.setDiffViewProvider(diffViewProvider);
-    const updateDesktopAvailability = () => vscode.commands.executeCommand(
-        'setContext',
-        'bygone.desktopHandoffAvailable',
-        !vscode.env.remoteName && Boolean(vscode.workspace.workspaceFolders?.some((folder) => folder.uri.scheme === 'file'))
-    );
-    void updateDesktopAvailability();
 
     context.subscriptions.push(
         fileComparator,
         diffViewProvider,
         vscode.window.registerWebviewPanelSerializer(DiffViewProvider.viewType, diffViewProvider),
         vscode.window.registerUriHandler(uriHandler),
-        vscode.workspace.onDidChangeWorkspaceFolders(() => void updateDesktopAvailability()),
         registerCommand('bygone.compareFiles', () => fileComparator.compareActiveFileWith()),
         registerCommand('bygone.compareSelectedFiles', (resource?: vscode.Uri, resources?: vscode.Uri[]) => (
             fileComparator.compareSelectedFiles(resources?.length ? resources : resource ? [resource] : [])
         )),
         registerCommand('bygone.compareDirectoriesInDesktop', () => pickPathsAndLaunchDesktop('directories')),
         registerCommand('bygone.compareMultipleFilesInDesktop', () => pickPathsAndLaunchDesktop('files')),
-        registerCommand('bygone.compareWithSelected', (resource: vscode.Uri) => fileComparator.compareWithSelected(resource)),
+        registerCommand('bygone.compareWithSelected', (resource?: vscode.Uri) => fileComparator.compareWithSelected(resource)),
         registerCommand('bygone.cancelCompareSelection', () => fileComparator.cancelCompareSelection()),
         registerCommand('bygone.compareFileHistory', (resource?: vscode.Uri) => fileComparator.compareFileHistory(resource)),
         registerCommand('bygone.compareActiveFileHistory', (resource?: vscode.Uri) => fileComparator.compareFileHistory(resource)),

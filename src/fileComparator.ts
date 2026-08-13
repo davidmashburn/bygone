@@ -130,17 +130,23 @@ export class FileComparator implements vscode.Disposable {
         await this.compareFiles(files[0], files[1]);
     }
 
-    public async compareWithSelected(resource: vscode.Uri): Promise<void> {
+    public async compareWithSelected(resource?: vscode.Uri): Promise<void> {
         try {
+            const target = resource ?? vscode.window.activeTextEditor?.document.uri;
+            if (!target || target.scheme !== 'file') {
+                vscode.window.showInformationMessage('Open or select a local file to stage a comparison.');
+                return;
+            }
             if (!this.selectedFile) {
-                this.selectedFile = resource;
-                this.selectionStatus.text = `$(compare-changes) Bygone: ${path.basename(resource.fsPath)} selected`;
+                this.selectedFile = target;
+                this.selectionStatus.text = `$(compare-changes) Bygone: ${path.basename(target.fsPath)} selected`;
                 this.selectionStatus.show();
-                vscode.window.showInformationMessage(`Selected ${resource.path.split('/').pop()}. Select another file to compare.`);
+                void vscode.commands.executeCommand('setContext', 'bygone.hasCompareSelection', true);
+                vscode.window.showInformationMessage(`Selected ${target.path.split('/').pop()}. Select another file to compare.`);
                 return;
             }
 
-            await this.compareFiles(this.selectedFile, resource);
+            await this.compareFiles(this.selectedFile, target);
             this.cancelCompareSelection();
         } catch (error) {
             this.showErrorMessage('Error comparing files', error);
@@ -150,6 +156,7 @@ export class FileComparator implements vscode.Disposable {
     public cancelCompareSelection(): void {
         this.selectedFile = undefined;
         this.selectionStatus.hide();
+        void vscode.commands.executeCommand('setContext', 'bygone.hasCompareSelection', false);
     }
 
     public async compareMultipleFilesCommand(): Promise<void> {

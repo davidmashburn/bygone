@@ -37,6 +37,7 @@
   ],
   "activationEvents": [
     "onUri",
+    "onWebviewPanel:bygone.diffPanel",
     "onCommand:bygone.compareFiles",
     "onCommand:bygone.compareSelectedFiles",
     "onCommand:bygone.compareDirectoriesInDesktop",
@@ -74,13 +75,13 @@
         "command": "bygone.compareDirectoriesInDesktop",
         "title": "Compare Directories in Desktop…",
         "category": "Bygone",
-        "enablement": "isWorkspaceTrusted && bygone.desktopHandoffAvailable"
+        "enablement": "isWorkspaceTrusted && !remoteName && !virtualWorkspace"
       },
       {
         "command": "bygone.compareMultipleFilesInDesktop",
         "title": "Compare Three or More Files in Desktop…",
         "category": "Bygone",
-        "enablement": "isWorkspaceTrusted && bygone.desktopHandoffAvailable"
+        "enablement": "isWorkspaceTrusted && !remoteName && !virtualWorkspace"
       },
       {
         "command": "bygone.compareWithSelected",
@@ -95,31 +96,32 @@
       {
         "command": "bygone.cancelCompareSelection",
         "title": "Cancel Staged Comparison",
-        "category": "Bygone"
+        "category": "Bygone",
+        "enablement": "bygone.hasCompareSelection"
       },
       {
         "command": "bygone.openComparisonInDesktop",
         "title": "Open This Comparison in Desktop",
         "category": "Bygone",
-        "enablement": "isWorkspaceTrusted && bygone.desktopHandoffAvailable"
+        "enablement": "isWorkspaceTrusted && !remoteName && !virtualWorkspace"
       },
       {
         "command": "bygone.exploreBranchInDesktop",
         "title": "Explore Current Branch in Desktop",
         "category": "Bygone",
-        "enablement": "isWorkspaceTrusted && bygone.desktopHandoffAvailable"
+        "enablement": "isWorkspaceTrusted && !remoteName && !virtualWorkspace"
       },
       {
         "command": "bygone.presentBranchInDesktop",
         "title": "Present Current Branch in Desktop",
         "category": "Bygone",
-        "enablement": "isWorkspaceTrusted && bygone.desktopHandoffAvailable"
+        "enablement": "isWorkspaceTrusted && !remoteName && !virtualWorkspace"
       },
       {
         "command": "bygone.openTourInDesktop",
         "title": "Open Authored Tour in Desktop…",
         "category": "Bygone",
-        "enablement": "isWorkspaceTrusted && bygone.desktopHandoffAvailable"
+        "enablement": "isWorkspaceTrusted && !remoteName && !virtualWorkspace"
       },
       {
         "command": "bygone.openStandaloneDownloads",
@@ -128,6 +130,12 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "bygone.compareSelectedFiles",
+          "when": "false"
+        }
+      ],
       "explorer/context": [
         {
           "command": "bygone.compareSelectedFiles",
@@ -142,7 +150,7 @@
         {
           "command": "bygone.compareDirectoriesInDesktop",
           "group": "compare",
-          "when": "explorerResourceIsFolder && isWorkspaceTrusted && bygone.desktopHandoffAvailable"
+          "when": "explorerResourceIsFolder && isWorkspaceTrusted && !remoteName && !virtualWorkspace"
         },
         {
           "command": "bygone.compareActiveFileHistory",
