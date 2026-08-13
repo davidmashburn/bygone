@@ -33,6 +33,7 @@ const {
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
 const { computeFocusedStripLayout } = require('../media/focusedStripController.js');
 const { findVisibleMatches } = require('../media/visibleSearchController.js');
+const { applyTwoWayRenderTransition } = require('../media/renderTransition.js');
 const { dispatchFindCommand, resolveFindTarget, runFindCommand } = require('../media/findController.js');
 const {
     WORD_WRAP_STORAGE_KEY,
@@ -213,12 +214,37 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(rendererSource, /let currentTourAnnotations = \[\];/);
     assert.match(rendererSource, /currentTwoWayComparisonKey = comparisonKey;\s+currentTourAnnotations = tourAnnotations;/);
     assert.match(rendererSource, /function setActiveDiffIndex[\s\S]{0,300}applyDiffDecorations\(currentDiffModel, currentTourAnnotations\)/);
-    assert.match(rendererSource, /function showTwoWayDiff[\s\S]{0,1400}activeDiffIndex = diffBlocks\.length[\s\S]{0,900}updateEditorValues\(leftContent, rightContent\)[\s\S]{0,300}applyDiffDecorations\(suppliedDiffModel, currentTourAnnotations\)/);
+    assert.match(rendererSource, /function showTwoWayDiff[\s\S]{0,2200}applyTwoWayRenderTransition\(\{[\s\S]{0,500}updateEditorValues\(leftContent, rightContent\)[\s\S]{0,300}activeDiffIndex = nextResolvedDiffIndex[\s\S]{0,300}applyDiffDecorations\(suppliedDiffModel, currentTourAnnotations\)/);
     assert.doesNotMatch(rendererSource, /function showTwoWayDiff[\s\S]{0,1400}setActiveDiffIndex\(/);
     assert.match(rendererSource, /className: tourAnnotation\.active \? 'bygone-tour-anchor' : undefined/);
     assert.match(rendererSource, /linesDecorationsClassName: 'bygone-tour-anchor-gutter'/);
     assert.match(hostSource, /scene\.steps\s+\.filter\(\(candidate\) => candidate\.diff\.path === step\.diff\.path\)/);
     assert.match(hostSource, /active: candidate\.id === step\.id/);
+}
+
+function testTourTransitionUpdatesLongDocumentBeforeDeepAnnotation() {
+    let modelLineCount = 57;
+    let activeDiffIndex = -1;
+    const deepAnchorLine = 258;
+    const events = [];
+
+    applyTwoWayRenderTransition({
+        updateModels() {
+            modelLineCount = 300;
+            events.push('models');
+        },
+        updateActiveIndex() {
+            activeDiffIndex = 0;
+            events.push('index');
+        },
+        applyDecorations() {
+            assert.ok(deepAnchorLine <= modelLineCount, 'deep anchor must target the replacement document');
+            events.push('decorations');
+        }
+    });
+
+    assert.equal(activeDiffIndex, 0);
+    assert.deepEqual(events, ['models', 'index', 'decorations']);
 }
 
 function testStandaloneMenusExposeProductAreasAndReplace() {
@@ -2625,6 +2651,7 @@ function run() {
     testTourFileNavigationUsesCompleteRenderableFileIndex();
     testWebTourHostSeparatesFileAndNarrativeNavigation();
     testTourAnnotationPersistsAcrossChangeNavigation();
+    testTourTransitionUpdatesLongDocumentBeforeDeepAnnotation();
     testStandaloneMenusExposeProductAreasAndReplace();
     testTextPanelsExposeMutabilityProvenance();
     testProductSurfaceOverviewTracksHostsAndBoundaries();

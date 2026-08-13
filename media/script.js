@@ -4,6 +4,7 @@ import { dispatchFindCommand, runFindCommand } from './findController';
 import { applyWordWrap, readWordWrapPreference, writeWordWrapPreference } from './wrapController';
 import { computeFocusedStripLayout } from './focusedStripController';
 import { findVisibleMatches } from './visibleSearchController';
+import { applyTwoWayRenderTransition } from './renderTransition';
 
 const host = createHostBridge();
 const {
@@ -443,7 +444,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     const suppliedDiffModel = diffModel || { rows: [], leftLines: [], rightLines: [], blocks: [], hasChanges: false };
     setCurrentDiffModel(suppliedDiffModel);
     const nextActiveDiffIndex = comparisonChanged ? (initialChangeIndex ?? 0) : activeDiffIndex;
-    activeDiffIndex = diffBlocks.length > 0 ? clamp(nextActiveDiffIndex, 0, diffBlocks.length - 1) : -1;
+    const nextResolvedDiffIndex = diffBlocks.length > 0 ? clamp(nextActiveDiffIndex, 0, diffBlocks.length - 1) : -1;
     directoryEntries = [];
     disposeMultiEditors();
 
@@ -461,9 +462,14 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
 
     ensureTwoWayEditors();
     updateActivePaneHeader();
-    updateEditorValues(leftContent, rightContent);
+    applyTwoWayRenderTransition({
+        updateModels: () => updateEditorValues(leftContent, rightContent),
+        updateActiveIndex: () => {
+            activeDiffIndex = nextResolvedDiffIndex;
+        },
+        applyDecorations: () => applyDiffDecorations(suppliedDiffModel, currentTourAnnotations)
+    });
     updateTwoWayEditorOptions();
-    applyDiffDecorations(suppliedDiffModel, currentTourAnnotations);
     updateChangeToolbarState();
     resetTwoWayScrollPositions();
     layoutEditors();
