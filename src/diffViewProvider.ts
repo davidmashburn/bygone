@@ -36,21 +36,41 @@ export interface DirectoryDiffOptions {
     review?: BranchReviewViewState | null;
 }
 
+interface TwoWayDiffState {
+    file1: string;
+    file2: string;
+    leftUri?: vscode.Uri;
+    rightUri?: vscode.Uri;
+    editableSides: { left: boolean; right: boolean };
+    comparisonId: string;
+    directoryContext?: DirectoryDiffContext;
+}
+
+interface PanelState {
+    key: string;
+    panel: vscode.WebviewPanel;
+    isReady: boolean;
+    pendingMessage?: WebviewOutboundMessage;
+    currentMessage?: WebviewOutboundMessage;
+    currentTwoWayDiff?: TwoWayDiffState;
+}
+
+interface SerializedFileComparison {
+    version: 1;
+    kind: 'files';
+    leftUri: string;
+    rightUri: string;
+}
+
 export class DiffViewProvider implements vscode.Disposable {
     public static readonly viewType = 'bygone.diffPanel';
+    private readonly panels = new Map<string, PanelState>();
+    private activeState?: PanelState;
     private panel?: vscode.WebviewPanel;
     private isReady = false;
     private pendingMessage?: WebviewOutboundMessage;
     private currentMessage?: WebviewOutboundMessage;
-    private currentTwoWayDiff?: {
-        file1: string;
-        file2: string;
-        leftUri?: vscode.Uri;
-        rightUri?: vscode.Uri;
-        editableSides: { left: boolean; right: boolean };
-        comparisonId: string;
-        directoryContext?: DirectoryDiffContext;
-    };
+    private currentTwoWayDiff?: TwoWayDiffState;
     private readonly disposables: vscode.Disposable[] = [];
     private documentUpdateQueue = Promise.resolve();
     private applyingDocumentEdit = false;
@@ -64,8 +84,14 @@ export class DiffViewProvider implements vscode.Disposable {
 
     constructor(private readonly extensionUri: vscode.Uri) {
         this.disposables.push(vscode.workspace.onDidChangeTextDocument((event) => {
-            if (!this.applyingDocumentEdit && this.isCurrentDocument(event.document.uri)) {
-                this.queueDocumentRefresh();
+            if (this.applyingDocumentEdit) {
+                return;
+            }
+            for (const state of this.panels.values()) {
+                const twoWayDiff = state === this.activeState ? this.currentTwoWayDiff : state.currentTwoWayDiff;
+                if (isTwoWayStateDocument(twoWayDiff, event.document.uri)) {
+                    this.queueDocumentRefresh(state);
+                }
             }
         }));
     }
@@ -102,12 +128,43 @@ export class DiffViewProvider implements vscode.Disposable {
         for (const disposable of this.disposables) {
             disposable.dispose();
         }
-        this.panel?.dispose();
+        for (const state of this.panels.values()) {
+            state.panel.dispose();
+        }
+        this.panels.clear();
         this.panel = undefined;
     }
 
-    private createPanel(title: string): vscode.WebviewPanel {
-        const panel = vscode.window.createWebviewPanel(
+    public async deserializeWebviewPanel(panel: vscode.WebviewPanel, rawState: unknown): Promise<void> {
+        const serialized = parseSerializedFileComparison(rawState);
+        if (!serialized) {
+            panel.dispose();
+            return;
+        }
+        const leftUri = vscode.Uri.parse(serialized.leftUri);
+        const rightUri = vscode.Uri.parse(serialized.rightUri);
+        const key = fileComparisonKey(leftUri, rightUri);
+        this.createPanel(panel.title, key, panel, serialized);
+        const [leftDocument, rightDocument] = await Promise.all([
+            vscode.workspace.openTextDocument(leftUri),
+            vscode.workspace.openTextDocument(rightUri)
+        ]);
+        await this.showDiff(
+            leftUri,
+            rightUri,
+            leftDocument.getText(),
+            rightDocument.getText(),
+            buildTwoWayDiffModel(leftDocument.getText(), rightDocument.getText())
+        );
+    }
+
+    private createPanel(
+        title: string,
+        key: string,
+        restoredPanel?: vscode.WebviewPanel,
+        serialized?: SerializedFileComparison
+    ): PanelState {
+        const panel = restoredPanel ?? vscode.window.createWebviewPanel(
             DiffViewProvider.viewType,
             title,
             vscode.ViewColumn.Active,
@@ -117,9 +174,15 @@ export class DiffViewProvider implements vscode.Disposable {
                 localResourceRoots: [this.extensionUri]
             }
         );
-        this.panel = panel;
-        this.isReady = false;
+        const state: PanelState = { key, panel, isReady: false };
+        panel.webview.options = {
+            enableScripts: true,
+            localResourceRoots: [this.extensionUri]
+        };
+        this.panels.set(key, state);
+        this.activateState(state);
         panel.webview.onDidReceiveMessage((message) => {
+            this.activateState(state);
             if (isReadyMessage(message)) {
                 this.isReady = true;
 
@@ -132,7 +195,7 @@ export class DiffViewProvider implements vscode.Disposable {
             }
 
             if (isRecomputeDiffMessage(message)) {
-                this.queueDocumentUpdate(message.leftContent, message.rightContent);
+                this.queueDocumentUpdate(state, message.leftContent, message.rightContent);
             }
 
             if (isHistoryNavigationMessage(message) && this.historyNavigationHandler) {
@@ -180,14 +243,21 @@ export class DiffViewProvider implements vscode.Disposable {
             }
         });
         panel.onDidDispose(() => {
-            if (this.panel === panel) {
+            this.panels.delete(key);
+            if (this.activeState === state) {
                 this.panel = undefined;
+                this.activeState = undefined;
                 this.isReady = false;
                 this.pendingMessage = undefined;
             }
         });
-        panel.webview.html = this.getHtmlForWebview(panel.webview);
-        return panel;
+        panel.onDidChangeViewState(() => {
+            if (panel.active) {
+                this.activateState(state);
+            }
+        });
+        panel.webview.html = this.getHtmlForWebview(panel.webview, serialized);
+        return state;
     }
 
     public async showDiff(
@@ -198,7 +268,12 @@ export class DiffViewProvider implements vscode.Disposable {
         diffModel: TwoWayDiffModel,
         directoryContext?: DirectoryDiffContext
     ) {
-        this.revealPanel(`${path.basename(file1.path)} ↔ ${path.basename(file2.path)}`);
+        const key = fileComparisonKey(file1, file2);
+        this.revealPanel(
+            `${path.basename(file1.path)} ↔ ${path.basename(file2.path)}`,
+            key,
+            { version: 1, kind: 'files', leftUri: file1.toString(), rightUri: file2.toString() }
+        );
 
         const editableSides = directoryContext?.editableSides ?? {
             left: this.canEditDocument(file1),
@@ -231,7 +306,7 @@ export class DiffViewProvider implements vscode.Disposable {
         comparison: BinaryComparison,
         directoryContext?: DirectoryDiffContext
     ) {
-        this.revealPanel(`${comparison.left.label} ↔ ${comparison.right.label}`);
+        this.revealPanel(`${comparison.left.label} ↔ ${comparison.right.label}`, `binary:${comparison.left.path}\u0000${comparison.right.path}`);
 
         this.currentTwoWayDiff = undefined;
         this.postOrQueueMessage({
@@ -251,7 +326,7 @@ export class DiffViewProvider implements vscode.Disposable {
         diffModel: TwoWayDiffModel,
         history: HistoryViewState
     ) {
-        this.revealPanel(`${path.basename(file.path)} History`);
+        this.revealPanel(`${path.basename(file.path)} History`, `history:${file.toString()}`);
 
         this.currentTwoWayDiff = {
             file1: leftLabel,
@@ -276,7 +351,7 @@ export class DiffViewProvider implements vscode.Disposable {
     }
 
     public async showDirectoryDiff(dirs: vscode.Uri[], entries: DirectoryEntry[], options: DirectoryDiffOptions = {}) {
-        this.revealPanel(`${options.labels?.[0] ?? path.basename(dirs[0].path)} ↔ ${options.labels?.[1] ?? path.basename(dirs[1].path)}`);
+        this.revealPanel(`${options.labels?.[0] ?? path.basename(dirs[0].path)} ↔ ${options.labels?.[1] ?? path.basename(dirs[1].path)}`, `directories:${dirs.map((dir) => dir.toString()).join('\u0000')}`);
 
         this.currentTwoWayDiff = undefined;
 
@@ -295,7 +370,7 @@ export class DiffViewProvider implements vscode.Disposable {
         files: Array<{ uri: vscode.Uri; content: string; label?: string }>,
         directoryContext?: Pick<ShowMultiDiffMessage, 'canReturnToDirectory' | 'fileNavigation' | 'directoryNavigation'>
     ) {
-        this.revealPanel(`${files.length}-file comparison`);
+        this.revealPanel(`${files.length}-file comparison`, `multi:${files.map((file) => file.uri.toString()).join('\u0000')}`);
 
         this.currentTwoWayDiff = undefined;
 
@@ -307,7 +382,7 @@ export class DiffViewProvider implements vscode.Disposable {
     }
 
     public async showThreeWayMerge(base: vscode.Uri, left: vscode.Uri, right: vscode.Uri, mergeModel: ThreeWayMergeModel) {
-        this.revealPanel(`${path.basename(left.path)} ↔ ${path.basename(right.path)}`);
+        this.revealPanel(`${path.basename(left.path)} ↔ ${path.basename(right.path)}`, `merge:${base.toString()}\u0000${left.toString()}\u0000${right.toString()}`);
 
         this.postOrQueueMessage({
             type: 'showThreeWayMerge',
@@ -334,13 +409,30 @@ export class DiffViewProvider implements vscode.Disposable {
         } satisfies ShowThreeWayMergeMessage);
     }
 
-    private revealPanel(title: string): vscode.WebviewPanel {
-        if (!this.panel) {
-            return this.createPanel(title);
+    private revealPanel(title: string, key: string, serialized?: SerializedFileComparison): vscode.WebviewPanel {
+        const existing = this.panels.get(key);
+        if (!existing) {
+            return this.createPanel(title, key, undefined, serialized).panel;
         }
-        this.panel.title = title;
-        this.panel.reveal(this.panel.viewColumn, false);
-        return this.panel;
+        this.activateState(existing);
+        existing.panel.title = title;
+        existing.panel.reveal(existing.panel.viewColumn, false);
+        return existing.panel;
+    }
+
+    private activateState(state: PanelState): void {
+        if (this.activeState) {
+            this.activeState.isReady = this.isReady;
+            this.activeState.pendingMessage = this.pendingMessage;
+            this.activeState.currentMessage = this.currentMessage;
+            this.activeState.currentTwoWayDiff = this.currentTwoWayDiff;
+        }
+        this.activeState = state;
+        this.panel = state.panel;
+        this.isReady = state.isReady;
+        this.pendingMessage = state.pendingMessage;
+        this.currentMessage = state.currentMessage;
+        this.currentTwoWayDiff = state.currentTwoWayDiff;
     }
 
     private postOrQueueMessage(message: WebviewOutboundMessage): void {
@@ -385,7 +477,7 @@ export class DiffViewProvider implements vscode.Disposable {
         };
     }
 
-    private getHtmlForWebview(webview: vscode.Webview) {
+    private getHtmlForWebview(webview: vscode.Webview, serialized?: SerializedFileComparison) {
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'webview.css'));
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'webview.js'));
         const editorWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'editor.worker.js'));
@@ -584,6 +676,7 @@ export class DiffViewProvider implements vscode.Disposable {
     </div>
     <script nonce="${nonce}">
         const vscodeApi = acquireVsCodeApi();
+        ${serialized ? `vscodeApi.setState(${JSON.stringify(serialized)});` : ''}
         window.__BYGONE_HOST__ = {
             environment: 'vscode',
             editorWorkerUrl: ${JSON.stringify(editorWorkerUri.toString())},
@@ -602,15 +695,21 @@ export class DiffViewProvider implements vscode.Disposable {
 </html>`;
     }
 
-    private queueDocumentUpdate(leftContent: string, rightContent: string): void {
+    private queueDocumentUpdate(state: PanelState, leftContent: string, rightContent: string): void {
         this.documentUpdateQueue = this.documentUpdateQueue
-            .then(() => this.handleRecomputeDiff(leftContent, rightContent))
+            .then(() => {
+                this.activateState(state);
+                return this.handleRecomputeDiff(leftContent, rightContent);
+            })
             .catch((error) => this.showDocumentEditError(error));
     }
 
-    private queueDocumentRefresh(): void {
+    private queueDocumentRefresh(state: PanelState): void {
         this.documentUpdateQueue = this.documentUpdateQueue
-            .then(() => this.refreshCurrentDocumentDiff())
+            .then(() => {
+                this.activateState(state);
+                return this.refreshCurrentDocumentDiff();
+            })
             .catch((error) => this.showDocumentEditError(error));
     }
 
@@ -678,11 +777,6 @@ export class DiffViewProvider implements vscode.Disposable {
 
     private canEditDocument(uri: vscode.Uri): boolean {
         return vscode.workspace.isTrusted && uri.scheme === 'file';
-    }
-
-    private isCurrentDocument(uri: vscode.Uri): boolean {
-        return this.currentTwoWayDiff?.leftUri?.toString() === uri.toString()
-            || this.currentTwoWayDiff?.rightUri?.toString() === uri.toString();
     }
 
     private showDocumentEditError(error: unknown): void {
@@ -818,4 +912,26 @@ function getNonce(): string {
 
 function fullDocumentRange(document: vscode.TextDocument): vscode.Range {
     return new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
+}
+
+function fileComparisonKey(leftUri: vscode.Uri, rightUri: vscode.Uri): string {
+    return `files:${leftUri.toString()}\u0000${rightUri.toString()}`;
+}
+
+function isTwoWayStateDocument(state: TwoWayDiffState | undefined, uri: vscode.Uri): boolean {
+    return state?.leftUri?.toString() === uri.toString()
+        || state?.rightUri?.toString() === uri.toString();
+}
+
+function parseSerializedFileComparison(value: unknown): SerializedFileComparison | undefined {
+    if (!value || typeof value !== 'object') {
+        return undefined;
+    }
+    const candidate = value as Partial<SerializedFileComparison>;
+    return candidate.version === 1
+        && candidate.kind === 'files'
+        && typeof candidate.leftUri === 'string'
+        && typeof candidate.rightUri === 'string'
+        ? candidate as SerializedFileComparison
+        : undefined;
 }

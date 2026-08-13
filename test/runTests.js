@@ -338,6 +338,10 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     assert.match(providerSource, /createWebviewPanel\(/);
     assert.match(providerSource, /retainContextWhenHidden: true/);
     assert.match(providerSource, /vscode\.ViewColumn\.Active/);
+    assert.match(extensionSource, /registerWebviewPanelSerializer/);
+    assert.match(providerSource, /private readonly panels = new Map/);
+    assert.match(providerSource, /vscodeApi\.setState/);
+    assert.match(providerSource, /deserializeWebviewPanel/);
     assert.match(providerSource, /workspace\.applyEdit\(edit\)/);
     assert.match(providerSource, /onDidChangeTextDocument/);
     assert.match(providerSource, /workspace\.isTrusted && uri\.scheme === 'file'/);
