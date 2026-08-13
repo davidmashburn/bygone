@@ -2,16 +2,17 @@
 
 ## Status
 
-In progress; the production cleanup, desktop hand-off, and initial editor-area
-panel are implemented.
+Implemented.
 
 The extension no longer contributes Compare Test Files or an Activity Bar
 container, packages through a checked allowlist assertion, and exposes safe
 argument-array hand-offs for branch exploration, branch presentation, and
 authored tours through a configured desktop executable. Two-file and file
-history comparisons now open in a reusable editor-area `WebviewPanel` with a
-comparison-specific title. The first panel slice is intentionally read-only
-until workspace-file editing is backed by VS Code's document APIs.
+history comparisons now open in editor-area `WebviewPanel` tabs with
+comparison-specific titles. Equivalent file pairs reuse a tab; different
+pairs remain independent; and file-pair tabs restore after reload. Trusted
+local worktree panes edit through VS Code documents, while historical, remote,
+virtual, and synthetic inputs remain read-only.
 
 Delivered on `main`:
 
@@ -21,10 +22,19 @@ Delivered on `main`:
 - `69e8849` uses open VS Code document content for file comparisons and the
   working-tree edge of history, so unsaved buffers are not replaced by stale
   on-disk reads.
+- `f92f4ed` routes comparison edits through `WorkspaceEdit` and observes normal
+  document changes.
+- `6031108` adds independent, reusable, reload-restorable file-pair tabs.
+- `d011d42` aligns commands, menus, staged selection, Desktop continuation,
+  and local/remote capability boundaries with the companion role.
+- `7d07fcb` fixes serializer activation and timing-independent command
+  availability found in manual Extension Development Host QA.
+- `842764d` restores the single contextual file-history tab across reloads.
 
-Next implementation slice: bridge writable worktree inputs through
-`TextDocument` and `WorkspaceEdit`, preserving dirty buffers, undo, save, and
-external-change behavior before enabling copy or replace controls.
+Validated with the full automated suite, lint, VSIX allowlist packaging, and
+manual OSS-fixture QA covering tab reuse, independent pairs, reload restore,
+document-backed edit/undo, staged-selection cancellation, and command
+availability. No proprietary source was used as test data.
 
 ## Goal
 
@@ -57,12 +67,12 @@ Without an explicit extension plan, shared renderer capability will continue
 to leak into VS Code commands even when the resulting workflow does not fit
 the host.
 
-## Current surface and problems
+## Starting surface and problems
 
-The extension currently contributes commands for two- and multi-file
+Before this plan, the extension contributed commands for two- and multi-file
 comparison, two- and multi-directory comparison, compare-with-selected, test
 files, file history, branch review, and opening standalone downloads. Results
-are hosted in a Bygone Activity Bar webview.
+were hosted in a Bygone Activity Bar webview.
 
 That surface has several issues:
 

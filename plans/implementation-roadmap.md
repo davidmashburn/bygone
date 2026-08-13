@@ -17,13 +17,12 @@ guarded case-sensitive literal Replace in Files preview with exclusion,
 revalidation, atomic writes, rollback, and hash-guarded undo. Search-engine
 differences and in-memory adapter budgets are documented and tested.
 
-Remaining work is ordered as follows:
-
-1. Finish browser and VS Code manual QA for the focused strip, presenter, and
-   shared search surface at narrow, medium, and wide sizes. Desktop captures
-   at 960, 1200, and 1500 pixels plus all desktop smoke modes are complete.
-2. Revisit the explicitly deferred VS Code editor-area WebviewPanel and native
-   document bridge as a separate, larger project.
+The queued browser/presenter QA and VS Code companion work are complete.
+Presenter layouts were exercised at 960, 1200/1280, and 1500 pixels. The VS
+Code extension now uses independent editor-area file-pair tabs, a reusable
+file-history tab, VS Code-owned document editing, reload restoration,
+contextual commands, and guarded Desktop hand-off. Remaining platform work is
+tracked by its owning plans rather than as unfinished host migration.
 
 The canonical [`.bygone` document format and macOS native opening](bygone-document-format.md)
 are complete. Windows and Linux associations remain explicit follow-up
