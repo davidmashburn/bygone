@@ -115,6 +115,8 @@ Two-file and directory drill-down comparisons detect binary content before decod
 
 Change tours can layer an authored, code-connected narrative over the complete generated change set. Pass a `.bygone` file with `--tour`; named source anchors compile to exact commit and line references, while an independent Files rail keeps every changed file available without adding filler scenes to the narrative. The legacy `.bygone.yaml` spelling remains supported. Try the self-referencing example with `bygone present --tour examples/bygone-history.bygone`, then see the [change tour format](./docs/change-tour-format.md).
 
+Packaged macOS builds register `.bygone` with the desktop app, so Finder can open a presentation directly. Windows and Linux builds currently require opening the file through Bygone or the `bygone` command; they do not install an operating-system file association.
+
 Agents can validate anchors and structure with `bygone tour validate <file.bygone> --json`, compile a portable manifest with `bygone tour compile`, and retrieve the authoring contract with `bygone tour schema`. See [Generating change tours with an LLM](./docs/generating-change-tours.md), or give a compatible agent the repository's vendor-neutral [`pr-tour-guide` skill](./skills/pr-tour-guide/SKILL.md).
 
 Contributors should consult the internal [product surface overview](./docs/product-surface.md) before adding a command, mode, tour scene, or packaged artifact.

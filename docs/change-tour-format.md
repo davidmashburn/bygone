@@ -12,6 +12,14 @@ requires the corresponding local repository and Git objects. A compiled
 `.tour.json` manifest contains the resolved source snapshots and is the
 portable artifact, although those snapshots may contain sensitive code.
 
+Packaged macOS builds register `.bygone` with Bygone, allowing a presentation
+inside its repository to open directly from Finder. Windows and Linux builds
+currently do not install an operating-system file association; open the source
+through Bygone or pass it explicitly to `bygone present --tour`. Direct opening
+discovers the repository from the source file's real location, including when
+the selected path is a symbolic link, and reports an error when no containing
+Git worktree can be found.
+
 Run it against a committed branch range, or omit the refs when the source file pins its own range:
 
 ```sh

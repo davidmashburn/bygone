@@ -5,7 +5,7 @@
 ## 0.8.0
 
 - Added full-surface search across visible panes, comparison panels, unopened change-set files, file history, authored tours, and repositories, plus previewable safe repository replacement
-- Made authored tours native `.bygone` documents with repository discovery, direct desktop opening, multiple presentation windows, persistent anchor markers, focused multi-panel navigation, and resizable readable layouts
+- Made authored tours native `.bygone` documents with repository discovery, direct desktop opening on macOS, multiple presentation windows, persistent anchor markers, focused multi-panel navigation, and resizable readable layouts
 - Moved VS Code comparisons into independent, restorable editor tabs with unsaved-document support, contextual commands, editable document bridging, and active file history
 - Simplified desktop discovery and menus, clarified panel mutability, and hardened tour focus restoration, deep-file transitions, performance, and narrow layouts
 
