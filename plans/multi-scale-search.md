@@ -2,12 +2,11 @@
 
 ## Status
 
-In progress; active-pane Find/Replace and visible-pane search are implemented.
-
-The implemented visible-pane slice searches the Monaco models actually shown
-by the focused strip, combines panel/line results, supports case and regular-
-expression options, and activates and reveals the selected match. Repository,
-session, history, and tour scopes remain future work.
+Implemented on `main` for the planned 0.8.0 scopes: active-pane Find/Replace,
+visible and all-panel search, change-set search, Git-history search, authored-
+tour narrative and code search, ripgrep-backed Search in Files, and guarded
+previewed Replace in Files. Source-specific syntax, capability, performance,
+and safety boundaries are documented and covered by open-source fixtures.
 
 ## Goal
 

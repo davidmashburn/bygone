@@ -2,7 +2,9 @@
 
 ## Status
 
-Implemented on `main`; checked-in source examples and final authoring guidance remain.
+Implemented on `main`, with checked-in open-source examples, exact final-state
+validation, and authoring guidance that labels synthetic content as
+explanation stages rather than commits.
 
 ## Goal
 

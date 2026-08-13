@@ -2,7 +2,9 @@
 
 ## Status
 
-Implemented on `main`; pane-local Replace and Replace All remain an immediate follow-up.
+Implemented on `main`, including pane-local Replace and Replace All for
+writable models and read-only command gating for historical and synthetic
+content.
 
 ## Goal
 
@@ -15,19 +17,20 @@ Windows and Linux, enter a query, and move among matches in the active text
 pane. It should behave consistently in the standalone app, VS Code webview,
 and browser-hosted diff or tour wherever the shared Monaco renderer is used.
 
-Pane-local Replace and Replace All are the immediate follow-up needed for the
-standalone application's conventional Edit menu. They use Monaco only when the
-active model is writable. Broader comparison, repository, history, and tour
-search remain separate scopes in the multi-scale search plan.
+Pane-local Replace and Replace All shipped with the standalone application's
+conventional Edit menu. They use Monaco only when the active model is
+writable. Broader comparison, repository, history, and tour search use the
+separate scopes defined in the multi-scale search plan.
 
 ## Context
 
-Bygone already renders textual two-way and multi-panel comparisons with one
-Monaco editor per pane. The renderer tracks an active side in two-way mode and
-an active panel in multi-panel mode, updating that state when an editor or
-pane receives focus. Monaco supplies a mature find widget, match decorations,
-query options, and next/previous navigation, but Bygone does not currently
-expose those capabilities as an intentional application behavior.
+At the time of this plan, Bygone already rendered textual two-way and multi-
+panel comparisons with one Monaco editor per pane. The renderer tracks an
+active side in two-way mode and an active panel in multi-panel mode, updating
+that state when an editor or pane receives focus. Monaco supplies a mature find
+widget, match decorations, query options, and next/previous navigation; the
+implementation exposes those capabilities as intentional application
+behavior.
 
 Electron's page-level `webContents.findInPage` is not a suitable foundation.
 Monaco virtualizes text, so page search cannot reliably see the complete
@@ -51,8 +54,8 @@ Find operates on exactly one text pane at a time:
   are not combined into one count across panes.
 
 This pane-local rule keeps counts, current-match selection, and navigation
-unambiguous. A future cross-pane or cross-file search can use a separate
-surface and command rather than silently changing the meaning of `Cmd/Ctrl+F`.
+unambiguous. Cross-pane and cross-file search use a separate surface and
+command rather than changing the meaning of `Cmd/Ctrl+F`.
 
 ### Commands and controls
 
@@ -66,7 +69,7 @@ surface and command rather than silently changing the meaning of `Cmd/Ctrl+F`.
 - The standalone Edit menu exposes **Find**, **Find Next**, **Find Previous**,
   **Replace**, and **Replace All** with platform-standard accelerators and
   routes them to the same active-pane behavior. Replace commands disable for
-  read-only models until the immediate follow-up slice is implemented.
+  read-only models.
 - Monaco's built-in case-sensitive, whole-word, and regular-expression
   toggles remain available. The initial defaults are case-insensitive with
   whole-word and regular-expression matching off.
@@ -163,8 +166,8 @@ Not included:
   repository content.
 - Filtering history rails or directory trees.
 - Cross-pane or cross-file replacement, structural search, fuzzy search, or
-  Git-aware search. Pane-local Replace/Replace All are an immediate follow-up
-  after the initial find-only slice.
+  Git-aware search. Broader search and guarded repository replacement are
+  owned by the multi-scale search plan.
 - Search in binary payloads, image metadata, rendered discussion text, or
   other application chrome.
 - Persisting queries between files, sessions, or app launches.
@@ -238,14 +241,13 @@ Verify on at least the standalone app and VS Code webview:
 - [Multi-scale search](multi-scale-search.md)
 - [Product implementation roadmap](implementation-roadmap.md)
 
-## Follow-up questions
+## Questions resolved by broader search work
 
-These questions do not block the initial pane-local implementation:
+These questions did not block the initial pane-local implementation:
 
-- Should a later command search all visible panes and present a combined,
-  revision-labeled result list?
-- Should directory mode get a separate filename/path filter, and should that
-  use a different shortcut such as `Cmd/Ctrl+P`?
+- All-panel search now presents a combined, revision-labeled result list.
+- Filesystem and repository search use a separate Search in Files surface with
+  explicit include/exclude controls rather than changing pane-local Find.
 - Should tour mode eventually search narrative prose and code as distinct
   result kinds?
 - Is replace useful in editable comparisons, or would it conflict with

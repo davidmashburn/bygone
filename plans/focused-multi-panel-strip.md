@@ -2,7 +2,9 @@
 
 ## Status
 
-Implemented on the development branch; cross-host interaction QA and large-stack profiling remain.
+Implemented on `main` and shipped in 0.8.0. Cross-host interaction and
+responsive presenter QA are complete; unusually large-stack profiling remains
+an optional performance follow-up.
 
 The focused strip now uses a pure layout controller, pair/panel responsive
 anchors, visible previous/next controls, keyboard and wheel navigation,

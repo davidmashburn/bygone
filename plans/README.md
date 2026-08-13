@@ -24,17 +24,26 @@ A practical outline is:
 Keep plans focused and link back to related material in `ideas/` when the plan
 grew out of an earlier concept.
 
-## Current plans
+## Active follow-ups
 
-- [Text wrap option](text-wrap-option.md)
-- [Multi-panel diff tours for stacked PRs](multi-panel-diff-tours-for-stacked-prs.md)
-- [Deconstructed diffs](deconstructed-diffs.md)
-- [Tour coverage and depth](tour-coverage-and-depth.md)
-- [In-document find behavior](find-behavior.md)
-- [Refreshable sessions](session-refresh.md)
-- [Focused multi-panel strip](focused-multi-panel-strip.md)
-- [Diff matching between panels](diff-matching-between-panels.md)
+- [`.bygone` document format and native opening](bygone-document-format.md) —
+  add Windows and Linux native associations when packaging support is ready.
+- [Focused multi-panel strip](focused-multi-panel-strip.md) — profile unusually
+  large stacks and retain the interaction QA matrix for future renderer work.
+
+## Completed plans and design references
+
+These records explain shipped behavior and the decisions behind it. Their
+status headings identify the release outcome; they are not queued work.
+
 - [Standalone product surface](standalone-product-surface.md)
 - [VS Code companion surface](vscode-companion-surface.md)
+- [In-document find behavior](find-behavior.md)
 - [Multi-scale search](multi-scale-search.md)
-- [Product implementation roadmap](implementation-roadmap.md)
+- [Refreshable sessions](session-refresh.md)
+- [Diff matching between panels](diff-matching-between-panels.md)
+- [Text wrap option](text-wrap-option.md)
+- [Tour coverage and depth](tour-coverage-and-depth.md)
+- [Multi-panel diff tours for stacked PRs](multi-panel-diff-tours-for-stacked-prs.md)
+- [Deconstructed diffs](deconstructed-diffs.md)
+- [0.8 product implementation roadmap](implementation-roadmap.md)

@@ -2,7 +2,9 @@
 
 ## Status
 
-Implemented on `main`; checked-in source examples and final authoring guidance remain.
+Implemented on `main`, with checked-in open-source examples and authoring
+guidance distinguishing real revision panels from synthetic explanation
+stages.
 
 ## Goal
 

@@ -2,9 +2,9 @@
 
 ## Status
 
-Active
+Completed for 0.8.0.
 
-## Current implementation order
+## 0.8.0 outcome
 
 The quick and near-quick pass completed plan reconciliation, standalone menu
 organization, writable-pane Replace, production command cleanup, Open Authored
@@ -28,16 +28,20 @@ The canonical [`.bygone` document format and macOS native opening](bygone-docume
 are complete. Windows and Linux associations remain explicit follow-up
 packaging work.
 
+The staged roadmap below is retained as a record of dependency and product-
+boundary decisions. It is not the current backlog. The two remaining
+follow-ups are indexed in [Plans](README.md) and owned by their focused plans.
+
 ## Goal
 
 Order the current plans by dependency and product risk so each implementation
 reinforces a coherent Bygone system rather than adding another isolated mode.
 
-This roadmap is not a promise that every draft is still unimplemented. Several
-planning documents describe capabilities that may already exist partly or
-substantially on the development branch. The first step is to reconcile each
-plan with shipped code and retain only unmet acceptance criteria; do not
-reimplement behavior merely because its planning status still says Draft.
+This roadmap did not assume that every draft was unimplemented. Several
+planning documents already described capabilities present partly or
+substantially on `main`. Reconciliation retained only unmet acceptance
+criteria and avoided reimplementing behavior merely because an older planning
+status still said Draft.
 
 ## Product boundaries that control the order
 
@@ -79,7 +83,7 @@ Before feature work, perform a short evidence pass across every plan:
    terminology cannot leak a false historical claim. Completed.
 4. Ensure each plan links to the owning product surface and lists its host
    behavior.
-5. Add the internal product-surface overview to the development branch and
+5. Add the internal product-surface overview to `main` and
    require updates when commands, modes, scenes, or artifacts are added.
 6. Build all new tests and benchmarks from open-source fixtures created for
    Bygone; remove or replace any proprietary-derived evidence.

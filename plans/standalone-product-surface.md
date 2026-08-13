@@ -2,12 +2,14 @@
 
 ## Status
 
-In progress; the quick surface cleanup is implemented and broader guidance remains.
+Implemented on `main` and shipped in 0.8.0.
 
-The development branch now has conventional File/Edit/Git/Present/Navigate/
-View/Window menus, pane-local Find/Replace with read-only replacement
-disablement, production-only removal of fixtures and developer tools, Open
-Authored Tour, visible panel mutability labels, and visible-pane search.
+The standalone app has conventional File/Edit/Git/Present/Navigate/View/
+Window menus, pane-local Find/Replace with read-only replacement disablement,
+production-only removal of fixtures and developer tools, Open Authored Tour,
+visible panel mutability labels, multi-scale search, and an internal product-
+surface overview. The architecture section remains guidance for future
+maintenance rather than queued release work.
 
 ## Goal
 
@@ -239,7 +241,7 @@ different state.
 
 ## Internal product-surface overview
 
-Maintain one source-controlled internal overview on the development branch
+Maintain one source-controlled internal overview on `main`
 that maps every user-facing command and launch form to:
 
 - its user question and product area;
