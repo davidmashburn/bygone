@@ -72,6 +72,12 @@ export interface ShowDiffMessage {
     comparisonId?: string;
     leftContent: string;
     rightContent: string;
+    sourceInfo?: {
+        leftPath?: string;
+        rightPath?: string;
+        leftLanguageId?: string;
+        rightLanguageId?: string;
+    };
     diffModel: TwoWayDiffModel;
     history: (HistoryViewState & { fileName: string }) | null;
     canReturnToDirectory?: boolean;
@@ -116,6 +122,8 @@ export interface MultiDiffPanel {
     id: string;
     label: string;
     content: string;
+    path?: string;
+    languageId?: string;
     editable?: boolean;
     dirty?: boolean;
 }

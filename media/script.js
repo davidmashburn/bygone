@@ -5,6 +5,7 @@ import { applyWordWrap, readWordWrapPreference, writeWordWrapPreference } from '
 import { computeFocusedStripLayout } from './focusedStripController';
 import { findVisibleMatches } from './visibleSearchController';
 import { applyTwoWayRenderTransition } from './renderTransition';
+import { normalizeLanguageId } from '../src/languageSupport';
 
 const host = createHostBridge();
 const {
@@ -102,6 +103,8 @@ let repositorySearchRequestId = 0;
 let repositorySearchRoot = '';
 let repositorySearchMatches = [];
 let repositoryReplacementFiles = [];
+let modelIdentityCounter = 0;
+const editorModelIdentities = new WeakMap();
 const connectorController = window.BygoneConnectors.createConnectorController({
     getElement,
     getMode: () => currentMode,
@@ -163,6 +166,16 @@ host.onMessage((message) => {
 
     if (message.type === 'find' && ['open', 'next', 'previous', 'replace', 'replaceAll'].includes(message.command)) {
         runActiveEditorFindCommand(message.command);
+        return;
+    }
+
+    if (message.type === 'editorAction' && typeof message.actionId === 'string') {
+        void runActiveEditorAction(message.actionId);
+        return;
+    }
+
+    if (message.type === 'navigateChange' && (message.direction === -1 || message.direction === 1)) {
+        navigateDiff(message.direction);
         return;
     }
 
@@ -242,7 +255,8 @@ host.onMessage((message) => {
             message.directoryNavigation || null,
             message.comparisonSummary || null,
             message.initialChangeIndex,
-            message.tourAnnotations || []
+            message.tourAnnotations || [],
+            message.sourceInfo || null
         );
         return;
     }
@@ -313,7 +327,8 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.directoryNavigation || null,
             pendingTwoWayPayload.comparisonSummary || null,
             pendingTwoWayPayload.initialChangeIndex,
-            pendingTwoWayPayload.tourAnnotations || []
+            pendingTwoWayPayload.tourAnnotations || [],
+            pendingTwoWayPayload.sourceInfo || null
         );
         pendingTwoWayPayload = undefined;
     }
@@ -363,11 +378,45 @@ async function initializeMonaco() {
     };
 
     monacoInstance = window.monaco;
+    registerJsonLanguage(monacoInstance);
     applyMonacoTheme();
 
     new MutationObserver(() => applyMonacoTheme()).observe(document.body, {
         attributes: true,
         attributeFilter: ['class', 'style']
+    });
+}
+
+function registerJsonLanguage(monaco) {
+    if (monaco.languages.getLanguages().some((language) => language.id === 'json')) return;
+    monaco.languages.register({ id: 'json', extensions: ['.json', '.jsonc'], aliases: ['JSON'] });
+    monaco.languages.setLanguageConfiguration('json', {
+        brackets: [['{', '}'], ['[', ']']],
+        autoClosingPairs: [
+            { open: '{', close: '}' }, { open: '[', close: ']' }, { open: '"', close: '"' }
+        ],
+        surroundingPairs: [
+            { open: '{', close: '}' }, { open: '[', close: ']' }, { open: '"', close: '"' }
+        ]
+    });
+    monaco.languages.setMonarchTokensProvider('json', {
+        tokenizer: {
+            root: [
+                [/\s+/, 'white'],
+                [/\/\/.*$/, 'comment'],
+                [/\/\*/, 'comment', '@comment'],
+                [/"(?:\\.|[^"\\])*"(?=\s*:)/, 'key'],
+                [/"(?:\\.|[^"\\])*"/, 'string'],
+                [/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/, 'number'],
+                [/\b(?:true|false|null)\b/, 'keyword'],
+                [/[{},:]|\[|\]/, 'delimiter']
+            ],
+            comment: [
+                [/[^*/]+/, 'comment'],
+                [/\*\//, 'comment', '@pop'],
+                [/[*/]/, 'comment']
+            ]
+        }
     });
 }
 
@@ -426,7 +475,7 @@ function isDarkColor(color) {
     return luminance < 140;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = []) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = [], sourceInfo = null) {
     const diffEpoch = ++twoWayDiffEpoch;
     const comparisonKey = comparisonId || `${file1}\u0000${file2}`;
     const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
@@ -463,7 +512,10 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     ensureTwoWayEditors();
     updateActivePaneHeader();
     applyTwoWayRenderTransition({
-        updateModels: () => updateEditorValues(leftContent, rightContent),
+        updateModels: () => updateEditorValues(leftContent, rightContent, comparisonKey, sourceInfo || {
+            leftPath: file1,
+            rightPath: file2
+        }),
         updateActiveIndex: () => {
             activeDiffIndex = nextResolvedDiffIndex;
         },
@@ -697,9 +749,12 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     applyFocusedStripLayout(false);
     suppressEditorEvents = true;
     multiEditors = panels.map((panel, index) => {
-        const editor = createEditor(getElement(`multi-pane-${index}-content`), MODE_MULTI_WAY, panel.id);
+        const editor = createEditor(getElement(`multi-pane-${index}-content`), MODE_MULTI_WAY, panel.id, {
+            identity: `multi:${panel.id}`,
+            content: panel.content,
+            languageId: normalizeLanguageId(panel.languageId, panel.path || panel.label)
+        });
         editor.updateOptions({ readOnly: panel.editable === false });
-        editor.setValue(panel.content);
         return editor;
     });
     suppressEditorEvents = false;
@@ -807,30 +862,53 @@ function ensureTwoWayEditors() {
     updateActivePaneHeader();
 }
 
-function createEditor(container, editorMode, side = null) {
+function createEditor(container, editorMode, side = null, initialModel = null) {
     container.innerHTML = '<div class="editor-root"></div>';
     container.classList.remove('binary-preview-host');
     container.classList.add('editor-host');
 
+    const model = createOwnedModel(
+        initialModel?.content ?? '',
+        initialModel?.languageId ?? 'plaintext'
+    );
     const editor = monacoInstance.editor.create(container.firstElementChild, {
-        value: '',
-        language: 'plaintext',
+        model,
         theme: 'bygone',
         automaticLayout: true,
         minimap: { enabled: false },
-        glyphMargin: false,
-        folding: false,
+        glyphMargin: true,
+        folding: true,
+        foldingHighlight: true,
+        showFoldingControls: 'mouseover',
         lineNumbersMinChars: 3,
         lineDecorationsWidth: 8,
         scrollBeyondLastLine: false,
         wordWrap: wordWrapEnabled ? 'on' : 'off',
+        autoIndent: 'full',
+        autoClosingBrackets: 'languageDefined',
+        autoClosingQuotes: 'languageDefined',
+        autoSurround: 'languageDefined',
+        matchBrackets: 'always',
+        bracketPairColorization: { enabled: true },
+        guides: { bracketPairs: true, bracketPairsHorizontal: 'active', indentation: true },
+        multiCursorModifier: 'alt',
+        multiCursorPaste: 'spread',
+        dragAndDrop: true,
+        contextmenu: true,
+        copyWithSyntaxHighlighting: true,
+        links: true,
+        mouseWheelZoom: true,
         renderWhitespace: 'selection',
+        renderFinalNewline: 'on',
+        wordBasedSuggestions: 'currentDocument',
+        quickSuggestions: false,
         overviewRulerLanes: 0,
         scrollbar: {
             verticalScrollbarSize: 10,
             horizontalScrollbarSize: 10
         }
     });
+    editorModelIdentities.set(editor, initialModel?.identity ?? `blank:${modelIdentityCounter}`);
 
     editor.onDidChangeModelContent(() => {
         if (suppressEditorEvents) {
@@ -873,6 +951,10 @@ function createEditor(container, editorMode, side = null) {
     });
 
     editor.onDidContentSizeChange(() => {
+        connectorController.scheduleDrawConnections();
+    });
+
+    editor.onDidChangeHiddenAreas(() => {
         connectorController.scheduleDrawConnections();
     });
 
@@ -929,13 +1011,13 @@ function createEditor(container, editorMode, side = null) {
 
 function disposeTwoWayEditors() {
     if (leftEditor) {
-        leftEditor.dispose();
+        disposeEditorAndModel(leftEditor);
         leftEditor = undefined;
         leftDecorationIds = [];
     }
 
     if (rightEditor) {
-        rightEditor.dispose();
+        disposeEditorAndModel(rightEditor);
         rightEditor = undefined;
         rightDecorationIds = [];
     }
@@ -946,7 +1028,7 @@ function disposeTwoWayEditors() {
 }
 
 function disposeMultiEditors(resetState = true) {
-    multiEditors.forEach((editor) => editor.dispose());
+    multiEditors.forEach(disposeEditorAndModel);
     multiEditors = [];
     multiDecorationIds = [];
     multiDiffPairs = [];
@@ -1248,20 +1330,46 @@ function revealFirstMultiPanelChanges() {
     });
 }
 
-function updateEditorValues(leftContent, rightContent) {
-    const leftModel = leftEditor.getModel();
-    const rightModel = rightEditor.getModel();
+function updateEditorValues(leftContent, rightContent, comparisonKey, sourceInfo) {
     suppressEditorEvents = true;
-
-    if (leftEditor.getValue() !== leftContent && leftModel) {
-        leftModel.setValue(leftContent);
+    try {
+        setOwnedEditorModel(leftEditor, `${comparisonKey}:left`, leftContent, normalizeLanguageId(sourceInfo?.leftLanguageId, sourceInfo?.leftPath));
+        setOwnedEditorModel(rightEditor, `${comparisonKey}:right`, rightContent, normalizeLanguageId(sourceInfo?.rightLanguageId, sourceInfo?.rightPath));
+    } finally {
+        suppressEditorEvents = false;
     }
+}
 
-    if (rightEditor.getValue() !== rightContent && rightModel) {
-        rightModel.setValue(rightContent);
+function createOwnedModel(content, languageId) {
+    modelIdentityCounter += 1;
+    return monacoInstance.editor.createModel(
+        content,
+        languageId,
+        monacoInstance.Uri.parse(`bygone://model/${modelIdentityCounter}`)
+    );
+}
+
+function setOwnedEditorModel(editor, identity, content, languageId) {
+    const currentModel = editor.getModel();
+    if (editorModelIdentities.get(editor) !== identity) {
+        const nextModel = createOwnedModel(content, languageId);
+        editor.setModel(nextModel);
+        currentModel?.dispose();
+        editorModelIdentities.set(editor, identity);
+        return;
     }
+    if (currentModel && currentModel.getLanguageId() !== languageId) {
+        monacoInstance.editor.setModelLanguage(currentModel, languageId);
+    }
+    if (currentModel && currentModel.getValue() !== content) {
+        currentModel.setValue(content);
+    }
+}
 
-    suppressEditorEvents = false;
+function disposeEditorAndModel(editor) {
+    const model = editor.getModel();
+    editor.dispose();
+    model?.dispose();
 }
 
 function updateTwoWayEditorOptions() {
@@ -2954,8 +3062,10 @@ function registerEditorKeybindings(editor, editorMode) {
         return;
     }
 
-    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.UpArrow, () => navigateDiff(-1));
-    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.DownArrow, () => navigateDiff(1));
+    editor.addCommand(monacoInstance.KeyCode.F7, () => navigateDiff(1));
+    editor.addCommand(monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.F7, () => navigateDiff(-1));
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.UpArrow, () => navigateDiff(-1));
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.DownArrow, () => navigateDiff(1));
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.RightArrow, () => copyCurrentChange('left-to-right'));
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.LeftArrow, () => copyCurrentChange('right-to-left'));
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyF, () => dispatchFindCommand(editor, 'open'));
@@ -2988,6 +3098,32 @@ function getFindControllerState() {
 
 function runActiveEditorFindCommand(command) {
     return runFindCommand(getFindControllerState(), command);
+}
+
+const ALLOWED_EDITOR_ACTIONS = new Set([
+    'editor.action.insertCursorAbove', 'editor.action.insertCursorBelow',
+    'editor.action.addSelectionToNextFindMatch', 'editor.action.addSelectionToPreviousFindMatch',
+    'editor.action.selectHighlights', 'editor.action.moveLinesUpAction',
+    'editor.action.moveLinesDownAction', 'editor.action.copyLinesUpAction',
+    'editor.action.copyLinesDownAction', 'editor.action.deleteLines',
+    'editor.action.insertLineBefore', 'editor.action.insertLineAfter',
+    'editor.action.joinLines', 'editor.action.transpose',
+    'editor.action.indentLines', 'editor.action.outdentLines',
+    'editor.action.reindentlines', 'editor.action.commentLine',
+    'editor.action.blockComment', 'editor.action.smartSelect.expand',
+    'editor.action.smartSelect.shrink'
+]);
+
+async function runActiveEditorAction(actionId) {
+    if (!ALLOWED_EDITOR_ACTIONS.has(actionId)) return false;
+    const editor = currentMode === MODE_MULTI_WAY
+        ? getActivePanelEditor()
+        : activePaneSide === 'left' ? leftEditor : rightEditor;
+    const action = editor?.getAction(actionId);
+    if (!action || !action.isSupported()) return false;
+    editor.focus();
+    await action.run();
+    return true;
 }
 
 function navigateDiff(direction) {
@@ -3399,13 +3535,25 @@ function revealBlockSide(editor, start, end, smooth) {
     const lineNumber = start === end
         ? clamp(start + 1, 1, lineCount)
         : clamp(start + 1, 1, lineCount);
-
-    editor.revealLineInCenterIfOutsideViewport(
+    const reveal = () => editor.revealLineInCenterIfOutsideViewport(
         lineNumber,
         smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
             ? monacoInstance.editor.ScrollType.Smooth
             : monacoInstance.editor.ScrollType.Immediate
     );
+    const unfold = editor.getAction('editor.unfold');
+    if (!unfold?.isSupported()) {
+        reveal();
+        return;
+    }
+    void Promise.resolve(unfold.run({
+        selectionLines: [lineNumber - 1],
+        levels: Number.MAX_SAFE_INTEGER,
+        direction: 'up'
+    })).finally(() => {
+        reveal();
+        connectorController.scheduleDrawConnections();
+    });
 }
 
 function copyCurrentChange(direction) {

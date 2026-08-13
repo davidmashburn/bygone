@@ -1,7 +1,7 @@
 import { stat } from 'node:fs/promises';
 
 const budgets = [
-    { path: 'media/webview.js', maxBytes: 2_900_000 },
+    { path: 'media/webview.js', maxBytes: 3_900_000 },
     { path: 'media/webview.css', maxBytes: 375_000 },
     { path: 'media/editor.worker.js', maxBytes: 320_000 },
     { path: 'media/diff.worker.js', maxBytes: 17_000 },

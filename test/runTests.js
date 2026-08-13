@@ -214,7 +214,7 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(rendererSource, /let currentTourAnnotations = \[\];/);
     assert.match(rendererSource, /currentTwoWayComparisonKey = comparisonKey;\s+currentTourAnnotations = tourAnnotations;/);
     assert.match(rendererSource, /function setActiveDiffIndex[\s\S]{0,300}applyDiffDecorations\(currentDiffModel, currentTourAnnotations\)/);
-    assert.match(rendererSource, /function showTwoWayDiff[\s\S]{0,2200}applyTwoWayRenderTransition\(\{[\s\S]{0,500}updateEditorValues\(leftContent, rightContent\)[\s\S]{0,300}activeDiffIndex = nextResolvedDiffIndex[\s\S]{0,300}applyDiffDecorations\(suppliedDiffModel, currentTourAnnotations\)/);
+    assert.match(rendererSource, /function showTwoWayDiff[\s\S]{0,2600}applyTwoWayRenderTransition\(\{[\s\S]{0,700}updateEditorValues\(leftContent, rightContent,[\s\S]{0,250}activeDiffIndex = nextResolvedDiffIndex[\s\S]{0,300}applyDiffDecorations\(suppliedDiffModel, currentTourAnnotations\)/);
     assert.doesNotMatch(rendererSource, /function showTwoWayDiff[\s\S]{0,1400}setActiveDiffIndex\(/);
     assert.match(rendererSource, /className: tourAnnotation\.active \? 'bygone-tour-anchor' : undefined/);
     assert.match(rendererSource, /linesDecorationsClassName: 'bygone-tour-anchor-gutter'/);
@@ -268,6 +268,27 @@ function testStandaloneMenusExposeProductAreasAndReplace() {
     assert.match(standaloneSource, /title: 'Select directories to compare'[\s\S]{0,100}multiSelections/);
     assert.match(findSource, /replace: 'editor\.action\.startFindReplaceAction'/);
     assert.match(findSource, /replaceAll: 'editor\.action\.replaceAll'/);
+}
+
+function testEditorComfortUsesNativeMonacoActionsAndSourceModels() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const entrySource = fs.readFileSync(path.join(__dirname, '..', 'media', 'webview-entry.js'), 'utf8');
+    const languageSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'languageSupport.ts'), 'utf8');
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+
+    assert.match(rendererSource, /KeyCode\.F7, \(\) => navigateDiff\(1\)/);
+    assert.match(rendererSource, /KeyMod\.CtrlCmd \| monacoInstance\.KeyMod\.Shift \| monacoInstance\.KeyCode\.DownArrow/);
+    assert.doesNotMatch(rendererSource, /KeyMod\.CtrlCmd \| monacoInstance\.KeyMod\.Alt \| monacoInstance\.KeyCode\.DownArrow, \(\) => navigateDiff/);
+    assert.match(rendererSource, /monacoInstance\.editor\.createModel/);
+    assert.match(rendererSource, /monacoInstance\.Uri\.parse\(`bygone:\/\/model\/\$\{modelIdentityCounter\}`\)/);
+    assert.match(rendererSource, /folding: true/);
+    assert.match(rendererSource, /editor\.onDidChangeHiddenAreas/);
+    assert.match(entrySource, /contrib\/multicursor\/browser\/multicursor\.js/);
+    assert.match(entrySource, /basic-languages\/python\/python\.contribution\.js/);
+    assert.match(languageSource, /\['\.bygone', 'yaml'\]/);
+    assert.match(standaloneSource, /label: 'Selection'/);
+    assert.match(standaloneSource, /label: 'Lines'/);
+    assert.match(standaloneSource, /type: 'editorAction', actionId/);
 }
 
 function testTextPanelsExposeMutabilityProvenance() {
@@ -2673,6 +2694,7 @@ function run() {
     testTourAnnotationPersistsAcrossChangeNavigation();
     testTourTransitionUpdatesLongDocumentBeforeDeepAnnotation();
     testStandaloneMenusExposeProductAreasAndReplace();
+    testEditorComfortUsesNativeMonacoActionsAndSourceModels();
     testTextPanelsExposeMutabilityProvenance();
     testProductSurfaceOverviewTracksHostsAndBoundaries();
     testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime();

@@ -182,7 +182,7 @@ await build({
     format: 'iife',
     target: 'es2020',
     loader: {
-        '.ttf': 'file'
+        '.ttf': 'dataurl'
     }
 });
 

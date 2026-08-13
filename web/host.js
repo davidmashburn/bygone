@@ -581,6 +581,7 @@ import { searchTour } from '../src/tourSearch.ts';
             comparisonId: `tour-${comparisonId}`,
             leftContent: scene.leftContent,
             rightContent: scene.rightContent,
+            sourceInfo: { leftPath: scene.path, rightPath: scene.path },
             diffModel,
             history: null,
             fileNavigation: {
@@ -634,7 +635,7 @@ import { searchTour } from '../src/tourSearch.ts';
         const panels = file.panels.map((panel, index) => ({
             id: `${scene.id}-${file.path}-${panel.id}`,
             label: panel.label,
-            path: panel.path || '',
+            path: panel.path || file.path,
             content: panel.content,
             savedContent: panel.content,
             dirty: false,

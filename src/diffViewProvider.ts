@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { BinaryComparison } from './binaryComparison';
+import { normalizeLanguageId } from './languageSupport';
 import { buildTwoWayDiffModel, ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
 import {
     BranchReviewViewState,
@@ -311,6 +312,12 @@ export class DiffViewProvider implements vscode.Disposable {
             comparisonId: this.currentTwoWayDiff.comparisonId,
             leftContent,
             rightContent,
+            sourceInfo: {
+                leftPath: file1.path,
+                rightPath: file2.path,
+                leftLanguageId: await this.resolveLanguageId(file1),
+                rightLanguageId: await this.resolveLanguageId(file2)
+            },
             diffModel,
             history: null,
             ...toDirectoryMessageContext(directoryContext),
@@ -361,6 +368,12 @@ export class DiffViewProvider implements vscode.Disposable {
             comparisonId: this.currentTwoWayDiff.comparisonId,
             leftContent,
             rightContent,
+            sourceInfo: {
+                leftPath: file.path,
+                rightPath: file.path,
+                leftLanguageId: await this.resolveLanguageId(file),
+                rightLanguageId: await this.resolveLanguageId(file)
+            },
             diffModel,
             history: {
                 ...history,
@@ -394,8 +407,12 @@ export class DiffViewProvider implements vscode.Disposable {
 
         this.currentTwoWayDiff = undefined;
 
+        const filesWithLanguages = await Promise.all(files.map(async (file) => ({
+            ...file,
+            languageId: await this.resolveLanguageId(file.uri)
+        })));
         this.postOrQueueMessage({
-            ...this.createMultiDiffMessage(files),
+            ...this.createMultiDiffMessage(filesWithLanguages),
             ...directoryContext,
             mutationEnabled: false
         });
@@ -477,12 +494,14 @@ export class DiffViewProvider implements vscode.Disposable {
         } satisfies ShowDiffMessage);
     }
 
-    private createMultiDiffMessage(files: Array<{ uri: vscode.Uri; content: string; label?: string }>): ShowMultiDiffMessage {
+    private createMultiDiffMessage(files: Array<{ uri: vscode.Uri; content: string; label?: string; languageId?: string }>): ShowMultiDiffMessage {
         return {
             type: 'showMultiDiff',
             panels: files.map((file) => ({
                 id: file.uri.toString(),
                 label: file.label ?? path.basename(file.uri.path),
+                path: file.uri.path,
+                languageId: file.languageId ?? normalizeLanguageId(undefined, file.uri.path),
                 content: file.content,
                 editable: file.uri.scheme === 'file',
                 dirty: false
@@ -495,6 +514,15 @@ export class DiffViewProvider implements vscode.Disposable {
             activePanelId: files[0]?.uri.toString() ?? null,
             activePairIndex: files.length > 1 ? 0 : null
         };
+    }
+
+    private async resolveLanguageId(uri: vscode.Uri): Promise<string> {
+        try {
+            const document = await vscode.workspace.openTextDocument(uri);
+            return normalizeLanguageId(document.languageId, uri.path);
+        } catch {
+            return normalizeLanguageId(undefined, uri.path);
+        }
     }
 
     private getHtmlForWebview(webview: vscode.Webview, serialized?: SerializedPanel) {

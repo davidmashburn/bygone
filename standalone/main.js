@@ -549,6 +549,21 @@ function installApplicationMenu() {
                 { role: 'pasteAndMatchStyle' },
                 { role: 'delete' },
                 { role: 'selectAll' },
+                {
+                    label: 'Selection',
+                    enabled: canFind,
+                    submenu: [
+                        editorActionItem('Add Cursor Above', 'editor.action.insertCursorAbove'),
+                        editorActionItem('Add Cursor Below', 'editor.action.insertCursorBelow'),
+                        { type: 'separator' },
+                        editorActionItem('Add Next Occurrence', 'editor.action.addSelectionToNextFindMatch'),
+                        editorActionItem('Add Previous Occurrence', 'editor.action.addSelectionToPreviousFindMatch'),
+                        editorActionItem('Select All Occurrences', 'editor.action.selectHighlights'),
+                        { type: 'separator' },
+                        editorActionItem('Expand Selection', 'editor.action.smartSelect.expand'),
+                        editorActionItem('Shrink Selection', 'editor.action.smartSelect.shrink')
+                    ]
+                },
                 { type: 'separator' },
                 {
                     label: 'Find',
@@ -591,6 +606,29 @@ function installApplicationMenu() {
                     accelerator: 'CmdOrCtrl+Alt+Enter',
                     enabled: canReplace,
                     click: () => postFindCommand('replaceAll')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Lines',
+                    enabled: canFind,
+                    submenu: [
+                        editorActionItem('Move Line Up', 'editor.action.moveLinesUpAction'),
+                        editorActionItem('Move Line Down', 'editor.action.moveLinesDownAction'),
+                        editorActionItem('Copy Line Up', 'editor.action.copyLinesUpAction'),
+                        editorActionItem('Copy Line Down', 'editor.action.copyLinesDownAction'),
+                        editorActionItem('Delete Line', 'editor.action.deleteLines'),
+                        editorActionItem('Insert Line Above', 'editor.action.insertLineBefore'),
+                        editorActionItem('Insert Line Below', 'editor.action.insertLineAfter'),
+                        editorActionItem('Join Lines', 'editor.action.joinLines'),
+                        editorActionItem('Transpose Characters', 'editor.action.transpose'),
+                        { type: 'separator' },
+                        editorActionItem('Indent Lines', 'editor.action.indentLines'),
+                        editorActionItem('Outdent Lines', 'editor.action.outdentLines'),
+                        editorActionItem('Reindent Lines', 'editor.action.reindentlines'),
+                        { type: 'separator' },
+                        editorActionItem('Toggle Line Comment', 'editor.action.commentLine'),
+                        editorActionItem('Toggle Block Comment', 'editor.action.blockComment')
+                    ]
                 }
             ]
         },
@@ -642,6 +680,19 @@ function installApplicationMenu() {
         {
             label: 'Navigate',
             submenu: [
+                {
+                    label: 'Next Change',
+                    accelerator: 'F7',
+                    enabled: canFind,
+                    click: () => postToRenderer({ type: 'navigateChange', direction: 1 })
+                },
+                {
+                    label: 'Previous Change',
+                    accelerator: 'Shift+F7',
+                    enabled: canFind,
+                    click: () => postToRenderer({ type: 'navigateChange', direction: -1 })
+                },
+                { type: 'separator' },
                 {
                     label: 'Back to Directory',
                     accelerator: 'CmdOrCtrl+[',
@@ -801,6 +852,13 @@ function postFindCommand(command) {
         return;
     }
     postToRenderer({ type: 'find', command });
+}
+
+function editorActionItem(label, actionId) {
+    return {
+        label,
+        click: () => postToRenderer({ type: 'editorAction', actionId })
+    };
 }
 
 function postVisibleSearchCommand() {
@@ -2344,6 +2402,7 @@ async function sendCurrentDirectoryHistoryEntry() {
             return {
                 id: `dir-hist-col-${colIdx}`,
                 label: `${displayedLabels[colIdx]} / ${relativePath}${exists ? '' : ' (missing)'}`,
+                path: relativePath,
                 content,
                 editable: false,
                 dirty: false,
@@ -3720,6 +3779,7 @@ async function sendCurrentMultiDiff() {
         return {
             id: file.id,
             label: file.label,
+            path: file.path || file.label,
             content: file.content,
             editable: file.editable !== false,
             dirty: Boolean(file.dirty),
@@ -3901,6 +3961,10 @@ async function sendCurrentDiff() {
         comparisonId: `${session.left.path}\u0000${session.right.path}`,
         leftContent: session.left.content,
         rightContent: session.right.content,
+        sourceInfo: {
+            leftPath: session.left.path || session.left.label,
+            rightPath: session.right.path || session.right.label
+        },
         diffModel,
         history: null,
         fileNavigation: buildStandaloneFileNavigationState(),
@@ -3988,6 +4052,10 @@ async function sendCurrentHistoryEntry() {
         comparisonId: `${session.history.filePath}\u0000${entry.commit}`,
         leftContent: entry.leftContent,
         rightContent: entry.rightContent,
+        sourceInfo: {
+            leftPath: session.history.filePath,
+            rightPath: session.history.filePath
+        },
         diffModel,
         editableSides: buildHistoryEditableSides(entry),
         history: {
