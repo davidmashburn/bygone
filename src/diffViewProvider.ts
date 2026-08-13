@@ -45,9 +45,15 @@ export class DiffViewProvider implements vscode.Disposable {
     private currentTwoWayDiff?: {
         file1: string;
         file2: string;
+        leftUri?: vscode.Uri;
+        rightUri?: vscode.Uri;
+        editableSides: { left: boolean; right: boolean };
         comparisonId: string;
         directoryContext?: DirectoryDiffContext;
     };
+    private readonly disposables: vscode.Disposable[] = [];
+    private documentUpdateQueue = Promise.resolve();
+    private applyingDocumentEdit = false;
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
     private historyStagedToggleHandler?: (includeStaged: boolean) => void;
     private historySkipUnchangedToggleHandler?: (skipUnchanged: boolean) => void;
@@ -56,7 +62,13 @@ export class DiffViewProvider implements vscode.Disposable {
     private fileNavigationHandler?: (direction: 'previous' | 'next') => void;
     private directoryReturnHandler?: () => void;
 
-    constructor(private readonly extensionUri: vscode.Uri) {}
+    constructor(private readonly extensionUri: vscode.Uri) {
+        this.disposables.push(vscode.workspace.onDidChangeTextDocument((event) => {
+            if (!this.applyingDocumentEdit && this.isCurrentDocument(event.document.uri)) {
+                this.queueDocumentRefresh();
+            }
+        }));
+    }
 
     public setHistoryNavigationHandler(handler: (direction: 'back' | 'forward') => void): void {
         this.historyNavigationHandler = handler;
@@ -87,6 +99,9 @@ export class DiffViewProvider implements vscode.Disposable {
     }
 
     public dispose(): void {
+        for (const disposable of this.disposables) {
+            disposable.dispose();
+        }
         this.panel?.dispose();
         this.panel = undefined;
     }
@@ -117,7 +132,7 @@ export class DiffViewProvider implements vscode.Disposable {
             }
 
             if (isRecomputeDiffMessage(message)) {
-                this.handleRecomputeDiff(message.leftContent, message.rightContent);
+                this.queueDocumentUpdate(message.leftContent, message.rightContent);
             }
 
             if (isHistoryNavigationMessage(message) && this.historyNavigationHandler) {
@@ -185,9 +200,16 @@ export class DiffViewProvider implements vscode.Disposable {
     ) {
         this.revealPanel(`${path.basename(file1.path)} ↔ ${path.basename(file2.path)}`);
 
+        const editableSides = directoryContext?.editableSides ?? {
+            left: this.canEditDocument(file1),
+            right: this.canEditDocument(file2)
+        };
         this.currentTwoWayDiff = {
             file1: directoryContext?.labels?.[0] ?? path.basename(file1.path),
             file2: directoryContext?.labels?.[1] ?? path.basename(file2.path),
+            leftUri: file1,
+            rightUri: file2,
+            editableSides,
             comparisonId: `${file1.toString()}\u0000${file2.toString()}`,
             directoryContext
         };
@@ -201,7 +223,7 @@ export class DiffViewProvider implements vscode.Disposable {
             diffModel,
             history: null,
             ...toDirectoryMessageContext(directoryContext),
-            editableSides: { left: false, right: false }
+            editableSides
         });
     }
 
@@ -234,6 +256,7 @@ export class DiffViewProvider implements vscode.Disposable {
         this.currentTwoWayDiff = {
             file1: leftLabel,
             file2: rightLabel,
+            editableSides: { left: false, right: false },
             comparisonId: `${file.toString()}\u0000${leftLabel}\u0000${rightLabel}`
         };
 
@@ -579,10 +602,57 @@ export class DiffViewProvider implements vscode.Disposable {
 </html>`;
     }
 
-    private handleRecomputeDiff(leftContent: string, rightContent: string): void {
+    private queueDocumentUpdate(leftContent: string, rightContent: string): void {
+        this.documentUpdateQueue = this.documentUpdateQueue
+            .then(() => this.handleRecomputeDiff(leftContent, rightContent))
+            .catch((error) => this.showDocumentEditError(error));
+    }
+
+    private queueDocumentRefresh(): void {
+        this.documentUpdateQueue = this.documentUpdateQueue
+            .then(() => this.refreshCurrentDocumentDiff())
+            .catch((error) => this.showDocumentEditError(error));
+    }
+
+    private async handleRecomputeDiff(leftContent: string, rightContent: string): Promise<void> {
         if (!this.currentTwoWayDiff) {
             return;
         }
+
+        const edit = new vscode.WorkspaceEdit();
+        let hasEdits = false;
+        for (const [side, content] of [['left', leftContent], ['right', rightContent]] as const) {
+            const uri = side === 'left' ? this.currentTwoWayDiff.leftUri : this.currentTwoWayDiff.rightUri;
+            if (!uri || !this.currentTwoWayDiff.editableSides[side]) {
+                continue;
+            }
+            const document = await vscode.workspace.openTextDocument(uri);
+            if (document.getText() !== content) {
+                edit.replace(uri, fullDocumentRange(document), content);
+                hasEdits = true;
+            }
+        }
+
+        if (hasEdits) {
+            this.applyingDocumentEdit = true;
+            try {
+                if (!await vscode.workspace.applyEdit(edit)) {
+                    throw new Error('VS Code rejected the document edit.');
+                }
+            } finally {
+                this.applyingDocumentEdit = false;
+            }
+        }
+
+        await this.refreshCurrentDocumentDiff(leftContent, rightContent);
+    }
+
+    private async refreshCurrentDocumentDiff(leftFallback?: string, rightFallback?: string): Promise<void> {
+        if (!this.currentTwoWayDiff) {
+            return;
+        }
+        const leftContent = await this.readCurrentSide('left', leftFallback ?? '');
+        const rightContent = await this.readCurrentSide('right', rightFallback ?? '');
 
         this.postOrQueueDiffMessage({
             file1: this.currentTwoWayDiff.file1,
@@ -593,8 +663,31 @@ export class DiffViewProvider implements vscode.Disposable {
             diffModel: buildTwoWayDiffModel(leftContent, rightContent),
             history: null,
             ...toDirectoryMessageContext(this.currentTwoWayDiff.directoryContext),
-            editableSides: { left: false, right: false }
+            editableSides: this.currentTwoWayDiff.editableSides
         });
+    }
+
+    private async readCurrentSide(side: 'left' | 'right', fallback: string): Promise<string> {
+        const uri = side === 'left' ? this.currentTwoWayDiff?.leftUri : this.currentTwoWayDiff?.rightUri;
+        if (!uri) {
+            return fallback;
+        }
+        const openDocument = vscode.workspace.textDocuments.find((document) => document.uri.toString() === uri.toString());
+        return openDocument?.getText() ?? (await vscode.workspace.openTextDocument(uri)).getText();
+    }
+
+    private canEditDocument(uri: vscode.Uri): boolean {
+        return vscode.workspace.isTrusted && uri.scheme === 'file';
+    }
+
+    private isCurrentDocument(uri: vscode.Uri): boolean {
+        return this.currentTwoWayDiff?.leftUri?.toString() === uri.toString()
+            || this.currentTwoWayDiff?.rightUri?.toString() === uri.toString();
+    }
+
+    private showDocumentEditError(error: unknown): void {
+        const message = error instanceof Error ? error.message : String(error);
+        void vscode.window.showErrorMessage(`Unable to update comparison document: ${message}`);
     }
 
     private handleMultiSetActivePanel(panelId: string): void {
@@ -678,7 +771,12 @@ export class DiffViewProvider implements vscode.Disposable {
         }
 
         try {
-            await vscode.workspace.fs.writeFile(uri, Buffer.from(panel.content, 'utf8'));
+            const document = await vscode.workspace.openTextDocument(uri);
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(uri, fullDocumentRange(document), panel.content);
+            if (!await vscode.workspace.applyEdit(edit) || !await document.save()) {
+                throw new Error('VS Code could not save the document.');
+            }
             this.currentMessage = {
                 ...this.currentMessage,
                 panels: this.currentMessage.panels.map((candidate) => (
@@ -716,4 +814,8 @@ function getNonce(): string {
     }
 
     return nonce;
+}
+
+function fullDocumentRange(document: vscode.TextDocument): vscode.Range {
+    return new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
 }

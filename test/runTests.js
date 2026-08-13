@@ -338,7 +338,10 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     assert.match(providerSource, /createWebviewPanel\(/);
     assert.match(providerSource, /retainContextWhenHidden: true/);
     assert.match(providerSource, /vscode\.ViewColumn\.Active/);
-    assert.match(providerSource, /editableSides: \{ left: false, right: false \}/);
+    assert.match(providerSource, /workspace\.applyEdit\(edit\)/);
+    assert.match(providerSource, /onDidChangeTextDocument/);
+    assert.match(providerSource, /workspace\.isTrusted && uri\.scheme === 'file'/);
+    assert.doesNotMatch(providerSource, /workspace\.fs\.writeFile/);
     assert.match(comparatorSource, /workspace\.textDocuments\.find/);
     assert.match(comparatorSource, /openDocument\.getText\(\)/);
     assert.match(packageJson.scripts['package:vsix'], /check-vsix-contents/);
