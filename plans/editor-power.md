@@ -2,8 +2,32 @@
 
 ## Status
 
-Ready for implementation. Improve the editor already embedded in Bygone before
-considering VS Code language-provider bridges or a standalone LSP client.
+Implemented on `main` by `91dc637` for editor comfort, source-aware models, and
+folding. The optional browser language-service phase was measured and deferred;
+its worker cost does not fit the current extension artifact budget.
+
+## Implementation outcome
+
+- Bygone imports a curated set of Monaco editing contributions rather than the
+  complete editor bundle.
+- Two-way and multi-panel editors use owned `ITextModel` instances with internal
+  `bygone://model/` URIs, bounded language IDs, explicit replacement, and model
+  disposal.
+- Folding is enabled. Change navigation unfolds enclosing regions before it
+  reveals a change, and hidden-area changes schedule connector redraws.
+- The standalone app exposes Selection and Lines menus backed by allowlisted
+  Monaco actions. Change navigation uses `F7`, `Shift+F7`, and simultaneous
+  `Cmd/Ctrl+Shift+Up/Down`; Monaco regains `Cmd/Ctrl+Alt+Up/Down` for cursors.
+- The resulting renderer is about 3,748 KiB and the VSIX runtime is 4.9 MiB
+  against its existing 5 MiB cap. Tests, type checking, lint, bundle checks,
+  VSIX contents, and all three desktop smoke modes pass.
+
+The optional language-service measurement produced workers of about 6.7 MiB
+for JavaScript/TypeScript, 404 KiB for JSON, 715 KiB for HTML, and 1.0 MiB for
+CSS. The TypeScript worker alone exceeds the current full VSIX budget. Do not
+ship these services until they can be lazy-loaded outside the core artifact,
+the product adopts a materially larger package budget, or a smaller service
+boundary is demonstrated. Syntax and language configuration remain built in.
 
 ## Goal
 
