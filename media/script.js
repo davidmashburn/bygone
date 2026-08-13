@@ -1059,7 +1059,7 @@ function renderMultiDiffShell(panels) {
             `<div class="multi-pane" data-index="${index}" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header-top">`
-            + `<button class="multi-pane-title-wrap multi-pane-select" type="button" title="Select ${escapeAttr(panel.label)}" data-multi-select-panel="${escapeAttr(panel.id)}" data-panel-id="${escapeAttr(panel.id)}" aria-pressed="false">`
+            + `<button class="multi-pane-title-wrap multi-pane-select" type="button" title="Select panel: ${escapeAttr(panel.label)}" data-multi-select-panel="${escapeAttr(panel.id)}" data-panel-id="${escapeAttr(panel.id)}" aria-pressed="false">`
             + `<span class="multi-pane-title">${escapeHtml(panel.label)}</span>`
             + `<span class="multi-pane-dirty${panel.dirty ? ' is-visible' : ''}" aria-hidden="true" title="Unsaved changes">•</span>`
             + `</button>`
@@ -1071,11 +1071,11 @@ function renderMultiDiffShell(panels) {
             + `</span>`
             + `</div>`
             + `<div class="multi-pane-header-controls">`
-            + `<button class="multi-pane-copy" type="button" data-multi-panel-copy="right-to-left" data-panel-id="${escapeAttr(panel.id)}" title="Copy current change into the left neighbor" aria-label="Copy current change into the left neighbor">`
+            + `<button class="multi-pane-copy" type="button" data-multi-panel-copy="right-to-left" data-panel-id="${escapeAttr(panel.id)}" title="Copy current change into the left neighbor (Cmd/Ctrl+Alt+Left)" aria-label="Copy current change into the left neighbor">`
             + `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H9"></path><path d="M13 8l-4 4 4 4"></path><path d="M5 5v14"></path></svg>`
             + `</button>`
             + `<span class="multi-pane-position" data-multi-panel-position="${escapeAttr(panel.id)}">0 / 0</span>`
-            + `<button class="multi-pane-copy" type="button" data-multi-panel-copy="left-to-right" data-panel-id="${escapeAttr(panel.id)}" title="Copy current change into the right neighbor" aria-label="Copy current change into the right neighbor">`
+            + `<button class="multi-pane-copy" type="button" data-multi-panel-copy="left-to-right" data-panel-id="${escapeAttr(panel.id)}" title="Copy current change into the right neighbor (Cmd/Ctrl+Alt+Right)" aria-label="Copy current change into the right neighbor">`
             + `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h10"></path><path d="M11 8l4 4-4 4"></path><path d="M19 5v14"></path></svg>`
             + `</button>`
             + `</div>`
@@ -1087,7 +1087,7 @@ function renderMultiDiffShell(panels) {
         if (index < panels.length - 1) {
             columns.push(`${MULTI_GUTTER_WIDTH}px`);
             children.push(
-                `<button class="multi-gutter" type="button" title="Compare ${escapeAttr(panel.label)} with ${escapeAttr(panels[index + 1].label)}" data-pair-index="${index}" aria-label="Compare ${escapeAttr(panel.label)} with ${escapeAttr(panels[index + 1].label)}" aria-pressed="false"></button>`
+                `<button class="multi-gutter" type="button" title="Activate comparison: ${escapeAttr(panel.label)} ↔ ${escapeAttr(panels[index + 1].label)}" data-pair-index="${index}" aria-label="Compare ${escapeAttr(panel.label)} with ${escapeAttr(panels[index + 1].label)}" aria-pressed="false"></button>`
             );
         }
     });
@@ -2189,9 +2189,9 @@ function initializeRepositorySearch() {
         '<form class="repository-search-form">',
         '<div class="repository-search-header">',
         '<input class="repository-search-input" type="search" aria-label="Search query" placeholder="Search in files">',
-        '<button class="repository-search-run" type="submit">Search</button>',
-        '<button class="repository-search-cancel" type="button" hidden>Cancel</button>',
-        '<button class="repository-search-close" type="button" aria-label="Close Search in Files" title="Close">×</button>',
+        '<button class="repository-search-run" type="submit" title="Run search (Enter)">Search</button>',
+        '<button class="repository-search-cancel" type="button" title="Cancel running search" hidden>Cancel</button>',
+        '<button class="repository-search-close" type="button" aria-label="Close Search in Files" title="Close Search in Files (Esc)">×</button>',
         '</div>',
         '<div class="repository-search-root"></div>',
         '<div class="repository-search-options">',
@@ -2213,9 +2213,9 @@ function initializeRepositorySearch() {
         '</div>',
         '<div class="repository-replace-controls">',
         '<input name="replacement" aria-label="Replacement text" placeholder="Replace with" disabled>',
-        '<button class="repository-replace-preview" type="button" disabled>Preview Replace</button>',
-        '<button class="repository-replace-apply" type="button" hidden>Apply Selected</button>',
-        '<button class="repository-replace-undo" type="button" hidden>Undo Replace</button>',
+        '<button class="repository-replace-preview" type="button" title="Preview replacement in eligible results" disabled>Preview Replace</button>',
+        '<button class="repository-replace-apply" type="button" title="Apply the selected replacements" hidden>Apply Selected</button>',
+        '<button class="repository-replace-undo" type="button" title="Undo the most recent replacement" hidden>Undo Replace</button>',
         '</div>',
         '</form>',
         '<div class="repository-search-summary" aria-live="polite">Choose a query, then run the search.</div>',
@@ -2313,7 +2313,7 @@ function renderRepositorySearchResults() {
     if (!palette || palette.classList.contains('hidden')) return;
     palette.querySelector('.repository-search-summary').textContent = `${repositorySearchMatches.length} result${repositorySearchMatches.length === 1 ? '' : 's'}…`;
     palette.querySelector('.repository-search-results').innerHTML = repositorySearchMatches.map((match, index) => (
-        `<button class="repository-search-result" type="button" role="option" data-repository-search-result="${index}" title="${escapeAttr(match.relativePath)}:${match.line}">`
+        `<button class="repository-search-result" type="button" role="option" data-repository-search-result="${index}" title="Open ${escapeAttr(match.relativePath)}:${match.line}">`
         + `<span class="repository-search-location">${escapeHtml(match.relativePath)}:${match.line}</span>`
         + `<span class="repository-search-preview">${escapeHtml(match.preview.trim())}</span>`
         + '</button>'
@@ -2421,7 +2421,7 @@ function initializeVisiblePaneSearch() {
         '</select>',
         '<button class="visible-search-option" type="button" data-visible-search-option="case" aria-pressed="false" title="Match case">Aa</button>',
         '<button class="visible-search-option" type="button" data-visible-search-option="regex" aria-pressed="false" title="Use regular expression">.*</button>',
-        '<button class="visible-search-close" type="button" aria-label="Close visible-pane search" title="Close">×</button>',
+        '<button class="visible-search-close" type="button" aria-label="Close visible-pane search" title="Close visible-pane search (Esc)">×</button>',
         '</div>',
         '<div class="visible-search-summary" aria-live="polite"></div>',
         '<div class="visible-search-results" role="listbox"></div>'
@@ -2563,7 +2563,7 @@ function updateVisiblePaneSearch() {
         const scopeLabel = scope === 'comparison' ? 'all comparison panels' : 'visible panes';
         summary.textContent = query ? `${visibleSearchMatches.length} result${visibleSearchMatches.length === 1 ? '' : 's'} in ${scopeLabel}` : `Type to search ${scopeLabel}`;
         results.innerHTML = visibleSearchMatches.map((match, index) => (
-            `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="${escapeAttr(match.label)}:${match.lineNumber}">`
+            `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="Open ${escapeAttr(match.label)}:${match.lineNumber}">`
             + `<span class="visible-search-location">${escapeHtml(match.label)}:${match.lineNumber}</span>`
             + `<span class="visible-search-preview">${escapeHtml(match.preview.trim())}</span>`
             + '</button>'
@@ -2594,7 +2594,7 @@ function receiveChangeSetSearchResults(message) {
     visibleSearchMatches = (message.matches || []).map((match) => ({ ...match, hostResultKind: 'changeSet' }));
     summary.textContent = `${visibleSearchMatches.length} result${visibleSearchMatches.length === 1 ? '' : 's'} in current change set`;
     results.innerHTML = visibleSearchMatches.map((match, index) => (
-        `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="${escapeAttr(match.label)}:${match.lineNumber}">`
+        `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="Open ${escapeAttr(match.label)}:${match.lineNumber}">`
         + `<span class="visible-search-location">${escapeHtml(match.label)}:${match.lineNumber}</span>`
         + `<span class="visible-search-preview">${escapeHtml(match.preview.trim())}</span>`
         + '</button>'
@@ -2620,7 +2620,7 @@ function receiveGitHistorySearchResults(message) {
     visibleSearchMatches = (message.matches || []).map((match) => ({ ...match, hostResultKind: 'gitHistory' }));
     summary.textContent = `${visibleSearchMatches.length} result${visibleSearchMatches.length === 1 ? '' : 's'} in Git history`;
     results.innerHTML = visibleSearchMatches.map((match, index) => (
-        `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="${escapeAttr(match.label)}:${match.lineNumber}">`
+        `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="Open ${escapeAttr(match.label)}:${match.lineNumber}">`
         + `<span class="visible-search-location">${escapeHtml(match.label)}</span>`
         + `<span class="visible-search-preview">${escapeHtml(match.preview.trim())}</span>`
         + '</button>'
@@ -4065,7 +4065,7 @@ function renderHistoryRail() {
             ? items.map((item, index) => renderHistoryRailItem(item, activeTab?.id || '', index))
             : ['<div class="history-rail-empty">No entries</div>']),
         '</div>',
-        `<div class="history-rail-resizer" role="separator" aria-label="Resize navigation sidebar" aria-orientation="vertical" aria-valuemin="${NAVIGATION_SIDEBAR_MIN_WIDTH}" aria-valuemax="${maximumNavigationSidebarWidth()}" aria-valuenow="${navigationRailWidth}" tabindex="0" data-rail-resizer></div>`
+        `<div class="history-rail-resizer" role="separator" aria-label="Resize navigation sidebar" title="Resize navigation sidebar (Left/Right; Home/End)" aria-orientation="vertical" aria-valuemin="${NAVIGATION_SIDEBAR_MIN_WIDTH}" aria-valuemax="${maximumNavigationSidebarWidth()}" aria-valuenow="${navigationRailWidth}" tabindex="0" data-rail-resizer></div>`
     ].join('');
 }
 
@@ -4109,7 +4109,8 @@ function renderHistoryRailItem(item, tabId, index) {
     const indexAttr = Number.isInteger(item.index) ? ` data-rail-index="${String(item.index)}"` : ` data-rail-index="${String(index)}"`;
     const pathAttr = typeof item.relativePath === 'string' ? ` data-rail-path="${escapeAttr(item.relativePath)}"` : '';
 
-    return `<button class="history-rail-item${activeClass}${statusClass}" type="button" title="${escapeAttr(item.label)}" data-rail-item="true" data-rail-tab="${escapeAttr(tabId)}"${kindAttr}${indexAttr}${pathAttr}>`
+    const action = item.kind === 'directory-entry' ? 'Open file' : 'Open history entry';
+    return `<button class="history-rail-item${activeClass}${statusClass}" type="button" title="${action}: ${escapeAttr(item.label)}" data-rail-item="true" data-rail-tab="${escapeAttr(tabId)}"${kindAttr}${indexAttr}${pathAttr}>`
         + `<span class="history-rail-marker">${escapeHtml(marker)}</span>`
         + `<span class="history-rail-text">`
         + `<span class="history-rail-label">${escapeHtml(item.label)}</span>`

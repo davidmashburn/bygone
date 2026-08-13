@@ -172,9 +172,14 @@
             ? ` data-related-path="${escapeAttr(entry.relatedPath)}"`
             : '';
 
+        const relationSuffix = entry.relationSummary ? ` — ${entry.relationSummary}` : '';
+        const actionTitle = isDir
+            ? `Collapse folder: ${entry.relativePath}${relationSuffix}`
+            : `Open file: ${entry.relativePath}${relationSuffix}`;
+
         return `<button class="dir-entry dir-entry--${entry.status}" type="button" `
             + `aria-label="${escapeAttr(accessibleLabel)}" `
-            + `title="${escapeAttr(entry.relationSummary || entry.relativePath)}" `
+            + `title="${escapeAttr(actionTitle)}" `
             + `data-path="${escapeAttr(entry.relativePath)}" `
             + relatedPathAttr
             + `data-depth="${entry.depth}" `
@@ -240,6 +245,7 @@
             if (row.dataset.isDir === 'true') {
                 const collapsed = collapsedDirs.has(rowPath);
                 row.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                row.title = `${collapsed ? 'Expand' : 'Collapse'} folder: ${rowPath}`;
                 row.querySelectorAll('.dir-toggle').forEach((t) => {
                     t.textContent = collapsed ? '▶' : '▼';
                 });

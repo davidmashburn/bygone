@@ -186,6 +186,7 @@ import { searchTour } from '../src/tourSearch.ts';
             button.className = 'tour-search-result';
             button.setAttribute('role', 'option');
             button.dataset.tourSearchResult = String(index);
+            button.title = `Open ${match.kind === 'code' ? `${match.label}:${match.lineNumber}` : match.label}`;
             const location = document.createElement('span');
             location.className = 'tour-search-location';
             location.textContent = match.kind === 'code' ? `${match.label}:${match.lineNumber}` : match.label;
@@ -453,7 +454,7 @@ import { searchTour } from '../src/tourSearch.ts';
                 button.type = 'button';
                 button.className = 'tour-scene';
                 button.dataset.sceneId = scene.id;
-                button.title = scene.kind === 'text-diff' ? scene.path : scene.title;
+                button.title = `Open scene: ${scene.kind === 'text-diff' ? scene.path : scene.title}`;
                 button.addEventListener('click', () => showTourScene(index));
                 const number = document.createElement('span');
                 number.className = 'tour-scene-number';
@@ -486,7 +487,9 @@ import { searchTour } from '../src/tourSearch.ts';
             button.className = `tour-file${file.kind === 'omitted' ? ' is-omitted' : ''}`;
             button.dataset.filePath = file.path;
             button.disabled = file.kind === 'omitted';
-            button.title = file.kind === 'omitted' ? `${file.path}: ${file.reason}` : file.path;
+            button.title = file.kind === 'omitted'
+                ? `${file.path}: ${file.reason}`
+                : `Open file: ${file.path}`;
             if (file.kind === 'text-diff') {
                 button.addEventListener('click', () => showTourFileSelection(index));
             }

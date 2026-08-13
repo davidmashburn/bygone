@@ -563,13 +563,13 @@ export class DiffViewProvider implements vscode.Disposable {
             <div id="change-toolbar" class="change-toolbar header-align-diff" hidden>
                 <div class="change-toolbar-main">
                     <div class="change-toolbar-nav">
-                        <button id="previous-file" class="change-button icon-button" type="button" title="Previous file" aria-label="Previous file">
+                        <button id="previous-file" class="change-button icon-button" type="button" title="Open previous file" aria-label="Previous file">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M17 11l-5-5-5 5"></path>
                                 <path d="M17 18l-5-5-5 5"></path>
                             </svg>
                         </button>
-                        <button id="next-file" class="change-button icon-button" type="button" title="Next file" aria-label="Next file">
+                        <button id="next-file" class="change-button icon-button" type="button" title="Open next file" aria-label="Next file">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M7 13l5 5 5-5"></path>
                                 <path d="M7 6l5 5 5-5"></path>
@@ -577,7 +577,7 @@ export class DiffViewProvider implements vscode.Disposable {
                         </button>
                     </div>
                     <div class="change-toolbar-center">
-                    <button id="previous-change" class="change-button icon-button" type="button" title="Previous difference (Cmd/Ctrl+Alt+Up)" aria-label="Previous difference">
+                    <button id="previous-change" class="change-button icon-button" type="button" title="Previous difference (Shift+F7 or Cmd/Ctrl+Shift+Up)" aria-label="Previous difference">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 19V5"></path>
                             <path d="M6 11l6-6 6 6"></path>
@@ -598,7 +598,7 @@ export class DiffViewProvider implements vscode.Disposable {
                             <path d="M5 5v14"></path>
                         </svg>
                     </button>
-                    <button id="next-change" class="change-button change-button-primary icon-button" type="button" title="Next difference (Cmd/Ctrl+Alt+Down)" aria-label="Next difference">
+                    <button id="next-change" class="change-button change-button-primary icon-button" type="button" title="Next difference (F7 or Cmd/Ctrl+Shift+Down)" aria-label="Next difference">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 5v14"></path>
                             <path d="M6 13l6 6 6-6"></path>
@@ -619,7 +619,7 @@ export class DiffViewProvider implements vscode.Disposable {
                         </svg>
                     </button>
                 </div>
-                <div class="change-hint">Cmd/Ctrl+Alt+Up/Down to jump.</div>
+                <div class="change-hint">F7 / Shift+F7 · Cmd/Ctrl+Shift+Up/Down to jump.</div>
             </div>
             <div id="history-toolbar" class="history-toolbar header-align-diff" hidden>
                 <div class="history-side history-side-left">
@@ -627,14 +627,14 @@ export class DiffViewProvider implements vscode.Disposable {
                     <div id="history-left-time" class="history-time"></div>
                 </div>
                 <div class="history-nav">
-                    <button id="history-back" class="history-button icon-button" type="button" title="Older commit" aria-label="Older commit">
+                    <button id="history-back" class="history-button icon-button" type="button" title="Open older commit" aria-label="Older commit">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M15 18l-6-6 6-6"></path>
                             <path d="M10 18l-6-6 6-6" opacity="0.7"></path>
                         </svg>
                     </button>
                     <div id="history-position" class="history-position" role="status" aria-live="polite" aria-atomic="true"></div>
-                    <button id="history-forward" class="history-button icon-button" type="button" title="Newer commit" aria-label="Newer commit">
+                    <button id="history-forward" class="history-button icon-button" type="button" title="Open newer commit" aria-label="Newer commit">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M9 18l6-6-6-6"></path>
                             <path d="M14 18l6-6-6-6" opacity="0.7"></path>

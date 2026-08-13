@@ -8,6 +8,7 @@
 - Added source-aware Monaco models and bounded syntax support while preserving comparison state, model disposal, tour rendering, and connector geometry
 - Returned `Cmd/Ctrl+Alt+Up/Down` to Monaco's cursor controls and added change navigation through `F7`, `Shift+F7`, and simultaneous `Cmd/Ctrl+Shift+Up/Down`
 - Added standalone Selection and Lines menus backed by allowlisted native Monaco actions
+- Added action-oriented hover tooltips with current keybindings across comparison, history, file, search, tour, and sidebar navigation controls
 
 ## 0.8.0
 

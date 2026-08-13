@@ -1851,6 +1851,13 @@ function testStaticButtonsHaveTooltips() {
             assert.match(openingTag, /\btitle="[^"]+"/, `${relativePath} has a button without a tooltip: ${openingTag}`);
         });
     }
+
+    for (const relativePath of ['standalone/index.html', 'web/index.html', 'src/diffViewProvider.ts']) {
+        const source = fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
+        assert.match(source, /title="Previous difference \(Shift\+F7 or Cmd\/Ctrl\+Shift\+Up\)"/);
+        assert.match(source, /title="Next difference \(F7 or Cmd\/Ctrl\+Shift\+Down\)"/);
+        assert.doesNotMatch(source, /Cmd\/Ctrl\+Alt\+(?:Up|Down)/);
+    }
 }
 
 function testMacCliRoutesThroughCentralAppInstance() {
@@ -1903,12 +1910,25 @@ function testForwardedLaunchArgumentsPreferValidatedAdditionalData() {
 function testDynamicButtonsHaveTooltips() {
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
     const directorySource = fs.readFileSync(path.join(__dirname, '..', 'media', 'dom.js'), 'utf8');
+    const tourSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
 
-    assert.match(rendererSource, /multi-pane-title-wrap[^`]+title=/);
-    assert.match(rendererSource, /multi-gutter[^`]+title=/);
-    assert.match(rendererSource, /history-rail-tab[^`]+title=/);
-    assert.match(rendererSource, /history-rail-item[^`]+title=/);
-    assert.match(directorySource, /return `<button class="dir-entry[\s\S]{0,300}title=/);
+    for (const [relativePath, source] of [
+        ['media/script.js', rendererSource],
+        ['media/dom.js', directorySource]
+    ]) {
+        const buttons = source.match(/<button\b[^>]*>/g) || [];
+        assert.ok(buttons.length > 0, `${relativePath} should create buttons`);
+        buttons.forEach((button) => {
+            assert.match(button, /\btitle=/, `${relativePath} creates a button without a tooltip: ${button}`);
+        });
+    }
+    const createdTourButtons = tourSource.match(/document\.createElement\('button'\)/g) || [];
+    const titledTourButtons = tourSource.match(/button\.title\s*=/g) || [];
+    assert.equal(titledTourButtons.length, createdTourButtons.length, 'every dynamically-created tour button should receive a tooltip');
+    assert.match(rendererSource, /Run search \(Enter\)/);
+    assert.match(rendererSource, /Close Search in Files \(Esc\)/);
+    assert.match(rendererSource, /Open \$\{escapeAttr\(match\.relativePath\)\}:\$\{match\.line\}/);
+    assert.match(directorySource, /`\$\{collapsed \? 'Expand' : 'Collapse'\} folder:/);
 }
 
 function testFocusedStripLayoutUsesPairAndPanelAnchors() {
