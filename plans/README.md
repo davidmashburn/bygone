@@ -26,9 +26,8 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
-- [Editor power inside Bygone](editor-power.md) — keep editing in the comparison
-  panes while progressively bridging safe VS Code document and language
-  capabilities into Monaco.
+- [Monaco editor comfort](editor-power.md) — enable familiar multi-line editing,
+  shortcuts, and language-aware behavior already available in Monaco.
 - [`.bygone` document format and native opening](bygone-document-format.md) —
   add Windows and Linux native associations when packaging support is ready.
 - [Focused multi-panel strip](focused-multi-panel-strip.md) — profile unusually
