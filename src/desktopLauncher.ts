@@ -11,6 +11,10 @@ export async function launchDesktop(intent: DesktopIntent, resource?: vscode.Uri
         await vscode.window.showWarningMessage('Trust this workspace before handing repository paths to Bygone Desktop.');
         return false;
     }
+    if (vscode.env.remoteName) {
+        await vscode.window.showInformationMessage('Bygone Desktop hand-off is unavailable from a remote extension host.');
+        return false;
+    }
 
     const cwd = await resolveWorkingDirectory(resource);
     if (!cwd) return false;

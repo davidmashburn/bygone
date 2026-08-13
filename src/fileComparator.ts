@@ -47,12 +47,19 @@ export class FileComparator implements vscode.Disposable {
     private currentDirectoryReview: DirectoryReviewState | undefined;
     private readonly reviewTempRoots = new Set<string>();
     private readonly gitHistoryService = new GitHistoryService();
+    private readonly selectionStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
+
+    constructor() {
+        this.selectionStatus.command = 'bygone.cancelCompareSelection';
+        this.selectionStatus.tooltip = 'Cancel the staged Bygone comparison';
+    }
 
     public dispose(): void {
         for (const root of this.reviewTempRoots) {
             fs.rmSync(root, { recursive: true, force: true });
         }
         this.reviewTempRoots.clear();
+        this.selectionStatus.dispose();
     }
 
     public setDiffViewProvider(provider: DiffViewProvider) {
@@ -98,19 +105,51 @@ export class FileComparator implements vscode.Disposable {
         }
     }
 
+    public async compareActiveFileWith(): Promise<void> {
+        try {
+            const active = vscode.window.activeTextEditor?.document.uri;
+            if (!active || active.scheme !== 'file') {
+                vscode.window.showInformationMessage('Open a local file before comparing it.');
+                return;
+            }
+            const other = await this.selectFile(`Compare ${path.basename(active.fsPath)} with`);
+            if (other) {
+                await this.compareFiles(active, other);
+            }
+        } catch (error) {
+            this.showErrorMessage('Error comparing active file', error);
+        }
+    }
+
+    public async compareSelectedFiles(resources: readonly vscode.Uri[]): Promise<void> {
+        const files = resources.filter((resource) => resource.scheme === 'file');
+        if (files.length !== 2) {
+            vscode.window.showInformationMessage('Select exactly two local files to compare in VS Code.');
+            return;
+        }
+        await this.compareFiles(files[0], files[1]);
+    }
+
     public async compareWithSelected(resource: vscode.Uri): Promise<void> {
         try {
             if (!this.selectedFile) {
                 this.selectedFile = resource;
+                this.selectionStatus.text = `$(compare-changes) Bygone: ${path.basename(resource.fsPath)} selected`;
+                this.selectionStatus.show();
                 vscode.window.showInformationMessage(`Selected ${resource.path.split('/').pop()}. Select another file to compare.`);
                 return;
             }
 
             await this.compareFiles(this.selectedFile, resource);
-            this.selectedFile = undefined;
+            this.cancelCompareSelection();
         } catch (error) {
             this.showErrorMessage('Error comparing files', error);
         }
+    }
+
+    public cancelCompareSelection(): void {
+        this.selectedFile = undefined;
+        this.selectionStatus.hide();
     }
 
     public async compareMultipleFilesCommand(): Promise<void> {

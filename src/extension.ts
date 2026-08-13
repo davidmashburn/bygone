@@ -11,18 +11,29 @@ export function activate(context: vscode.ExtensionContext) {
     const standaloneDownloadUrl = vscode.Uri.parse('https://github.com/davidmashburn/bygone/releases');
 
     fileComparator.setDiffViewProvider(diffViewProvider);
+    const updateDesktopAvailability = () => vscode.commands.executeCommand(
+        'setContext',
+        'bygone.desktopHandoffAvailable',
+        !vscode.env.remoteName && Boolean(vscode.workspace.workspaceFolders?.some((folder) => folder.uri.scheme === 'file'))
+    );
+    void updateDesktopAvailability();
 
     context.subscriptions.push(
         fileComparator,
         diffViewProvider,
         vscode.window.registerWebviewPanelSerializer(DiffViewProvider.viewType, diffViewProvider),
         vscode.window.registerUriHandler(uriHandler),
-        registerCommand('bygone.compareFiles', () => fileComparator.selectAndCompareFiles()),
+        vscode.workspace.onDidChangeWorkspaceFolders(() => void updateDesktopAvailability()),
+        registerCommand('bygone.compareFiles', () => fileComparator.compareActiveFileWith()),
+        registerCommand('bygone.compareSelectedFiles', (resource?: vscode.Uri, resources?: vscode.Uri[]) => (
+            fileComparator.compareSelectedFiles(resources?.length ? resources : resource ? [resource] : [])
+        )),
         registerCommand('bygone.compareDirectoriesInDesktop', () => pickPathsAndLaunchDesktop('directories')),
         registerCommand('bygone.compareMultipleFilesInDesktop', () => pickPathsAndLaunchDesktop('files')),
         registerCommand('bygone.compareWithSelected', (resource: vscode.Uri) => fileComparator.compareWithSelected(resource)),
+        registerCommand('bygone.cancelCompareSelection', () => fileComparator.cancelCompareSelection()),
         registerCommand('bygone.compareFileHistory', (resource?: vscode.Uri) => fileComparator.compareFileHistory(resource)),
-        registerCommand('bygone.compareActiveFileHistory', () => fileComparator.compareFileHistory()),
+        registerCommand('bygone.compareActiveFileHistory', (resource?: vscode.Uri) => fileComparator.compareFileHistory(resource)),
         registerCommand('bygone.exploreBranchInDesktop', (resource?: vscode.Uri) => launchDesktop({ kind: 'explore-branch' }, resource)),
         registerCommand('bygone.presentBranchInDesktop', (resource?: vscode.Uri) => launchDesktop({ kind: 'present-branch' }, resource)),
         registerCommand('bygone.openTourInDesktop', async () => {
@@ -35,6 +46,13 @@ export function activate(context: vscode.ExtensionContext) {
             });
             const tour = selected?.[0];
             return tour ? launchDesktop({ kind: 'open-tour', tourPath: tour.fsPath }, tour) : false;
+        }),
+        registerCommand('bygone.openComparisonInDesktop', () => {
+            const uris = diffViewProvider.getActiveFileComparisonUris();
+            if (!uris || uris.some((uri) => uri.scheme !== 'file')) {
+                return vscode.window.showInformationMessage('The active Bygone tab is not a local file comparison.');
+            }
+            return launchDesktop({ kind: 'compare-paths', paths: uris.map((uri) => uri.fsPath) }, uris[0]);
         }),
         registerCommand('bygone.openStandaloneDownloads', () => vscode.env.openExternal(standaloneDownloadUrl))
     );

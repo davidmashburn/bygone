@@ -327,9 +327,15 @@ function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
         assert.ok(!packageJson.contributes.commands.some((entry) => entry.command === removed));
         assert.ok(!packageJson.activationEvents.includes(`onCommand:${removed}`));
     }
-    for (const command of ['bygone.compareDirectoriesInDesktop', 'bygone.compareMultipleFilesInDesktop', 'bygone.exploreBranchInDesktop', 'bygone.presentBranchInDesktop', 'bygone.openTourInDesktop']) {
-        assert.equal(packageJson.contributes.commands.find((entry) => entry.command === command)?.enablement, 'isWorkspaceTrusted');
+    for (const command of ['bygone.compareDirectoriesInDesktop', 'bygone.compareMultipleFilesInDesktop', 'bygone.openComparisonInDesktop', 'bygone.exploreBranchInDesktop', 'bygone.presentBranchInDesktop', 'bygone.openTourInDesktop']) {
+        assert.equal(packageJson.contributes.commands.find((entry) => entry.command === command)?.enablement, 'isWorkspaceTrusted && bygone.desktopHandoffAvailable');
     }
+    assert.equal(packageJson.contributes.commands.find((entry) => entry.command === 'bygone.compareFiles')?.title, 'Compare Active File With…');
+    assert.ok(packageJson.contributes.commands.some((entry) => entry.command === 'bygone.compareSelectedFiles'));
+    assert.ok(packageJson.contributes.commands.some((entry) => entry.command === 'bygone.cancelCompareSelection'));
+    assert.ok(!packageJson.contributes.commands.some((entry) => entry.command === 'bygone.compareFileHistory'));
+    assert.match(extensionSource, /bygone\.desktopHandoffAvailable/);
+    assert.match(launcherSource, /vscode\.env\.remoteName/);
     assert.ok(packageJson.contributes.menus['explorer/context'].every((entry) => typeof entry.when === 'string'));
     assert.equal(packageJson.contributes.viewsContainers, undefined);
     assert.equal(packageJson.contributes.views, undefined);

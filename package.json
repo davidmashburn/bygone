@@ -38,11 +38,13 @@
   "activationEvents": [
     "onUri",
     "onCommand:bygone.compareFiles",
+    "onCommand:bygone.compareSelectedFiles",
     "onCommand:bygone.compareDirectoriesInDesktop",
     "onCommand:bygone.compareMultipleFilesInDesktop",
     "onCommand:bygone.compareWithSelected",
-    "onCommand:bygone.compareFileHistory",
     "onCommand:bygone.compareActiveFileHistory",
+    "onCommand:bygone.cancelCompareSelection",
+    "onCommand:bygone.openComparisonInDesktop",
     "onCommand:bygone.exploreBranchInDesktop",
     "onCommand:bygone.presentBranchInDesktop",
     "onCommand:bygone.openTourInDesktop"
@@ -60,20 +62,25 @@
     "commands": [
       {
         "command": "bygone.compareFiles",
-        "title": "Compare Files",
+        "title": "Compare Active File With…",
+        "category": "Bygone"
+      },
+      {
+        "command": "bygone.compareSelectedFiles",
+        "title": "Compare Selected Files",
         "category": "Bygone"
       },
       {
         "command": "bygone.compareDirectoriesInDesktop",
         "title": "Compare Directories in Desktop…",
         "category": "Bygone",
-        "enablement": "isWorkspaceTrusted"
+        "enablement": "isWorkspaceTrusted && bygone.desktopHandoffAvailable"
       },
       {
         "command": "bygone.compareMultipleFilesInDesktop",
         "title": "Compare Three or More Files in Desktop…",
         "category": "Bygone",
-        "enablement": "isWorkspaceTrusted"
+        "enablement": "isWorkspaceTrusted && bygone.desktopHandoffAvailable"
       },
       {
         "command": "bygone.compareWithSelected",
@@ -81,55 +88,61 @@
         "category": "Bygone"
       },
       {
-        "command": "bygone.compareFileHistory",
-        "title": "Compare File History",
+        "command": "bygone.compareActiveFileHistory",
+        "title": "View Active File History",
         "category": "Bygone"
       },
       {
-        "command": "bygone.compareActiveFileHistory",
-        "title": "Compare Active File History",
+        "command": "bygone.cancelCompareSelection",
+        "title": "Cancel Staged Comparison",
         "category": "Bygone"
+      },
+      {
+        "command": "bygone.openComparisonInDesktop",
+        "title": "Open This Comparison in Desktop",
+        "category": "Bygone",
+        "enablement": "isWorkspaceTrusted && bygone.desktopHandoffAvailable"
       },
       {
         "command": "bygone.exploreBranchInDesktop",
         "title": "Explore Current Branch in Desktop",
         "category": "Bygone",
-        "enablement": "isWorkspaceTrusted"
+        "enablement": "isWorkspaceTrusted && bygone.desktopHandoffAvailable"
       },
       {
         "command": "bygone.presentBranchInDesktop",
         "title": "Present Current Branch in Desktop",
         "category": "Bygone",
-        "enablement": "isWorkspaceTrusted"
+        "enablement": "isWorkspaceTrusted && bygone.desktopHandoffAvailable"
       },
       {
         "command": "bygone.openTourInDesktop",
         "title": "Open Authored Tour in Desktop…",
         "category": "Bygone",
-        "enablement": "isWorkspaceTrusted"
+        "enablement": "isWorkspaceTrusted && bygone.desktopHandoffAvailable"
       },
       {
         "command": "bygone.openStandaloneDownloads",
-        "title": "Open Standalone App Downloads",
+        "title": "Install or Open Desktop App",
         "category": "Bygone"
       }
     ],
     "menus": {
       "explorer/context": [
         {
+          "command": "bygone.compareSelectedFiles",
+          "group": "compare@1",
+          "when": "resourceScheme == file && !explorerResourceIsFolder"
+        },
+        {
           "command": "bygone.compareWithSelected",
-          "group": "compare",
+          "group": "compare@2",
           "when": "resourceScheme == file && !explorerResourceIsFolder"
         },
         {
           "command": "bygone.compareDirectoriesInDesktop",
           "group": "compare",
-          "when": "explorerResourceIsFolder && isWorkspaceTrusted"
-        },
-        {
-          "command": "bygone.compareFileHistory",
-          "group": "compare",
-          "when": "resourceScheme == file && !explorerResourceIsFolder"
+          "when": "explorerResourceIsFolder && isWorkspaceTrusted && bygone.desktopHandoffAvailable"
         },
         {
           "command": "bygone.compareActiveFileHistory",
@@ -140,11 +153,6 @@
       "editor/context": [
         {
           "command": "bygone.compareWithSelected",
-          "group": "compare",
-          "when": "resourceScheme == file"
-        },
-        {
-          "command": "bygone.compareFileHistory",
           "group": "compare",
           "when": "resourceScheme == file"
         },

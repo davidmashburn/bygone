@@ -124,6 +124,11 @@ export class DiffViewProvider implements vscode.Disposable {
         this.directoryReturnHandler = handler;
     }
 
+    public getActiveFileComparisonUris(): readonly vscode.Uri[] | undefined {
+        const state = this.currentTwoWayDiff;
+        return state?.leftUri && state.rightUri ? [state.leftUri, state.rightUri] : undefined;
+    }
+
     public dispose(): void {
         for (const disposable of this.disposables) {
             disposable.dispose();
