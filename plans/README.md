@@ -26,9 +26,9 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
-- [Native editor power in Bygone](editor-power.md) — use native VS Code editors
-  for full language and extension behavior, and keep standalone language work
-  deliberately bounded.
+- [Editor power inside Bygone](editor-power.md) — keep editing in the comparison
+  panes while progressively bridging safe VS Code document and language
+  capabilities into Monaco.
 - [`.bygone` document format and native opening](bygone-document-format.md) —
   add Windows and Linux native associations when packaging support is ready.
 - [Focused multi-panel strip](focused-multi-panel-strip.md) — profile unusually
