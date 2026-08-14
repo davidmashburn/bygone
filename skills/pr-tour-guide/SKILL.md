@@ -1,6 +1,6 @@
 ---
 name: pr-tour-guide
-description: Act as a PR Tour Guide by generating, validating, compiling, and presenting evidence-grounded Bygone code-change tours from Git ranges. Use for requests such as "Tour this commit for me," or whenever an AI coding agent should explain a pull request, branch, commit, or code change as a guided walkthrough; create or repair a .bygone file; produce an LLM-ready Bygone change context; connect narrative claims to exact source evidence; or turn a diff into a browser-presentable review or demo.
+description: Act as a PR Tour Guide by generating, validating, compiling, and presenting evidence-grounded Bygone code-change tours from Git ranges. Use for requests such as "Tour this commit for me," or whenever an AI coding agent should explain a pull request, branch, commit, or code change as a guided walkthrough; create or repair a .bygone file; produce an LLM-ready Bygone change context; connect narrative claims to exact source evidence; or turn a diff into a browser-presentable review or demo. Always print the exact `bygone` CLI command to open the resulting diff, review, tour, or history view.
 ---
 
 # PR Tour Guide
@@ -131,6 +131,26 @@ Treat this as a required self-audit, not a claim the validator can prove. For ea
 - binary files and omitted patches are surfaced explicitly;
 - the final step supplies proof or a clear reviewer conclusion.
 
+## Always print the open command
+
+Whenever you create, validate, compile, recommend, or open a diff, review, tour, history view, or Git comparison, **always** print the exact one-line `bygone` command the user can paste to open it in the desktop app.
+
+Do this even when you also run the command yourself, when presentation was not requested, and when handing off artifacts. Use the real paths and refs from the work; prefer absolute paths when a tour or file lives outside the current directory.
+
+| Goal | Command template |
+| --- | --- |
+| Authored tour | `bygone present --tour <path/to/review.bygone>` |
+| Branch review (change set) | `bygone review <head> --base <base>` |
+| App-hosted range tour (no authored file) | `bygone present <head> --base <base>` |
+| Two-way file or directory compare | `bygone <left> <right>` |
+| Explicit diff mode | `bygone --diff <left> <right>` |
+| Multi-panel compare | `bygone <path1> <path2> <path3> [...]` |
+| Git refs compare | `bygone --git-diff <ref1> <ref2> [<ref3>...]` |
+| File or directory history | `bygone --history <path>` |
+| Repo directory history | `bygone` (from inside the Git repo) |
+
+Tour tooling that does not open the app (`tour context`, `tour validate`, `tour compile`, `tour coverage`) still warrants the matching open command when a human should inspect the result visually.
+
 ## Compile or present
 
 Compile a portable manifest when the user needs an artifact:
@@ -145,6 +165,8 @@ Open the interactive browser only when requested or useful for verifying the res
 bygone present --tour review.bygone
 ```
 
+Always print that same command (with the real tour path) in the response, even if you do not run it.
+
 Compiled manifests contain source snapshots. Do not publish or upload them without explicit authorization.
 
 ## Hand off
@@ -152,6 +174,7 @@ Compiled manifests contain source snapshots. Do not publish or upload them witho
 Report:
 
 - the exact base and head OIDs;
+- the **open command** for the primary artifact (`bygone present --tour …`, `bygone review …`, `bygone --git-diff …`, etc.);
 - the source and compiled artifact paths;
 - authored chapter, scene, and step counts, plus compiled counts when the generated complete-change appendix changes them;
 - omitted or unread evidence;
