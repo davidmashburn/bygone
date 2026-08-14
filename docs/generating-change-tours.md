@@ -4,6 +4,14 @@ Bygone treats an LLM as a narrative planner and evidence selector, not as the au
 
 For agents that support repository skills, use the agent-agnostic [`pr-tour-guide` skill](../skills/pr-tour-guide/SKILL.md). It packages the complete evidence, authoring, validation, and handoff workflow without depending on a particular agent vendor.
 
+Install it with the skills CLI:
+
+```sh
+npx skills add davidmashburn/bygone -s pr-tour-guide -g -y
+```
+
+The skill documents how to install Bygone itself when the CLI is missing.
+
 ## Recommended loop
 
 1. Generate a deterministic change dossier instead of asking the model to rediscover the Git range:

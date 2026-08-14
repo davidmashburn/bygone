@@ -1393,7 +1393,7 @@ button.file-header {
     background: transparent;
 }
 
-.monaco-editor .glyph-margin .bygone-tour-anchor-gutter {
+.monaco-editor .bygone-tour-anchor-gutter {
     background: #a68cff;
     width: 4px !important;
     margin-left: 2px;

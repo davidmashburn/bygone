@@ -30,6 +30,7 @@ const npmPackageJson = {
         'docs/',
         'examples/',
         'schemas/',
+        'skills/',
         'README.md',
         'LICENSE.txt',
         'CHANGELOG.md'
@@ -57,6 +58,7 @@ await copyFile('CHANGELOG.md');
 await copyFile('docs');
 await copyFile('examples');
 await copyFile('schemas');
+await copyFile('skills');
 await copyFile('bin/bygone.js');
 await copyFile('cli');
 await copyFile('completions');

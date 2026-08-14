@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.8.3
+
+- Fixed tour anchor gutter markers so active and persistent anchors are visibly rendered by Monaco, including after switching files in stacked tours
+- Documented agent skill installation with `npx skills add davidmashburn/bygone -s pr-tour-guide`
+- Expanded the PR Tour Guide skill with Bygone install instructions for Homebrew, npm, GitHub Releases, and source checkouts
+- Included `skills/` in the `@davmash/bygone` npm package so the skill ships with CLI installs
+
 ## 0.8.2
 
 - Added persistent tour anchor gutter markers across two-way and stacked-diff scenes, including every applicable step on the open file

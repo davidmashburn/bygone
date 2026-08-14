@@ -250,6 +250,7 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
 
 function testTourAnnotationPersistsAcrossChangeNavigation() {
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const rendererStyles = fs.readFileSync(path.join(__dirname, '..', 'media', 'style.css'), 'utf8');
     const hostSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
 
     assert.match(rendererSource, /let currentTourAnnotations = \[\];/);
@@ -259,6 +260,8 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.doesNotMatch(rendererSource, /function showTwoWayDiff[\s\S]{0,1400}setActiveDiffIndex\(/);
     assert.match(rendererSource, /className: tourAnnotation\.active \? 'bygone-tour-anchor' : 'bygone-tour-anchor-inactive'/);
     assert.match(rendererSource, /glyphMarginClassName: 'bygone-tour-anchor-gutter'/);
+    assert.match(rendererStyles, /\.monaco-editor \.bygone-tour-anchor-gutter \{/);
+    assert.doesNotMatch(rendererStyles, /\.glyph-margin \.bygone-tour-anchor-gutter/);
     assert.doesNotMatch(rendererSource, /tourAnnotation[\s\S]{0,220}linesDecorationsClassName: 'bygone-tour-anchor-gutter'/);
     assert.match(rendererSource, /function clearEditorDecorations/);
     assert.match(rendererSource, /clearEditorDecorations\(editor\);\s+currentModel\.setValue\(content\)/);

@@ -117,7 +117,15 @@ Change tours can layer an authored, code-connected narrative over the complete g
 
 Packaged macOS builds register `.bygone` with the desktop app, so Finder can open a presentation directly. Windows and Linux builds currently require opening the file through Bygone or the `bygone` command; they do not install an operating-system file association.
 
-Agents can validate anchors and structure with `bygone tour validate <file.bygone> --json`, compile a portable manifest with `bygone tour compile`, and retrieve the authoring contract with `bygone tour schema`. See [Generating change tours with an LLM](./docs/generating-change-tours.md), or give a compatible agent the repository's vendor-neutral [`pr-tour-guide` skill](./skills/pr-tour-guide/SKILL.md).
+Agents can validate anchors and structure with `bygone tour validate <file.bygone> --json`, compile a portable manifest with `bygone tour compile`, and retrieve the authoring contract with `bygone tour schema`. See [Generating change tours with an LLM](./docs/generating-change-tours.md).
+
+Install the agent skill (Cursor, Codex, Claude Code, and other supported agents):
+
+```bash
+npx skills add davidmashburn/bygone -s pr-tour-guide -g -y
+```
+
+The skill includes Bygone install instructions for macOS Homebrew, npm, and source checkouts. It also ships inside the `@davmash/bygone` npm package under `skills/pr-tour-guide/`. Source: [`pr-tour-guide` skill](./skills/pr-tour-guide/SKILL.md).
 
 Contributors should consult the internal [product surface overview](./docs/product-surface.md) before adding a command, mode, tour scene, or packaged artifact.
 

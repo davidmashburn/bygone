@@ -7,13 +7,67 @@ description: Act as a PR Tour Guide by generating, validating, compiling, and pr
 
 Use Bygone as the deterministic evidence and rendering layer. Treat the language model as the narrative planner, never as the authority on Git ranges or source locations.
 
-## Locate Bygone
+## Install this skill
 
-Run `bygone --help`. In a Bygone source checkout whose installed command is stale, use `node ./bin/bygone.js` instead. The CLI must expose `tour context`, `tour schema`, `tour validate`, and `tour compile`.
+For Cursor, Codex, Claude Code, and other agents supported by the skills CLI:
 
-If neither `bygone` nor `node ./bin/bygone.js` exposes the `tour` subcommands, stop and report that the toolchain is unavailable rather than guessing.
+```sh
+npx skills add davidmashburn/bygone -s pr-tour-guide -g -y
+```
 
-Do not install, rebuild, commit, push, publish, or open a browser unless the user requests it or the surrounding task clearly requires it.
+List without installing:
+
+```sh
+npx skills add davidmashburn/bygone --list
+```
+
+From a Bygone source checkout, install the local copy instead:
+
+```sh
+npx skills add ./skills/pr-tour-guide -g -y
+```
+
+## Install Bygone
+
+This skill requires the `bygone` CLI with `tour context`, `tour schema`, `tour validate`, and `tour compile`. Install only when the user asks or when the task cannot proceed without it.
+
+**macOS (desktop app + CLI, recommended):**
+
+```sh
+brew tap davidmashburn/bygone
+brew install --cask bygone-desktop
+```
+
+First install may require `brew trust davidmashburn/bygone`.
+
+**CLI only (Node.js required):**
+
+```sh
+npm install -g @davmash/bygone
+```
+
+**macOS without Homebrew:** download the DMG from [GitHub Releases](https://github.com/davidmashburn/bygone/releases), then choose **Help → Install Command Line Tools…** in the app.
+
+**From a Bygone source checkout:**
+
+```sh
+npm install
+npm run dev:sync
+```
+
+## Locate and verify Bygone
+
+Run `bygone --help`. In a Bygone source checkout whose installed command is stale, use `node ./bin/bygone.js` instead.
+
+Verify tour support before authoring:
+
+```sh
+bygone tour schema >/dev/null
+```
+
+If neither `bygone` nor `node ./bin/bygone.js` exposes the `tour` subcommands, stop, share the install commands above, and report that the toolchain is unavailable rather than guessing.
+
+Do not rebuild, commit, push, publish, or open a browser unless the user requests it or the surrounding task clearly requires it.
 
 ## Build the evidence context
 
