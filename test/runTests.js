@@ -228,6 +228,7 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(hostSource, /function buildStackedTourAnnotationsForFile/);
     assert.match(hostSource, /buildWalkthroughTourAnnotations/);
     assert.match(hostSource, /buildStackedTourAnnotations/);
+    assert.match(hostSource, /getFirstChangeSourceRange\(pairs\?\.\[pairIndex\]\?\.diffModel, side\)/);
     assert.match(hostSource, /tourAnnotations/);
     assert.match(rendererSource, /function showMultiDiff\([\s\S]{0,500}tourAnnotations = \[\]/);
     assert.match(rendererSource, /function pushTourAnnotationDecoration/);
@@ -238,7 +239,8 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
 function testStackedDiffTourAnnotations() {
     const {
         buildStackedTourAnnotations,
-        buildWalkthroughTourAnnotations
+        buildWalkthroughTourAnnotations,
+        getFirstChangeSourceRange
     } = require('../out/tourAnnotations.js');
 
     const tour = {
@@ -321,6 +323,50 @@ function testStackedDiffTourAnnotations() {
         active: true,
         jumpTarget: { sceneIndex: 0, stepIndex: 1 }
     });
+
+    const stackedWithFallback = buildStackedTourAnnotations(
+        tour,
+        'src/a.py',
+        0,
+        2,
+        (pairIndex, side) => pairIndex === 0 && side === 'right'
+            ? { startLine: 20, endLine: 22 }
+            : undefined
+    );
+    assert.equal(stackedWithFallback.length, 3);
+    assert.deepEqual(stackedWithFallback[2], {
+        pairIndex: 0,
+        panelIndex: 1,
+        side: 'right',
+        startLine: 20,
+        endLine: 22,
+        label: 'Stack scene · No lines: Skipped',
+        active: true,
+        jumpTarget: { sceneIndex: 0, stepIndex: 2 }
+    });
+
+    const deletionModel = {
+        blocks: [{ kind: 'delete', leftStart: 1, leftEnd: 3, rightStart: 1, rightEnd: 1 }],
+        leftLines: [
+            { lineNumber: 1 },
+            { lineNumber: 2 },
+            { lineNumber: 3 },
+            { lineNumber: 4 }
+        ],
+        rightLines: [
+            { lineNumber: 1 },
+            { lineNumber: 2 }
+        ]
+    };
+    assert.deepEqual(getFirstChangeSourceRange(deletionModel, 'left'), {
+        startLine: 2,
+        endLine: 3
+    });
+    assert.deepEqual(getFirstChangeSourceRange(deletionModel, 'right'), {
+        startLine: 2,
+        endLine: 2
+    });
+    assert.equal(getFirstChangeSourceRange(undefined, 'right'), undefined);
 
     const walkthrough = buildWalkthroughTourAnnotations(tour, 'src/a.py', 1, 0);
     assert.equal(walkthrough.length, 1);

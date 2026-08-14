@@ -3,7 +3,11 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
 import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../src/tourNavigation.ts';
 import { searchTour } from '../src/tourSearch.ts';
-import { buildStackedTourAnnotations, buildWalkthroughTourAnnotations } from '../src/tourAnnotations.ts';
+import {
+    buildStackedTourAnnotations,
+    buildWalkthroughTourAnnotations,
+    getFirstChangeSourceRange
+} from '../src/tourAnnotations.ts';
 
 (function initializeWebHost() {
     const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
@@ -592,7 +596,7 @@ import { buildStackedTourAnnotations, buildWalkthroughTourAnnotations } from '..
         );
     }
 
-    function buildStackedTourAnnotationsForFile(filePath) {
+    function buildStackedTourAnnotationsForFile(filePath, pairs) {
         const tour = state.tour;
         if (!tour || !filePath) {
             return [];
@@ -602,7 +606,8 @@ import { buildStackedTourAnnotations, buildWalkthroughTourAnnotations } from '..
             tour,
             filePath,
             state.activeSceneIndex,
-            state.activeStepIndex
+            state.activeStepIndex,
+            (pairIndex, side) => getFirstChangeSourceRange(pairs?.[pairIndex]?.diffModel, side)
         );
     }
 
@@ -688,7 +693,7 @@ import { buildStackedTourAnnotations, buildWalkthroughTourAnnotations } from '..
             diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
         }));
         const tourAnnotations = scene.kind === 'stacked-diff'
-            ? buildStackedTourAnnotationsForFile(file.path)
+            ? buildStackedTourAnnotationsForFile(file.path, pairs)
             : [];
         const activeAnnotation = tourAnnotations.find((annotation) => annotation.active);
         const focusPairIndex = activeAnnotation?.pairIndex ?? step.pairIndex;
