@@ -31,6 +31,7 @@ const {
 const { generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const { tokenMatches, tokensFor } = require('../cli/commandSpec.js');
 const { startPresentation } = require('../cli/present.js');
+const { resolveWorkingDirectory } = require('../cli/workingDirectory.js');
 const { getCliArgsFromArgv, getForwardedLaunchArgs } = require('./launchArgs.js');
 
 const APP_NAME = 'Bygone';
@@ -1345,7 +1346,8 @@ function normalizeLaunchArgs(args) {
         launchArgs.splice(cwdIndex, 2);
     }
 
-    return { cwd, launchArgs };
+    const resolved = resolveWorkingDirectory(launchArgs, cwd);
+    return { cwd: resolved.cwd, launchArgs: resolved.args };
 }
 
 function resolveLaunchPath(candidate, cwd) {

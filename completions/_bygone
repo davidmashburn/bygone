@@ -22,6 +22,7 @@ _bygone() {
         '--git-diff:Compare two or more Git sources'
         '--branch-diff:Legacy alias for branch review'
         '--test:Open the built-in test comparison'
+        '-C:Run as if Bygone started in this directory'
         '-h:Show command help'
         '--help:Show command help'
         '-v:Show the installed version'

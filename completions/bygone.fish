@@ -13,6 +13,7 @@ complete -c bygone -n '__fish_use_subcommand' -l history -r -d 'Open Git history
 complete -c bygone -n '__fish_use_subcommand' -l git-diff -d 'Compare two or more Git sources'
 complete -c bygone -n '__fish_use_subcommand' -l branch-diff -d 'Legacy alias for branch review'
 complete -c bygone -n '__fish_use_subcommand' -l test -d 'Open the built-in test comparison'
+complete -c bygone -n '__fish_use_subcommand' -s C -r -d 'Run as if Bygone started in this directory'
 complete -c bygone -n '__fish_use_subcommand' -s h -l help -d 'Show command help'
 complete -c bygone -n '__fish_use_subcommand' -s v -l version -d 'Show the installed version'
 complete -c bygone -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish' -d 'Shell'

@@ -12,7 +12,7 @@ _bygone() {
     first="${COMP_WORDS[1]}"
 
     if (( COMP_CWORD == 1 )); then
-        COMPREPLY=( $(compgen -W 'review completion present tour --diff --history --git-diff --branch-diff --test -h --help -v --version' -- "$cur") $(compgen -f -- "$cur") )
+        COMPREPLY=( $(compgen -W 'review completion present tour --diff --history --git-diff --branch-diff --test -C -h --help -v --version' -- "$cur") $(compgen -f -- "$cur") )
         compopt -o filenames 2>/dev/null || true
         return
     fi

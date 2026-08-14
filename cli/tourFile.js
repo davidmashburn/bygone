@@ -1,5 +1,4 @@
-const { execFileSync } = require('child_process');
-const { readFileSync, realpathSync, statSync } = require('fs');
+const { readFileSync, statSync } = require('fs');
 const path = require('path');
 const { TextDecoder } = require('util');
 const { loadAll: loadYamlDocuments } = require('js-yaml');
@@ -11,25 +10,6 @@ function loadTourSource(cwd, sourcePath) {
     const resolvedPath = path.resolve(cwd, sourcePath);
     const source = readTourSourceDocument(resolvedPath);
     return { resolvedPath, source };
-}
-
-function resolveTourRepositoryRoot(cwd, sourcePath) {
-    const candidates = [path.dirname(path.resolve(sourcePath)), path.resolve(cwd)];
-    for (const candidate of candidates) {
-        try {
-            const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-                cwd: candidate,
-                encoding: 'utf8',
-                stdio: ['ignore', 'pipe', 'ignore']
-            }).trim();
-            if (repoRoot) {
-                return realpathSync(repoRoot);
-            }
-        } catch {
-            // Try the caller's working directory for tours stored outside their repository.
-        }
-    }
-    return path.resolve(cwd);
 }
 
 function readTourSourceDocument(sourcePath, options = {}) {
@@ -104,6 +84,5 @@ module.exports = {
     DEFAULT_MAX_TOUR_SOURCE_BYTES,
     buildManifestForTourSource,
     loadTourSource,
-    readTourSourceDocument,
-    resolveTourRepositoryRoot
+    readTourSourceDocument
 };

@@ -11,6 +11,7 @@ const CLI_SPEC = Object.freeze({
         'bygone --history <path>',
         'bygone --git-diff <ref1> <ref2> [<ref3>...]',
         'bygone review [<head>] [--base <base>]',
+        'bygone -C <directory> <command-or-path> [...]',
         'bygone present [<head>] [--base <base>] [--tour <file.bygone>]',
         'bygone tour validate <file.bygone> [--json]',
         'bygone tour compile <file.bygone> [--output <tour.json>]',
@@ -107,6 +108,13 @@ const CLI_SPEC = Object.freeze({
             argument: 'path'
         },
         {
+            id: 'directory',
+            kind: 'global',
+            tokens: ['-C'],
+            description: 'Run as if Bygone started in this directory',
+            argument: 'path'
+        },
+        {
             id: 'branch',
             kind: 'option',
             tokens: ['-b', '--branch'],
@@ -138,6 +146,7 @@ const CLI_SPEC = Object.freeze({
         '`--git-diff` accepts branches, tags, SHAs, HEAD~1, stash@{0}, INDEX, and WORKTREE.',
         '`review` compares merge-base(BASE,HEAD) with HEAD and detects the default base when omitted.',
         '`present` turns the same range into an app-hosted, ordered change tour.',
+        '`-C <directory>` resolves relative paths and Git refs from that directory without changing the shell working directory.',
         '`tour validate` resolves every authored anchor; add `--json` for agent-readable output.',
         '`tour compile` writes a portable manifest to stdout or `--output`; `tour schema` prints its source schema.',
         '`tour context` emits compact, structured Git evidence for an LLM without invoking a model.',

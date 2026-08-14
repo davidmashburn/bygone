@@ -8,9 +8,16 @@ const { generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js'
 const { renderCliHelp, tokenMatches } = require('../cli/commandSpec.js');
 const { startPresentation } = require('../cli/present.js');
 const { runTourCommand } = require('../cli/tour.js');
+const { resolveWorkingDirectory } = require('../cli/workingDirectory.js');
 
-const args = process.argv.slice(2);
-const cliCwd = process.cwd();
+let args;
+let cliCwd;
+try {
+    ({ args, cwd: cliCwd } = resolveWorkingDirectory(process.argv.slice(2), process.cwd()));
+} catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(2);
+}
 const packageRoot = path.join(__dirname, '..');
 
 if (args.some((arg) => tokenMatches('help', arg))) {

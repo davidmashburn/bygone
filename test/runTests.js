@@ -67,7 +67,8 @@ const { buildChangeInventory, materializeChangeUnits, parsePatchUnits } = requir
 const { buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
-const { readTourSourceDocument, resolveTourRepositoryRoot } = require('../cli/tourFile.js');
+const { readTourSourceDocument } = require('../cli/tourFile.js');
+const { resolveWorkingDirectory } = require('../cli/workingDirectory.js');
 const {
     getLinearTourTarget,
     getMultiPanelTourFileTarget,
@@ -957,6 +958,28 @@ function testPresentArgumentsUseSharedBaseAliases() {
     assert.throws(() => parsePresentArgs(['--unknown']), /Unknown present option/);
 }
 
+function testWorkingDirectoryOptionUsesGitStyleSemantics() {
+    assert.deepEqual(
+        resolveWorkingDirectory(
+            ['-C', '/work/repository', 'present', '--tour', '/tmp/review.bygone'],
+            '/original'
+        ),
+        {
+            args: ['present', '--tour', '/tmp/review.bygone'],
+            cwd: '/work/repository'
+        }
+    );
+    assert.deepEqual(
+        resolveWorkingDirectory(['-C', 'one', '-C', '../two', 'review'], '/work'),
+        { args: ['review'], cwd: '/work/two' }
+    );
+    assert.deepEqual(
+        resolveWorkingDirectory(['present', '-C', 'repository'], '/work'),
+        { args: ['present', '-C', 'repository'], cwd: '/work' }
+    );
+    assert.throws(() => resolveWorkingDirectory(['-C'], '/work'), /requires a directory/);
+}
+
 function testCheckedInBygoneHistoryTourRemainsReproducible() {
     const source = parseChangeTourSource(loadYaml(fs.readFileSync(
         path.join(__dirname, '..', 'examples', 'bygone-history.bygone'),
@@ -1040,17 +1063,6 @@ function testAgentTourCommandsValidateCompileAndExposeSchema() {
     });
     assert.equal(validation.ok, true);
     assert.equal(JSON.parse(validationOutput).walkthroughSteps, 5);
-    assert.equal(
-        resolveTourRepositoryRoot(os.tmpdir(), path.join(repoRoot, sourcePath)),
-        fs.realpathSync(repoRoot)
-    );
-    const validationFromOutsideRepo = runTourCommand(
-        ['validate', path.join(repoRoot, sourcePath), '--json'],
-        os.tmpdir(),
-        repoRoot,
-        { write() {} }
-    );
-    assert.equal(validationFromOutsideRepo.ok, true);
 
     const outputPath = path.join(os.tmpdir(), `bygone-tour-${process.pid}.json`);
     runTourCommand(['compile', sourcePath, '--output', outputPath], repoRoot, repoRoot, { write() {} });
@@ -2941,6 +2953,7 @@ function run() {
     testChangeTourBuildsPortableNarrativeChapters();
     testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases();
     testPresentArgumentsUseSharedBaseAliases();
+    testWorkingDirectoryOptionUsesGitStyleSemantics();
     testCheckedInBygoneHistoryTourRemainsReproducible();
     testAdvancedTourExamplesRemainReproducible();
     testVersionTourChangelogRemainsReproducible();

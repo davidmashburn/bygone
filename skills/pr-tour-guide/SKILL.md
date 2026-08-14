@@ -139,7 +139,7 @@ Do this even when you also run the command yourself, when presentation was not r
 
 | Goal | Command template |
 | --- | --- |
-| Authored tour | `bygone present --tour <path/to/review.bygone>` |
+| Authored tour | `bygone -C <repository> present --tour <path/to/review.bygone>` |
 | Branch review (change set) | `bygone review <head> --base <base>` |
 | App-hosted range tour (no authored file) | `bygone present <head> --base <base>` |
 | Two-way file or directory compare | `bygone <left> <right>` |
@@ -162,10 +162,10 @@ bygone tour compile review.bygone --output review.tour.json
 Open the interactive browser only when requested or useful for verifying the result:
 
 ```sh
-bygone present --tour review.bygone
+bygone -C /absolute/path/to/repository present --tour review.bygone
 ```
 
-Always print that same command (with the real tour path) in the response, even if you do not run it.
+Always print that same command with the real repository and tour paths, even if you do not run it. `-C` gives Bygone an explicit working directory without changing the user's shell directory.
 
 Compiled manifests contain source snapshots. Do not publish or upload them without explicit authorization.
 
