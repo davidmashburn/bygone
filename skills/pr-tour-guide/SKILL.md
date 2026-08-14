@@ -9,10 +9,28 @@ Use Bygone as the deterministic evidence and rendering layer. Treat the language
 
 ## Install this skill
 
-For Cursor, Codex, Claude Code, and other agents supported by the skills CLI:
+Install with the [skills CLI](https://skills.sh). Prefer **project** scope (default) or name agents explicitly on **global** installs — bare `-g` fans out to every detected host, and PromptScript only supports project-level skills, which produces a spurious failure line.
+
+**This repo / PromptScript / team-shared (project scope):**
 
 ```sh
-npx skills add davidmashburn/bygone -s pr-tour-guide -g -y
+npx skills add davidmashburn/bygone -s pr-tour-guide -y
+```
+
+Installs to `.agents/skills/pr-tour-guide` (or your agent's project skills directory).
+
+**Global, all projects (pick your agents):**
+
+```sh
+npx skills add davidmashburn/bygone -s pr-tour-guide -g -y -a cursor codex claude-code
+```
+
+Add or remove agent names for the tools you use. Omit `-a` only if you accept PromptScript possibly printing `does not support global skill installation` even when other agents succeeded.
+
+**PromptScript only:**
+
+```sh
+npx skills add davidmashburn/bygone -s pr-tour-guide -y -a promptscript
 ```
 
 List without installing:
@@ -24,7 +42,7 @@ npx skills add davidmashburn/bygone --list
 From a Bygone source checkout, install the local copy instead:
 
 ```sh
-npx skills add ./skills/pr-tour-guide -g -y
+npx skills add ./skills/pr-tour-guide -y
 ```
 
 ## Install Bygone

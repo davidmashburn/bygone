@@ -119,10 +119,14 @@ Packaged macOS builds register `.bygone` with the desktop app, so Finder can ope
 
 Agents can validate anchors and structure with `bygone tour validate <file.bygone> --json`, compile a portable manifest with `bygone tour compile`, and retrieve the authoring contract with `bygone tour schema`. See [Generating change tours with an LLM](./docs/generating-change-tours.md).
 
-Install the agent skill (Cursor, Codex, Claude Code, and other supported agents):
+Install the agent skill:
 
 ```bash
-npx skills add davidmashburn/bygone -s pr-tour-guide -g -y
+# project scope (PromptScript-safe; committed with the repo if you run it here)
+npx skills add davidmashburn/bygone -s pr-tour-guide -y
+
+# global scope — name agents to avoid PromptScript global-install noise
+npx skills add davidmashburn/bygone -s pr-tour-guide -g -y -a cursor codex claude-code
 ```
 
 The skill includes Bygone install instructions for macOS Homebrew, npm, and source checkouts. It also ships inside the `@davmash/bygone` npm package under `skills/pr-tour-guide/`. Source: [`pr-tour-guide` skill](./skills/pr-tour-guide/SKILL.md).

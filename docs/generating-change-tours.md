@@ -7,7 +7,11 @@ For agents that support repository skills, use the agent-agnostic [`pr-tour-guid
 Install it with the skills CLI:
 
 ```sh
-npx skills add davidmashburn/bygone -s pr-tour-guide -g -y
+# project scope (works with PromptScript)
+npx skills add davidmashburn/bygone -s pr-tour-guide -y
+
+# global scope — pass -a so PromptScript is not included
+npx skills add davidmashburn/bygone -s pr-tour-guide -g -y -a cursor codex claude-code
 ```
 
 The skill documents how to install Bygone itself when the CLI is missing.

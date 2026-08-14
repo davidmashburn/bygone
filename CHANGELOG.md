@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.8.4
+
+- Clarified PR Tour Guide skill install commands for project scope and agent-specific global installs
+- Documented PromptScript-safe installation (`-y` without bare `-g`) to avoid spurious global-install failures from the skills CLI
+
 ## 0.8.3
 
 - Fixed tour anchor gutter markers so active and persistent anchors are visibly rendered by Monaco, including after switching files in stacked tours

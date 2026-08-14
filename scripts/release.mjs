@@ -31,8 +31,7 @@ const buildSteps = [
     ...(skipDmg ? [] : [['npm', ['run', 'package:desktop:mac']]]),
     ['npm', ['run', 'package:desktop:mac:zip']],
     ['npm', ['run', 'package:desktop:linux']],
-    ...(skipWindows ? [] : [['npm', ['run', 'package:desktop:win']]]),
-    ...homebrewStyleStep()
+    ...(skipWindows ? [] : [['npm', ['run', 'package:desktop:win']]])
 ];
 
 for (const [command, commandArgs] of buildSteps) {
