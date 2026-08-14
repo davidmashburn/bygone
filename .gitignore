@@ -13,4 +13,5 @@ media/webview.js.map
 media/webview.css.map
 media/editor.worker.js
 media/editor.worker.js.map
+media/diff.worker.js.map
 media/*.ttf
