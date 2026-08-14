@@ -68,7 +68,12 @@ const { buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
 const { readTourSourceDocument } = require('../cli/tourFile.js');
-const { getLinearTourTarget, getTourFileTarget, resolveTourPosition } = require('../out/tourNavigation.js');
+const {
+    getLinearTourTarget,
+    getMultiPanelTourFileTarget,
+    getTourFileTarget,
+    resolveTourPosition
+} = require('../out/tourNavigation.js');
 const { searchTour } = require('../out/tourSearch.js');
 const {
     classifyAuthoredTourPaths,
@@ -171,6 +176,39 @@ function testTourFileNavigationUsesCompleteRenderableFileIndex() {
     assert.equal(getTourFileTarget(files, null, 1), null);
 }
 
+function testTourFileNavigationFindsAnchorsAcrossStackedScenes() {
+    const scenes = [
+        {
+            id: 'models',
+            kind: 'stacked-diff',
+            files: [{ path: 'src/models.py' }],
+            steps: [
+                { id: 'model-one', file: 'src/models.py' },
+                { id: 'model-two', file: 'src/models.py' }
+            ]
+        },
+        {
+            id: 'effects',
+            kind: 'stacked-diff',
+            files: [{ path: 'src/suppliers.py' }],
+            steps: [{ id: 'supplier', file: 'src/suppliers.py' }]
+        }
+    ];
+
+    assert.deepEqual(
+        getMultiPanelTourFileTarget(scenes, { sceneIndex: 0, stepIndex: 1 }, 'src/models.py'),
+        { sceneIndex: 0, stepIndex: 1 }
+    );
+    assert.deepEqual(
+        getMultiPanelTourFileTarget(scenes, { sceneIndex: 0, stepIndex: 1 }, 'src/suppliers.py'),
+        { sceneIndex: 1, stepIndex: 0 }
+    );
+    assert.equal(
+        getMultiPanelTourFileTarget(scenes, { sceneIndex: 0, stepIndex: 1 }, 'src/other.py'),
+        null
+    );
+}
+
 function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     const hostSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
     const webMarkup = fs.readFileSync(path.join(__dirname, '..', 'web', 'index.html'), 'utf8');
@@ -182,6 +220,8 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /function showTourFileAtIndex[\s\S]{0,500}buildTourAnnotationsForFile\(file\.path\)/);
     assert.doesNotMatch(hostSource, /function showTourFile[\s\S]{0,500}showTourScene/);
     assert.match(hostSource, /getTourFileTarget\(tour\.files, state\.activeTourFilePath, direction\)/);
+    assert.match(hostSource, /getMultiPanelTourFileTarget\(/);
+    assert.match(hostSource, /return target \? showTourFileSelection\(target\.fileIndex\) : false/);
     assert.match(hostSource, /tourFocusFilePath/);
     assert.match(hostSource, /function returnToTourFocus/);
     assert.match(hostSource, /function renderMultiPanelStep/);
@@ -826,11 +866,13 @@ function testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases() {
     runGit(repo, ['branch', '-M', 'main']);
     runGit(repo, ['checkout', '-b', 'stack/model']);
     fs.writeFileSync(path.join(repo, 'src', 'model.ts'), 'export interface Event {}\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'src', 'helper.ts'), 'export const helper = 1;\n', 'utf8');
     runGit(repo, ['add', '.']);
     runGit(repo, ['commit', '-m', 'add model']);
     runGit(repo, ['checkout', '-b', 'stack/behavior']);
     runGit(repo, ['mv', 'src/model.ts', 'src/event.ts']);
     fs.appendFileSync(path.join(repo, 'src', 'event.ts'), 'export const emit = () => true;\n');
+    fs.appendFileSync(path.join(repo, 'src', 'helper.ts'), 'export const behavior = 2;\n');
     runGit(repo, ['add', '.']);
     runGit(repo, ['commit', '-m', 'add behavior']);
 
@@ -868,10 +910,11 @@ function testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases() {
     const scene = manifest.scenes[0];
     assert.equal(scene.kind, 'stacked-diff');
     assert.equal(scene.stack.length, 3);
-    assert.equal(scene.files.length, 1);
-    assert.equal(scene.files[0].panels[0].exists, false);
-    assert.equal(scene.files[0].panels[1].path, 'src/model.ts');
-    assert.equal(scene.files[0].panels[2].path, 'src/event.ts');
+    assert.deepEqual(scene.files.map((file) => file.path), ['src/event.ts', 'src/helper.ts']);
+    const eventFile = scene.files.find((file) => file.path === 'src/event.ts');
+    assert.equal(eventFile.panels[0].exists, false);
+    assert.equal(eventFile.panels[1].path, 'src/model.ts');
+    assert.equal(eventFile.panels[2].path, 'src/event.ts');
     assert.equal(scene.steps[0].pairIndex, 0);
     assert.equal(scene.steps[0].startLine, 1);
     assert.equal(scene.steps[0].endLine, 1);
@@ -891,7 +934,7 @@ function testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases() {
         baseRef: 'main',
         headRef: 'stack/behavior'
     });
-    assert.deepEqual(automaticManifest.scenes[0].files.map((file) => file.path), ['src/event.ts']);
+    assert.deepEqual(automaticManifest.scenes[0].files.map((file) => file.path), ['src/event.ts', 'src/helper.ts']);
 
     assert.throws(() => parseChangeTourSource({
         ...source,
@@ -2866,6 +2909,7 @@ function run() {
     testDeconstructedTourNavigationTraversesExplanationStages();
     testTourPositionRestoresStableSceneAndStepIds();
     testTourFileNavigationUsesCompleteRenderableFileIndex();
+    testTourFileNavigationFindsAnchorsAcrossStackedScenes();
     testWebTourHostSeparatesFileAndNarrativeNavigation();
     testTourAnnotationPersistsAcrossChangeNavigation();
     testStackedDiffTourAnnotations();

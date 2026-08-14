@@ -213,7 +213,11 @@ function applySource(
                 continue;
             }
             if (authoredScene.kind === 'stacked-diff') {
-                const stackedScene = buildStackedScene(repoRoot, authoredScene);
+                const stackedScene = buildStackedScene(
+                    repoRoot,
+                    authoredScene,
+                    [...available.keys()]
+                );
                 scenes.push(stackedScene);
                 sceneIds.push(stackedScene.id);
                 continue;
@@ -331,7 +335,8 @@ function buildDeconstructedManifestScene(
 
 function buildStackedScene(
     repoRoot: string,
-    source: Extract<ChangeTourSource['chapters'][number]['scenes'][number], { kind: 'stacked-diff' }>
+    source: Extract<ChangeTourSource['chapters'][number]['scenes'][number], { kind: 'stacked-diff' }>,
+    availableFilePaths: readonly string[]
 ): ChangeTourScene {
     const stack = source.stack.map((entry) => ({
         id: entry.id,
@@ -347,20 +352,19 @@ function buildStackedScene(
         maxBuffer: 16 * 1024 * 1024,
         stdio: ['ignore', 'pipe', 'pipe']
     })));
-    const renamedPreviousPaths = new Set(adjacentChanges.flatMap((changes) => (
-        changes.map((change) => change.previousPath).filter((candidate): candidate is string => Boolean(candidate))
-    )));
-    const changedFiles = [...new Set(adjacentChanges.flatMap((changes) => changes.map((change) => change.path)))]
-        .filter((filePath) => !renamedPreviousPaths.has(filePath))
-        .sort();
-    const filePaths = source.files?.length ? [...new Set(source.files)] : changedFiles;
-    for (const step of source.steps) {
-        if (!filePaths.includes(step.file)) throw new Error(`Stacked step ${step.id} references undeclared file ${step.file}.`);
-    }
+    const filePaths = [...new Set([
+        ...availableFilePaths,
+        ...(source.files || []),
+        ...source.steps.map((step) => step.file)
+    ])].sort();
     if (filePaths.length === 0) throw new Error(`Stacked scene ${source.id} has no changed files.`);
 
+    const requiredFilePaths = new Set([
+        ...(source.files || []),
+        ...source.steps.map((step) => step.file)
+    ]);
     let totalContentBytes = 0;
-    const files = filePaths.map((filePath) => {
+    const files = filePaths.flatMap((filePath) => {
         const aliases = new Set([filePath]);
         for (const changes of adjacentChanges) {
             for (const change of changes) {
@@ -370,26 +374,35 @@ function buildStackedScene(
                 }
             }
         }
-        const panels = stack.map((entry) => {
+        let fileContentBytes = 0;
+        const panels = [];
+        for (const entry of stack) {
             const resolvedPath = [...aliases].find((candidate) => gitBlobExists(repoRoot, entry.oid, candidate));
             if (!resolvedPath) {
-                return { id: entry.id, label: `${entry.label} / ${filePath} (missing)`, content: '', exists: false };
+                panels.push({ id: entry.id, label: `${entry.label} / ${filePath} (missing)`, content: '', exists: false });
+                continue;
             }
             const content = readGitText(repoRoot, entry.oid, resolvedPath, DEFAULT_MAX_TOUR_FILE_BYTES, DEFAULT_MAX_TOUR_LINE_BYTES);
-            if (content.kind !== 'text') throw new Error(`Stacked tour file is binary or too large: ${resolvedPath}`);
-            totalContentBytes += Buffer.byteLength(content.content);
-            if (totalContentBytes > DEFAULT_MAX_STACK_CONTENT_BYTES) {
-                throw new Error(`Stacked tour content exceeds ${DEFAULT_MAX_STACK_CONTENT_BYTES} bytes.`);
+            if (content.kind !== 'text') {
+                if (requiredFilePaths.has(filePath)) {
+                    throw new Error(`Stacked tour file is binary or too large: ${resolvedPath}`);
+                }
+                return [];
             }
-            return {
+            fileContentBytes += Buffer.byteLength(content.content);
+            panels.push({
                 id: entry.id,
                 label: `${entry.label} / ${resolvedPath}`,
                 path: resolvedPath,
                 content: content.content,
                 exists: true
-            };
-        });
-        return { path: filePath, panels };
+            });
+        }
+        totalContentBytes += fileContentBytes;
+        if (totalContentBytes > DEFAULT_MAX_STACK_CONTENT_BYTES) {
+            throw new Error(`Stacked tour content exceeds ${DEFAULT_MAX_STACK_CONTENT_BYTES} bytes.`);
+        }
+        return [{ path: filePath, panels }];
     });
     const stackIds = stack.map((entry) => entry.id);
     return {

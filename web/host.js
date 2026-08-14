@@ -1,7 +1,12 @@
 import { buildTwoWayDiffModel } from '../src/diffEngine.ts';
 import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
-import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../src/tourNavigation.ts';
+import {
+    getLinearTourTarget,
+    getMultiPanelTourFileTarget,
+    getTourFileTarget,
+    resolveTourPosition
+} from '../src/tourNavigation.ts';
 import { searchTour } from '../src/tourSearch.ts';
 import {
     buildStackedTourAnnotations,
@@ -713,8 +718,8 @@ import {
             revealFirstChangeInEachPanel: scene.kind === 'deconstructed-diff',
             history: null,
             fileNavigation: {
-                canGoPrevious: scene.files.indexOf(file) > 0,
-                canGoNext: scene.files.indexOf(file) < scene.files.length - 1
+                canGoPrevious: Boolean(getCurrentTourFileTarget(-1)),
+                canGoNext: Boolean(getCurrentTourFileTarget(1))
             },
             mutationEnabled: false,
             comparisonSummary: scene.kind === 'deconstructed-diff'
@@ -753,17 +758,8 @@ import {
     }
 
     function showTourFile(direction) {
-        const activeScene = state.tour?.scenes[state.activeSceneIndex];
-        if (activeScene && isMultiPanelTourScene(activeScene)) {
-            const currentIndex = activeScene.files.findIndex((file) => file.path === state.activeTourFilePath);
-            const target = activeScene.files[currentIndex + direction];
-            const step = activeScene.steps[state.activeStepIndex];
-            if (!target || !step) return false;
-            emitMultiPanelFile(activeScene, target.path, step);
-            return true;
-        }
         const target = getCurrentTourFileTarget(direction);
-        return target ? showTourFileAtIndex(target.fileIndex) : false;
+        return target ? showTourFileSelection(target.fileIndex) : false;
     }
 
     function showTourFileAtIndex(index) {
@@ -781,12 +777,22 @@ import {
 
     function showTourFileSelection(index) {
         const selected = state.tour?.files[index];
-        const activeScene = state.tour?.scenes[state.activeSceneIndex];
-        if (selected?.kind === 'text-diff' && activeScene && isMultiPanelTourScene(activeScene)) {
-            const step = activeScene.steps[state.activeStepIndex];
-            if (step && activeScene.files.some((file) => file.path === selected.path)) {
-                emitMultiPanelFile(activeScene, selected.path, step);
-                return true;
+        if (selected?.kind === 'text-diff' && state.tour) {
+            const target = getMultiPanelTourFileTarget(
+                state.tour.scenes,
+                {
+                    sceneIndex: state.activeSceneIndex,
+                    stepIndex: state.activeStepIndex
+                },
+                selected.path
+            );
+            if (target) {
+                const scene = state.tour.scenes[target.sceneIndex];
+                const step = isMultiPanelTourScene(scene) ? scene.steps[target.stepIndex] : null;
+                if (step) {
+                    emitMultiPanelFile(scene, selected.path, step);
+                    return true;
+                }
             }
         }
         return showTourFileAtIndex(index);

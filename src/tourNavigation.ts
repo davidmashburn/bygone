@@ -10,6 +10,11 @@ export interface TourFileTarget {
     path: string;
 }
 
+export interface MultiPanelTourFileTarget extends TourPosition {
+    sceneIndex: number;
+    stepIndex: number;
+}
+
 export function resolveTourPosition(
     scenes: readonly ChangeTourScene[],
     requestedSceneId: string | null,
@@ -74,4 +79,50 @@ export function getTourFileTarget(
     return target
         ? { fileIndex: target.fileIndex, path: target.file.path }
         : null;
+}
+
+export function getMultiPanelTourFileTarget(
+    scenes: readonly ChangeTourScene[],
+    position: TourPosition,
+    filePath: string
+): MultiPanelTourFileTarget | null {
+    const activeScene = scenes[position.sceneIndex];
+    const activeTarget = getSceneFileTarget(activeScene, position.sceneIndex, position.stepIndex, filePath);
+    if (activeTarget) {
+        return activeTarget;
+    }
+
+    for (let sceneIndex = 0; sceneIndex < scenes.length; sceneIndex += 1) {
+        if (sceneIndex === position.sceneIndex) {
+            continue;
+        }
+        const target = getSceneFileTarget(scenes[sceneIndex], sceneIndex, 0, filePath);
+        if (target) {
+            return target;
+        }
+    }
+    return null;
+}
+
+function getSceneFileTarget(
+    scene: ChangeTourScene | undefined,
+    sceneIndex: number,
+    preferredStepIndex: number,
+    filePath: string
+): MultiPanelTourFileTarget | null {
+    if (!scene || (scene.kind !== 'stacked-diff' && scene.kind !== 'deconstructed-diff')) {
+        return null;
+    }
+    if (!scene.files.some((file) => file.path === filePath)) {
+        return null;
+    }
+
+    const preferredStep = scene.steps[preferredStepIndex];
+    const matchingStepIndex = preferredStep?.file === filePath
+        ? preferredStepIndex
+        : scene.steps.findIndex((step) => step.file === filePath);
+    return {
+        sceneIndex,
+        stepIndex: matchingStepIndex >= 0 ? matchingStepIndex : Math.max(preferredStepIndex, 0)
+    };
 }
