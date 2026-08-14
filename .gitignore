@@ -5,13 +5,18 @@ dist/
 .DS_Store
 .vscode-test/
 .env
+
+# Screenshot / icon tooling artifacts
 media/*.prev.png
 media/*.pre-*.png
+media/*.ttf
+
+# esbuild browser bundles (`npm run compile`)
 media/webview.js
 media/webview.css
 media/webview.js.map
 media/webview.css.map
-media/editor.worker.js
-media/editor.worker.js.map
-media/diff.worker.js.map
-media/*.ttf
+media/*.worker.js
+media/*.worker.js.map
+web/web-host.js
+web/web-host.js.map

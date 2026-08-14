@@ -92,6 +92,7 @@ async function copyMediaRuntime() {
         'media/webview.css',
         'media/webview.js',
         'media/editor.worker.js',
+        'media/diff.worker.js',
         'media/icon.png',
         'media/bygone-screenshot.png'
     ];

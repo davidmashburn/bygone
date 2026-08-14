@@ -229,6 +229,7 @@
       "media/webview.css",
       "media/webview.js",
       "media/editor.worker.js",
+      "media/diff.worker.js",
       "media/icon.png",
       "standalone/**",
       "web/**",
@@ -247,7 +248,8 @@
       "main": "out/standalone-main.js"
     },
     "asarUnpack": [
-      "media/editor.worker.js"
+      "media/editor.worker.js",
+      "media/diff.worker.js"
     ],
     "mac": {
       "target": [

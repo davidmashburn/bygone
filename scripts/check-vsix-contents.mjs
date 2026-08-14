@@ -15,6 +15,7 @@ const allowed = new Set([
     'media/webview.js',
     'media/webview.css',
     'media/editor.worker.js',
+    'media/diff.worker.js',
     'media/icon.png',
     'media/bygone-screenshot.png'
 ]);
