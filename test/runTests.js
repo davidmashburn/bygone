@@ -67,7 +67,7 @@ const { buildChangeInventory, materializeChangeUnits, parsePatchUnits } = requir
 const { buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
-const { readTourSourceDocument } = require('../cli/tourFile.js');
+const { readTourSourceDocument, resolveTourRepositoryRoot } = require('../cli/tourFile.js');
 const {
     getLinearTourTarget,
     getMultiPanelTourFileTarget,
@@ -1040,6 +1040,17 @@ function testAgentTourCommandsValidateCompileAndExposeSchema() {
     });
     assert.equal(validation.ok, true);
     assert.equal(JSON.parse(validationOutput).walkthroughSteps, 5);
+    assert.equal(
+        resolveTourRepositoryRoot(os.tmpdir(), path.join(repoRoot, sourcePath)),
+        fs.realpathSync(repoRoot)
+    );
+    const validationFromOutsideRepo = runTourCommand(
+        ['validate', path.join(repoRoot, sourcePath), '--json'],
+        os.tmpdir(),
+        repoRoot,
+        { write() {} }
+    );
+    assert.equal(validationFromOutsideRepo.ok, true);
 
     const outputPath = path.join(os.tmpdir(), `bygone-tour-${process.pid}.json`);
     runTourCommand(['compile', sourcePath, '--output', outputPath], repoRoot, repoRoot, { write() {} });

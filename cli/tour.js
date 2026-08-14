@@ -2,7 +2,11 @@ const { mkdirSync, readFileSync, writeFileSync } = require('fs');
 const path = require('path');
 const { buildChangeTourContext } = require('../out/changeTour.js');
 const { buildTourCoverageReport } = require('../out/tourCoverage.js');
-const { buildManifestForTourSource, loadTourSource } = require('./tourFile.js');
+const {
+    buildManifestForTourSource,
+    loadTourSource,
+    resolveTourRepositoryRoot
+} = require('./tourFile.js');
 
 const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'compile', 'schema']);
 
@@ -23,15 +27,16 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
     }
 
     const { resolvedPath, source } = loadTourSource(cwd, options.sourcePath);
+    const repoRoot = resolveTourRepositoryRoot(cwd, resolvedPath);
     if (options.action === 'coverage') {
-        const report = buildTourCoverageReport(cwd, source);
+        const report = buildTourCoverageReport(repoRoot, source);
         output.write(options.json ? `${JSON.stringify(report, null, 2)}\n` : renderCoverageReport(report));
         if (options.minimumCoverage !== undefined && report.totals.coveragePercent < options.minimumCoverage) {
             throw new Error(`Tour coverage ${report.totals.coveragePercent}% is below the required ${options.minimumCoverage}%.`);
         }
         return { action: 'coverage', sourcePath: resolvedPath, report };
     }
-    const manifest = buildManifestForTourSource(cwd, source);
+    const manifest = buildManifestForTourSource(repoRoot, source);
     if (options.action === 'validate') {
         const result = buildValidationResult(resolvedPath, manifest);
         output.write(options.json
