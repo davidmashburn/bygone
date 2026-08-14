@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.8.2
+
+- Added persistent tour anchor gutter markers across two-way and stacked-diff scenes, including every applicable step on the open file
+- Added click-to-jump navigation from tour anchor markers back to the matching tour step
+
 ## 0.8.1
 
 - Added familiar multi-cursor, selection, line, comment, indentation, folding, drag-and-drop, and context-menu editing across Bygone's two-way and multi-panel editors
