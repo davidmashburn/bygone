@@ -1,6 +1,9 @@
 import { ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
 import { DirectoryEntry, DirectoryEntryStatus } from './directoryDiff';
 import { BinaryComparison } from './binaryComparison';
+import type { TourAnnotation } from './tourAnnotations';
+
+export type { TourAnnotation };
 
 export { DirectoryEntry, DirectoryEntryStatus };
 
@@ -89,13 +92,7 @@ export interface ShowDiffMessage {
     };
     comparisonSummary?: string;
     initialChangeIndex?: number;
-    tourAnnotations?: Array<{
-        side: 'left' | 'right';
-        startLine: number;
-        endLine: number;
-        label: string;
-        active: boolean;
-    }>;
+    tourAnnotations?: TourAnnotation[];
 }
 
 export interface ShowBinaryDiffMessage {
@@ -146,6 +143,7 @@ export interface ShowMultiDiffMessage {
     mutationEnabled?: boolean;
     initialChangeIndex?: number;
     revealFirstChangeInEachPanel?: boolean;
+    tourAnnotations?: TourAnnotation[];
 }
 
 export interface ShowThreeWayMergeMessage {
@@ -205,6 +203,12 @@ export interface NavigateFileMessage {
     direction: 'previous' | 'next';
 }
 
+export interface NavigateTourStepMessage {
+    type: 'navigateTourStep';
+    sceneIndex: number;
+    stepIndex: number;
+}
+
 export interface HistoryToggleStagedMessage {
     type: 'historyToggleStaged';
     includeStaged: boolean;
@@ -259,6 +263,7 @@ export type WebviewInboundMessage =
     | SelectHistoryEntryMessage
     | ReturnToDirectoryMessage
     | NavigateFileMessage
+    | NavigateTourStepMessage
     | HistoryToggleStagedMessage
     | HistoryToggleSkipUnchangedMessage
     | MultiSetActivePanelMessage
@@ -298,6 +303,12 @@ export function isNavigateFileMessage(message: unknown): message is NavigateFile
     return getMessageType(message) === 'navigateFile'
         && (((message as NavigateFileMessage).direction) === 'previous'
             || ((message as NavigateFileMessage).direction) === 'next');
+}
+
+export function isNavigateTourStepMessage(message: unknown): message is NavigateTourStepMessage {
+    return getMessageType(message) === 'navigateTourStep'
+        && Number.isInteger((message as NavigateTourStepMessage).sceneIndex)
+        && Number.isInteger((message as NavigateTourStepMessage).stepIndex);
 }
 
 export function isReturnToDirectoryMessage(message: unknown): message is ReturnToDirectoryMessage {

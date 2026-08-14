@@ -285,7 +285,20 @@ host.onMessage((message) => {
             return;
         }
 
-        showMultiDiff(message.panels, message.pairs, message.activePanelId ?? null, message.activePairIndex ?? null, message.history ?? null, message.fileNavigation ?? null, Boolean(message.canReturnToDirectory), message.directoryNavigation || null, message.mutationEnabled !== false, message.initialChangeIndex, Boolean(message.revealFirstChangeInEachPanel));
+        showMultiDiff(
+            message.panels,
+            message.pairs,
+            message.activePanelId ?? null,
+            message.activePairIndex ?? null,
+            message.history ?? null,
+            message.fileNavigation ?? null,
+            Boolean(message.canReturnToDirectory),
+            message.directoryNavigation || null,
+            message.mutationEnabled !== false,
+            message.initialChangeIndex,
+            Boolean(message.revealFirstChangeInEachPanel),
+            message.tourAnnotations || []
+        );
         return;
     }
 
@@ -345,7 +358,8 @@ window.addEventListener('load', async () => {
             pendingMultiPayload.directoryNavigation || null,
             pendingMultiPayload.mutationEnabled !== false,
             pendingMultiPayload.initialChangeIndex,
-            Boolean(pendingMultiPayload.revealFirstChangeInEachPanel)
+            Boolean(pendingMultiPayload.revealFirstChangeInEachPanel),
+            pendingMultiPayload.tourAnnotations || []
         );
         pendingMultiPayload = undefined;
     }
@@ -705,12 +719,13 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
     notifyRenderComplete();
 }
 
-function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false) {
+function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = []) {
     if (!Array.isArray(panels) || panels.length < 1) {
         return;
     }
 
     currentMode = MODE_MULTI_WAY;
+    currentTourAnnotations = tourAnnotations;
     historyMode = false;
     currentDiffModel = null;
     activeDiffIndex = -1;
@@ -771,6 +786,16 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
             setActiveMultiPanelChangeIndex(initialChangeIndex, true);
         }
         revealActiveMultiPanel();
+        const activeTourAnnotation = tourAnnotations.find((annotation) => annotation.active);
+        if (activeTourAnnotation && Number.isInteger(activeTourAnnotation.panelIndex)) {
+            const editor = multiEditors[activeTourAnnotation.panelIndex];
+            if (editor) {
+                editor.revealLineInCenter(
+                    activeTourAnnotation.startLine,
+                    monacoInstance.editor.ScrollType.Immediate
+                );
+            }
+        }
         connectorController.resizeCanvas();
         connectorController.scheduleDrawConnections();
     });
@@ -807,6 +832,7 @@ function computeMissingPairDiffsAsync() {
         updateMultiActivePairModel(false, activeMultiPairIndex);
         updateActiveMultiShellState();
         updateChangeToolbarState();
+        applyMultiDiffDecorations(multiDiffPairs);
         connectorController.scheduleDrawConnections();
     });
 }
@@ -970,6 +996,57 @@ function createEditor(container, editorMode, side = null, initialModel = null) {
         }
     });
 
+    const tryNavigateTourAnchor = (event) => {
+        if (!side || !currentTourAnnotations.length) {
+            return false;
+        }
+
+        if (editorMode !== MODE_TWO_WAY && editorMode !== MODE_MULTI_WAY) {
+            return false;
+        }
+
+        const lineNumber = event.target?.position?.lineNumber;
+        if (!Number.isInteger(lineNumber)) {
+            return false;
+        }
+
+        const targetType = event.target?.type;
+        if (targetType !== 2 && targetType !== 3 && targetType !== 4) {
+            return false;
+        }
+
+        let annotation;
+        if (editorMode === MODE_TWO_WAY) {
+            annotation = currentTourAnnotations.find((candidate) => (
+                candidate.panelIndex === undefined
+                && candidate.side === side
+                && lineNumber >= candidate.startLine
+                && lineNumber <= candidate.endLine
+                && candidate.jumpTarget
+            ));
+        } else {
+            const panelIndex = multiPanels.findIndex((panel) => panel.id === side);
+            annotation = currentTourAnnotations.find((candidate) => (
+                candidate.panelIndex === panelIndex
+                && lineNumber >= candidate.startLine
+                && lineNumber <= candidate.endLine
+                && candidate.jumpTarget
+            ));
+        }
+        if (!annotation) {
+            return false;
+        }
+
+        event.event.preventDefault();
+        event.event.stopPropagation();
+        host.postMessage({
+            type: 'navigateTourStep',
+            sceneIndex: annotation.jumpTarget.sceneIndex,
+            stepIndex: annotation.jumpTarget.stepIndex
+        });
+        return true;
+    };
+
     const selectChangeAtLine = (lineNumber) => {
         if (!Number.isInteger(lineNumber) || !side) {
             return;
@@ -995,6 +1072,10 @@ function createEditor(container, editorMode, side = null, initialModel = null) {
     };
 
     editor.onMouseDown((event) => {
+        if (tryNavigateTourAnchor(event)) {
+            return;
+        }
+
         selectChangeAtLine(event.target?.position?.lineNumber);
     });
 
@@ -1349,6 +1430,17 @@ function createOwnedModel(content, languageId) {
     );
 }
 
+function clearEditorDecorations(editor) {
+    if (editor === leftEditor && leftDecorationIds.length > 0) {
+        leftDecorationIds = leftEditor.deltaDecorations(leftDecorationIds, []);
+        return;
+    }
+
+    if (editor === rightEditor && rightDecorationIds.length > 0) {
+        rightDecorationIds = rightEditor.deltaDecorations(rightDecorationIds, []);
+    }
+}
+
 function setOwnedEditorModel(editor, identity, content, languageId) {
     const currentModel = editor.getModel();
     if (editorModelIdentities.get(editor) !== identity) {
@@ -1356,13 +1448,24 @@ function setOwnedEditorModel(editor, identity, content, languageId) {
         editor.setModel(nextModel);
         currentModel?.dispose();
         editorModelIdentities.set(editor, identity);
+        if (editor === leftEditor) {
+            leftDecorationIds = [];
+        } else if (editor === rightEditor) {
+            rightDecorationIds = [];
+        }
         return;
     }
     if (currentModel && currentModel.getLanguageId() !== languageId) {
         monacoInstance.editor.setModelLanguage(currentModel, languageId);
     }
     if (currentModel && currentModel.getValue() !== content) {
+        clearEditorDecorations(editor);
         currentModel.setValue(content);
+        if (editor === leftEditor) {
+            leftDecorationIds = [];
+        } else if (editor === rightEditor) {
+            rightDecorationIds = [];
+        }
     }
 }
 
@@ -1444,23 +1547,13 @@ function applyDiffDecorations(diffModel, tourAnnotations = []) {
     addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
 
     for (const tourAnnotation of tourAnnotations) {
+        if (tourAnnotation.panelIndex !== undefined) {
+            continue;
+        }
+
         const target = tourAnnotation.side === 'left' ? leftDecorations : rightDecorations;
         const editor = tourAnnotation.side === 'left' ? leftEditor : rightEditor;
-        const endColumn = editor.getModel()?.getLineMaxColumn(tourAnnotation.endLine) ?? 1;
-        target.push({
-            range: new monacoInstance.Range(
-                tourAnnotation.startLine,
-                1,
-                tourAnnotation.endLine,
-                endColumn
-            ),
-            options: {
-                isWholeLine: true,
-                className: tourAnnotation.active ? 'bygone-tour-anchor' : undefined,
-                linesDecorationsClassName: 'bygone-tour-anchor-gutter',
-                hoverMessage: { value: tourAnnotation.label }
-            }
-        });
+        pushTourAnnotationDecoration(target, editor, tourAnnotation);
     }
 
     leftDecorationIds = leftEditor.deltaDecorations(leftDecorationIds, dedupeDecorations(leftDecorations));
@@ -1501,9 +1594,46 @@ function applyMultiDiffDecorations(pairs) {
 
     });
 
+    for (const tourAnnotation of currentTourAnnotations) {
+        if (!Number.isInteger(tourAnnotation.panelIndex)) {
+            continue;
+        }
+
+        const panelDecorations = decorations[tourAnnotation.panelIndex];
+        const editor = multiEditors[tourAnnotation.panelIndex];
+        if (!panelDecorations || !editor) {
+            continue;
+        }
+
+        pushTourAnnotationDecoration(panelDecorations, editor, tourAnnotation);
+    }
+
     multiDecorationIds = multiEditors.map((editor, index) => (
         editor.deltaDecorations(multiDecorationIds[index] || [], dedupeDecorations(decorations[index]))
     ));
+}
+
+function pushTourAnnotationDecoration(target, editor, tourAnnotation) {
+    const endLine = tourAnnotation.endLine ?? tourAnnotation.startLine;
+    const endColumn = editor.getModel()?.getLineMaxColumn(endLine) ?? 1;
+    target.push({
+        range: new monacoInstance.Range(
+            tourAnnotation.startLine,
+            1,
+            endLine,
+            endColumn
+        ),
+        options: {
+            isWholeLine: true,
+            className: tourAnnotation.active ? 'bygone-tour-anchor' : 'bygone-tour-anchor-inactive',
+            glyphMarginClassName: 'bygone-tour-anchor-gutter',
+            hoverMessage: {
+                value: tourAnnotation.jumpTarget
+                    ? `${tourAnnotation.label}\n\nClick the marker to jump to this tour step.`
+                    : tourAnnotation.label
+            }
+        }
+    });
 }
 
 function addLineDecorations(target, start, end, className) {

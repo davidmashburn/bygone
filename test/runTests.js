@@ -179,7 +179,7 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
 
     assert.match(hostSource, /message\.type === 'navigateFile'[\s\S]{0,180}showTourFile/);
     assert.doesNotMatch(hostSource, /message\.type === 'navigateFile'[\s\S]{0,180}showTourLinear/);
-    assert.match(hostSource, /function showTourFileAtIndex[\s\S]{0,300}emitDiffScene\(file\)/);
+    assert.match(hostSource, /function showTourFileAtIndex[\s\S]{0,500}buildTourAnnotationsForFile\(file\.path\)/);
     assert.doesNotMatch(hostSource, /function showTourFile[\s\S]{0,500}showTourScene/);
     assert.match(hostSource, /getTourFileTarget\(tour\.files, state\.activeTourFilePath, direction\)/);
     assert.match(hostSource, /tourFocusFilePath/);
@@ -216,10 +216,116 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(rendererSource, /function setActiveDiffIndex[\s\S]{0,300}applyDiffDecorations\(currentDiffModel, currentTourAnnotations\)/);
     assert.match(rendererSource, /function showTwoWayDiff[\s\S]{0,2600}applyTwoWayRenderTransition\(\{[\s\S]{0,700}updateEditorValues\(leftContent, rightContent,[\s\S]{0,250}activeDiffIndex = nextResolvedDiffIndex[\s\S]{0,300}applyDiffDecorations\(suppliedDiffModel, currentTourAnnotations\)/);
     assert.doesNotMatch(rendererSource, /function showTwoWayDiff[\s\S]{0,1400}setActiveDiffIndex\(/);
-    assert.match(rendererSource, /className: tourAnnotation\.active \? 'bygone-tour-anchor' : undefined/);
-    assert.match(rendererSource, /linesDecorationsClassName: 'bygone-tour-anchor-gutter'/);
-    assert.match(hostSource, /scene\.steps\s+\.filter\(\(candidate\) => candidate\.diff\.path === step\.diff\.path\)/);
-    assert.match(hostSource, /active: candidate\.id === step\.id/);
+    assert.match(rendererSource, /className: tourAnnotation\.active \? 'bygone-tour-anchor' : 'bygone-tour-anchor-inactive'/);
+    assert.match(rendererSource, /glyphMarginClassName: 'bygone-tour-anchor-gutter'/);
+    assert.doesNotMatch(rendererSource, /tourAnnotation[\s\S]{0,220}linesDecorationsClassName: 'bygone-tour-anchor-gutter'/);
+    assert.match(rendererSource, /function clearEditorDecorations/);
+    assert.match(rendererSource, /clearEditorDecorations\(editor\);\s+currentModel\.setValue\(content\)/);
+    assert.match(rendererSource, /type: 'navigateTourStep'/);
+    assert.match(rendererSource, /const tryNavigateTourAnchor = /);
+    assert.match(rendererSource, /if \(editor === leftEditor\) \{\s+leftDecorationIds = \[\];/);
+    assert.match(hostSource, /function buildTourAnnotationsForFile/);
+    assert.match(hostSource, /function buildStackedTourAnnotationsForFile/);
+    assert.match(hostSource, /buildWalkthroughTourAnnotations/);
+    assert.match(hostSource, /buildStackedTourAnnotations/);
+    assert.match(hostSource, /tourAnnotations/);
+    assert.match(rendererSource, /function showMultiDiff\([\s\S]{0,500}tourAnnotations = \[\]/);
+    assert.match(rendererSource, /function pushTourAnnotationDecoration/);
+    assert.match(rendererSource, /applyMultiDiffDecorations[\s\S]{0,4000}currentTourAnnotations/);
+    assert.match(rendererSource, /editorMode === MODE_MULTI_WAY[\s\S]{0,2600}candidate\.panelIndex === panelIndex/);
+}
+
+function testStackedDiffTourAnnotations() {
+    const {
+        buildStackedTourAnnotations,
+        buildWalkthroughTourAnnotations
+    } = require('../out/tourAnnotations.js');
+
+    const tour = {
+        scenes: [
+            {
+                kind: 'stacked-diff',
+                title: 'Stack scene',
+                steps: [
+                    {
+                        id: 'a',
+                        title: 'Step A',
+                        body: 'First anchor',
+                        file: 'src/a.py',
+                        pairIndex: 0,
+                        side: 'right',
+                        startLine: 12,
+                        endLine: 14
+                    },
+                    {
+                        id: 'b',
+                        title: 'Step B',
+                        body: 'Second anchor',
+                        file: 'src/a.py',
+                        pairIndex: 1,
+                        side: 'left',
+                        startLine: 40
+                    },
+                    {
+                        id: 'c',
+                        title: 'No lines',
+                        body: 'Skipped',
+                        file: 'src/a.py',
+                        pairIndex: 0,
+                        side: 'right'
+                    },
+                    {
+                        id: 'd',
+                        title: 'Other file',
+                        body: 'Other',
+                        file: 'src/b.py',
+                        pairIndex: 0,
+                        side: 'right',
+                        startLine: 3
+                    }
+                ]
+            },
+            {
+                kind: 'walkthrough',
+                title: 'Walk scene',
+                steps: [{
+                    id: 'w',
+                    title: 'Walk',
+                    body: 'Body',
+                    focus: { revision: 'head', startLine: 1, endLine: 1 },
+                    diff: { path: 'src/a.py' }
+                }]
+            }
+        ]
+    };
+
+    const stacked = buildStackedTourAnnotations(tour, 'src/a.py', 0, 1);
+    assert.equal(stacked.length, 2);
+    assert.deepEqual(stacked[0], {
+        pairIndex: 0,
+        panelIndex: 1,
+        side: 'right',
+        startLine: 12,
+        endLine: 14,
+        label: 'Stack scene · Step A: First anchor',
+        active: false,
+        jumpTarget: { sceneIndex: 0, stepIndex: 0 }
+    });
+    assert.deepEqual(stacked[1], {
+        pairIndex: 1,
+        panelIndex: 1,
+        side: 'left',
+        startLine: 40,
+        endLine: 40,
+        label: 'Stack scene · Step B: Second anchor',
+        active: true,
+        jumpTarget: { sceneIndex: 0, stepIndex: 1 }
+    });
+
+    const walkthrough = buildWalkthroughTourAnnotations(tour, 'src/a.py', 1, 0);
+    assert.equal(walkthrough.length, 1);
+    assert.equal(walkthrough[0].side, 'right');
+    assert.equal(walkthrough[0].active, true);
 }
 
 function testTourTransitionUpdatesLongDocumentBeforeDeepAnnotation() {
@@ -721,7 +827,11 @@ function testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases() {
     assert.equal(scene.files[0].panels[1].path, 'src/model.ts');
     assert.equal(scene.files[0].panels[2].path, 'src/event.ts');
     assert.equal(scene.steps[0].pairIndex, 0);
+    assert.equal(scene.steps[0].startLine, 1);
+    assert.equal(scene.steps[0].endLine, 1);
     assert.equal(scene.steps[1].pairIndex, 1);
+    assert.equal(scene.steps[1].startLine, 2);
+    assert.equal(scene.steps[1].endLine, 2);
     assert.equal(parseChangeTourManifest(JSON.parse(JSON.stringify(manifest))).scenes[0].kind, 'stacked-diff');
     const automaticSource = {
         ...source,
@@ -2712,6 +2822,7 @@ function run() {
     testTourFileNavigationUsesCompleteRenderableFileIndex();
     testWebTourHostSeparatesFileAndNarrativeNavigation();
     testTourAnnotationPersistsAcrossChangeNavigation();
+    testStackedDiffTourAnnotations();
     testTourTransitionUpdatesLongDocumentBeforeDeepAnnotation();
     testStandaloneMenusExposeProductAreasAndReplace();
     testEditorComfortUsesNativeMonacoActionsAndSourceModels();

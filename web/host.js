@@ -3,6 +3,7 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
 import { getLinearTourTarget, getTourFileTarget, resolveTourPosition } from '../src/tourNavigation.ts';
 import { searchTour } from '../src/tourSearch.ts';
+import { buildStackedTourAnnotations, buildWalkthroughTourAnnotations } from '../src/tourAnnotations.ts';
 
 (function initializeWebHost() {
     const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
@@ -63,6 +64,15 @@ import { searchTour } from '../src/tourSearch.ts';
 
         if (message.type === 'navigateFile' && state.mode === 'tour') {
             showTourFile(message.direction === 'previous' ? -1 : 1);
+            return;
+        }
+
+        if (message.type === 'navigateTourStep' && state.mode === 'tour') {
+            const sceneIndex = message.sceneIndex;
+            const stepIndex = message.stepIndex;
+            if (Number.isInteger(sceneIndex) && Number.isInteger(stepIndex)) {
+                showTourScene(sceneIndex, stepIndex);
+            }
             return;
         }
 
@@ -565,10 +575,42 @@ import { searchTour } from '../src/tourSearch.ts';
             renderMultiPanelStep(scene);
             return;
         }
-        emitDiffScene(scene);
+        emitDiffScene(scene, buildTourAnnotationsForFile(scene.path));
     }
 
-    function emitDiffScene(scene, annotations = [], comparisonId = scene.id) {
+    function buildTourAnnotationsForFile(filePath) {
+        const tour = state.tour;
+        if (!tour || !filePath) {
+            return [];
+        }
+
+        return buildWalkthroughTourAnnotations(
+            tour,
+            filePath,
+            state.activeSceneIndex,
+            state.activeStepIndex
+        );
+    }
+
+    function buildStackedTourAnnotationsForFile(filePath) {
+        const tour = state.tour;
+        if (!tour || !filePath) {
+            return [];
+        }
+
+        return buildStackedTourAnnotations(
+            tour,
+            filePath,
+            state.activeSceneIndex,
+            state.activeStepIndex
+        );
+    }
+
+    function getTourFileComparisonId(filePath) {
+        return `file::${filePath}`;
+    }
+
+    function emitDiffScene(scene, annotations = [], comparisonId = getTourFileComparisonId(scene.path)) {
         const tour = state.tour;
         if (!tour) return;
         state.activeTourFilePath = scene.path;
@@ -612,16 +654,11 @@ import { searchTour } from '../src/tourSearch.ts';
     function renderWalkthroughStep(scene) {
         const step = scene.steps[state.activeStepIndex];
         if (!step) return;
-        const annotations = scene.steps
-            .filter((candidate) => candidate.diff.path === step.diff.path)
-            .map((candidate) => ({
-                side: candidate.focus.revision === 'base' ? 'left' : 'right',
-                startLine: candidate.focus.startLine,
-                endLine: candidate.focus.endLine,
-                label: `${candidate.title}: ${candidate.body}`,
-                active: candidate.id === step.id
-            }));
-        emitDiffScene(step.diff, annotations, `${scene.id}-${step.id}`);
+        emitDiffScene(
+            step.diff,
+            buildTourAnnotationsForFile(step.diff.path),
+            getTourFileComparisonId(step.diff.path)
+        );
     }
 
     function renderMultiPanelStep(scene) {
@@ -650,16 +687,23 @@ import { searchTour } from '../src/tourSearch.ts';
             rightIndex: index + 1,
             diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
         }));
-        const focusModel = pairs[step.pairIndex]?.diffModel;
-        const initialChangeIndex = file.path === step.file && focusModel && step.startLine
-            ? findChangeIndexAtSourceLine(focusModel, step.side, step.startLine)
+        const tourAnnotations = scene.kind === 'stacked-diff'
+            ? buildStackedTourAnnotationsForFile(file.path)
+            : [];
+        const activeAnnotation = tourAnnotations.find((annotation) => annotation.active);
+        const focusPairIndex = activeAnnotation?.pairIndex ?? step.pairIndex;
+        const focusSide = activeAnnotation?.side ?? step.side;
+        const focusLine = activeAnnotation?.startLine ?? step.startLine;
+        const focusModel = pairs[focusPairIndex]?.diffModel;
+        const initialChangeIndex = focusModel && focusLine
+            ? findChangeIndexAtSourceLine(focusModel, focusSide, focusLine)
             : 0;
         emit({
             type: 'showMultiDiff',
             panels,
             pairs,
-            activePanelId: panels[step.pairIndex + (step.side === 'right' ? 1 : 0)]?.id,
-            activePairIndex: step.pairIndex,
+            activePanelId: panels[focusPairIndex + (focusSide === 'right' ? 1 : 0)]?.id,
+            activePairIndex: focusPairIndex,
             initialChangeIndex,
             revealFirstChangeInEachPanel: scene.kind === 'deconstructed-diff',
             history: null,
@@ -670,7 +714,8 @@ import { searchTour } from '../src/tourSearch.ts';
             mutationEnabled: false,
             comparisonSummary: scene.kind === 'deconstructed-diff'
                 ? `${scene.stageLabel} · ${file.path} · ${formatTourRef(scene.realRange.baseRef)} → ${formatTourRef(scene.realRange.targetRef)}`
-                : `${file.path} · ${scene.takeaway}`
+                : `${file.path} · ${scene.takeaway}`,
+            tourAnnotations
         });
     }
 
@@ -721,7 +766,11 @@ import { searchTour } from '../src/tourSearch.ts';
         if (!file || file.kind !== 'text-diff') {
             return false;
         }
-        emitDiffScene(file);
+        emitDiffScene(
+            file,
+            buildTourAnnotationsForFile(file.path),
+            getTourFileComparisonId(file.path)
+        );
         return true;
     }
 
@@ -748,7 +797,7 @@ import { searchTour } from '../src/tourSearch.ts';
         } else if (isMultiPanelTourScene(scene)) {
             renderMultiPanelStep(scene);
         } else if (scene.kind === 'text-diff') {
-            emitDiffScene(scene);
+            emitDiffScene(scene, buildTourAnnotationsForFile(scene.path));
         } else {
             return false;
         }

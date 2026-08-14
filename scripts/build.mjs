@@ -167,6 +167,15 @@ await build({
 
 await build({
     ...sharedOptions,
+    entryPoints: ['src/tourAnnotations.ts'],
+    outfile: 'out/tourAnnotations.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node18'
+});
+
+await build({
+    ...sharedOptions,
     entryPoints: ['src/tourDocument.ts'],
     outfile: 'out/tourDocument.js',
     platform: 'node',
