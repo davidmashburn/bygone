@@ -4,6 +4,7 @@ This directory records Bygone's release history as guided, code-connected tours.
 
 | Release line | Range | Tour | Scope |
 | --- | --- | --- | --- |
+| 0.8.1 | `f32a046..88bb37b` | [`v0.8.1.bygone`](./v0.8.1.bygone) | Native Monaco editing comfort, platform opening guidance, and npm CLI packaging checks |
 | 0.7 | `v0.6.3..a18023f` | [`v0.7.bygone`](./v0.7.bygone) | Multi-panel and Git review, guided tours, matcher correctness, and distribution |
 | Matcher refinement | `1d65666..fa0ba84` | [`diff-matching.bygone`](./diff-matching.bygone) | Structural declaration anchors and conservative contextual matching |
 | 0.6 | `v0.5.2..e6e3e05` | [`v0.6.bygone`](./v0.6.bygone) | Multi-pane comparison, diff correctness, Git review, distribution, and the PR Tour Guide |
@@ -11,8 +12,10 @@ This directory records Bygone's release history as guided, code-connected tours.
 Run the latest tour from the repository root:
 
 ```sh
-bygone present --tour tours/v0.7.bygone
+bygone present --tour tours/v0.8.1.bygone
 ```
+
+The 0.8.1 tour covers 5 commits and 24 changed files. Its bounded context omits the generated `web/web-host.js.map` from patch evidence; the complete file rail retains every path and its omission reason.
 
 The 0.7 tour covers 54 commits and 110 changed files. Its bounded context omits 13 binary assets plus the package lockfile and two generated source maps from patch evidence; the complete file rail retains every path and its omission reason.
 
