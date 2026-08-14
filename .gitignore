@@ -6,6 +6,10 @@ dist/
 .vscode-test/
 .env
 
+# skills CLI local install artifacts
+.agents/
+skills-lock.json
+
 # Screenshot / icon tooling artifacts
 media/*.prev.png
 media/*.pre-*.png

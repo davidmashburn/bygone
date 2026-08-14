@@ -44,6 +44,8 @@ completions/**
 cli/**
 packaging/**
 skills/**
+.agents/**
+skills-lock.json
 .claude/**
 .vsmux/**
 AGENTS.md
