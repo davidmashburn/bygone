@@ -193,11 +193,6 @@ async function buildReleasePath() {
     return pathParts.join(path.delimiter);
 }
 
-function homebrewStyleStep() {
-    const brew = firstExisting(['/opt/homebrew/bin/brew', '/usr/local/bin/brew']);
-    return brew ? [[brew, ['style', 'packaging/homebrew/bygone.rb', 'packaging/homebrew/bygone-desktop.rb']]] : [];
-}
-
 function firstExisting(candidates) {
     return candidates.find((candidate) => existsSync(candidate));
 }

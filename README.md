@@ -137,6 +137,19 @@ Contributors should consult the internal [product surface overview](./docs/produ
 
 The desktop app also includes `Help -> Install Command Line Tools...` for non-npm installs. Homebrew cask installs can provide the `bygone` command automatically.
 
+### macOS says the app is damaged
+
+Downloads from GitHub or Homebrew are **unsigned** (no Apple Developer ID signature yet). macOS Gatekeeper then shows a misleading **“damaged”** dialog.
+
+**Workaround (unsigned builds such as 0.8.4 and earlier):**
+
+```bash
+xattr -cr /Applications/Bygone.app
+open /Applications/Bygone.app
+```
+
+Or right-click the app → **Open** once, or allow it under **System Settings → Privacy & Security**.
+
 ## Package For External Use
 
 This repo is set up for local/private packaging. A typical release flow is:

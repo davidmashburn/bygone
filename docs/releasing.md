@@ -190,6 +190,34 @@ That path must point at a local git checkout of the tap repo. The script writes:
 
 and then commits and pushes that tap repo.
 
+## macOS Unsigned Desktop Builds
+
+Published macOS desktop builds are currently **unsigned and not notarized**. After download, Gatekeeper often shows a misleading **“Bygone is damaged”** dialog.
+
+### End-user workaround
+
+```bash
+xattr -cr /Applications/Bygone.app
+open /Applications/Bygone.app
+```
+
+Or right-click the app → **Open** once, or allow it under **System Settings → Privacy & Security**.
+
+Document this for users in release notes when shipping desktop updates.
+
+### Future signing (not enabled)
+
+Signing helpers are shelved until Apple Developer Program membership is active. They are **not** wired into `release:publish` today.
+
+When ready to enable:
+
+- Config: `packaging/macos/electron-builder.signing.json`
+- Optional manual builds: `npm run package:desktop:mac:release`
+- Verification: `npm run release:verify-macos` or `node scripts/verify-macos-signing.mjs`
+- Re-enable checks in `scripts/release.mjs` (see git history)
+
+Credentials needed later: Developer ID Application cert (`CSC_NAME` / `CSC_LINK`) plus notarization (`APPLE_API_KEY` trio, or `APPLE_ID` + app-specific password + team ID).
+
 ## Recommended Release Flow
 
 ### Step 1. Confirm the version
@@ -223,7 +251,6 @@ This builds:
 - macOS desktop artifacts
 - Linux AppImage
 - Windows artifacts
-- Homebrew style validation, if `brew` is available
 
 If local packaging is partially unavailable, use the lower-level script:
 
@@ -311,6 +338,10 @@ node ./scripts/release.mjs --skip-dmg
 ```
 
 Then fix the local DMG toolchain before attempting a full publish.
+
+### macOS says the app is damaged after install
+
+This is expected for unsigned desktop builds. See [macOS Unsigned Desktop Builds](#macos-unsigned-desktop-builds).
 
 ### Windows packaging fails locally
 

@@ -1,0 +1,9 @@
+{
+  "mac": {
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "packaging/macos/entitlements.mac.plist",
+    "entitlementsInherit": "packaging/macos/entitlements.mac.inherit.plist",
+    "notarize": true
+  }
+}

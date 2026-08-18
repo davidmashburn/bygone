@@ -66,6 +66,13 @@ npm install -g @davmash/bygone
 
 **macOS without Homebrew:** download the DMG from [GitHub Releases](https://github.com/davidmashburn/bygone/releases), then choose **Help → Install Command Line Tools…** in the app.
 
+If macOS reports the app is **damaged**, the build is likely unsigned. Clear quarantine and open once:
+
+```sh
+xattr -cr /Applications/Bygone.app
+open /Applications/Bygone.app
+```
+
 **From a Bygone source checkout:**
 
 ```sh
