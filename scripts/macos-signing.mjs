@@ -98,7 +98,7 @@ export function readCodesignAssessment(appPath) {
     const signatureLine = details.match(/^Signature=(.+)$/m)?.[1] ?? 'unknown';
     const teamIdentifier = details.match(/^TeamIdentifier=(.+)$/m)?.[1] ?? null;
 
-    let gatekeeper = null;
+    let gatekeeper;
     try {
         gatekeeper = execFileSync('spctl', ['-a', '-vv', '-t', 'install', appPath], {
             encoding: 'utf8',
