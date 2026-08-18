@@ -141,7 +141,7 @@ The desktop app also includes `Help -> Install Command Line Tools...` for non-np
 
 Downloads from GitHub or Homebrew are **unsigned** (no Apple Developer ID signature yet). macOS Gatekeeper then shows a misleading **“damaged”** dialog.
 
-**Workaround (unsigned builds such as 0.8.4 and earlier):**
+**Workaround (unsigned desktop builds):**
 
 ```bash
 xattr -cr /Applications/Bygone.app

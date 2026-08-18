@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## 0.8.5
+
+- Fixed Homebrew cask `bygone` CLI launch on Apple Silicon by routing through a bundle-aware launcher script inside the app
 - Documented the macOS **“app is damaged”** workaround for unsigned desktop downloads (README, releasing docs, PR Tour Guide skill)
 
 ## 0.8.4
