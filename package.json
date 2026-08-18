@@ -242,6 +242,10 @@
       {
         "from": "completions",
         "to": "completions"
+      },
+      {
+        "from": "packaging/homebrew/bygone-launcher.sh",
+        "to": "bygone-launcher.sh"
       }
     ],
     "extraMetadata": {

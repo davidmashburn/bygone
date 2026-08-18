@@ -13,7 +13,7 @@ cask "bygone-desktop" do
   depends_on macos: :big_sur
 
   app "Bygone.app"
-  binary "#{appdir}/Bygone.app/Contents/MacOS/Bygone", target: "bygone"
+  binary "#{appdir}/Bygone.app/Contents/Resources/bygone-launcher.sh", target: "bygone"
   artifact "Bygone.app/Contents/Resources/completions/_bygone",
            target: "#{HOMEBREW_PREFIX}/share/zsh/site-functions/_bygone"
   artifact "Bygone.app/Contents/Resources/completions/bygone",
