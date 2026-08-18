@@ -7,6 +7,8 @@
 - Fixed Homebrew cask `bygone` CLI launch on Apple Silicon by routing through a bundle-aware launcher script inside the app
 - Documented the macOS **“app is damaged”** workaround for unsigned desktop downloads (README, releasing docs, PR Tour Guide skill)
 
+**macOS install:** Desktop builds are unsigned. If Gatekeeper reports the app is damaged, run `xattr -cr /Applications/Bygone.app` then open the app.
+
 ## 0.8.4
 
 - Clarified PR Tour Guide skill install commands for project scope and agent-specific global installs
