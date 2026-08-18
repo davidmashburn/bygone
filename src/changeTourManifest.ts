@@ -182,6 +182,7 @@ export interface ChangeTourChapter {
 export interface ChangeTourManifest {
     version: typeof CHANGE_TOUR_MANIFEST_VERSION;
     title: string;
+    windowTitle?: string;
     sourceUrl?: string;
     generatedAt: string;
     range: {
@@ -210,6 +211,9 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
     }
     requireString(value.title, 'title');
     requireString(value.generatedAt, 'generatedAt');
+    if (value.windowTitle !== undefined) {
+        requireString(value.windowTitle, 'windowTitle');
+    }
     if (value.sourceUrl !== undefined) {
         requireString(value.sourceUrl, 'sourceUrl');
     }

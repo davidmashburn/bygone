@@ -171,6 +171,10 @@ context, and keep the file within the corresponding repository so Bygone can
 resolve those objects. Use a compiled `.tour.json` only when a portable
 snapshot is required.
 
+Set optional `windowTitle` when the tour should appear in the native window
+title — for example a pull request number (`PR-1234`) so multiple open tours
+stay distinguishable. When omitted, the presenter falls back to `title`.
+
 For every step:
 
 - make one concise explanatory claim;

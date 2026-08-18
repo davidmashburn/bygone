@@ -81,6 +81,12 @@ const {
     discoverAuthoredTourDocument,
     isAuthoredTourPath
 } = require('../out/tourDocument.js');
+const {
+    buildHistoryTitle,
+    buildMultiPanelTitle,
+    buildTourWindowTitle,
+    truncateTitle
+} = require('../out/windowTitle.js');
 
 function testTourLinearNavigationTraversesStepsAndScenes() {
     const scenes = [
@@ -826,6 +832,14 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.deepEqual(anchored.chapters.map((chapter) => chapter.id), ['flow']);
     assert.equal(anchored.files.length, 3);
     assert.equal(anchored.scenes[0].kind === 'walkthrough' ? anchored.scenes[0].steps[0].depth : undefined, 'contextualized');
+    const ticketed = buildChangeTourManifest(repo, {
+        headRef: 'feature/tour',
+        baseRef: 'main',
+        generatedAt: '2026-08-01T00:00:00.000Z',
+        source: { ...source, windowTitle: 'PR-5678' }
+    });
+    assert.equal(ticketed.windowTitle, 'PR-5678');
+    assert.equal(buildTourWindowTitle(ticketed), 'PR-5678');
     const coverage = buildTourCoverageReport(repo, source);
     assert.equal(coverage.version, 1);
     assert.equal(coverage.totals.originalUnits, 3);
@@ -859,6 +873,62 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.equal(guarded.files.length, 4);
     assert.equal(guarded.files.find((file) => file.path === 'web/app.js.map')?.kind, 'omitted');
     assert.equal(guarded.scenes.some((scene) => scene.kind === 'text-diff' && scene.path === 'web/app.js.map'), false);
+}
+
+function testWindowTitleHelpersFocusActiveMultiPanelContext() {
+    assert.equal(
+        buildMultiPanelTitle({
+            panels: [{ label: 'a.ts' }, { label: 'b.ts' }, { label: 'c.ts' }],
+            activePanelId: '2',
+            activePairIndex: null,
+            panelIds: ['1', '2', '3']
+        }),
+        'b.ts ↔ c.ts'
+    );
+    assert.equal(
+        buildMultiPanelTitle({
+            panels: [{ label: 'left.ts' }, { label: 'middle.ts' }, { label: 'right.ts' }],
+            activePanelId: null,
+            activePairIndex: 1,
+            panelIds: ['1', '2', '3']
+        }),
+        'middle.ts ↔ right.ts'
+    );
+    assert.equal(
+        buildHistoryTitle('app.ts', { shortCommit: 'abc1234', positionLabel: '2 / 5' }),
+        'app.ts History — abc1234 — (2 / 5)'
+    );
+    assert.equal(buildTourWindowTitle({ windowTitle: 'PR-99', title: 'Long title' }), 'PR-99');
+    assert.equal(buildTourWindowTitle({ title: 'Review tour' }), 'Review tour');
+    assert.equal(buildTourWindowTitle(undefined, 'Bygone'), 'Bygone Tour');
+    assert.equal(truncateTitle('x'.repeat(130)).endsWith('…'), true);
+    assert.throws(
+        () => parseChangeTourSource({
+            version: 1,
+            windowTitle: '',
+            anchors: {},
+            connections: [],
+            chapters: [{
+                id: 'one',
+                title: 'One',
+                scenes: [{
+                    id: 'scene',
+                    title: 'Scene',
+                    summary: 's',
+                    bullets: [],
+                    tags: [],
+                    takeaway: 't',
+                    steps: [{
+                        id: 'step',
+                        title: 'Step',
+                        body: 'body',
+                        focus: 'missing'
+                    }]
+                }]
+            }]
+        }),
+        /windowTitle must be a non-empty string/
+    );
 }
 
 function testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases() {
@@ -2111,7 +2181,7 @@ function testToursRouteThroughAnAppOwnedWindowAndServer() {
     assert.match(standaloneSource, /Open an authored Bygone presentation separately from ordinary files and directories/);
     assert.match(standaloneSource, /startPresentation\(args, cwd, packageRoot, \{[\s\S]{0,100}open: false/);
     assert.match(standaloneSource, /const tourPresentations = new Map\(\)/);
-    assert.match(standaloneSource, /async function showTourWindow\(url, server\)[\s\S]{0,500}const tourWindow = new BrowserWindow/);
+    assert.match(standaloneSource, /async function showTourWindow\(url, server, manifest\)[\s\S]{0,500}buildTourWindowTitle\(manifest, APP_NAME\)/);
     assert.match(standaloneSource, /tourPresentations\.set\(tourWindow, \{ server, origin: tourOrigin \}\)/);
     assert.match(standaloneSource, /tourWindow\.on\('closed',[\s\S]{0,180}tourPresentations\.delete\(tourWindow\);[\s\S]{0,80}closeTourServer\(server\)/);
     assert.doesNotMatch(standaloneSource, /previousServer|await tourWindow\.loadURL\(url\)[\s\S]{0,120}closeTourServer\(previousServer\)/);
@@ -2954,6 +3024,7 @@ function run() {
     testCliSpecificationDrivesHelpAndEveryCompletionFormat();
     testCliPrintsGeneratedCompletionsWithoutStartingElectron();
     testChangeTourBuildsPortableNarrativeChapters();
+    testWindowTitleHelpersFocusActiveMultiPanelContext();
     testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases();
     testPresentArgumentsUseSharedBaseAliases();
     testWorkingDirectoryOptionUsesGitStyleSemantics();

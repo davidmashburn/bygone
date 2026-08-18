@@ -9,6 +9,10 @@
   "properties": {
     "version": { "const": 1 },
     "title": { "$ref": "#/$defs/nonEmptyString" },
+    "windowTitle": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Optional native window title for the tour presenter. Use a short label such as a pull request number when multiple tours may be open."
+    },
     "sourceUrl": { "type": "string", "minLength": 1 },
     "range": {
       "type": "object",

@@ -35,11 +35,16 @@ contents, and diffs into the portable JSON manifest served by the presenter.
 Compilation fails if an anchor has no match or has multiple matches without an
 explicit `occurrence`.
 
+The optional `windowTitle` sets the native window title for the tour presenter.
+Use a short label such as a pull request number when several tours may be open at
+once. When omitted, the presenter falls back to `title`, then a generic tour label.
+
 ## Structure
 
 ```yaml
 version: 1
 title: A reviewer-facing title
+windowTitle: PR-1234
 sourceUrl: https://example.test/pull/123
 range:
   base: 0123456789abcdef

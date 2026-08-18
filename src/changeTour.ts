@@ -150,6 +150,7 @@ export function buildChangeTourManifest(
     const manifest: ChangeTourManifest = {
         version: CHANGE_TOUR_MANIFEST_VERSION,
         title: options.source?.title || options.story?.title || options.title || `${range.headRef} against ${range.baseRef}`,
+        windowTitle: options.source?.windowTitle,
         sourceUrl: options.source?.sourceUrl || options.story?.sourceUrl || options.sourceUrl,
         generatedAt: options.generatedAt || new Date().toISOString(),
         range: {

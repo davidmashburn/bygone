@@ -33,6 +33,11 @@ const { tokenMatches, tokensFor } = require('../cli/commandSpec.js');
 const { startPresentation } = require('../cli/present.js');
 const { resolveWorkingDirectory } = require('../cli/workingDirectory.js');
 const { getCliArgsFromArgv, getForwardedLaunchArgs } = require('./launchArgs.js');
+const {
+    buildHistoryTitle,
+    buildStandaloneSessionTitle,
+    buildTourWindowTitle
+} = require('../src/windowTitle.ts');
 
 const APP_NAME = 'Bygone';
 const APP_VERSION = require('../package.json').version;
@@ -310,7 +315,7 @@ async function openTourPresentation(args, cwd) {
     activeTourServers.add(presentation.server);
 
     try {
-        await showTourWindow(presentation.url, presentation.server);
+        await showTourWindow(presentation.url, presentation.server, presentation.manifest);
     } catch (error) {
         closeTourServer(presentation.server);
         throw error;
@@ -322,7 +327,7 @@ async function openAuthoredTourDocument(sourcePath) {
     await openTourPresentation(['--tour', document.documentPath], document.repoRoot);
 }
 
-async function showTourWindow(url, server) {
+async function showTourWindow(url, server, manifest) {
     const parsedUrl = new URL(url);
     if (parsedUrl.protocol !== 'http:' || parsedUrl.hostname !== '127.0.0.1') {
         throw new Error('Tour presenter URL must use the local Bygone server.');
@@ -334,7 +339,7 @@ async function showTourWindow(url, server) {
         minWidth: 960,
         minHeight: 640,
         show: false,
-        title: `${APP_NAME} Tour`,
+        title: buildTourWindowTitle(manifest, APP_NAME),
         webPreferences: {
             sandbox: true,
             contextIsolation: true,
@@ -1532,12 +1537,16 @@ async function handleRendererMessage(message) {
     }
 
     if (message.type === 'multiSetActivePanel' && typeof message.panelId === 'string') {
-        setActiveMultiPanel(message.panelId);
+        if (setActiveMultiPanel(message.panelId)) {
+            refreshSessionWindowTitle();
+        }
         return;
     }
 
     if (message.type === 'multiSetActivePair' && Number.isInteger(message.pairIndex)) {
-        setActiveMultiPair(message.pairIndex);
+        if (setActiveMultiPair(message.pairIndex)) {
+            refreshSessionWindowTitle();
+        }
         return;
     }
 
@@ -1572,7 +1581,7 @@ async function handleRendererMessage(message) {
         if (panel) {
             panel.content = message.content;
             panel.dirty = panel.content !== panel.savedContent;
-            updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
+            refreshSessionWindowTitle();
         }
         return;
     }
@@ -2350,9 +2359,7 @@ async function sendCurrentDirectoryDiff() {
         review: buildReviewViewState(review)
     });
 
-    updateWindowTitle(review
-        ? `${review.headRef} Branch Change`
-        : session.directory.labels.join(' ↔ '));
+    refreshSessionWindowTitle();
     if (launchArguments.kind === 'smoke-directory' && mainWindow && !mainWindow.isDestroyed()) {
         setTimeout(() => {
             void mainWindow.webContents.executeJavaScript(`document.querySelector('.dir-entry[data-is-dir="false"]')?.click()`);
@@ -2426,7 +2433,7 @@ async function sendCurrentDirectoryHistoryEntry() {
             canReturnToDirectory: true
         });
 
-        updateWindowTitle(`${relativePath} Directory History`);
+        refreshSessionWindowTitle();
         scheduleCaptureIfNeeded();
         return;
     }
@@ -2454,7 +2461,7 @@ async function sendCurrentDirectoryHistoryEntry() {
         canMutate: true
     });
 
-    updateWindowTitle(`${session.dirHistory.displayName} Directory History`);
+    refreshSessionWindowTitle();
     scheduleCaptureIfNeeded();
 }
 
@@ -3814,7 +3821,7 @@ async function sendCurrentMultiDiff() {
         mutationEnabled: !isDirectoryDrilldown
     });
 
-    updateWindowTitle(panels.map((panel) => panel.label).join(' ↔ ') || 'Multi-Panel Compare');
+    refreshSessionWindowTitle();
 
     if (mainWindow && !mainWindow.isDestroyed()) {
         setTimeout(() => {
@@ -3950,7 +3957,7 @@ async function sendCurrentDiff() {
             directoryNavigation: buildDirectoryDrilldownNavigationState(),
             canReturnToDirectory: Boolean(session.returnDirectory)
         });
-        updateWindowTitle(`${session.left.label} ↔ ${session.right.label}`);
+        refreshSessionWindowTitle();
         scheduleCaptureIfNeeded();
         return;
     }
@@ -3980,7 +3987,7 @@ async function sendCurrentDiff() {
     };
 
     postOrQueue(message);
-    updateWindowTitle(`${session.left.label} ↔ ${session.right.label}`);
+    refreshSessionWindowTitle();
 
     if (mainWindow && !mainWindow.isDestroyed()) {
         setTimeout(() => {
@@ -4075,7 +4082,7 @@ async function sendCurrentHistoryEntry() {
         }
     });
 
-    updateWindowTitle(`${fileName} History`);
+    refreshSessionWindowTitle();
 
     if (mainWindow && !mainWindow.isDestroyed()) {
         setTimeout(() => {
@@ -4456,7 +4463,7 @@ async function saveDirtyMultiPanels() {
 
     updateWatchers();
     await sendCurrentMultiDiff();
-    updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
+    refreshSessionWindowTitle();
     return true;
 }
 
@@ -4488,7 +4495,7 @@ async function saveMultiPanel(panel, { dialogTitle, refreshView }) {
     if (refreshView) {
         updateWatchers();
         await sendCurrentMultiDiff();
-        updateWindowTitle(session.multi.files.map((file) => file.label).join(' ↔ ') || 'Multi-Panel Compare');
+        refreshSessionWindowTitle();
     }
 
     return true;
@@ -4625,6 +4632,24 @@ function updateWindowTitle(title) {
 
     const dirtySuffix = hasUnsavedChanges() ? ' • Unsaved' : '';
     mainWindow.setTitle(`${APP_NAME} — ${title}${dirtySuffix}`);
+}
+
+function refreshSessionWindowTitle() {
+    if (session.mode === 'history' && session.history) {
+        const visibleIndices = getVisibleFileHistoryIndices(session.history);
+        const visiblePosition = visibleIndices.indexOf(session.history.index);
+        const entry = session.history.entries[session.history.index];
+        const fileName = path.basename(session.history.filePath);
+        updateWindowTitle(buildHistoryTitle(fileName, {
+            shortCommit: entry?.shortCommit,
+            positionLabel: visiblePosition >= 0
+                ? `${visiblePosition + 1} / ${visibleIndices.length}`
+                : undefined
+        }));
+        return;
+    }
+
+    updateWindowTitle(buildStandaloneSessionTitle(session));
 }
 
 async function confirmSessionReplacement(action) {

@@ -104,6 +104,7 @@ export interface ChangeTourSourceChapter {
 export interface ChangeTourSource {
     version: typeof CHANGE_TOUR_SOURCE_VERSION;
     title?: string;
+    windowTitle?: string;
     sourceUrl?: string;
     range?: {
         base: string;
@@ -119,8 +120,9 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
     if (!isRecord(value) || value.version !== CHANGE_TOUR_SOURCE_VERSION) {
         throw new Error('Unsupported or missing change-tour source version.');
     }
-    requireOnlyKeys(value, ['version', 'title', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'coverage'], 'source');
+    requireOnlyKeys(value, ['version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'coverage'], 'source');
     optionalString(value.title, 'title');
+    optionalString(value.windowTitle, 'windowTitle');
     optionalString(value.sourceUrl, 'sourceUrl');
     if (value.range !== undefined) {
         if (!isRecord(value.range)) throw new Error('range must be an object.');

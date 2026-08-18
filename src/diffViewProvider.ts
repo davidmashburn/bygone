@@ -3,6 +3,7 @@ import * as path from 'path';
 import { BinaryComparison } from './binaryComparison';
 import { normalizeLanguageId } from './languageSupport';
 import { buildTwoWayDiffModel, ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
+import { buildHistoryTitleFromViewState, buildMultiPanelTitle } from './windowTitle';
 import {
     BranchReviewViewState,
     DirectoryEntry,
@@ -350,7 +351,7 @@ export class DiffViewProvider implements vscode.Disposable {
         history: HistoryViewState
     ) {
         this.revealPanel(
-            `${path.basename(file.path)} History`,
+            buildHistoryTitleFromViewState(path.basename(file.path), history),
             'history',
             { version: 1, kind: 'history', fileUri: file.toString() }
         );
@@ -403,16 +404,24 @@ export class DiffViewProvider implements vscode.Disposable {
         files: Array<{ uri: vscode.Uri; content: string; label?: string }>,
         directoryContext?: Pick<ShowMultiDiffMessage, 'canReturnToDirectory' | 'fileNavigation' | 'directoryNavigation'>
     ) {
-        this.revealPanel(`${files.length}-file comparison`, `multi:${files.map((file) => file.uri.toString()).join('\u0000')}`);
+        const message = this.createMultiDiffMessage(await Promise.all(files.map(async (file) => ({
+            ...file,
+            languageId: await this.resolveLanguageId(file.uri)
+        }))));
+        this.revealPanel(
+            buildMultiPanelTitle({
+                panels: message.panels,
+                activePanelId: message.activePanelId,
+                activePairIndex: message.activePairIndex,
+                panelIds: message.panels.map((panel) => panel.id)
+            }),
+            `multi:${files.map((file) => file.uri.toString()).join('\u0000')}`
+        );
 
         this.currentTwoWayDiff = undefined;
 
-        const filesWithLanguages = await Promise.all(files.map(async (file) => ({
-            ...file,
-            languageId: await this.resolveLanguageId(file.uri)
-        })));
         this.postOrQueueMessage({
-            ...this.createMultiDiffMessage(filesWithLanguages),
+            ...message,
             ...directoryContext,
             mutationEnabled: false
         });
@@ -832,6 +841,18 @@ export class DiffViewProvider implements vscode.Disposable {
         void vscode.window.showErrorMessage(`Unable to update comparison document: ${message}`);
     }
 
+    private updateMultiPanelTitle(message: ShowMultiDiffMessage): void {
+        if (!this.panel) {
+            return;
+        }
+        this.panel.title = buildMultiPanelTitle({
+            panels: message.panels,
+            activePanelId: message.activePanelId,
+            activePairIndex: message.activePairIndex,
+            panelIds: message.panels.map((panel) => panel.id)
+        });
+    }
+
     private handleMultiSetActivePanel(panelId: string): void {
         if (!this.currentMessage || this.currentMessage.type !== 'showMultiDiff') {
             return;
@@ -845,6 +866,10 @@ export class DiffViewProvider implements vscode.Disposable {
             ...this.currentMessage,
             activePanelId: panelId
         };
+        if (this.activeState) {
+            this.activeState.currentMessage = this.currentMessage;
+        }
+        this.updateMultiPanelTitle(this.currentMessage);
     }
 
     private handleMultiSetActivePair(pairIndex: number): void {
@@ -860,6 +885,10 @@ export class DiffViewProvider implements vscode.Disposable {
             ...this.currentMessage,
             activePairIndex: pairIndex
         };
+        if (this.activeState) {
+            this.activeState.currentMessage = this.currentMessage;
+        }
+        this.updateMultiPanelTitle(this.currentMessage);
     }
 
     private handleMultiUpdatePanelContent(panelId: string, content: string): void {
