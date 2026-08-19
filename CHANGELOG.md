@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.8.6
+
+- Added optional authored-tour `windowTitle` labels and context-aware desktop and VS Code window titles
+- Fixed tour presenter windows so authored `windowTitle` values appear in the native title instead of staying on the default `Bygone Tour` label
+
 ## 0.8.5
 
 - Fixed Homebrew cask `bygone` CLI launch on Apple Silicon by routing through a bundle-aware launcher script inside the app

@@ -3,6 +3,7 @@ const { createServer } = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
 const { buildChangeTourManifest, parseChangeTourStory } = require('../out/changeTour.js');
+const { buildTourWindowTitle } = require('../out/windowTitle.js');
 const { tokenMatches } = require('./commandSpec.js');
 const { loadTourSource } = require('./tourFile.js');
 
@@ -39,6 +40,10 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         process.stdout.write(`Wrote change-tour manifest to ${resolvedOutput}\n`);
     }
 
+    const tourWindowTitle = buildTourWindowTitle(manifest, 'Bygone');
+    const presenterIndexPath = path.join(packageRoot, 'web', 'index.html');
+    let presenterIndexTemplate;
+
     const server = createServer((request, response) => {
         const requestUrl = new URL(request.url || '/', 'http://127.0.0.1');
         if (requestUrl.pathname === '/tour.json') {
@@ -47,6 +52,21 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
                 'Cache-Control': 'no-store'
             });
             response.end(serializedManifest);
+            return;
+        }
+        if (requestUrl.pathname === '/' || requestUrl.pathname === '/index.html') {
+            if (!presenterIndexTemplate) {
+                presenterIndexTemplate = readFileSync(presenterIndexPath, 'utf8');
+            }
+            const html = presenterIndexTemplate.replace(
+                /<title>Bygone Tour<\/title>/,
+                `<title>${escapeHtml(tourWindowTitle)}</title>`
+            );
+            response.writeHead(200, {
+                'Content-Type': 'text/html; charset=utf-8',
+                'Cache-Control': 'no-store'
+            });
+            response.end(html);
             return;
         }
         const targetPath = resolveAssetPath(packageRoot, requestUrl.pathname);
@@ -120,7 +140,7 @@ function parsePresentArgs(args) {
 
 function resolveAssetPath(packageRoot, requestPath) {
     if (requestPath === '/' || requestPath === '/index.html') {
-        return path.join(packageRoot, 'web', 'index.html');
+        return null;
     }
     if (!requestPath.startsWith('/web/') && !requestPath.startsWith('/media/')) {
         return null;
@@ -160,7 +180,16 @@ function respond(response, statusCode, message) {
     response.end(message);
 }
 
+function escapeHtml(text) {
+    return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+}
+
 module.exports = {
     parsePresentArgs,
-    startPresentation
+    startPresentation,
+    escapeHtml
 };

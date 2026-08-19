@@ -13,6 +13,7 @@ import {
     buildWalkthroughTourAnnotations,
     getFirstChangeSourceRange
 } from '../src/tourAnnotations.ts';
+import { buildTourWindowTitle } from '../src/windowTitle.ts';
 
 (function initializeWebHost() {
     const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
@@ -442,6 +443,7 @@ import {
         }
         shell.hidden = false;
         title.textContent = tour.title;
+        document.title = buildTourWindowTitle(tour);
         if (tour.sourceUrl) {
             source.href = tour.sourceUrl;
             source.hidden = false;

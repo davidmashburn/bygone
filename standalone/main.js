@@ -379,12 +379,25 @@ async function showTourWindow(url, server, manifest) {
         }
     });
 
+    const tourWindowTitle = buildTourWindowTitle(manifest, APP_NAME);
+    const applyTourWindowTitle = () => {
+        if (!tourWindow.isDestroyed()) {
+            tourWindow.setTitle(tourWindowTitle);
+        }
+    };
+    tourWindow.webContents.on('page-title-updated', (event) => {
+        event.preventDefault();
+        queueMicrotask(applyTourWindowTitle);
+    });
+    tourWindow.webContents.on('did-finish-load', applyTourWindowTitle);
+
     try {
         await tourWindow.loadURL(url);
     } catch (error) {
         tourWindow.destroy();
         throw error;
     }
+    applyTourWindowTitle();
     tourWindow.show();
     tourWindow.focus();
     return tourWindow;

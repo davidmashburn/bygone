@@ -65,7 +65,7 @@ const {
 } = require('../out/changeTour.js');
 const { buildChangeInventory, materializeChangeUnits, parsePatchUnits } = require('../out/changeInventory.js');
 const { buildTourCoverageReport } = require('../out/tourCoverage.js');
-const { parsePresentArgs } = require('../cli/present.js');
+const { parsePresentArgs, startPresentation } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
 const { readTourSourceDocument } = require('../cli/tourFile.js');
 const { resolveWorkingDirectory } = require('../cli/workingDirectory.js');
@@ -901,6 +901,8 @@ function testWindowTitleHelpersFocusActiveMultiPanelContext() {
     assert.equal(buildTourWindowTitle({ windowTitle: 'PR-99', title: 'Long title' }), 'PR-99');
     assert.equal(buildTourWindowTitle({ title: 'Review tour' }), 'Review tour');
     assert.equal(buildTourWindowTitle(undefined, 'Bygone'), 'Bygone Tour');
+    const presenterHost = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
+    assert.match(presenterHost, /document\.title = buildTourWindowTitle\(tour\)/);
     assert.equal(truncateTitle('x'.repeat(130)).endsWith('…'), true);
     assert.throws(
         () => parseChangeTourSource({
@@ -1029,6 +1031,12 @@ function testPresentArgumentsUseSharedBaseAliases() {
         headRef: 'HEAD', baseRef: 'main', tourPath: 'review.bygone', explicitHeadRef: undefined
     });
     assert.throws(() => parsePresentArgs(['--unknown']), /Unknown present option/);
+}
+
+function testPresenterServerInjectsWindowTitleIntoHtml() {
+    const presentSource = fs.readFileSync(path.join(__dirname, '..', 'cli', 'present.js'), 'utf8');
+    assert.match(presentSource, /buildTourWindowTitle\(manifest, 'Bygone'\)/);
+    assert.match(presentSource, /<title>\$\{escapeHtml\(tourWindowTitle\)\}<\/title>/);
 }
 
 function testWorkingDirectoryOptionUsesGitStyleSemantics() {
@@ -2182,6 +2190,9 @@ function testToursRouteThroughAnAppOwnedWindowAndServer() {
     assert.match(standaloneSource, /startPresentation\(args, cwd, packageRoot, \{[\s\S]{0,100}open: false/);
     assert.match(standaloneSource, /const tourPresentations = new Map\(\)/);
     assert.match(standaloneSource, /async function showTourWindow\(url, server, manifest\)[\s\S]{0,500}buildTourWindowTitle\(manifest, APP_NAME\)/);
+    assert.match(standaloneSource, /page-title-updated[\s\S]{0,200}queueMicrotask\(applyTourWindowTitle\)/);
+    assert.match(standaloneSource, /did-finish-load', applyTourWindowTitle/);
+    assert.match(standaloneSource, /await tourWindow\.loadURL\(url\)[\s\S]{0,120}applyTourWindowTitle\(\)/);
     assert.match(standaloneSource, /tourPresentations\.set\(tourWindow, \{ server, origin: tourOrigin \}\)/);
     assert.match(standaloneSource, /tourWindow\.on\('closed',[\s\S]{0,180}tourPresentations\.delete\(tourWindow\);[\s\S]{0,80}closeTourServer\(server\)/);
     assert.doesNotMatch(standaloneSource, /previousServer|await tourWindow\.loadURL\(url\)[\s\S]{0,120}closeTourServer\(previousServer\)/);
@@ -3027,6 +3038,7 @@ function run() {
     testWindowTitleHelpersFocusActiveMultiPanelContext();
     testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases();
     testPresentArgumentsUseSharedBaseAliases();
+    testPresenterServerInjectsWindowTitleIntoHtml();
     testWorkingDirectoryOptionUsesGitStyleSemantics();
     testCheckedInBygoneHistoryTourRemainsReproducible();
     testAdvancedTourExamplesRemainReproducible();
