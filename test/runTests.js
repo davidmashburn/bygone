@@ -1039,6 +1039,13 @@ function testPresenterServerInjectsWindowTitleIntoHtml() {
     assert.match(presentSource, /<title>\$\{escapeHtml\(tourWindowTitle\)\}<\/title>/);
 }
 
+function testNpmPackageStagesCliRuntimeDependencies() {
+    const npmPackageSource = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'package-npm.mjs'), 'utf8');
+    assert.match(npmPackageSource, /copyFile\('out\/changeTour\.js'\)/);
+    assert.match(npmPackageSource, /copyFile\('out\/tourCoverage\.js'\)/);
+    assert.match(npmPackageSource, /copyFile\('out\/windowTitle\.js'\)/);
+}
+
 function testWorkingDirectoryOptionUsesGitStyleSemantics() {
     assert.deepEqual(
         resolveWorkingDirectory(
@@ -3039,6 +3046,7 @@ function run() {
     testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases();
     testPresentArgumentsUseSharedBaseAliases();
     testPresenterServerInjectsWindowTitleIntoHtml();
+    testNpmPackageStagesCliRuntimeDependencies();
     testWorkingDirectoryOptionUsesGitStyleSemantics();
     testCheckedInBygoneHistoryTourRemainsReproducible();
     testAdvancedTourExamplesRemainReproducible();
