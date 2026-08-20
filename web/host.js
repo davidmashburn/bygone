@@ -184,8 +184,8 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         tourListen?.addEventListener('click', startNarrationAtCurrentPosition);
         tourPause?.addEventListener('click', () => narrationController.togglePause());
         tourStop?.addEventListener('click', () => narrationController.stop());
-        tourNarrationSkipBack?.addEventListener('click', () => showTourLinear(-1));
-        tourNarrationSkipAhead?.addEventListener('click', () => showTourLinear(1));
+        tourNarrationSkipBack?.addEventListener('click', () => narrationController.skipSegment(-1));
+        tourNarrationSkipAhead?.addEventListener('click', () => narrationController.skipSegment(1));
         tourVoice?.addEventListener('change', () => {
             state.narrationVoiceURI = tourVoice.value;
             window.localStorage.setItem(TOUR_NARRATION_VOICE_STORAGE_KEY, state.narrationVoiceURI);
@@ -366,6 +366,8 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         const listen = document.getElementById('tour-listen');
         const pause = document.getElementById('tour-pause');
         const stop = document.getElementById('tour-stop');
+        const skipBack = document.getElementById('tour-narration-skip-back');
+        const skipAhead = document.getElementById('tour-narration-skip-ahead');
         if (listen) {
             listen.disabled = !deviceNarrationAvailable || state.mode !== 'tour';
             const listenLabel = playbackState.kind === 'playing' || playbackState.kind === 'paused'
@@ -381,6 +383,8 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
             pause.setAttribute('aria-label', pauseLabel);
         }
         if (stop) stop.disabled = playbackState.kind !== 'playing' && playbackState.kind !== 'paused';
+        if (skipBack) skipBack.disabled = !narrationController.canSkipSegment(-1);
+        if (skipAhead) skipAhead.disabled = !narrationController.canSkipSegment(1);
         if (playbackState.kind === 'playing' || playbackState.kind === 'paused') {
             const ordinal = playbackState.segmentIndex + 1;
             const total = playbackState.unit.segments.length;
@@ -1177,9 +1181,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         const connection = document.getElementById('tour-connection');
         const previous = document.getElementById('tour-previous');
         const next = document.getElementById('tour-next');
-        const narrationSkipBack = document.getElementById('tour-narration-skip-back');
-        const narrationSkipAhead = document.getElementById('tour-narration-skip-ahead');
-        if (!narrative || !breadcrumb || !chapter || !title || !summary || !bullets || !tags || !takeaway || !stepPanel || !stepTitle || !stepBody || !connection || !previous || !next || !narrationSkipBack || !narrationSkipAhead) {
+        if (!narrative || !breadcrumb || !chapter || !title || !summary || !bullets || !tags || !takeaway || !stepPanel || !stepTitle || !stepBody || !connection || !previous || !next) {
             throw new Error('Tour narrative UI is incomplete.');
         }
         narrative.hidden = false;
@@ -1225,12 +1227,8 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
             connection.hidden = true;
             connection.textContent = '';
         }
-        const canGoBack = Boolean(getCurrentLinearTourTarget(-1));
-        const canGoAhead = Boolean(getCurrentLinearTourTarget(1));
-        previous.disabled = !canGoBack;
-        next.disabled = !canGoAhead;
-        narrationSkipBack.disabled = !canGoBack;
-        narrationSkipAhead.disabled = !canGoAhead;
+        previous.disabled = !getCurrentLinearTourTarget(-1);
+        next.disabled = !getCurrentLinearTourTarget(1);
     }
 
     function renderNarrationField(element, text, source, narrationUnit, affixes = {}) {

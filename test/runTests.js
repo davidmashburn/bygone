@@ -224,11 +224,31 @@ function testTourNarrationControllerGuardsPlaybackLifecycle() {
     assert.equal(engine.resumed, 1);
     spoken[0].callbacks.onEnd();
     assert.equal(spoken[1].segment.id, 'two');
-    spoken[1].callbacks.onEnd();
-    assert.equal(spoken[2].segment.id, 'three');
-    spoken[2].callbacks.onEnd();
+    assert.equal(controller.canSkipSegment(-1), true);
+    assert.equal(controller.canSkipSegment(1), false);
+    const staleSecond = spoken[1].callbacks;
+    assert.equal(controller.skipSegment(-1), true);
+    assert.equal(spoken[2].segment.id, 'one');
+    staleSecond.onEnd();
+    assert.equal(controller.state.segmentIndex, 0);
+    assert.equal(controller.skipSegment(1), true);
+    assert.equal(spoken[3].segment.id, 'two');
+    assert.equal(controller.skipSegment(1), false);
+    spoken[3].callbacks.onEnd();
+    assert.equal(spoken[4].segment.id, 'three');
+    spoken[4].callbacks.onEnd();
     assert.equal(controller.state.kind, 'completed');
     assert.deepEqual(highlights.at(-1), { id: null, paused: false });
+
+    controller.start(unit);
+    controller.togglePause();
+    assert.equal(controller.skipSegment(1), true);
+    assert.equal(controller.state.kind, 'paused');
+    assert.equal(controller.state.pendingStart, true);
+    assert.deepEqual(highlights.at(-1), { id: 'two', paused: true });
+    controller.togglePause();
+    assert.equal(spoken.at(-1).segment.id, 'two');
+    controller.stop();
 
     controller.start(unit);
     const stale = spoken.at(-1).callbacks;
@@ -409,8 +429,8 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
     for (const id of ['tour-narration-skip-back', 'tour-listen', 'tour-pause', 'tour-stop', 'tour-narration-skip-ahead', 'tour-narration-voice', 'tour-narration-rate']) {
         assert.match(markup, new RegExp(`id="${id}"`));
     }
-    assert.match(markup, /id="tour-narration-skip-back"[^>]+title="Skip back one tour item"[^>]+aria-label="Skip back one tour item"/);
-    assert.match(markup, /id="tour-narration-skip-ahead"[^>]+title="Skip ahead one tour item"[^>]+aria-label="Skip ahead one tour item"/);
+    assert.match(markup, /id="tour-narration-skip-back"[^>]+title="Previous sentence"[^>]+aria-label="Previous sentence"[^>]+disabled/);
+    assert.match(markup, /id="tour-narration-skip-ahead"[^>]+title="Next sentence"[^>]+aria-label="Next sentence"[^>]+disabled/);
     assert.match(markup, /id="tour-narration-status"[^>]+role="status"[^>]+aria-live="polite"/);
     assert.match(host, /new TourNarrationController\(createDeviceSpeechEngine\(\)/);
     assert.match(host, /new window\.SpeechSynthesisUtterance\(segment\.speechText\)/);
@@ -422,8 +442,8 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
     assert.match(host, /narrationController\.followLinearNavigation\(narrationUnit\)/);
     assert.match(host, /narrationController\.followDirectNavigation\(narrationUnit\)/);
     assert.match(host, /narrationController\.interruptForExploration\(\)/);
-    assert.match(host, /tourNarrationSkipBack\?\.addEventListener\('click', \(\) => showTourLinear\(-1\)\)/);
-    assert.match(host, /tourNarrationSkipAhead\?\.addEventListener\('click', \(\) => showTourLinear\(1\)\)/);
+    assert.match(host, /tourNarrationSkipBack\?\.addEventListener\('click', \(\) => narrationController\.skipSegment\(-1\)\)/);
+    assert.match(host, /tourNarrationSkipAhead\?\.addEventListener\('click', \(\) => narrationController\.skipSegment\(1\)\)/);
     assert.match(styles, /\.tour-narration-transport/);
     assert.match(styles, /\.tour-narration-segment\.is-speaking/);
     assert.match(styles, /\.tour-narration-segment\.is-speaking\.is-paused/);
@@ -1954,12 +1974,20 @@ function testWordWrapUsesSharedRendererAndStandaloneMenu() {
     const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
     const standaloneMarkup = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'index.html'), 'utf8');
+    const rendererStyles = fs.readFileSync(path.join(__dirname, '..', 'media', 'style.css'), 'utf8');
 
     assert.match(standaloneSource, /label: 'Wrap Long Lines'[\s\S]{0,120}accelerator: 'Alt\+Z'/);
     assert.match(standaloneSource, /postToRenderer\(\{ type: 'toggleWordWrap' \}\)/);
     assert.match(rendererSource, /wordWrap: wordWrapEnabled \? 'on' : 'off'/);
     assert.match(rendererSource, /KeyMod\.Alt \| monacoInstance\.KeyCode\.KeyZ/);
     assert.match(standaloneMarkup, /id="toggle-word-wrap"[^>]+aria-pressed="false"/);
+    assert.match(standaloneMarkup, /class="change-toolbar-actions"/);
+    assert.match(standaloneMarkup, /class="word-wrap-icon-off"/);
+    assert.match(standaloneMarkup, /class="word-wrap-icon-on"/);
+    assert.match(standaloneMarkup, /id="previous-file"[^>]+data-tooltip="Open previous file"/);
+    assert.match(standaloneMarkup, /id="history-forward"[^>]+data-tooltip="Open newer commit"/);
+    assert.match(rendererStyles, /#toggle-word-wrap\.is-active \.word-wrap-icon-on/);
+    assert.match(rendererStyles, /\.change-button\[data-tooltip\]::after/);
 }
 
 function testSessionSourcesRetainRefreshIntent() {

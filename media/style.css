@@ -285,8 +285,20 @@ body.web-host {
     display: none !important;
 }
 
-.refresh-session-button {
+.change-toolbar-actions {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
     margin-left: auto;
+}
+
+#toggle-word-wrap .word-wrap-icon-on,
+#toggle-word-wrap.is-active .word-wrap-icon-off {
+    display: none;
+}
+
+#toggle-word-wrap.is-active .word-wrap-icon-on {
+    display: block;
 }
 
 #toggle-word-wrap.is-active {
@@ -338,6 +350,39 @@ body.web-host {
     fill: none;
     stroke-linecap: round;
     stroke-linejoin: round;
+}
+
+.change-button[data-tooltip],
+.history-button[data-tooltip] {
+    position: relative;
+}
+
+.change-button[data-tooltip]::after,
+.history-button[data-tooltip]::after {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 6px);
+    left: 50%;
+    width: max-content;
+    max-width: 180px;
+    padding: 4px 7px;
+    transform: translateX(-50%);
+    content: attr(data-tooltip);
+    color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
+    border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+    border-radius: 3px;
+    background: var(--vscode-editorHoverWidget-background, var(--vscode-editor-background));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.change-button[data-tooltip]:hover::after,
+.change-button[data-tooltip]:focus-visible::after,
+.history-button[data-tooltip]:hover::after,
+.history-button[data-tooltip]:focus-visible::after {
+    opacity: 1;
 }
 
 .change-button-primary {

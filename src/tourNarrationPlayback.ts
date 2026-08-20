@@ -95,6 +95,28 @@ export class TourNarrationController {
         if (this.currentState.kind === 'playing') this.togglePause();
     }
 
+    canSkipSegment(direction: -1 | 1): boolean {
+        if (this.currentState.kind !== 'playing' && this.currentState.kind !== 'paused') return false;
+        const targetIndex = this.currentState.segmentIndex + direction;
+        return targetIndex >= 0 && targetIndex < this.currentState.unit.segments.length;
+    }
+
+    skipSegment(direction: -1 | 1): boolean {
+        if (!this.canSkipSegment(direction)) return false;
+        const current = this.currentState as Extract<NarrationPlaybackState, { kind: 'playing' | 'paused' }>;
+        const targetIndex = current.segmentIndex + direction;
+        const wasPaused = current.kind === 'paused';
+        this.resetEngine();
+        if (wasPaused) {
+            this.setState({ kind: 'paused', unit: current.unit, segmentIndex: targetIndex, pendingStart: true });
+            this.callbacks.onSegmentChange(current.unit.segments[targetIndex] || null, true);
+        } else {
+            this.setState({ kind: 'playing', unit: current.unit, segmentIndex: targetIndex });
+            this.speakCurrent();
+        }
+        return true;
+    }
+
     followLinearNavigation(unit: NarrationUnit): void {
         if (this.currentState.kind === 'playing') {
             this.start(unit, this.continuous);

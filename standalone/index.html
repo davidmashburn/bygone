@@ -30,13 +30,13 @@
             <div id="change-toolbar" class="change-toolbar header-align-diff" hidden>
                 <div class="change-toolbar-main">
                     <div class="change-toolbar-nav">
-                        <button id="previous-file" class="change-button icon-button" type="button" title="Open previous file" aria-label="Previous file">
+                        <button id="previous-file" class="change-button icon-button" type="button" title="Open previous file" data-tooltip="Open previous file" aria-label="Previous file">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M17 11l-5-5-5 5"></path>
                                 <path d="M17 18l-5-5-5 5" opacity="0.7"></path>
                             </svg>
                         </button>
-                        <button id="next-file" class="change-button change-button-primary icon-button" type="button" title="Open next file" aria-label="Next file">
+                        <button id="next-file" class="change-button change-button-primary icon-button" type="button" title="Open next file" data-tooltip="Open next file" aria-label="Next file">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M7 13l5 5 5-5"></path>
                                 <path d="M7 6l5 5 5-5" opacity="0.7"></path>
@@ -72,8 +72,14 @@
                         </svg>
                     </button>
                     </div>
+                    <div class="change-toolbar-actions">
                     <button id="toggle-word-wrap" class="change-button icon-button" type="button" title="Enable line wrapping (Alt+Z)" aria-label="Enable line wrapping" aria-pressed="false" hidden>
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <svg class="word-wrap-icon-off" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 6h16"></path>
+                            <path d="M4 12h16"></path>
+                            <path d="M4 18h16"></path>
+                        </svg>
+                        <svg class="word-wrap-icon-on" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M4 6h13a3 3 0 0 1 0 6H9"></path>
                             <path d="M12 9l-3 3 3 3"></path>
                             <path d="M4 18h8"></path>
@@ -85,6 +91,7 @@
                             <path d="M20 5v6h-6"></path>
                         </svg>
                     </button>
+                    </div>
                 </div>
                 <div class="change-hint">F7 / Shift+F7 · Cmd/Ctrl+Shift+Up/Down to jump.</div>
             </div>
@@ -94,14 +101,14 @@
                     <div id="history-left-time" class="history-time"></div>
                 </div>
                 <div class="history-nav">
-                    <button id="history-back" class="history-button icon-button" type="button" title="Open older commit (Alt+Left)" aria-label="Older commit">
+                    <button id="history-back" class="history-button icon-button" type="button" title="Open older commit (Alt+Left)" data-tooltip="Open older commit" aria-label="Older commit">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M15 18l-6-6 6-6"></path>
                             <path d="M10 18l-6-6 6-6" opacity="0.7"></path>
                         </svg>
                     </button>
                     <div id="history-position" class="history-position" role="status" aria-live="polite" aria-atomic="true"></div>
-                    <button id="history-forward" class="history-button icon-button" type="button" title="Open newer commit (Alt+Right)" aria-label="Newer commit">
+                    <button id="history-forward" class="history-button icon-button" type="button" title="Open newer commit (Alt+Right)" data-tooltip="Open newer commit" aria-label="Newer commit">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M9 18l6-6-6-6"></path>
                             <path d="M14 18l6-6-6-6" opacity="0.7"></path>

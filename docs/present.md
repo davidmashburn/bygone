@@ -21,7 +21,8 @@ desktop app to read the tour aloud with a device voice. Narration works
 offline and does not send tour text to a hosted speech service.
 
 - **Pause/Resume** retains the current sentence; **Stop** clears playback. The
-  outer skip controls move one tour item backward or forward.
+  outer jump controls move one sentence backward or forward within the current
+  narration item.
 - Existing Previous and Next controls move through the same scene/step order
   used by continuous narration.
 - Choose any device voice exposed by the browser and a speed from 0.75× to
