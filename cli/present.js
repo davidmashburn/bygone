@@ -46,6 +46,20 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
 
     const server = createServer((request, response) => {
         const requestUrl = new URL(request.url || '/', 'http://127.0.0.1');
+        if (requestUrl.pathname === '/narration/claim') {
+            if (request.method !== 'POST') {
+                respond(response, 405, 'Method not allowed');
+                return;
+            }
+            if (!isSameOriginLoopbackRequest(request)) {
+                respond(response, 403, 'Forbidden');
+                return;
+            }
+            options.onNarrationClaim?.();
+            response.writeHead(204, { 'Cache-Control': 'no-store' });
+            response.end();
+            return;
+        }
         if (requestUrl.pathname === '/tour.json') {
             response.writeHead(200, {
                 'Content-Type': 'application/json; charset=utf-8',
@@ -178,6 +192,18 @@ function respond(response, statusCode, message) {
         response.writeHead(statusCode, { 'Content-Type': 'text/plain; charset=utf-8' });
     }
     response.end(message);
+}
+
+function isSameOriginLoopbackRequest(request) {
+    const origin = request.headers.origin;
+    const host = request.headers.host;
+    if (typeof origin !== 'string' || typeof host !== 'string') return false;
+    try {
+        const parsed = new URL(origin);
+        return parsed.protocol === 'http:' && parsed.hostname === '127.0.0.1' && parsed.host === host;
+    } catch {
+        return false;
+    }
 }
 
 function escapeHtml(text) {

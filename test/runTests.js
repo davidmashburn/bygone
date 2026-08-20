@@ -42,6 +42,7 @@ const {
     writeWordWrapPreference
 } = require('../media/wrapController.js');
 const { getCliArgsFromArgv, getForwardedLaunchArgs } = require('../standalone/launchArgs.js');
+const { normalizeWindowState, readWindowState, writeWindowState } = require('../standalone/windowState.js');
 const {
     createBranchReviewSource,
     createDirectoriesSource,
@@ -65,7 +66,7 @@ const {
 } = require('../out/changeTour.js');
 const { buildChangeInventory, materializeChangeUnits, parsePatchUnits } = require('../out/changeInventory.js');
 const { buildTourCoverageReport } = require('../out/tourCoverage.js');
-const { parsePresentArgs, startPresentation } = require('../cli/present.js');
+const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
 const { readTourSourceDocument } = require('../cli/tourFile.js');
 const { resolveWorkingDirectory } = require('../cli/workingDirectory.js');
@@ -75,6 +76,12 @@ const {
     getTourFileTarget,
     resolveTourPosition
 } = require('../out/tourNavigation.js');
+const {
+    buildTourNarrationUnit,
+    normalizeNarrationSpeech,
+    splitNarrationText
+} = require('../out/tourNarration.js');
+const { TourNarrationController } = require('../out/tourNarrationPlayback.js');
 const { searchTour } = require('../out/tourSearch.js');
 const {
     classifyAuthoredTourPaths,
@@ -101,6 +108,142 @@ function testTourLinearNavigationTraversesStepsAndScenes() {
     assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 2, stepIndex: 0 }, -1), { sceneIndex: 1, stepIndex: 1 });
     assert.equal(getLinearTourTarget(scenes, { sceneIndex: 0, stepIndex: 0 }, -1), null);
     assert.equal(getLinearTourTarget(scenes, { sceneIndex: 2, stepIndex: 0 }, 1), null);
+}
+
+function testTourNarrationBuildsSemanticSentenceSegments() {
+    const tour = {
+        chapters: [{ id: 'flow', title: 'Request flow', sceneIds: ['walk', 'stack'] }],
+        scenes: [
+            {
+                id: 'walk', kind: 'walkthrough', title: 'Dispatch safely',
+                summary: 'Follow the request boundary. Keep the result visible.',
+                bullets: ['Validate first'], tags: ['safety'], takeaway: 'Reject invalid work.',
+                steps: [
+                    {
+                        id: 'validate', title: 'Validate input', body: 'The requestGuard rejects malformed requests.',
+                        connection: { label: 'Validation precedes dispatch.' }
+                    },
+                    { id: 'dispatch', title: 'Dispatch work', body: 'The valid request continues.' }
+                ]
+            },
+            {
+                id: 'stack', kind: 'stacked-diff', title: 'Stack behavior',
+                summary: 'Compare the revisions.', bullets: [], tags: [], takeaway: 'The stack stays ordered.',
+                steps: [{ id: 'stack-step', title: 'Compare revisions', body: 'Move from base to head.' }]
+            }
+        ]
+    };
+
+    const first = buildTourNarrationUnit(tour, { sceneIndex: 0, stepIndex: 0 }, { entry: 'playback-start' });
+    assert.equal(first.id, 'walk:validate');
+    assert.deepEqual(first.segments.map((segment) => segment.source.field), [
+        'chapter', 'scene-title', 'summary', 'summary', 'bullet', 'step-title', 'step-body', 'connection'
+    ]);
+    assert.equal(first.segments.find((segment) => segment.source.field === 'step-body').speechText, 'The request Guard rejects malformed requests.');
+    assert.ok(first.segments.every((segment) => segment.text === segment.text.trim()));
+    assert.ok(first.segments.every((segment) => segment.id.startsWith('walk:validate:')));
+
+    const continuousSecond = buildTourNarrationUnit(tour, { sceneIndex: 0, stepIndex: 1 }, { entry: 'continuous' });
+    assert.deepEqual(continuousSecond.segments.map((segment) => segment.source.field), [
+        'step-title', 'step-body', 'takeaway'
+    ]);
+
+    const startedSecond = buildTourNarrationUnit(tour, { sceneIndex: 0, stepIndex: 1 }, { entry: 'playback-start' });
+    assert.deepEqual(startedSecond.segments.map((segment) => segment.source.field), [
+        'scene-title', 'step-title', 'step-body', 'takeaway'
+    ]);
+
+    const stack = buildTourNarrationUnit(tour, { sceneIndex: 1, stepIndex: 0 }, { entry: 'continuous' });
+    assert.deepEqual(stack.segments.map((segment) => segment.source.field), [
+        'chapter', 'scene-title', 'summary', 'step-title', 'step-body', 'takeaway'
+    ]);
+}
+
+function testTourNarrationSplitsLongTextAndExcludesRawTechnicalTargets() {
+    const longClause = `This deliberately long explanation ${'keeps enough context to remain understandable, '.repeat(8)}then finishes cleanly.`;
+    const segments = splitNarrationText(`First sentence. ${longClause} Final sentence.`);
+    assert.equal(segments[0].text, 'First sentence.');
+    assert.equal(segments.at(-1).text, 'Final sentence.');
+    assert.ok(segments.every((segment) => segment.text.length <= 240));
+    assert.ok(segments.every((segment) => segment.text === `First sentence. ${longClause} Final sentence.`.slice(segment.startOffset, segment.endOffset)));
+
+    assert.equal(
+        normalizeNarrationSpeech('See https://example.com/private?q=1 and commit a1b2c3d4 before requestGuard.'),
+        'See and commit before request Guard.'
+    );
+    assert.equal(normalizeNarrationSpeech('`ChangeTourManifest` stays visible.'), 'Change Tour Manifest stays visible.');
+    assert.throws(() => splitNarrationText('Too small.', 20), /at least 40/);
+}
+
+function testTourNarrationControllerGuardsPlaybackLifecycle() {
+    const spoken = [];
+    const engine = {
+        paused: 0,
+        resumed: 0,
+        canceled: 0,
+        speak(segment, callbacks) { spoken.push({ segment, callbacks }); },
+        pause() { this.paused += 1; },
+        resume() { this.resumed += 1; },
+        cancel() { this.canceled += 1; }
+    };
+    const states = [];
+    const highlights = [];
+    const claimed = [];
+    const unit = {
+        id: 'scene:first', position: { sceneIndex: 0, stepIndex: 0 }, segments: [
+            { id: 'one', text: 'One.', speechText: 'One.', source: { field: 'summary' }, startOffset: 0, endOffset: 4 },
+            { id: 'two', text: 'Two.', speechText: 'Two.', source: { field: 'summary' }, startOffset: 5, endOffset: 9 }
+        ]
+    };
+    const nextUnit = {
+        id: 'scene:second', position: { sceneIndex: 1, stepIndex: 0 }, segments: [
+            { id: 'three', text: 'Three.', speechText: 'Three.', source: { field: 'takeaway' }, startOffset: 0, endOffset: 6 }
+        ]
+    };
+    let suppliedNext = false;
+    const controller = new TourNarrationController(engine, {
+        claimAudio() { claimed.push(true); },
+        onStateChange(state) { states.push(state); },
+        onSegmentChange(segment, paused) { highlights.push({ id: segment?.id || null, paused }); },
+        nextUnit() {
+            if (suppliedNext) return null;
+            suppliedNext = true;
+            return nextUnit;
+        }
+    });
+
+    controller.start(unit);
+    assert.equal(controller.state.kind, 'playing');
+    assert.equal(spoken[0].segment.id, 'one');
+    assert.equal(claimed.length, 1);
+    controller.togglePause();
+    assert.equal(controller.state.kind, 'paused');
+    assert.equal(engine.paused, 1);
+    assert.deepEqual(highlights.at(-1), { id: 'one', paused: true });
+    controller.togglePause();
+    assert.equal(engine.resumed, 1);
+    spoken[0].callbacks.onEnd();
+    assert.equal(spoken[1].segment.id, 'two');
+    spoken[1].callbacks.onEnd();
+    assert.equal(spoken[2].segment.id, 'three');
+    spoken[2].callbacks.onEnd();
+    assert.equal(controller.state.kind, 'completed');
+    assert.deepEqual(highlights.at(-1), { id: null, paused: false });
+
+    controller.start(unit);
+    const stale = spoken.at(-1).callbacks;
+    controller.followDirectNavigation(nextUnit);
+    assert.equal(controller.state.kind, 'paused');
+    assert.equal(controller.state.pendingStart, true);
+    stale.onEnd();
+    assert.equal(controller.state.kind, 'paused');
+    controller.togglePause();
+    assert.equal(spoken.at(-1).segment.id, 'three');
+    controller.pauseForExternalOwner();
+    assert.equal(controller.state.kind, 'paused');
+    controller.stop();
+    assert.equal(controller.state.kind, 'idle');
+    assert.ok(states.some((state) => state.kind === 'completed'));
 }
 
 function testTourSearchFindsNarrativeStepsAndExactCodeLocations() {
@@ -252,6 +395,41 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+\.tour-search \{[\s\S]{0,100}grid-column: 2;[\s\S]{0,100}grid-row: 1;/);
     assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+\.tour-rail-sections \{[\s\S]{0,100}grid-row: 2;/);
     assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+\.tour-commits-section \{[\s\S]{0,100}grid-row: 3;/);
+}
+
+function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
+    const markup = fs.readFileSync(path.join(__dirname, '..', 'web', 'index.html'), 'utf8');
+    const host = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
+    const styles = fs.readFileSync(path.join(__dirname, '..', 'web', 'presenter.css'), 'utf8');
+    const standalone = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    const presentationServer = fs.readFileSync(path.join(__dirname, '..', 'cli', 'present.js'), 'utf8');
+    const presentDocs = fs.readFileSync(path.join(__dirname, '..', 'docs', 'present.md'), 'utf8');
+    const productSurface = fs.readFileSync(path.join(__dirname, '..', 'docs', 'product-surface.md'), 'utf8');
+
+    for (const id of ['tour-listen', 'tour-pause', 'tour-stop', 'tour-narration-voice', 'tour-narration-rate']) {
+        assert.match(markup, new RegExp(`id="${id}"`));
+    }
+    assert.match(markup, /id="tour-narration-status"[^>]+role="status"[^>]+aria-live="polite"/);
+    assert.match(host, /new TourNarrationController\(createDeviceSpeechEngine\(\)/);
+    assert.match(host, /new window\.SpeechSynthesisUtterance\(segment\.speechText\)/);
+    assert.match(host, /window\.speechSynthesis\.getVoices\(\)/);
+    assert.match(host, /TOUR_NARRATION_VOICE_STORAGE_KEY/);
+    assert.match(host, /TOUR_NARRATION_RATE_STORAGE_KEY/);
+    assert.match(host, /renderNarrationField\(summary, scene\.summary/);
+    assert.match(host, /data-narration-segment-id/);
+    assert.match(host, /narrationController\.followLinearNavigation\(narrationUnit\)/);
+    assert.match(host, /narrationController\.followDirectNavigation\(narrationUnit\)/);
+    assert.match(host, /narrationController\.interruptForExploration\(\)/);
+    assert.match(styles, /\.tour-narration-segment\.is-speaking/);
+    assert.match(styles, /\.tour-narration-segment\.is-speaking\.is-paused/);
+    assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+    assert.match(standalone, /label: 'Listen to Tour'/);
+    assert.match(standalone, /claimTourNarration\(ownerWindow\)/);
+    assert.match(standalone, /dispatchTourPresenterCommand\(tourWindow, 'pauseNarration'\)/);
+    assert.match(presentationServer, /requestUrl\.pathname === '\/narration\/claim'/);
+    assert.match(presentationServer, /isSameOriginLoopbackRequest\(request\)/);
+    assert.match(presentDocs, /Narration works\s+offline/);
+    assert.match(productSurface, /Listen to a generated or authored tour/);
 }
 
 function testTourAnnotationPersistsAcrossChangeNavigation() {
@@ -1816,6 +1994,43 @@ function testSessionSourcesRetainRefreshIntent() {
     });
 }
 
+function testDesktopWindowStatePersistsOnlyRestorableSessions() {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-window-state-'));
+    const statePath = path.join(tempDir, 'open-windows.json');
+    const state = {
+        version: 1,
+        main: {
+            source: {
+                kind: 'file-history',
+                path: '/tmp/project/file.txt',
+                includeStaged: true,
+                skipUnchanged: false
+            }
+        },
+        tours: [
+            { args: ['--tour', '/tmp/project/walkthrough.bygone.yaml'], cwd: '/tmp/project' },
+            { args: ['feature', '--base', 'main'], cwd: '/tmp/project' }
+        ]
+    };
+
+    try {
+        writeWindowState(statePath, state);
+        assert.deepEqual(readWindowState(statePath), state);
+        assert.equal(normalizeWindowState({ version: 1, main: { source: { kind: 'synthetic' } }, tours: [] }), null);
+        assert.equal(normalizeWindowState({ version: 1, main: null, tours: [{ args: [42], cwd: '/tmp' }] }), null);
+        fs.writeFileSync(statePath, '{broken', 'utf8');
+        assert.equal(readWindowState(statePath), null);
+    } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    assert.match(standaloneSource, /initialCliArgs\.length === 0 && !smokeTestMode && !captureMode/);
+    assert.match(standaloneSource, /app\.on\('before-quit',[\s\S]{0,120}persistOpenWindowState\(\)/);
+    assert.match(standaloneSource, /async function restoreOpenWindowState\(\)[\s\S]{0,1000}restoreMainSession\(savedState\.main\.source\)/);
+    assert.match(standaloneSource, /for \(const tour of savedState\.tours\)[\s\S]{0,300}openTourPresentation\(tour\.args, tour\.cwd\)/);
+}
+
 function testRefreshSessionUsesSemanticRendererAndMenuCommands() {
     const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
@@ -2196,11 +2411,11 @@ function testToursRouteThroughAnAppOwnedWindowAndServer() {
     assert.match(standaloneSource, /Open an authored Bygone presentation separately from ordinary files and directories/);
     assert.match(standaloneSource, /startPresentation\(args, cwd, packageRoot, \{[\s\S]{0,100}open: false/);
     assert.match(standaloneSource, /const tourPresentations = new Map\(\)/);
-    assert.match(standaloneSource, /async function showTourWindow\(url, server, manifest\)[\s\S]{0,500}buildTourWindowTitle\(manifest, APP_NAME\)/);
+    assert.match(standaloneSource, /async function showTourWindow\(url, server, manifest, launch\)[\s\S]{0,500}buildTourWindowTitle\(manifest, APP_NAME\)/);
     assert.match(standaloneSource, /page-title-updated[\s\S]{0,200}queueMicrotask\(applyTourWindowTitle\)/);
     assert.match(standaloneSource, /did-finish-load', applyTourWindowTitle/);
     assert.match(standaloneSource, /await tourWindow\.loadURL\(url\)[\s\S]{0,120}applyTourWindowTitle\(\)/);
-    assert.match(standaloneSource, /tourPresentations\.set\(tourWindow, \{ server, origin: tourOrigin \}\)/);
+    assert.match(standaloneSource, /tourPresentations\.set\(tourWindow, \{ server, origin: tourOrigin, launch \}\)/);
     assert.match(standaloneSource, /tourWindow\.on\('closed',[\s\S]{0,180}tourPresentations\.delete\(tourWindow\);[\s\S]{0,80}closeTourServer\(server\)/);
     assert.doesNotMatch(standaloneSource, /previousServer|await tourWindow\.loadURL\(url\)[\s\S]{0,120}closeTourServer\(previousServer\)/);
     assert.deepEqual(packageJson.build.mac.fileAssociations, [{
@@ -3019,12 +3234,16 @@ function shortCommit(repo, rev) {
 
 function run() {
     testTourLinearNavigationTraversesStepsAndScenes();
+    testTourNarrationBuildsSemanticSentenceSegments();
+    testTourNarrationSplitsLongTextAndExcludesRawTechnicalTargets();
+    testTourNarrationControllerGuardsPlaybackLifecycle();
     testTourSearchFindsNarrativeStepsAndExactCodeLocations();
     testDeconstructedTourNavigationTraversesExplanationStages();
     testTourPositionRestoresStableSceneAndStepIds();
     testTourFileNavigationUsesCompleteRenderableFileIndex();
     testTourFileNavigationFindsAnchorsAcrossStackedScenes();
     testWebTourHostSeparatesFileAndNarrativeNavigation();
+    testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls();
     testTourAnnotationPersistsAcrossChangeNavigation();
     testStackedDiffTourAnnotations();
     testTourTransitionUpdatesLongDocumentBeforeDeepAnnotation();
@@ -3072,6 +3291,7 @@ function run() {
     testWordWrapControllerPersistsAndAppliesPreference();
     testWordWrapUsesSharedRendererAndStandaloneMenu();
     testSessionSourcesRetainRefreshIntent();
+    testDesktopWindowStatePersistsOnlyRestorableSessions();
     testRefreshSessionUsesSemanticRendererAndMenuCommands();
     testTwoWayDiffAlignsInsertions();
     testReplacementMatchingRejectsLowInformationLines();

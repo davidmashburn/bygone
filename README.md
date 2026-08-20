@@ -98,6 +98,12 @@ new comparison brings the central app window forward and replaces its current
 session after any unsaved-change confirmation. Tours reuse a dedicated window
 owned by that same app process.
 
+When Bygone is quit or restarted for an upgrade, the desktop app remembers the
+open Explore session and tour windows. A normal no-argument launch restores
+them; an explicit file, directory, review, or presentation launch takes
+precedence. Windows whose source files or Git targets no longer exist are
+skipped or replaced with a blank Explore window.
+
 Shell completion is generated from the same command specification as `bygone --help`, including contextual file arguments and local Git refs for branch review. `npm run dev:sync`, the desktop app's command-line installer, and the Homebrew packages install completions automatically. To install one manually, choose the command for your shell:
 
 ```bash

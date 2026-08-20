@@ -158,6 +158,24 @@ await build({
 
 await build({
     ...sharedOptions,
+    entryPoints: ['src/tourNarration.ts'],
+    outfile: 'out/tourNarration.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node18'
+});
+
+await build({
+    ...sharedOptions,
+    entryPoints: ['src/tourNarrationPlayback.ts'],
+    outfile: 'out/tourNarrationPlayback.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node18'
+});
+
+await build({
+    ...sharedOptions,
     entryPoints: ['src/tourSearch.ts'],
     outfile: 'out/tourSearch.js',
     platform: 'node',

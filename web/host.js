@@ -7,6 +7,8 @@ import {
     getTourFileTarget,
     resolveTourPosition
 } from '../src/tourNavigation.ts';
+import { buildTourNarrationUnit } from '../src/tourNarration.ts';
+import { TourNarrationController } from '../src/tourNarrationPlayback.ts';
 import { searchTour } from '../src/tourSearch.ts';
 import {
     buildStackedTourAnnotations,
@@ -22,6 +24,10 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
     const TOUR_NARRATIVE_STORAGE_KEY = 'bygone.tourNarrativeHeight';
     const TOUR_NARRATIVE_MIN_HEIGHT = 180;
     const TOUR_DIFF_MIN_HEIGHT = 180;
+    const TOUR_NARRATION_VOICE_STORAGE_KEY = 'bygone.tourNarrationVoice';
+    const TOUR_NARRATION_RATE_STORAGE_KEY = 'bygone.tourNarrationRate';
+    const NARRATION_RATES = new Set([0.75, 1, 1.25, 1.5]);
+    const deviceNarrationAvailable = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
     const state = {
         mode: 'empty',
         left: null,
@@ -34,8 +40,18 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         tourFocusFilePath: null,
         tourSidebarWidth: readStoredTourSidebarWidth(),
         tourSidebarHidden: false,
-        tourNarrativeHeight: readStoredTourNarrativeHeight()
+        tourNarrativeHeight: readStoredTourNarrativeHeight(),
+        narrationVoiceURI: window.localStorage.getItem(TOUR_NARRATION_VOICE_STORAGE_KEY) || '',
+        narrationRate: readStoredNarrationRate(),
+        narrationVoices: [],
+        renderedNarrationUnit: null
     };
+    const narrationController = new TourNarrationController(createDeviceSpeechEngine(), {
+        claimAudio: claimNarrationAudio,
+        onStateChange: renderNarrationPlaybackState,
+        onSegmentChange: renderNarrationHighlight,
+        nextUnit: advanceNarrationUnit
+    });
 
     window.__BYGONE_HOST__ = {
         environment: 'web',
@@ -114,9 +130,15 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         const tourReturnFocus = document.getElementById('tour-return-focus');
         const tourSearchInput = document.getElementById('tour-search-input');
         const tourSearchScope = document.getElementById('tour-search-scope');
+        const tourListen = document.getElementById('tour-listen');
+        const tourPause = document.getElementById('tour-pause');
+        const tourStop = document.getElementById('tour-stop');
+        const tourVoice = document.getElementById('tour-narration-voice');
+        const tourRate = document.getElementById('tour-narration-rate');
 
         initializeTourSidebar();
         initializeTourNarrativeResizer();
+        initializeNarrationVoices();
 
         compareTestButton?.addEventListener('click', () => {
             compareTestFiles();
@@ -157,6 +179,22 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         tourReturnFocus?.addEventListener('click', returnToTourFocus);
         tourSearchInput?.addEventListener('input', renderTourSearchResults);
         tourSearchScope?.addEventListener('change', renderTourSearchResults);
+        tourListen?.addEventListener('click', startNarrationAtCurrentPosition);
+        tourPause?.addEventListener('click', () => narrationController.togglePause());
+        tourStop?.addEventListener('click', () => narrationController.stop());
+        tourVoice?.addEventListener('change', () => {
+            state.narrationVoiceURI = tourVoice.value;
+            window.localStorage.setItem(TOUR_NARRATION_VOICE_STORAGE_KEY, state.narrationVoiceURI);
+        });
+        if (tourRate) {
+            tourRate.value = String(state.narrationRate);
+            tourRate.addEventListener('change', () => {
+                const nextRate = Number(tourRate.value);
+                state.narrationRate = NARRATION_RATES.has(nextRate) ? nextRate : 1;
+                tourRate.value = String(state.narrationRate);
+                window.localStorage.setItem(TOUR_NARRATION_RATE_STORAGE_KEY, String(state.narrationRate));
+            });
+        }
         document.getElementById('tour-search-results')?.addEventListener('click', (event) => {
             const result = event.target instanceof Element
                 ? event.target.closest('[data-tour-search-result]')
@@ -183,6 +221,192 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
                 showTourLinear(1);
             }
         }, true);
+        window.addEventListener('bygone:tour-command', (event) => {
+            if (event.detail === 'toggleNarration') toggleNarrationFromHost();
+            if (event.detail === 'pauseNarration') narrationController.pauseForExternalOwner();
+        });
+        window.addEventListener('beforeunload', () => narrationController.dispose(), { once: true });
+        renderNarrationPlaybackState(narrationController.state);
+    }
+
+    function initializeNarrationVoices() {
+        const voiceSelect = document.getElementById('tour-narration-voice');
+        const listen = document.getElementById('tour-listen');
+        if (!deviceNarrationAvailable) {
+            if (listen) {
+                listen.disabled = true;
+                listen.title = 'Device narration is not supported by this browser.';
+            }
+            if (voiceSelect) voiceSelect.disabled = true;
+            setNarrationStatus('Device narration unavailable');
+            return;
+        }
+        const refresh = () => {
+            state.narrationVoices = window.speechSynthesis.getVoices()
+                .slice()
+                .sort((left, right) => Number(right.default) - Number(left.default)
+                    || left.lang.localeCompare(right.lang)
+                    || left.name.localeCompare(right.name));
+            if (state.narrationVoiceURI
+                && state.narrationVoices.length > 0
+                && !state.narrationVoices.some((voice) => voice.voiceURI === state.narrationVoiceURI)) {
+                state.narrationVoiceURI = '';
+                window.localStorage.removeItem(TOUR_NARRATION_VOICE_STORAGE_KEY);
+            }
+            if (voiceSelect) {
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'System default voice';
+                voiceSelect.replaceChildren(defaultOption, ...state.narrationVoices.map((voice) => {
+                    const option = document.createElement('option');
+                    option.value = voice.voiceURI;
+                    option.textContent = `${voice.name} (${voice.lang})${voice.default ? ' — default' : ''}`;
+                    return option;
+                }));
+                voiceSelect.value = state.narrationVoiceURI;
+                voiceSelect.disabled = state.narrationVoices.length === 0;
+            }
+        };
+        refresh();
+        window.speechSynthesis.addEventListener('voiceschanged', refresh);
+    }
+
+    function readStoredNarrationRate() {
+        const stored = Number(window.localStorage.getItem(TOUR_NARRATION_RATE_STORAGE_KEY));
+        return NARRATION_RATES.has(stored) ? stored : 1;
+    }
+
+    function createDeviceSpeechEngine() {
+        let activeUtterance = null;
+        return {
+            speak(segment, callbacks) {
+                if (!deviceNarrationAvailable) {
+                    callbacks.onError('Device narration is not supported by this browser.');
+                    return;
+                }
+                const utterance = new window.SpeechSynthesisUtterance(segment.speechText);
+                const selectedVoice = state.narrationVoices.find((voice) => voice.voiceURI === state.narrationVoiceURI);
+                if (selectedVoice) utterance.voice = selectedVoice;
+                utterance.rate = state.narrationRate;
+                utterance.onend = () => {
+                    if (activeUtterance === utterance) activeUtterance = null;
+                    callbacks.onEnd();
+                };
+                utterance.onerror = (event) => {
+                    if (activeUtterance === utterance) activeUtterance = null;
+                    callbacks.onError(formatNarrationError(event.error));
+                };
+                activeUtterance = utterance;
+                window.speechSynthesis.speak(utterance);
+            },
+            pause() {
+                if (deviceNarrationAvailable) window.speechSynthesis.pause();
+            },
+            resume() {
+                if (deviceNarrationAvailable) window.speechSynthesis.resume();
+            },
+            cancel() {
+                activeUtterance = null;
+                if (deviceNarrationAvailable) window.speechSynthesis.cancel();
+            }
+        };
+    }
+
+    function formatNarrationError(error) {
+        if (error === 'not-allowed') return 'Device narration needs permission to play audio.';
+        if (error === 'language-unavailable' || error === 'voice-unavailable') return 'The selected device voice is unavailable.';
+        return `Device narration failed${error ? `: ${error}` : '.'}`;
+    }
+
+    function startNarrationAtCurrentPosition() {
+        if (!deviceNarrationAvailable || state.mode !== 'tour') return;
+        const unit = buildActiveNarrationUnit('playback-start');
+        if (!unit) return;
+        state.renderedNarrationUnit = unit;
+        renderCurrentNarrativeForNarrationUnit(unit);
+        narrationController.start(unit, true);
+    }
+
+    function toggleNarrationFromHost() {
+        if (narrationController.state.kind === 'playing' || narrationController.state.kind === 'paused') {
+            narrationController.togglePause();
+        } else {
+            startNarrationAtCurrentPosition();
+        }
+    }
+
+    function buildActiveNarrationUnit(entry) {
+        if (!state.tour || state.activeSceneIndex < 0) return null;
+        return buildTourNarrationUnit(state.tour, {
+            sceneIndex: state.activeSceneIndex,
+            stepIndex: state.activeStepIndex
+        }, { entry });
+    }
+
+    function advanceNarrationUnit(completedUnit) {
+        const tour = state.tour;
+        if (!tour) return null;
+        const target = getLinearTourTarget(tour.scenes, completedUnit.position, 1);
+        if (!target) return null;
+        return showTourScene(target.sceneIndex, target.stepIndex, {
+            narrationNavigation: 'controller',
+            narrationEntry: 'continuous'
+        });
+    }
+
+    function claimNarrationAudio() {
+        void fetch('/narration/claim', { method: 'POST', cache: 'no-store' }).catch(() => {});
+    }
+
+    function renderNarrationPlaybackState(playbackState) {
+        const listen = document.getElementById('tour-listen');
+        const pause = document.getElementById('tour-pause');
+        const stop = document.getElementById('tour-stop');
+        if (listen) {
+            listen.disabled = !deviceNarrationAvailable || state.mode !== 'tour';
+            listen.textContent = playbackState.kind === 'playing' || playbackState.kind === 'paused' ? 'Restart' : 'Listen';
+        }
+        if (pause) {
+            pause.disabled = playbackState.kind !== 'playing' && playbackState.kind !== 'paused';
+            pause.textContent = playbackState.kind === 'paused' ? 'Resume' : 'Pause';
+            pause.title = playbackState.kind === 'paused' ? 'Resume narration' : 'Pause narration';
+        }
+        if (stop) stop.disabled = playbackState.kind !== 'playing' && playbackState.kind !== 'paused';
+        if (playbackState.kind === 'playing' || playbackState.kind === 'paused') {
+            const ordinal = playbackState.segmentIndex + 1;
+            const total = playbackState.unit.segments.length;
+            setNarrationStatus(`${playbackState.kind === 'paused' ? 'Paused' : 'Speaking'} · segment ${ordinal} of ${total}`);
+        } else if (playbackState.kind === 'completed') {
+            setNarrationStatus('Narration complete');
+        } else if (playbackState.kind === 'error') {
+            setNarrationStatus(playbackState.message);
+        } else if (deviceNarrationAvailable) {
+            setNarrationStatus('Device voice ready');
+        }
+    }
+
+    function setNarrationStatus(message) {
+        const status = document.getElementById('tour-narration-status');
+        if (status) status.textContent = message;
+    }
+
+    function renderNarrationHighlight(segment, paused) {
+        document.querySelectorAll('.tour-narration-segment.is-speaking').forEach((element) => {
+            element.classList.remove('is-speaking', 'is-paused');
+        });
+        if (!segment) return;
+        const element = [...document.querySelectorAll('[data-narration-segment-id]')]
+            .find((candidate) => candidate.dataset.narrationSegmentId === segment.id);
+        if (!element) return;
+        element.classList.add('is-speaking');
+        element.classList.toggle('is-paused', paused);
+        const narrative = document.getElementById('tour-narrative');
+        if (!narrative) return;
+        const elementBounds = element.getBoundingClientRect();
+        const narrativeBounds = narrative.getBoundingClientRect();
+        if (elementBounds.top < narrativeBounds.top || elementBounds.bottom > narrativeBounds.bottom) {
+            element.scrollIntoView({ block: 'nearest' });
+        }
     }
 
     let currentTourSearchMatches = [];
@@ -400,6 +624,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
     async function loadTour(manifestUrl) {
         setStatus('Loading change tour…');
         try {
+            narrationController.stop();
             const response = await fetch(manifestUrl, { cache: 'no-store' });
             if (!response.ok) {
                 throw new Error(`Manifest request failed (${response.status}).`);
@@ -416,6 +641,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
                 parameters.get('step')
             );
             showTourScene(requestedPosition.sceneIndex, requestedPosition.stepIndex);
+            renderNarrationPlaybackState(narrationController.state);
             setStatus('');
         } catch (error) {
             setStatus(`Could not load change tour: ${error instanceof Error ? error.message : String(error)}`);
@@ -541,10 +767,10 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         }));
     }
 
-    function showTourScene(index, stepIndex = 0) {
+    function showTourScene(index, stepIndex = 0, options = {}) {
         const tour = state.tour;
         if (!tour || index < 0 || index >= tour.scenes.length) {
-            return;
+            return null;
         }
         const scene = tour.scenes[index];
         state.activeSceneIndex = index;
@@ -563,7 +789,16 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
             button.classList.toggle('is-active', button.dataset.sceneId === scene.id);
         });
         document.querySelector(`.tour-scene[data-scene-id="${scene.id}"]`)?.scrollIntoView({ block: 'nearest' });
-        renderTourNarrative(scene, location);
+        const narrationUnit = buildActiveNarrationUnit(options.narrationEntry || 'playback-start');
+        state.renderedNarrationUnit = narrationUnit;
+        renderTourNarrative(scene, location, narrationUnit);
+        if (narrationUnit) {
+            if (options.narrationNavigation === 'linear') {
+                narrationController.followLinearNavigation(narrationUnit);
+            } else if (options.narrationNavigation !== 'controller') {
+                narrationController.followDirectNavigation(narrationUnit);
+            }
+        }
         const parameters = new URLSearchParams(window.location.search);
         parameters.set('scene', scene.id);
         if (isSteppedTourScene(scene)) {
@@ -575,18 +810,19 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         if (scene.kind === 'discussion') {
             document.body.classList.add('tour-discussion');
             updateTourFileSelection();
-            return;
+            return narrationUnit;
         }
         document.body.classList.remove('tour-discussion');
         if (scene.kind === 'walkthrough') {
             renderWalkthroughStep(scene);
-            return;
+            return narrationUnit;
         }
         if (isMultiPanelTourScene(scene)) {
             renderMultiPanelStep(scene);
-            return;
+            return narrationUnit;
         }
         emitDiffScene(scene, buildTourAnnotationsForFile(scene.path));
+        return narrationUnit;
     }
 
     function buildTourAnnotationsForFile(filePath) {
@@ -747,7 +983,10 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         if (!target) {
             return false;
         }
-        showTourScene(target.sceneIndex, target.stepIndex);
+        showTourScene(target.sceneIndex, target.stepIndex, {
+            narrationNavigation: 'linear',
+            narrationEntry: 'playback-start'
+        });
         return true;
     }
 
@@ -764,11 +1003,12 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         return target ? showTourFileSelection(target.fileIndex) : false;
     }
 
-    function showTourFileAtIndex(index) {
+    function showTourFileAtIndex(index, interruptNarration = true) {
         const file = state.tour?.files[index];
         if (!file || file.kind !== 'text-diff') {
             return false;
         }
+        if (interruptNarration) narrationController.interruptForExploration();
         emitDiffScene(
             file,
             buildTourAnnotationsForFile(file.path),
@@ -779,6 +1019,8 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
 
     function showTourFileSelection(index) {
         const selected = state.tour?.files[index];
+        if (!selected || selected.kind !== 'text-diff') return false;
+        narrationController.interruptForExploration();
         if (selected?.kind === 'text-diff' && state.tour) {
             const target = getMultiPanelTourFileTarget(
                 state.tour.scenes,
@@ -797,7 +1039,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
                 }
             }
         }
-        return showTourFileAtIndex(index);
+        return showTourFileAtIndex(index, false);
     }
 
     function returnToTourFocus() {
@@ -905,7 +1147,13 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         ));
     }
 
-    function renderTourNarrative(scene, location) {
+    function renderCurrentNarrativeForNarrationUnit(unit) {
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        if (!state.tour || !scene) return;
+        renderTourNarrative(scene, getSceneLocation(state.tour, state.activeSceneIndex), unit);
+    }
+
+    function renderTourNarrative(scene, location, narrationUnit) {
         const narrative = document.getElementById('tour-narrative');
         const breadcrumb = document.getElementById('tour-breadcrumb');
         const chapter = document.getElementById('tour-narrative-chapter');
@@ -925,14 +1173,15 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         }
         narrative.hidden = false;
         breadcrumb.textContent = formatTourBreadcrumb(location, scene, state.activeStepIndex);
-        chapter.textContent = scene.kind === 'deconstructed-diff'
-            ? `${location.chapter?.title || 'Change tour'} · ${scene.stageLabel}`
-            : location.chapter?.title || 'Change tour';
-        title.textContent = scene.title;
-        summary.textContent = scene.summary;
-        bullets.replaceChildren(...scene.bullets.map((text) => {
+        const chapterText = location.chapter?.title || 'Change tour';
+        renderNarrationField(chapter, chapterText, { field: 'chapter' }, narrationUnit, {
+            suffix: scene.kind === 'deconstructed-diff' ? ` · ${scene.stageLabel}` : ''
+        });
+        renderNarrationField(title, scene.title, { field: 'scene-title' }, narrationUnit);
+        renderNarrationField(summary, scene.summary, { field: 'summary' }, narrationUnit);
+        bullets.replaceChildren(...scene.bullets.map((text, itemIndex) => {
             const item = document.createElement('li');
-            item.textContent = text;
+            renderNarrationField(item, text, { field: 'bullet', itemIndex }, narrationUnit);
             return item;
         }));
         tags.replaceChildren(...scene.tags.map((text) => {
@@ -940,24 +1189,28 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
             tag.textContent = text;
             return tag;
         }));
-        takeaway.textContent = scene.takeaway;
+        renderNarrationField(takeaway, scene.takeaway, { field: 'takeaway' }, narrationUnit);
         const step = isSteppedTourScene(scene)
             ? scene.steps[state.activeStepIndex]
             : null;
         stepPanel.hidden = !step;
         if (step) {
-            stepTitle.textContent = scene.kind === 'deconstructed-diff'
-                ? `Stage ${state.activeStepIndex + 1}: ${step.title}`
-                : step.title;
-            stepBody.textContent = step.body;
+            renderNarrationField(stepTitle, step.title, { field: 'step-title' }, narrationUnit, {
+                prefix: scene.kind === 'deconstructed-diff' ? `Stage ${state.activeStepIndex + 1}: ` : ''
+            });
+            renderNarrationField(stepBody, step.body, { field: 'step-body' }, narrationUnit);
             if ('connection' in step && step.connection) {
                 connection.hidden = false;
-                connection.textContent = `${step.connection.from.path} → ${step.connection.to.path} · ${step.connection.label}`;
+                renderNarrationField(connection, step.connection.label, { field: 'connection' }, narrationUnit, {
+                    prefix: `${step.connection.from.path} → ${step.connection.to.path} · `
+                });
             } else {
                 connection.hidden = true;
                 connection.textContent = '';
             }
         } else {
+            stepTitle.textContent = '';
+            stepBody.textContent = '';
             connection.hidden = true;
             connection.textContent = '';
         }
@@ -965,7 +1218,36 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         next.disabled = !getCurrentLinearTourTarget(1);
     }
 
+    function renderNarrationField(element, text, source, narrationUnit, affixes = {}) {
+        const matchingSegments = narrationUnit?.segments.filter((segment) => (
+            segment.source.field === source.field
+            && segment.source.itemIndex === source.itemIndex
+        )) || [];
+        if (matchingSegments.length === 0) {
+            element.textContent = `${affixes.prefix || ''}${text}${affixes.suffix || ''}`;
+            return;
+        }
+        const children = [];
+        if (affixes.prefix) children.push(document.createTextNode(affixes.prefix));
+        let offset = 0;
+        for (const segment of matchingSegments) {
+            if (segment.startOffset > offset) {
+                children.push(document.createTextNode(text.slice(offset, segment.startOffset)));
+            }
+            const span = document.createElement('span');
+            span.className = 'tour-narration-segment';
+            span.dataset.narrationSegmentId = segment.id;
+            span.textContent = text.slice(segment.startOffset, segment.endOffset);
+            children.push(span);
+            offset = segment.endOffset;
+        }
+        if (offset < text.length) children.push(document.createTextNode(text.slice(offset)));
+        if (affixes.suffix) children.push(document.createTextNode(affixes.suffix));
+        element.replaceChildren(...children);
+    }
+
     function compareTestFiles() {
+        narrationController.stop();
         const sample = createJavaScriptSampleFilePair();
         state.mode = 'diff';
         state.comparisonId += 1;
@@ -992,6 +1274,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
     }
 
     async function openDiffFiles(files) {
+        narrationController.stop();
         const [leftFile, rightFile] = files;
         const [leftContent, rightContent] = await Promise.all([
             leftFile.text(),
@@ -1023,6 +1306,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
     }
 
     async function openMultiFileDiff(files) {
+        narrationController.stop();
         const panels = await Promise.all(files.map(async (file, index) => {
             const content = await file.text();
             return {

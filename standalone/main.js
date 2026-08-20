@@ -33,6 +33,7 @@ const { tokenMatches, tokensFor } = require('../cli/commandSpec.js');
 const { startPresentation } = require('../cli/present.js');
 const { resolveWorkingDirectory } = require('../cli/workingDirectory.js');
 const { getCliArgsFromArgv, getForwardedLaunchArgs } = require('./launchArgs.js');
+const { readWindowState, writeWindowState } = require('./windowState.js');
 const {
     buildHistoryTitle,
     buildStandaloneSessionTitle,
@@ -59,13 +60,15 @@ const commandLineToolPath = process.platform === 'win32'
     ? path.join(process.env.LOCALAPPDATA || os.homedir(), 'Microsoft', 'WindowsApps', 'bygone.cmd')
     : '/usr/local/bin/bygone';
 const gitHistoryService = new GitHistoryService();
-const launchArguments = parseLaunchArgs(getCliArgs());
+const initialCliArgs = getCliArgs();
+const launchArguments = parseLaunchArgs(initialCliArgs);
 const smokeTestMode = launchArguments.kind === 'smoke' || launchArguments.kind === 'smoke-multi' || launchArguments.kind === 'smoke-directory';
 const captureOutputPath = launchArguments.capturePath ? path.resolve(launchArguments.capturePath) : null;
 const captureMode = Boolean(captureOutputPath);
 const launchWindowWidth = Number.isFinite(launchArguments.windowWidth) ? launchArguments.windowWidth : 1500;
 const launchWindowHeight = Number.isFinite(launchArguments.windowHeight) ? launchArguments.windowHeight : 960;
 const shouldUseSingleInstanceLock = app.isPackaged && !smokeTestMode && !captureMode;
+const shouldRestoreWindowState = initialCliArgs.length === 0 && !smokeTestMode && !captureMode;
 
 app.setName(APP_NAME);
 if (typeof app.setAppUserModelId === 'function') {
@@ -104,6 +107,8 @@ let wordWrapEnabled = false;
 let wordWrapAvailable = false;
 let repositorySearch = null;
 let lastRepositoryReplacement = null;
+let appIsQuitting = false;
+let restoringWindowState = false;
 
 if (!singleInstanceLock) {
     app.quit();
@@ -122,6 +127,11 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit();
     }
+});
+
+app.on('before-quit', () => {
+    appIsQuitting = true;
+    persistOpenWindowState();
 });
 
 app.on('will-quit', () => {
@@ -297,6 +307,9 @@ function createMainWindow({ show = !smokeTestMode } = {}) {
         smokeTimeout = undefined;
         captureScheduled = false;
         captureRenderReady = false;
+        if (!appIsQuitting && (process.platform === 'darwin' || BrowserWindow.getAllWindows().length > 0)) {
+            persistOpenWindowState();
+        }
     });
 }
 
@@ -308,14 +321,19 @@ function ensureMainWindow() {
 }
 
 async function openTourPresentation(args, cwd) {
+    let ownerWindow = null;
     const presentation = await startPresentation(args, cwd, packageRoot, {
         announce: false,
-        open: false
+        open: false,
+        onNarrationClaim: () => claimTourNarration(ownerWindow)
     });
     activeTourServers.add(presentation.server);
 
     try {
-        await showTourWindow(presentation.url, presentation.server, presentation.manifest);
+        ownerWindow = await showTourWindow(presentation.url, presentation.server, presentation.manifest, {
+            args: [...args],
+            cwd: path.resolve(cwd)
+        });
     } catch (error) {
         closeTourServer(presentation.server);
         throw error;
@@ -327,7 +345,7 @@ async function openAuthoredTourDocument(sourcePath) {
     await openTourPresentation(['--tour', document.documentPath], document.repoRoot);
 }
 
-async function showTourWindow(url, server, manifest) {
+async function showTourWindow(url, server, manifest, launch) {
     const parsedUrl = new URL(url);
     if (parsedUrl.protocol !== 'http:' || parsedUrl.hostname !== '127.0.0.1') {
         throw new Error('Tour presenter URL must use the local Bygone server.');
@@ -349,7 +367,8 @@ async function showTourWindow(url, server, manifest) {
         }
     });
     latestTourWindow = tourWindow;
-    tourPresentations.set(tourWindow, { server, origin: tourOrigin });
+    tourPresentations.set(tourWindow, { server, origin: tourOrigin, launch });
+    installApplicationMenu();
 
     tourWindow.webContents.setWindowOpenHandler(({ url: externalUrl }) => {
         if (/^https?:\/\//i.test(externalUrl)) {
@@ -377,6 +396,10 @@ async function showTourWindow(url, server, manifest) {
         if (latestTourWindow === tourWindow) {
             latestTourWindow = getLatestTourWindow();
         }
+        installApplicationMenu();
+        if (!appIsQuitting && (process.platform === 'darwin' || BrowserWindow.getAllWindows().length > 0)) {
+            persistOpenWindowState();
+        }
     });
 
     const tourWindowTitle = buildTourWindowTitle(manifest, APP_NAME);
@@ -400,6 +423,7 @@ async function showTourWindow(url, server, manifest) {
     applyTourWindowTitle();
     tourWindow.show();
     tourWindow.focus();
+    persistOpenWindowState();
     return tourWindow;
 }
 
@@ -407,6 +431,26 @@ function getLatestTourWindow() {
     return [...tourPresentations.keys()]
         .reverse()
         .find((window) => !window.isDestroyed());
+}
+
+function claimTourNarration(ownerWindow) {
+    if (!ownerWindow || ownerWindow.isDestroyed()) return;
+    for (const tourWindow of tourPresentations.keys()) {
+        if (tourWindow !== ownerWindow && !tourWindow.isDestroyed()) {
+            dispatchTourPresenterCommand(tourWindow, 'pauseNarration');
+        }
+    }
+}
+
+function dispatchTourPresenterCommand(tourWindow, command) {
+    if (!tourWindow || tourWindow.isDestroyed()) return;
+    const script = `window.dispatchEvent(new CustomEvent('bygone:tour-command', { detail: ${JSON.stringify(command)} }))`;
+    void tourWindow.webContents.executeJavaScript(script).catch(() => {});
+}
+
+function toggleLatestTourNarration() {
+    const tourWindow = getLatestTourWindow();
+    if (tourWindow) dispatchTourPresenterCommand(tourWindow, 'toggleNarration');
 }
 
 function closeTourServer(server) {
@@ -693,6 +737,12 @@ function installApplicationMenu() {
                             showError(`Could not open Bygone presentation: ${getErrorMessage(error)}`)
                         ));
                     }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Listen to Tour',
+                    enabled: Boolean(getLatestTourWindow()),
+                    click: toggleLatestTourNarration
                 }
             ]
         },
@@ -1045,7 +1095,87 @@ async function openInitialLaunchTarget() {
         return;
     }
 
+    if (shouldRestoreWindowState && await restoreOpenWindowState()) {
+        return;
+    }
+
     await routeLaunchTarget(launchArguments);
+}
+
+async function restoreOpenWindowState() {
+    const savedState = readWindowState(getWindowStatePath());
+    if (!savedState || (!savedState.main && savedState.tours.length === 0)) {
+        return false;
+    }
+
+    let restoredAnyWindow = false;
+    restoringWindowState = true;
+    try {
+        if (savedState.main) {
+            ensureMainWindow();
+            try {
+                await restoreMainSession(savedState.main.source);
+            } catch (error) {
+                console.error(`Could not restore the previous Bygone session: ${getErrorMessage(error)}`);
+                await openBlankDiff();
+            }
+            restoredAnyWindow = true;
+        }
+
+        for (const tour of savedState.tours) {
+            try {
+                await openTourPresentation(tour.args, tour.cwd);
+                restoredAnyWindow = true;
+            } catch (error) {
+                console.error(`Could not restore a previous Bygone tour: ${getErrorMessage(error)}`);
+            }
+        }
+    } finally {
+        restoringWindowState = false;
+        persistOpenWindowState();
+    }
+    return restoredAnyWindow;
+}
+
+async function restoreMainSession(source) {
+    if (source.kind === 'blank') {
+        await openBlankDiff();
+        return;
+    }
+
+    session = buildSessionFromSource(source);
+    historyIncludeStagedPreference = Boolean(source.includeStaged ?? historyIncludeStagedPreference);
+    historySkipUnchangedPreference = Boolean(source.skipUnchanged ?? historySkipUnchangedPreference);
+    clearWatchers();
+    updateWatchers();
+    await sendCurrentSession();
+}
+
+function persistOpenWindowState() {
+    if (restoringWindowState || !app.isReady()) return;
+    const hasMainWindow = Boolean(mainWindow && !mainWindow.isDestroyed());
+    const mainSource = hasMainWindow && (isRefreshableSource(session.source) || session.source?.kind === 'blank')
+        ? cloneSessionSource(session.source)
+        : hasMainWindow
+            ? { kind: 'blank' }
+            : null;
+    const tours = [...tourPresentations.entries()]
+        .filter(([window, presentation]) => !window.isDestroyed() && presentation.launch)
+        .map(([, presentation]) => presentation.launch);
+
+    try {
+        writeWindowState(getWindowStatePath(), {
+            version: 1,
+            main: mainSource ? { source: mainSource } : null,
+            tours
+        });
+    } catch (error) {
+        console.error(`Could not save Bygone window state: ${getErrorMessage(error)}`);
+    }
+}
+
+function getWindowStatePath() {
+    return path.join(app.getPath('userData'), 'open-windows.json');
 }
 
 async function routeLaunchTarget(launchTarget) {
@@ -5257,6 +5387,7 @@ async function refreshSession(options = {}) {
 function postOrQueue(message) {
     installApplicationMenu();
     if (message && typeof message === 'object' && typeof message.type === 'string' && message.type.startsWith('show')) {
+        persistOpenWindowState();
         if (!refreshInProgress) {
             refreshFailure = null;
         }

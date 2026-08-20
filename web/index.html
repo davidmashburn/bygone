@@ -60,6 +60,21 @@
             <span id="tour-breadcrumb" class="tour-breadcrumb"></span>
             <button id="tour-next" type="button" title="Next tour item (Right or Page Down)">Next →</button>
         </nav>
+        <div id="tour-narration-controls" class="tour-narration-controls" role="group" aria-label="Tour narration">
+            <button id="tour-listen" type="button" title="Listen from the current tour item">Listen</button>
+            <button id="tour-pause" type="button" title="Pause narration" disabled>Pause</button>
+            <button id="tour-stop" type="button" title="Stop narration" disabled>Stop</button>
+            <select id="tour-narration-voice" aria-label="Narration voice" title="Narration voice" disabled>
+                <option value="">System default voice</option>
+            </select>
+            <select id="tour-narration-rate" aria-label="Narration speed" title="Narration speed">
+                <option value="0.75">0.75×</option>
+                <option value="1">1×</option>
+                <option value="1.25">1.25×</option>
+                <option value="1.5">1.5×</option>
+            </select>
+            <span id="tour-narration-status" class="tour-narration-status" role="status" aria-live="polite" aria-atomic="true">Device voice ready</span>
+        </div>
         <div class="tour-narrative-layout">
             <div class="tour-narrative-prose">
                 <div id="tour-narrative-chapter" class="tour-narrative-chapter"></div>

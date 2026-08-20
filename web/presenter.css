@@ -319,6 +319,73 @@ body.tour-discussion .tour-narrative-resizer {
     cursor: default;
 }
 
+.tour-narration-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    align-items: center;
+    margin: -4px 0 12px;
+}
+
+.tour-narration-controls button,
+.tour-narration-controls select {
+    min-height: 30px;
+    box-sizing: border-box;
+    padding: 5px 9px;
+    color: var(--tour-muted);
+    border: 1px solid var(--tour-border);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.035);
+    font: inherit;
+}
+
+.tour-narration-controls button {
+    cursor: pointer;
+}
+
+.tour-narration-controls button:hover:not(:disabled),
+.tour-narration-controls button:focus-visible,
+.tour-narration-controls select:focus-visible {
+    color: #fff;
+    border-color: rgba(169, 159, 255, 0.55);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(128, 117, 255, 0.22);
+}
+
+.tour-narration-controls button:disabled,
+.tour-narration-controls select:disabled {
+    opacity: 0.42;
+    cursor: default;
+}
+
+.tour-narration-controls select {
+    max-width: min(240px, 32vw);
+}
+
+.tour-narration-status {
+    min-width: 150px;
+    margin-left: auto;
+    color: var(--tour-faint);
+    text-align: right;
+}
+
+.tour-narration-segment {
+    border-radius: 3px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    transition: background-color 100ms ease, box-shadow 100ms ease;
+}
+
+.tour-narration-segment.is-speaking {
+    background: rgba(255, 211, 92, 0.18);
+    box-shadow: inset 0 -2px 0 rgba(255, 211, 92, 0.78);
+}
+
+.tour-narration-segment.is-speaking.is-paused {
+    background: rgba(169, 159, 255, 0.16);
+    box-shadow: inset 0 -2px 0 rgba(169, 159, 255, 0.72);
+}
+
 .tour-breadcrumb {
     min-width: 0;
     color: var(--tour-muted);
@@ -674,6 +741,11 @@ body.tour-discussion .tour-narrative-nav {
     margin-bottom: clamp(22px, 4vh, 36px);
 }
 
+body.tour-discussion .tour-narration-controls {
+    max-width: 1000px;
+    margin-bottom: clamp(18px, 3vh, 28px);
+}
+
 body.tour-discussion .tour-narrative-layout {
     display: block;
 }
@@ -810,5 +882,21 @@ body.tour-discussion .tour-narrative-takeaway {
     .tour-narrative-nav button {
         min-width: 64px;
         padding-inline: 7px;
+    }
+
+    .tour-narration-controls select {
+        max-width: 170px;
+    }
+
+    .tour-narration-status {
+        width: 100%;
+        margin-left: 0;
+        text-align: left;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tour-narration-segment {
+        transition: none;
     }
 }
