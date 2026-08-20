@@ -406,9 +406,11 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
     const presentDocs = fs.readFileSync(path.join(__dirname, '..', 'docs', 'present.md'), 'utf8');
     const productSurface = fs.readFileSync(path.join(__dirname, '..', 'docs', 'product-surface.md'), 'utf8');
 
-    for (const id of ['tour-listen', 'tour-pause', 'tour-stop', 'tour-narration-voice', 'tour-narration-rate']) {
+    for (const id of ['tour-narration-skip-back', 'tour-listen', 'tour-pause', 'tour-stop', 'tour-narration-skip-ahead', 'tour-narration-voice', 'tour-narration-rate']) {
         assert.match(markup, new RegExp(`id="${id}"`));
     }
+    assert.match(markup, /id="tour-narration-skip-back"[^>]+title="Skip back one tour item"[^>]+aria-label="Skip back one tour item"/);
+    assert.match(markup, /id="tour-narration-skip-ahead"[^>]+title="Skip ahead one tour item"[^>]+aria-label="Skip ahead one tour item"/);
     assert.match(markup, /id="tour-narration-status"[^>]+role="status"[^>]+aria-live="polite"/);
     assert.match(host, /new TourNarrationController\(createDeviceSpeechEngine\(\)/);
     assert.match(host, /new window\.SpeechSynthesisUtterance\(segment\.speechText\)/);
@@ -420,6 +422,9 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
     assert.match(host, /narrationController\.followLinearNavigation\(narrationUnit\)/);
     assert.match(host, /narrationController\.followDirectNavigation\(narrationUnit\)/);
     assert.match(host, /narrationController\.interruptForExploration\(\)/);
+    assert.match(host, /tourNarrationSkipBack\?\.addEventListener\('click', \(\) => showTourLinear\(-1\)\)/);
+    assert.match(host, /tourNarrationSkipAhead\?\.addEventListener\('click', \(\) => showTourLinear\(1\)\)/);
+    assert.match(styles, /\.tour-narration-transport/);
     assert.match(styles, /\.tour-narration-segment\.is-speaking/);
     assert.match(styles, /\.tour-narration-segment\.is-speaking\.is-paused/);
     assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);

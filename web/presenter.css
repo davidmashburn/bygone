@@ -322,48 +322,96 @@ body.tour-discussion .tour-narrative-resizer {
 .tour-narration-controls {
     display: flex;
     flex-wrap: wrap;
-    gap: 7px;
+    gap: 6px;
     align-items: center;
     margin: -4px 0 12px;
+    padding: 5px;
+    border: 1px solid var(--tour-border);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.025);
 }
 
-.tour-narration-controls button,
 .tour-narration-controls select {
-    min-height: 30px;
-    box-sizing: border-box;
-    padding: 5px 9px;
+    height: 28px;
+    padding: 3px 7px;
     color: var(--tour-muted);
     border: 1px solid var(--tour-border);
-    border-radius: 6px;
+    border-radius: 5px;
     background: rgba(255, 255, 255, 0.035);
     font: inherit;
 }
 
-.tour-narration-controls button {
+.tour-narration-transport,
+.tour-narration-settings {
+    display: inline-flex;
+    align-items: center;
+}
+
+.tour-narration-transport {
+    overflow: hidden;
+    border: 1px solid var(--tour-border);
+    border-radius: 6px;
+}
+
+.tour-narration-transport button {
+    display: grid;
+    width: 30px;
+    height: 28px;
+    padding: 0;
+    place-items: center;
+    color: var(--tour-muted);
+    border: 0;
+    border-right: 1px solid var(--tour-border);
+    background: rgba(255, 255, 255, 0.035);
     cursor: pointer;
 }
 
-.tour-narration-controls button:hover:not(:disabled),
-.tour-narration-controls button:focus-visible,
-.tour-narration-controls select:focus-visible {
-    color: #fff;
-    border-color: rgba(169, 159, 255, 0.55);
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(128, 117, 255, 0.22);
+.tour-narration-transport button:last-child {
+    border-right: 0;
 }
 
-.tour-narration-controls button:disabled,
+.tour-narration-transport button svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.tour-narration-transport button svg .tour-icon-fill {
+    fill: currentColor;
+    stroke: none;
+}
+
+.tour-narration-transport #tour-listen {
+    color: var(--tour-accent-bright);
+}
+
+.tour-narration-transport button:hover:not(:disabled),
+.tour-narration-transport button:focus-visible,
+.tour-narration-controls select:focus-visible {
+    color: #fff;
+    outline: none;
+    background: rgba(169, 159, 255, 0.13);
+    box-shadow: inset 0 0 0 1px rgba(169, 159, 255, 0.55);
+}
+
+.tour-narration-transport button:disabled,
 .tour-narration-controls select:disabled {
-    opacity: 0.42;
-    cursor: default;
+    opacity: 0.36;
+}
+
+.tour-narration-settings {
+    gap: 5px;
 }
 
 .tour-narration-controls select {
-    max-width: min(240px, 32vw);
+    max-width: min(210px, 29vw);
 }
 
 .tour-narration-status {
-    min-width: 150px;
     margin-left: auto;
     color: var(--tour-faint);
     text-align: right;
@@ -885,7 +933,7 @@ body.tour-discussion .tour-narrative-takeaway {
     }
 
     .tour-narration-controls select {
-        max-width: 170px;
+        max-width: 150px;
     }
 
     .tour-narration-status {

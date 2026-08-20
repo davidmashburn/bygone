@@ -61,18 +61,34 @@
             <button id="tour-next" type="button" title="Next tour item (Right or Page Down)">Next →</button>
         </nav>
         <div id="tour-narration-controls" class="tour-narration-controls" role="group" aria-label="Tour narration">
-            <button id="tour-listen" type="button" title="Listen from the current tour item">Listen</button>
-            <button id="tour-pause" type="button" title="Pause narration" disabled>Pause</button>
-            <button id="tour-stop" type="button" title="Stop narration" disabled>Stop</button>
-            <select id="tour-narration-voice" aria-label="Narration voice" title="Narration voice" disabled>
-                <option value="">System default voice</option>
-            </select>
-            <select id="tour-narration-rate" aria-label="Narration speed" title="Narration speed">
-                <option value="0.75">0.75×</option>
-                <option value="1">1×</option>
-                <option value="1.25">1.25×</option>
-                <option value="1.5">1.5×</option>
-            </select>
+            <div class="tour-narration-transport" role="group" aria-label="Narration playback">
+                <button id="tour-narration-skip-back" type="button" title="Skip back one tour item" aria-label="Skip back one tour item">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                </button>
+                <button id="tour-listen" type="button" title="Listen from the current tour item" aria-label="Listen from the current tour item">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="tour-icon-fill" d="m8 5 11 7-11 7Z"/></svg>
+                </button>
+                <button id="tour-pause" type="button" title="Pause narration" aria-label="Pause narration" disabled>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="tour-icon-fill" d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+                </button>
+                <button id="tour-stop" type="button" title="Stop narration" aria-label="Stop narration" disabled>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="tour-icon-fill" d="M6 6h12v12H6z"/></svg>
+                </button>
+                <button id="tour-narration-skip-ahead" type="button" title="Skip ahead one tour item" aria-label="Skip ahead one tour item">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+                </button>
+            </div>
+            <div class="tour-narration-settings">
+                <select id="tour-narration-voice" aria-label="Narration voice" title="Narration voice" disabled>
+                    <option value="">System default voice</option>
+                </select>
+                <select id="tour-narration-rate" aria-label="Narration speed" title="Narration speed">
+                    <option value="0.75">0.75×</option>
+                    <option value="1">1×</option>
+                    <option value="1.25">1.25×</option>
+                    <option value="1.5">1.5×</option>
+                </select>
+            </div>
             <span id="tour-narration-status" class="tour-narration-status" role="status" aria-live="polite" aria-atomic="true">Device voice ready</span>
         </div>
         <div class="tour-narrative-layout">
