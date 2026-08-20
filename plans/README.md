@@ -26,6 +26,12 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [First-class tour narration with text to speech](tour-text-to-speech.md) —
+  add high-quality, synchronized read-aloud support without coupling it to
+  microphone or agent work.
+- [Conversational voice and originating-agent routing](conversational-voice-and-agent-routing.md) —
+  separately explore text-first, evidence-grounded questions and an ephemeral
+  local route back to an authoring agent.
 - [Monaco editor comfort](editor-power.md) — enable familiar multi-line editing,
   shortcuts, and language-aware behavior already available in Monaco.
 - [`.bygone` document format and native opening](bygone-document-format.md) —
