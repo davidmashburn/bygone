@@ -431,12 +431,13 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
     const presentDocs = fs.readFileSync(path.join(__dirname, '..', 'docs', 'present.md'), 'utf8');
     const productSurface = fs.readFileSync(path.join(__dirname, '..', 'docs', 'product-surface.md'), 'utf8');
 
-    for (const id of ['tour-narration-skip-back', 'tour-listen', 'tour-pause', 'tour-stop', 'tour-narration-skip-ahead', 'tour-narration-voice', 'tour-narration-rate']) {
+    for (const id of ['tour-narration-skip-back', 'tour-listen', 'tour-stop', 'tour-narration-skip-ahead', 'tour-narration-voice', 'tour-narration-rate']) {
         assert.match(markup, new RegExp(`id="${id}"`));
     }
+    assert.doesNotMatch(markup, /id="tour-pause"/);
     assert.match(markup, /id="tour-narration-skip-back"[^>]+title="Previous sentence"[^>]+aria-label="Previous sentence"[^>]+disabled/);
     assert.match(markup, /id="tour-narration-skip-ahead"[^>]+title="Next sentence"[^>]+aria-label="Next sentence"[^>]+disabled/);
-    assert.match(markup, /tour-pause-icon/);
+    assert.match(markup, /tour-play-pause-icon/);
     assert.match(markup, /id="tour-narration-status"[^>]+role="status"[^>]+aria-live="polite"/);
     assert.match(host, /new TourNarrationController\(createDeviceSpeechEngine\(\)/);
     assert.match(host, /new window\.SpeechSynthesisUtterance\(segment\.speechText\)/);
@@ -448,7 +449,8 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
     assert.match(host, /narrationController\.followLinearNavigation\(narrationUnit\)/);
     assert.match(host, /narrationController\.followDirectNavigation\(narrationUnit\)/);
     assert.match(host, /narrationController\.interruptForExploration\(\)/);
-    assert.match(host, /isPaused \? 'm8 5 11 7-11 7Z' : 'M7 5h4v14H7zM13 5h4v14h-4z'/);
+    assert.match(host, /tourListen\?\.addEventListener\('click', toggleNarrationFromHost\)/);
+    assert.match(host, /isPlaying \? 'M7 5h4v14H7zM13 5h4v14h-4z' : 'm8 5 11 7-11 7Z'/);
     assert.match(host, /tourNarrationSkipBack\?\.addEventListener\('click', \(\) => narrationController\.skipSegment\(-1\)\)/);
     assert.match(host, /tourNarrationSkipAhead\?\.addEventListener\('click', \(\) => narrationController\.skipSegment\(1\)\)/);
     assert.match(styles, /\.tour-narration-transport/);

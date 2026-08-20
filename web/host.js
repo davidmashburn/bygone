@@ -132,7 +132,6 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         const tourSearchInput = document.getElementById('tour-search-input');
         const tourSearchScope = document.getElementById('tour-search-scope');
         const tourListen = document.getElementById('tour-listen');
-        const tourPause = document.getElementById('tour-pause');
         const tourStop = document.getElementById('tour-stop');
         const tourNarrationSkipBack = document.getElementById('tour-narration-skip-back');
         const tourNarrationSkipAhead = document.getElementById('tour-narration-skip-ahead');
@@ -182,8 +181,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         tourReturnFocus?.addEventListener('click', returnToTourFocus);
         tourSearchInput?.addEventListener('input', renderTourSearchResults);
         tourSearchScope?.addEventListener('change', renderTourSearchResults);
-        tourListen?.addEventListener('click', startNarrationAtCurrentPosition);
-        tourPause?.addEventListener('click', () => narrationController.togglePause());
+        tourListen?.addEventListener('click', toggleNarrationFromHost);
         tourStop?.addEventListener('click', () => narrationController.stop());
         tourNarrationSkipBack?.addEventListener('click', () => narrationController.skipSegment(-1));
         tourNarrationSkipAhead?.addEventListener('click', () => narrationController.skipSegment(1));
@@ -370,28 +368,21 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
 
     function renderNarrationPlaybackState(playbackState) {
         const listen = document.getElementById('tour-listen');
-        const pause = document.getElementById('tour-pause');
         const stop = document.getElementById('tour-stop');
         const skipBack = document.getElementById('tour-narration-skip-back');
         const skipAhead = document.getElementById('tour-narration-skip-ahead');
         if (listen) {
             listen.disabled = !deviceNarrationAvailable || state.mode !== 'tour';
-            const listenLabel = playbackState.kind === 'playing' || playbackState.kind === 'paused'
-                ? 'Restart narration from the current tour item'
-                : 'Listen from the current tour item';
+            const isPlaying = playbackState.kind === 'playing';
+            listen.querySelector('.tour-play-pause-icon')?.setAttribute(
+                'd',
+                isPlaying ? 'M7 5h4v14H7zM13 5h4v14h-4z' : 'm8 5 11 7-11 7Z'
+            );
+            const listenLabel = isPlaying
+                ? 'Pause narration'
+                : playbackState.kind === 'paused' ? 'Resume narration' : 'Listen from the current tour item';
             listen.title = listenLabel;
             listen.setAttribute('aria-label', listenLabel);
-        }
-        if (pause) {
-            pause.disabled = playbackState.kind !== 'playing' && playbackState.kind !== 'paused';
-            const isPaused = playbackState.kind === 'paused';
-            pause.querySelector('.tour-pause-icon')?.setAttribute(
-                'd',
-                isPaused ? 'm8 5 11 7-11 7Z' : 'M7 5h4v14H7zM13 5h4v14h-4z'
-            );
-            const pauseLabel = isPaused ? 'Resume narration' : 'Pause narration';
-            pause.title = pauseLabel;
-            pause.setAttribute('aria-label', pauseLabel);
         }
         if (stop) stop.disabled = playbackState.kind !== 'playing' && playbackState.kind !== 'paused';
         if (skipBack) skipBack.disabled = !narrationController.canSkipSegment(-1);
