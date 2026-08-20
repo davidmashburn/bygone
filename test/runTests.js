@@ -1983,6 +1983,7 @@ function testWordWrapUsesSharedRendererAndStandaloneMenu() {
     assert.match(standaloneMarkup, /id="toggle-word-wrap"[^>]+aria-pressed="false"/);
     assert.match(standaloneMarkup, /class="change-toolbar-actions"/);
     assert.match(standaloneMarkup, /class="word-wrap-icon-off"/);
+    assert.match(standaloneMarkup, /class="word-wrap-icon-off"[\s\S]{0,300}M5 4l14 16/);
     assert.match(standaloneMarkup, /class="word-wrap-icon-on"/);
     assert.match(standaloneMarkup, /id="previous-file"[^>]+data-tooltip="Open previous file"/);
     assert.match(standaloneMarkup, /id="history-forward"[^>]+data-tooltip="Open newer commit"/);
