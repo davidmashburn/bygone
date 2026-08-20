@@ -23,7 +23,8 @@ export interface NarrationPlaybackCallbacks {
     claimAudio(): void;
     onStateChange(state: NarrationPlaybackState): void;
     onSegmentChange(segment: NarrationSegment | null, paused: boolean): void;
-    nextUnit(completedUnit: NarrationUnit): NarrationUnit | null;
+    canNavigateUnit(unit: NarrationUnit, direction: -1 | 1): boolean;
+    navigateUnit(unit: NarrationUnit, direction: -1 | 1): NarrationUnit | null;
 }
 
 export class TourNarrationController {
@@ -98,20 +99,29 @@ export class TourNarrationController {
     canSkipSegment(direction: -1 | 1): boolean {
         if (this.currentState.kind !== 'playing' && this.currentState.kind !== 'paused') return false;
         const targetIndex = this.currentState.segmentIndex + direction;
-        return targetIndex >= 0 && targetIndex < this.currentState.unit.segments.length;
+        return targetIndex >= 0 && targetIndex < this.currentState.unit.segments.length
+            ? true
+            : this.callbacks.canNavigateUnit(this.currentState.unit, direction);
     }
 
     skipSegment(direction: -1 | 1): boolean {
         if (!this.canSkipSegment(direction)) return false;
         const current = this.currentState as Extract<NarrationPlaybackState, { kind: 'playing' | 'paused' }>;
-        const targetIndex = current.segmentIndex + direction;
         const wasPaused = current.kind === 'paused';
+        let targetUnit = current.unit;
+        let targetIndex = current.segmentIndex + direction;
+        if (targetIndex < 0 || targetIndex >= targetUnit.segments.length) {
+            const adjacentUnit = this.callbacks.navigateUnit(targetUnit, direction);
+            if (!adjacentUnit || adjacentUnit.segments.length === 0) return false;
+            targetUnit = adjacentUnit;
+            targetIndex = direction < 0 ? targetUnit.segments.length - 1 : 0;
+        }
         this.resetEngine();
         if (wasPaused) {
-            this.setState({ kind: 'paused', unit: current.unit, segmentIndex: targetIndex, pendingStart: true });
-            this.callbacks.onSegmentChange(current.unit.segments[targetIndex] || null, true);
+            this.setState({ kind: 'paused', unit: targetUnit, segmentIndex: targetIndex, pendingStart: true });
+            this.callbacks.onSegmentChange(targetUnit.segments[targetIndex] || null, true);
         } else {
-            this.setState({ kind: 'playing', unit: current.unit, segmentIndex: targetIndex });
+            this.setState({ kind: 'playing', unit: targetUnit, segmentIndex: targetIndex });
             this.speakCurrent();
         }
         return true;
@@ -187,7 +197,7 @@ export class TourNarrationController {
 
     private finishUnit(unit: NarrationUnit): void {
         if (this.continuous) {
-            const next = this.callbacks.nextUnit(unit);
+            const next = this.callbacks.navigateUnit(unit, 1);
             if (next) {
                 this.generation += 1;
                 if (next.segments.length === 0) {

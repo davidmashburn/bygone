@@ -50,7 +50,8 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         claimAudio: claimNarrationAudio,
         onStateChange: renderNarrationPlaybackState,
         onSegmentChange: renderNarrationHighlight,
-        nextUnit: advanceNarrationUnit
+        canNavigateUnit: canNavigateNarrationUnit,
+        navigateUnit: navigateNarrationUnit
     });
 
     window.__BYGONE_HOST__ = {
@@ -347,10 +348,15 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         }, { entry });
     }
 
-    function advanceNarrationUnit(completedUnit) {
+    function canNavigateNarrationUnit(unit, direction) {
+        const tour = state.tour;
+        return Boolean(tour && getLinearTourTarget(tour.scenes, unit.position, direction));
+    }
+
+    function navigateNarrationUnit(unit, direction) {
         const tour = state.tour;
         if (!tour) return null;
-        const target = getLinearTourTarget(tour.scenes, completedUnit.position, 1);
+        const target = getLinearTourTarget(tour.scenes, unit.position, direction);
         if (!target) return null;
         return showTourScene(target.sceneIndex, target.stepIndex, {
             narrationNavigation: 'controller',
@@ -378,7 +384,12 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         }
         if (pause) {
             pause.disabled = playbackState.kind !== 'playing' && playbackState.kind !== 'paused';
-            const pauseLabel = playbackState.kind === 'paused' ? 'Resume narration' : 'Pause narration';
+            const isPaused = playbackState.kind === 'paused';
+            pause.querySelector('.tour-pause-icon')?.setAttribute(
+                'd',
+                isPaused ? 'm8 5 11 7-11 7Z' : 'M7 5h4v14H7zM13 5h4v14h-4z'
+            );
+            const pauseLabel = isPaused ? 'Resume narration' : 'Pause narration';
             pause.title = pauseLabel;
             pause.setAttribute('aria-label', pauseLabel);
         }

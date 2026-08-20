@@ -200,15 +200,17 @@ function testTourNarrationControllerGuardsPlaybackLifecycle() {
             { id: 'three', text: 'Three.', speechText: 'Three.', source: { field: 'takeaway' }, startOffset: 0, endOffset: 6 }
         ]
     };
-    let suppliedNext = false;
     const controller = new TourNarrationController(engine, {
         claimAudio() { claimed.push(true); },
         onStateChange(state) { states.push(state); },
         onSegmentChange(segment, paused) { highlights.push({ id: segment?.id || null, paused }); },
-        nextUnit() {
-            if (suppliedNext) return null;
-            suppliedNext = true;
-            return nextUnit;
+        canNavigateUnit(activeUnit, direction) {
+            return (activeUnit === unit && direction === 1) || (activeUnit === nextUnit && direction === -1);
+        },
+        navigateUnit(activeUnit, direction) {
+            if (activeUnit === unit && direction === 1) return nextUnit;
+            if (activeUnit === nextUnit && direction === -1) return unit;
+            return null;
         }
     });
 
@@ -225,7 +227,7 @@ function testTourNarrationControllerGuardsPlaybackLifecycle() {
     spoken[0].callbacks.onEnd();
     assert.equal(spoken[1].segment.id, 'two');
     assert.equal(controller.canSkipSegment(-1), true);
-    assert.equal(controller.canSkipSegment(1), false);
+    assert.equal(controller.canSkipSegment(1), true);
     const staleSecond = spoken[1].callbacks;
     assert.equal(controller.skipSegment(-1), true);
     assert.equal(spoken[2].segment.id, 'one');
@@ -233,10 +235,13 @@ function testTourNarrationControllerGuardsPlaybackLifecycle() {
     assert.equal(controller.state.segmentIndex, 0);
     assert.equal(controller.skipSegment(1), true);
     assert.equal(spoken[3].segment.id, 'two');
-    assert.equal(controller.skipSegment(1), false);
-    spoken[3].callbacks.onEnd();
+    assert.equal(controller.skipSegment(1), true);
     assert.equal(spoken[4].segment.id, 'three');
-    spoken[4].callbacks.onEnd();
+    assert.equal(controller.skipSegment(-1), true);
+    assert.equal(spoken[5].segment.id, 'two');
+    assert.equal(controller.skipSegment(1), true);
+    assert.equal(spoken[6].segment.id, 'three');
+    spoken[6].callbacks.onEnd();
     assert.equal(controller.state.kind, 'completed');
     assert.deepEqual(highlights.at(-1), { id: null, paused: false });
 
@@ -431,6 +436,7 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
     }
     assert.match(markup, /id="tour-narration-skip-back"[^>]+title="Previous sentence"[^>]+aria-label="Previous sentence"[^>]+disabled/);
     assert.match(markup, /id="tour-narration-skip-ahead"[^>]+title="Next sentence"[^>]+aria-label="Next sentence"[^>]+disabled/);
+    assert.match(markup, /tour-pause-icon/);
     assert.match(markup, /id="tour-narration-status"[^>]+role="status"[^>]+aria-live="polite"/);
     assert.match(host, /new TourNarrationController\(createDeviceSpeechEngine\(\)/);
     assert.match(host, /new window\.SpeechSynthesisUtterance\(segment\.speechText\)/);
@@ -442,6 +448,7 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
     assert.match(host, /narrationController\.followLinearNavigation\(narrationUnit\)/);
     assert.match(host, /narrationController\.followDirectNavigation\(narrationUnit\)/);
     assert.match(host, /narrationController\.interruptForExploration\(\)/);
+    assert.match(host, /isPaused \? 'm8 5 11 7-11 7Z' : 'M7 5h4v14H7zM13 5h4v14h-4z'/);
     assert.match(host, /tourNarrationSkipBack\?\.addEventListener\('click', \(\) => narrationController\.skipSegment\(-1\)\)/);
     assert.match(host, /tourNarrationSkipAhead\?\.addEventListener\('click', \(\) => narrationController\.skipSegment\(1\)\)/);
     assert.match(styles, /\.tour-narration-transport/);
