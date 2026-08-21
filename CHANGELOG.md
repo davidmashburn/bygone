@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.8.7
+
+- Refined tour narration controls with clearer playback state, sentence-level skipping, and consolidated play/pause behavior
+- Allowed narration skips to continue across adjacent tour steps and slides while preserving paused playback
+- Improved tour and comparison toolbar controls, including clearer disabled word-wrap feedback
+
 ## 0.8.6
 
 - Added optional authored-tour `windowTitle` labels and context-aware desktop and VS Code window titles
