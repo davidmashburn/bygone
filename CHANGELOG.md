@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.8.10
+
+- Fixed directory history and branch review materialization when a tree contains git submodule/gitlink entries, such as vendored nested repositories
+
 ## 0.8.9
 
 - Made directory-history and multi-directory drill-downs jump to the first changed line, including after asynchronous diff computation

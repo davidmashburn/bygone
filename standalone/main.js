@@ -14,7 +14,7 @@ const { detectRipgrepCapability, startRepositorySearch } = require('../src/repos
 const { buildRepositoryReplacementPlan, applyRepositoryReplacementPlan, undoRepositoryReplacementPlan } = require('../src/repositoryReplace.ts');
 const { searchFileHistory } = require('../src/gitHistorySearch.ts');
 const { classifyAuthoredTourPaths, discoverAuthoredTourDocument } = require('../src/tourDocument.ts');
-const { materializeBranchReviewTrees, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
+const { materializeBranchReviewTrees, materializeGitTree, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('./menuUtils.js');
 const {
@@ -2366,42 +2366,6 @@ function hasStagedDirectoryChanges(repoRoot, relativeDir) {
 function hasUnstagedDirectoryChanges(repoRoot, relativeDir) {
     const output = runGit(['status', '--porcelain', '--', relativeDir || '.'], repoRoot);
     return output.split('\n').some((line) => line.length >= 2 && line[1] !== ' ');
-}
-
-function materializeGitTree(repoRoot, relativeDir, targetRoot, commit = 'HEAD') {
-    let files;
-    if (commit === 'INDEX') {
-        const lsArgs = ['ls-files', '-z', '--'];
-        if (relativeDir) {
-            lsArgs.push(relativeDir);
-        }
-        files = execFileSync('git', lsArgs, {
-            cwd: repoRoot,
-            encoding: 'utf8',
-            maxBuffer: GIT_MAX_BUFFER_BYTES
-        })
-            .split('\0')
-            .filter((filePath) => filePath.length > 0);
-    } else {
-        const lsArgs = ['ls-tree', '-r', '-z', '--name-only', commit];
-        if (relativeDir) {
-            lsArgs.push('--', relativeDir);
-        }
-
-        files = execFileSync('git', lsArgs, {
-            cwd: repoRoot,
-            encoding: 'utf8',
-            maxBuffer: GIT_MAX_BUFFER_BYTES
-        })
-            .split('\0')
-            .filter((filePath) => filePath.length > 0);
-    }
-
-    for (const relativeFile of files) {
-        const targetFile = path.join(targetRoot, relativeFile);
-        fs.mkdirSync(path.dirname(targetFile), { recursive: true });
-        fs.writeFileSync(targetFile, readGitBlob(repoRoot, commit === 'INDEX' ? '' : commit, relativeFile));
-    }
 }
 
 function materializeWorkingTree(repoRoot, relativeDir, targetRoot) {
@@ -5688,13 +5652,6 @@ function parseGitHistoryRecords(logOutput) {
                 parentCommit
             };
         });
-}
-
-function readGitBlob(repoRoot, commit, relativePath) {
-    return execFileSync('git', ['show', `${commit}:${relativePath}`], {
-        cwd: repoRoot,
-        maxBuffer: GIT_MAX_BUFFER_BYTES
-    });
 }
 
 function getPathKind(filePath) {

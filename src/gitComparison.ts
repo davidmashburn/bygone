@@ -245,6 +245,21 @@ export function materializeBranchReviewTrees(
     }
 }
 
+export function materializeGitTree(
+    repoRoot: string,
+    relativeDir: string,
+    targetRoot: string,
+    commit = 'HEAD'
+): void {
+    for (const relativeFile of listGitBlobPaths(repoRoot, commit, relativeDir)) {
+        writeMaterializedGitFile(
+            targetRoot,
+            relativeFile,
+            readGitBlob(repoRoot, commit, relativeFile)
+        );
+    }
+}
+
 export function resolveReviewPathPair(
     changedPaths: readonly GitChangedPath[],
     selectedPath: string
@@ -308,24 +323,111 @@ function tryRunGit(runGit: RunGit, args: readonly string[], cwd: string): string
     }
 }
 
+const GITLINK_MODE = '160000';
+
 function materializeGitPath(repoRoot: string, commit: string, relativePath: string | undefined, targetRoot: string): void {
-    if (!relativePath) {
+    if (!relativePath || !isGitBlobPath(repoRoot, commit, relativePath)) {
         return;
     }
 
+    writeMaterializedGitFile(targetRoot, relativePath, readGitBlob(repoRoot, commit, relativePath));
+}
+
+function writeMaterializedGitFile(targetRoot: string, relativePath: string, content: Buffer): void {
     const resolvedRoot = path.resolve(targetRoot);
     const targetFile = path.resolve(resolvedRoot, relativePath);
     if (targetFile !== resolvedRoot && !targetFile.startsWith(`${resolvedRoot}${path.sep}`)) {
         throw new Error(`Refusing to materialize path outside review root: ${relativePath}`);
     }
 
-    const content = execFileSync('git', ['show', `${commit}:${relativePath}`], {
+    fs.mkdirSync(path.dirname(targetFile), { recursive: true });
+    fs.writeFileSync(targetFile, content);
+}
+
+function listGitBlobPaths(repoRoot: string, commit: string, relativeDir: string): string[] {
+    if (commit === 'INDEX') {
+        const args = ['ls-files', '--stage', '-z', '--'];
+        if (relativeDir) {
+            args.push(relativeDir);
+        }
+
+        return parseNulRecords(runGitText(repoRoot, args)).flatMap((record) => {
+            const parsed = parseIndexStageRecord(record);
+            return parsed && parsed.mode !== GITLINK_MODE ? [parsed.path] : [];
+        });
+    }
+
+    const args = ['ls-tree', '-r', '-z', commit];
+    if (relativeDir) {
+        args.push('--', relativeDir);
+    }
+
+    return parseNulRecords(runGitText(repoRoot, args)).flatMap((record) => {
+        const parsed = parseLsTreeRecord(record);
+        return parsed && parsed.type === 'blob' ? [parsed.path] : [];
+    });
+}
+
+function isGitBlobPath(repoRoot: string, commit: string, relativePath: string): boolean {
+    if (commit === 'INDEX') {
+        return listGitBlobPaths(repoRoot, commit, relativePath).includes(relativePath);
+    }
+
+    const parsed = parseLsTreeRecord(parseNulRecords(runGitText(repoRoot, ['ls-tree', '-z', commit, '--', relativePath]))[0] ?? '');
+    return parsed?.type === 'blob';
+}
+
+function parseNulRecords(output: string): string[] {
+    return output.split('\0').filter((record) => record.length > 0);
+}
+
+function parseLsTreeRecord(record: string): { type: string; path: string } | undefined {
+    const tab = record.indexOf('\t');
+    if (tab === -1) {
+        return undefined;
+    }
+
+    const type = record.slice(0, tab).split(' ')[1];
+    const relativePath = record.slice(tab + 1);
+    if (!type || !relativePath) {
+        return undefined;
+    }
+
+    return { type, path: relativePath };
+}
+
+function parseIndexStageRecord(record: string): { mode: string; path: string } | undefined {
+    const tab = record.indexOf('\t');
+    if (tab === -1) {
+        return undefined;
+    }
+
+    const mode = record.slice(0, tab).split(' ')[0];
+    const relativePath = record.slice(tab + 1);
+    if (!mode || !relativePath) {
+        return undefined;
+    }
+
+    return { mode, path: relativePath };
+}
+
+function readGitBlob(repoRoot: string, commit: string, relativePath: string): Buffer {
+    const spec = commit && commit !== 'INDEX' ? `${commit}:${relativePath}` : `:${relativePath}`;
+    return execFileSync('git', ['show', spec], {
         cwd: repoRoot,
+        encoding: 'buffer',
         maxBuffer: readGitMaxBuffer(),
         stdio: ['ignore', 'pipe', 'pipe']
     });
-    fs.mkdirSync(path.dirname(targetFile), { recursive: true });
-    fs.writeFileSync(targetFile, content);
+}
+
+function runGitText(repoRoot: string, args: readonly string[]): string {
+    return execFileSync('git', [...args], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        maxBuffer: readGitMaxBuffer(),
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
 }
 
 function changeKindForStatus(code: string): GitChangeKind {

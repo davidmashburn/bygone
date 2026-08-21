@@ -19,6 +19,7 @@ const { searchFileHistory } = require('../out/gitHistorySearch.js');
 const { buildBinaryComparison, classifyFile } = require('../out/binaryComparison.js');
 const {
     materializeBranchReviewTrees,
+    materializeGitTree,
     parseNameStatusZ,
     resolveBranchReviewRange,
     resolveReviewPathPair
@@ -3000,6 +3001,95 @@ function testBranchReviewMaterializesRenameEndpointsAsOneReviewPair() {
     assert.equal(fs.existsSync(path.join(right, 'src', 'old-name.txt')), false);
 }
 
+function testGitTreeMaterializationSkipsGitlinks() {
+    const repo = createTempGitRepo();
+    const appPath = path.join(repo, 'app.txt');
+    const gitlinkPath = '.repos/alchemy-effect/.vendor/alchemy';
+    const vendorRepo = path.join(repo, gitlinkPath);
+
+    fs.writeFileSync(appPath, 'app\n', 'utf8');
+    fs.mkdirSync(vendorRepo, { recursive: true });
+    runGit(vendorRepo, ['init']);
+    runGit(vendorRepo, ['config', 'user.name', 'Bygone Test']);
+    runGit(vendorRepo, ['config', 'user.email', 'bygone-test@example.com']);
+    fs.writeFileSync(path.join(vendorRepo, 'inner.txt'), 'inner\n', 'utf8');
+    runGit(vendorRepo, ['add', 'inner.txt']);
+    runGit(vendorRepo, ['commit', '-m', 'vendor']);
+    const vendorOid = runGit(vendorRepo, ['rev-parse', 'HEAD']);
+    runGit(repo, ['update-index', '--add', '--cacheinfo', `160000,${vendorOid},${gitlinkPath}`]);
+    runGit(repo, ['add', 'app.txt']);
+    runGit(repo, ['commit', '-m', 'with gitlink']);
+    const commit = runGit(repo, ['rev-parse', 'HEAD']);
+
+    assert.match(runGit(repo, ['ls-tree', '-r', commit, '--', gitlinkPath]), /^160000 commit /);
+    assert.throws(() => runGit(repo, ['show', `${commit}:${gitlinkPath}`]), /bad object/);
+
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-gitlink-tree-'));
+    const treeRoot = path.join(root, 'tree');
+    const gitlinkRoot = path.join(root, 'gitlink');
+    const indexRoot = path.join(root, 'index');
+    fs.mkdirSync(treeRoot, { recursive: true });
+    fs.mkdirSync(gitlinkRoot, { recursive: true });
+    fs.mkdirSync(indexRoot, { recursive: true });
+
+    materializeGitTree(repo, '', treeRoot, commit);
+    materializeGitTree(repo, gitlinkPath, gitlinkRoot, commit);
+    materializeGitTree(repo, '', indexRoot, 'INDEX');
+
+    assert.equal(fs.readFileSync(path.join(treeRoot, 'app.txt'), 'utf8'), 'app\n');
+    assert.equal(fs.existsSync(path.join(treeRoot, gitlinkPath)), false);
+    assert.equal(fs.readdirSync(gitlinkRoot).length, 0);
+    assert.equal(fs.readFileSync(path.join(indexRoot, 'app.txt'), 'utf8'), 'app\n');
+    assert.equal(fs.existsSync(path.join(indexRoot, gitlinkPath)), false);
+}
+
+function testBranchReviewSkipsGitlinkChanges() {
+    const repo = createTempGitRepo();
+    const gitlinkPath = '.repos/alchemy-effect/.vendor/alchemy';
+    const vendorRepo = path.join(repo, gitlinkPath);
+
+    fs.writeFileSync(path.join(repo, 'app.txt'), 'base\n', 'utf8');
+    fs.mkdirSync(vendorRepo, { recursive: true });
+    runGit(vendorRepo, ['init']);
+    runGit(vendorRepo, ['config', 'user.name', 'Bygone Test']);
+    runGit(vendorRepo, ['config', 'user.email', 'bygone-test@example.com']);
+    fs.writeFileSync(path.join(vendorRepo, 'inner.txt'), 'one\n', 'utf8');
+    runGit(vendorRepo, ['add', 'inner.txt']);
+    runGit(vendorRepo, ['commit', '-m', 'vendor one']);
+    const firstVendorOid = runGit(vendorRepo, ['rev-parse', 'HEAD']);
+    runGit(repo, ['update-index', '--add', '--cacheinfo', `160000,${firstVendorOid},${gitlinkPath}`]);
+    runGit(repo, ['add', 'app.txt']);
+    runGit(repo, ['commit', '-m', 'base']);
+    runGit(repo, ['branch', '-M', 'main']);
+
+    runGit(repo, ['checkout', '-b', 'feature/gitlink']);
+    fs.writeFileSync(path.join(vendorRepo, 'inner.txt'), 'two\n', 'utf8');
+    runGit(vendorRepo, ['commit', '-am', 'vendor two']);
+    const secondVendorOid = runGit(vendorRepo, ['rev-parse', 'HEAD']);
+    runGit(repo, ['update-index', '--add', '--cacheinfo', `160000,${secondVendorOid},${gitlinkPath}`]);
+    fs.writeFileSync(path.join(repo, 'app.txt'), 'feature\n', 'utf8');
+    runGit(repo, ['add', 'app.txt']);
+    runGit(repo, ['commit', '-m', 'bump gitlink']);
+
+    const range = resolveBranchReviewRange(repo, 'HEAD', 'main');
+    assert.deepEqual(
+        range.changedPaths.map((entry) => [entry.kind, entry.path]),
+        [['modified', gitlinkPath], ['modified', 'app.txt']]
+    );
+
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-gitlink-review-'));
+    const left = path.join(root, 'left');
+    const right = path.join(root, 'right');
+    fs.mkdirSync(left, { recursive: true });
+    fs.mkdirSync(right, { recursive: true });
+    materializeBranchReviewTrees(range, left, right);
+
+    assert.equal(fs.readFileSync(path.join(left, 'app.txt'), 'utf8'), 'base\n');
+    assert.equal(fs.readFileSync(path.join(right, 'app.txt'), 'utf8'), 'feature\n');
+    assert.equal(fs.existsSync(path.join(left, gitlinkPath)), false);
+    assert.equal(fs.existsSync(path.join(right, gitlinkPath)), false);
+}
+
 function testChangeInventoryBuildsStableTextUnitsAndClassifiesBinaryFiles() {
     const repo = createTempGitRepo();
     fs.writeFileSync(path.join(repo, 'app.txt'), 'alpha\nbeta\ngamma\n', 'utf8');
@@ -3408,6 +3498,8 @@ function run() {
     testBranchReviewUsesMergeBaseAndDetectsDefaultBase();
     testBranchReviewPreservesMergeCommitParents();
     testBranchReviewMaterializesRenameEndpointsAsOneReviewPair();
+    testGitTreeMaterializationSkipsGitlinks();
+    testBranchReviewSkipsGitlinkChanges();
     testChangeInventoryBuildsStableTextUnitsAndClassifiesBinaryFiles();
     testPatchUnitIdsUseContentAndDisambiguateDuplicates();
     testChangeUnitsMaterializeIndependentCumulativeStates();
