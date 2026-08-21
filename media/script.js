@@ -802,10 +802,10 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
     notifyRenderComplete();
-    computeMissingPairDiffsAsync();
+    computeMissingPairDiffsAsync(revealFirstChangeInEachPanel);
 }
 
-function computeMissingPairDiffsAsync() {
+function computeMissingPairDiffsAsync(revealFirstChangeInEachPanel = false) {
     const missing = multiDiffPairs
         .map((pair, index) => ({ pair, index }))
         .filter(({ pair }) => !pair?.diffModel);
@@ -833,6 +833,9 @@ function computeMissingPairDiffsAsync() {
         updateActiveMultiShellState();
         updateChangeToolbarState();
         applyMultiDiffDecorations(multiDiffPairs);
+        if (revealFirstChangeInEachPanel) {
+            revealFirstMultiPanelChanges();
+        }
         connectorController.scheduleDrawConnections();
     });
 }

@@ -43,10 +43,14 @@ The main scripts are:
   - dry-runs the npm package
 - `npm run release:build`
   - runs the full local artifact build without publishing
+- `npm run reinstall`
+  - reinstalls the existing VSIX and desktop artifacts without rebuilding
 - `npm run release:publish`
   - publishes npm
   - creates a GitHub release with desktop artifacts
   - updates and pushes the Homebrew tap
+- `npm run release:publish:npm`
+  - publishes only the staged npm package
 
 Related packaging commands:
 

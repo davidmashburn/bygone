@@ -9,6 +9,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const packageJson = JSON.parse(await readFile(path.join(repoRoot, 'package.json'), 'utf8'));
 const version = packageJson.version;
 const args = new Set(process.argv.slice(2));
+const installOnly = args.has('--install-only');
 const platform = process.platform;
 const npmCmd = platform === 'win32' ? 'npm.cmd' : 'npm';
 const binDir = path.join(repoRoot, 'node_modules', '.bin');
@@ -23,6 +24,7 @@ if (args.has('--help') || args.has('-h')) {
 
 Usage:
   node ./scripts/dev-sync.mjs
+  node ./scripts/dev-sync.mjs --install-only
 
 What it does:
   - builds the repo
@@ -33,6 +35,9 @@ What it does:
   - auto-installs the VSIX
   - auto-installs the desktop app
 
+Install-only mode reuses the existing VSIX and desktop artifacts and skips
+npm install, compilation, and packaging.
+
 Notes:
   - On macOS, the desktop app is installed from the generated DMG into /Applications or ~/Applications.
   - On Linux, the desktop app is installed as ~/Applications/bygone-desktop.
@@ -41,13 +46,19 @@ Notes:
     process.exit(0);
 }
 
-await run(npmCmd, ['install']);
-await rm(path.join(repoRoot, 'dist'), { recursive: true, force: true });
-await run(npmCmd, ['run', 'compile']);
+if (!installOnly) {
+    await run(npmCmd, ['install']);
+    await rm(path.join(repoRoot, 'dist'), { recursive: true, force: true });
+    await run(npmCmd, ['run', 'compile']);
+}
 await run(npmCmd, ['install', '-g', '.']);
 await installShellCompletions();
-await run(vsceBin, ['package']);
-await run(electronBuilderBin, desktopPackageArgs());
+if (!installOnly) {
+    await run(vsceBin, ['package']);
+    await run(electronBuilderBin, desktopPackageArgs());
+} else {
+    console.log(`Using existing ${version} VSIX and desktop artifacts.`);
+}
 
 await installVsix(vsixPath);
 await installDesktopApp();

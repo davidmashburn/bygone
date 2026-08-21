@@ -402,7 +402,7 @@ export class DiffViewProvider implements vscode.Disposable {
 
     public async showMultiDiff(
         files: Array<{ uri: vscode.Uri; content: string; label?: string }>,
-        directoryContext?: Pick<ShowMultiDiffMessage, 'canReturnToDirectory' | 'fileNavigation' | 'directoryNavigation'>
+        directoryContext?: Pick<ShowMultiDiffMessage, 'canReturnToDirectory' | 'fileNavigation' | 'directoryNavigation' | 'revealFirstChangeInEachPanel'>
     ) {
         const message = this.createMultiDiffMessage(await Promise.all(files.map(async (file) => ({
             ...file,

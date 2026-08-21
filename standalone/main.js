@@ -2586,7 +2586,8 @@ async function sendCurrentDirectoryHistoryEntry() {
             activePairIndex: pairs.length > 0 ? pairs.length - 1 : null,
             history: { ...history, fileName: relativePath },
             fileNavigation: buildDirectoryHistoryFileNavigationState(session.dirHistory, entry),
-            canReturnToDirectory: true
+            canReturnToDirectory: true,
+            revealFirstChangeInEachPanel: true
         });
 
         refreshSessionWindowTitle();
@@ -3986,7 +3987,8 @@ async function sendCurrentMultiDiff() {
         canReturnToDirectory: Boolean(session.returnDirectory),
         directoryNavigation: buildDirectoryDrilldownNavigationState(),
         fileNavigation: buildStandaloneFileNavigationState(),
-        mutationEnabled: !isDirectoryDrilldown
+        mutationEnabled: !isDirectoryDrilldown,
+        revealFirstChangeInEachPanel: isDirectoryDrilldown
     });
 
     refreshSessionWindowTitle();
@@ -4129,10 +4131,11 @@ async function compareDirectoryHistoryTestFiles() {
     runGit(['init'], root);
     runGit(['config', 'user.name', 'Bygone Smoke Test'], root);
     runGit(['config', 'user.email', 'bygone-smoke@example.invalid'], root);
-    fs.writeFileSync(filePath, 'const alpha = 1;\nconst stable = true;\n', 'utf8');
+    const unchangedPrefix = Array.from({ length: 80 }, (_, index) => `const context${index} = true;`).join('\n');
+    fs.writeFileSync(filePath, `${unchangedPrefix}\nconst alpha = 1;\n`, 'utf8');
     runGit(['add', 'history-smoke.js'], root);
     runGit(['commit', '-m', 'initial'], root);
-    fs.writeFileSync(filePath, 'const alpha = 2;\nconst stable = false;\n', 'utf8');
+    fs.writeFileSync(filePath, `${unchangedPrefix}\nconst alpha = 2;\n`, 'utf8');
     runGit(['add', 'history-smoke.js'], root);
     runGit(['commit', '-m', 'change history smoke fixture'], root);
     await openDirectoryHistory(root, false, { skipConfirm: true, source: { kind: 'synthetic' } });
@@ -4149,12 +4152,15 @@ function pollDirectoryHistoryDrilldownSmoke() {
         changePosition: document.getElementById('change-position')?.textContent,
         panelPositions: [...document.querySelectorAll('.multi-pane-position')].map((element) => element.textContent),
         decoratedLineCount: document.querySelectorAll('.bygone-paired-line, .bygone-one-sided-line').length,
+        visibleChangePaneCount: [...document.querySelectorAll('.multi-pane-content .view-lines')]
+            .filter((element) => element.textContent.includes('alpha')).length,
         diffWorkerUrl: window.__BYGONE_HOST__?.diffWorkerUrl
     }))()`)
         .then((snapshot) => {
             const ready = /^1 \/ [1-9]\d*$/.test(snapshot.changePosition)
                 && snapshot.panelPositions.some((position) => /^1 \/ [1-9]\d*$/.test(position))
-                && snapshot.decoratedLineCount > 0;
+                && snapshot.decoratedLineCount > 0
+                && snapshot.visibleChangePaneCount === 2;
             if (ready) {
                 finalizeSmokeTest(snapshot);
                 return;
@@ -5783,6 +5789,7 @@ function finalizeSmokeTest(snapshot) {
             && /^1 \/ [1-9]\d*$/.test(snapshot.changePosition)
             && snapshot.panelPositions.some((position) => /^1 \/ [1-9]\d*$/.test(position))
             && snapshot.decoratedLineCount > 0
+            && snapshot.visibleChangePaneCount === 2
             && /\/media\/diff\.worker\.js$/.test(snapshot.diffWorkerUrl)
         )
     ));

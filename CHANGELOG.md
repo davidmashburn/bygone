@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.8.9
+
+- Made directory-history and multi-directory drill-downs jump to the first changed line, including after asynchronous diff computation
+- Added standalone smoke coverage that verifies an off-screen first change becomes visible in both panes
+
 ## 0.8.8
 
 - Fixed standalone, Git difftool, directory-history drill-down, web, and VS Code comparisons so their background diff worker loads from the correct host-resolved URL

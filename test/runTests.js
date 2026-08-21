@@ -841,6 +841,12 @@ function testDirectoryDrilldownNavigationTracksActiveFile() {
         navigation.directoryNavigation.rail.itemsByTab['directory-files'].map((item) => [item.relativePath, item.active]),
         [['a.txt', false], ['b.txt', true], ['c.txt', false]]
     );
+
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    const comparatorSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'fileComparator.ts'), 'utf8');
+    assert.match(standaloneSource, /revealFirstChangeInEachPanel: isDirectoryDrilldown/);
+    assert.match(standaloneSource, /canReturnToDirectory: true,\n\s+revealFirstChangeInEachPanel: true/);
+    assert.match(comparatorSource, /canReturnToDirectory: true,\n\s+revealFirstChangeInEachPanel: true/);
 }
 
 function testDirectoryHistoryFileNavigationTakesPriorityOverPanelNavigation() {
@@ -2579,6 +2585,8 @@ function testMultiDiffShellUsesFocusedStripNavigation() {
     assert.doesNotMatch(rendererSource, /multi-gutter-header/);
     assert.match(rendererSource, /function revealFirstMultiPanelChanges\(\)/);
     assert.match(rendererSource, /revealFirstChangeInEachPanel[\s\S]{0,200}revealFirstMultiPanelChanges\(\)/);
+    assert.match(rendererSource, /computeMissingPairDiffsAsync\(revealFirstChangeInEachPanel\)/);
+    assert.match(rendererSource, /function computeMissingPairDiffsAsync\(revealFirstChangeInEachPanel = false\)[\s\S]{0,1800}revealFirstMultiPanelChanges\(\)/);
 }
 
 function testDirectoryRowsUseFileKindAffordancesWithoutStatusBadges() {

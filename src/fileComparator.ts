@@ -521,6 +521,7 @@ export class FileComparator implements vscode.Disposable {
         const currentIndex = files.findIndex((entry) => entry.relativePath === relativePath);
         return {
             canReturnToDirectory: true,
+            revealFirstChangeInEachPanel: true,
             fileNavigation: {
                 canGoPrevious: currentIndex > 0,
                 canGoNext: currentIndex >= 0 && currentIndex < files.length - 1
