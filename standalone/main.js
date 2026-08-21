@@ -62,7 +62,10 @@ const commandLineToolPath = process.platform === 'win32'
 const gitHistoryService = new GitHistoryService();
 const initialCliArgs = getCliArgs();
 const launchArguments = parseLaunchArgs(initialCliArgs);
-const smokeTestMode = launchArguments.kind === 'smoke' || launchArguments.kind === 'smoke-multi' || launchArguments.kind === 'smoke-directory';
+const smokeTestMode = launchArguments.kind === 'smoke'
+    || launchArguments.kind === 'smoke-multi'
+    || launchArguments.kind === 'smoke-directory'
+    || launchArguments.kind === 'smoke-directory-history';
 const captureOutputPath = launchArguments.capturePath ? path.resolve(launchArguments.capturePath) : null;
 const captureMode = Boolean(captureOutputPath);
 const launchWindowWidth = Number.isFinite(launchArguments.windowWidth) ? launchArguments.windowWidth : 1500;
@@ -89,6 +92,7 @@ let closingForSave = false;
 let fileWatchers = [];
 let session = createEmptySession();
 let smokeTimeout;
+let directoryHistorySmokeDrilldownStarted = false;
 let pendingOpenPaths = [];
 let historyIncludeStagedPreference = false;
 let historySkipUnchangedPreference = false;
@@ -1268,6 +1272,11 @@ async function routeLaunchTarget(launchTarget) {
 
     if (launchTarget.kind === 'smoke-directory') {
         await compareDirectoryTestFiles();
+        return;
+    }
+
+    if (launchTarget.kind === 'smoke-directory-history') {
+        await compareDirectoryHistoryTestFiles();
     }
 }
 
@@ -1427,6 +1436,10 @@ function parseLaunchArgs(args) {
 
     if (filteredArgs[0] === '--smoke-test-directory') {
         return { kind: 'smoke-directory', capturePath, windowWidth, windowHeight };
+    }
+
+    if (filteredArgs[0] === '--smoke-test-directory-history') {
+        return { kind: 'smoke-directory-history', capturePath, windowWidth, windowHeight };
     }
 
     if (filteredArgs.length >= 1 && !filteredArgs[0].startsWith('--')) {
@@ -2577,6 +2590,9 @@ async function sendCurrentDirectoryHistoryEntry() {
         });
 
         refreshSessionWindowTitle();
+        if (launchArguments.kind === 'smoke-directory-history') {
+            pollDirectoryHistoryDrilldownSmoke();
+        }
         scheduleCaptureIfNeeded();
         return;
     }
@@ -2605,6 +2621,15 @@ async function sendCurrentDirectoryHistoryEntry() {
     });
 
     refreshSessionWindowTitle();
+    if (launchArguments.kind === 'smoke-directory-history'
+        && !directoryHistorySmokeDrilldownStarted
+        && mainWindow
+        && !mainWindow.isDestroyed()) {
+        directoryHistorySmokeDrilldownStarted = true;
+        setTimeout(() => {
+            void mainWindow.webContents.executeJavaScript(`document.querySelector('.dir-entry[data-is-dir="false"]')?.click()`);
+        }, 250);
+    }
     scheduleCaptureIfNeeded();
 }
 
@@ -3972,6 +3997,10 @@ async function sendCurrentMultiDiff() {
                 fileInfo: document.getElementById('file-info')?.textContent,
                 panelCount: document.querySelectorAll('.multi-pane').length,
                 gutterCount: document.querySelectorAll('.multi-gutter').length,
+                changePosition: document.getElementById('change-position')?.textContent,
+                panelPositions: [...document.querySelectorAll('.multi-pane-position')].map((element) => element.textContent),
+                decoratedLineCount: document.querySelectorAll('.bygone-paired-line, .bygone-one-sided-line').length,
+                diffWorkerUrl: window.__BYGONE_HOST__?.diffWorkerUrl,
                 activeDiffCount: document.querySelectorAll('.bygone-active-diff').length,
                 adjacentEdgeCount: document.querySelectorAll('.bygone-paired-edge-left, .bygone-one-sided-edge-left').length,
                 inlineAdjacentEdgeCount: document.querySelectorAll('.view-line span.bygone-paired-edge-left, .view-line span.bygone-one-sided-edge-left').length
@@ -4084,6 +4113,51 @@ async function compareDirectoryTestFiles() {
     fs.writeFileSync(path.join(left, 'b.txt'), 'left b\n', 'utf8');
     fs.writeFileSync(path.join(right, 'b.txt'), 'right b\n', 'utf8');
     await openDirectories([left, right], { source: { kind: 'synthetic' } });
+}
+
+async function compareDirectoryHistoryTestFiles() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-directory-history-smoke-'));
+    const filePath = path.join(root, 'history-smoke.js');
+    runGit(['init'], root);
+    runGit(['config', 'user.name', 'Bygone Smoke Test'], root);
+    runGit(['config', 'user.email', 'bygone-smoke@example.invalid'], root);
+    fs.writeFileSync(filePath, 'const alpha = 1;\nconst stable = true;\n', 'utf8');
+    runGit(['add', 'history-smoke.js'], root);
+    runGit(['commit', '-m', 'initial'], root);
+    fs.writeFileSync(filePath, 'const alpha = 2;\nconst stable = false;\n', 'utf8');
+    runGit(['add', 'history-smoke.js'], root);
+    runGit(['commit', '-m', 'change history smoke fixture'], root);
+    await openDirectoryHistory(root, false, { skipConfirm: true, source: { kind: 'synthetic' } });
+}
+
+function pollDirectoryHistoryDrilldownSmoke() {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        return;
+    }
+
+    void mainWindow.webContents.executeJavaScript(`(() => ({
+        directoryHistoryDrilldown: true,
+        fileInfo: document.getElementById('file-info')?.textContent,
+        changePosition: document.getElementById('change-position')?.textContent,
+        panelPositions: [...document.querySelectorAll('.multi-pane-position')].map((element) => element.textContent),
+        decoratedLineCount: document.querySelectorAll('.bygone-paired-line, .bygone-one-sided-line').length,
+        diffWorkerUrl: window.__BYGONE_HOST__?.diffWorkerUrl
+    }))()`)
+        .then((snapshot) => {
+            const ready = /^1 \/ [1-9]\d*$/.test(snapshot.changePosition)
+                && snapshot.panelPositions.some((position) => /^1 \/ [1-9]\d*$/.test(position))
+                && snapshot.decoratedLineCount > 0;
+            if (ready) {
+                finalizeSmokeTest(snapshot);
+                return;
+            }
+            setTimeout(pollDirectoryHistoryDrilldownSmoke, 100);
+        })
+        .catch((error) => {
+            console.error(`Bygone directory history smoke test failed: ${getErrorMessage(error)}`);
+            process.exitCode = 1;
+            app.exit(1);
+        });
 }
 
 async function sendCurrentDiff() {
@@ -5679,6 +5753,10 @@ function finalizeSmokeTest(snapshot) {
             snapshot.fileInfo === `Comparing ${snapshot.panelCount} files`
             && snapshot.panelCount >= 2
             && snapshot.gutterCount === snapshot.panelCount - 1
+            && /^1 \/ [1-9]\d*$/.test(snapshot.changePosition)
+            && snapshot.panelPositions.some((position) => /^1 \/ [1-9]\d*$/.test(position))
+            && snapshot.decoratedLineCount > 0
+            && /\/media\/diff\.worker\.js$/.test(snapshot.diffWorkerUrl)
             && snapshot.activeDiffCount === 0
             && snapshot.adjacentEdgeCount === 0
             && snapshot.inlineAdjacentEdgeCount === 0
@@ -5690,6 +5768,14 @@ function finalizeSmokeTest(snapshot) {
             && snapshot.directorySidebarToggleVisible === true
             && snapshot.directorySidebarToggleWorked === true
             && snapshot.nextFileEnabled === true
+        )
+        || (
+            snapshot.directoryHistoryDrilldown === true
+            && snapshot.fileInfo === 'Comparing 2 files'
+            && /^1 \/ [1-9]\d*$/.test(snapshot.changePosition)
+            && snapshot.panelPositions.some((position) => /^1 \/ [1-9]\d*$/.test(position))
+            && snapshot.decoratedLineCount > 0
+            && /\/media\/diff\.worker\.js$/.test(snapshot.diffWorkerUrl)
         )
     ));
 

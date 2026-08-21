@@ -538,6 +538,7 @@ export class DiffViewProvider implements vscode.Disposable {
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'webview.css'));
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'webview.js'));
         const editorWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'editor.worker.js'));
+        const diffWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'diff.worker.js'));
         const nonce = getNonce();
 
         return `<!DOCTYPE html>
@@ -737,6 +738,7 @@ export class DiffViewProvider implements vscode.Disposable {
         window.__BYGONE_HOST__ = {
             environment: 'vscode',
             editorWorkerUrl: ${JSON.stringify(editorWorkerUri.toString())},
+            diffWorkerUrl: ${JSON.stringify(diffWorkerUri.toString())},
             postMessage(message) {
                 vscodeApi.postMessage(message);
             }

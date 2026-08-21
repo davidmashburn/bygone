@@ -4413,7 +4413,7 @@ function initializeDiffWorker() {
         return;
     }
     try {
-        diffWorker = new Worker('diff.worker.js');
+        diffWorker = new Worker(host.diffWorkerUrl);
     } catch {
         diffWorker = null;
         return;
@@ -4595,6 +4595,7 @@ function createHostBridge() {
     return {
         environment: 'vscode',
         editorWorkerUrl: window.__BYGONE_EDITOR_WORKER_URL__,
+        diffWorkerUrl: window.__BYGONE_DIFF_WORKER_URL__,
         postMessage(message) {
             vscodeApi.postMessage(message);
         },

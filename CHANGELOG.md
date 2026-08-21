@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.8.8
+
+- Fixed standalone, Git difftool, directory-history drill-down, web, and VS Code comparisons so their background diff worker loads from the correct host-resolved URL
+- Added standalone smoke coverage that requires real worker-computed changes for two-file comparisons and directory-history drill-down
+
 ## 0.8.7
 
 - Refined tour narration controls with clearer playback state, sentence-level skipping, and consolidated play/pause behavior

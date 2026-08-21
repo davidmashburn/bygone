@@ -57,6 +57,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
     window.__BYGONE_HOST__ = {
         environment: 'web',
         editorWorkerUrl: '/media/editor.worker.js',
+        diffWorkerUrl: '/media/diff.worker.js',
         postMessage(message) {
             void handleRendererMessage(message);
         }

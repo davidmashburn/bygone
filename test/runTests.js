@@ -2409,6 +2409,20 @@ function testRendererDoesNotAddActiveOrAdjacentSemanticOverrides() {
     assert.doesNotMatch(connectorSource, /getActiveBlockColor/);
 }
 
+function testDiffWorkerUsesHostResolvedUrlAcrossSurfaces() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const preloadSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'preload.js'), 'utf8');
+    const webHostSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
+    const providerSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'diffViewProvider.ts'), 'utf8');
+
+    assert.match(rendererSource, /new Worker\(host\.diffWorkerUrl\)/);
+    assert.doesNotMatch(rendererSource, /new Worker\('diff\.worker\.js'\)/);
+    assert.match(preloadSource, /new URL\('\.\.\/media\/diff\.worker\.js', window\.location\.href\)/);
+    assert.match(webHostSource, /diffWorkerUrl: '\/media\/diff\.worker\.js'/);
+    assert.match(providerSource, /diffWorkerUri = webview\.asWebviewUri\(vscode\.Uri\.joinPath\(this\.extensionUri, 'media', 'diff\.worker\.js'\)\)/);
+    assert.match(providerSource, /diffWorkerUrl: \$\{JSON\.stringify\(diffWorkerUri\.toString\(\)\)\}/);
+}
+
 function testStaticButtonsHaveTooltips() {
     for (const relativePath of ['standalone/index.html', 'web/index.html', 'src/diffViewProvider.ts']) {
         const source = fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
@@ -3357,6 +3371,7 @@ function run() {
     testPureDeleteHasNoInlineSegments();
     testInlineHighlightsAlignAroundInsertedAndDeletedLines();
     testRendererDoesNotAddActiveOrAdjacentSemanticOverrides();
+    testDiffWorkerUsesHostResolvedUrlAcrossSurfaces();
     testStaticButtonsHaveTooltips();
     testMacCliRoutesThroughCentralAppInstance();
     testToursRouteThroughAnAppOwnedWindowAndServer();
