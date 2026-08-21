@@ -3992,7 +3992,7 @@ async function sendCurrentMultiDiff() {
     refreshSessionWindowTitle();
 
     if (mainWindow && !mainWindow.isDestroyed()) {
-        setTimeout(() => {
+        const inspectMultiDiff = () => {
             void mainWindow.webContents.executeJavaScript(`(() => ({
                 fileInfo: document.getElementById('file-info')?.textContent,
                 panelCount: document.querySelectorAll('.multi-pane').length,
@@ -4007,6 +4007,13 @@ async function sendCurrentMultiDiff() {
             }))()`)
                 .then((snapshot) => {
                     if (smokeTestMode) {
+                        const diffReady = /^1 \/ [1-9]\d*$/.test(snapshot.changePosition)
+                            && snapshot.panelPositions.some((position) => /^1 \/ [1-9]\d*$/.test(position))
+                            && snapshot.decoratedLineCount > 0;
+                        if (!diffReady) {
+                            setTimeout(inspectMultiDiff, 100);
+                            return;
+                        }
                         finalizeSmokeTest(snapshot);
                         return;
                     }
@@ -4021,7 +4028,8 @@ async function sendCurrentMultiDiff() {
                         app.exit(1);
                     }
                 });
-        }, 400);
+        };
+        setTimeout(inspectMultiDiff, smokeTestMode ? 100 : 400);
     }
 }
 
