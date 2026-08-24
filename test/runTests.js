@@ -2618,6 +2618,30 @@ function testMultiDiffShellUsesFocusedStripNavigation() {
     assert.match(rendererSource, /revealFirstChangeInEachPanel[\s\S]{0,200}revealFirstMultiPanelChanges\(\)/);
     assert.match(rendererSource, /computeMissingPairDiffsAsync\(revealFirstChangeInEachPanel\)/);
     assert.match(rendererSource, /function computeMissingPairDiffsAsync\(revealFirstChangeInEachPanel = false\)[\s\S]{0,1800}revealFirstMultiPanelChanges\(\)/);
+    assert.match(rendererSource, /function applyFocusedStripLayout[\s\S]{0,1800}requestAnimationFrame\(\(\) => \{[\s\S]{0,200}layoutEditors\(\)/);
+}
+
+function testFilePathsCopyFromRenderedSurfacesAndClippedTextShowsInFull() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const directorySource = fs.readFileSync(path.join(__dirname, '..', 'media', 'dom.js'), 'utf8');
+    const presenterSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
+    const styleSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'style.css'), 'utf8');
+
+    assert.match(rendererSource, /initializeFilePathContextMenu\(\)/);
+    assert.match(rendererSource, /closest\('\[data-file-path\], \[data-file-paths\]'\)/);
+    assert.match(rendererSource, /setCopyableFilePaths\(getElement\('file1-header'\)/);
+    assert.match(rendererSource, /data-rail-path=.*data-file-path=/);
+    assert.match(rendererSource, /data-file-path=.*data-multi-select-panel=/);
+    assert.match(directorySource, /data-path=.*data-file-path=/s);
+    assert.match(presenterSource, /button\.dataset\.filePath = scene\.path/);
+    assert.match(presenterSource, /button\.dataset\.filePath = file\.path/);
+    assert.match(styleSource, /\.file-path-context-menu/);
+
+    assert.match(rendererSource, /initializeNonEditorTextTooltips\(\)/);
+    assert.match(rendererSource, /target\.closest\('\.monaco-editor'\)/);
+    assert.match(rendererSource, /function isTextTooltipCandidate[\s\S]{0,500}node\.nodeType === Node\.TEXT_NODE/);
+    assert.match(rendererSource, /element\.scrollWidth > element\.clientWidth \+ 1/);
+    assert.match(rendererSource, /element\.scrollHeight > element\.clientHeight \+ 1/);
 }
 
 function testDirectoryRowsUseFileKindAffordancesWithoutStatusBadges() {
@@ -3509,6 +3533,7 @@ function run() {
     testDynamicButtonsHaveTooltips();
     testFocusedStripLayoutUsesPairAndPanelAnchors();
     testMultiDiffShellUsesFocusedStripNavigation();
+    testFilePathsCopyFromRenderedSurfacesAndClippedTextShowsInFull();
     testDirectoryRowsUseFileKindAffordancesWithoutStatusBadges();
     testDuplicateMultiPanelDecorationsRenderOnce();
     testDirectoryDiffDetectsModifiedFiles();

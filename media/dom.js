@@ -181,6 +181,7 @@
             + `aria-label="${escapeAttr(accessibleLabel)}" `
             + `title="${escapeAttr(actionTitle)}" `
             + `data-path="${escapeAttr(entry.relativePath)}" `
+            + `data-file-path="${escapeAttr(entry.relativePath)}" `
             + relatedPathAttr
             + `data-depth="${entry.depth}" `
             + `data-side-index="${sideIndex}" `

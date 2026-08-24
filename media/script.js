@@ -324,6 +324,8 @@ window.addEventListener('load', async () => {
     initializeEditModeToolbar();
     initializeDirectoryViewEvents();
     initializeMultiDiffInteractions();
+    initializeFilePathContextMenu();
+    initializeNonEditorTextTooltips();
     initializeStandaloneDropTarget();
     initializeDiffWorker();
     await initializeMonaco();
@@ -521,6 +523,9 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     setTextContent('file-info', comparisonSummary || `Comparing ${file1} and ${file2}`);
     setTextContent('file1-header', file1);
     setTextContent('file2-header', file2);
+    setCopyableFilePaths(getElement('file-info'), [sourceInfo?.leftPath || file1, sourceInfo?.rightPath || file2]);
+    setCopyableFilePaths(getElement('file1-header'), [sourceInfo?.leftPath || file1]);
+    setCopyableFilePaths(getElement('file2-header'), [sourceInfo?.rightPath || file2]);
     updateHistoryToolbar(history);
     updateNavigationRail(history?.rail || directoryNavigation?.rail || null, history ? 'history' : (directoryNavigation ? 'directory' : null));
     updateFileNavigationState(fileNavigation || null, canReturnToDirectory);
@@ -614,6 +619,9 @@ function showBinaryDiff(message) {
     );
     setTextContent('file1-header', comparison.left.label);
     setTextContent('file2-header', comparison.right.label);
+    setCopyableFilePaths(getElement('file-info'), [comparison.left.path || comparison.left.label, comparison.right.path || comparison.right.label]);
+    setCopyableFilePaths(getElement('file1-header'), [comparison.left.path || comparison.left.label]);
+    setCopyableFilePaths(getElement('file2-header'), [comparison.right.path || comparison.right.label]);
     updateHistoryToolbar(null);
     updateNavigationRail(message.directoryNavigation?.rail || null, message.directoryNavigation ? 'directory' : null);
     updateFileNavigationState(message.fileNavigation || null, Boolean(message.canReturnToDirectory));
@@ -712,6 +720,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
     setTextContent('file-info', review
         ? `Exploring ${review.headRef} against ${review.baseRef} · ${review.viewedCount}/${review.changedFileCount} files viewed · ${review.commitCount} commits${review.mergeCommitCount ? ` (${review.mergeCommitCount} merge)` : ''}${review.dirty ? ' · working tree dirty (not included)' : ''}`
         : `Comparing directories ${directoryLabels.join(' and ')}`);
+    setCopyableFilePaths(getElement('file-info'), directoryLabels);
 
     resetDirectoryView();
     renderDirectoryView(getElement('dir-rows'), directoryEntries, directoryLabels, canMutate);
@@ -764,6 +773,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
         'file-info',
         isBlankMultiPanel ? 'Blank editable diff' : `Comparing ${panels.length} file${panels.length === 1 ? '' : 's'}`
     );
+    setCopyableFilePaths(getElement('file-info'), panels.map((panel) => panel.path || panel.label));
 
     renderMultiDiffShell(panels);
     applyFocusedStripLayout(false);
@@ -871,10 +881,15 @@ function showThreeWayMerge(message) {
 
     toggleView(VIEW_IDS.threeWay);
     setTextContent('file-info', `Three-way merge for ${message.base.name}, ${message.left.name}, and ${message.right.name}`);
+    setCopyableFilePaths(getElement('file-info'), [message.base.path || message.base.name, message.left.path || message.left.name, message.right.path || message.right.name]);
     setTextContent('base-header', message.base.name);
     setTextContent('left-header', message.left.name);
     setTextContent('right-header', message.right.name);
     setTextContent('result-header', message.result.name);
+    setCopyableFilePaths(getElement('base-header'), [message.base.path || message.base.name]);
+    setCopyableFilePaths(getElement('left-header'), [message.left.path || message.left.name]);
+    setCopyableFilePaths(getElement('right-header'), [message.right.path || message.right.name]);
+    setCopyableFilePaths(getElement('result-header'), [message.result.path || message.result.name]);
     setStatus(
         message.meta.isExperimental
             ? `Experimental merge view. ${message.meta.conflictCount} conflict(s) need review.`
@@ -1155,7 +1170,7 @@ function renderMultiDiffShell(panels) {
             `<div class="multi-pane" data-index="${index}" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header-top">`
-            + `<button class="multi-pane-title-wrap multi-pane-select" type="button" title="Select panel: ${escapeAttr(panel.label)}" data-multi-select-panel="${escapeAttr(panel.id)}" data-panel-id="${escapeAttr(panel.id)}" aria-pressed="false">`
+            + `<button class="multi-pane-title-wrap multi-pane-select" type="button" title="Select panel: ${escapeAttr(panel.label)}" data-file-path="${escapeAttr(panel.path || panel.label)}" data-multi-select-panel="${escapeAttr(panel.id)}" data-panel-id="${escapeAttr(panel.id)}" aria-pressed="false">`
             + `<span class="multi-pane-title">${escapeHtml(panel.label)}</span>`
             + `<span class="multi-pane-dirty${panel.dirty ? ' is-visible' : ''}" aria-hidden="true" title="Unsaved changes">•</span>`
             + `</button>`
@@ -1370,7 +1385,169 @@ function applyFocusedStripLayout(animate = true) {
     container.classList.toggle('multi-strip-pair-mode', focusedStripLayout.mode === 'pair');
     updateFocusedStripControls();
     updateVisiblePaneSearch();
+    requestAnimationFrame(() => {
+        if (currentMode !== MODE_MULTI_WAY || !track.isConnected) return;
+        layoutEditors();
+        connectorController.resizeCanvas();
+        connectorController.scheduleDrawConnections();
+    });
     if (!animate) requestAnimationFrame(() => track.classList.remove('is-positioning'));
+}
+
+function initializeFilePathContextMenu() {
+    const menu = document.createElement('div');
+    menu.className = 'file-path-context-menu';
+    menu.setAttribute('role', 'menu');
+    menu.hidden = true;
+    document.body.appendChild(menu);
+
+    const closeMenu = () => {
+        menu.hidden = true;
+        menu.replaceChildren();
+    };
+
+    document.addEventListener('contextmenu', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || target.closest('.monaco-editor')) return;
+        const paths = getCopyableFilePaths(target.closest('[data-file-path], [data-file-paths]'));
+        if (paths.length === 0) return;
+
+        event.preventDefault();
+        menu.replaceChildren();
+        const choices = paths.length === 1
+            ? [{ label: 'Copy File Path', text: paths[0] }]
+            : [
+                ...paths.map((filePath) => ({ label: `Copy ${filePath}`, text: filePath })),
+                { label: 'Copy All File Paths', text: paths.join('\n') }
+            ];
+        choices.forEach((choice) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.setAttribute('role', 'menuitem');
+            button.textContent = choice.label;
+            button.title = choice.label;
+            button.addEventListener('click', () => {
+                void copyTextToClipboard(choice.text);
+                closeMenu();
+            });
+            menu.appendChild(button);
+        });
+        menu.hidden = false;
+        const bounds = menu.getBoundingClientRect();
+        menu.style.left = `${Math.max(4, Math.min(event.clientX, window.innerWidth - bounds.width - 4))}px`;
+        menu.style.top = `${Math.max(4, Math.min(event.clientY, window.innerHeight - bounds.height - 4))}px`;
+        menu.querySelector('button')?.focus();
+    });
+
+    document.addEventListener('pointerdown', (event) => {
+        if (!menu.hidden && event.target instanceof Node && !menu.contains(event.target)) closeMenu();
+    }, true);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !menu.hidden) closeMenu();
+    });
+    window.addEventListener('blur', closeMenu);
+    window.addEventListener('resize', closeMenu);
+}
+
+function setCopyableFilePaths(element, paths) {
+    if (!element) return;
+    const uniquePaths = [...new Set(paths.filter((filePath) => typeof filePath === 'string' && filePath.trim()))];
+    delete element.dataset.filePath;
+    delete element.dataset.filePaths;
+    if (uniquePaths.length === 1) {
+        element.dataset.filePath = uniquePaths[0];
+    } else if (uniquePaths.length > 1) {
+        element.dataset.filePaths = JSON.stringify(uniquePaths);
+    }
+}
+
+function getCopyableFilePaths(element) {
+    if (!(element instanceof HTMLElement)) return [];
+    if (element.dataset.filePath) return [element.dataset.filePath];
+    if (!element.dataset.filePaths) return [];
+    try {
+        const paths = JSON.parse(element.dataset.filePaths);
+        return Array.isArray(paths) ? paths.filter((filePath) => typeof filePath === 'string' && filePath) : [];
+    } catch {
+        return [];
+    }
+}
+
+async function copyTextToClipboard(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        return;
+    } catch {
+        const input = document.createElement('textarea');
+        input.value = text;
+        input.setAttribute('readonly', '');
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        input.remove();
+    }
+}
+
+function initializeNonEditorTextTooltips() {
+    document.addEventListener('mouseover', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || target.closest('.monaco-editor')) return;
+        const element = findTruncatedTextElement(target);
+        if (!element || element.dataset.bygoneFullTextTitle) return;
+        const fullText = getElementFullText(element);
+        if (!fullText) return;
+        element.dataset.bygoneFullTextTitle = 'true';
+        element.dataset.bygoneOriginalTitle = element.getAttribute('title') || '';
+        element.title = fullText;
+    }, true);
+
+    document.addEventListener('mouseout', (event) => {
+        const element = event.target instanceof Element
+            ? event.target.closest('[data-bygone-full-text-title]')
+            : null;
+        if (!element || (event.relatedTarget instanceof Node && element.contains(event.relatedTarget))) return;
+        const originalTitle = element.dataset.bygoneOriginalTitle || '';
+        if (originalTitle) element.title = originalTitle;
+        else element.removeAttribute('title');
+        delete element.dataset.bygoneFullTextTitle;
+        delete element.dataset.bygoneOriginalTitle;
+    }, true);
+}
+
+function findTruncatedTextElement(start) {
+    for (let element = start; element && element !== document.body; element = element.parentElement) {
+        if (isTextTooltipCandidate(element)
+            && getElementFullText(element)
+            && (element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1)) {
+            return element;
+        }
+    }
+    return null;
+}
+
+function isTextTooltipCandidate(element) {
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
+        return true;
+    }
+    const hasDirectText = [...element.childNodes].some(
+        (node) => node.nodeType === Node.TEXT_NODE && Boolean(node.textContent?.trim())
+    );
+    if (!hasDirectText) return false;
+    const styles = getComputedStyle(element);
+    return !['auto', 'scroll'].includes(styles.overflowX)
+        && !['auto', 'scroll'].includes(styles.overflowY);
+}
+
+function getElementFullText(element) {
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+        return element.value.trim();
+    }
+    if (element instanceof HTMLSelectElement) {
+        return element.selectedOptions[0]?.textContent?.trim() || '';
+    }
+    return element.textContent?.trim().replace(/\s+/g, ' ') || '';
 }
 
 function updateFocusedStripControls() {
@@ -2406,7 +2583,9 @@ function openRepositorySearch(root) {
     closeVisiblePaneSearch();
     const palette = getElement('repository-search');
     palette.classList.remove('hidden');
-    palette.querySelector('.repository-search-root').textContent = root;
+    const rootElement = palette.querySelector('.repository-search-root');
+    rootElement.textContent = root;
+    setCopyableFilePaths(rootElement, [root]);
     palette.querySelector('.repository-search-summary').textContent = 'Choose a query, then run the search.';
     palette.querySelector('.repository-search-cancel').hidden = true;
     resetRepositoryReplacementPreview();
@@ -2458,7 +2637,7 @@ function renderRepositorySearchResults() {
     if (!palette || palette.classList.contains('hidden')) return;
     palette.querySelector('.repository-search-summary').textContent = `${repositorySearchMatches.length} result${repositorySearchMatches.length === 1 ? '' : 's'}…`;
     palette.querySelector('.repository-search-results').innerHTML = repositorySearchMatches.map((match, index) => (
-        `<button class="repository-search-result" type="button" role="option" data-repository-search-result="${index}" title="Open ${escapeAttr(match.relativePath)}:${match.line}">`
+        `<button class="repository-search-result" type="button" role="option" data-file-path="${escapeAttr(match.relativePath)}" data-repository-search-result="${index}" title="Open ${escapeAttr(match.relativePath)}:${match.line}">`
         + `<span class="repository-search-location">${escapeHtml(match.relativePath)}:${match.line}</span>`
         + `<span class="repository-search-preview">${escapeHtml(match.preview.trim())}</span>`
         + '</button>'
@@ -2518,7 +2697,7 @@ function receiveRepositoryReplacementPreview(message) {
     container.hidden = false;
     container.innerHTML = repositoryReplacementFiles.map((file, index) => (
         `<label><input type="checkbox" data-repository-replace-file="${index}" checked> `
-        + `<span>${escapeHtml(file.relativePath)}</span><span>${file.occurrenceCount} occurrence${file.occurrenceCount === 1 ? '' : 's'}</span></label>`
+        + `<span data-file-path="${escapeAttr(file.relativePath)}">${escapeHtml(file.relativePath)}</span><span>${file.occurrenceCount} occurrence${file.occurrenceCount === 1 ? '' : 's'}</span></label>`
     )).join('');
     palette.querySelector('.repository-replace-apply').hidden = repositoryReplacementFiles.length === 0;
     summary.textContent = `Preview: ${message.occurrenceCount} occurrence${message.occurrenceCount === 1 ? '' : 's'} in ${repositoryReplacementFiles.length} file${repositoryReplacementFiles.length === 1 ? '' : 's'}`;
@@ -2623,8 +2802,8 @@ function closeVisiblePaneSearch() {
 function getVisibleSearchTargets() {
     if (currentMode === MODE_TWO_WAY) {
         return [
-            { id: 'left', label: getElement('file1-header').textContent || 'Left', editor: leftEditor },
-            { id: 'right', label: getElement('file2-header').textContent || 'Right', editor: rightEditor }
+            { id: 'left', label: getElement('file1-header').textContent || 'Left', filePath: getElement('file1-header').dataset.filePath, editor: leftEditor },
+            { id: 'right', label: getElement('file2-header').textContent || 'Right', filePath: getElement('file2-header').dataset.filePath, editor: rightEditor }
         ];
     }
     if (currentMode !== MODE_MULTI_WAY || !focusedStripLayout) return [];
@@ -2634,6 +2813,7 @@ function getVisibleSearchTargets() {
     return indices.map((index) => ({
         id: multiPanels[index]?.id,
         label: multiPanels[index]?.label || `Panel ${index + 1}`,
+        filePath: multiPanels[index]?.path || multiPanels[index]?.label,
         editor: multiEditors[index]
     })).filter((target) => target.id && target.editor);
 }
@@ -2644,6 +2824,7 @@ function getComparisonSearchTargets() {
     return multiPanels.map((panel, index) => ({
         id: panel.id,
         label: panel.label || `Panel ${index + 1}`,
+        filePath: panel.path || panel.label,
         editor: multiEditors[index]
     })).filter((target) => target.id && target.editor);
 }
@@ -2704,11 +2885,14 @@ function updateVisiblePaneSearch() {
     }
     try {
         const targets = scope === 'comparison' ? getComparisonSearchTargets() : getVisibleSearchTargets();
-        visibleSearchMatches = findVisibleMatches(targets, query, { caseSensitive, regex });
+        visibleSearchMatches = findVisibleMatches(targets, query, { caseSensitive, regex }).map((match) => ({
+            ...match,
+            filePath: targets.find((target) => target.id === match.targetId)?.filePath || match.label
+        }));
         const scopeLabel = scope === 'comparison' ? 'all comparison panels' : 'visible panes';
         summary.textContent = query ? `${visibleSearchMatches.length} result${visibleSearchMatches.length === 1 ? '' : 's'} in ${scopeLabel}` : `Type to search ${scopeLabel}`;
         results.innerHTML = visibleSearchMatches.map((match, index) => (
-            `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="Open ${escapeAttr(match.label)}:${match.lineNumber}">`
+            `<button class="visible-search-result" type="button" role="option" data-file-path="${escapeAttr(match.filePath || match.label)}" data-visible-search-result="${index}" title="Open ${escapeAttr(match.label)}:${match.lineNumber}">`
             + `<span class="visible-search-location">${escapeHtml(match.label)}:${match.lineNumber}</span>`
             + `<span class="visible-search-preview">${escapeHtml(match.preview.trim())}</span>`
             + '</button>'
@@ -2739,7 +2923,7 @@ function receiveChangeSetSearchResults(message) {
     visibleSearchMatches = (message.matches || []).map((match) => ({ ...match, hostResultKind: 'changeSet' }));
     summary.textContent = `${visibleSearchMatches.length} result${visibleSearchMatches.length === 1 ? '' : 's'} in current change set`;
     results.innerHTML = visibleSearchMatches.map((match, index) => (
-        `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="Open ${escapeAttr(match.label)}:${match.lineNumber}">`
+        `<button class="visible-search-result" type="button" role="option" data-file-path="${escapeAttr(match.relativePath || match.label)}" data-visible-search-result="${index}" title="Open ${escapeAttr(match.label)}:${match.lineNumber}">`
         + `<span class="visible-search-location">${escapeHtml(match.label)}:${match.lineNumber}</span>`
         + `<span class="visible-search-preview">${escapeHtml(match.preview.trim())}</span>`
         + '</button>'
@@ -2765,7 +2949,7 @@ function receiveGitHistorySearchResults(message) {
     visibleSearchMatches = (message.matches || []).map((match) => ({ ...match, hostResultKind: 'gitHistory' }));
     summary.textContent = `${visibleSearchMatches.length} result${visibleSearchMatches.length === 1 ? '' : 's'} in Git history`;
     results.innerHTML = visibleSearchMatches.map((match, index) => (
-        `<button class="visible-search-result" type="button" role="option" data-visible-search-result="${index}" title="Open ${escapeAttr(match.label)}:${match.lineNumber}">`
+        `<button class="visible-search-result" type="button" role="option" data-file-path="${escapeAttr(match.relativePath || match.label)}" data-visible-search-result="${index}" title="Open ${escapeAttr(match.label)}:${match.lineNumber}">`
         + `<span class="visible-search-location">${escapeHtml(match.label)}</span>`
         + `<span class="visible-search-preview">${escapeHtml(match.preview.trim())}</span>`
         + '</button>'
@@ -4252,7 +4436,9 @@ function renderHistoryRailItem(item, tabId, index) {
     const activeClass = item.active ? ' active' : '';
     const kindAttr = item.kind ? ` data-rail-kind="${escapeAttr(item.kind)}"` : '';
     const indexAttr = Number.isInteger(item.index) ? ` data-rail-index="${String(item.index)}"` : ` data-rail-index="${String(index)}"`;
-    const pathAttr = typeof item.relativePath === 'string' ? ` data-rail-path="${escapeAttr(item.relativePath)}"` : '';
+    const pathAttr = typeof item.relativePath === 'string'
+        ? ` data-rail-path="${escapeAttr(item.relativePath)}" data-file-path="${escapeAttr(item.relativePath)}"`
+        : '';
 
     const action = item.kind === 'directory-entry' ? 'Open file' : 'Open history entry';
     return `<button class="history-rail-item${activeClass}${statusClass}" type="button" title="${action}: ${escapeAttr(item.label)}" data-rail-item="true" data-rail-tab="${escapeAttr(tabId)}"${kindAttr}${indexAttr}${pathAttr}>`

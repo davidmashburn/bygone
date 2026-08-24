@@ -717,6 +717,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
                 button.type = 'button';
                 button.className = 'tour-scene';
                 button.dataset.sceneId = scene.id;
+                if (scene.kind === 'text-diff') button.dataset.filePath = scene.path;
                 button.title = `Open scene: ${scene.kind === 'text-diff' ? scene.path : scene.title}`;
                 button.addEventListener('click', () => showTourScene(index));
                 const number = document.createElement('span');

@@ -140,6 +140,47 @@ body.web-host {
     font-size: 12px;
 }
 
+.file-path-context-menu {
+    position: fixed;
+    z-index: 10000;
+    display: grid;
+    min-width: 180px;
+    max-width: min(520px, calc(100vw - 8px));
+    max-height: calc(100vh - 8px);
+    overflow-y: auto;
+    padding: 4px;
+    border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
+    border-radius: 5px;
+    background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
+    color: var(--vscode-menu-foreground, var(--vscode-editorWidget-foreground));
+    box-shadow: 0 6px 20px rgb(0 0 0 / 30%);
+}
+
+.file-path-context-menu[hidden] {
+    display: none;
+}
+
+.file-path-context-menu button {
+    overflow: hidden;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.file-path-context-menu button:hover,
+.file-path-context-menu button:focus-visible {
+    outline: none;
+    background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground));
+    color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground));
+}
+
 .header-align-diff {
     width: calc(100% - var(--history-rail-offset));
     margin-left: var(--history-rail-offset);
