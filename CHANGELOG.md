@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.8.11
+
+- Fixed stacked-tour slide navigation so each step focuses the authored change when adjacent commit pairs contribute changes to the same panel
+
 ## 0.8.10
 
 - Fixed directory history and branch review materialization when a tree contains git submodule/gitlink entries, such as vendored nested repositories

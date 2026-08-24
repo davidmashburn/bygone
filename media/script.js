@@ -1,5 +1,10 @@
 import { dedupeDecorations } from './decorationUtils';
-import { buildBlockChanges, findChangeIndexAtLine, resolveFileNavigationAction } from './navigationUtils';
+import {
+    buildBlockChanges,
+    findChangeIndexAtLine,
+    findMultiPanelChangeIndex,
+    resolveFileNavigationAction
+} from './navigationUtils';
 import { dispatchFindCommand, runFindCommand } from './findController';
 import { applyWordWrap, readWordWrapPreference, writeWordWrapPreference } from './wrapController';
 import { computeFocusedStripLayout } from './focusedStripController';
@@ -783,7 +788,14 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
             revealFirstMultiPanelChanges();
         }
         if (Number.isInteger(initialChangeIndex)) {
-            setActiveMultiPanelChangeIndex(initialChangeIndex, true);
+            const initialPanelChangeIndex = findMultiPanelChangeIndex(
+                getMultiPanelChanges(activeMultiPanelId),
+                activeMultiPairIndex,
+                initialChangeIndex
+            );
+            if (initialPanelChangeIndex >= 0) {
+                setActiveMultiPanelChangeIndex(initialPanelChangeIndex, true);
+            }
         }
         revealActiveMultiPanel();
         const activeTourAnnotation = tourAnnotations.find((annotation) => annotation.active);

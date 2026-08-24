@@ -29,6 +29,7 @@ const {
     buildBlockChanges,
     buildDirectoryNavigationState,
     findChangeIndexAtLine,
+    findMultiPanelChangeIndex,
     resolveFileNavigationAction
 } = require('../media/navigationUtils.js');
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
@@ -826,6 +827,18 @@ function testLineClickPrefersCurrentAdjacentPair() {
 
     assert.equal(findChangeIndexAtLine(changes, 5, 1), 1);
     assert.equal(findChangeIndexAtLine(changes, 5, 0), 0);
+}
+
+function testStackedTourFocusMapsPairBlockIntoMergedPanelChanges() {
+    const panelChanges = [
+        { pairIndex: 1, blockIndex: 0, start: 4, end: 6 },
+        { pairIndex: 0, blockIndex: 0, start: 12, end: 14 },
+        { pairIndex: 0, blockIndex: 1, start: 30, end: 32 }
+    ];
+
+    assert.equal(findMultiPanelChangeIndex(panelChanges, 0, 1), 2);
+    assert.equal(findMultiPanelChangeIndex(panelChanges, 1, 0), 0);
+    assert.equal(findMultiPanelChangeIndex(panelChanges, 1, 3), -1);
 }
 
 function testDirectoryDrilldownNavigationTracksActiveFile() {
@@ -3410,6 +3423,7 @@ function run() {
     testLineClickSelectsContainingTwoWayChange();
     testLineClickIgnoresCollapsedSideOfOneSidedChange();
     testLineClickPrefersCurrentAdjacentPair();
+    testStackedTourFocusMapsPairBlockIntoMergedPanelChanges();
     testDirectoryDrilldownNavigationTracksActiveFile();
     testDirectoryHistoryFileNavigationTakesPriorityOverPanelNavigation();
     testGitNameStatusParserPreservesRenameMetadata();

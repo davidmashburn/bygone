@@ -35,6 +35,16 @@ function findChangeIndexAtLine(changes, modelLineNumber, preferredPairIndex = nu
     return matches[0].index;
 }
 
+function findMultiPanelChangeIndex(changes, pairIndex, blockIndex) {
+    if (!Array.isArray(changes) || !Number.isInteger(pairIndex) || !Number.isInteger(blockIndex)) {
+        return -1;
+    }
+
+    return changes.findIndex((change) => (
+        change.pairIndex === pairIndex && change.blockIndex === blockIndex
+    ));
+}
+
 function buildBlockChanges(blocks, side) {
     if (!Array.isArray(blocks) || (side !== 'left' && side !== 'right')) {
         return [];
@@ -120,5 +130,6 @@ module.exports = {
     buildDirectoryNavigationState,
     containsModelLine,
     findChangeIndexAtLine,
+    findMultiPanelChangeIndex,
     resolveFileNavigationAction
 };
