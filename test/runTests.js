@@ -2094,6 +2094,18 @@ function testDesktopWindowStatePersistsOnlyRestorableSessions() {
     assert.match(standaloneSource, /for \(const tour of savedState\.tours\)[\s\S]{0,300}openTourPresentation\(tour\.args, tour\.cwd\)/);
 }
 
+function testReleasePrepInstallsAndGracefullyRestartsLocalArtifacts() {
+    const releaseSource = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'release.mjs'), 'utf8');
+    const devSyncSource = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'dev-sync.mjs'), 'utf8');
+
+    assert.match(releaseSource, /for \(const \[command, commandArgs\] of buildSteps\)[\s\S]{0,500}npm', \['run', 'reinstall'\]/);
+    assert.match(devSyncSource, /await requestMacDesktopQuit\(\);[\s\S]{0,300}await rm\(targetApp/);
+    assert.match(devSyncSource, /tell application id .* to quit/);
+    assert.match(devSyncSource, /Resolve or save unsaved changes/);
+    assert.match(devSyncSource, /await run\('open', \[targetApp\], \{ unsetEnv: \['ELECTRON_RUN_AS_NODE'\] \}\)/);
+    assert.match(devSyncSource, /for \(const name of options\.unsetEnv \|\| \[\]\)[\s\S]{0,100}delete childEnv\[name\]/);
+}
+
 function testRefreshSessionUsesSemanticRendererAndMenuCommands() {
     const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
@@ -3461,6 +3473,7 @@ function run() {
     testWordWrapUsesSharedRendererAndStandaloneMenu();
     testSessionSourcesRetainRefreshIntent();
     testDesktopWindowStatePersistsOnlyRestorableSessions();
+    testReleasePrepInstallsAndGracefullyRestartsLocalArtifacts();
     testRefreshSessionUsesSemanticRendererAndMenuCommands();
     testTwoWayDiffAlignsInsertions();
     testReplacementMatchingRejectsLowInformationLines();

@@ -18,6 +18,7 @@ const electronBuilderBin = platform === 'win32'
     ? path.join(binDir, 'electron-builder.cmd')
     : path.join(binDir, 'electron-builder');
 const vsixPath = path.join(repoRoot, `bygone-${version}.vsix`);
+const macDesktopAppId = 'com.davidmashburn.bygone';
 
 if (args.has('--help') || args.has('-h')) {
     process.stdout.write(`Bygone ${version}
@@ -40,6 +41,8 @@ npm install, compilation, and packaging.
 
 Notes:
   - On macOS, the desktop app is installed from the generated DMG into /Applications or ~/Applications.
+    A running app is asked to quit normally and the install stops if unsaved work prevents it from exiting.
+    The newly installed app is opened after installation.
   - On Linux, the desktop app is installed as ~/Applications/bygone-desktop.
   - On Windows, the generated installer is run silently.
 `);
@@ -172,6 +175,7 @@ async function installMacDesktopApp(dmgPath) {
         await run('hdiutil', ['attach', '-nobrowse', '-readonly', '-mountpoint', mountDir, dmgPath]);
         const mountedApp = path.join(mountDir, 'Bygone.app');
         requireFile(mountedApp, 'mounted Bygone.app');
+        await requestMacDesktopQuit();
         await rm(targetApp, { recursive: true, force: true });
         await mkdir(targetRoot, { recursive: true });
         await cp(mountedApp, targetApp, {
@@ -184,6 +188,32 @@ async function installMacDesktopApp(dmgPath) {
     }
 
     console.log(`Installed desktop app to ${targetApp}`);
+    await run('open', [targetApp], { unsetEnv: ['ELECTRON_RUN_AS_NODE'] });
+    console.log('Restarted the desktop app.');
+}
+
+async function requestMacDesktopQuit() {
+    if (!await isMacDesktopRunning()) {
+        return;
+    }
+
+    console.log('Requesting the running desktop app to quit before installation.');
+    await run('osascript', ['-e', `tell application id "${macDesktopAppId}" to quit`]);
+    const deadline = Date.now() + 30000;
+    while (await isMacDesktopRunning()) {
+        if (Date.now() >= deadline) {
+            throw new Error('Bygone did not quit. Resolve or save unsaved changes, then run the install again.');
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+}
+
+async function isMacDesktopRunning() {
+    const result = await run('osascript', [
+        '-e',
+        `application id "${macDesktopAppId}" is running`
+    ], { stdio: ['ignore', 'pipe', 'inherit'] });
+    return result === 'true';
 }
 
 async function macInstallRoot() {
@@ -274,12 +304,16 @@ async function findDesktopArtifact(kind) {
 async function run(command, commandArgs, options = {}) {
     console.log(`\n$ ${[command, ...commandArgs].join(' ')}`);
     return new Promise((resolve, reject) => {
+        const childEnv = {
+            ...process.env,
+            ...(options.env || {})
+        };
+        for (const name of options.unsetEnv || []) {
+            delete childEnv[name];
+        }
         const child = spawn(command, commandArgs, {
             cwd: options.cwd || repoRoot,
-            env: {
-                ...process.env,
-                ...(options.env || {})
-            },
+            env: childEnv,
             shell: options.shell ?? shouldUseWindowsShell(command),
             stdio: options.stdio || 'inherit'
         });

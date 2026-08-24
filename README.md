@@ -202,7 +202,7 @@ Build the full local release artifact matrix:
 npm run release:build
 ```
 
-That runs tests, rebuilds the VSIX, stages and dry-run checks the npm package, builds desktop artifacts, and styles the Homebrew templates. If the local macOS DMG or Windows cross-build toolchain is unavailable, use `node ./scripts/release.mjs --skip-dmg` or `node ./scripts/release.mjs --skip-windows` while validating the rest of the matrix.
+That runs tests, rebuilds the VSIX, stages and dry-run checks the npm package, builds desktop artifacts, and installs the resulting CLI, shell completions, VSIX, and current-platform desktop app locally. A running macOS desktop app is asked to quit normally; installation stops if unsaved work prevents it from exiting, and the installed app is then restarted. If the local macOS DMG or Windows cross-build toolchain is unavailable, use `node ./scripts/release.mjs --skip-dmg` or `node ./scripts/release.mjs --skip-windows` while validating the rest of the matrix.
 
 Publishing is intentionally explicit:
 
@@ -218,7 +218,7 @@ Reinstall the current built artifacts without rebuilding:
 npm run reinstall
 ```
 
-This refreshes the global CLI, shell completions, VSIX, and desktop app from the existing artifacts.
+This refreshes the global CLI, shell completions, VSIX, and desktop app from the existing artifacts. On macOS it performs the same graceful quit and restart, blocking installation when unsaved work keeps the app open.
 
 Run the release checks:
 

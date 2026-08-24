@@ -38,6 +38,14 @@ for (const [command, commandArgs] of buildSteps) {
     await run(command, commandArgs);
 }
 
+const canInstallCurrentDesktop = !(process.platform === 'darwin' && skipDmg)
+    && !(process.platform === 'win32' && skipWindows);
+if (canInstallCurrentDesktop) {
+    await run('npm', ['run', 'reinstall']);
+} else {
+    console.log('\nSkipped local install because the current platform desktop artifact was not built.');
+}
+
 if (shouldPublish) {
     await publishArtifacts();
 } else {

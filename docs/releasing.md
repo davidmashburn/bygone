@@ -43,8 +43,10 @@ The main scripts are:
   - dry-runs the npm package
 - `npm run release:build`
   - runs the full local artifact build without publishing
+  - installs the built CLI, shell completions, VSIX, and current-platform desktop app locally
+  - gracefully restarts the macOS desktop app and stops if unsaved work prevents it from quitting
 - `npm run reinstall`
-  - reinstalls the existing VSIX and desktop artifacts without rebuilding
+  - reinstalls the existing CLI, shell completions, VSIX, and desktop artifacts without rebuilding
 - `npm run release:publish`
   - publishes npm
   - creates a GitHub release with desktop artifacts
@@ -255,6 +257,11 @@ This builds:
 - macOS desktop artifacts
 - Linux AppImage
 - Windows artifacts
+
+After building, the script installs the CLI, shell completions, VSIX, and
+current-platform desktop app locally. On macOS it asks a running Bygone app to
+quit normally, stops before replacement if unsaved work keeps the app open,
+and restarts the installed app.
 
 If local packaging is partially unavailable, use the lower-level script:
 
