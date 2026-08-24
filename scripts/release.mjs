@@ -12,6 +12,9 @@ const args = new Set(process.argv.slice(2));
 const shouldPublish = args.has('--publish');
 const skipDmg = args.has('--skip-dmg');
 const skipWindows = args.has('--skip-windows');
+const homebrewTapRoot = path.resolve(
+    process.env.BYGONE_HOMEBREW_TAP || path.join(repoRoot, '..', 'homebrew-bygone')
+);
 
 const env = {
     ...process.env,
@@ -20,7 +23,9 @@ const env = {
 };
 
 if (shouldPublish) {
+    await preflightRepositoryState();
     await preflightPublish();
+    await pushMainAndWaitForCi();
 }
 
 const buildSteps = [
@@ -81,6 +86,44 @@ async function publishArtifacts() {
     await publishHomebrewTap();
 }
 
+async function preflightRepositoryState() {
+    const status = await runCapture('git', ['status', '--porcelain']);
+    if (status) {
+        throw new Error('Release publishing requires a clean worktree. Commit or discard local changes first.');
+    }
+
+    const branch = await runCapture('git', ['branch', '--show-current']);
+    if (branch !== 'main') {
+        throw new Error(`Release publishing requires the main branch; current branch is ${branch || '<detached>'}.`);
+    }
+}
+
+async function pushMainAndWaitForCi() {
+    const headOid = await runCapture('git', ['rev-parse', 'HEAD']);
+    await run('git', ['push', 'origin', 'main']);
+    const runId = await waitForReleaseCheckRun(headOid);
+    await run('gh', ['run', 'watch', runId, '--exit-status']);
+}
+
+async function waitForReleaseCheckRun(headOid) {
+    const deadline = Date.now() + 60000;
+    while (Date.now() < deadline) {
+        const output = await runCapture('gh', [
+            'run', 'list',
+            '--commit', headOid,
+            '--workflow', 'Release Check',
+            '--limit', '1',
+            '--json', 'databaseId'
+        ]);
+        const runs = JSON.parse(output);
+        if (runs[0]?.databaseId) {
+            return String(runs[0].databaseId);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    throw new Error(`Timed out waiting for the Release Check workflow for ${headOid}.`);
+}
+
 async function isPublishedNpmVersion(packagePath) {
     const pkg = JSON.parse(await readFile(path.join(packagePath, 'package.json'), 'utf8'));
     const packageName = pkg.name;
@@ -94,14 +137,8 @@ async function preflightPublish() {
         throw new Error('Publishing requires a DMG because the Homebrew cask hash is computed from it. Remove --skip-dmg before publishing.');
     }
 
-    const tapRoot = process.env.BYGONE_HOMEBREW_TAP;
-    if (!tapRoot) {
-        throw new Error('Set BYGONE_HOMEBREW_TAP to a local Homebrew tap checkout before publishing.');
-    }
-
-    const resolvedTapRoot = path.resolve(tapRoot);
-    if (!existsSync(path.join(resolvedTapRoot, '.git'))) {
-        throw new Error(`BYGONE_HOMEBREW_TAP must point at a git checkout: ${resolvedTapRoot}`);
+    if (!existsSync(path.join(homebrewTapRoot, '.git'))) {
+        throw new Error(`Homebrew tap checkout not found: ${homebrewTapRoot}. Set BYGONE_HOMEBREW_TAP to override it.`);
     }
 
     await run('npm', ['whoami']);
@@ -109,14 +146,8 @@ async function preflightPublish() {
 }
 
 async function publishHomebrewTap() {
-    const tapRoot = process.env.BYGONE_HOMEBREW_TAP;
-    if (!tapRoot) {
-        throw new Error('Set BYGONE_HOMEBREW_TAP to a local Homebrew tap checkout before using --publish.');
-    }
-
-    const resolvedTapRoot = path.resolve(tapRoot);
-    const formulaDir = path.join(resolvedTapRoot, 'Formula');
-    const caskDir = path.join(resolvedTapRoot, 'Casks');
+    const formulaDir = path.join(homebrewTapRoot, 'Formula');
+    const caskDir = path.join(homebrewTapRoot, 'Casks');
     const npmTarball = await packNpmTarball();
     const dmgPath = path.join(repoRoot, 'dist', `Bygone-${version}-arm64.dmg`);
 
@@ -141,9 +172,9 @@ async function publishHomebrewTap() {
     );
 
     await run('brew', ['style', path.join(formulaDir, 'bygone.rb'), path.join(caskDir, 'bygone-desktop.rb')]);
-    await run('git', ['-C', resolvedTapRoot, 'add', 'Formula/bygone.rb', 'Casks/bygone-desktop.rb']);
-    await run('git', ['-C', resolvedTapRoot, 'commit', '-m', `Update Bygone to ${version}`]);
-    await run('git', ['-C', resolvedTapRoot, 'push']);
+    await run('git', ['-C', homebrewTapRoot, 'add', 'Formula/bygone.rb', 'Casks/bygone-desktop.rb']);
+    await run('git', ['-C', homebrewTapRoot, 'commit', '-m', `Update Bygone to ${version}`]);
+    await run('git', ['-C', homebrewTapRoot, 'push']);
 }
 
 function renderHomebrewDefinition(contents, digest) {

@@ -28,6 +28,13 @@ gh auth status
 npm run release:publish
 ```
 
+Run this only after committing the version and release changes. The command
+aborts unless the worktree is clean and the current branch is `main`, pushes
+`main`, waits for that commit's GitHub Release Check workflow, rebuilds and
+installs the artifacts locally, then publishes npm, GitHub, and Homebrew.
+The Homebrew tap defaults to the sibling `homebrew-bygone` checkout; set
+`BYGONE_HOMEBREW_TAP` only when the tap is elsewhere.
+
 Upload `bygone-<version>.vsix` from the Visual Studio Marketplace publisher
 page. GitHub OIDC support has merged into `vsce`, but Marketplace has not yet
 exposed the trusted-publisher policy needed to authorize a workflow.
@@ -48,6 +55,9 @@ The main scripts are:
 - `npm run reinstall`
   - reinstalls the existing CLI, shell completions, VSIX, and desktop artifacts without rebuilding
 - `npm run release:publish`
+  - requires a clean `main` worktree
+  - pushes `main` and waits for that commit's GitHub Release Check workflow
+  - rebuilds and installs the release locally, including a graceful desktop restart
   - publishes npm
   - creates a GitHub release with desktop artifacts
   - updates and pushes the Homebrew tap

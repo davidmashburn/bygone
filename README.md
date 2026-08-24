@@ -210,7 +210,7 @@ Publishing is intentionally explicit:
 npm run release:publish
 ```
 
-`release:publish` publishes the npm package, creates a GitHub release for desktop artifacts, and updates a Homebrew tap. Set `BYGONE_HOMEBREW_TAP` to a local tap checkout before publishing Homebrew formulas. Until Marketplace trusted-publisher policies are publicly configurable, upload the packaged VSIX from the Visual Studio Marketplace publisher page.
+Run `release:publish` after committing the version and release changes. It aborts unless the worktree is clean and the current branch is `main`, pushes `main`, waits for that exact commit's GitHub Release Check workflow, rebuilds and installs all local artifacts, publishes the npm package, creates a GitHub release for desktop artifacts, and updates the Homebrew tap. The tap checkout defaults to the sibling `homebrew-bygone` directory; set `BYGONE_HOMEBREW_TAP` to override it. Until Marketplace trusted-publisher policies are publicly configurable, upload the packaged VSIX from the Visual Studio Marketplace publisher page.
 
 Reinstall the current built artifacts without rebuilding:
 

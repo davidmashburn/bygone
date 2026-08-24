@@ -2099,6 +2099,11 @@ function testReleasePrepInstallsAndGracefullyRestartsLocalArtifacts() {
     const devSyncSource = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'dev-sync.mjs'), 'utf8');
 
     assert.match(releaseSource, /for \(const \[command, commandArgs\] of buildSteps\)[\s\S]{0,500}npm', \['run', 'reinstall'\]/);
+    assert.match(releaseSource, /if \(shouldPublish\) \{\s+await preflightRepositoryState\(\);\s+await preflightPublish\(\);\s+await pushMainAndWaitForCi\(\);/);
+    assert.match(releaseSource, /git', \['status', '--porcelain'\][\s\S]{0,200}requires a clean worktree/);
+    assert.match(releaseSource, /git', \['branch', '--show-current'\][\s\S]{0,200}requires the main branch/);
+    assert.match(releaseSource, /git', \['push', 'origin', 'main'\][\s\S]{0,300}gh', \['run', 'watch', runId, '--exit-status'\]/);
+    assert.match(releaseSource, /process\.env\.BYGONE_HOMEBREW_TAP \|\| path\.join\(repoRoot, '\.\.', 'homebrew-bygone'\)/);
     assert.match(devSyncSource, /await requestMacDesktopQuit\(\);[\s\S]{0,300}await rm\(targetApp/);
     assert.match(devSyncSource, /tell application id .* to quit/);
     assert.match(devSyncSource, /Resolve or save unsaved changes/);
