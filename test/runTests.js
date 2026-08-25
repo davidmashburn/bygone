@@ -2104,6 +2104,10 @@ function testReleasePrepInstallsAndGracefullyRestartsLocalArtifacts() {
     assert.match(releaseSource, /git', \['branch', '--show-current'\][\s\S]{0,200}requires the main branch/);
     assert.match(releaseSource, /git', \['push', 'origin', 'main'\][\s\S]{0,300}gh', \['run', 'watch', runId, '--exit-status'\]/);
     assert.match(releaseSource, /process\.env\.BYGONE_HOMEBREW_TAP \|\| path\.join\(repoRoot, '\.\.', 'homebrew-bygone'\)/);
+    assert.match(releaseSource, /async function ensureNpmAuthenticated\(\)[\s\S]{0,400}npm', \['login', '--auth-type=web'\][\s\S]{0,150}npm', \['whoami'\]/);
+    assert.match(releaseSource, /if \(!\(await isPublishedNpmVersion\(npmPackagePath\)\)\) \{\s+await ensureNpmAuthenticated\(\);\s+await pauseForNpmPublish\(npmPackagePath\);\s+await run\('npm', \['publish'/);
+    assert.match(releaseSource, /Ready to publish \$\{pkg\.name\}@\$\{pkg\.version\}\. Press Enter to start the time-limited npm passkey flow/);
+    assert.match(releaseSource, /npm publishing requires an interactive terminal for passkey authentication/);
     assert.match(devSyncSource, /await requestMacDesktopQuit\(\);[\s\S]{0,300}await rm\(targetApp/);
     assert.match(devSyncSource, /tell application id .* to quit/);
     assert.match(devSyncSource, /Resolve or save unsaved changes/);

@@ -4,6 +4,7 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
+import { createInterface } from 'readline/promises';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(path.join(repoRoot, 'package.json'), 'utf8'));
@@ -67,6 +68,8 @@ async function publishArtifacts() {
     requireFile(path.join(npmPackagePath, 'package.json'), 'staged npm package');
 
     if (!(await isPublishedNpmVersion(npmPackagePath))) {
+        await ensureNpmAuthenticated();
+        await pauseForNpmPublish(npmPackagePath);
         await run('npm', ['publish', npmPackagePath, '--access', 'public']);
     } else {
         console.log(`\n$ npm publish ${npmPackagePath} --access public`);
@@ -141,8 +144,33 @@ async function preflightPublish() {
         throw new Error(`Homebrew tap checkout not found: ${homebrewTapRoot}. Set BYGONE_HOMEBREW_TAP to override it.`);
     }
 
-    await run('npm', ['whoami']);
+    await ensureNpmAuthenticated();
     await run('gh', ['auth', 'status']);
+}
+
+async function ensureNpmAuthenticated() {
+    try {
+        await run('npm', ['whoami']);
+    } catch {
+        console.log('\nnpm authentication is missing or expired. Starting browser login.');
+        await run('npm', ['login', '--auth-type=web']);
+        await run('npm', ['whoami']);
+    }
+}
+
+async function pauseForNpmPublish(packagePath) {
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+        throw new Error('npm publishing requires an interactive terminal for passkey authentication.');
+    }
+    const pkg = JSON.parse(await readFile(path.join(packagePath, 'package.json'), 'utf8'));
+    const prompt = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+        await prompt.question(
+            `\nReady to publish ${pkg.name}@${pkg.version}. Press Enter to start the time-limited npm passkey flow... `
+        );
+    } finally {
+        prompt.close();
+    }
 }
 
 async function publishHomebrewTap() {

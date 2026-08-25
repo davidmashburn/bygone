@@ -34,6 +34,10 @@ aborts unless the worktree is clean and the current branch is `main`, pushes
 installs the artifacts locally, then publishes npm, GitHub, and Homebrew.
 The Homebrew tap defaults to the sibling `homebrew-bygone` checkout; set
 `BYGONE_HOMEBREW_TAP` only when the tap is elsewhere.
+If npm authentication is missing, the command launches browser login. For an
+unpublished version, it checks authentication again and pauses immediately
+before `npm publish`; press Enter only when ready to complete npm's time-limited
+passkey prompt.
 
 Upload `bygone-<version>.vsix` from the Visual Studio Marketplace publisher
 page. GitHub OIDC support has merged into `vsce`, but Marketplace has not yet
@@ -58,6 +62,7 @@ The main scripts are:
   - requires a clean `main` worktree
   - pushes `main` and waits for that commit's GitHub Release Check workflow
   - rebuilds and installs the release locally, including a graceful desktop restart
+  - logs into npm when needed and pauses immediately before the interactive npm publish challenge
   - publishes npm
   - creates a GitHub release with desktop artifacts
   - updates and pushes the Homebrew tap
