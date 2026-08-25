@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.8.12
+
+- Fixed stacked-tour comparison switching so Monaco panes redraw immediately without requiring a window resize
+- Added right-click file-path copying across pane titles, comparison summaries, tour and navigation sidebars, directory rows, and search results
+- Showed the complete value on hover whenever non-editor text is visually truncated
+- Made release publishing require a clean `main`, push and wait for CI on the exact commit, rebuild and install all local artifacts, gracefully restart the desktop app, and then publish npm, GitHub, and Homebrew
+
 ## 0.8.11
 
 - Fixed stacked-tour slide navigation so each step focuses the authored change when adjacent commit pairs contribute changes to the same panel
