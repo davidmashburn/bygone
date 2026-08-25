@@ -2108,6 +2108,9 @@ function testReleasePrepInstallsAndGracefullyRestartsLocalArtifacts() {
     assert.match(releaseSource, /if \(!\(await isPublishedNpmVersion\(npmPackagePath\)\)\) \{\s+await ensureNpmAuthenticated\(\);\s+await pauseForNpmPublish\(npmPackagePath\);\s+await run\('npm', \['publish'/);
     assert.match(releaseSource, /Ready to publish \$\{pkg\.name\}@\$\{pkg\.version\}\. Press Enter to start the time-limited npm passkey flow/);
     assert.match(releaseSource, /npm publishing requires an interactive terminal for passkey authentication/);
+    assert.match(releaseSource, /printMarketplaceUploadLinks\(\);/);
+    assert.match(releaseSource, /https:\/\/marketplace\.visualstudio\.com\/manage\/publishers\/\$\{encodeURIComponent\(packageJson\.publisher\)\}/);
+    assert.match(releaseSource, /VSIX file: \$\{pathToFileURL\(vsixPath\)\.href\}/);
     assert.match(devSyncSource, /await requestMacDesktopQuit\(\);[\s\S]{0,300}await rm\(targetApp/);
     assert.match(devSyncSource, /tell application id .* to quit/);
     assert.match(devSyncSource, /Resolve or save unsaved changes/);

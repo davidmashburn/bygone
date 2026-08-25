@@ -3,7 +3,7 @@ import { mkdir, readFile, readdir, rm, symlink, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { createInterface } from 'readline/promises';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -58,8 +58,8 @@ if (shouldPublish) {
     console.log('');
     console.log(`Built Bygone ${version} artifacts without publishing.`);
     console.log('Pass --publish to publish npm, GitHub desktop artifacts, and a Homebrew tap update.');
-    console.log('Publish the VS Code extension from the Visual Studio Marketplace publisher page.');
 }
+printMarketplaceUploadLinks();
 
 async function publishArtifacts() {
     const npmPackagePath = path.join(repoRoot, 'dist', 'npm-package');
@@ -171,6 +171,14 @@ async function pauseForNpmPublish(packagePath) {
     } finally {
         prompt.close();
     }
+}
+
+function printMarketplaceUploadLinks() {
+    const publisherUrl = `https://marketplace.visualstudio.com/manage/publishers/${encodeURIComponent(packageJson.publisher)}`;
+    const vsixPath = path.join(repoRoot, `${packageJson.name}-${version}.vsix`);
+    console.log('\nVisual Studio Marketplace upload:');
+    console.log(`Publisher page: ${publisherUrl}`);
+    console.log(`VSIX file: ${pathToFileURL(vsixPath).href}`);
 }
 
 async function publishHomebrewTap() {
