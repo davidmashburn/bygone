@@ -477,6 +477,7 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(rendererSource, /currentTwoWayComparisonKey = comparisonKey;\s+currentTourAnnotations = tourAnnotations;/);
     assert.match(rendererSource, /function setActiveDiffIndex[\s\S]{0,300}applyDiffDecorations\(currentDiffModel, currentTourAnnotations\)/);
     assert.match(rendererSource, /function showTwoWayDiff[\s\S]{0,2600}applyTwoWayRenderTransition\(\{[\s\S]{0,700}updateEditorValues\(leftContent, rightContent,[\s\S]{0,250}activeDiffIndex = nextResolvedDiffIndex[\s\S]{0,300}applyDiffDecorations\(suppliedDiffModel, currentTourAnnotations\)/);
+    assert.match(rendererSource, /const nextActiveDiffIndex = Number\.isInteger\(initialChangeIndex\)[\s\S]{0,100}\? initialChangeIndex[\s\S]{0,100}: comparisonChanged[\s\S]{0,100}\? 0[\s\S]{0,100}: activeDiffIndex/);
     assert.doesNotMatch(rendererSource, /function showTwoWayDiff[\s\S]{0,1400}setActiveDiffIndex\(/);
     assert.match(rendererSource, /className: tourAnnotation\.active \? 'bygone-tour-anchor' : 'bygone-tour-anchor-inactive'/);
     assert.match(rendererSource, /glyphMarginClassName: 'bygone-tour-anchor-gutter'/);

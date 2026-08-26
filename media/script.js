@@ -513,7 +513,11 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     }
     const suppliedDiffModel = diffModel || { rows: [], leftLines: [], rightLines: [], blocks: [], hasChanges: false };
     setCurrentDiffModel(suppliedDiffModel);
-    const nextActiveDiffIndex = comparisonChanged ? (initialChangeIndex ?? 0) : activeDiffIndex;
+    const nextActiveDiffIndex = Number.isInteger(initialChangeIndex)
+        ? initialChangeIndex
+        : comparisonChanged
+            ? 0
+            : activeDiffIndex;
     const nextResolvedDiffIndex = diffBlocks.length > 0 ? clamp(nextActiveDiffIndex, 0, diffBlocks.length - 1) : -1;
     directoryEntries = [];
     disposeMultiEditors();
