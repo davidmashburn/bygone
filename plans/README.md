@@ -38,6 +38,9 @@ grew out of an earlier concept.
   add Windows and Linux native associations when packaging support is ready.
 - [Focused multi-panel strip](focused-multi-panel-strip.md) — profile unusually
   large stacks and retain the interaction QA matrix for future renderer work.
+- [Deconstructed diffs](deconstructed-diffs.md) — keep multi-file explanation
+  stages in their active comparison, add comparison-local file states and
+  navigation, and generate persistent file/range tour markers.
 
 ## Completed plans and design references
 
@@ -53,5 +56,4 @@ status headings identify the release outcome; they are not queued work.
 - [Text wrap option](text-wrap-option.md)
 - [Tour coverage and depth](tour-coverage-and-depth.md)
 - [Multi-panel diff tours for stacked PRs](multi-panel-diff-tours-for-stacked-prs.md)
-- [Deconstructed diffs](deconstructed-diffs.md)
 - [0.8 product implementation roadmap](implementation-roadmap.md)

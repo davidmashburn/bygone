@@ -4,7 +4,149 @@
 
 Implemented on `main`, with checked-in open-source examples, exact final-state
 validation, and authoring guidance that labels synthetic content as
-explanation stages rather than commits.
+explanation stages rather than commits. An active follow-up will make
+multi-file explanation stages comparison-local, add deconstructed tour
+markers, and expand stages into useful file and range focus slides.
+
+## Active follow-up: comparison-local stage navigation
+
+### Problem
+
+The first implementation treats each authored deconstructed stage as one tour
+slide focused on the first file introduced by that stage. Deconstructed scenes
+therefore lack the persistent tour markers available in walkthrough and
+stacked scenes, and stages that introduce several files do not narratively
+visit the remaining files.
+
+The shared file chevrons also navigate the tour-wide file inventory. In a
+stacked or deconstructed scene this can switch comparisons rather than moving
+among files changed by the active adjacent-panel pair. File-list selection has
+the same conceptual problem when it leaves the active scene to find another
+covering scene.
+
+### Behavior contract
+
+Treat the active adjacent-panel pair as one **Comparison**. While a stacked or
+deconstructed comparison is active:
+
+- Every renderable tour file has a state for both sides of the active pair.
+  Unsupported and intentionally omitted files remain non-renderable.
+- Classify each renderable file as **Modified here**, **Created here**,
+  **Deleted here**, **Unchanged here**, **Not created yet**, or **Already
+  deleted**.
+- Clicking a file preserves the active scene, stage, and panel pair. A changed
+  file shows its real pair diff; an unchanged or absent file shows an empty
+  comparison in the same lane. File selection never jumps to another scene or
+  comparison.
+- The double chevrons visit only modified, created, or deleted files in the
+  active comparison. They skip empty comparisons, preserve the panel pair, and
+  stop at that comparison's boundaries.
+- The file list communicates the six classifications in visible text or
+  accessible labels while keeping current-file and tour-focus indicators
+  distinct from change state.
+
+Creation and deletion are changes, not empty states. A created-file marker is
+placed on the right/new panel; a deleted-file marker is placed on the left/old
+panel. When a file is absent on both sides, inspect its surrounding virtual
+states to distinguish **Not created yet** from **Already deleted**.
+
+Non-multi-panel tour views retain their existing file-navigation behavior.
+
+### Focus slides and tour markers
+
+Keep the authored `.bygone` stage model unchanged. Compilation expands each
+stage into ordered focus slides:
+
+- Generate at least one slide for every file changed by the stage.
+- Use introduced hunks as the initial focus ranges and group nearby hunks when
+  separate slides would add no useful movement.
+- Cap automatically generated focus slides at four per file.
+- For a very large single hunk, split it into a small number of useful ranges
+  at blank-line boundaries where possible. Keep the thresholds as named,
+  tested compiler constants rather than new author-facing schema.
+- Preserve authored file and hunk order.
+
+Each focus slide receives a persistent clickable tour marker. Modified and
+created ranges use the right/new panel; deleted ranges use the left/old panel.
+Only the current slide's marker receives active emphasis, while the remaining
+markers stay visible and clickable.
+
+Linear navigation, narration, URL restoration, and visible labels keep the
+slides grouped under their authored Comparison Stage:
+
+```text
+Stage 1 · file/range 1 → Stage 1 · file/range 2 → Stage 2 · file/range 1
+```
+
+### Proposed implementation
+
+1. **Complete scene-local file states.** Extend stacked and deconstructed
+   compilation so every renderable tour file can be shown at every panel in
+   the scene, within the existing file and total-content limits. Reuse the
+   deconstructed materializer's existing cumulative states rather than
+   reconstructing them in the presenter.
+2. **Centralize comparison classification.** Add pure navigation helpers that
+   classify existence/content across a panel pair and return the previous or
+   next changed file. Use the same result for chevrons, file-list labels, and
+   empty-comparison selection.
+3. **Expand deconstructed steps.** Preserve the original stage ID on its first
+   focus slide and assign deterministic suffixes to additional slides. Allow
+   several ordered steps to share one stage/pair index while retaining support
+   for existing manifests with one step per stage.
+4. **Generalize multi-panel annotations.** Build annotations for both stacked
+   and deconstructed steps, resolve each focus range against its file and pair,
+   and select the existing side for additions and deletions.
+5. **Keep presenter state in lane.** Replace tour-wide file targets with the
+   active comparison's changed-file targets for multi-panel chevrons. File-list
+   clicks render the selected file against the current pair without changing
+   the narrative position.
+6. **Render classification accessibly.** Add restrained file-list markers and
+   labels for the six states without overloading active-file or tour-focus
+   styling.
+
+### Compatibility and scope
+
+- Do not change the authored deconstructed-stage schema.
+- Continue accepting compiled manifests that contain one step per stage.
+- Do not change file navigation in ordinary two-way or walkthrough scenes.
+- Do not make binary, submodule, oversized, or otherwise omitted files
+  renderable as empty text comparisons.
+- Do not add cross-scene file jumps to multi-panel file selection.
+- Do not redesign the panel strip, narration transport, or global tour rail.
+
+### Validation
+
+Add regression coverage for:
+
+- stages containing several files and several useful focus ranges;
+- deterministic focus ordering, grouping, caps, and large-hunk splitting;
+- old one-step-per-stage manifest validation and URL restoration;
+- all six file classifications, including creation, deletion, and absence on
+  both sides;
+- same-lane file selection for changed and empty comparisons;
+- comparison-local previous/next changed-file targets and boundary behavior;
+- right-side created markers, left-side deleted markers, persistent inactive
+  markers, and marker-driven slide navigation; and
+- accessible file-list state without conflating selection, tour focus, and
+  comparison status.
+
+Run type checking, compilation, the full test suite, lint, diff checks, and a
+browser-hosted deconstructed-tour walkthrough covering multi-file stages,
+empty comparisons, creation, deletion, and a large added file.
+
+### Follow-up acceptance criteria
+
+- A multi-file deconstructed stage visits every changed file and may use more
+  than one useful focus slide for a file without exceeding the automatic cap.
+- Deconstructed focus slides show persistent clickable tour markers on the
+  correct side of the comparison.
+- File-list clicks never change the active multi-panel comparison and cleanly
+  show empty comparisons for unchanged or absent files.
+- Double chevrons remain in the active comparison and visit exactly its
+  modified, created, and deleted files.
+- File classifications are understandable visually and through accessible
+  names.
+- Existing authored sources and one-step compiled manifests remain valid.
 
 ## Goal
 
