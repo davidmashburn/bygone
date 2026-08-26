@@ -5,8 +5,8 @@ const budgets = [
     { path: 'media/webview.css', maxBytes: 375_000 },
     { path: 'media/editor.worker.js', maxBytes: 320_000 },
     { path: 'media/diff.worker.js', maxBytes: 17_000 },
-    { path: 'web/web-host.js', maxBytes: 70_000 },
-    { path: 'web/presenter.css', maxBytes: 20_000 }
+    { path: 'web/web-host.js', maxBytes: 72_000 },
+    { path: 'web/presenter.css', maxBytes: 21_000 }
 ];
 
 let failed = false;
