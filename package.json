@@ -4,7 +4,7 @@
   "displayName": "Bygone",
   "desktopName": "com.davidmashburn.bygone.desktop",
   "description": "See how change happened. Visual diff and file history for VS Code.",
-  "version": "0.8.12",
+  "version": "0.8.13",
   "author": "David Mashburn",
   "license": "MIT",
   "private": false,
