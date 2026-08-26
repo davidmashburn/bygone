@@ -4,6 +4,7 @@ import {
     CHANGE_TOUR_MANIFEST_VERSION,
     ChangeTourChapter,
     ChangeTourDeconstructedScene,
+    ChangeTourDeconstructedStep,
     ChangeTourDiffScene,
     ChangeTourFile,
     ChangeTourManifest,
@@ -16,6 +17,8 @@ import {
 } from './changeTourManifest';
 import { ChangeTourSource, parseChangeTourSource } from './changeTourSource';
 import { buildDeconstructedScene } from './deconstructedChange';
+import { buildTwoWayDiffModel } from './diffEngine';
+import { buildTourFocusRanges } from './tourAnnotations';
 
 export { parseChangeTourManifest, parseChangeTourStory } from './changeTourManifest';
 export { parseChangeTourSource } from './changeTourSource';
@@ -207,7 +210,8 @@ function applySource(
                     repoRoot,
                     authoredScene,
                     authoredScene.base || source.range?.base,
-                    authoredScene.target || source.range?.head
+                    authoredScene.target || source.range?.head,
+                    [...available.keys()]
                 );
                 scenes.push(deconstructedScene);
                 sceneIds.push(deconstructedScene.id);
@@ -259,7 +263,8 @@ function buildDeconstructedManifestScene(
     repoRoot: string,
     source: Extract<ChangeTourSource['chapters'][number]['scenes'][number], { kind: 'deconstructed-diff' }>,
     baseRef?: string,
-    targetRef?: string
+    targetRef?: string,
+    availableFilePaths: readonly string[] = []
 ): ChangeTourDeconstructedScene {
     const compiled = buildDeconstructedScene(repoRoot, source, { baseRef, headRef: targetRef });
     const panels = [{
@@ -272,9 +277,19 @@ function buildDeconstructedManifestScene(
         role: 'stage' as const,
         stageId: stage.id
     }))];
-    const includedPaths = [...new Set(compiled.stages.flatMap((stage) => stage.introducedFiles))];
+    const materializablePaths = new Set(compiled.baselineFiles.map((file) => file.path));
+    const includedPaths = availableFilePaths.length > 0
+        ? availableFilePaths.filter((filePath) => materializablePaths.has(filePath)).sort()
+        : [...materializablePaths].sort();
+    const missingIntroducedPath = compiled.stages
+        .flatMap((stage) => stage.introducedFiles)
+        .find((filePath) => !includedPaths.includes(filePath));
+    if (missingIntroducedPath) {
+        throw new Error(`Deconstructed tour file is not renderable: ${missingIntroducedPath}`);
+    }
+    const introducedPaths = new Set(compiled.stages.flatMap((stage) => stage.introducedFiles));
     let totalContentBytes = 0;
-    const files = includedPaths.map((filePath) => {
+    const files = includedPaths.flatMap((filePath) => {
         const states = [
             compiled.baselineFiles.find((file) => file.path === filePath),
             ...compiled.stages.map((stage) => stage.files.find((file) => file.path === filePath))
@@ -282,18 +297,27 @@ function buildDeconstructedManifestScene(
         if (states.some((state) => !state)) {
             throw new Error(`Deconstructed scene ${source.id} is missing virtual state for ${filePath}.`);
         }
-        return {
+        const fileContentBytes = states.reduce((total, state) => (
+            total + Buffer.byteLength(state?.content || '', 'utf8')
+        ), 0);
+        const exceedsFileLimit = states.some((state) => {
+            const content = Buffer.from(state?.content || '', 'utf8');
+            return content.length > DEFAULT_MAX_TOUR_FILE_BYTES || hasLineLongerThan(content, DEFAULT_MAX_TOUR_LINE_BYTES);
+        });
+        const exceedsSceneLimit = totalContentBytes + fileContentBytes > DEFAULT_MAX_STACK_CONTENT_BYTES;
+        if (exceedsFileLimit || exceedsSceneLimit) {
+            if (introducedPaths.has(filePath)) {
+                throw new Error(exceedsFileLimit
+                    ? `Deconstructed tour file is too large to present: ${filePath}`
+                    : `Deconstructed tour content exceeds ${DEFAULT_MAX_STACK_CONTENT_BYTES} bytes.`);
+            }
+            return [];
+        }
+        totalContentBytes += fileContentBytes;
+        return [{
             path: filePath,
             panels: states.map((state, index) => {
                 if (!state) throw new Error(`Missing virtual state for ${filePath}.`);
-                const content = Buffer.from(state.content, 'utf8');
-                if (content.length > DEFAULT_MAX_TOUR_FILE_BYTES || hasLineLongerThan(content, DEFAULT_MAX_TOUR_LINE_BYTES)) {
-                    throw new Error(`Deconstructed tour file is too large to present: ${filePath}`);
-                }
-                totalContentBytes += content.length;
-                if (totalContentBytes > DEFAULT_MAX_STACK_CONTENT_BYTES) {
-                    throw new Error(`Deconstructed tour content exceeds ${DEFAULT_MAX_STACK_CONTENT_BYTES} bytes.`);
-                }
                 return {
                     id: panels[index].id,
                     label: `${panels[index].label} / ${filePath}${state.exists ? '' : ' (absent)'}`,
@@ -302,9 +326,10 @@ function buildDeconstructedManifestScene(
                     exists: state.exists
                 };
             })
-        };
+        }];
     });
     if (files.length === 0) throw new Error(`Deconstructed scene ${source.id} has no staged files.`);
+    const steps = buildDeconstructedFocusSteps(source.id, compiled.stages, files);
     return {
         id: source.id,
         kind: 'deconstructed-diff',
@@ -322,16 +347,77 @@ function buildDeconstructedManifestScene(
         },
         panels,
         files,
-        steps: compiled.stages.map((stage, index) => ({
-            id: stage.id,
-            title: stage.title,
-            body: stage.narration,
-            file: stage.introducedFiles[0],
-            pairIndex: index,
-            side: 'right',
-            introducedHunks: stage.introducedHunks
-        }))
+        steps
     };
+}
+
+function buildDeconstructedFocusSteps(
+    sceneId: string,
+    stages: ReturnType<typeof buildDeconstructedScene>['stages'],
+    files: ChangeTourDeconstructedScene['files']
+): ChangeTourDeconstructedStep[] {
+    const reservedIds = new Set(stages.map((stage) => stage.id));
+    const usedIds = new Set<string>();
+    return stages.flatMap((stage, stageIndex) => {
+        const focuses = stage.introducedChanges.flatMap((change) => {
+            const file = files.find((candidate) => candidate.path === change.file);
+            const left = file?.panels[stageIndex];
+            const right = file?.panels[stageIndex + 1];
+            if (!file || !left || !right) {
+                throw new Error(`Deconstructed scene ${sceneId} is missing comparison state for ${change.file}.`);
+            }
+            const diffModel = buildTwoWayDiffModel(left.content, right.content);
+            const side = left.exists && !right.exists ? 'left' as const : 'right' as const;
+            const ranges = buildTourFocusRanges(diffModel, side);
+            if (ranges.length === 0) {
+                throw new Error(`Deconstructed stage ${stage.id} has no visible change for ${change.file}.`);
+            }
+            return ranges.map((range) => ({
+                file: change.file,
+                hunks: change.hunks,
+                side,
+                ...range
+            }));
+        });
+        return focuses.map((focus, focusIndex) => ({
+            id: focusIndex === 0
+                ? claimDeconstructedStageId(stage.id, usedIds)
+                : claimDeconstructedFocusId(`${stage.id}-focus-${focusIndex + 1}`, reservedIds, usedIds),
+            title: focuses.length === 1
+                ? stage.title
+                : `${stage.title} · ${focus.file} · Focus ${focusIndex + 1}/${focuses.length}`,
+            body: stage.narration,
+            file: focus.file,
+            pairIndex: stageIndex,
+            side: focus.side,
+            startLine: focus.startLine,
+            endLine: focus.endLine,
+            introducedHunks: [...focus.hunks],
+            stageId: stage.id,
+            stageIndex,
+            focusIndex,
+            focusCount: focuses.length
+        }));
+    });
+}
+
+function claimDeconstructedStageId(stageId: string, usedIds: Set<string>): string {
+    usedIds.add(stageId);
+    return stageId;
+}
+
+function claimDeconstructedFocusId(
+    preferredId: string,
+    reservedIds: ReadonlySet<string>,
+    usedIds: Set<string>
+): string {
+    let candidate = preferredId;
+    let suffix = 2;
+    while (usedIds.has(candidate) || reservedIds.has(candidate)) {
+        candidate = `${preferredId}-${suffix++}`;
+    }
+    usedIds.add(candidate);
+    return candidate;
 }
 
 function buildStackedScene(

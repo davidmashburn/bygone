@@ -2,8 +2,9 @@ import { buildTwoWayDiffModel } from '../src/diffEngine.ts';
 import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
 import {
+    classifyMultiPanelFile,
     getLinearTourTarget,
-    getMultiPanelTourFileTarget,
+    getMultiPanelChangedFileTarget,
     getTourFileTarget,
     resolveTourPosition
 } from '../src/tourNavigation.ts';
@@ -730,7 +731,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
                     ['tour-scene-path', scene.kind === 'text-diff'
                         ? scene.path
                         : scene.kind === 'deconstructed-diff'
-                            ? formatCount(scene.steps.length, 'explanation stage')
+                            ? `${formatCount(scene.panels.length - 1, 'comparison stage')} · ${formatCount(scene.steps.length, 'tour slide')}`
                             : isSteppedTourScene(scene)
                                 ? formatCount(scene.steps.length, 'code step')
                                 : 'Discussion'],
@@ -933,7 +934,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
     }
 
     function emitMultiPanelFile(scene, filePath, step) {
-        const file = scene.files.find((candidate) => candidate.path === filePath);
+        const file = getMultiPanelFile(scene, filePath);
         if (!step || !file) return;
         state.activeTourFilePath = file.path;
         updateTourFileSelection();
@@ -952,9 +953,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
             rightIndex: index + 1,
             diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
         }));
-        const tourAnnotations = scene.kind === 'stacked-diff'
-            ? buildStackedTourAnnotationsForFile(file.path, pairs)
-            : [];
+        const tourAnnotations = buildStackedTourAnnotationsForFile(file.path, pairs);
         const activeAnnotation = tourAnnotations.find((annotation) => annotation.active);
         const focusPairIndex = activeAnnotation?.pairIndex ?? step.pairIndex;
         const focusSide = activeAnnotation?.side ?? step.side;
@@ -1012,6 +1011,25 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         if (!tour || (direction !== -1 && direction !== 1)) {
             return null;
         }
+        const scene = tour.scenes[state.activeSceneIndex];
+        if (isMultiPanelTourScene(scene)) {
+            const pairIndex = scene.steps[state.activeStepIndex]?.pairIndex;
+            if (!Number.isInteger(pairIndex)) return null;
+            const comparisonFiles = tour.files.flatMap((file) => {
+                if (file.kind !== 'text-diff') return [];
+                const comparisonFile = getMultiPanelFile(scene, file.path);
+                return comparisonFile ? [comparisonFile] : [];
+            });
+            const target = getMultiPanelChangedFileTarget(
+                comparisonFiles,
+                pairIndex,
+                state.activeTourFilePath,
+                direction
+            );
+            if (!target) return null;
+            const fileIndex = tour.files.findIndex((file) => file.kind === 'text-diff' && file.path === target.path);
+            return fileIndex >= 0 ? { fileIndex, path: target.path } : null;
+        }
         return getTourFileTarget(tour.files, state.activeTourFilePath, direction);
     }
 
@@ -1038,25 +1056,34 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         const selected = state.tour?.files[index];
         if (!selected || selected.kind !== 'text-diff') return false;
         narrationController.interruptForExploration();
-        if (selected?.kind === 'text-diff' && state.tour) {
-            const target = getMultiPanelTourFileTarget(
-                state.tour.scenes,
-                {
-                    sceneIndex: state.activeSceneIndex,
-                    stepIndex: state.activeStepIndex
-                },
-                selected.path
-            );
-            if (target) {
-                const scene = state.tour.scenes[target.sceneIndex];
-                const step = isMultiPanelTourScene(scene) ? scene.steps[target.stepIndex] : null;
-                if (step) {
-                    emitMultiPanelFile(scene, selected.path, step);
-                    return true;
-                }
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        if (isMultiPanelTourScene(scene)) {
+            const step = scene.steps[state.activeStepIndex];
+            if (step && getMultiPanelFile(scene, selected.path)) {
+                emitMultiPanelFile(scene, selected.path, step);
+                return true;
             }
+            return false;
         }
         return showTourFileAtIndex(index, false);
+    }
+
+    function getMultiPanelFile(scene, filePath) {
+        const file = scene?.files?.find((candidate) => candidate.path === filePath);
+        if (file || scene?.kind !== 'deconstructed-diff') return file;
+        const tourFile = state.tour?.files.find((candidate) => candidate.kind === 'text-diff' && candidate.path === filePath);
+        if (!tourFile || tourFile.kind !== 'text-diff') return null;
+        const exists = tourFile.changeKind !== 'deleted';
+        return {
+            path: tourFile.path,
+            panels: getMultiPanelDefinitions(scene).map((panel) => ({
+                id: panel.id,
+                label: `${panel.label} / ${tourFile.path}${exists ? '' : ' (absent)'}`,
+                path: exists ? tourFile.path : undefined,
+                content: exists ? tourFile.rightContent : '',
+                exists
+            }))
+        };
     }
 
     function returnToTourFocus() {
@@ -1077,15 +1104,59 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
     }
 
     function updateTourFileSelection() {
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        const step = isMultiPanelTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
         document.querySelectorAll('.tour-file').forEach((button) => {
-            button.classList.toggle('is-active', button.dataset.filePath === state.activeTourFilePath);
-            button.classList.toggle('is-tour-focus', button.dataset.filePath === state.tourFocusFilePath);
+            const filePath = button.dataset.filePath;
+            button.classList.toggle('is-active', filePath === state.activeTourFilePath);
+            button.classList.toggle('is-tour-focus', filePath === state.tourFocusFilePath);
+            button.classList.remove('is-comparison-changed', 'is-comparison-empty');
+            delete button.dataset.comparisonState;
+            const tourFile = state.tour?.files.find((file) => file.path === filePath);
+            const marker = button.querySelector('.tour-file-marker');
+            const meta = button.querySelector('.tour-file-meta');
+            if (step && tourFile?.kind === 'text-diff') {
+                const comparisonFile = getMultiPanelFile(scene, filePath);
+                if (comparisonFile) {
+                    const comparisonState = classifyMultiPanelFile(comparisonFile, step.pairIndex);
+                    const presentation = getComparisonFileStatePresentation(comparisonState);
+                    button.dataset.comparisonState = comparisonState;
+                    button.classList.add(presentation.changed ? 'is-comparison-changed' : 'is-comparison-empty');
+                    button.setAttribute('title', `${tourFile.path} · ${presentation.label}`);
+                    button.setAttribute('aria-label', `${tourFile.path}, ${presentation.label}`);
+                    if (marker) marker.textContent = presentation.marker;
+                    if (meta) meta.textContent = presentation.label;
+                    return;
+                }
+            }
+            if (tourFile) {
+                const title = tourFile.kind === 'omitted'
+                    ? `${tourFile.path}: ${tourFile.reason}`
+                    : `Open file: ${tourFile.path}`;
+                button.setAttribute('title', title);
+                button.setAttribute('aria-label', title);
+                if (marker) marker.textContent = tourFile.kind === 'omitted' ? '×' : changeKindMarker(tourFile.changeKind);
+                if (meta) meta.textContent = tourFile.kind === 'omitted'
+                    ? `Not rendered · ${tourFile.reason}`
+                    : `${formatChangeKind(tourFile.changeKind)} · +${tourFile.additions} −${tourFile.deletions}`;
+            }
         });
         document.querySelector(`.tour-file.is-active`)?.scrollIntoView({ block: 'nearest' });
         const returnButton = document.getElementById('tour-return-focus');
         if (returnButton) {
             returnButton.hidden = !state.tourFocusFilePath || state.activeTourFilePath === state.tourFocusFilePath;
         }
+    }
+
+    function getComparisonFileStatePresentation(comparisonState) {
+        return ({
+            'modified-here': { label: 'Modified here', marker: '•', changed: true },
+            'created-here': { label: 'Created here', marker: '+', changed: true },
+            'deleted-here': { label: 'Deleted here', marker: '−', changed: true },
+            'unchanged-here': { label: 'Unchanged here', marker: '○', changed: false },
+            'not-created-yet': { label: 'Not created yet', marker: '…', changed: false },
+            'already-deleted': { label: 'Already deleted', marker: '×', changed: false }
+        })[comparisonState];
     }
 
     function isSteppedTourScene(scene) {
@@ -1095,7 +1166,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
     }
 
     function isMultiPanelTourScene(scene) {
-        return scene.kind === 'stacked-diff' || scene.kind === 'deconstructed-diff';
+        return scene?.kind === 'stacked-diff' || scene?.kind === 'deconstructed-diff';
     }
 
     function getMultiPanelDefinitions(scene) {

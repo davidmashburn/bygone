@@ -530,6 +530,18 @@ body.tour-discussion .tour-narrative-resizer {
     text-align: center;
 }
 
+.tour-file.is-comparison-changed .tour-file-marker {
+    color: #8ed6a5;
+    font-weight: 800;
+}
+
+.tour-file.is-comparison-changed .tour-file-meta { color: #a9d9b7; }
+
+.tour-file.is-comparison-empty .tour-file-path { color: var(--tour-muted); }
+
+.tour-file.is-comparison-empty .tour-file-marker,
+.tour-file.is-comparison-empty .tour-file-meta { color: var(--tour-faint); }
+
 .tour-file.is-tour-focus .tour-file-marker { color: var(--tour-accent-bright); }
 
 .tour-file-copy,

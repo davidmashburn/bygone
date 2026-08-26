@@ -127,6 +127,10 @@ export interface ChangeTourVirtualPanel {
 
 export interface ChangeTourDeconstructedStep extends ChangeTourStackStep {
     introducedHunks: string[];
+    stageId?: string;
+    stageIndex?: number;
+    focusIndex?: number;
+    focusCount?: number;
 }
 
 export interface ChangeTourDeconstructedScene extends ChangeTourNarrative {
@@ -399,16 +403,42 @@ function validateDeconstructedScene(value: Record<string, unknown>, index: numbe
     }
     validateMultiPanelFiles(value.files, panels.length, index);
     validateMultiPanelSteps(value.steps, panels.length, index, true);
-    if (Array.isArray(value.steps) && value.steps.length !== panels.length - 1) {
-        throw new Error(`scenes[${index}].steps must match the number of explanation stages.`);
-    }
     if (Array.isArray(value.steps)) {
+        let previousPairIndex = -1;
         value.steps.forEach((step, stepIndex) => {
-            const panel = panels[stepIndex + 1];
-            if (!isRecord(step) || !isRecord(panel) || panel.stageId !== step.id) {
-                throw new Error(`scenes[${index}].panels must align with explanation stage ids.`);
+            if (!isRecord(step)) return;
+            const pairIndex = Number(step.pairIndex);
+            if (pairIndex < previousPairIndex) {
+                throw new Error(`scenes[${index}].steps must remain grouped in explanation stage order.`);
+            }
+            previousPairIndex = pairIndex;
+            if (step.stageId !== undefined) requireString(step.stageId, `scenes[${index}].steps[${stepIndex}].stageId`);
+            if (step.stageIndex !== undefined) requireNonNegativeInteger(step.stageIndex, `scenes[${index}].steps[${stepIndex}].stageIndex`);
+            if (step.focusIndex !== undefined) requireNonNegativeInteger(step.focusIndex, `scenes[${index}].steps[${stepIndex}].focusIndex`);
+            if (step.focusCount !== undefined) requirePositiveInteger(step.focusCount, `scenes[${index}].steps[${stepIndex}].focusCount`);
+            if (step.stageIndex !== undefined && Number(step.stageIndex) !== pairIndex) {
+                throw new Error(`scenes[${index}].steps[${stepIndex}].stageIndex must match pairIndex.`);
+            }
+            if (step.focusIndex !== undefined && step.focusCount !== undefined
+                && Number(step.focusIndex) >= Number(step.focusCount)) {
+                throw new Error(`scenes[${index}].steps[${stepIndex}].focusIndex must be less than focusCount.`);
             }
         });
+        for (let stageIndex = 0; stageIndex < panels.length - 1; stageIndex += 1) {
+            const panel = panels[stageIndex + 1];
+            const stageSteps = value.steps.filter((step) => isRecord(step) && Number(step.pairIndex) === stageIndex);
+            if (!isRecord(panel) || stageSteps.length === 0) {
+                throw new Error(`scenes[${index}].steps must cover every explanation stage.`);
+            }
+            const firstStep = stageSteps[0];
+            const fallbackStageId = isRecord(firstStep) ? firstStep.id : undefined;
+            if (stageSteps.some((step) => {
+                if (!isRecord(step)) return true;
+                return (step.stageId ?? fallbackStageId) !== panel.stageId;
+            })) {
+                throw new Error(`scenes[${index}].panels must align with explanation stage ids.`);
+            }
+        }
     }
 }
 
@@ -439,7 +469,6 @@ function validateMultiPanelSteps(value: unknown, panelCount: number, index: numb
         if (deconstructed) {
             requireStringArray(step.introducedHunks, `scenes[${index}].steps[${stepIndex}].introducedHunks`);
             if (step.introducedHunks.length === 0) throw new Error(`scenes[${index}].steps[${stepIndex}].introducedHunks must be non-empty.`);
-            if (Number(step.pairIndex) !== stepIndex) throw new Error(`scenes[${index}].steps[${stepIndex}].pairIndex must match its explanation stage.`);
         }
         if (step.side !== 'left' && step.side !== 'right') throw new Error(`scenes[${index}].steps[${stepIndex}].side must be left or right.`);
         if (step.startLine !== undefined) requirePositiveInteger(step.startLine, `scenes[${index}].steps[${stepIndex}].startLine`);

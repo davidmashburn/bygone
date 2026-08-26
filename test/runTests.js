@@ -73,6 +73,8 @@ const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
 const { readTourSourceDocument } = require('../cli/tourFile.js');
 const { resolveWorkingDirectory } = require('../cli/workingDirectory.js');
 const {
+    classifyMultiPanelFile,
+    getMultiPanelChangedFileTarget,
     getLinearTourTarget,
     getMultiPanelTourFileTarget,
     getTourFileTarget,
@@ -353,6 +355,43 @@ function testTourFileNavigationUsesCompleteRenderableFileIndex() {
     assert.equal(getTourFileTarget(files, null, 1), null);
 }
 
+function testMultiPanelComparisonStatesAndChangedFileNavigation() {
+    const panel = (content, exists = true) => ({ content, exists });
+    const file = (path, panels) => ({ path, panels });
+
+    assert.equal(classifyMultiPanelFile(file('modified.ts', [panel('a'), panel('b')]), 0), 'modified-here');
+    assert.equal(classifyMultiPanelFile(file('created.ts', [panel('', false), panel('new')]), 0), 'created-here');
+    assert.equal(classifyMultiPanelFile(file('deleted.ts', [panel('old'), panel('', false)]), 0), 'deleted-here');
+    assert.equal(classifyMultiPanelFile(file('unchanged.ts', [panel('same'), panel('same')]), 0), 'unchanged-here');
+    assert.equal(classifyMultiPanelFile(file('future.ts', [panel('', false), panel('', false), panel('later')]), 0), 'not-created-yet');
+    assert.equal(classifyMultiPanelFile(file('gone.ts', [panel('before'), panel('', false), panel('', false)]), 1), 'already-deleted');
+
+    const files = [
+        file('future.ts', [panel('', false), panel('', false), panel('', false), panel('later')]),
+        file('changed.ts', [panel('a'), panel('b'), panel('c')]),
+        file('same.ts', [panel('same'), panel('same'), panel('same')]),
+        file('new.ts', [panel('', false), panel('', false), panel('new')]),
+        file('gone.ts', [panel('old'), panel('', false), panel('', false)]),
+        file('removed.ts', [panel('old'), panel('old'), panel('', false)])
+    ];
+
+    assert.deepEqual(getMultiPanelChangedFileTarget(files, 1, 'changed.ts', 1), {
+        pairIndex: 1, fileIndex: 3, path: 'new.ts'
+    });
+    assert.deepEqual(getMultiPanelChangedFileTarget(files, 1, 'new.ts', -1), {
+        pairIndex: 1, fileIndex: 1, path: 'changed.ts'
+    });
+    assert.deepEqual(getMultiPanelChangedFileTarget(files, 1, 'gone.ts', 1), {
+        pairIndex: 1, fileIndex: 5, path: 'removed.ts'
+    });
+    assert.equal(getMultiPanelChangedFileTarget(files, 1, 'changed.ts', -1), null);
+    assert.equal(getMultiPanelChangedFileTarget(files, 1, 'removed.ts', 1), null);
+    assert.equal(getMultiPanelChangedFileTarget(files, 1, 'same.ts', -1).path, 'changed.ts');
+    assert.equal(getMultiPanelChangedFileTarget(files, 1, 'same.ts', 1).path, 'new.ts');
+    assert.equal(getMultiPanelChangedFileTarget(files, 1, 'changed.ts', 0), null);
+    assert.equal(getMultiPanelChangedFileTarget(files, 4, 'changed.ts', 1), null);
+}
+
 function testTourFileNavigationFindsAnchorsAcrossStackedScenes() {
     const scenes = [
         {
@@ -397,13 +436,22 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /function showTourFileAtIndex[\s\S]{0,500}buildTourAnnotationsForFile\(file\.path\)/);
     assert.doesNotMatch(hostSource, /function showTourFile[\s\S]{0,500}showTourScene/);
     assert.match(hostSource, /getTourFileTarget\(tour\.files, state\.activeTourFilePath, direction\)/);
-    assert.match(hostSource, /getMultiPanelTourFileTarget\(/);
+    assert.match(hostSource, /getMultiPanelChangedFileTarget\(/);
+    assert.match(hostSource, /const comparisonFiles = tour\.files\.flatMap/);
+    assert.match(hostSource, /classifyMultiPanelFile\(/);
+    assert.match(hostSource, /getMultiPanelFile\(scene, selected\.path\)/);
+    assert.doesNotMatch(hostSource, /getMultiPanelTourFileTarget\(/);
     assert.match(hostSource, /return target \? showTourFileSelection\(target\.fileIndex\) : false/);
     assert.match(hostSource, /tourFocusFilePath/);
     assert.match(hostSource, /function returnToTourFocus/);
     assert.match(hostSource, /function renderMultiPanelStep/);
     assert.match(hostSource, /scene\.kind === 'deconstructed-diff'/);
     assert.match(hostSource, /scene\.stageLabel/);
+    for (const label of ['Modified here', 'Created here', 'Deleted here', 'Unchanged here', 'Not created yet', 'Already deleted']) {
+        assert.match(hostSource, new RegExp(label));
+    }
+    assert.match(presenterSource, /\.tour-file\.is-comparison-changed/);
+    assert.match(presenterSource, /\.tour-file\.is-comparison-empty/);
     assert.match(hostSource, /getMultiPanelDefinitions/);
     assert.match(hostSource, /type: 'showMultiDiff'/);
     assert.match(webMarkup, /id="tour-files"/);
@@ -494,6 +542,8 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(hostSource, /buildWalkthroughTourAnnotations/);
     assert.match(hostSource, /buildStackedTourAnnotations/);
     assert.match(hostSource, /getFirstChangeSourceRange\(pairs\?\.\[pairIndex\]\?\.diffModel, side\)/);
+    assert.match(hostSource, /const tourAnnotations = buildStackedTourAnnotationsForFile\(file\.path, pairs\);/);
+    assert.match(hostSource, /formatCount\(scene\.panels\.length - 1, 'comparison stage'\)[\s\S]{0,120}formatCount\(scene\.steps\.length, 'tour slide'\)/);
     assert.match(hostSource, /tourAnnotations/);
     assert.match(rendererSource, /function showMultiDiff\([\s\S]{0,500}tourAnnotations = \[\]/);
     assert.match(rendererSource, /function pushTourAnnotationDecoration/);
@@ -504,6 +554,7 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
 function testStackedDiffTourAnnotations() {
     const {
         buildStackedTourAnnotations,
+        buildTourFocusRanges,
         buildWalkthroughTourAnnotations,
         getFirstChangeSourceRange
     } = require('../out/tourAnnotations.js');
@@ -637,6 +688,53 @@ function testStackedDiffTourAnnotations() {
     assert.equal(walkthrough.length, 1);
     assert.equal(walkthrough[0].side, 'right');
     assert.equal(walkthrough[0].active, true);
+
+    const deconstructed = buildStackedTourAnnotations({
+        scenes: [{
+            kind: 'deconstructed-diff',
+            title: 'Explanation',
+            steps: [{
+                id: 'remove', title: 'Remove legacy code', body: 'Delete the obsolete path.',
+                file: 'src/a.py', pairIndex: 0, side: 'left', startLine: 8, endLine: 12
+            }]
+        }]
+    }, 'src/a.py', 0, 0);
+    assert.deepEqual(deconstructed, [{
+        pairIndex: 0,
+        panelIndex: 0,
+        side: 'left',
+        startLine: 8,
+        endLine: 12,
+        label: 'Explanation · Remove legacy code: Delete the obsolete path.',
+        active: true,
+        jumpTarget: { sceneIndex: 0, stepIndex: 0 }
+    }]);
+
+    const longLines = Array.from({ length: 260 }, (_, index) => ({
+        lineNumber: index + 1,
+        content: index > 0 && index % 50 === 0 ? '' : `line ${index + 1}`
+    }));
+    const longFocusRanges = buildTourFocusRanges({
+        blocks: [{ kind: 'insert', leftStart: 0, leftEnd: 0, rightStart: 0, rightEnd: 260 }],
+        leftLines: [],
+        rightLines: longLines
+    }, 'right');
+    assert.ok(longFocusRanges.length > 1 && longFocusRanges.length <= 4);
+    assert.equal(longFocusRanges[0].startLine, 1);
+    assert.equal(longFocusRanges.at(-1).endLine, 260);
+    longFocusRanges.slice(1).forEach((range, index) => {
+        assert.equal(range.startLine, longFocusRanges[index].endLine + 1);
+    });
+
+    const separatedFocusRanges = buildTourFocusRanges({
+        blocks: Array.from({ length: 7 }, (_, index) => ({
+            kind: 'insert', leftStart: 0, leftEnd: 0,
+            rightStart: index * 20, rightEnd: index * 20 + 1
+        })),
+        leftLines: [],
+        rightLines: Array.from({ length: 121 }, (_, index) => ({ lineNumber: index + 1, content: `line ${index + 1}` }))
+    }, 'right');
+    assert.equal(separatedFocusRanges.length, 4);
 }
 
 function testTourTransitionUpdatesLongDocumentBeforeDeepAnnotation() {
@@ -1320,9 +1418,9 @@ function testCheckedInBygoneHistoryTourRemainsReproducible() {
 }
 
 function testAdvancedTourExamplesRemainReproducible() {
-    for (const [fileName, expectedKind] of [
-        ['stacked-diff.bygone', 'stacked-diff'],
-        ['deconstructed-diff.bygone', 'deconstructed-diff']
+    for (const [fileName, expectedKind, expectedSteps] of [
+        ['stacked-diff.bygone', 'stacked-diff', 3],
+        ['deconstructed-diff.bygone', 'deconstructed-diff', 9]
     ]) {
         const source = parseChangeTourSource(loadYaml(fs.readFileSync(
             path.join(__dirname, '..', 'examples', fileName),
@@ -1330,7 +1428,7 @@ function testAdvancedTourExamplesRemainReproducible() {
         )));
         const manifest = buildChangeTourManifest(path.join(__dirname, '..'), { source });
         assert.equal(manifest.scenes[0].kind, expectedKind);
-        assert.equal(manifest.scenes[0].steps.length, 3);
+        assert.equal(manifest.scenes[0].steps.length, expectedSteps);
     }
 }
 
@@ -3272,6 +3370,7 @@ function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
     fs.writeFileSync(path.join(repo, 'app.txt'), 'alpha\nbeta\ngamma\ndelta\n', 'utf8');
     fs.writeFileSync(path.join(repo, 'delete.txt'), 'remove me\n', 'utf8');
     fs.writeFileSync(path.join(repo, 'rename.txt'), 'same content\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'setup.txt'), 'old setup\n', 'utf8');
     fs.writeFileSync(path.join(repo, 'asset.bin'), Buffer.from([1, 0, 2]));
     runGit(repo, ['add', '.']);
     runGit(repo, ['commit', '-m', 'base']);
@@ -3279,6 +3378,7 @@ function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
     runGit(repo, ['checkout', '-b', 'feature/deconstructed']);
     fs.writeFileSync(path.join(repo, 'app.txt'), 'alpha\nBETA\ngamma\nDELTA\n', 'utf8');
     fs.writeFileSync(path.join(repo, 'added.txt'), 'introduced\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'setup.txt'), 'established setup\n', 'utf8');
     fs.rmSync(path.join(repo, 'delete.txt'));
     fs.renameSync(path.join(repo, 'rename.txt'), path.join(repo, 'renamed.txt'));
     fs.writeFileSync(path.join(repo, 'asset.bin'), Buffer.from([1, 0, 3]));
@@ -3331,7 +3431,8 @@ function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
                 }],
                 exclusions: [
                     { file: 'asset.bin', reason: 'Binary material is explained separately.' },
-                    { file: 'renamed.txt', reason: 'Path transitions are not supported yet.' }
+                    { file: 'renamed.txt', reason: 'Path transitions are not supported yet.' },
+                    { file: 'setup.txt', reason: 'Established setup is present in every explanation stage.' }
                 ]
             }]
         }]
@@ -3355,9 +3456,34 @@ function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
     assert.equal('oid' in manifestScene.panels[1], false);
     assert.equal('ref' in manifestScene.panels[1], false);
     assert.equal(manifestScene.realRange.baseOid, inventory.range.baseOid);
-    assert.equal(manifestScene.steps[1].pairIndex, 1);
+    assert.deepEqual(manifestScene.steps.map((step) => step.pairIndex), [0, 0, 1, 1]);
+    assert.deepEqual(manifestScene.steps.map((step) => step.file), ['app.txt', 'added.txt', 'app.txt', 'delete.txt']);
+    assert.deepEqual(manifestScene.steps.map((step) => step.stageId), ['model', 'model', 'behavior', 'behavior']);
+    assert.deepEqual(manifestScene.steps.map((step) => step.id), ['model', 'model-focus-2', 'behavior', 'behavior-focus-2']);
+    assert.equal(manifestScene.steps[0].focusCount, 2);
     assert.equal(manifestScene.files.find((file) => file.path === 'delete.txt').panels[2].exists, false);
-    assert.equal(compiled.excludedFiles.length, 2);
+    assert.equal(compiled.excludedFiles.length, 3);
+    assert.deepEqual(
+        manifestScene.files.find((file) => file.path === 'setup.txt').panels.map((panel) => panel.content),
+        ['established setup\n', 'established setup\n', 'established setup\n']
+    );
+    const legacySteps = manifestScene.steps
+        .filter((step) => step.focusIndex === 0)
+        .map((step) => {
+            const legacyStep = { ...step };
+            delete legacyStep.stageId;
+            delete legacyStep.stageIndex;
+            delete legacyStep.focusIndex;
+            delete legacyStep.focusCount;
+            return legacyStep;
+        });
+    const legacyManifest = parseChangeTourManifest({
+        ...manifest,
+        scenes: manifest.scenes.map((candidate) => candidate.id === manifestScene.id
+            ? { ...candidate, steps: legacySteps }
+            : candidate)
+    });
+    assert.equal(legacyManifest.scenes.find((candidate) => candidate.id === manifestScene.id).steps.length, 2);
     assert.equal(compiled.baselineFiles.find((file) => file.path === 'added.txt').exists, false);
     assert.equal(compiled.baselineFiles.find((file) => file.path === 'delete.txt').exists, true);
     assert.equal(compiled.stages[0].files.find((file) => file.path === 'app.txt').content, 'alpha\nBETA\ngamma\ndelta\n');
@@ -3458,6 +3584,7 @@ function run() {
     testDeconstructedTourNavigationTraversesExplanationStages();
     testTourPositionRestoresStableSceneAndStepIds();
     testTourFileNavigationUsesCompleteRenderableFileIndex();
+    testMultiPanelComparisonStatesAndChangedFileNavigation();
     testTourFileNavigationFindsAnchorsAcrossStackedScenes();
     testWebTourHostSeparatesFileAndNarrativeNavigation();
     testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls();

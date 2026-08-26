@@ -1,4 +1,4 @@
-import type { ChangeTourFile, ChangeTourScene } from './changeTourManifest';
+import type { ChangeTourFile, ChangeTourScene, ChangeTourStackFile } from './changeTourManifest';
 
 export interface TourPosition {
     sceneIndex: number;
@@ -13,6 +13,99 @@ export interface TourFileTarget {
 export interface MultiPanelTourFileTarget extends TourPosition {
     sceneIndex: number;
     stepIndex: number;
+}
+
+/** The state of a file in one adjacent pair of a multi-panel comparison. */
+export type MultiPanelFileState =
+    | 'modified-here'
+    | 'created-here'
+    | 'deleted-here'
+    | 'unchanged-here'
+    | 'not-created-yet'
+    | 'already-deleted';
+
+export interface MultiPanelComparisonFileTarget {
+    pairIndex: number;
+    fileIndex: number;
+    path: string;
+}
+
+const CHANGED_MULTI_PANEL_FILE_STATES: ReadonlySet<MultiPanelFileState> = new Set([
+    'modified-here',
+    'created-here',
+    'deleted-here'
+]);
+
+/**
+ * Classifies one file against an adjacent pair of virtual panels.
+ *
+ * A file absent from both sides is classified from the surrounding virtual
+ * states: an existing earlier panel means it was already deleted; otherwise
+ * an existing later panel means it has not been created yet. If no surrounding
+ * panel contains it, the lifecycle has not started, so it is treated as not
+ * created yet.
+ */
+export function classifyMultiPanelFile(
+    file: Pick<ChangeTourStackFile, 'panels'>,
+    pairIndex: number
+): MultiPanelFileState {
+    const left = file.panels[pairIndex];
+    const right = file.panels[pairIndex + 1];
+    if (!left || !right) {
+        return 'unchanged-here';
+    }
+    if (left.exists && right.exists) {
+        return left.content === right.content ? 'unchanged-here' : 'modified-here';
+    }
+    if (!left.exists && right.exists) {
+        return 'created-here';
+    }
+    if (left.exists && !right.exists) {
+        return 'deleted-here';
+    }
+
+    const existedEarlier = file.panels
+        .slice(0, pairIndex)
+        .some((panel) => panel.exists);
+    if (existedEarlier) {
+        return 'already-deleted';
+    }
+    const existsLater = file.panels
+        .slice(pairIndex + 2)
+        .some((panel) => panel.exists);
+    if (existsLater) {
+        return 'not-created-yet';
+    }
+    // No surrounding occurrence means the file has not started its lifecycle.
+    return 'not-created-yet';
+}
+
+/**
+ * Returns the bounded changed-file target in an adjacent pair. Empty file
+ * states are skipped, and the pair and source file order are retained.
+ */
+export function getMultiPanelChangedFileTarget(
+    files: readonly ChangeTourStackFile[],
+    pairIndex: number,
+    currentPath: string | null,
+    direction: -1 | 1
+): MultiPanelComparisonFileTarget | null {
+    if ((direction !== -1 && direction !== 1) || !currentPath) {
+        return null;
+    }
+    const currentIndex = files.findIndex((file) => file.path === currentPath);
+    if (currentIndex < 0) {
+        return null;
+    }
+    const changedIndices = files
+        .map((file, fileIndex) => ({ file, fileIndex, state: classifyMultiPanelFile(file, pairIndex) }))
+        .filter(({ state }) => CHANGED_MULTI_PANEL_FILE_STATES.has(state));
+    const target = direction < 0
+        ? [...changedIndices].reverse().find(({ fileIndex }) => fileIndex < currentIndex)
+        : changedIndices.find(({ fileIndex }) => fileIndex > currentIndex);
+    return target
+        ? { pairIndex, fileIndex: target.fileIndex, path: target.file.path }
+        : null;
 }
 
 export function resolveTourPosition(
