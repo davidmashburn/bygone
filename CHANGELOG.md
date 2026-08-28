@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.8.14
+
+- Reorganized desktop menus around familiar File, Edit, Git, Present, Navigate, View, and Window responsibilities while exposing file, directory, revision, branch, history, tour, and blank-comparison workflows
+- Fixed file and directory comparison commands with additive native selection, including sources from different folders
+- Kept completed diff decorations, counts, focus, and scroll position stable while edited comparisons recompute in the background
+
 ## 0.8.12
 
 - Fixed stacked-tour comparison switching so Monaco panes redraw immediately without requiring a window resize
