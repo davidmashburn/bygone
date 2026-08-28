@@ -5,13 +5,16 @@ prescribed reading order.
 
 ## Start a comparison
 
-- **Compare Files…** accepts two or more files. Two files open a side-by-side
+- The **File** menu contains the familiar new/open/save lifecycle. **New Blank
+  Comparison** opens a writable comparison without source paths.
+- **File → Compare Files…** accepts two or more files. Select one item at a time when
+  the files live in different folders, or select several together. Two files open a side-by-side
   comparison; additional files open the focused multi-panel strip.
-- **Compare Directories…** accepts two or more directories and compares their
-  trees.
+- **File → Compare Directories…** uses the same additive selection flow for two or
+  more directory trees.
 - Drag files or directories into the window for the same selection-count
   behavior.
-- Start without paths to get a blank, writable two-panel comparison.
+- Start the CLI without paths to get the same blank comparison.
 
 Writable filesystem panels are labeled **Writable file**. Git revisions,
 history, tours, and supplied snapshots are labeled **Read-only snapshot**.
@@ -19,11 +22,12 @@ Replace and save operations are unavailable for read-only content.
 
 ## Ask Git questions
 
-- **View File or Directory History…** follows one path through commits and
+- **File → View File or Directory History…** follows one path through commits and
   supported index/worktree states.
-- **Explore Current Branch Change** compares the branch tip with its merge
-  base and shows the complete changed-file inventory.
-- CLI `--git-diff` compares explicit revisions when you already know the refs.
+- **Git → Review Branch Change…** accepts a head and optional base ref, compares the
+  head with its merge base, and shows the complete changed-file inventory.
+- **Git → Compare Revisions…** accepts two or more refs, including `INDEX` and
+  `WORKTREE`, matching CLI `--git-diff`.
 
 Branch exploration uses committed content. Dirty index and worktree changes
 are reported separately and are never silently folded into a commit snapshot.
@@ -61,6 +65,8 @@ engines, options, limits, provenance, and stale-result rules.
 
 ## Move into Present
 
-**Present Current Branch** creates a guided tour of the committed branch range.
-**Open Authored Tour…** opens a checked and compiled `.bygone` narrative in
+**Present Current Branch** creates a guided tour of the committed branch range;
+**Present Branch or Ref…** accepts the same optional head and base refs as the
+CLI.
+**File → Open Authored Tour…** opens a checked and compiled `.bygone` narrative in
 its own presentation window, leaving the Explore window available.

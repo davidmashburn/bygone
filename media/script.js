@@ -9,7 +9,11 @@ import { dispatchFindCommand, runFindCommand } from './findController';
 import { applyWordWrap, readWordWrapPreference, writeWordWrapPreference } from './wrapController';
 import { computeFocusedStripLayout } from './focusedStripController';
 import { findVisibleMatches } from './visibleSearchController';
-import { applyTwoWayRenderTransition } from './renderTransition';
+import {
+    applyCompletedMultiDiffResults,
+    applyTwoWayRenderTransition,
+    selectMultiDiffPairsForRecompute
+} from './renderTransition';
 import { normalizeLanguageId } from '../src/languageSupport';
 
 const host = createHostBridge();
@@ -70,6 +74,7 @@ let directoryEntries = [];
 let multiEditors = [];
 let multiDecorationIds = [];
 let multiDiffPairs = [];
+let multiDiffRecomputePending = false;
 let multiPanels = [];
 let activeMultiPanelId = null;
 let activeMultiPairIndex = null;
@@ -108,6 +113,7 @@ let repositorySearchRequestId = 0;
 let repositorySearchRoot = '';
 let repositorySearchMatches = [];
 let repositoryReplacementFiles = [];
+let activeLaunchPromptId = null;
 let modelIdentityCounter = 0;
 const editorModelIdentities = new WeakMap();
 const connectorController = window.BygoneConnectors.createConnectorController({
@@ -191,6 +197,13 @@ host.onMessage((message) => {
 
     if (message.type === 'openRepositorySearch' && typeof message.root === 'string') {
         openRepositorySearch(message.root);
+        return;
+    }
+
+    if (message.type === 'openLaunchPrompt'
+        && Number.isInteger(message.requestId)
+        && Array.isArray(message.fields)) {
+        openLaunchPrompt(message);
         return;
     }
 
@@ -320,6 +333,7 @@ window.addEventListener('load', async () => {
     initializeChangeToolbar();
     initializeVisiblePaneSearch();
     initializeRepositorySearch();
+    initializeLaunchPrompt();
     initializeDirectoryReturnToolbar();
     initializeEditModeToolbar();
     initializeDirectoryViewEvents();
@@ -551,9 +565,13 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     });
     updateTwoWayEditorOptions();
     updateChangeToolbarState();
-    resetTwoWayScrollPositions();
+    if (comparisonChanged) {
+        resetTwoWayScrollPositions();
+    }
     layoutEditors();
-    revealActiveDiff(false);
+    if (comparisonChanged) {
+        revealActiveDiff(false);
+    }
     const activeTourAnnotation = tourAnnotations.find((annotation) => annotation.active);
     if (activeTourAnnotation) {
         const editor = activeTourAnnotation.side === 'left' ? leftEditor : rightEditor;
@@ -742,6 +760,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
         return;
     }
 
+    multiDiffEpoch += 1;
     currentMode = MODE_MULTI_WAY;
     currentTourAnnotations = tourAnnotations;
     historyMode = false;
@@ -754,6 +773,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     clearTimeout(multiRecomputeTimer);
     multiRecomputeTimer = null;
     multiRecomputePendingPanelIds.clear();
+    multiDiffRecomputePending = false;
     disposeTwoWayEditors();
     disposeMultiEditors(false);
     multiPanels = panels;
@@ -1239,29 +1259,11 @@ function recomputeMultiDiffState(changedPanelIds = null) {
         : null;
 
     const epoch = ++multiDiffEpoch;
-    let pairsToBuild;
-
-    if (changedIndices && changedIndices.size > 0) {
-        multiDiffPairs = multiDiffPairs.map((pair) => {
-            if (changedIndices.has(pair.leftIndex) || changedIndices.has(pair.rightIndex)) {
-                return { ...pair, diffModel: null };
-            }
-            return pair;
-        });
-        pairsToBuild = multiDiffPairs
-            .map((pair, index) => ({ pair, index }))
-            .filter(({ pair }) => pair.diffModel === null);
-    } else {
-        multiDiffPairs = nextPanels.slice(0, -1).map((panel, index) => ({
-            leftIndex: index,
-            rightIndex: index + 1,
-            diffModel: null
-        }));
-        pairsToBuild = multiDiffPairs.map((pair, index) => ({ pair, index }));
-    }
-
-    activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, activeMultiPairIndex, activeMultiPanelId, multiPanels);
-    updateMultiActivePairModel(false, activeMultiPairIndex);
+    const pairsToBuild = selectMultiDiffPairsForRecompute(
+        multiDiffPairs,
+        changedIndices && changedIndices.size > 0 ? changedIndices : null
+    );
+    multiDiffRecomputePending = pairsToBuild.length > 0;
     updateActiveMultiShellState();
     connectorController.scheduleDrawConnections();
 
@@ -1269,21 +1271,16 @@ function recomputeMultiDiffState(changedPanelIds = null) {
         return;
     }
 
-    beginDiffJob();
     Promise.all(pairsToBuild.map(({ pair, index }) =>
         requestDiffAsync(nextPanels[pair.leftIndex].content, nextPanels[pair.rightIndex].content)
             .then((model) => ({ index, model }))
             .catch(() => ({ index, model: null }))
     )).then((results) => {
-        endDiffJob();
         if (epoch !== multiDiffEpoch || currentMode !== MODE_MULTI_WAY) {
             return;
         }
-        for (const { index, model } of results) {
-            if (multiDiffPairs[index] && model) {
-                multiDiffPairs[index] = { ...multiDiffPairs[index], diffModel: model };
-            }
-        }
+        multiDiffPairs = applyCompletedMultiDiffResults(multiDiffPairs, results);
+        multiDiffRecomputePending = false;
         updateMultiActivePairModel(false, activeMultiPairIndex);
         updateActiveMultiShellState();
         connectorController.scheduleDrawConnections();
@@ -2580,6 +2577,94 @@ function initializeRepositorySearch() {
     });
 }
 
+function initializeLaunchPrompt() {
+    const backdrop = document.createElement('div');
+    backdrop.id = 'launch-prompt';
+    backdrop.className = 'launch-prompt-backdrop hidden';
+    backdrop.innerHTML = [
+        '<section class="launch-prompt" role="dialog" aria-modal="true" aria-labelledby="launch-prompt-title">',
+        '<form>',
+        '<h2 id="launch-prompt-title"></h2>',
+        '<p class="launch-prompt-description"></p>',
+        '<div class="launch-prompt-fields"></div>',
+        '<div class="launch-prompt-actions">',
+        '<button type="button" data-launch-prompt-cancel title="Cancel">Cancel</button>',
+        '<button type="submit" data-launch-prompt-submit title="Open the selected source">Open</button>',
+        '</div>',
+        '</form>',
+        '</section>'
+    ].join('');
+    document.body.appendChild(backdrop);
+
+    backdrop.querySelector('form').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        if (!form.reportValidity() || !Number.isInteger(activeLaunchPromptId)) {
+            return;
+        }
+        const values = Object.fromEntries(new FormData(form).entries());
+        host.postMessage({
+            type: 'submitLaunchPrompt',
+            requestId: activeLaunchPromptId,
+            values
+        });
+        closeLaunchPrompt(false);
+    });
+    backdrop.querySelector('[data-launch-prompt-cancel]').addEventListener('click', () => closeLaunchPrompt(true));
+    backdrop.addEventListener('mousedown', (event) => {
+        if (event.target === backdrop) {
+            closeLaunchPrompt(true);
+        }
+    });
+    backdrop.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeLaunchPrompt(true);
+        }
+    });
+}
+
+function openLaunchPrompt(message) {
+    const backdrop = getElement('launch-prompt');
+    const fieldsHost = backdrop.querySelector('.launch-prompt-fields');
+    fieldsHost.replaceChildren();
+    activeLaunchPromptId = message.requestId;
+    backdrop.querySelector('#launch-prompt-title').textContent = message.title || 'Open';
+    backdrop.querySelector('.launch-prompt-description').textContent = message.description || '';
+    backdrop.querySelector('[data-launch-prompt-submit]').textContent = message.submitLabel || 'Open';
+
+    for (const field of message.fields) {
+        if (!field || typeof field.name !== 'string' || typeof field.label !== 'string') {
+            continue;
+        }
+        const label = document.createElement('label');
+        const labelText = document.createElement('span');
+        const input = document.createElement('input');
+        labelText.textContent = field.label;
+        input.name = field.name;
+        input.value = typeof field.value === 'string' ? field.value : '';
+        input.required = Boolean(field.required);
+        input.autocomplete = 'off';
+        input.spellcheck = false;
+        label.append(labelText, input);
+        fieldsHost.appendChild(label);
+    }
+
+    backdrop.classList.remove('hidden');
+    const firstInput = fieldsHost.querySelector('input');
+    firstInput?.focus();
+    firstInput?.select();
+}
+
+function closeLaunchPrompt(notifyHost) {
+    const requestId = activeLaunchPromptId;
+    activeLaunchPromptId = null;
+    getElement('launch-prompt')?.classList.add('hidden');
+    if (notifyHost && Number.isInteger(requestId)) {
+        host.postMessage({ type: 'cancelLaunchPrompt', requestId });
+    }
+}
+
 function openRepositorySearch(root) {
     repositorySearchRoot = root;
     repositorySearchMatches = [];
@@ -3584,6 +3669,10 @@ function getMultiPairProjection(pair, activePanelIndex, activeChange) {
 }
 
 function canCopyFromPanel(panelId, direction) {
+    if (multiDiffRecomputePending) {
+        return false;
+    }
+
     const panelChanges = getMultiPanelChanges(panelId);
     if (panelChanges.length === 0) {
         return false;
@@ -3891,6 +3980,9 @@ function revealBlockSide(editor, start, end, smooth) {
 
 function copyCurrentChange(direction) {
     if (currentMode === MODE_MULTI_WAY) {
+        if (multiDiffRecomputePending) {
+            return;
+        }
         const activeChange = getActiveMultiPanelChange();
         const pairContext = getMultiPairForDirection(direction);
         const activeEditor = getActivePanelEditor();

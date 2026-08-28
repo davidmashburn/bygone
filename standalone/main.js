@@ -16,7 +16,7 @@ const { searchFileHistory } = require('../src/gitHistorySearch.ts');
 const { classifyAuthoredTourPaths, discoverAuthoredTourDocument } = require('../src/tourDocument.ts');
 const { materializeBranchReviewTrees, materializeGitTree, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
-const { getMenuCapabilities } = require('./menuUtils.js');
+const { collectComparisonSelection, getMenuCapabilities } = require('./menuUtils.js');
 const {
     cloneSessionSource,
     createBranchReviewSource,
@@ -111,6 +111,8 @@ let wordWrapEnabled = false;
 let wordWrapAvailable = false;
 let repositorySearch = null;
 let lastRepositoryReplacement = null;
+let pendingLaunchPrompt = null;
+let nextLaunchPromptId = 1;
 let appIsQuitting = false;
 let restoringWindowState = false;
 
@@ -575,29 +577,51 @@ function installApplicationMenu() {
             label: 'File',
             submenu: [
                 {
+                    label: 'New Blank Comparison',
+                    accelerator: 'CmdOrCtrl+N',
+                    click: () => runMenuAction('open a blank comparison', openBlankDiff)
+                },
+                { type: 'separator' },
+                {
                     label: 'Compare Files…',
                     accelerator: 'CmdOrCtrl+O',
-                    click: () => { void openCompareFilesDialog(); }
+                    click: () => runMenuAction('compare files', openCompareFilesDialog)
                 },
                 {
                     label: 'Compare Directories…',
                     accelerator: 'CmdOrCtrl+Shift+O',
-                    click: () => { void openCompareDirectoriesDialog(); }
+                    click: () => runMenuAction('compare directories', openCompareDirectoriesDialog)
+                },
+                { type: 'separator' },
+                {
+                    label: 'View File or Directory History…',
+                    accelerator: 'CmdOrCtrl+Shift+H',
+                    click: () => runMenuAction('open Git history', openHistoryDialog)
                 },
                 {
-                    label: 'Add Panel to Left…',
-                    enabled: canAddPanel,
-                    click: () => { void addPanelFromMenu('left'); }
+                    label: 'Open Authored Tour…',
+                    click: () => runMenuAction('open an authored tour', openAuthoredTourDialog)
                 },
+                { type: 'separator' },
                 {
-                    label: 'Add Panel to Right…',
-                    enabled: canAddPanel,
-                    click: () => { void addPanelFromMenu('right'); }
-                },
-                {
-                    label: 'Remove Active Panel',
-                    enabled: canRemovePanel,
-                    click: () => { void removeActivePanelFromMenu(); }
+                    label: 'Comparison Panels',
+                    submenu: [
+                        {
+                            label: 'Add Panel to Left…',
+                            enabled: canAddPanel,
+                            click: () => runMenuAction('add a panel', () => addPanelFromMenu('left'))
+                        },
+                        {
+                            label: 'Add Panel to Right…',
+                            enabled: canAddPanel,
+                            click: () => runMenuAction('add a panel', () => addPanelFromMenu('right'))
+                        },
+                        {
+                            label: 'Remove Active Panel',
+                            enabled: canRemovePanel,
+                            click: () => runMenuAction('remove the active panel', removeActivePanelFromMenu)
+                        }
+                    ]
                 },
                 { type: 'separator' },
                 ...fileActionItems,
@@ -659,7 +683,7 @@ function installApplicationMenu() {
                 {
                     label: 'Search in Files…',
                     accelerator: 'CmdOrCtrl+Alt+F',
-                    click: () => { void openRepositorySearchDialog(); }
+                    click: () => runMenuAction('search in files', openRepositorySearchDialog)
                 },
                 { type: 'separator' },
                 {
@@ -703,27 +727,13 @@ function installApplicationMenu() {
             label: 'Git',
             submenu: [
                 {
-                    label: 'View File or Directory History…',
-                    accelerator: 'CmdOrCtrl+Shift+H',
-                    click: () => { void openHistoryDialog(); }
+                    label: 'Compare Revisions…',
+                    click: () => runMenuAction('compare Git revisions', openGitRefsDialog)
                 },
                 {
-                    label: 'Explore Current Branch Change',
+                    label: 'Review Branch Change…',
                     accelerator: 'CmdOrCtrl+Shift+R',
-                    click: () => { void openBranchReviewDialog(); }
-                },
-                { type: 'separator' },
-                {
-                    label: 'Older Commit',
-                    accelerator: 'Alt+Left',
-                    enabled: isHistory,
-                    click: () => { void navigateHistory('back'); }
-                },
-                {
-                    label: 'Newer Commit',
-                    accelerator: 'Alt+Right',
-                    enabled: isHistory,
-                    click: () => { void navigateHistory('forward'); }
+                    click: () => runMenuAction('review a branch change', openBranchReviewDialog)
                 }
             ]
         },
@@ -732,15 +742,11 @@ function installApplicationMenu() {
             submenu: [
                 {
                     label: 'Present Current Branch',
-                    click: () => { void presentCurrentBranch(); }
+                    click: () => runMenuAction('present the current branch', presentCurrentBranch)
                 },
                 {
-                    label: 'Open Authored Tour…',
-                    click: () => {
-                        void openAuthoredTourDialog().catch((error) => (
-                            showError(`Could not open Bygone presentation: ${getErrorMessage(error)}`)
-                        ));
-                    }
+                    label: 'Present Branch or Ref…',
+                    click: () => runMenuAction('present a branch or ref', openPresentBranchDialog)
                 },
                 { type: 'separator' },
                 {
@@ -771,6 +777,19 @@ function installApplicationMenu() {
                     accelerator: 'CmdOrCtrl+[',
                     enabled: canReturnToDirectory,
                     click: () => { void returnToDirectoryView(); }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Older Commit',
+                    accelerator: 'Alt+Left',
+                    enabled: isHistory,
+                    click: () => { void navigateHistory('back'); }
+                },
+                {
+                    label: 'Newer Commit',
+                    accelerator: 'Alt+Right',
+                    enabled: isHistory,
+                    click: () => { void navigateHistory('forward'); }
                 }
             ]
         },
@@ -859,9 +878,43 @@ function installApplicationMenu() {
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+function runMenuAction(description, action) {
+    void Promise.resolve()
+        .then(action)
+        .catch((error) => showError(`Could not ${description}: ${getErrorMessage(error)}`));
+}
+
 async function presentCurrentBranch() {
-    const cwd = getSourceRepoRoot(session.source) || process.cwd();
-    await openTourPresentation([], cwd);
+    const repoRoot = await resolveOrChooseGitRepository('Select a Git repository to present');
+    if (repoRoot) {
+        await openTourPresentation([], repoRoot);
+    }
+}
+
+async function openPresentBranchDialog() {
+    const repoRoot = await resolveOrChooseGitRepository('Select a Git repository to present');
+    if (!repoRoot) {
+        return;
+    }
+
+    openLaunchPrompt({
+        kind: 'present-branch',
+        title: 'Present Branch or Ref',
+        description: `Repository: ${repoRoot}`,
+        submitLabel: 'Present',
+        fields: [
+            { name: 'head', label: 'Head branch or ref', value: 'HEAD', required: true },
+            { name: 'base', label: 'Base branch or ref (optional)', value: '' }
+        ]
+    }, async (values) => {
+        const head = values.head.trim() || 'HEAD';
+        const base = values.base.trim();
+        const args = [head];
+        if (base) {
+            args.push(tokensFor('base')[0], base);
+        }
+        await openTourPresentation(args, repoRoot);
+    });
 }
 
 async function showRepositorySearchStatus() {
@@ -1563,6 +1616,33 @@ async function handleRendererMessage(message) {
         return;
     }
 
+    if (message.type === 'submitLaunchPrompt'
+        && Number.isInteger(message.requestId)
+        && message.requestId === pendingLaunchPrompt?.requestId
+        && message.values
+        && typeof message.values === 'object'
+        && !Array.isArray(message.values)) {
+        const prompt = pendingLaunchPrompt;
+        pendingLaunchPrompt = null;
+        const values = Object.fromEntries(prompt.fieldNames.map((fieldName) => [
+            fieldName,
+            typeof message.values[fieldName] === 'string' ? message.values[fieldName] : ''
+        ]));
+        try {
+            await prompt.submit(values);
+        } catch (error) {
+            await showError(`Could not ${prompt.description}: ${getErrorMessage(error)}`);
+        }
+        return;
+    }
+
+    if (message.type === 'cancelLaunchPrompt'
+        && Number.isInteger(message.requestId)
+        && message.requestId === pendingLaunchPrompt?.requestId) {
+        pendingLaunchPrompt = null;
+        return;
+    }
+
     if (message.type === 'searchChangeSet' && Number.isInteger(message.requestId)) {
         searchCurrentChangeSet(message);
         return;
@@ -1763,27 +1843,132 @@ async function handleRendererMessage(message) {
 }
 
 async function openCompareFilesDialog() {
-    if (!mainWindow) {
+    const filePaths = await collectComparisonPaths('file');
+    if (filePaths.length < 2) {
         return;
     }
 
-    const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Select two files to compare',
-        properties: ['openFile', 'multiSelections']
-    });
-
-    if (result.canceled || result.filePaths.length < 2) {
-        if (!result.canceled) {
-            await showInfo('Select at least two files to compare.');
-        }
-        return;
-    }
-
-    if (result.filePaths.length === 2) {
-        await openDiff(result.filePaths[0], result.filePaths[1]);
+    if (filePaths.length === 2) {
+        await openDiff(filePaths[0], filePaths[1]);
     } else {
-        await openMultiDiff(result.filePaths);
+        await openMultiDiff(filePaths);
     }
+}
+
+async function collectComparisonPaths(kind) {
+    ensureExploreWindow();
+    const isDirectory = kind === 'directory';
+    const noun = isDirectory ? 'directory' : 'file';
+    return collectComparisonSelection(async (selectedCount) => {
+        const result = await dialog.showOpenDialog(mainWindow, {
+            title: selectedCount === 0
+                ? `Select ${noun}s to compare`
+                : `Add ${noun}${selectedCount === 1 ? '' : 's'} to the comparison`,
+            properties: [isDirectory ? 'openDirectory' : 'openFile', 'multiSelections']
+        });
+        if (result.canceled) {
+            return null;
+        }
+        return result.filePaths.map((selectedPath) => path.resolve(selectedPath));
+    }, async (paths) => {
+        const choice = await dialog.showMessageBox(mainWindow, {
+            type: 'question',
+            buttons: [`Compare ${paths.length}`, 'Add More…', 'Cancel'],
+            defaultId: 0,
+            cancelId: 2,
+            message: `Compare ${paths.length} selected ${noun}${paths.length === 1 ? '' : 's'}?`,
+            detail: paths.join('\n')
+        });
+        if (choice.response === 0) {
+            return 'compare';
+        }
+        return choice.response === 1 ? 'add' : 'cancel';
+    });
+}
+
+function ensureExploreWindow() {
+    ensureMainWindow();
+    if (!mainWindow.isVisible()) {
+        mainWindow.show();
+    }
+    mainWindow.focus();
+}
+
+function openLaunchPrompt(config, submit) {
+    ensureExploreWindow();
+    const requestId = nextLaunchPromptId++;
+    pendingLaunchPrompt = {
+        requestId,
+        fieldNames: config.fields.map((field) => field.name),
+        description: config.failureDescription || config.title.toLowerCase(),
+        submit
+    };
+    postToRenderer({
+        type: 'openLaunchPrompt',
+        requestId,
+        ...config
+    });
+}
+
+async function resolveOrChooseGitRepository(title) {
+    const sourcePath = session.source?.repoRoot
+        || session.source?.path
+        || session.source?.paths?.[0];
+    const sourceCandidate = sourcePath && getPathKind(sourcePath) === 'file'
+        ? path.dirname(sourcePath)
+        : sourcePath;
+    const candidates = [sourceCandidate, launchArguments.cwd, process.cwd()]
+        .filter((candidate, index, all) => candidate && all.indexOf(candidate) === index);
+    for (const candidate of candidates) {
+        try {
+            return fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], candidate));
+        } catch {
+            // Try the next relevant location before asking the user.
+        }
+    }
+
+    ensureExploreWindow();
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title,
+        properties: ['openDirectory']
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+        return null;
+    }
+
+    try {
+        return fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], result.filePaths[0]));
+    } catch (error) {
+        await showError(`The selected directory is not inside a Git repository: ${getErrorMessage(error)}`);
+        return null;
+    }
+}
+
+async function openGitRefsDialog() {
+    const repoRoot = await resolveOrChooseGitRepository('Select a Git repository to compare');
+    if (!repoRoot) {
+        return;
+    }
+
+    openLaunchPrompt({
+        kind: 'git-refs',
+        title: 'Compare Git Revisions',
+        description: `Repository: ${repoRoot}`,
+        submitLabel: 'Compare',
+        fields: [{
+            name: 'refs',
+            label: 'Revisions (two or more, separated by spaces)',
+            value: 'HEAD~1 HEAD',
+            required: true
+        }]
+    }, async (values) => {
+        const refs = values.refs.trim().split(/\s+/).filter(Boolean);
+        if (refs.length < 2) {
+            await showInfo('Enter at least two Git revisions to compare.');
+            return;
+        }
+        await openGitRefs(repoRoot, refs);
+    });
 }
 
 async function openDroppedFiles(paths) {
@@ -1866,41 +2051,31 @@ async function openHistoryDialog() {
 }
 
 async function openBranchReviewDialog() {
-    let reviewRoot = launchArguments.cwd || process.cwd();
-    try {
-        runGit(['rev-parse', '--show-toplevel'], reviewRoot);
-    } catch {
-        if (!mainWindow) {
-            return;
-        }
-        const result = await dialog.showOpenDialog(mainWindow, {
-            title: 'Select a Git repository to review',
-            properties: ['openDirectory']
-        });
-        if (result.canceled || result.filePaths.length === 0) {
-            return;
-        }
-        reviewRoot = result.filePaths[0];
+    const repoRoot = await resolveOrChooseGitRepository('Select a Git repository to review');
+    if (!repoRoot) {
+        return;
     }
 
-    await openGitBranchReview(reviewRoot, 'HEAD');
+    openLaunchPrompt({
+        kind: 'review-branch',
+        title: 'Review Branch Change',
+        description: `Repository: ${repoRoot}`,
+        submitLabel: 'Review',
+        fields: [
+            { name: 'head', label: 'Head branch or ref', value: 'HEAD', required: true },
+            { name: 'base', label: 'Base branch or ref (optional)', value: '' }
+        ]
+    }, async (values) => {
+        await openGitBranchReview(repoRoot, values.head.trim() || 'HEAD', values.base.trim() || undefined);
+    });
 }
 
 async function openCompareDirectoriesDialog() {
-    if (!mainWindow) {
+    const directoryPaths = await collectComparisonPaths('directory');
+    if (directoryPaths.length < 2) {
         return;
     }
-
-    const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Select directories to compare',
-        properties: ['openDirectory', 'multiSelections']
-    });
-
-    if (result.canceled || result.filePaths.length < 2) {
-        if (!result.canceled) await showInfo('Select at least two directories to compare.');
-        return;
-    }
-    await openDirectories(result.filePaths);
+    await openDirectories(directoryPaths);
 }
 
 async function openDirectories(dirs, options = {}) {

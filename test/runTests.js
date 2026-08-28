@@ -32,10 +32,14 @@ const {
     findMultiPanelChangeIndex,
     resolveFileNavigationAction
 } = require('../media/navigationUtils.js');
-const { getMenuCapabilities } = require('../standalone/menuUtils.js');
+const { collectComparisonSelection, getMenuCapabilities } = require('../standalone/menuUtils.js');
 const { computeFocusedStripLayout } = require('../media/focusedStripController.js');
 const { findVisibleMatches } = require('../media/visibleSearchController.js');
-const { applyTwoWayRenderTransition } = require('../media/renderTransition.js');
+const {
+    applyCompletedMultiDiffResults,
+    applyTwoWayRenderTransition,
+    selectMultiDiffPairsForRecompute
+} = require('../media/renderTransition.js');
 const { dispatchFindCommand, resolveFindTarget, runFindCommand } = require('../media/findController.js');
 const {
     WORD_WRAP_STORAGE_KEY,
@@ -762,17 +766,64 @@ function testTourTransitionUpdatesLongDocumentBeforeDeepAnnotation() {
     assert.deepEqual(events, ['models', 'index', 'decorations']);
 }
 
+function testEditingKeepsCompletedMultiDiffVisibleUntilReplacementArrives() {
+    const firstModel = { blocks: [{ kind: 'replace' }] };
+    const secondModel = { blocks: [{ kind: 'insert' }] };
+    const replacementModel = { blocks: [{ kind: 'delete' }] };
+    const pairs = [
+        { leftIndex: 0, rightIndex: 1, diffModel: firstModel },
+        { leftIndex: 1, rightIndex: 2, diffModel: secondModel }
+    ];
+
+    assert.deepEqual(
+        selectMultiDiffPairsForRecompute(pairs, new Set([0])).map(({ index }) => index),
+        [0]
+    );
+    assert.deepEqual(
+        selectMultiDiffPairsForRecompute(pairs, new Set([1])).map(({ index }) => index),
+        [0, 1]
+    );
+
+    const updated = applyCompletedMultiDiffResults(pairs, [
+        { index: 0, model: replacementModel },
+        { index: 1, model: null }
+    ]);
+    assert.equal(updated[0].diffModel, replacementModel);
+    assert.equal(updated[1], pairs[1]);
+    assert.equal(pairs[0].diffModel, firstModel);
+
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    assert.match(rendererSource, /multiDiffRecomputePending = pairsToBuild\.length > 0;[\s\S]{0,200}Promise\.all/);
+    assert.match(rendererSource, /if \(comparisonChanged\) \{\s*resetTwoWayScrollPositions\(\);\s*\}/);
+}
+
 function testStandaloneMenusExposeProductAreasAndReplace() {
     const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
     const findSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'findController.js'), 'utf8');
 
-    for (const label of ['Git', 'Present', 'Navigate', 'View', 'Window']) {
+    for (const label of ['File', 'Git', 'Present', 'Navigate', 'View', 'Window']) {
         assert.match(standaloneSource, new RegExp(`label: '${label}'`));
     }
-    assert.match(standaloneSource, /label: 'Explore Current Branch Change'/);
-    assert.doesNotMatch(standaloneSource, /Branch Review/);
+    const fileMenuIndex = standaloneSource.indexOf("label: 'File'");
+    const editMenuIndex = standaloneSource.indexOf("label: 'Edit'");
+    const gitMenuIndex = standaloneSource.indexOf("label: 'Git'");
+    assert.ok(fileMenuIndex < editMenuIndex && editMenuIndex < gitMenuIndex);
+    for (const label of [
+        'New Blank Comparison',
+        'Compare Files…',
+        'Compare Directories…',
+        'Compare Revisions…',
+        'View File or Directory History…',
+        'Review Branch Change…',
+        'Search in Files…'
+    ]) {
+        assert.match(standaloneSource, new RegExp(`label: '${label}'`));
+    }
+    assert.doesNotMatch(standaloneSource, /label: 'Explore'/);
     const extensionSurface = fs.readFileSync(path.join(__dirname, '..', 'src', 'fileComparator.ts'), 'utf8');
     assert.doesNotMatch(extensionSurface, /title: 'Review Branch'/);
+    assert.match(standaloneSource, /label: 'Present Branch or Ref…'/);
     assert.match(standaloneSource, /label: 'Open Authored Tour…'/);
     assert.match(standaloneSource, /label: 'Replace…'[\s\S]{0,220}postFindCommand\('replace'\)/);
     assert.match(standaloneSource, /label: 'Replace All'[\s\S]{0,220}postFindCommand\('replaceAll'\)/);
@@ -780,7 +831,12 @@ function testStandaloneMenusExposeProductAreasAndReplace() {
     assert.doesNotMatch(standaloneSource, /label: 'Compare Multiple (?:Files|Directories)…'/);
     assert.match(standaloneSource, /label: 'Explore Guide'/);
     assert.match(standaloneSource, /label: 'Present and Tour Guide'/);
-    assert.match(standaloneSource, /title: 'Select directories to compare'[\s\S]{0,100}multiSelections/);
+    assert.match(standaloneSource, /async function collectComparisonPaths\(kind\)[\s\S]{0,1200}multiSelections/);
+    assert.match(standaloneSource, /buttons: \[`Compare \$\{paths\.length\}`, 'Add More…', 'Cancel'\]/);
+    assert.match(standaloneSource, /kind: 'git-refs'[\s\S]{0,500}HEAD~1 HEAD/);
+    assert.match(standaloneSource, /kind: 'review-branch'[\s\S]{0,600}Base branch or ref \(optional\)/);
+    assert.match(rendererSource, /type: 'submitLaunchPrompt'/);
+    assert.match(rendererSource, /form\.reportValidity\(\)/);
     assert.match(findSource, /replace: 'editor\.action\.startFindReplaceAction'/);
     assert.match(findSource, /replaceAll: 'editor\.action\.replaceAll'/);
 }
@@ -1763,6 +1819,30 @@ function testMenuCapabilitiesFollowSessionMode() {
     const directory = getMenuCapabilities({ mode: 'directory' });
     assert.equal(directory.canFind, false);
     assert.equal(directory.canSearchComparison, true);
+}
+
+async function testComparisonPickerAccumulatesSelectionsAcrossDirectories() {
+    const selections = [['/left/a.ts'], ['/right/b.ts'], ['/third/c.ts']];
+    const decisions = ['add', 'compare'];
+    const observedCounts = [];
+    const observedSelections = [];
+    const selected = await collectComparisonSelection(async (count) => {
+        observedCounts.push(count);
+        return selections.shift();
+    }, async (paths) => {
+        observedSelections.push(paths);
+        return decisions.shift();
+    });
+
+    assert.deepEqual(observedCounts, [0, 1, 2]);
+    assert.deepEqual(observedSelections, [
+        ['/left/a.ts', '/right/b.ts'],
+        ['/left/a.ts', '/right/b.ts', '/third/c.ts']
+    ]);
+    assert.deepEqual(selected, ['/left/a.ts', '/right/b.ts', '/third/c.ts']);
+
+    const canceled = await collectComparisonSelection(async () => null, async () => 'compare');
+    assert.deepEqual(canceled, []);
 }
 
 function createFindEditor(name, actionLog, available = true) {
@@ -3575,7 +3655,7 @@ function shortCommit(repo, rev) {
     return runGit(repo, ['rev-parse', '--short', rev]);
 }
 
-function run() {
+async function run() {
     testTourLinearNavigationTraversesStepsAndScenes();
     testTourNarrationBuildsSemanticSentenceSegments();
     testTourNarrationSplitsLongTextAndExcludesRawTechnicalTargets();
@@ -3591,6 +3671,7 @@ function run() {
     testTourAnnotationPersistsAcrossChangeNavigation();
     testStackedDiffTourAnnotations();
     testTourTransitionUpdatesLongDocumentBeforeDeepAnnotation();
+    testEditingKeepsCompletedMultiDiffVisibleUntilReplacementArrives();
     testStandaloneMenusExposeProductAreasAndReplace();
     testEditorComfortUsesNativeMonacoActionsAndSourceModels();
     testTextPanelsExposeMutabilityProvenance();
@@ -3624,6 +3705,7 @@ function run() {
     testBinaryComparisonBuildsImagePreviewsAndEquality();
     testBinaryComparisonDetectsGenericBinaryWithoutPreview();
     testMenuCapabilitiesFollowSessionMode();
+    await testComparisonPickerAccumulatesSelectionsAcrossDirectories();
     testFindControllerTargetsOneActiveEditor();
     testFindCommandsUseRendererRatherThanPageSearch();
     testFindShortcutCapturesControlAndCommandBeforeEditors();
@@ -3701,4 +3783,7 @@ function run() {
     console.log('All tests passed.');
 }
 
-run();
+run().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

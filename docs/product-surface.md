@@ -25,28 +25,28 @@ renderer does not make every workflow appropriate in every host.
 
 | User question | Discovery and launch | Session/source | Mutability and lifecycle | Maturity | Verification |
 | --- | --- | --- | --- | --- | --- |
-| Start without source material | CLI `bygone` outside Git; blank startup | Blank multi-diff | Writable untitled panels; normal undo and dirty state | Core | `testBlankMultiDiffStartsWithTwoEditablePanels` |
+| Start without source material | File → New Blank Comparison; CLI `bygone` outside Git; blank startup | Blank multi-diff | Writable untitled panels; normal undo and dirty state | Core | `testBlankMultiDiffStartsWithTwoEditablePanels` |
 | Compare files | File → Compare Files; drag/drop; `bygone left right`; `--diff` | Files, two-way or multi-diff | Files are writable; save, reload, refresh, and external-change policy apply | Core | standalone smoke and multi-diff tests |
 | Compare directories | File → Compare Directories; drag/drop; two or more directory arguments | Directory comparison | Directory rows are read-only; writable file drill-down depends on source/review state | Core | directory smoke and directory-diff tests |
-| Follow one file or directory through Git | Git → View File or Directory History; one path; `--history` | Git commits plus supported index/worktree states | Commits are read-only; worktree/index provenance is explicit | Core | Git history and directory-history tests |
-| Compare named revisions | `bygone --git-diff <refs…>` | Git blobs/revisions | Read-only snapshots | Secondary; CLI discovery needs improvement | Git comparison tests |
-| Explore the current branch change | Git → Explore Current Branch Change; `bygone review` | Merge-base-to-tip branch inventory | Read-only review snapshots; dirty state is reported, not silently included | Core | branch comparison and review-path tests |
+| Follow one file or directory through Git | File → View File or Directory History; one path; `--history` | Git commits plus supported index/worktree states | Commits are read-only; worktree/index provenance is explicit | Core | Git history and directory-history tests |
+| Compare named revisions | Git → Compare Revisions; `bygone --git-diff <refs…>` | Git blobs/revisions | Read-only snapshots | Core | Git comparison tests and desktop menu contract |
+| Explore a branch change | Git → Review Branch Change; `bygone review` | Merge-base-to-tip branch inventory for a selected head and optional base | Read-only review snapshots; dirty state is reported, not silently included | Core | branch comparison, review-path, and desktop menu tests |
 | Search comparison code | Edit → Find or Search Comparison | Active, visible, all loaded panels, unopened changed text snapshots, or one file's Git history | Search is read-only; history distinguishes content occurrence from introduction/removal; Replace requires the active writable model | Core | find, comparison-search, change-set-search, and history-search tests |
 | Search or safely replace in a filesystem tree | Edit → Search in Files; explicit directory root | System ripgrep 14+ with include/exclude, hidden, ignore, and result-limit controls | Search is read-only and cancellable; completed case-sensitive literal searches can build an exclusion-aware, revalidated, atomic replacement preview with guarded undo | Optional system capability | repository search/replace contracts, benchmark, and host-protocol tests |
 | Move through a multi-panel comparison | Strip buttons, panel headers, gutters, wheel, or `Alt+Arrow` | Active panel and adjacent pair | Does not change source identity | Core | focused-strip controller and standalone smoke tests |
 | Search an authored tour | Presenter search or `Cmd/Ctrl+Shift+F` | Authored narrative plus compiled base/head code snapshots | Read-only; narrative hits navigate scenes/steps and code hits preserve Return to tour | Core | tour-search and presenter-host tests |
 
-The File menu owns sources and persistence; Edit owns focused text operations;
-Git owns historical/revision questions; Present changes product area; Navigate
-owns movement within the current session; View owns display preferences; Window
-owns native window lifecycle. Developer fixtures appear only when Electron is
-not packaged.
+File owns new/open/save lifecycle; Edit owns text operations and search; Git
+owns revision and branch questions; Present changes product area; Navigate owns
+movement within the current session, including history movement; View owns
+display preferences; Window owns native window lifecycle. Developer fixtures
+appear only when Electron is not packaged.
 
 ## Standalone Present and browser presenter
 
 | User question | Discovery and launch | Identity/provenance | Mutability | Maturity | Verification |
 | --- | --- | --- | --- | --- | --- |
-| Explain the current branch automatically | Present → Present Current Branch; `bygone present` | Committed merge-base-to-tip range | Read-only | Core | presentation launch and generated-tour tests |
+| Explain a branch automatically | Present → Present Current Branch or Present Branch or Ref; `bygone present` | Committed merge-base-to-tip range for the current or selected head/base | Read-only | Core | presentation launch, generated-tour, and desktop menu tests |
 | Open an authored walkthrough | Present → Open Authored Tour; `bygone present --tour`; VS Code hand-off | Manifest range, scene, step, exact source anchor | Read-only | Core | reproducible example and tour validation tests |
 | Listen to a generated or authored tour | Narrative Listen controls; Present → Listen to Tour | Existing manifest narrative segmented locally by scene/step and visible sentence | Read-only device TTS; voice/rate preferences remain local; continuous playback follows tour navigation and direct exploration pauses it | Core | narration model/controller and presenter-host tests |
 | Explain a real stack | `stacked-diff` scene | Exact real Git revisions per panel | Read-only | Advanced | `examples/stacked-diff.bygone` |

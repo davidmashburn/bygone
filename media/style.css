@@ -1127,6 +1127,37 @@ body.is-resizing-sidebar .history-rail-resizer {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
+.launch-prompt-backdrop {
+    position: fixed;
+    z-index: 600;
+    inset: 0;
+    display: grid;
+    place-items: start center;
+    padding: 96px 20px 20px;
+    background: rgba(0, 0, 0, 0.38);
+}
+
+.launch-prompt {
+    width: min(560px, calc(100vw - 40px));
+    color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
+    border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+    border-radius: 8px;
+    background: var(--vscode-editorWidget-background, #252526);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+
+.launch-prompt form { display: grid; gap: 14px; padding: 18px; }
+.launch-prompt h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.launch-prompt-description { margin: -6px 0 0; overflow: hidden; color: var(--vscode-descriptionForeground); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.launch-prompt-fields { display: grid; gap: 12px; }
+.launch-prompt-fields label { display: grid; gap: 5px; font-size: 12px; }
+.launch-prompt-fields input,
+.launch-prompt-actions button { padding: 7px 9px; color: inherit; border: 1px solid var(--vscode-input-border, transparent); border-radius: 4px; background: var(--vscode-input-background); }
+.launch-prompt-fields input:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+.launch-prompt-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.launch-prompt-actions button { min-width: 84px; cursor: pointer; }
+.launch-prompt-actions button[type="submit"] { background: var(--vscode-button-background, #0e639c); color: var(--vscode-button-foreground, #fff); }
+
 .repository-search-form { padding: 9px; border-bottom: 1px solid var(--vscode-panel-border); }
 .repository-search-header,
 .repository-search-filters { display: flex; gap: 6px; }

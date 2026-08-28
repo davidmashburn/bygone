@@ -30,4 +30,32 @@ function getMenuCapabilities(session) {
     };
 }
 
-module.exports = { getMenuCapabilities };
+async function collectComparisonSelection(choosePaths, confirmSelection) {
+    const paths = [];
+    while (true) {
+        const selectedPaths = await choosePaths(paths.length);
+        if (!Array.isArray(selectedPaths) || selectedPaths.length === 0) {
+            return [];
+        }
+
+        for (const selectedPath of selectedPaths) {
+            if (typeof selectedPath === 'string' && !paths.includes(selectedPath)) {
+                paths.push(selectedPath);
+            }
+        }
+
+        if (paths.length < 2) {
+            continue;
+        }
+
+        const decision = await confirmSelection([...paths]);
+        if (decision === 'compare') {
+            return paths;
+        }
+        if (decision !== 'add') {
+            return [];
+        }
+    }
+}
+
+module.exports = { collectComparisonSelection, getMenuCapabilities };
