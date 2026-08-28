@@ -26,6 +26,9 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [File-change overview and review entry-point](file-change-overview.md) —
+  land unauthored branch review and generated Present on a start-here
+  overview that ranks attention versus lockfiles, tests, and other noise.
 - [First-class tour narration with text to speech](tour-text-to-speech.md) —
   add high-quality, synchronized read-aloud support without coupling it to
   microphone or agent work.
