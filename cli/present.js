@@ -6,6 +6,13 @@ const { buildChangeTourManifest, parseChangeTourStory } = require('../out/change
 const { buildTourWindowTitle } = require('../out/windowTitle.js');
 const { tokenMatches } = require('./commandSpec.js');
 const { loadTourSource } = require('./tourFile.js');
+const {
+    ensurePullRequestWorkspace,
+    isPullRequestInput,
+    parsePullRequestRef,
+    resolvePullRequest,
+    toPullRequestSummary
+} = require('../out/pullRequest.js');
 
 const MIME_TYPES = new Map([
     ['.css', 'text/css; charset=utf-8'],
@@ -18,16 +25,18 @@ const MIME_TYPES = new Map([
 ]);
 
 async function startPresentation(args, cwd, packageRoot, options = {}) {
-    const { headRef, baseRef, tourPath, explicitHeadRef } = parsePresentArgs(args);
+    const { headRef, baseRef, tourPath, explicitHeadRef, pullRequestRef } = parsePresentArgs(args);
     const story = process.env.BYGONE_TOUR_STORY
         ? parseChangeTourStory(JSON.parse(readFileSync(path.resolve(cwd, process.env.BYGONE_TOUR_STORY), 'utf8')))
         : undefined;
     const source = tourPath ? loadTourSource(cwd, tourPath).source : undefined;
-    const manifest = buildChangeTourManifest(cwd, {
-        headRef: explicitHeadRef || source?.range?.head || headRef,
-        baseRef: baseRef || source?.range?.base,
+    const pullRequestRange = pullRequestRef ? preparePullRequestRange(pullRequestRef, cwd) : undefined;
+    const manifest = buildChangeTourManifest(pullRequestRange?.cwd || cwd, {
+        headRef: pullRequestRange?.headRef || explicitHeadRef || source?.range?.head || headRef,
+        baseRef: pullRequestRange?.baseRef || baseRef || source?.range?.base,
         title: process.env.BYGONE_TOUR_TITLE,
         sourceUrl: process.env.BYGONE_TOUR_SOURCE_URL,
+        pullRequest: pullRequestRange?.pullRequest,
         story,
         source
     });
@@ -126,6 +135,7 @@ function parsePresentArgs(args) {
     let explicitHeadRef;
     let baseRef;
     let tourPath;
+    let pullRequestRef;
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index];
         if (tokenMatches('base', arg)) {
@@ -133,6 +143,13 @@ function parsePresentArgs(args) {
                 throw new Error(`${arg} requires a Git ref.`);
             }
             baseRef = args[++index];
+            continue;
+        }
+        if (tokenMatches('pullRequest', arg)) {
+            if (!args[index + 1]) {
+                throw new Error(`${arg} requires a pull request number or URL.`);
+            }
+            pullRequestRef = requirePullRequestRef(args[++index]);
             continue;
         }
         if (tokenMatches('tour', arg)) {
@@ -143,13 +160,42 @@ function parsePresentArgs(args) {
         if (arg.startsWith('-')) {
             throw new Error(`Unknown present option: ${arg}`);
         }
+        // A pasted pull request link is unambiguous, so it wins over being
+        // treated as a Git ref.
+        if (isPullRequestInput(arg)) {
+            pullRequestRef = requirePullRequestRef(arg);
+            continue;
+        }
         if (explicitHeadRef) {
             throw new Error('present accepts at most one head ref.');
         }
         headRef = arg;
         explicitHeadRef = arg;
     }
-    return { headRef, baseRef, tourPath, explicitHeadRef };
+    return { headRef, baseRef, tourPath, explicitHeadRef, pullRequestRef };
+}
+
+function requirePullRequestRef(value) {
+    const ref = parsePullRequestRef(value);
+    if (!ref) {
+        throw new Error(`Could not read "${value}" as a pull request number, URL, or owner/repo#number.`);
+    }
+    return ref;
+}
+
+/**
+ * Turn a pull request into the repository and refs the change-tour builder
+ * already understands, fetching it first when it is not local yet.
+ */
+function preparePullRequestRange(pullRequestRef, cwd) {
+    const metadata = resolvePullRequest(pullRequestRef, cwd);
+    const workspace = ensurePullRequestWorkspace(pullRequestRef, metadata, cwd);
+    return {
+        cwd: workspace.repoRoot,
+        headRef: workspace.headRef,
+        baseRef: workspace.baseRef,
+        pullRequest: toPullRequestSummary(metadata)
+    };
 }
 
 function resolveAssetPath(packageRoot, requestPath) {

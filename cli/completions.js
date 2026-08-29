@@ -32,10 +32,10 @@ function generateZshCompletion() {
     const rootItems = completionEntries()
         .flatMap((entry) => entry.tokens.map((token) => `        '${token}:${escapeSingleQuoted(entry.description)}'`))
         .join('\n');
-    const reviewOptions = entriesByIds(['base', 'help'])
+    const reviewOptions = entriesByIds(['base', 'pullRequest', 'help'])
         .flatMap((entry) => entry.tokens.map((token) => `        '${token}:${escapeSingleQuoted(entry.description)}'`))
         .join('\n');
-    const presentOptions = entriesByIds(['base', 'tour', 'help'])
+    const presentOptions = entriesByIds(['base', 'tour', 'pullRequest', 'help'])
         .flatMap((entry) => entry.tokens.map((token) => `        '${token}:${escapeSingleQuoted(entry.description)}'`))
         .join('\n');
     const legacyOptions = entriesByIds(['branch', 'base', 'help'])
@@ -151,8 +151,8 @@ compdef _bygone bygone
 
 function generateBashCompletion() {
     const rootTokens = completionEntries().flatMap((entry) => entry.tokens).join(' ');
-    const reviewTokens = entriesByIds(['base', 'help']).flatMap((entry) => entry.tokens).join(' ');
-    const presentTokens = entriesByIds(['base', 'tour', 'help']).flatMap((entry) => entry.tokens).join(' ');
+    const reviewTokens = entriesByIds(['base', 'pullRequest', 'help']).flatMap((entry) => entry.tokens).join(' ');
+    const presentTokens = entriesByIds(['base', 'tour', 'pullRequest', 'help']).flatMap((entry) => entry.tokens).join(' ');
     const legacyTokens = entriesByIds(['branch', 'base', 'help']).flatMap((entry) => entry.tokens).join(' ');
     const historyTokens = entriesByIds(['includeStaged', 'help']).flatMap((entry) => entry.tokens).join(' ');
     const baseTokens = tokensFor('base').join('|');
@@ -271,9 +271,11 @@ function generateFishCompletion() {
         "complete -c bygone -n 'string match -q \"*tour compile*\" -- (commandline -opc)' -l output -s o -r -d 'Write the compiled manifest'",
         `complete -c bygone -n 'string match -q "*--history*" -- (commandline -opc)' ${fishTokens(tokensFor('includeStaged'))} -d '${escapeSingleQuoted(getCliEntry('includeStaged').description)}'`,
         `complete -c bygone -n '__fish_seen_subcommand_from review' ${fishTokens(tokensFor('base'))} -r -a '(__bygone_git_refs)' -d '${escapeSingleQuoted(getCliEntry('base').description)}'`,
+        `complete -c bygone -n '__fish_seen_subcommand_from review' ${fishTokens(tokensFor('pullRequest'))} -r -d '${escapeSingleQuoted(getCliEntry('pullRequest').description)}'`,
         "complete -c bygone -n '__fish_seen_subcommand_from review' -a '(__bygone_git_refs)' -d 'Git ref'",
         `complete -c bygone -n '__fish_seen_subcommand_from present' ${fishTokens(tokensFor('base'))} -r -a '(__bygone_git_refs)' -d '${escapeSingleQuoted(getCliEntry('base').description)}'`,
         `complete -c bygone -n '__fish_seen_subcommand_from present' ${fishTokens(tokensFor('tour'))} -r -d '${escapeSingleQuoted(getCliEntry('tour').description)}'`,
+        `complete -c bygone -n '__fish_seen_subcommand_from present' ${fishTokens(tokensFor('pullRequest'))} -r -d '${escapeSingleQuoted(getCliEntry('pullRequest').description)}'`,
         "complete -c bygone -n '__fish_seen_subcommand_from present' -a '(__bygone_git_refs)' -d 'Git ref'",
         `complete -c bygone -n 'string match -q "*--branch-diff*" -- (commandline -opc)' ${fishTokens(tokensFor('branch'))} -r -a '(__bygone_git_refs)' -d '${escapeSingleQuoted(getCliEntry('branch').description)}'`,
         `complete -c bygone -n 'string match -q "*--branch-diff*" -- (commandline -opc)' ${fishTokens(tokensFor('base'))} -r -a '(__bygone_git_refs)' -d '${escapeSingleQuoted(getCliEntry('base').description)}'`,

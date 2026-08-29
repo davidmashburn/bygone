@@ -70,7 +70,10 @@ bygone --diff path/to/file1 path/to/file2 path/to/file3 [...]
 bygone --history path/to/path
 bygone review
 bygone review feature/my-branch --base origin/main
+bygone review https://github.com/owner/repo/pull/1753
+bygone review --pr 1753
 bygone present feature/my-branch --base origin/main
+bygone present https://github.com/owner/repo/pull/1753
 bygone completion zsh
 bygone --help
 ```
@@ -89,6 +92,8 @@ CLI defaults:
 - `bygone --history <path>` opens file or directory history.
 - `bygone review [<head>] [--base <base>]` reviews the committed branch tip against its merge base. The base is detected from `origin/HEAD`, `main`, or `master` when omitted.
 - `bygone present [<head>] [--base <base>]` opens the same committed range as an app-hosted change tour, grouped into a deterministic suggested reading order.
+- `bygone review <pull-request-url>` reviews a GitHub pull request. A link, `owner/repo#number`, or `--pr <number>` inside a clone all work, and `bygone present` accepts the same forms.
+- `bygone tour context --pr <number|url>` builds the LLM change dossier for a pull request, including its description.
 - `bygone <left> <right>` auto-selects file diff or directory compare.
 - `bygone --diff <file1> <file2> <file3> ...` opens multi-panel diff or multi-directory compare.
 
@@ -114,6 +119,22 @@ bygone completion fish > ~/.config/fish/completions/bygone.fish
 ```
 
 If the native desktop app is installed, the npm/source launcher prefers it and forwards the shell working directory. Set `BYGONE_FORCE_BUNDLED=1` to force the npm-bundled Electron runtime instead. The launcher removes `ELECTRON_RUN_AS_NODE` before starting Electron so editor-integrated terminals cannot accidentally force the app into Node mode.
+
+## Review A Pull Request
+
+Hand Bygone a pull request link and it opens the review:
+
+```bash
+bygone review https://github.com/owner/repo/pull/1753
+```
+
+No clone is required. Bygone resolves the pull request through the GitHub CLI, fetches `refs/pull/1753/head` and the pull request base, and opens the same merge-base review used for local branches. When you are already standing in a clone of the repository, that clone is used directly; otherwise Bygone provisions a cache repository under `~/.cache/bygone/repos` (honoring `XDG_CACHE_HOME`) that you never have to think about. Fetched refs live under `refs/bygone/`, so reviewing never adds branches to a repository you own.
+
+Because a fork's pull request head only exists at `refs/pull/<number>/head`, cross-repository pull requests work the same way as same-repository ones.
+
+Pull request review requires the [GitHub CLI](https://cli.github.com): install it and run `gh auth login`. For private repositories over HTTPS, run `gh auth setup-git` so Git can reuse those credentials.
+
+The pull request title, author, state, and description travel with the review. `bygone present <pull-request-url>` uses them to title and frame the change tour, and `bygone tour context --pr <number>` includes the description in the dossier, so an agent explaining the change starts from the author's stated intent rather than inferring it from diffs alone.
 
 Branch review compares the selected head directly with `merge-base(base, head)`, so merge commits are represented correctly in the aggregate diff. Commit metadata retains every parent of merge commits for future temporal review. Dirty index and working-tree changes are reported but never silently included. Detected renames keep distinct old and new paths for correct drill-down and navigation without adding persistent cross-tree connectors.
 

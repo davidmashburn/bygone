@@ -18,6 +18,16 @@ const { GitHistoryService } = require('../out/gitHistory.js');
 const { searchFileHistory } = require('../out/gitHistorySearch.js');
 const { buildBinaryComparison, classifyFile } = require('../out/binaryComparison.js');
 const {
+    buildGitCredentialArgs,
+    buildGitEnvironment,
+    ensurePullRequestWorkspace,
+    isPullRequestInput,
+    parsePullRequestRef,
+    parseRemoteIdentity,
+    resolveGitHubCliCommand,
+    resolvePullRequest
+} = require('../out/pullRequest.js');
+const {
     materializeBranchReviewTrees,
     materializeGitTree,
     parseNameStatusZ,
@@ -816,6 +826,7 @@ function testStandaloneMenusExposeProductAreasAndReplace() {
         'Compare Revisions…',
         'View File or Directory History…',
         'Review Branch Change…',
+        'Review Pull Request…',
         'Search in Files…'
     ]) {
         assert.match(standaloneSource, new RegExp(`label: '${label}'`));
@@ -1412,12 +1423,29 @@ function testPresentArgumentsUseSharedBaseAliases() {
         headRef: 'feature/tour',
         baseRef: 'origin/main',
         tourPath: undefined,
-        explicitHeadRef: 'feature/tour'
+        explicitHeadRef: 'feature/tour',
+        pullRequestRef: undefined
     });
     assert.deepEqual(parsePresentArgs(['-m', 'main', '--tour', 'review.bygone']), {
-        headRef: 'HEAD', baseRef: 'main', tourPath: 'review.bygone', explicitHeadRef: undefined
+        headRef: 'HEAD',
+        baseRef: 'main',
+        tourPath: 'review.bygone',
+        explicitHeadRef: undefined,
+        pullRequestRef: undefined
     });
     assert.throws(() => parsePresentArgs(['--unknown']), /Unknown present option/);
+
+    // A pasted pull request link is a pull request, never a Git ref.
+    assert.deepEqual(parsePresentArgs(['https://github.com/acme/widgets/pull/7']), {
+        headRef: 'HEAD',
+        baseRef: undefined,
+        tourPath: undefined,
+        explicitHeadRef: undefined,
+        pullRequestRef: { host: 'github.com', owner: 'acme', repo: 'widgets', number: 7 }
+    });
+    assert.deepEqual(parsePresentArgs(['--pr', '7']).pullRequestRef, { number: 7 });
+    assert.throws(() => parsePresentArgs(['--pr']), /requires a pull request/);
+    assert.throws(() => parsePresentArgs(['--pr', 'not-a-pull-request']), /Could not read/);
 }
 
 function testPresenterServerInjectsWindowTitleIntoHtml() {
@@ -1431,6 +1459,7 @@ function testNpmPackageStagesCliRuntimeDependencies() {
     assert.match(npmPackageSource, /copyFile\('out\/changeTour\.js'\)/);
     assert.match(npmPackageSource, /copyFile\('out\/tourCoverage\.js'\)/);
     assert.match(npmPackageSource, /copyFile\('out\/windowTitle\.js'\)/);
+    assert.match(npmPackageSource, /copyFile\('out\/pullRequest\.js'\)/);
 }
 
 function testWorkingDirectoryOptionUsesGitStyleSemantics() {
@@ -1485,6 +1514,11 @@ function testAdvancedTourExamplesRemainReproducible() {
         const manifest = buildChangeTourManifest(path.join(__dirname, '..'), { source });
         assert.equal(manifest.scenes[0].kind, expectedKind);
         assert.equal(manifest.scenes[0].steps.length, expectedSteps);
+        // A pinned range makes the tour reproducible from any checkout. Reading
+        // HEAD instead made these examples fail on any branch whose changed
+        // files did not happen to include the ones the tour introduces.
+        assert.equal(manifest.range.mergeBaseOid, source.range.base);
+        assert.equal(manifest.range.headOid, source.range.head);
     }
 }
 
@@ -1522,8 +1556,14 @@ function testAgentTourCommandsValidateCompileAndExposeSchema() {
     assert.equal(parseTourArgs(['validate', 'explicit-source.txt']).sourcePath, 'explicit-source.txt');
     assert.deepEqual(parseTourArgs(['context', 'feature/tour', '--base', 'main', '--max-patch-bytes', '4096']), {
         action: 'context', headRef: 'feature/tour', baseRef: 'main', outputPath: undefined,
-        maxPatchBytes: 4096, maxTotalPatchBytes: undefined
+        maxPatchBytes: 4096, maxTotalPatchBytes: undefined, pullRequestRef: undefined
     });
+    // An agent can build a dossier straight from a pull request link.
+    assert.deepEqual(
+        parseTourArgs(['context', 'https://github.com/acme/widgets/pull/7']).pullRequestRef,
+        { host: 'github.com', owner: 'acme', repo: 'widgets', number: 7 }
+    );
+    assert.deepEqual(parseTourArgs(['context', '--pr', '7']).pullRequestRef, { number: 7 });
     assert.deepEqual(parseTourArgs(['coverage', 'review.bygone', '--json', '--minimum-coverage', '75']), {
         action: 'coverage', sourcePath: 'review.bygone', outputPath: undefined, json: true, minimumCoverage: 75
     });
@@ -3633,6 +3673,315 @@ function testDeconstructedStagesRejectInvalidAssignments() {
     }), /Duplicate deconstructed stage id/);
 }
 
+function testPullRequestReferenceParsingAcceptsPastedForms() {
+    assert.deepEqual(
+        parsePullRequestRef('https://github.com/davidmashburn/bygone/pull/1753'),
+        { host: 'github.com', owner: 'davidmashburn', repo: 'bygone', number: 1753 }
+    );
+    assert.deepEqual(
+        parsePullRequestRef('https://github.com/davidmashburn/bygone/pull/1753/files#discussion_r42'),
+        { host: 'github.com', owner: 'davidmashburn', repo: 'bygone', number: 1753 }
+    );
+    assert.deepEqual(
+        parsePullRequestRef('davidmashburn/bygone#1753'),
+        { host: undefined, owner: 'davidmashburn', repo: 'bygone', number: 1753 }
+    );
+    assert.deepEqual(
+        parsePullRequestRef('git.example.com/team/app#12'),
+        { host: 'git.example.com', owner: 'team', repo: 'app', number: 12 }
+    );
+    assert.deepEqual(parsePullRequestRef('#1753'), { number: 1753 });
+    assert.equal(parsePullRequestRef('src/pullRequest.ts'), undefined);
+    assert.equal(parsePullRequestRef(''), undefined);
+
+    // A bare number stays a path, so `bygone 1753` keeps opening a file named 1753.
+    assert.equal(isPullRequestInput('1753'), false);
+    assert.equal(isPullRequestInput('#1753'), false);
+    assert.equal(isPullRequestInput('https://github.com/owner/repo/pull/9'), true);
+    assert.equal(isPullRequestInput('owner/repo#9'), true);
+    assert.equal(isPullRequestInput('README.md'), false);
+
+    assert.deepEqual(
+        parseRemoteIdentity('git@github.com:davidmashburn/bygone.git'),
+        { host: 'github.com', owner: 'davidmashburn', repo: 'bygone' }
+    );
+    assert.deepEqual(
+        parseRemoteIdentity('https://github.com/davidmashburn/bygone.git'),
+        { host: 'github.com', owner: 'davidmashburn', repo: 'bygone' }
+    );
+}
+
+function testPullRequestMetadataReadsGitHubCliJson() {
+    const calls = [];
+    const runCommand = (command, args) => {
+        calls.push([command, ...args]);
+        return JSON.stringify({
+            number: 7,
+            title: 'Add remote pull request review',
+            body: 'Explains why the change exists.',
+            author: { login: 'octocat' },
+            url: 'https://github.com/acme/widgets/pull/7',
+            state: 'OPEN',
+            baseRefName: 'main',
+            headRefName: 'feature/pr-review',
+            baseRefOid: 'a'.repeat(40),
+            headRefOid: 'b'.repeat(40),
+            isCrossRepository: true
+        });
+    };
+
+    const metadata = resolvePullRequest(
+        { host: 'github.com', owner: 'acme', repo: 'widgets', number: 7 },
+        process.cwd(),
+        runCommand
+    );
+
+    assert.equal(metadata.author, 'octocat');
+    assert.equal(metadata.body, 'Explains why the change exists.');
+    assert.equal(metadata.baseRefName, 'main');
+    assert.equal(metadata.isCrossRepository, true);
+    assert.ok(calls[0].includes('--repo'));
+    assert.ok(calls[0].includes('acme/widgets'));
+
+    assert.throws(
+        () => resolvePullRequest(
+            { owner: 'acme', repo: 'widgets', number: 7 },
+            process.cwd(),
+            () => JSON.stringify({ number: 7, baseRefName: 'main' })
+        ),
+        /baseRefOid/
+    );
+}
+
+function testGitHubCliIsLocatedWhenTheAppDoesNotInheritAShellPath() {
+    const installed = '/opt/homebrew/bin/gh';
+    const isExecutable = (candidate) => candidate === installed;
+
+    assert.equal(
+        resolveGitHubCliCommand({ env: { PATH: '/opt/homebrew/bin:/usr/bin' }, isExecutable }),
+        installed
+    );
+
+    // A macOS app launched from Finder or the Dock inherits a minimal PATH with
+    // no Homebrew on it. Trusting PATH here reported an installed GitHub CLI as
+    // missing.
+    assert.equal(
+        resolveGitHubCliCommand({
+            env: { PATH: '/usr/bin:/bin:/usr/sbin:/sbin' },
+            isExecutable,
+            readLoginShellPath: () => undefined
+        }),
+        installed
+    );
+
+    assert.equal(
+        resolveGitHubCliCommand({
+            env: { BYGONE_GH_PATH: '/custom/gh', PATH: '/opt/homebrew/bin' },
+            isExecutable
+        }),
+        '/custom/gh'
+    );
+
+    // An install in no standard location is still recovered from the login shell.
+    assert.equal(
+        resolveGitHubCliCommand({
+            env: { PATH: '/usr/bin' },
+            candidates: [],
+            isExecutable: (candidate) => candidate === '/opt/elsewhere/bin/gh',
+            readLoginShellPath: () => '/opt/elsewhere/bin'
+        }),
+        '/opt/elsewhere/bin/gh'
+    );
+
+    // Genuinely absent falls back to the bare name so the caller still fails
+    // with the install-and-authenticate message.
+    assert.equal(
+        resolveGitHubCliCommand({
+            env: { PATH: '/usr/bin' },
+            candidates: [],
+            isExecutable: () => false,
+            readLoginShellPath: () => undefined
+        }),
+        'gh'
+    );
+
+    // That message names both causes, because "not installed" is only one of them.
+    const missing = Object.assign(new Error('spawn gh ENOENT'), { code: 'ENOENT' });
+    assert.throws(
+        () => resolvePullRequest(
+            { owner: 'acme', repo: 'widgets', number: 7 },
+            process.cwd(),
+            () => { throw missing; },
+            { command: '/nowhere/gh' }
+        ),
+        /BYGONE_GH_PATH/
+    );
+}
+
+function testPullRequestFetchesAuthenticateThroughTheGitHubCliAndNeverPrompt() {
+    const command = '/opt/homebrew/bin/gh';
+
+    assert.deepEqual(buildGitCredentialArgs(command), [
+        '-c',
+        "credential.helper=!'/opt/homebrew/bin/gh' auth git-credential"
+    ]);
+    // A path with a space or an apostrophe still produces one shell word.
+    assert.equal(
+        buildGitCredentialArgs("/we ird/o'g/gh")[1],
+        "credential.helper=!'/we ird/o'\\''g/gh' auth git-credential"
+    );
+
+    // A desktop app has no terminal, so an unanswerable credential prompt has
+    // to fail rather than surface as "Device not configured".
+    const env = buildGitEnvironment({ PATH: '/usr/bin:/bin' }, command);
+    assert.equal(env.GIT_TERMINAL_PROMPT, '0');
+    // The CLI's directory joins PATH so a helper already configured as
+    // `!gh auth git-credential` resolves outside a shell too.
+    assert.equal(env.PATH, '/opt/homebrew/bin:/usr/bin:/bin');
+    assert.equal(
+        buildGitEnvironment({ PATH: '/opt/homebrew/bin:/usr/bin' }, command).PATH,
+        '/opt/homebrew/bin:/usr/bin'
+    );
+    assert.equal(buildGitEnvironment({}, 'gh').PATH, undefined);
+}
+
+function testPullRequestWorkspaceProvisionsCacheRepositoryThatReviewsClean() {
+    const upstream = createTempGitRepo();
+    fs.writeFileSync(path.join(upstream, 'first.txt'), 'base\n', 'utf8');
+    runGit(upstream, ['add', 'first.txt']);
+    runGit(upstream, ['commit', '-m', 'base']);
+    runGit(upstream, ['branch', '-M', 'main']);
+    const baseOid = runGit(upstream, ['rev-parse', 'HEAD']);
+
+    runGit(upstream, ['checkout', '-b', 'feature/pr']);
+    fs.writeFileSync(path.join(upstream, 'first.txt'), 'changed\n', 'utf8');
+    runGit(upstream, ['commit', '-am', 'change first']);
+    fs.writeFileSync(path.join(upstream, 'second.txt'), 'second\n', 'utf8');
+    runGit(upstream, ['add', 'second.txt']);
+    runGit(upstream, ['commit', '-m', 'add second']);
+    const headOid = runGit(upstream, ['rev-parse', 'HEAD']);
+
+    // GitHub publishes every pull request head at refs/pull/<n>/head. A fork PR
+    // is only reachable through that ref, so the fixture mirrors it exactly.
+    runGit(upstream, ['update-ref', 'refs/pull/7/head', headOid]);
+    runGit(upstream, ['checkout', 'main']);
+
+    const cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-pr-cache-'));
+    const workspace = ensurePullRequestWorkspace(
+        { host: 'github.com', owner: 'acme', repo: 'widgets', number: 7 },
+        {
+            number: 7,
+            title: 'Add second file',
+            body: 'Why this exists.',
+            author: 'octocat',
+            url: 'https://github.com/acme/widgets/pull/7',
+            state: 'OPEN',
+            baseRefName: 'main',
+            headRefName: 'feature/pr',
+            baseRefOid: baseOid,
+            headRefOid: headOid,
+            isCrossRepository: true
+        },
+        os.tmpdir(),
+        { cacheRoot, remoteUrl: upstream }
+    );
+
+    assert.equal(workspace.provisioned, true);
+    assert.equal(workspace.headRef, 'refs/bygone/pr/7');
+    assert.equal(workspace.baseRef, 'refs/bygone/base/7');
+    assert.equal(runGit(workspace.repoRoot, ['rev-parse', workspace.headRef]), headOid);
+    assert.equal(runGit(workspace.repoRoot, ['rev-parse', workspace.baseRef]), baseOid);
+
+    const range = resolveBranchReviewRange(workspace.repoRoot, workspace.headRef, workspace.baseRef);
+
+    assert.equal(range.mergeBaseOid, baseOid);
+    assert.equal(range.headOid, headOid);
+    assert.deepEqual(
+        range.changedPaths.map((entry) => [entry.kind, entry.path]),
+        [['modified', 'first.txt'], ['added', 'second.txt']]
+    );
+    // The cache repository is an object store that is never checked out, so a
+    // review of it must never be reported as having local modifications.
+    assert.equal(range.dirty, false);
+
+    // A second review reuses the same cache repository rather than re-provisioning.
+    const reused = ensurePullRequestWorkspace(
+        { host: 'github.com', owner: 'acme', repo: 'widgets', number: 7 },
+        {
+            number: 7,
+            title: 'Add second file',
+            body: '',
+            author: 'octocat',
+            url: '',
+            state: 'OPEN',
+            baseRefName: 'main',
+            headRefName: 'feature/pr',
+            baseRefOid: baseOid,
+            headRefOid: headOid,
+            isCrossRepository: true
+        },
+        os.tmpdir(),
+        { cacheRoot, remoteUrl: upstream }
+    );
+    assert.equal(reused.repoRoot, workspace.repoRoot);
+}
+
+function testPullRequestWorkspaceReusesMatchingCloneWithoutRewritingItsFetchConfig() {
+    const commands = [];
+    const runCommand = (command, args, cwd) => {
+        commands.push({ command, args: [...args], cwd });
+        const joined = args.join(' ');
+        if (joined === 'rev-parse --show-toplevel') {
+            return os.tmpdir();
+        }
+        if (joined === 'remote') {
+            return 'fork\norigin';
+        }
+        if (joined === 'remote get-url fork') {
+            return 'git@github.com:contributor/widgets.git';
+        }
+        if (joined === 'remote get-url origin') {
+            return 'git@github.com:acme/widgets.git';
+        }
+        return '';
+    };
+
+    const workspace = ensurePullRequestWorkspace(
+        { host: 'github.com', owner: 'acme', repo: 'widgets', number: 7 },
+        {
+            number: 7,
+            title: 'Add second file',
+            body: '',
+            author: 'octocat',
+            url: '',
+            state: 'OPEN',
+            baseRefName: 'main',
+            headRefName: 'feature/pr',
+            baseRefOid: 'a'.repeat(40),
+            headRefOid: 'b'.repeat(40),
+            isCrossRepository: true
+        },
+        os.tmpdir(),
+        { runCommand }
+    );
+
+    assert.equal(workspace.provisioned, false);
+
+    const fetches = commands.filter((entry) => entry.args.includes('fetch'));
+    assert.equal(fetches.length, 1);
+    // The pull request head lives on the base repository, so the matching
+    // remote is chosen rather than the contributor's fork.
+    assert.ok(fetches[0].args.includes('origin'));
+    assert.ok(fetches[0].args.includes('+refs/pull/7/head:refs/bygone/pr/7'));
+    assert.ok(fetches[0].args.includes('+refs/heads/main:refs/bygone/base/7'));
+    // Adding a partial-clone filter here would rewrite fetch configuration in a
+    // repository the user owns, as a side effect of reviewing.
+    assert.ok(!fetches[0].args.some((arg) => arg.startsWith('--filter')));
+    // Credentials are supplied per invocation with -c, never written to config.
+    assert.ok(fetches[0].args.includes('-c'));
+    assert.ok(fetches[0].args.some((arg) => arg.startsWith('credential.helper=!')));
+}
+
 function createTempGitRepo() {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-history-test-'));
 
@@ -3769,6 +4118,12 @@ async function run() {
     testHistoryUsesOpenDocumentWorkingTreeContent();
     testHistoryIncludeStagedSplitsIndexAndWorkingTree();
     testHistoryIncludeStagedShowsIndexWhenNoUnstagedChanges();
+    testPullRequestReferenceParsingAcceptsPastedForms();
+    testPullRequestMetadataReadsGitHubCliJson();
+    testGitHubCliIsLocatedWhenTheAppDoesNotInheritAShellPath();
+    testPullRequestFetchesAuthenticateThroughTheGitHubCliAndNeverPrompt();
+    testPullRequestWorkspaceProvisionsCacheRepositoryThatReviewsClean();
+    testPullRequestWorkspaceReusesMatchingCloneWithoutRewritingItsFetchConfig();
     testBranchReviewUsesMergeBaseAndDetectsDefaultBase();
     testBranchReviewPreservesMergeCommitParents();
     testBranchReviewMaterializesRenameEndpointsAsOneReviewPair();

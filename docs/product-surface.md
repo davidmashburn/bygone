@@ -31,13 +31,14 @@ renderer does not make every workflow appropriate in every host.
 | Follow one file or directory through Git | File → View File or Directory History; one path; `--history` | Git commits plus supported index/worktree states | Commits are read-only; worktree/index provenance is explicit | Core | Git history and directory-history tests |
 | Compare named revisions | Git → Compare Revisions; `bygone --git-diff <refs…>` | Git blobs/revisions | Read-only snapshots | Core | Git comparison tests and desktop menu contract |
 | Explore a branch change | Git → Review Branch Change; `bygone review` | Merge-base-to-tip branch inventory for a selected head and optional base | Read-only review snapshots; dirty state is reported, not silently included | Core | branch comparison, review-path, and desktop menu tests |
+| Review a pull request from its link | Git → Review Pull Request; `bygone review <pull-request-url>`; `--pr <number>` | Merge-base-to-tip inventory for `refs/pull/<number>/head` against the pull request base, plus the author's title, account, and description | Read-only review snapshots; a Bygone-managed cache repository is provisioned when the caller has no clone, and is never checked out | Core | pull request parsing, workspace provisioning, and clone-reuse tests |
 | Search comparison code | Edit → Find or Search Comparison | Active, visible, all loaded panels, unopened changed text snapshots, or one file's Git history | Search is read-only; history distinguishes content occurrence from introduction/removal; Replace requires the active writable model | Core | find, comparison-search, change-set-search, and history-search tests |
 | Search or safely replace in a filesystem tree | Edit → Search in Files; explicit directory root | System ripgrep 14+ with include/exclude, hidden, ignore, and result-limit controls | Search is read-only and cancellable; completed case-sensitive literal searches can build an exclusion-aware, revalidated, atomic replacement preview with guarded undo | Optional system capability | repository search/replace contracts, benchmark, and host-protocol tests |
 | Move through a multi-panel comparison | Strip buttons, panel headers, gutters, wheel, or `Alt+Arrow` | Active panel and adjacent pair | Does not change source identity | Core | focused-strip controller and standalone smoke tests |
 | Search an authored tour | Presenter search or `Cmd/Ctrl+Shift+F` | Authored narrative plus compiled base/head code snapshots | Read-only; narrative hits navigate scenes/steps and code hits preserve Return to tour | Core | tour-search and presenter-host tests |
 
 File owns new/open/save lifecycle; Edit owns text operations and search; Git
-owns revision and branch questions; Present changes product area; Navigate owns
+owns revision, branch, and pull request questions; Present changes product area; Navigate owns
 movement within the current session, including history movement; View owns
 display preferences; Window owns native window lifecycle. Developer fixtures
 appear only when Electron is not packaged.
@@ -79,8 +80,9 @@ VS Code's native Search rather than another bundled ripgrep process.
 | Surface | Purpose | Mutability/maturity |
 | --- | --- | --- |
 | `bygone`, paths, `--diff`, `--history`, `--git-diff`, `review` | Launch Explore sessions | Core launcher; desktop owns writes |
+| `review <pull-request-url>`, `--pr` | Resolve a GitHub pull request to a reviewable range, fetching it when it is not local | Core; requires the GitHub CLI, read-only |
 | `present` and `present --tour` | Launch Present sessions | Core, read-only presentation |
-| `tour context` | Produce a bounded provider-neutral change dossier | Authoring support, read-only |
+| `tour context` | Produce a bounded provider-neutral change dossier, including the pull request description when one is supplied | Authoring support, read-only |
 | `tour validate`, `compile`, `schema`, and coverage options | Validate exact evidence and build portable manifests | Advanced authoring, read-only except explicit output files |
 | `completion` | Generate shell completions from the shared command specification | Supporting tooling |
 
@@ -97,6 +99,9 @@ Use these labels consistently:
 - **Explanation stage:** synthetic deconstructed content; never imply that it
   is a real commit.
 - **Real revision:** a panel resolved from an exact Git object identity.
+- **Cache repository:** a Bygone-managed, never-checked-out Git repository used
+  purely as an object store so a pull request can be reviewed without a clone.
+  It has no working tree, so it is never writable and never dirty.
 
 Paths and labels are descriptive; object IDs, source descriptors, and compiled
 tour locators are authoritative identities.

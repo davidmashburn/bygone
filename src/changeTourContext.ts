@@ -1,5 +1,6 @@
 import { execFileSync } from 'child_process';
 import type { BranchCommit, GitChangeKind } from './gitComparison';
+import type { PullRequestSummary } from './pullRequest';
 import { resolveBranchReviewRange, resolveReviewPathPair } from './gitComparison';
 
 export const CHANGE_TOUR_CONTEXT_VERSION = 1 as const;
@@ -65,6 +66,7 @@ export interface ChangeTourContext {
     };
     commits: BranchCommit[];
     files: ChangeTourContextFile[];
+    pullRequest?: PullRequestSummary;
 }
 
 export interface BuildChangeTourContextOptions {
@@ -73,6 +75,7 @@ export interface BuildChangeTourContextOptions {
     generatedAt?: string;
     maxPatchBytes?: number;
     maxTotalPatchBytes?: number;
+    pullRequest?: PullRequestSummary;
 }
 
 export function buildChangeTourContext(
@@ -122,7 +125,8 @@ export function buildChangeTourContext(
             filesByRole
         },
         commits: range.commits,
-        files
+        files,
+        pullRequest: options.pullRequest
     };
 }
 

@@ -13,7 +13,7 @@ _bygone() {
     local previous="${words[CURRENT-1]}"
     local -a root_items review_options present_options legacy_options history_options shells tour_actions
     root_items=(
-        'review:Review a committed branch against its merge base'
+        'review:Review a committed branch or pull request against its merge base'
         'completion:Print shell completion source'
         'present:Open an app-hosted tour of a committed branch range'
         'tour:Validate, compile, or inspect authored change tours'
@@ -32,6 +32,8 @@ _bygone() {
         '--base:Set the branch-review base ref'
         '-m:Set the branch-review base ref'
         '--main:Set the branch-review base ref'
+        '--pr:Review a GitHub pull request by number, URL, or owner/repo#number'
+        '--pull-request:Review a GitHub pull request by number, URL, or owner/repo#number'
         '-h:Show command help'
         '--help:Show command help'
     )
@@ -40,6 +42,8 @@ _bygone() {
         '-m:Set the branch-review base ref'
         '--main:Set the branch-review base ref'
         '--tour:Use an authored .bygone presentation'
+        '--pr:Review a GitHub pull request by number, URL, or owner/repo#number'
+        '--pull-request:Review a GitHub pull request by number, URL, or owner/repo#number'
         '-h:Show command help'
         '--help:Show command help'
     )
