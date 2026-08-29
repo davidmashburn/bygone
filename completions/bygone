@@ -44,7 +44,7 @@ _bygone() {
             if [[ "$prev" =~ ^(--base|-m|--main)$ ]]; then
                 COMPREPLY=( $(compgen -W "$refs" -- "$cur") )
             else
-                COMPREPLY=( $(compgen -W '--base -m --main -h --help '"$refs" -- "$cur") )
+                COMPREPLY=( $(compgen -W '--base -m --main --pr --pull-request -h --help '"$refs" -- "$cur") )
             fi
             ;;
         present)
@@ -55,7 +55,7 @@ _bygone() {
             elif [[ "$prev" =~ ^(--base|-m|--main)$ ]]; then
                 COMPREPLY=( $(compgen -W "$refs" -- "$cur") )
             else
-                COMPREPLY=( $(compgen -W '--base -m --main --tour -h --help '"$refs" -- "$cur") )
+                COMPREPLY=( $(compgen -W '--base -m --main --tour --pr --pull-request -h --help '"$refs" -- "$cur") )
             fi
             ;;
         --branch-diff)

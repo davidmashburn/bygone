@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added pull request review: `bygone review <pull-request-url>`, `bygone present <pull-request-url>`, `bygone tour context --pr`, and a Git → Review Pull Request… desktop dialog, all accepting a link, `owner/repo#number`, or `--pr <number>`
+- Reviewed pull requests without requiring a local clone by fetching `refs/pull/<number>/head` into a Bygone-managed cache repository, reusing the caller's clone when it already tracks the repository and never adding branches or partial-clone configuration to it
+- Carried the pull request title, author, state, and description into change tours and `tour context`, so generated narrative starts from the author's stated intent
+
 ## 0.8.14
 
 - Reorganized desktop menus around familiar File, Edit, Git, Present, Navigate, View, and Window responsibilities while exposing file, directory, revision, branch, history, tour, and blank-comparison workflows

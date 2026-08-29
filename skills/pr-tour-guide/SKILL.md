@@ -98,18 +98,23 @@ Do not rebuild, commit, push, publish, or open a browser unless the user request
 
 Determine the intended head and base from the request and repository state. Prefer an explicit base; do not guess when different bases would materially change the explanation.
 
-For a hosted review, resolve both immutable endpoint OIDs from provider metadata. Never assume the current checkout is the requested review head. For GitHub:
+For a GitHub pull request, pass the pull request itself. Bygone resolves the immutable endpoint OIDs, fetches `refs/pull/<n>/head` when it is not local, and includes the author's title and description in the dossier:
 
 ```sh
-PR_JSON="$(gh pr view <n> --json baseRefOid,headRefOid)"
-BASE_OID="$(jq -r .baseRefOid <<<"$PR_JSON")"
-HEAD_OID="$(jq -r .headRefOid <<<"$PR_JSON")"
-test -n "$BASE_OID" && test "$BASE_OID" != null
-test -n "$HEAD_OID" && test "$HEAD_OID" != null
+bygone tour context https://github.com/owner/repo/pull/<n> --output /tmp/change-context.json
+```
+
+Inside a clone of the repository, `bygone tour context --pr <n>` is equivalent. This works for fork pull requests and without any clone at all. It requires the GitHub CLI (`gh`), authenticated with `gh auth login`.
+
+Read `.pullRequest.body` from the dossier before writing narrative. It is the author's own statement of intent, and it outranks anything inferred from the diff. State plainly where the change departs from what the description claims.
+
+For a hosted review on another provider, resolve both immutable endpoint OIDs from provider metadata and pass them explicitly. Never assume the current checkout is the requested review head:
+
+```sh
 bygone tour context "$HEAD_OID" --base "$BASE_OID" --output /tmp/change-context.json
 ```
 
-Use the equivalent API or CLI fields for other providers. If you are not reviewing a hosted change, compute the merge-base against the intended integration branch and pass that exact base OID or ref. Keep the existing preference for explicit endpoints and do not guess.
+If you are not reviewing a hosted change, compute the merge-base against the intended integration branch and pass that exact base OID or ref. Keep the existing preference for explicit endpoints and do not guess.
 
 Use immutable commit IDs in the eventual tour. Dirty working-tree changes are reported but excluded from committed-range context.
 

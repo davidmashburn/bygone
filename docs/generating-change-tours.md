@@ -22,9 +22,10 @@ The skill documents how to install Bygone itself when the CLI is missing.
 
    ```sh
    bygone tour context HEAD --base origin/main --output change-context.json
+   bygone tour context https://github.com/owner/repo/pull/1753 --output change-context.json
    ```
 
-   The context contains commits, file roles, rename metadata, bounded unified patches, changed line ranges, basic symbol hints, and explicit binary or oversized-patch omissions.
+   The context contains commits, file roles, rename metadata, bounded unified patches, changed line ranges, basic symbol hints, and explicit binary or oversized-patch omissions. When the range came from a pull request, it also carries `pullRequest` with the author's title, account, state, and description. Read that description first: it is the author's stated intent, and narrative should start there rather than inferring purpose from diffs.
 
 2. Inspect the merge-base-to-head change, its commits, production files, tests, renames, and binaries.
 3. Identify the small set of reviewer questions that explain why the change exists and how it works.

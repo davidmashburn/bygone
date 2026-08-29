@@ -4,7 +4,7 @@ function __bygone_git_refs
     printf "%s\n" HEAD INDEX WORKTREE
 end
 
-complete -c bygone -n '__fish_use_subcommand' -a review -d 'Review a committed branch against its merge base'
+complete -c bygone -n '__fish_use_subcommand' -a review -d 'Review a committed branch or pull request against its merge base'
 complete -c bygone -n '__fish_use_subcommand' -a completion -d 'Print shell completion source'
 complete -c bygone -n '__fish_use_subcommand' -a present -d 'Open an app-hosted tour of a committed branch range'
 complete -c bygone -n '__fish_use_subcommand' -a tour -d 'Validate, compile, or inspect authored change tours'
@@ -26,9 +26,11 @@ complete -c bygone -n 'string match -q "*tour validate*" -- (commandline -opc)' 
 complete -c bygone -n 'string match -q "*tour compile*" -- (commandline -opc)' -l output -s o -r -d 'Write the compiled manifest'
 complete -c bygone -n 'string match -q "*--history*" -- (commandline -opc)' -l include-staged -l staged -d 'Include staged state in Git history'
 complete -c bygone -n '__fish_seen_subcommand_from review' -l base -s m -l main -r -a '(__bygone_git_refs)' -d 'Set the branch-review base ref'
+complete -c bygone -n '__fish_seen_subcommand_from review' -l pr -l pull-request -r -d 'Review a GitHub pull request by number, URL, or owner/repo#number'
 complete -c bygone -n '__fish_seen_subcommand_from review' -a '(__bygone_git_refs)' -d 'Git ref'
 complete -c bygone -n '__fish_seen_subcommand_from present' -l base -s m -l main -r -a '(__bygone_git_refs)' -d 'Set the branch-review base ref'
 complete -c bygone -n '__fish_seen_subcommand_from present' -l tour -r -d 'Use an authored .bygone presentation'
+complete -c bygone -n '__fish_seen_subcommand_from present' -l pr -l pull-request -r -d 'Review a GitHub pull request by number, URL, or owner/repo#number'
 complete -c bygone -n '__fish_seen_subcommand_from present' -a '(__bygone_git_refs)' -d 'Git ref'
 complete -c bygone -n 'string match -q "*--branch-diff*" -- (commandline -opc)' -s b -l branch -r -a '(__bygone_git_refs)' -d 'Set the branch-review head ref'
 complete -c bygone -n 'string match -q "*--branch-diff*" -- (commandline -opc)' -l base -s m -l main -r -a '(__bygone_git_refs)' -d 'Set the branch-review base ref'

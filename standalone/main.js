@@ -15,6 +15,13 @@ const { buildRepositoryReplacementPlan, applyRepositoryReplacementPlan, undoRepo
 const { searchFileHistory } = require('../src/gitHistorySearch.ts');
 const { classifyAuthoredTourPaths, discoverAuthoredTourDocument } = require('../src/tourDocument.ts');
 const { materializeBranchReviewTrees, materializeGitTree, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
+const {
+    ensurePullRequestWorkspace,
+    isPullRequestInput,
+    parsePullRequestRef,
+    resolvePullRequest,
+    toPullRequestSummary
+} = require('../src/pullRequest.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
 const { collectComparisonSelection, getMenuCapabilities } = require('./menuUtils.js');
 const {
@@ -734,6 +741,10 @@ function installApplicationMenu() {
                     label: 'Review Branch Change…',
                     accelerator: 'CmdOrCtrl+Shift+R',
                     click: () => runMenuAction('review a branch change', openBranchReviewDialog)
+                },
+                {
+                    label: 'Review Pull Request…',
+                    click: () => runMenuAction('review a pull request', openPullRequestReviewDialog)
                 }
             ]
         },
@@ -1309,7 +1320,10 @@ async function routeLaunchTarget(launchTarget) {
     }
 
     if (launchTarget.kind === 'branch-diff') {
-        await openGitBranchReview(launchTarget.cwd || process.cwd(), launchTarget.branch, launchTarget.mainRef);
+        await openGitBranchReview(launchTarget.cwd || process.cwd(), launchTarget.branch, launchTarget.mainRef, {
+            pullRequest: launchTarget.pullRequest,
+            unreadablePullRequest: launchTarget.unreadablePullRequest
+        });
         return;
     }
 
@@ -1361,6 +1375,11 @@ function sourceForLaunchTarget(launchTarget) {
         }
     }
     if (launchTarget.kind === 'branch-diff') {
+        if (launchTarget.pullRequest) {
+            // The repository and refs only exist once the pull request has been
+            // resolved and fetched, so the review itself records the source.
+            return null;
+        }
         try {
             const repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], launchTarget.cwd || process.cwd()));
             return createBranchReviewSource(repoRoot, launchTarget.branch, launchTarget.mainRef);
@@ -1462,17 +1481,31 @@ function parseLaunchArgs(args) {
     if (tokenMatches('branchDiff', filteredArgs[0]) || tokenMatches('review', filteredArgs[0])) {
         let branch = 'HEAD';
         let mainRef;
+        let pullRequest;
+        let unreadablePullRequest;
         for (let i = 1; i < filteredArgs.length; i++) {
             const arg = filteredArgs[i];
-            if (tokenMatches('branch', arg) && filteredArgs[i + 1]) {
+            if (tokenMatches('pullRequest', arg) && filteredArgs[i + 1]) {
+                const requested = filteredArgs[++i];
+                pullRequest = parsePullRequestRef(requested);
+                if (!pullRequest) {
+                    unreadablePullRequest = requested;
+                }
+            } else if (tokenMatches('branch', arg) && filteredArgs[i + 1]) {
                 branch = filteredArgs[++i];
             } else if (tokenMatches('base', arg) && filteredArgs[i + 1]) {
                 mainRef = filteredArgs[++i];
             } else if (tokenMatches('review', filteredArgs[0]) && !arg.startsWith('-')) {
-                branch = arg;
+                // A pasted pull request link is unambiguous, so it wins over
+                // being treated as a Git ref.
+                if (isPullRequestInput(arg)) {
+                    pullRequest = parsePullRequestRef(arg);
+                } else {
+                    branch = arg;
+                }
             }
         }
-        return { kind: 'branch-diff', branch, mainRef, cwd, capturePath, windowWidth, windowHeight };
+        return { kind: 'branch-diff', branch, mainRef, pullRequest, unreadablePullRequest, cwd, capturePath, windowWidth, windowHeight };
     }
 
     if (tokenMatches('test', filteredArgs[0])) {
@@ -2070,6 +2103,33 @@ async function openBranchReviewDialog() {
     });
 }
 
+/**
+ * Reviewing a pull request deliberately asks for nothing but the link. The
+ * repository, refs, and any clone are resolved from it.
+ */
+async function openPullRequestReviewDialog() {
+    openLaunchPrompt({
+        kind: 'review-pull-request',
+        title: 'Review Pull Request',
+        description: 'Paste a GitHub pull request link, or type owner/repo#number.',
+        submitLabel: 'Review',
+        fields: [
+            { name: 'pullRequest', label: 'Pull request link or owner/repo#number', value: '', required: true }
+        ]
+    }, async (values) => {
+        const requested = values.pullRequest.trim();
+        const ref = parsePullRequestRef(requested);
+        if (!ref || !ref.owner || !ref.repo) {
+            await showError(
+                `Could not read "${requested}" as a pull request. `
+                + 'Use a full link such as https://github.com/owner/repo/pull/123, or owner/repo#123.'
+            );
+            return;
+        }
+        await openGitBranchReview(launchArguments.cwd || process.cwd(), 'HEAD', undefined, { pullRequest: ref });
+    });
+}
+
 async function openCompareDirectoriesDialog() {
     const directoryPaths = await collectComparisonPaths('directory');
     if (directoryPaths.length < 2) {
@@ -2320,16 +2380,45 @@ async function openGitRefs(cwd, refs, options = {}) {
 }
 
 async function openGitBranchReview(cwd, branch, mainRef, options = {}) {
+    let reviewRoot = cwd;
+    let headRef = branch;
+    let baseRef = mainRef;
+    let pullRequest;
+
+    if (options.unreadablePullRequest) {
+        await showError(
+            `Could not read "${options.unreadablePullRequest}" as a pull request. `
+            + 'Use a number, a full link such as https://github.com/owner/repo/pull/123, or owner/repo#123.'
+        );
+        return;
+    }
+
+    if (options.pullRequest) {
+        try {
+            const metadata = resolvePullRequest(options.pullRequest, cwd);
+            const workspace = ensurePullRequestWorkspace(options.pullRequest, metadata, cwd);
+            reviewRoot = workspace.repoRoot;
+            headRef = workspace.headRef;
+            baseRef = workspace.baseRef;
+            pullRequest = toPullRequestSummary(metadata);
+        } catch (error) {
+            await showError(`Could not prepare pull request review: ${getErrorMessage(error)}`);
+            return;
+        }
+    }
+
     let review;
     try {
-        review = resolveBranchReviewRange(cwd, branch, mainRef);
+        review = resolveBranchReviewRange(reviewRoot, headRef, baseRef);
     } catch (error) {
         await showError(`Could not prepare branch review: ${getErrorMessage(error)}`);
         return;
     }
 
     if (review.changedPaths.length === 0) {
-        await showInfo(`${review.headRef} has no changes relative to ${review.baseRef}.`);
+        await showInfo(pullRequest
+            ? `Pull request #${pullRequest.number} has no changes relative to ${pullRequest.baseRefName}.`
+            : `${review.headRef} has no changes relative to ${review.baseRef}.`);
         return;
     }
 
@@ -2348,14 +2437,15 @@ async function openGitBranchReview(cwd, branch, mainRef, options = {}) {
 
     await openDirectories([leftRoot, rightRoot], {
         labels: [
-            `${review.baseRef} @ ${review.mergeBaseOid.slice(0, 7)}`,
-            `${review.headRef} @ ${review.headOid.slice(0, 7)}`
+            `${pullRequest ? pullRequest.baseRefName : review.baseRef} @ ${review.mergeBaseOid.slice(0, 7)}`,
+            `${pullRequest ? `#${pullRequest.number} ${pullRequest.headRefName}` : review.headRef} @ ${review.headOid.slice(0, 7)}`
         ],
         tempRoots: [leftRoot, rightRoot],
         skipConfirm: Boolean(options.skipConfirm),
-        source: options.source || createBranchReviewSource(review.repoRoot || cwd, branch, mainRef),
+        source: options.source || createBranchReviewSource(review.repoRoot || reviewRoot, headRef, baseRef),
         review: {
             ...review,
+            pullRequest,
             viewedPaths: new Set()
         }
     });

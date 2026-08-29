@@ -1,4 +1,5 @@
 import type { BranchCommit, GitChangeKind } from './gitComparison';
+import type { PullRequestSummary } from './pullRequest';
 
 export const CHANGE_TOUR_MANIFEST_VERSION = 1 as const;
 
@@ -207,6 +208,7 @@ export interface ChangeTourManifest {
     files: ChangeTourFile[];
     chapters: ChangeTourChapter[];
     scenes: ChangeTourScene[];
+    pullRequest?: PullRequestSummary;
 }
 
 export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
@@ -220,6 +222,9 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
     }
     if (value.sourceUrl !== undefined) {
         requireString(value.sourceUrl, 'sourceUrl');
+    }
+    if (value.pullRequest !== undefined) {
+        validatePullRequest(value.pullRequest);
     }
     if (!isRecord(value.range)) {
         throw new Error('Change-tour manifest range must be an object.');
@@ -527,6 +532,21 @@ function validateNarrative(value: Record<string, unknown>, path: string): void {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function validatePullRequest(value: unknown): asserts value is PullRequestSummary {
+    if (!isRecord(value)) {
+        throw new Error('Change-tour manifest pullRequest must be an object.');
+    }
+    requireNonNegativeInteger(value.number, 'pullRequest.number');
+    for (const key of ['title', 'body', 'author', 'url', 'state', 'baseRefName', 'headRefName']) {
+        if (typeof value[key] !== 'string') {
+            throw new Error(`pullRequest.${key} must be a string.`);
+        }
+    }
+    if (typeof value.isCrossRepository !== 'boolean') {
+        throw new Error('pullRequest.isCrossRepository must be a boolean.');
+    }
 }
 
 function requireString(value: unknown, path: string): asserts value is string {

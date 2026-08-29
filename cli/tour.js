@@ -3,6 +3,13 @@ const path = require('path');
 const { buildChangeTourContext } = require('../out/changeTour.js');
 const { buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { buildManifestForTourSource, loadTourSource } = require('./tourFile.js');
+const {
+    ensurePullRequestWorkspace,
+    isPullRequestInput,
+    parsePullRequestRef,
+    resolvePullRequest,
+    toPullRequestSummary
+} = require('../out/pullRequest.js');
 
 const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'compile', 'schema']);
 
@@ -13,9 +20,13 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
         return { action: 'schema' };
     }
     if (options.action === 'context') {
-        const context = buildChangeTourContext(cwd, {
-            headRef: options.headRef,
-            baseRef: options.baseRef,
+        const pullRequestRange = options.pullRequestRef
+            ? preparePullRequestRange(options.pullRequestRef, cwd)
+            : undefined;
+        const context = buildChangeTourContext(pullRequestRange?.cwd || cwd, {
+            headRef: pullRequestRange?.headRef || options.headRef,
+            baseRef: pullRequestRange?.baseRef || options.baseRef,
+            pullRequest: pullRequestRange?.pullRequest,
             maxPatchBytes: options.maxPatchBytes,
             maxTotalPatchBytes: options.maxTotalPatchBytes
         });
@@ -116,6 +127,7 @@ function parseContextArgs(args) {
     let outputPath;
     let maxPatchBytes;
     let maxTotalPatchBytes;
+    let pullRequestRef;
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index];
         if (arg === '--base' || arg === '-m' || arg === '--main') {
@@ -144,11 +156,45 @@ function parseContextArgs(args) {
             }
             continue;
         }
+        if (arg === '--pr' || arg === '--pull-request') {
+            if (!args[index + 1]) throw new Error(`${arg} requires a pull request number or URL.`);
+            pullRequestRef = requirePullRequestRef(args[++index]);
+            continue;
+        }
         if (arg.startsWith('-')) throw new Error(`Unknown tour context option: ${arg}`);
+        // A pasted pull request link is unambiguous, so it wins over being
+        // treated as a Git ref.
+        if (isPullRequestInput(arg)) {
+            pullRequestRef = requirePullRequestRef(arg);
+            continue;
+        }
         if (headRef) throw new Error('tour context accepts at most one head ref.');
         headRef = arg;
     }
-    return { action: 'context', headRef, baseRef, outputPath, maxPatchBytes, maxTotalPatchBytes };
+    return { action: 'context', headRef, baseRef, outputPath, maxPatchBytes, maxTotalPatchBytes, pullRequestRef };
+}
+
+function requirePullRequestRef(value) {
+    const ref = parsePullRequestRef(value);
+    if (!ref) {
+        throw new Error(`Could not read "${value}" as a pull request number, URL, or owner/repo#number.`);
+    }
+    return ref;
+}
+
+/**
+ * Turn a pull request into the repository and refs the change-context builder
+ * already understands, fetching it first when it is not local yet.
+ */
+function preparePullRequestRange(pullRequestRef, cwd) {
+    const metadata = resolvePullRequest(pullRequestRef, cwd);
+    const workspace = ensurePullRequestWorkspace(pullRequestRef, metadata, cwd);
+    return {
+        cwd: workspace.repoRoot,
+        headRef: workspace.headRef,
+        baseRef: workspace.baseRef,
+        pullRequest: toPullRequestSummary(metadata)
+    };
 }
 
 function writeJsonResult(label, value, outputPath, cwd, output) {

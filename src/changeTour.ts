@@ -1,5 +1,6 @@
 import { execFileSync } from 'child_process';
 import { GitChangedPath, parseNameStatusZ, resolveBranchReviewRange, resolveReviewPathPair } from './gitComparison';
+import type { PullRequestSummary } from './pullRequest';
 import {
     CHANGE_TOUR_MANIFEST_VERSION,
     ChangeTourChapter,
@@ -43,6 +44,7 @@ export interface BuildChangeTourOptions {
     baseRef?: string;
     title?: string;
     sourceUrl?: string;
+    pullRequest?: PullRequestSummary;
     generatedAt?: string;
     maxFileBytes?: number;
     maxLineBytes?: number;
@@ -152,9 +154,17 @@ export function buildChangeTourManifest(
     const chapters = authored.chapters;
     const manifest: ChangeTourManifest = {
         version: CHANGE_TOUR_MANIFEST_VERSION,
-        title: options.source?.title || options.story?.title || options.title || `${range.headRef} against ${range.baseRef}`,
+        title: options.source?.title
+            || options.story?.title
+            || options.title
+            || formatPullRequestTourTitle(options.pullRequest)
+            || `${range.headRef} against ${range.baseRef}`,
         windowTitle: options.source?.windowTitle,
-        sourceUrl: options.source?.sourceUrl || options.story?.sourceUrl || options.sourceUrl,
+        sourceUrl: options.source?.sourceUrl
+            || options.story?.sourceUrl
+            || options.sourceUrl
+            || options.pullRequest?.url,
+        pullRequest: options.pullRequest,
         generatedAt: options.generatedAt || new Date().toISOString(),
         range: {
             baseRef: range.baseRef,
@@ -679,6 +689,10 @@ function buildOmittedFile(
         deletions,
         reason
     };
+}
+
+function formatPullRequestTourTitle(pullRequest: PullRequestSummary | undefined): string | undefined {
+    return pullRequest ? `#${pullRequest.number} ${pullRequest.title}` : undefined;
 }
 
 function formatChangeKind(kind: string): string {
