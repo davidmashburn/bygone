@@ -5,6 +5,8 @@
 - Added pull request review: `bygone review <pull-request-url>`, `bygone present <pull-request-url>`, `bygone tour context --pr`, and a Git → Review Pull Request… desktop dialog, all accepting a link, `owner/repo#number`, or `--pr <number>`
 - Reviewed pull requests without requiring a local clone by fetching `refs/pull/<number>/head` into a Bygone-managed cache repository, reusing the caller's clone when it already tracks the repository and never adding branches or partial-clone configuration to it
 - Carried the pull request title, author, state, and description into change tours and `tour context`, so generated narrative starts from the author's stated intent
+- Located the GitHub CLI by path rather than trusting `PATH`, so a desktop app launched outside a terminal stops reporting an installed `gh` as missing, with `BYGONE_GH_PATH` as an explicit override
+- Fixed change tours built from a source that pins its own range being resolved against `HEAD` instead, which made checked-in example tours fail to reproduce from a feature branch
 
 ## 0.8.14
 

@@ -7,6 +7,21 @@ const DEFAULT_COMMAND_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 const PULL_REQUEST_REF_NAMESPACE = 'refs/bygone/pr';
 const PULL_REQUEST_BASE_REF_NAMESPACE = 'refs/bygone/base';
 const DEFAULT_PARTIAL_CLONE_FILTER = 'blob:none';
+const LOGIN_SHELL_PATH_TIMEOUT_MS = 3000;
+
+/**
+ * Absolute locations to check when the GitHub CLI is not on the current PATH.
+ * A macOS app launched from Finder or the Dock inherits a minimal PATH that
+ * excludes Homebrew, so `gh` has to be located rather than assumed.
+ */
+const GITHUB_CLI_FALLBACK_PATHS = Object.freeze([
+    '/opt/homebrew/bin/gh',
+    '/usr/local/bin/gh',
+    '/usr/bin/gh',
+    '/bin/gh',
+    '/snap/bin/gh',
+    'C:\\Program Files\\GitHub CLI\\gh.exe'
+]);
 
 export interface PullRequestRef {
     host?: string;
@@ -135,6 +150,115 @@ export function formatPullRequestRepository(ref: PullRequestRef): string | undef
     return ref.host && ref.host !== 'github.com' ? `${ref.host}/${repository}` : repository;
 }
 
+export interface ResolveGitHubCliOptions {
+    env?: NodeJS.ProcessEnv;
+    candidates?: readonly string[];
+    isExecutable?: (candidate: string) => boolean;
+    readLoginShellPath?: (env: NodeJS.ProcessEnv) => string | undefined;
+}
+
+let cachedGitHubCliCommand: string | undefined;
+
+/**
+ * Locate the GitHub CLI.
+ *
+ * Resolution order is cheapest first: an explicit override, the current PATH,
+ * well-known install locations, then the login shell's PATH. The last two exist
+ * because a desktop app started outside a shell does not inherit the PATH the
+ * user installed `gh` onto.
+ *
+ * Returns `gh` when nothing is found, so the caller still fails with the
+ * install-and-authenticate message rather than a different error.
+ */
+export function resolveGitHubCliCommand(options: ResolveGitHubCliOptions = {}): string {
+    const env = options.env ?? process.env;
+    const isExecutable = options.isExecutable ?? isExecutableFile;
+
+    if (env.BYGONE_GH_PATH) {
+        return env.BYGONE_GH_PATH;
+    }
+
+    const onPath = findExecutableOnPath('gh', env.PATH, isExecutable);
+    if (onPath) {
+        return onPath;
+    }
+
+    for (const candidate of options.candidates ?? GITHUB_CLI_FALLBACK_PATHS) {
+        if (isExecutable(candidate)) {
+            return candidate;
+        }
+    }
+
+    const readLoginShellPath = options.readLoginShellPath ?? readPathFromLoginShell;
+    const loginShellPath = readLoginShellPath(env);
+    const onLoginShellPath = loginShellPath
+        ? findExecutableOnPath('gh', loginShellPath, isExecutable)
+        : undefined;
+    if (onLoginShellPath) {
+        return onLoginShellPath;
+    }
+
+    return 'gh';
+}
+
+function resolveCachedGitHubCliCommand(): string {
+    if (cachedGitHubCliCommand === undefined) {
+        cachedGitHubCliCommand = resolveGitHubCliCommand();
+    }
+    return cachedGitHubCliCommand;
+}
+
+function findExecutableOnPath(
+    command: string,
+    searchPath: string | undefined,
+    isExecutable: (candidate: string) => boolean
+): string | undefined {
+    if (!searchPath) {
+        return undefined;
+    }
+    const extensions = process.platform === 'win32' ? ['.exe', '.cmd', ''] : [''];
+    for (const entry of searchPath.split(path.delimiter)) {
+        if (!entry) {
+            continue;
+        }
+        for (const extension of extensions) {
+            const candidate = path.join(entry, `${command}${extension}`);
+            if (isExecutable(candidate)) {
+                return candidate;
+            }
+        }
+    }
+    return undefined;
+}
+
+function isExecutableFile(candidate: string): boolean {
+    try {
+        if (!fs.statSync(candidate).isFile()) {
+            return false;
+        }
+        fs.accessSync(candidate, fs.constants.X_OK);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function readPathFromLoginShell(env: NodeJS.ProcessEnv): string | undefined {
+    const shell = env.SHELL;
+    if (!shell || process.platform === 'win32') {
+        return undefined;
+    }
+    try {
+        return execFileSync(shell, ['-lc', 'printf %s "$PATH"'], {
+            encoding: 'utf8',
+            timeout: LOGIN_SHELL_PATH_TIMEOUT_MS,
+            stdio: ['ignore', 'pipe', 'ignore']
+        }).trim() || undefined;
+    } catch {
+        return undefined;
+    }
+}
+
 const PULL_REQUEST_FIELDS = [
     'number',
     'title',
@@ -149,10 +273,16 @@ const PULL_REQUEST_FIELDS = [
     'isCrossRepository'
 ].join(',');
 
+export interface ResolvePullRequestOptions {
+    /** Overrides the located GitHub CLI executable. Tests pass a stub here. */
+    command?: string;
+}
+
 export function resolvePullRequest(
     ref: PullRequestRef,
     cwd: string,
-    runCommand: RunCommand = createCommandRunner()
+    runCommand: RunCommand = createCommandRunner(),
+    options: ResolvePullRequestOptions = {}
 ): PullRequestMetadata {
     const args = ['pr', 'view', String(ref.number), '--json', PULL_REQUEST_FIELDS];
     const repository = formatPullRequestRepository(ref);
@@ -162,7 +292,7 @@ export function resolvePullRequest(
 
     let output: string;
     try {
-        output = runCommand('gh', args, cwd);
+        output = runCommand(options.command ?? resolveCachedGitHubCliCommand(), args, cwd);
     } catch (error) {
         throw new Error(describeGitHubCliFailure(error, ref));
     }
@@ -367,8 +497,10 @@ export function parseRemoteIdentity(url: string): { host: string; owner: string;
 
 function describeGitHubCliFailure(error: unknown, ref: PullRequestRef): string {
     if (isRecord(error) && error.code === 'ENOENT') {
-        return 'Reviewing a pull request needs the GitHub CLI. Install it from https://cli.github.com '
-            + 'and run `gh auth login`.';
+        return 'Reviewing a pull request needs the GitHub CLI, and Bygone could not find it. '
+            + 'If it is not installed, install it from https://cli.github.com and run `gh auth login`. '
+            + 'If it is installed, a desktop app started outside a terminal does not inherit your shell '
+            + 'PATH: set BYGONE_GH_PATH to the full path of `gh`.';
     }
 
     const detail = readCommandStderr(error) || getErrorMessage(error);

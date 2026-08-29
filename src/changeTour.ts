@@ -70,7 +70,14 @@ export function buildChangeTourManifest(
     startPath: string,
     options: BuildChangeTourOptions = {}
 ): ChangeTourManifest {
-    const range = resolveBranchReviewRange(startPath, options.headRef, options.baseRef);
+    // A source that pins its own range is reproducible by definition, so the
+    // pinned range wins over whatever HEAD happens to be. Explicit options
+    // still win over both.
+    const range = resolveBranchReviewRange(
+        startPath,
+        options.headRef || options.source?.range?.head,
+        options.baseRef || options.source?.range?.base
+    );
     const maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_TOUR_FILE_BYTES;
     const maxLineBytes = options.maxLineBytes ?? DEFAULT_MAX_TOUR_LINE_BYTES;
     const omittedFiles: string[] = [];

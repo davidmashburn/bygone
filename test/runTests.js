@@ -22,6 +22,7 @@ const {
     isPullRequestInput,
     parsePullRequestRef,
     parseRemoteIdentity,
+    resolveGitHubCliCommand,
     resolvePullRequest
 } = require('../out/pullRequest.js');
 const {
@@ -1511,6 +1512,11 @@ function testAdvancedTourExamplesRemainReproducible() {
         const manifest = buildChangeTourManifest(path.join(__dirname, '..'), { source });
         assert.equal(manifest.scenes[0].kind, expectedKind);
         assert.equal(manifest.scenes[0].steps.length, expectedSteps);
+        // A pinned range makes the tour reproducible from any checkout. Reading
+        // HEAD instead made these examples fail on any branch whose changed
+        // files did not happen to include the ones the tour introduces.
+        assert.equal(manifest.range.mergeBaseOid, source.range.base);
+        assert.equal(manifest.range.headOid, source.range.head);
     }
 }
 
@@ -3745,6 +3751,71 @@ function testPullRequestMetadataReadsGitHubCliJson() {
     );
 }
 
+function testGitHubCliIsLocatedWhenTheAppDoesNotInheritAShellPath() {
+    const installed = '/opt/homebrew/bin/gh';
+    const isExecutable = (candidate) => candidate === installed;
+
+    assert.equal(
+        resolveGitHubCliCommand({ env: { PATH: '/opt/homebrew/bin:/usr/bin' }, isExecutable }),
+        installed
+    );
+
+    // A macOS app launched from Finder or the Dock inherits a minimal PATH with
+    // no Homebrew on it. Trusting PATH here reported an installed GitHub CLI as
+    // missing.
+    assert.equal(
+        resolveGitHubCliCommand({
+            env: { PATH: '/usr/bin:/bin:/usr/sbin:/sbin' },
+            isExecutable,
+            readLoginShellPath: () => undefined
+        }),
+        installed
+    );
+
+    assert.equal(
+        resolveGitHubCliCommand({
+            env: { BYGONE_GH_PATH: '/custom/gh', PATH: '/opt/homebrew/bin' },
+            isExecutable
+        }),
+        '/custom/gh'
+    );
+
+    // An install in no standard location is still recovered from the login shell.
+    assert.equal(
+        resolveGitHubCliCommand({
+            env: { PATH: '/usr/bin' },
+            candidates: [],
+            isExecutable: (candidate) => candidate === '/opt/elsewhere/bin/gh',
+            readLoginShellPath: () => '/opt/elsewhere/bin'
+        }),
+        '/opt/elsewhere/bin/gh'
+    );
+
+    // Genuinely absent falls back to the bare name so the caller still fails
+    // with the install-and-authenticate message.
+    assert.equal(
+        resolveGitHubCliCommand({
+            env: { PATH: '/usr/bin' },
+            candidates: [],
+            isExecutable: () => false,
+            readLoginShellPath: () => undefined
+        }),
+        'gh'
+    );
+
+    // That message names both causes, because "not installed" is only one of them.
+    const missing = Object.assign(new Error('spawn gh ENOENT'), { code: 'ENOENT' });
+    assert.throws(
+        () => resolvePullRequest(
+            { owner: 'acme', repo: 'widgets', number: 7 },
+            process.cwd(),
+            () => { throw missing; },
+            { command: '/nowhere/gh' }
+        ),
+        /BYGONE_GH_PATH/
+    );
+}
+
 function testPullRequestWorkspaceProvisionsCacheRepositoryThatReviewsClean() {
     const upstream = createTempGitRepo();
     fs.writeFileSync(path.join(upstream, 'first.txt'), 'base\n', 'utf8');
@@ -4017,6 +4088,7 @@ async function run() {
     testHistoryIncludeStagedShowsIndexWhenNoUnstagedChanges();
     testPullRequestReferenceParsingAcceptsPastedForms();
     testPullRequestMetadataReadsGitHubCliJson();
+    testGitHubCliIsLocatedWhenTheAppDoesNotInheritAShellPath();
     testPullRequestWorkspaceProvisionsCacheRepositoryThatReviewsClean();
     testPullRequestWorkspaceReusesMatchingCloneWithoutRewritingItsFetchConfig();
     testBranchReviewUsesMergeBaseAndDetectsDefaultBase();
