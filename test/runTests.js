@@ -18,6 +18,8 @@ const { GitHistoryService } = require('../out/gitHistory.js');
 const { searchFileHistory } = require('../out/gitHistorySearch.js');
 const { buildBinaryComparison, classifyFile } = require('../out/binaryComparison.js');
 const {
+    buildGitCredentialArgs,
+    buildGitEnvironment,
     ensurePullRequestWorkspace,
     isPullRequestInput,
     parsePullRequestRef,
@@ -3816,6 +3818,33 @@ function testGitHubCliIsLocatedWhenTheAppDoesNotInheritAShellPath() {
     );
 }
 
+function testPullRequestFetchesAuthenticateThroughTheGitHubCliAndNeverPrompt() {
+    const command = '/opt/homebrew/bin/gh';
+
+    assert.deepEqual(buildGitCredentialArgs(command), [
+        '-c',
+        "credential.helper=!'/opt/homebrew/bin/gh' auth git-credential"
+    ]);
+    // A path with a space or an apostrophe still produces one shell word.
+    assert.equal(
+        buildGitCredentialArgs("/we ird/o'g/gh")[1],
+        "credential.helper=!'/we ird/o'\\''g/gh' auth git-credential"
+    );
+
+    // A desktop app has no terminal, so an unanswerable credential prompt has
+    // to fail rather than surface as "Device not configured".
+    const env = buildGitEnvironment({ PATH: '/usr/bin:/bin' }, command);
+    assert.equal(env.GIT_TERMINAL_PROMPT, '0');
+    // The CLI's directory joins PATH so a helper already configured as
+    // `!gh auth git-credential` resolves outside a shell too.
+    assert.equal(env.PATH, '/opt/homebrew/bin:/usr/bin:/bin');
+    assert.equal(
+        buildGitEnvironment({ PATH: '/opt/homebrew/bin:/usr/bin' }, command).PATH,
+        '/opt/homebrew/bin:/usr/bin'
+    );
+    assert.equal(buildGitEnvironment({}, 'gh').PATH, undefined);
+}
+
 function testPullRequestWorkspaceProvisionsCacheRepositoryThatReviewsClean() {
     const upstream = createTempGitRepo();
     fs.writeFileSync(path.join(upstream, 'first.txt'), 'base\n', 'utf8');
@@ -3938,7 +3967,7 @@ function testPullRequestWorkspaceReusesMatchingCloneWithoutRewritingItsFetchConf
 
     assert.equal(workspace.provisioned, false);
 
-    const fetches = commands.filter((entry) => entry.args[0] === 'fetch');
+    const fetches = commands.filter((entry) => entry.args.includes('fetch'));
     assert.equal(fetches.length, 1);
     // The pull request head lives on the base repository, so the matching
     // remote is chosen rather than the contributor's fork.
@@ -3948,6 +3977,9 @@ function testPullRequestWorkspaceReusesMatchingCloneWithoutRewritingItsFetchConf
     // Adding a partial-clone filter here would rewrite fetch configuration in a
     // repository the user owns, as a side effect of reviewing.
     assert.ok(!fetches[0].args.some((arg) => arg.startsWith('--filter')));
+    // Credentials are supplied per invocation with -c, never written to config.
+    assert.ok(fetches[0].args.includes('-c'));
+    assert.ok(fetches[0].args.some((arg) => arg.startsWith('credential.helper=!')));
 }
 
 function createTempGitRepo() {
@@ -4089,6 +4121,7 @@ async function run() {
     testPullRequestReferenceParsingAcceptsPastedForms();
     testPullRequestMetadataReadsGitHubCliJson();
     testGitHubCliIsLocatedWhenTheAppDoesNotInheritAShellPath();
+    testPullRequestFetchesAuthenticateThroughTheGitHubCliAndNeverPrompt();
     testPullRequestWorkspaceProvisionsCacheRepositoryThatReviewsClean();
     testPullRequestWorkspaceReusesMatchingCloneWithoutRewritingItsFetchConfig();
     testBranchReviewUsesMergeBaseAndDetectsDefaultBase();

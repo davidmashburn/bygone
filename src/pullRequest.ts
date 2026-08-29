@@ -74,17 +74,23 @@ export interface PullRequestWorkspace {
     pullRequest: PullRequestMetadata;
 }
 
-export type RunCommand = (command: string, args: readonly string[], cwd: string) => string;
+export type RunCommand = (
+    command: string,
+    args: readonly string[],
+    cwd: string,
+    env?: NodeJS.ProcessEnv
+) => string;
 
 const PULL_REQUEST_URL_PATTERN = /^https?:\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/pulls?\/(\d+)(?:[/?#].*)?$/i;
 const QUALIFIED_PULL_REQUEST_PATTERN = /^(?:([^/\s]+)\/)?([^/\s]+)\/([^/\s#]+)#(\d+)$/;
 const BARE_PULL_REQUEST_PATTERN = /^#?(\d+)$/;
 
 export function createCommandRunner(maxBuffer = DEFAULT_COMMAND_MAX_BUFFER_BYTES): RunCommand {
-    return (command, args, cwd) => execFileSync(command, [...args], {
+    return (command, args, cwd, env) => execFileSync(command, [...args], {
         cwd,
         encoding: 'utf8',
         maxBuffer,
+        env: env ?? process.env,
         stdio: ['ignore', 'pipe', 'pipe']
     }).trimEnd();
 }
@@ -418,10 +424,13 @@ function fetchRefspecs(
     filter: string | undefined,
     runCommand: RunCommand
 ): void {
-    const baseArgs = ['fetch', '--no-tags', '--quiet', remote, ...refspecs];
+    const credentialArgs = buildGitCredentialArgs();
+    const env = buildGitEnvironment();
+    const fetchArgs = ['fetch', '--no-tags', '--quiet'];
+
     if (filter) {
         try {
-            runCommand('git', ['fetch', '--no-tags', '--quiet', `--filter=${filter}`, remote, ...refspecs], repoRoot);
+            runCommand('git', [...credentialArgs, ...fetchArgs, `--filter=${filter}`, remote, ...refspecs], repoRoot, env);
             return;
         } catch {
             // Not every host supports partial clone. A full fetch is slower but
@@ -430,14 +439,52 @@ function fetchRefspecs(
     }
 
     try {
-        runCommand('git', baseArgs, repoRoot);
+        runCommand('git', [...credentialArgs, ...fetchArgs, remote, ...refspecs], repoRoot, env);
     } catch (error) {
         throw new Error(
             `Could not fetch the pull request from ${remote}: ${getErrorMessage(error)}\n`
-            + 'Check network access and repository permissions. For private repositories, '
-            + 'run `gh auth setup-git` so Git can reuse your GitHub CLI credentials.'
+            + 'Check network access and that your GitHub account can read the repository. '
+            + 'Run `gh auth status` to confirm the GitHub CLI is signed in to the right host.'
         );
     }
+}
+
+/**
+ * Authenticate Bygone's own fetches through the GitHub CLI.
+ *
+ * Passed with `-c` so nothing is written to a repository the user owns. Git
+ * consults configured helpers first, so this only supplies credentials that
+ * were not already available, which is what a private repository over HTTPS
+ * needs when `gh auth setup-git` has never been run.
+ */
+export function buildGitCredentialArgs(command = resolveCachedGitHubCliCommand()): string[] {
+    return ['-c', `credential.helper=!${quoteForShell(command)} auth git-credential`];
+}
+
+/**
+ * A desktop app has no terminal, so a credential prompt cannot be answered and
+ * surfaces as "Device not configured". Disabling prompts turns that into a
+ * deterministic failure. The GitHub CLI's directory joins PATH so a credential
+ * helper the user already configured as `!gh ...` still resolves.
+ */
+export function buildGitEnvironment(
+    baseEnv: NodeJS.ProcessEnv = process.env,
+    command = resolveCachedGitHubCliCommand()
+): NodeJS.ProcessEnv {
+    const env: NodeJS.ProcessEnv = { ...baseEnv, GIT_TERMINAL_PROMPT: '0' };
+    const commandDirectory = path.dirname(command);
+    if (path.isAbsolute(command) && !splitSearchPath(env.PATH).includes(commandDirectory)) {
+        env.PATH = env.PATH ? `${commandDirectory}${path.delimiter}${env.PATH}` : commandDirectory;
+    }
+    return env;
+}
+
+function splitSearchPath(searchPath: string | undefined): string[] {
+    return searchPath ? searchPath.split(path.delimiter) : [];
+}
+
+function quoteForShell(value: string): string {
+    return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 interface LocalRepositoryMatch {

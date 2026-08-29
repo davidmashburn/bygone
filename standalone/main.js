@@ -1943,7 +1943,12 @@ function openLaunchPrompt(config, submit) {
     });
 }
 
-async function resolveOrChooseGitRepository(title) {
+/**
+ * The repository the user is already working in, without asking. A desktop app
+ * launched from Finder has no useful working directory, so the open session is
+ * the better signal.
+ */
+function findGitRepositoryNearSession() {
     const sourcePath = session.source?.repoRoot
         || session.source?.path
         || session.source?.paths?.[0];
@@ -1956,8 +1961,16 @@ async function resolveOrChooseGitRepository(title) {
         try {
             return fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], candidate));
         } catch {
-            // Try the next relevant location before asking the user.
+            // Try the next relevant location.
         }
+    }
+    return null;
+}
+
+async function resolveOrChooseGitRepository(title) {
+    const nearbyRepository = findGitRepositoryNearSession();
+    if (nearbyRepository) {
+        return nearbyRepository;
     }
 
     ensureExploreWindow();
@@ -2126,7 +2139,11 @@ async function openPullRequestReviewDialog() {
             );
             return;
         }
-        await openGitBranchReview(launchArguments.cwd || process.cwd(), 'HEAD', undefined, { pullRequest: ref });
+        // Prefer a clone the user already has open. It usually holds most of the
+        // objects already, and it carries whatever authentication that remote
+        // uses. Without one, the pull request is fetched into a cache repository.
+        const startPath = findGitRepositoryNearSession() || launchArguments.cwd || process.cwd();
+        await openGitBranchReview(startPath, 'HEAD', undefined, { pullRequest: ref });
     });
 }
 
