@@ -1,4 +1,5 @@
 import type { BranchCommit, GitChangeKind } from './gitComparison';
+import { validateStepRequirement, type ChangeTourStepRequirement } from './changeTourSource';
 
 export const CHANGE_TOUR_MANIFEST_VERSION = 1 as const;
 
@@ -69,6 +70,7 @@ export interface ChangeTourWalkthroughStep {
     connection?: ChangeTourResolvedConnection;
     diff: ChangeTourDiffScene;
     depth?: 'mentioned' | 'explained' | 'contextualized';
+    requirement?: ChangeTourStepRequirement;
 }
 
 export interface ChangeTourWalkthroughScene extends ChangeTourNarrative {
@@ -335,6 +337,7 @@ function validateScene(value: unknown, index: number): asserts value is ChangeTo
             if (step.depth !== undefined && !['mentioned', 'explained', 'contextualized'].includes(String(step.depth))) {
                 throw new Error(`${path}.depth must be mentioned, explained, or contextualized.`);
             }
+            validateStepRequirement(step.requirement, `${path}.requirement`);
             validateResolvedAnchor(step.focus, `${path}.focus`);
             validateScene(step.diff, index);
             if (step.diff.kind !== 'text-diff') throw new Error(`${path}.diff must be a text-diff scene.`);

@@ -775,12 +775,49 @@ body.tour-discussion .tour-narrative-resizer {
 }
 
 .tour-step[hidden],
+.tour-step-requirement[hidden],
 .tour-connection[hidden] {
     display: none;
 }
 
 .tour-step-title { color: #fff; font-size: 13px; font-weight: 750; }
 .tour-step-body { margin: 3px 0 0; color: var(--tour-body); line-height: 1.45; }
+
+.tour-step-requirement {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 4px;
+    color: var(--tour-muted);
+    line-height: 1.45;
+}
+
+.tour-requirement-chip {
+    padding: 1px 6px;
+    border: 1px solid rgba(166, 140, 255, 0.34);
+    border-radius: 9px;
+    color: var(--tour-body);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.tour-requirement-chip[data-status="fulfilled"] {
+    border-color: rgba(122, 214, 160, 0.42);
+    background: rgba(122, 214, 160, 0.1);
+}
+
+.tour-requirement-chip[data-status="gap"] {
+    border-color: rgba(240, 168, 120, 0.46);
+    background: rgba(240, 168, 120, 0.12);
+}
+
+.tour-requirement-meta {
+    flex-basis: 100%;
+    color: var(--tour-faint);
+    font-size: 12px;
+}
 
 .tour-connection {
     margin-top: 7px;

@@ -82,7 +82,34 @@ chapters:
             body: This exact line establishes the ordering guarantee.
             focus: durable-decision
             connection: contract-to-write
+            requirement:
+              id: R1
+              text: Decisions must be durable before any side effect runs.
+              status: fulfilled
+              source: tracker:PROJ-123
+              confidence: high
 ```
+
+## Requirements
+
+A walkthrough step may carry an optional `requirement` that names the stated
+requirement the focused code fulfills. It turns a walkthrough into a
+requirements tour: each step answers which requirement it satisfies, where that
+requirement was stated, and how confident the author is in the mapping.
+
+| Field | Required | Value |
+|-------|----------|-------|
+| `id` | yes | Short requirement label, such as `R1` |
+| `text` | yes | The requirement statement in its original wording |
+| `status` | no | `fulfilled` or `gap` |
+| `source` | no | Where the requirement was stated, such as `pr-description` or `tracker:PROJ-123` |
+| `confidence` | no | `high`, `medium`, or `low` |
+
+The presenter shows a chip with the id and status beside the step title, the
+requirement text next to it, and the source and confidence on a secondary line.
+Steps without a requirement render unchanged. A `gap` status records a
+requirement the author judged unmet at the anchored code; it does not fail
+validation, since the judgment is narrative rather than mechanical.
 
 Only the active step's connection is shown. This keeps relationships useful without adding a permanent second layer of curves to Bygone's diff view. The Tour rail contains only authored scenes; the adjacent Files rail independently lists the complete change set. Browsing a file does not move the narrative, and “Return to tour” restores the file and annotation focused by the current scene.
 
