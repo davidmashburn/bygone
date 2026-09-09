@@ -16,6 +16,14 @@ export interface ChangeTourSourceConnection {
     label: string;
 }
 
+export interface ChangeTourStepRequirement {
+    id: string;
+    text: string;
+    status?: 'fulfilled' | 'gap';
+    source?: string;
+    confidence?: 'high' | 'medium' | 'low';
+}
+
 export interface ChangeTourSourceStep {
     id: string;
     title: string;
@@ -23,6 +31,7 @@ export interface ChangeTourSourceStep {
     focus: string;
     connection?: string;
     depth?: 'mentioned' | 'explained' | 'contextualized';
+    requirement?: ChangeTourStepRequirement;
 }
 
 export interface ChangeTourCoverageExclusion {
@@ -232,10 +241,11 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
                 requireString(step.title, `${stepPath}.title`);
                 requireString(step.body, `${stepPath}.body`);
                 requireString(step.focus, `${stepPath}.focus`);
-                requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth'], stepPath);
+                requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth', 'requirement'], stepPath);
                 if (step.depth !== undefined && !['mentioned', 'explained', 'contextualized'].includes(String(step.depth))) {
                     throw new Error(`${stepPath}.depth must be mentioned, explained, or contextualized.`);
                 }
+                validateStepRequirement(step.requirement, `${stepPath}.requirement`);
                 if (stepIds.has(step.id)) throw new Error(`Duplicate step id in scene ${scene.id}: ${step.id}`);
                 stepIds.add(step.id);
                 const focus = step.focus;
@@ -343,6 +353,21 @@ function validateStackedScene(scene: Record<string, unknown>, path: string): voi
             || Number(step.lines[1]) < Number(step.lines[0]))) {
             throw new Error(`${stepPath}.lines must contain an ordered positive line range.`);
         }
+    }
+}
+
+export function validateStepRequirement(value: unknown, path: string): void {
+    if (value === undefined) return;
+    if (!isRecord(value)) throw new Error(`${path} must be an object.`);
+    requireOnlyKeys(value, ['id', 'text', 'status', 'source', 'confidence'], path);
+    requireString(value.id, `${path}.id`);
+    requireString(value.text, `${path}.text`);
+    if (value.status !== undefined && !['fulfilled', 'gap'].includes(String(value.status))) {
+        throw new Error(`${path}.status must be fulfilled or gap.`);
+    }
+    optionalString(value.source, `${path}.source`);
+    if (value.confidence !== undefined && !['high', 'medium', 'low'].includes(String(value.confidence))) {
+        throw new Error(`${path}.confidence must be high, medium, or low.`);
     }
 }
 

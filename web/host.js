@@ -1253,10 +1253,11 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         const stepPanel = document.getElementById('tour-step');
         const stepTitle = document.getElementById('tour-step-title');
         const stepBody = document.getElementById('tour-step-body');
+        const stepRequirement = document.getElementById('tour-step-requirement');
         const connection = document.getElementById('tour-connection');
         const previous = document.getElementById('tour-previous');
         const next = document.getElementById('tour-next');
-        if (!narrative || !breadcrumb || !chapter || !title || !summary || !bullets || !tags || !takeaway || !stepPanel || !stepTitle || !stepBody || !connection || !previous || !next) {
+        if (!narrative || !breadcrumb || !chapter || !title || !summary || !bullets || !tags || !takeaway || !stepPanel || !stepTitle || !stepBody || !stepRequirement || !connection || !previous || !next) {
             throw new Error('Tour narrative UI is incomplete.');
         }
         narrative.hidden = false;
@@ -1289,6 +1290,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
                     : ''
             });
             renderNarrationField(stepBody, step.body, { field: 'step-body' }, narrationUnit);
+            renderStepRequirement(stepRequirement, 'requirement' in step ? step.requirement : null);
             if ('connection' in step && step.connection) {
                 connection.hidden = false;
                 renderNarrationField(connection, step.connection.label, { field: 'connection' }, narrationUnit, {
@@ -1301,11 +1303,48 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         } else {
             stepTitle.textContent = '';
             stepBody.textContent = '';
+            renderStepRequirement(stepRequirement, null);
             connection.hidden = true;
             connection.textContent = '';
         }
         previous.disabled = !getCurrentLinearTourTarget(-1);
         next.disabled = !getCurrentLinearTourTarget(1);
+    }
+
+    function formatRequirementMeta(requirement) {
+        const parts = [];
+        if (requirement.source) parts.push(requirement.source);
+        if (requirement.confidence) parts.push(`${requirement.confidence} confidence`);
+        return parts.join(' · ');
+    }
+
+    function renderStepRequirement(element, requirement) {
+        if (!requirement) {
+            element.hidden = true;
+            element.replaceChildren();
+            element.removeAttribute('title');
+            return;
+        }
+        const chip = document.createElement('span');
+        chip.className = 'tour-requirement-chip';
+        chip.dataset.status = requirement.status || 'unspecified';
+        chip.textContent = requirement.status
+            ? `${requirement.id} · ${requirement.status}`
+            : requirement.id;
+        const text = document.createElement('span');
+        text.className = 'tour-requirement-text';
+        text.textContent = requirement.text;
+        const children = [chip, text];
+        const meta = formatRequirementMeta(requirement);
+        if (meta) {
+            const metaElement = document.createElement('span');
+            metaElement.className = 'tour-requirement-meta';
+            metaElement.textContent = meta;
+            children.push(metaElement);
+        }
+        element.replaceChildren(...children);
+        element.title = [`${requirement.id}: ${requirement.text}`, meta].filter(Boolean).join(' — ');
+        element.hidden = false;
     }
 
     function renderNarrationField(element, text, source, narrationUnit, affixes = {}) {

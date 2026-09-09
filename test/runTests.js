@@ -1225,7 +1225,14 @@ function testChangeTourBuildsPortableNarrativeChapters() {
                     body: 'The new interface is the reviewer focus.',
                     focus: 'contract',
                     connection: 'contractToVersion',
-                    depth: 'contextualized'
+                    depth: 'contextualized',
+                    requirement: {
+                        id: 'R1',
+                        text: 'The event contract must declare an optional parent event id.',
+                        status: 'fulfilled',
+                        source: 'linear:PLAT-656',
+                        confidence: 'high'
+                    }
                 }]
             }]
         }],
@@ -1245,6 +1252,13 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.deepEqual(anchored.chapters.map((chapter) => chapter.id), ['flow']);
     assert.equal(anchored.files.length, 3);
     assert.equal(anchored.scenes[0].kind === 'walkthrough' ? anchored.scenes[0].steps[0].depth : undefined, 'contextualized');
+    assert.deepEqual(anchored.scenes[0].kind === 'walkthrough' ? anchored.scenes[0].steps[0].requirement : undefined, {
+        id: 'R1',
+        text: 'The event contract must declare an optional parent event id.',
+        status: 'fulfilled',
+        source: 'linear:PLAT-656',
+        confidence: 'high'
+    });
     const ticketed = buildChangeTourManifest(repo, {
         headRef: 'feature/tour',
         baseRef: 'main',
@@ -1286,6 +1300,139 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.equal(guarded.files.length, 4);
     assert.equal(guarded.files.find((file) => file.path === 'web/app.js.map')?.kind, 'omitted');
     assert.equal(guarded.scenes.some((scene) => scene.kind === 'text-diff' && scene.path === 'web/app.js.map'), false);
+}
+
+function testTourStepRequirementsValidateAndRenderAsChips() {
+    const buildSource = (requirement) => ({
+        version: 1,
+        anchors: {
+            contract: { file: 'src/models.ts', revision: 'head', contains: 'export interface Event {}' }
+        },
+        connections: [],
+        chapters: [{
+            id: 'flow',
+            title: 'Flow',
+            scenes: [{
+                id: 'walkthrough',
+                title: 'Walk through the contract',
+                summary: 'Follow exact code.',
+                bullets: [],
+                tags: ['contract'],
+                takeaway: 'Requirements map onto anchored evidence.',
+                steps: [{
+                    id: 'contract-step',
+                    title: 'Add the contract',
+                    body: 'The new interface is the reviewer focus.',
+                    focus: 'contract',
+                    ...(requirement === undefined ? {} : { requirement })
+                }]
+            }]
+        }]
+    });
+    const stepOf = (source) => source.chapters[0].scenes[0].steps[0];
+
+    assert.equal(stepOf(parseChangeTourSource(buildSource(undefined))).requirement, undefined);
+
+    const minimal = parseChangeTourSource(buildSource({ id: 'R1', text: 'Decisions must be durable.' }));
+    assert.deepEqual(stepOf(minimal).requirement, { id: 'R1', text: 'Decisions must be durable.' });
+
+    const complete = parseChangeTourSource(buildSource({
+        id: 'R2',
+        text: 'Pacing must respect the survey finish target.',
+        status: 'gap',
+        source: 'pr-description',
+        confidence: 'low'
+    }));
+    assert.equal(stepOf(complete).requirement.status, 'gap');
+    assert.equal(stepOf(complete).requirement.source, 'pr-description');
+    assert.equal(stepOf(complete).requirement.confidence, 'low');
+
+    assert.throws(() => parseChangeTourSource(buildSource('R1')), /requirement must be an object\./);
+    assert.throws(() => parseChangeTourSource(buildSource({ text: 'No id.' })), /requirement\.id must be a non-empty string\./);
+    assert.throws(() => parseChangeTourSource(buildSource({ id: 'R1' })), /requirement\.text must be a non-empty string\./);
+    assert.throws(
+        () => parseChangeTourSource(buildSource({ id: 'R1', text: 'Bad status.', status: 'partial' })),
+        /requirement\.status must be fulfilled or gap\./
+    );
+    assert.throws(
+        () => parseChangeTourSource(buildSource({ id: 'R1', text: 'Bad confidence.', confidence: 'certain' })),
+        /requirement\.confidence must be high, medium, or low\./
+    );
+    assert.throws(
+        () => parseChangeTourSource(buildSource({ id: 'R1', text: 'Unknown field.', ticket: 'PLAT-656' })),
+        /requirement contains unknown field: ticket/
+    );
+
+    const manifestStep = {
+        id: 'contract-step',
+        title: 'Add the contract',
+        body: 'The new interface is the reviewer focus.',
+        focus: { id: 'contract', path: 'src/models.ts', revision: 'head', startLine: 1, endLine: 1, excerpt: 'x' },
+        diff: {
+            kind: 'text-diff',
+            id: 'walkthrough-contract-step',
+            path: 'src/models.ts',
+            title: 'src/models.ts',
+            leftLabel: 'base',
+            rightLabel: 'head',
+            leftContent: '',
+            rightContent: 'x',
+            changeKind: 'modified',
+            additions: 1,
+            deletions: 0,
+            summary: 's',
+            bullets: [],
+            tags: [],
+            takeaway: 't'
+        }
+    };
+    const buildManifest = (requirement) => ({
+        version: 1,
+        title: 'Requirement tour',
+        generatedAt: '2026-08-01T00:00:00.000Z',
+        range: {
+            baseRef: 'main',
+            headRef: 'feature/tour',
+            mergeBaseOid: 'b'.repeat(40),
+            headOid: 'a'.repeat(40)
+        },
+        commits: [],
+        summary: {
+            changedFiles: 1,
+            includedScenes: 1,
+            additions: 1,
+            deletions: 0,
+            commitCount: 0,
+            omittedFiles: []
+        },
+        files: [manifestStep.diff],
+        chapters: [{ id: 'flow', title: 'Flow', sceneIds: ['walkthrough'] }],
+        scenes: [{
+            kind: 'walkthrough',
+            id: 'walkthrough',
+            title: 'Walk through the contract',
+            summary: 'Follow exact code.',
+            bullets: [],
+            tags: ['contract'],
+            takeaway: 'Requirements map onto anchored evidence.',
+            steps: [{ ...manifestStep, ...(requirement === undefined ? {} : { requirement }) }]
+        }]
+    });
+    assert.equal(
+        parseChangeTourManifest(buildManifest({ id: 'R1', text: 'Decisions must be durable.' })).scenes[0].steps[0].requirement.id,
+        'R1'
+    );
+    assert.throws(
+        () => parseChangeTourManifest(buildManifest({ id: 'R1', text: 'Bad status.', status: 'partial' })),
+        /requirement\.status must be fulfilled or gap\./
+    );
+
+    const presenterMarkup = fs.readFileSync(path.join(__dirname, '..', 'web', 'index.html'), 'utf8');
+    const presenterHost = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
+    const presenterStyles = fs.readFileSync(path.join(__dirname, '..', 'web', 'presenter.css'), 'utf8');
+    assert.match(presenterMarkup, /id="tour-step-requirement"/);
+    assert.match(presenterHost, /renderStepRequirement\(stepRequirement, 'requirement' in step \? step\.requirement : null\)/);
+    assert.match(presenterStyles, /\.tour-requirement-chip\[data-status="fulfilled"\]/);
 }
 
 function testWindowTitleHelpersFocusActiveMultiPanelContext() {
@@ -3722,6 +3869,7 @@ async function run() {
     testCliSpecificationDrivesHelpAndEveryCompletionFormat();
     testCliPrintsGeneratedCompletionsWithoutStartingElectron();
     testChangeTourBuildsPortableNarrativeChapters();
+    testTourStepRequirementsValidateAndRenderAsChips();
     testWindowTitleHelpersFocusActiveMultiPanelContext();
     testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases();
     testPresentArgumentsUseSharedBaseAliases();

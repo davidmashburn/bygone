@@ -106,6 +106,18 @@
         "takeaway": { "$ref": "#/$defs/nonEmptyString" }
       }
     },
+    "requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "text": { "$ref": "#/$defs/nonEmptyString" },
+        "status": { "enum": ["fulfilled", "gap"] },
+        "source": { "$ref": "#/$defs/nonEmptyString" },
+        "confidence": { "enum": ["high", "medium", "low"] }
+      }
+    },
     "step": {
       "type": "object",
       "additionalProperties": false,
@@ -116,7 +128,8 @@
         "body": { "$ref": "#/$defs/nonEmptyString" },
         "focus": { "$ref": "#/$defs/nonEmptyString" },
         "connection": { "$ref": "#/$defs/nonEmptyString" },
-        "depth": { "enum": ["mentioned", "explained", "contextualized"] }
+        "depth": { "enum": ["mentioned", "explained", "contextualized"] },
+        "requirement": { "$ref": "#/$defs/requirement" }
       }
     },
     "coverageExclusion": {
