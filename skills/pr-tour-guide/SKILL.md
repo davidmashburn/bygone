@@ -184,6 +184,13 @@ For every step:
 - connect behavior to tests, error handling, or other concrete proof;
 - add a connection only when the relationship between two locations materially improves understanding.
 
+Keep deconstructed-tour coordinates distinct:
+
+- A **stage** is a conceptual phase or cumulative comparison state; a **tour step** is one navigable explanation item within that stage.
+- Do not refer to either by an unqualified ordinal such as "Stage 2" or "Step 11" in authored titles, summaries, narration, or takeaways. Prefer the stable descriptive title so the reference survives edits.
+- When an ordinal is necessary, qualify the coordinate: "stage 2 of 4" versus "tour step 11 of 46."
+- Treat presenter-generated labels as UI context; do not repeat them in authored prose unless the distinction itself needs explanation.
+
 Never emit generated line numbers or hunk indexes. Verify candidate snippets against the pinned object when uncertain:
 
 ```sh
@@ -212,6 +219,7 @@ Treat this as a required self-audit, not a claim the validator can prove. For ea
 - tests are connected to the behavior they prove;
 - connections express causal, contractual, data-flow, ordering, or proof relationships;
 - binary files and omitted patches are surfaced explicitly;
+- deconstructed tours contain no unqualified "Stage N" or "Step N" references, and comparison stages and navigable tour steps use distinct nouns;
 - the final step supplies proof or a clear reviewer conclusion.
 
 ## Always print the open command
