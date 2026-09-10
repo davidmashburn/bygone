@@ -1284,7 +1284,9 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
         stepPanel.hidden = !step;
         if (step) {
             renderNarrationField(stepTitle, step.title, { field: 'step-title' }, narrationUnit, {
-                prefix: scene.kind === 'deconstructed-diff' ? `Stage ${state.activeStepIndex + 1}: ` : ''
+                prefix: scene.kind === 'deconstructed-diff'
+                    ? `Stage ${(step.stageIndex ?? step.pairIndex) + 1}: `
+                    : ''
             });
             renderNarrationField(stepBody, step.body, { field: 'step-body' }, narrationUnit);
             if ('connection' in step && step.connection) {

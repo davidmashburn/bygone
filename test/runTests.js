@@ -451,6 +451,8 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /function renderMultiPanelStep/);
     assert.match(hostSource, /scene\.kind === 'deconstructed-diff'/);
     assert.match(hostSource, /scene\.stageLabel/);
+    assert.match(hostSource, /Stage \$\{\(step\.stageIndex \?\? step\.pairIndex\) \+ 1\}/);
+    assert.doesNotMatch(hostSource, /Stage \$\{state\.activeStepIndex \+ 1\}/);
     for (const label of ['Modified here', 'Created here', 'Deleted here', 'Unchanged here', 'Not created yet', 'Already deleted']) {
         assert.match(hostSource, new RegExp(label));
     }
