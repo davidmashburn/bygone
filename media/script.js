@@ -1819,6 +1819,7 @@ function pushTourAnnotationDecoration(target, editor, tourAnnotation) {
         options: {
             isWholeLine: true,
             className: tourAnnotation.active ? 'bygone-tour-anchor' : 'bygone-tour-anchor-inactive',
+            wholeLineClassName: tourAnnotation.active ? 'bygone-tour-anchor' : undefined,
             glyphMarginClassName: 'bygone-tour-anchor-gutter',
             hoverMessage: {
                 value: tourAnnotation.jumpTarget
@@ -3546,17 +3547,15 @@ async function runActiveEditorAction(actionId) {
 
 function navigateDiff(direction) {
     if (currentMode === MODE_MULTI_WAY) {
-        const panelChanges = getMultiPanelChanges(activeMultiPanelId);
-        if (panelChanges.length === 0) {
+        if (diffBlocks.length === 0) {
             return;
         }
 
-        const currentPanelChangeIndex = getMultiPanelChangeIndex(activeMultiPanelId, panelChanges);
-        const nextIndex = currentPanelChangeIndex < 0
+        const nextIndex = activeDiffIndex < 0
             ? 0
-            : (currentPanelChangeIndex + direction + panelChanges.length) % panelChanges.length;
+            : (activeDiffIndex + direction + diffBlocks.length) % diffBlocks.length;
 
-        setActiveMultiPanelChangeIndex(nextIndex, true);
+        setActiveDiffIndex(nextIndex, true);
         return;
     }
 
@@ -3803,17 +3802,16 @@ function updateChangeToolbarState() {
     }
 
     if (currentMode === MODE_MULTI_WAY) {
-        const panelChanges = getMultiPanelChanges(activeMultiPanelId);
-        const panelChangeIndex = getMultiPanelChangeIndex(activeMultiPanelId, panelChanges);
+        const safeIndex = diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1;
         toolbarCenter.hidden = false;
         if (toolbarHint) {
             toolbarHint.hidden = true;
         }
-        setTextContent('change-position', panelChanges.length > 0 ? `${panelChangeIndex + 1} / ${panelChanges.length}` : '0 / 0');
+        setTextContent('change-position', diffBlocks.length > 0 ? `${safeIndex + 1} / ${diffBlocks.length}` : '0 / 0');
         getElement('copy-left-to-right').hidden = true;
         getElement('copy-right-to-left').hidden = true;
-        getElement('previous-change').disabled = panelChanges.length === 0;
-        getElement('next-change').disabled = panelChanges.length === 0;
+        getElement('previous-change').disabled = diffBlocks.length === 0;
+        getElement('next-change').disabled = diffBlocks.length === 0;
         getElement('previous-file').hidden = !hasDirectoryNavigation;
         getElement('next-file').hidden = !hasDirectoryNavigation;
         getElement('previous-file').disabled = !currentFileNavigation.canGoPrevious;

@@ -534,6 +534,7 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(rendererSource, /const nextActiveDiffIndex = Number\.isInteger\(initialChangeIndex\)[\s\S]{0,100}\? initialChangeIndex[\s\S]{0,100}: comparisonChanged[\s\S]{0,100}\? 0[\s\S]{0,100}: activeDiffIndex/);
     assert.doesNotMatch(rendererSource, /function showTwoWayDiff[\s\S]{0,1400}setActiveDiffIndex\(/);
     assert.match(rendererSource, /className: tourAnnotation\.active \? 'bygone-tour-anchor' : 'bygone-tour-anchor-inactive'/);
+    assert.match(rendererSource, /wholeLineClassName: tourAnnotation\.active \? 'bygone-tour-anchor' : undefined/);
     assert.match(rendererSource, /glyphMarginClassName: 'bygone-tour-anchor-gutter'/);
     assert.match(rendererStyles, /\.monaco-editor \.bygone-tour-anchor-gutter \{/);
     assert.doesNotMatch(rendererStyles, /\.glyph-margin \.bygone-tour-anchor-gutter/);
@@ -715,6 +716,29 @@ function testStackedDiffTourAnnotations() {
         active: true,
         jumpTarget: { sceneIndex: 0, stepIndex: 0 }
     }]);
+
+    const sceneScoped = buildStackedTourAnnotations({
+        scenes: [
+            {
+                kind: 'deconstructed-diff',
+                title: 'First timeline',
+                steps: [{
+                    id: 'first', title: 'First focus', body: 'Belongs to the active timeline.',
+                    file: 'src/a.py', pairIndex: 0, side: 'right', startLine: 12, endLine: 14
+                }]
+            },
+            {
+                kind: 'deconstructed-diff',
+                title: 'Second timeline',
+                steps: [{
+                    id: 'second', title: 'Overlapping focus', body: 'Uses a different synthetic timeline.',
+                    file: 'src/a.py', pairIndex: 0, side: 'right', startLine: 12, endLine: 20
+                }]
+            }
+        ]
+    }, 'src/a.py', 0, 0);
+    assert.equal(sceneScoped.length, 1);
+    assert.equal(sceneScoped[0].label, 'First timeline · First focus: Belongs to the active timeline.');
 
     const longLines = Array.from({ length: 260 }, (_, index) => ({
         lineNumber: index + 1,
@@ -2811,6 +2835,7 @@ function testMultiDiffShellUsesFocusedStripNavigation() {
     assert.match(rendererSource, /computeMissingPairDiffsAsync\(revealFirstChangeInEachPanel\)/);
     assert.match(rendererSource, /function computeMissingPairDiffsAsync\(revealFirstChangeInEachPanel = false\)[\s\S]{0,1800}revealFirstMultiPanelChanges\(\)/);
     assert.match(rendererSource, /function applyFocusedStripLayout[\s\S]{0,1800}requestAnimationFrame\(\(\) => \{[\s\S]{0,200}layoutEditors\(\)/);
+    assert.match(rendererSource, /function navigateDiff\(direction\) \{[\s\S]{0,300}diffBlocks\.length[\s\S]{0,300}setActiveDiffIndex\(nextIndex, true\)/);
 }
 
 function testFilePathsCopyFromRenderedSurfacesAndClippedTextShowsInFull() {

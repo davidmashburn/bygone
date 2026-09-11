@@ -182,7 +182,8 @@ export function buildStackedTourAnnotations(
 ): TourAnnotation[] {
     const annotations: TourAnnotation[] = [];
     tour.scenes.forEach((scene, sceneIndex) => {
-        if (scene.kind !== 'stacked-diff' && scene.kind !== 'deconstructed-diff') {
+        if (sceneIndex !== activeSceneIndex
+            || (scene.kind !== 'stacked-diff' && scene.kind !== 'deconstructed-diff')) {
             return;
         }
 
