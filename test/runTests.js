@@ -1484,7 +1484,11 @@ function testAdvancedTourExamplesRemainReproducible() {
             path.join(__dirname, '..', 'examples', fileName),
             'utf8'
         )));
-        const manifest = buildChangeTourManifest(path.join(__dirname, '..'), { source });
+        const manifest = buildChangeTourManifest(path.join(__dirname, '..'), {
+            baseRef: source.range?.base,
+            headRef: source.range?.head,
+            source
+        });
         assert.equal(manifest.scenes[0].kind, expectedKind);
         assert.equal(manifest.scenes[0].steps.length, expectedSteps);
     }
