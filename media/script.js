@@ -1351,7 +1351,10 @@ function updateActiveMultiShellState() {
     container.querySelectorAll('[data-multi-panel-copy]').forEach((button) => {
         const panelId = button.getAttribute('data-panel-id') || '';
         const direction = button.getAttribute('data-multi-panel-copy') || '';
-        button.disabled = !canCopyFromPanel(panelId, direction);
+        const capability = getMultiPanelCopyCapability(panelId, direction);
+        button.disabled = !capability.enabled;
+        button.title = capability.tooltip;
+        button.setAttribute('aria-label', capability.tooltip);
     });
 }
 
@@ -3667,30 +3670,39 @@ function getMultiPairProjection(pair, activePanelIndex, activeChange) {
     };
 }
 
-function canCopyFromPanel(panelId, direction) {
-    if (multiDiffRecomputePending) {
-        return false;
-    }
-
-    const panelChanges = getMultiPanelChanges(panelId);
-    if (panelChanges.length === 0) {
-        return false;
-    }
-
+function getMultiPanelCopyCapability(panelId, direction) {
     const panelIndex = multiPanels.findIndex((panel) => panel.id === panelId);
     if (panelIndex < 0) {
-        return false;
+        return { enabled: false, tooltip: 'Copy is unavailable because the source panel is missing' };
     }
 
-    if (direction === 'left-to-right') {
-        return panelIndex < multiPanels.length - 1;
+    const targetPanelIndex = direction === 'left-to-right' ? panelIndex + 1 : panelIndex - 1;
+    const neighbor = direction === 'left-to-right' ? 'right' : 'left';
+    const targetPanel = multiPanels[targetPanelIndex];
+    if (!targetPanel) {
+        return { enabled: false, tooltip: `No ${neighbor} neighbor to copy into` };
     }
 
-    if (direction === 'right-to-left') {
-        return panelIndex > 0;
+    if (!multiPanelMutationEnabled || targetPanel.editable === false) {
+        return { enabled: false, tooltip: `Cannot copy into ${neighbor} neighbor: read-only snapshot` };
     }
 
-    return false;
+    if (multiDiffRecomputePending) {
+        return { enabled: false, tooltip: 'Copy is unavailable while differences are updating' };
+    }
+
+    if (getMultiPanelChanges(panelId).length === 0) {
+        return { enabled: false, tooltip: `No current change to copy into the ${neighbor} neighbor` };
+    }
+
+    return {
+        enabled: true,
+        tooltip: `Copy current change into the ${neighbor} neighbor (${direction === 'left-to-right' ? 'Cmd/Ctrl+Alt+Right' : 'Cmd/Ctrl+Alt+Left'})`
+    };
+}
+
+function canCopyFromPanel(panelId, direction) {
+    return getMultiPanelCopyCapability(panelId, direction).enabled;
 }
 
 function copyMultiPanelChange(panelId, direction) {
@@ -3978,7 +3990,7 @@ function revealBlockSide(editor, start, end, smooth) {
 
 function copyCurrentChange(direction) {
     if (currentMode === MODE_MULTI_WAY) {
-        if (multiDiffRecomputePending) {
+        if (!canCopyFromPanel(activeMultiPanelId, direction)) {
             return;
         }
         const activeChange = getActiveMultiPanelChange();

@@ -2836,6 +2836,10 @@ function testMultiDiffShellUsesFocusedStripNavigation() {
     assert.match(rendererSource, /function computeMissingPairDiffsAsync\(revealFirstChangeInEachPanel = false\)[\s\S]{0,1800}revealFirstMultiPanelChanges\(\)/);
     assert.match(rendererSource, /function applyFocusedStripLayout[\s\S]{0,1800}requestAnimationFrame\(\(\) => \{[\s\S]{0,200}layoutEditors\(\)/);
     assert.match(rendererSource, /function navigateDiff\(direction\) \{[\s\S]{0,300}diffBlocks\.length[\s\S]{0,300}setActiveDiffIndex\(nextIndex, true\)/);
+    assert.match(rendererSource, /function getMultiPanelCopyCapability/);
+    assert.match(rendererSource, /!multiPanelMutationEnabled \|\| targetPanel\.editable === false/);
+    assert.match(rendererSource, /button\.title = capability\.tooltip/);
+    assert.match(rendererSource, /function copyCurrentChange\(direction\) \{[\s\S]{0,160}canCopyFromPanel\(activeMultiPanelId, direction\)/);
 }
 
 function testFilePathsCopyFromRenderedSurfacesAndClippedTextShowsInFull() {
