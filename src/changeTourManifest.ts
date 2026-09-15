@@ -10,6 +10,11 @@ export interface ChangeTourZoom {
     modes: ChangeTourMode[];
     /** Real authored stacks, including two-panel stacks collapsed into Final diff. */
     revisions: ChangeTourStackedScene[];
+    /** The authored or derived non-stacked tour over the real endpoint diff. */
+    final: {
+        chapters: ChangeTourChapter[];
+        scenes: ChangeTourScene[];
+    };
 }
 
 export interface ChangeTourNarrative {
@@ -330,7 +335,7 @@ function validateZoom(value: Record<string, unknown>): void {
     if (!isRecord(value.repository) || typeof value.repository.root !== 'string' || !value.repository.root) {
         throw new Error('A v2 tour requires its originating repository.root.');
     }
-    if (!isRecord(value.zoom) || !Array.isArray(value.zoom.revisions)) {
+    if (!isRecord(value.zoom) || !Array.isArray(value.zoom.revisions) || !isRecord(value.zoom.final)) {
         throw new Error('A v2 tour requires zoom metadata and real revision evidence.');
     }
     const scenes = value.scenes as ChangeTourScene[];
@@ -363,6 +368,29 @@ function validateZoom(value: Record<string, unknown>): void {
         throw new Error('zoom depth and modes must match the maximum authored depth.');
     }
     if (!Array.isArray(value.files)) throw new Error('A v2 tour requires final endpoint file evidence.');
+    if (!Array.isArray(value.zoom.final.scenes) || !Array.isArray(value.zoom.final.chapters)) {
+        throw new Error('A v2 tour requires a non-stacked final tour.');
+    }
+    const finalSceneIds = new Set<string>();
+    for (const [index, scene] of value.zoom.final.scenes.entries()) {
+        validateScene(scene, index);
+        if (scene.kind === 'stacked-diff' || scene.kind === 'deconstructed-diff') {
+            throw new Error('zoom.final must contain only non-stacked scenes.');
+        }
+        if (finalSceneIds.has(scene.id)) throw new Error(`Duplicate final tour scene: ${scene.id}`);
+        finalSceneIds.add(scene.id);
+    }
+    for (const [index, chapter] of value.zoom.final.chapters.entries()) {
+        if (!isRecord(chapter) || !Array.isArray(chapter.sceneIds)) {
+            throw new Error(`zoom.final.chapters[${index}] must contain sceneIds.`);
+        }
+        requireString(chapter.id, `zoom.final.chapters[${index}].id`);
+        requireString(chapter.title, `zoom.final.chapters[${index}].title`);
+        for (const sceneId of chapter.sceneIds) {
+            requireString(sceneId, `zoom.final.chapters[${index}].sceneIds`);
+            if (!finalSceneIds.has(sceneId)) throw new Error(`Final tour chapter references unknown scene: ${sceneId}`);
+        }
+    }
 }
 
 function validateScene(value: unknown, index: number): asserts value is ChangeTourScene {

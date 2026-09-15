@@ -118,10 +118,9 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
     function zoomTour(mode) {
         const tour = state.authoredTour;
         if (mode === tour.zoom.authoredDepth) return tour;
-        const scenes = mode === 'revisions' ? tour.zoom.revisions : tour.files.filter((file) => file.kind === 'text-diff').map((file, index) => ({
-            ...file, id: `final-${index}`, title: file.path, takeaway: '', focusChangeIndex: 0
-        }));
-        return { ...tour, scenes, chapters: [{ id: `zoom-${mode}`, title: mode === 'revisions' ? 'Revisions' : 'Final diff', sceneIds: scenes.map((scene) => scene.id) }] };
+        if (mode === 'final') return { ...tour, ...tour.zoom.final };
+        const scenes = tour.zoom.revisions;
+        return { ...tour, scenes, chapters: [{ id: 'zoom-revisions', title: 'Revisions', sceneIds: scenes.map((scene) => scene.id) }] };
     }
 
     function renderZoomControl() {
@@ -141,7 +140,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const history = state.zoom.mode === 'history';
         document.getElementById('tour-history-select').hidden = !history;
         document.getElementById('tour-history-label').hidden = !history;
-        document.body.classList.toggle('tour-derived-mode', state.zoom.mode !== state.authoredTour.zoom.authoredDepth);
+        document.body.classList.toggle('tour-derived-mode', state.zoom.mode === 'revisions' || state.zoom.mode === 'history');
     }
 
     async function historyRequest(endpoint, body) {
@@ -847,6 +846,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             source.href = tour.sourceUrl;
             source.hidden = false;
         } else {
+            source.removeAttribute('href');
             source.hidden = true;
         }
         const baseLabel = formatTourRef(tour.range.baseRef);
@@ -973,7 +973,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const narrationUnit = buildActiveNarrationUnit(options.narrationEntry || 'playback-start');
         state.renderedNarrationUnit = narrationUnit;
         renderTourNarrative(scene, location, narrationUnit);
-        if (narrationUnit && !options.zoomLanding && (!state.zoom || state.zoom.mode === state.authoredTour.zoom.authoredDepth)) {
+        if (narrationUnit && !options.zoomLanding && (!state.zoom || state.zoom.mode === state.authoredTour.zoom.authoredDepth || state.zoom.mode === 'final')) {
             if (options.narrationNavigation === 'linear') {
                 narrationController.followLinearNavigation(narrationUnit);
             } else if (options.narrationNavigation !== 'controller') {
@@ -1313,7 +1313,12 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         document.querySelector(`.tour-file.is-active`)?.scrollIntoView({ block: 'nearest' });
         const returnButton = document.getElementById('tour-return-focus');
         if (returnButton) {
-            returnButton.hidden = !state.tourFocusFilePath || state.activeTourFilePath === state.tourFocusFilePath;
+            const inTourMode = !state.zoom
+                || state.zoom.mode === state.authoredTour.zoom.authoredDepth
+                || state.zoom.mode === 'final';
+            returnButton.hidden = !inTourMode
+                || !state.tourFocusFilePath
+                || state.activeTourFilePath === state.tourFocusFilePath;
         }
     }
 

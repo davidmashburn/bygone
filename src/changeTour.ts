@@ -7,6 +7,7 @@ import {
     ChangeTourDiffScene,
     ChangeTourFile,
     ChangeTourManifest,
+    ChangeTourNarrative,
     ChangeTourOmittedFile,
     ChangeTourResolvedAnchor,
     ChangeTourScene,
@@ -15,7 +16,7 @@ import {
     ChangeTourWalkthroughScene,
     parseChangeTourManifest
 } from './changeTourManifest';
-import { ChangeTourSource, parseChangeTourSource } from './changeTourSource';
+import { ChangeTourSource, ChangeTourSourceStep, parseChangeTourSource } from './changeTourSource';
 import { buildDeconstructedScene } from './deconstructedChange';
 import { buildTwoWayDiffModel } from './diffEngine';
 import { buildTourFocusRanges } from './tourAnnotations';
@@ -151,6 +152,8 @@ export function buildChangeTourManifest(
         };
     const scenes = authored.scenes;
     const chapters = authored.chapters;
+    const finalScenes = ('finalScenes' in authored ? authored.finalScenes : scenes) as ChangeTourScene[];
+    const finalChapters = ('finalChapters' in authored ? authored.finalChapters : chapters) as ChangeTourChapter[];
     const manifest: ChangeTourManifest = {
         // Only authored v2 files opt into repository-bound zoom modes. Generated
         // and legacy/story tours retain the portable v1 manifest contract.
@@ -216,7 +219,8 @@ export function buildChangeTourManifest(
             authoredDepth: explanation ? 'explanation' : distinctRevisions ? 'revisions' : 'final',
             modes: [...(explanation ? ['explanation' as const] : []),
                 ...(distinctRevisions ? ['revisions' as const] : []), 'final', 'history'],
-            revisions
+            revisions,
+            final: { scenes: finalScenes, chapters: finalChapters }
         };
     }
     return parseChangeTourManifest(manifest);
@@ -226,7 +230,12 @@ function applySource(
     source: ChangeTourSource,
     defaultScenes: ChangeTourDiffScene[],
     repoRoot: string
-): { scenes: ChangeTourScene[]; chapters: ChangeTourChapter[] } {
+): {
+    scenes: ChangeTourScene[];
+    chapters: ChangeTourChapter[];
+    finalScenes: ChangeTourScene[];
+    finalChapters: ChangeTourChapter[];
+} {
     const available = new Map(defaultScenes.map((scene) => [scene.path, scene]));
     const resolvedAnchors = new Map<string, ChangeTourResolvedAnchor>();
     for (const [id, anchor] of Object.entries(source.anchors)) {
@@ -245,9 +254,12 @@ function applySource(
     }]));
     const scenes: ChangeTourScene[] = [];
     const chapters: ChangeTourChapter[] = [];
+    const finalScenes: ChangeTourScene[] = [];
+    const finalChapters: ChangeTourChapter[] = [];
 
     for (const chapter of source.chapters) {
         const sceneIds: string[] = [];
+        const finalSceneIds: string[] = [];
         for (const authoredScene of chapter.scenes) {
             if (authoredScene.kind === 'deconstructed-diff') {
                 const deconstructedScene = buildDeconstructedManifestScene(
@@ -259,6 +271,16 @@ function applySource(
                 );
                 scenes.push(deconstructedScene);
                 sceneIds.push(deconstructedScene.id);
+                if (authoredScene.steps) {
+                    const finalScene = buildWalkthroughManifestScene(
+                        { ...authoredScene, steps: authoredScene.steps },
+                        available,
+                        resolvedAnchors,
+                        connections
+                    );
+                    finalScenes.push(finalScene);
+                    finalSceneIds.push(finalScene.id);
+                }
                 continue;
             }
             if (authoredScene.kind === 'stacked-diff') {
@@ -269,39 +291,58 @@ function applySource(
                 );
                 scenes.push(stackedScene);
                 sceneIds.push(stackedScene.id);
+                for (const [index, file] of stackedScene.files.entries()) {
+                    const endpoint = available.get(file.path);
+                    if (!endpoint) continue;
+                    const finalScene = { ...endpoint, id: `${stackedScene.id}-final-${index + 1}`, title: file.path };
+                    finalScenes.push(finalScene);
+                    finalSceneIds.push(finalScene.id);
+                }
                 continue;
             }
-            const scene: ChangeTourWalkthroughScene = {
-                id: authoredScene.id,
-                kind: 'walkthrough',
-                title: authoredScene.title,
-                summary: authoredScene.summary,
-                bullets: authoredScene.bullets,
-                tags: authoredScene.tags,
-                takeaway: authoredScene.takeaway,
-                steps: authoredScene.steps.map((step) => {
-                    const focus = requireResolvedAnchor(resolvedAnchors, step.focus);
-                    const diff = available.get(focus.path);
-                    if (!diff) throw new Error(`Step ${step.id} has no text diff for ${focus.path}.`);
-                    return {
-                        id: step.id,
-                        title: step.title,
-                        body: step.body,
-                        depth: step.depth,
-                        requirement: step.requirement,
-                        focus,
-                        connection: step.connection ? connections.get(step.connection) : undefined,
-                        diff: { ...diff, id: `${authoredScene.id}-${step.id}` }
-                    };
-                })
-            };
+            const scene = buildWalkthroughManifestScene(authoredScene, available, resolvedAnchors, connections);
             scenes.push(scene);
             sceneIds.push(scene.id);
+            finalScenes.push(scene);
+            finalSceneIds.push(scene.id);
         }
         chapters.push({ id: chapter.id, title: chapter.title, sceneIds });
+        finalChapters.push({ id: chapter.id, title: chapter.title, sceneIds: finalSceneIds });
     }
 
-    return { scenes, chapters };
+    return { scenes, chapters, finalScenes, finalChapters };
+}
+
+function buildWalkthroughManifestScene(
+    authoredScene: ChangeTourNarrative & { id: string; title: string; steps: ChangeTourSourceStep[] },
+    available: ReadonlyMap<string, ChangeTourDiffScene>,
+    resolvedAnchors: ReadonlyMap<string, ChangeTourResolvedAnchor>,
+    connections: ReadonlyMap<string, NonNullable<ChangeTourWalkthroughScene['steps'][number]['connection']>>
+): ChangeTourWalkthroughScene {
+    return {
+        id: authoredScene.id,
+        kind: 'walkthrough',
+        title: authoredScene.title,
+        summary: authoredScene.summary,
+        bullets: authoredScene.bullets,
+        tags: authoredScene.tags,
+        takeaway: authoredScene.takeaway,
+        steps: authoredScene.steps.map((step) => {
+            const focus = requireResolvedAnchor(resolvedAnchors, step.focus);
+            const diff = available.get(focus.path);
+            if (!diff) throw new Error(`Step ${step.id} has no text diff for ${focus.path}.`);
+            return {
+                id: step.id,
+                title: step.title,
+                body: step.body,
+                depth: step.depth,
+                requirement: step.requirement,
+                focus,
+                connection: step.connection ? connections.get(step.connection) : undefined,
+                diff: { ...diff, id: `${authoredScene.id}-${step.id}` }
+            };
+        })
+    };
 }
 
 function buildDeconstructedManifestScene(
@@ -613,7 +654,7 @@ function resolveAnchor(
 }
 
 function requireResolvedAnchor(
-    anchors: Map<string, ChangeTourResolvedAnchor>,
+    anchors: ReadonlyMap<string, ChangeTourResolvedAnchor>,
     id: string
 ): ChangeTourResolvedAnchor {
     const anchor = anchors.get(id);

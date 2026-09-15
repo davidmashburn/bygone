@@ -88,7 +88,7 @@
                 "scenes": {
                   "items": {
                     "if": { "properties": { "kind": { "const": "deconstructed-diff" } }, "required": ["kind"] },
-                    "then": { "required": ["stack"] }
+                    "then": { "required": ["stack", "steps"] }
                   }
                 }
               }
@@ -309,6 +309,7 @@
         "base": { "$ref": "#/$defs/nonEmptyString" },
         "target": { "$ref": "#/$defs/nonEmptyString" },
         "stack": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "$ref": "#/$defs/stackEntry" } },
+        "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/step" } },
         "stages": {
           "type": "array",
           "minItems": 1,
