@@ -1559,6 +1559,76 @@ button.file-header {
 
 /* ── Directory view ───────────────────────────────────────────────────────── */
 
+.directory-view-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 10px;
+}
+
+.directory-view-tabs[hidden],
+.directory-overview[hidden],
+.dir-headers[hidden],
+.dir-rows-container[hidden] {
+    display: none;
+}
+
+.directory-view-tabs button,
+.directory-overview button {
+    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+    border-radius: 4px;
+    padding: 5px 10px;
+    color: var(--vscode-button-foreground);
+    background: var(--vscode-button-secondaryBackground, var(--vscode-panel-background));
+    cursor: pointer;
+}
+
+.directory-view-tabs button[aria-pressed="true"],
+.directory-overview-primary {
+    background: var(--vscode-button-background) !important;
+}
+
+.directory-overview {
+    flex: 1;
+    overflow: auto;
+    padding: clamp(12px, 3vw, 36px);
+    border: 1px solid var(--vscode-panel-border);
+    background: var(--vscode-editor-background);
+}
+
+.directory-overview h2 {
+    margin: 20px 0 8px;
+    font-size: 14px;
+}
+
+.directory-overview-summary,
+.directory-overview-reason,
+.directory-attention-group p {
+    color: var(--vscode-descriptionForeground);
+}
+
+.directory-attention-file {
+    display: block;
+    width: 100%;
+    margin: 4px 0;
+    text-align: left;
+}
+
+.directory-attention-group.is-background {
+    margin-top: 20px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.directory-attention-group summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.directory-overview-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 24px;
+}
+
 .dir-view {
     display: flex;
     flex-direction: column;

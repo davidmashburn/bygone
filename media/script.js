@@ -728,7 +728,9 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
     currentDiffRows = [];
     scrollMaps = null;
     directoryEntries = entries || [];
-    activeDirectoryEntryPath = getDefaultDirectoryEntryPath(directoryEntries);
+    activeDirectoryEntryPath = review?.attention?.entryPath
+        || review?.attention?.fallbackPath
+        || getDefaultDirectoryEntryPath(directoryEntries);
     disposeTwoWayEditors();
     disposeMultiEditors();
     updateHistoryToolbar(history);
@@ -754,9 +756,152 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
     attachDirectoryScrollSync();
     resetDirectoryScrollPositions();
     updateDirectoryEntrySelection();
+    renderDirectoryOverview(review);
+    setDirectoryViewMode(review?.attention ? 'overview' : 'files');
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
     notifyRenderComplete();
+}
+
+function renderDirectoryOverview(review) {
+    const tabs = getElement('directory-view-tabs');
+    const overview = getElement('directory-overview');
+    tabs.hidden = !review?.attention;
+    overview.replaceChildren();
+    if (!review?.attention) return;
+
+    const summary = document.createElement('p');
+    summary.className = 'directory-overview-summary';
+    summary.textContent = `${review.changedFileCount} files (${review.attentionSummary.textualFiles} text, ${review.attentionSummary.binaryFiles} binary) · +${review.attentionSummary.additions} −${review.attentionSummary.deletions} · ${review.commitCount} commits`;
+    overview.appendChild(summary);
+
+    const heading = document.createElement('h2');
+    heading.textContent = 'Start here';
+    overview.appendChild(heading);
+    const entry = review.attention.files.find((file) => file.path === review.attention.entryPath);
+    if (entry) {
+        overview.appendChild(createAttentionPathButton(entry));
+        const reason = document.createElement('p');
+        reason.className = 'directory-overview-reason';
+        reason.textContent = review.attention.entryReason;
+        overview.appendChild(reason);
+    } else {
+        const empty = document.createElement('p');
+        empty.textContent = review.attention.entryReason;
+        overview.appendChild(empty);
+    }
+
+    appendAttentionGroup(overview, 'Pay attention', review.attention.focusPaths, review.attention.files, false);
+    appendUsuallySkipGroups(overview, [
+        ...review.attention.mechanicalPaths,
+        ...review.attention.backgroundPaths
+    ], review.attention.files);
+
+    const actions = document.createElement('div');
+    actions.className = 'directory-overview-actions';
+    const primaryPath = review.attention.entryPath || review.attention.fallbackPath;
+    if (primaryPath) {
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'directory-overview-primary';
+        open.textContent = review.attention.entryPath ? 'Open start file' : 'Open fallback diff';
+        open.title = open.textContent;
+        open.addEventListener('click', () => openDirectoryOverviewPath(primaryPath));
+        actions.appendChild(open);
+    }
+    const all = document.createElement('button');
+    all.type = 'button';
+    all.textContent = 'Show all files';
+    all.title = 'Show all changed files';
+    all.addEventListener('click', () => setDirectoryViewMode('files'));
+    actions.appendChild(all);
+    overview.appendChild(actions);
+    overview.onkeydown = (event) => {
+        if (event.key === 'Enter' && event.target === overview && primaryPath) {
+            event.preventDefault();
+            openDirectoryOverviewPath(primaryPath);
+        }
+    };
+    overview.tabIndex = 0;
+
+    getElement('directory-overview-tab').onclick = () => setDirectoryViewMode('overview');
+    getElement('directory-files-tab').onclick = () => setDirectoryViewMode('files');
+}
+
+function appendUsuallySkipGroups(container, paths, files) {
+    const heading = document.createElement('h2');
+    heading.textContent = 'Usually skip';
+    container.appendChild(heading);
+    const remaining = new Set(paths);
+    const groups = [
+        ['Dependencies', (file) => file?.role === 'dependency'],
+        ['Generated and binary', (file) => file?.role === 'generated' || file?.attention === 'mechanical'],
+        ['Tests', (file) => file?.role === 'test'],
+        ['Documentation', (file) => file?.role === 'documentation'],
+        ['Other files', () => true]
+    ];
+    for (const [title, matches] of groups) {
+        const groupPaths = paths.filter((path) => remaining.has(path) && matches(files.find((file) => file.path === path)));
+        if (groupPaths.length === 0) continue;
+        groupPaths.forEach((path) => remaining.delete(path));
+        appendAttentionGroup(container, title, groupPaths, files, true);
+    }
+    if (paths.length === 0) {
+        const empty = document.createElement('p');
+        empty.textContent = 'No files are deferred from the first pass.';
+        container.appendChild(empty);
+    }
+}
+
+function appendAttentionGroup(container, title, paths, files, collapsed) {
+    const section = document.createElement(collapsed ? 'details' : 'section');
+    section.className = `directory-attention-group${collapsed ? ' is-background' : ''}`;
+    if (collapsed) {
+        const summary = document.createElement('summary');
+        summary.textContent = `${title} (${paths.length})`;
+        section.appendChild(summary);
+    } else {
+        const heading = document.createElement('h2');
+        heading.textContent = title;
+        section.appendChild(heading);
+    }
+    if (paths.length === 0) {
+        const empty = document.createElement('p');
+        empty.textContent = 'No files in this group.';
+        section.appendChild(empty);
+    } else {
+        for (const path of paths) {
+            const file = files.find((candidate) => candidate.path === path);
+            if (file) section.appendChild(createAttentionPathButton(file));
+        }
+    }
+    container.appendChild(section);
+}
+
+function createAttentionPathButton(file) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'directory-attention-file';
+    button.textContent = `${file.path} · ${file.changeKind} · +${file.additions ?? '–'} −${file.deletions ?? '–'}`;
+    button.title = file.reason;
+    button.addEventListener('click', () => openDirectoryOverviewPath(file.path));
+    return button;
+}
+
+function openDirectoryOverviewPath(relativePath) {
+    activeDirectoryEntryPath = relativePath;
+    updateDirectoryEntrySelection();
+    host.postMessage({ type: 'openDirectoryEntry', relativePath });
+}
+
+function setDirectoryViewMode(mode) {
+    const hasOverview = !getElement('directory-view-tabs').hidden;
+    const showOverview = hasOverview && mode === 'overview';
+    getElement('directory-overview').hidden = !showOverview;
+    document.querySelector('#directory-diff .dir-headers').hidden = showOverview;
+    getElement('dir-rows').hidden = showOverview;
+    getElement('directory-overview-tab').setAttribute('aria-pressed', String(showOverview));
+    getElement('directory-files-tab').setAttribute('aria-pressed', String(!showOverview));
 }
 
 function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = []) {

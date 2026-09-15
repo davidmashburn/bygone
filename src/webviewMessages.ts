@@ -2,6 +2,7 @@ import { ThreeWayMergeModel, TwoWayDiffModel } from './diffEngine';
 import { DirectoryEntry, DirectoryEntryStatus } from './directoryDiff';
 import { BinaryComparison } from './binaryComparison';
 import type { TourAnnotation } from './tourAnnotations';
+import type { ChangeAttention } from './changeAttention';
 
 export type { TourAnnotation };
 
@@ -59,6 +60,13 @@ export interface BranchReviewViewState {
     viewedCount: number;
     commitCount: number;
     mergeCommitCount: number;
+    attention?: ChangeAttention;
+    attentionSummary?: {
+        textualFiles: number;
+        binaryFiles: number;
+        additions: number;
+        deletions: number;
+    };
     commits: Array<{
         oid: string;
         shortOid: string;

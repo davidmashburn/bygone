@@ -32,7 +32,11 @@ it does not change new comparisons opened later from the app menus.
 - **File → View File or Directory History…** follows one path through commits and
   supported index/worktree states.
 - **Git → Review Branch Change…** accepts a head and optional base ref, compares the
-  head with its merge base, and shows the complete changed-file inventory.
+  head with its merge base, and opens a deterministic overview before the complete
+  changed-file inventory. **Start here** identifies one production entry point when
+  the range supports a reliable choice, **Pay attention** keeps the first-pass
+  production set small, and **Usually skip** collapses mechanical and background
+  files without removing them. Use **Files** to reach the full directory tree.
 - **Git → Compare Revisions…** accepts two or more refs, including `INDEX` and
   `WORKTREE`, matching CLI `--git-diff`.
 

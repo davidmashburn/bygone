@@ -1,6 +1,7 @@
 import { execFileSync } from 'child_process';
 import type { BranchCommit, GitChangeKind } from './gitComparison';
 import { resolveBranchReviewRange, resolveReviewPathPair } from './gitComparison';
+import { classifyChangeFileRole, type ChangeFileRole } from './changeAttention';
 
 export const CHANGE_TOUR_CONTEXT_VERSION = 1 as const;
 const DEFAULT_MAX_PATCH_BYTES = 128 * 1024;
@@ -8,7 +9,7 @@ const DEFAULT_MAX_TOTAL_PATCH_BYTES = 2 * 1024 * 1024;
 const MAX_CAPTURE_BYTES = 8 * 1024 * 1024;
 const MAX_SYMBOL_SOURCE_BYTES = 1024 * 1024;
 
-export type ChangeTourFileRole = 'production' | 'test' | 'documentation' | 'dependency' | 'generated';
+export type ChangeTourFileRole = ChangeFileRole;
 export type ChangeTourPatchOmission = 'binary' | 'too-large' | 'total-budget' | 'unavailable';
 
 export interface ChangeTourChangedRange {
@@ -159,7 +160,7 @@ function buildContextFile(
         path: changedPath.path,
         previousPath: changedPath.previousPath,
         changeKind: changedPath.kind,
-        role: classifyFileRole(changedPath.path),
+        role: classifyChangeFileRole(changedPath.path),
         additions: stats.additions,
         deletions: stats.deletions,
         binary: stats.binary,
@@ -265,16 +266,6 @@ function readGitText(repoRoot: string, oid: string, relativePath: string, maxByt
     } catch {
         return undefined;
     }
-}
-
-function classifyFileRole(filePath: string): ChangeTourFileRole {
-    const lower = filePath.toLowerCase();
-    const fileName = lower.split('/').pop() || lower;
-    if (/(^|\/)(tests?|__tests__)(\/|$)/.test(lower) || /(^|\/)test_[^/]+$/.test(lower) || /\.(test|spec)\.[^/]+$/.test(lower)) return 'test';
-    if (lower.startsWith('docs/') || fileName === 'readme.md' || /\.(md|mdx|rst)$/.test(lower)) return 'documentation';
-    if (/(^|\/)(package-lock\.json|.*\.lock|pyproject\.toml|package\.json|go\.mod|cargo\.toml)$/.test(lower)) return 'dependency';
-    if (/(^|\/)(dist|build|generated|vendor)(\/|$)/.test(lower) || /\.(min\.js|map)$/.test(lower)) return 'generated';
-    return 'production';
 }
 
 function runGit(repoRoot: string, args: string[]): string {
