@@ -23,5 +23,9 @@ clear enough to discuss as an actionable plan.
 
 ## Current ideas
 
-There are no unpromoted ideas at present. Concepts that are ready for
-execution are tracked in [`plans/`](../plans/README.md).
+- [Archived UI chrome redesign (April 2026)](archived-ui-chrome-redesign-2026-04/README.md)
+  preserves an earlier state model, design rationale, and visual prototypes as
+  historical input rather than a current implementation plan.
+
+Concepts that are ready for execution are tracked in
+[`plans/`](../plans/README.md).

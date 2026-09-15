@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bygone — UI tweaks proposal</title>
+  <style>
+    /* =============================================================
+       Scope: button placement + chrome tightening ONLY.
+       - Same VS Code-webview dark palette and tokens as today
+       - Bygone's existing color convention preserved:
+           GREEN  rgba(73,190,119,...) = one-sided change (added OR removed)
+           BLUE   rgba(79,124,255,...) = paired/modified line
+       - The flowing canvas connectors between panes (and between
+         directory-diff columns) are the core visual concept and are
+         reproduced here with SVG cubic-bezier polygons.
+       - No timeline rail, no minimap gutter, no merge tool, no
+         drop-state hero, no commit cards with avatars or branch chips.
+       ============================================================= */
+    :root {
+      --vscode-foreground: #d4d4d4;
+      --vscode-editor-background: #1e1e1e;
+      --vscode-font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", Menlo, monospace;
+      --vscode-font-size: 13px;
+      --vscode-sideBar-background: #252526;
+      --vscode-panel-background: #2d2d2d;
+      --vscode-panel-border: #3c3c3c;
+      --vscode-descriptionForeground: #9da1a6;
+      --vscode-editorLineNumber-foreground: #858585;
+      --vscode-button-border: #3c3c3c;
+      --vscode-button-secondaryBackground: #313131;
+      --vscode-button-secondaryForeground: #cccccc;
+
+      --one-sided-fill:  rgba(73, 190, 119, 0.14);
+      --one-sided-strong: rgba(73, 190, 119, 0.42);
+      --one-sided-stroke: rgba(73, 190, 119, 0.92);
+      --paired-fill:     rgba(79, 124, 255, 0.14);
+      --paired-strong:    rgba(79, 124, 255, 0.34);
+      --paired-stroke:    rgba(79, 124, 255, 0.92);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 28px 24px 64px;
+      color: var(--vscode-foreground);
+      background: var(--vscode-editor-background);
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+    }
+
+    /* ---------- doc-level scaffolding (sans-serif) ---------- */
+    .doc { max-width: 1440px; margin: 0 auto; display: grid; gap: 28px; }
+    .doc-header { font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+    .doc-header h1 { margin: 0 0 6px 0; font-size: 20px; font-weight: 600; }
+    .doc-header p { margin: 0; color: var(--vscode-descriptionForeground); font-size: 13px; line-height: 1.5; max-width: 820px; }
+    .doc-header ul { margin: 10px 0 0 0; padding-left: 18px; color: var(--vscode-descriptionForeground); font-size: 13px; line-height: 1.55; max-width: 820px; }
+    .doc-header ul li { margin: 2px 0; }
+    .doc-header code { font-family: var(--vscode-font-family); font-size: 12px; background: var(--vscode-sideBar-background); padding: 1px 5px; border-radius: 3px; color: var(--vscode-foreground); }
+
+    .screen-wrap { display: grid; gap: 8px; }
+    .screen-label { font-family: system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; color: var(--vscode-descriptionForeground); display: flex; justify-content: space-between; align-items: baseline; }
+    .screen-label b { color: var(--vscode-foreground); font-weight: 600; margin-right: 8px; }
+    .screen-label .note { max-width: 62%; text-align: right; }
+
+    .screen {
+      border: 1px solid var(--vscode-panel-border);
+      background: var(--vscode-editor-background);
+    }
+
+    /* =============================================================
+       Shared app chrome
+       ============================================================= */
+    #container { display: grid; grid-template-rows: auto 1fr auto; min-height: 560px; }
+
+    /* single-row header (replaces today's app-header + context-bar +
+       history-toolbar + change-toolbar stack). Everything mode-specific
+       lives in a single strip on the right. */
+    .header {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 14px;
+      padding: 8px 12px;
+      background: var(--vscode-sideBar-background);
+      border-bottom: 1px solid var(--vscode-panel-border);
+      min-height: 40px;
+    }
+    .header .brand { display: flex; align-items: center; gap: 8px; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+    .header .brand h1 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: -0.005em; }
+    .mode-chip {
+      display: inline-flex; align-items: center;
+      border: 1px solid rgba(79,124,255,0.78); background: rgba(79,124,255,0.14);
+      color: #cfe0ff; border-radius: 999px; min-height: 20px; padding: 0 8px;
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      font-size: 11px; font-weight: 600;
+    }
+
+    /* breadcrumb + scope live in the center cell */
+    .header .scope { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .breadcrumb { color: var(--vscode-descriptionForeground); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .breadcrumb .leaf { color: var(--vscode-foreground); }
+    .breadcrumb .sep { color: #666; padding: 0 2px; }
+    .scope-tag {
+      font-family: var(--vscode-font-family);
+      font-size: 11px; color: var(--vscode-descriptionForeground);
+      border: 1px solid var(--vscode-panel-border); border-radius: 3px;
+      padding: 1px 6px; background: var(--vscode-editor-background); white-space: nowrap;
+    }
+    .scope-tag b { color: var(--vscode-foreground); font-weight: 600; }
+
+    /* right-side action cluster: one row of buttons, grouped. */
+    .actions { display: flex; align-items: center; gap: 6px; }
+    .actions .group { display: inline-flex; gap: 2px; padding: 2px; background: var(--vscode-editor-background); border: 1px solid var(--vscode-panel-border); border-radius: 4px; }
+    .actions .divider { width: 1px; height: 18px; background: var(--vscode-panel-border); margin: 0 2px; }
+
+    .btn {
+      border: 1px solid var(--vscode-button-border);
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+      border-radius: 3px; min-height: 24px; padding: 2px 9px;
+      font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap;
+    }
+    .btn:hover { filter: brightness(1.08); }
+    .btn.primary { border-color: rgba(79,124,255,0.72); }
+    .btn.icon { min-width: 24px; padding: 2px 6px; text-align: center; }
+    .btn.flat { background: transparent; border-color: transparent; color: var(--vscode-descriptionForeground); }
+    .btn.flat:hover { background: var(--vscode-button-secondaryBackground); color: var(--vscode-foreground); }
+    .btn.group-item { border: none; background: transparent; border-radius: 2px; padding: 2px 8px; min-height: 22px; color: var(--vscode-descriptionForeground); }
+    .btn.group-item:hover { background: var(--vscode-button-secondaryBackground); color: var(--vscode-foreground); }
+    .btn.group-item.is-on { background: rgba(79,124,255,0.22); color: #e6e9ef; }
+    .pos { color: var(--vscode-descriptionForeground); font-size: 11px; padding: 0 6px; align-self: center; min-width: 48px; text-align: center; white-space: nowrap; }
+
+    /* =============================================================
+       Workspace body
+       ============================================================= */
+    .workspace-shell {
+      display: grid;
+      grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+      min-height: 480px;
+    }
+    .workspace-shell.no-rail { grid-template-columns: 1fr; }
+
+    /* navigator rail (the existing component, tightened) */
+    .navigator-rail {
+      border-right: 1px solid var(--vscode-panel-border);
+      background: var(--vscode-sideBar-background);
+      display: grid; grid-template-rows: auto auto 1fr auto; min-height: 0;
+    }
+    .navigator-rail-header { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; font-size: 12px; color: var(--vscode-descriptionForeground); border-bottom: 1px solid var(--vscode-panel-border); }
+    .navigator-rail-header .title { color: var(--vscode-foreground); font-weight: 600; }
+    .navigator-rail-tabs { display: flex; gap: 2px; padding: 6px 8px 4px; border-bottom: 1px solid var(--vscode-panel-border); }
+    .navigator-rail-tab { border: 1px solid transparent; background: transparent; color: var(--vscode-descriptionForeground); border-radius: 3px; font: inherit; font-size: 11px; padding: 3px 8px; cursor: pointer; }
+    .navigator-rail-tab.is-active { background: rgba(79,124,255,0.18); color: #e6e9ef; border-color: rgba(79,124,255,0.5); }
+    .navigator-rail-list { overflow: auto; padding: 4px 6px; display: grid; gap: 1px; align-content: start; grid-auto-rows: min-content; }
+    .navigator-entry {
+      display: grid; grid-template-columns: 18px minmax(0,1fr) auto;
+      align-items: center; gap: 8px;
+      padding: 3px 8px; min-height: 24px; font-size: 12px;
+      color: var(--vscode-foreground); border-radius: 3px;
+    }
+    .navigator-entry:hover { background: var(--vscode-button-secondaryBackground); }
+    .navigator-entry.is-active { background: rgba(79,124,255,0.18); }
+    .nav-mark { font-size: 11px; font-weight: 700; text-align: center; }
+    .nav-mark.one-sided { color: rgba(73, 190, 119, 0.92); }
+    .nav-mark.paired { color: rgba(79, 124, 255, 0.92); }
+    .nav-count { font-size: 10px; color: var(--vscode-descriptionForeground); font-family: var(--vscode-font-family); }
+
+    /* =============================================================
+       Diff panes + canvas connector
+       ============================================================= */
+    .diff-area { position: relative; display: grid; grid-template-columns: 1fr 1fr; min-height: 460px; }
+    .file-panel { display: grid; grid-template-rows: auto 1fr; border-right: 1px solid var(--vscode-panel-border); min-width: 0; background: var(--vscode-editor-background); }
+    .file-panel:last-child { border-right: none; }
+    .file-header {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+      background: var(--vscode-panel-background);
+      font-size: 12px; font-weight: 600;
+      display: flex; gap: 10px; align-items: center;
+      font-family: var(--vscode-font-family);
+    }
+    .file-header .meta { color: var(--vscode-descriptionForeground); font-weight: 400; font-size: 11px; }
+    .file-content { overflow: auto; padding: 6px 0; position: relative; z-index: 2; font-family: var(--vscode-font-family); font-size: 12px; line-height: 18px; }
+    .code-line { display: grid; grid-template-columns: 44px minmax(0,1fr); padding: 0 10px; min-height: 18px; align-items: start; }
+    .code-line .ln { color: var(--vscode-editorLineNumber-foreground); text-align: right; padding-right: 12px; user-select: none; font-size: 11px; }
+    .code-line .tx { white-space: pre; }
+    .code-line.one-sided { background: var(--one-sided-fill); }
+    .code-line.paired { background: var(--paired-fill); }
+    .code-line.paired .seg { background: var(--paired-strong); border-radius: 2px; padding: 0 1px; }
+
+    /* canvas connector (reproduced with SVG) */
+    .connector { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+    .connector path.one-sided { fill: var(--one-sided-fill); stroke: var(--one-sided-stroke); stroke-width: 1; }
+    .connector path.paired { fill: var(--paired-fill); stroke: var(--paired-stroke); stroke-width: 1; }
+    .connector path { opacity: 0.95; }
+
+    /* =============================================================
+       Directory diff rows
+       ============================================================= */
+    .dir-shell { display: grid; grid-template-rows: auto 1fr; }
+    .dir-toolbar {
+      display: flex; gap: 6px; align-items: center;
+      padding: 6px 12px;
+      background: var(--vscode-editor-background);
+      border-bottom: 1px solid var(--vscode-panel-border);
+    }
+    .dir-toolbar .dir-refs { margin-left: auto; display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--vscode-descriptionForeground); }
+    .dir-body { position: relative; }
+    .dir-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    .dir-column { border-right: 1px solid var(--vscode-panel-border); min-width: 0; }
+    .dir-column:last-child { border-right: none; }
+    .dir-col-header { padding: 6px 12px; background: var(--vscode-panel-background); border-bottom: 1px solid var(--vscode-panel-border); font-size: 12px; font-weight: 600; display: flex; gap: 8px; align-items: center; }
+    .dir-col-header .ref { color: var(--vscode-descriptionForeground); font-weight: 400; font-size: 11px; font-family: var(--vscode-font-family); }
+    .dir-rows { display: grid; padding: 4px 0; }
+    .dir-row {
+      display: grid; grid-template-columns: 16px minmax(0,1fr) auto;
+      align-items: center; gap: 8px;
+      padding: 2px 12px; min-height: 22px; font-size: 12px;
+      color: var(--vscode-foreground); font-family: var(--vscode-font-family);
+    }
+    .dir-row .glyph { text-align: center; color: var(--vscode-descriptionForeground); }
+    .dir-row.one-sided { background: var(--one-sided-fill); }
+    .dir-row.paired { background: var(--paired-fill); }
+    .dir-row .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dir-row.folder .name { font-weight: 600; }
+    .dir-row .tail { font-size: 10px; color: var(--vscode-descriptionForeground); }
+
+    /* =============================================================
+       Status bar (replaces the free-floating change-hint text)
+       ============================================================= */
+    .statusbar {
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: center; gap: 12px;
+      padding: 4px 12px; min-height: 22px;
+      background: var(--vscode-sideBar-background);
+      border-top: 1px solid var(--vscode-panel-border);
+      font-size: 11px; color: var(--vscode-descriptionForeground);
+    }
+    .statusbar .left, .statusbar .right { display: inline-flex; gap: 14px; align-items: center; }
+    .statusbar .right { justify-content: flex-end; }
+    .statusbar .hint { font-size: 11px; text-align: center; color: var(--vscode-descriptionForeground); }
+    .statusbar .hint kbd { font-family: var(--vscode-font-family); font-size: 10px; color: var(--vscode-foreground); border: 1px solid var(--vscode-panel-border); padding: 0 4px; border-radius: 2px; background: var(--vscode-editor-background); }
+
+    /* =============================================================
+       Before/after callouts
+       ============================================================= */
+    .pair-note {
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      display: grid; grid-template-columns: auto 1fr; gap: 10px;
+      font-size: 12px; color: var(--vscode-descriptionForeground);
+      padding: 8px 12px; border-left: 2px solid rgba(79,124,255,0.6);
+      background: rgba(79,124,255,0.06);
+    }
+    .pair-note b { color: var(--vscode-foreground); font-weight: 600; }
+    .pair-note code { font-family: var(--vscode-font-family); font-size: 11px; color: var(--vscode-foreground); background: var(--vscode-sideBar-background); padding: 1px 5px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div class="doc">
+
+    <header class="doc-header">
+      <h1>Bygone — UI tweaks proposal</h1>
+      <p>
+        Scoped to button-placement and chrome tightening. Not a visual
+        redesign. Every color, pane layout, and visual diff signal below
+        matches what the app already ships. Compare against
+        <code>current-state.html</code>.
+      </p>
+      <ul>
+        <li>Palette preserved: <b style="color:rgba(73,190,119,0.95)">green</b> = one-sided change, <b style="color:rgba(79,124,255,0.95)">blue</b> = paired/modified.</li>
+        <li>Flowing canvas connectors between panes (and between directory-diff columns) are preserved — shown here as SVG bezier polygons since this is a static mockup.</li>
+        <li>Header goes from a 4-row stack (app header + context bar + history toolbar + change toolbar) to a single 40px row with the mode-specific actions grouped on the right.</li>
+        <li>The "change-hint" text (<code>F7 / Shift+F7 …</code>) moves into a thin status bar at the bottom instead of floating below the toolbar.</li>
+        <li>Same three screens as <code>current-state.html</code>: two-way file diff, directory diff, file history. No merge tool, no drop state, no timeline rail.</li>
+      </ul>
+    </header>
+
+    <!-- =========================================================
+         Screen 1 — Two-way file diff (tweaks only)
+         ========================================================= -->
+    <section class="screen-wrap">
+      <div class="screen-label">
+        <span><b>1. Two-way file diff.</b> Four toolbar rows collapse into one.</span>
+        <span class="note">Change navigation (Prev/Next/Prev File/Next File) groups into a single segmented control. Editing toggle sits next to it. F7/Shift+F7 hint moves to the status bar. Breadcrumb and scope share the middle cell.</span>
+      </div>
+      <div class="screen">
+        <div id="container">
+
+          <!-- single-row header -->
+          <div class="header">
+            <div class="brand">
+              <h1>Bygone</h1>
+              <span class="mode-chip">Diff</span>
+            </div>
+
+            <div class="scope">
+              <div class="breadcrumb">~/code/bygone<span class="sep">›</span>src<span class="sep">›</span><span class="leaf">gitHistory.ts</span></div>
+              <span class="scope-tag"><b>HEAD~1</b> ↔ <b>working tree</b></span>
+              <span class="scope-tag">file 2 / 4</span>
+            </div>
+
+            <div class="actions">
+              <!-- change nav, all in one segmented group -->
+              <div class="group" aria-label="Change navigation">
+                <button class="btn group-item" title="Previous changed file">← File</button>
+                <button class="btn group-item" title="Previous change (Shift+F7)">↑</button>
+                <span class="pos">3 / 19</span>
+                <button class="btn group-item is-on" title="Next change (F7)">↓</button>
+                <button class="btn group-item" title="Next changed file">File →</button>
+              </div>
+              <div class="divider"></div>
+              <!-- edit actions (only when editing) -->
+              <div class="group" aria-label="Copy current change">
+                <button class="btn group-item" title="Copy right → left (⌘⌥←)">← Copy</button>
+                <button class="btn group-item" title="Copy left → right (⌘⌥→)">Copy →</button>
+              </div>
+              <div class="divider"></div>
+              <button class="btn" title="Toggle editing">Editing On</button>
+            </div>
+          </div>
+
+          <!-- workspace -->
+          <div class="workspace-shell">
+            <aside class="navigator-rail">
+              <div class="navigator-rail-header">
+                <span class="title">Changed files</span>
+                <span>4</span>
+              </div>
+              <div class="navigator-rail-tabs">
+                <button class="navigator-rail-tab is-active">Changed</button>
+                <button class="navigator-rail-tab">Tree</button>
+              </div>
+              <div class="navigator-rail-list">
+                <div class="navigator-entry"><span class="nav-mark paired">M</span><span class="name">src/diffEngine.ts</span><span class="nav-count">2</span></div>
+                <div class="navigator-entry is-active"><span class="nav-mark paired">M</span><span class="name">src/gitHistory.ts</span><span class="nav-count">5</span></div>
+                <div class="navigator-entry"><span class="nav-mark one-sided">A</span><span class="name">src/fallbackViews.ts</span><span class="nav-count">1</span></div>
+                <div class="navigator-entry"><span class="nav-mark one-sided">D</span><span class="name">src/oldHistory.ts</span><span class="nav-count">1</span></div>
+              </div>
+              <div class="navigator-rail-header" style="border-top: 1px solid var(--vscode-panel-border); border-bottom: none;">
+                <span>19 changes total</span>
+              </div>
+            </aside>
+
+            <div class="diff-area">
+              <!-- left pane -->
+              <div class="file-panel">
+                <div class="file-header">
+                  gitHistory.ts
+                  <span class="meta">HEAD~1 · e08ca0a</span>
+                </div>
+                <div class="file-content">
+                  <div class="code-line"><span class="ln">38</span><span class="tx">  const repoRoot = this.runGitCommand(['rev-parse', '--show-toplevel'])</span></div>
+                  <div class="code-line"><span class="ln">39</span><span class="tx">  const relativePath = path.relative(repoRoot, file)</span></div>
+                  <div class="code-line"><span class="ln">40</span><span class="tx"></span></div>
+                  <div class="code-line"><span class="ln">41</span><span class="tx">export function loadFileHistory(file: string) {</span></div>
+                  <div class="code-line one-sided"><span class="ln">42</span><span class="tx">  const commits = git.log({ maxCount: 100 })</span></div>
+                  <div class="code-line"><span class="ln">43</span><span class="tx">  const entries = commits.map((c) =&gt; ({</span></div>
+                  <div class="code-line"><span class="ln">44</span><span class="tx">    hash: c.hash,</span></div>
+                  <div class="code-line paired"><span class="ln">45</span><span class="tx">    summary: <span class="seg">c.subject</span>,</span></div>
+                  <div class="code-line"><span class="ln">46</span><span class="tx">  }))</span></div>
+                  <div class="code-line"><span class="ln">47</span><span class="tx">  return entries</span></div>
+                  <div class="code-line"><span class="ln">48</span><span class="tx">}</span></div>
+                  <div class="code-line"><span class="ln">49</span><span class="tx"></span></div>
+                  <div class="code-line"><span class="ln">50</span><span class="tx"></span></div>
+                  <div class="code-line"><span class="ln">71</span><span class="tx">const metadata = this.readCommitMetadataMap(</span></div>
+                  <div class="code-line"><span class="ln">72</span><span class="tx">  repoRoot,</span></div>
+                  <div class="code-line one-sided"><span class="ln">73</span><span class="tx">  [...new Set(commits.map((c) =&gt; c.parent))]</span></div>
+                  <div class="code-line"><span class="ln">74</span><span class="tx">)</span></div>
+                </div>
+              </div>
+
+              <!-- right pane -->
+              <div class="file-panel">
+                <div class="file-header">
+                  gitHistory.ts
+                  <span class="meta">working tree · unsaved</span>
+                </div>
+                <div class="file-content">
+                  <div class="code-line"><span class="ln">38</span><span class="tx">  const repoRoot = this.runGitCommand(['rev-parse', '--show-toplevel'])</span></div>
+                  <div class="code-line"><span class="ln">39</span><span class="tx">  const relativePath = path.relative(repoRoot, file)</span></div>
+                  <div class="code-line"><span class="ln">40</span><span class="tx"></span></div>
+                  <div class="code-line"><span class="ln">41</span><span class="tx">export function loadFileHistory(file: string) {</span></div>
+                  <div class="code-line one-sided"><span class="ln">42</span><span class="tx">  const max = env.BYGONE_HISTORY_MAX_COMMITS ?? 250</span></div>
+                  <div class="code-line one-sided"><span class="ln">43</span><span class="tx">  const commits = git.log({ maxCount: max })</span></div>
+                  <div class="code-line"><span class="ln">44</span><span class="tx">  const entries = commits.map((c) =&gt; ({</span></div>
+                  <div class="code-line"><span class="ln">45</span><span class="tx">    hash: c.hash,</span></div>
+                  <div class="code-line paired"><span class="ln">46</span><span class="tx">    summary: <span class="seg">formatSubject(c.subject)</span>,</span></div>
+                  <div class="code-line"><span class="ln">47</span><span class="tx">  }))</span></div>
+                  <div class="code-line"><span class="ln">48</span><span class="tx">  return entries</span></div>
+                  <div class="code-line"><span class="ln">49</span><span class="tx">}</span></div>
+                  <div class="code-line"><span class="ln">79</span><span class="tx">const metadata = this.readCommitMetadataMap(</span></div>
+                  <div class="code-line"><span class="ln">80</span><span class="tx">  repoRoot,</span></div>
+                  <div class="code-line one-sided"><span class="ln">81</span><span class="tx">  [...new Set(commits</span></div>
+                  <div class="code-line one-sided"><span class="ln">82</span><span class="tx">    .map((c) =&gt; c.parentCommit)</span></div>
+                  <div class="code-line one-sided"><span class="ln">83</span><span class="tx">    .filter((c): c is string =&gt; Boolean(c)))]</span></div>
+                  <div class="code-line"><span class="ln">84</span><span class="tx">)</span></div>
+                </div>
+              </div>
+
+              <!-- flowing connectors (preserved core visual concept) -->
+              <svg class="connector" viewBox="0 0 800 460" preserveAspectRatio="none" aria-hidden="true">
+                <!-- one-sided block around line 42 -->
+                <path class="one-sided" d="M 0,112 C 120,112 280,112 400,112 L 400,166 C 280,166 120,148 0,148 Z" />
+                <!-- paired block around line 45/46 -->
+                <path class="paired" d="M 0,185 C 120,185 280,199 400,199 L 400,221 C 280,221 120,207 0,207 Z" />
+                <!-- one-sided block at bottom (line 73 ↔ 81-83) -->
+                <path class="one-sided" d="M 0,346 C 120,346 280,334 400,334 L 400,392 C 280,392 120,368 0,368 Z" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- status bar -->
+          <div class="statusbar">
+            <div class="left">
+              <span>main</span>
+              <span>TypeScript · UTF-8 · LF</span>
+            </div>
+            <div class="hint">
+              <kbd>F7</kbd> / <kbd>⇧F7</kbd> next change · <kbd>⌘⌥←/→</kbd> copy current · <kbd>[</kbd> / <kbd>]</kbd> sibling file
+            </div>
+            <div class="right">
+              <span>change 3 of 19</span>
+              <span>Ln 46, Col 24</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pair-note">
+        <b>Why.</b>
+        <span>Today the 4-row header (<code>app-header</code> + <code>context-bar</code> + <code>history-toolbar</code> + <code>change-toolbar</code>) eats ~112px before the first line of diff. Grouping Prev/Next/Prev-File/Next-File into a segmented control and relocating the keyboard hint into the status bar gets that down to ~40px + 22px without losing anything.</span>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         Screen 2 — Directory diff (tweaks only)
+         ========================================================= -->
+    <section class="screen-wrap">
+      <div class="screen-label">
+        <span><b>2. Directory diff.</b> Expand/Collapse group; git refs move into the column headers.</span>
+        <span class="note">The three tree buttons (Expand All / Collapse All / Collapse Unchanged) become a single segmented control. Left/right git refs move from a second sub-bar into the column headers so the toolbar is a single row. Connectors between matching rows are preserved.</span>
+      </div>
+      <div class="screen">
+        <div id="container">
+          <div class="header">
+            <div class="brand">
+              <h1>Bygone</h1>
+              <span class="mode-chip">Directory</span>
+            </div>
+            <div class="scope">
+              <div class="breadcrumb">~/code/bygone<span class="sep">›</span><span class="leaf">src</span></div>
+              <span class="scope-tag"><b>main</b> ↔ <b>feat/history-cap</b></span>
+              <span class="scope-tag">5 changed</span>
+            </div>
+            <div class="actions">
+              <div class="group" aria-label="Tree display">
+                <button class="btn group-item">Expand all</button>
+                <button class="btn group-item">Collapse all</button>
+                <button class="btn group-item is-on">Collapse unchanged</button>
+              </div>
+              <div class="divider"></div>
+              <button class="btn" title="Open selection in diff">Open → Diff</button>
+            </div>
+          </div>
+
+          <div class="dir-shell">
+            <div class="dir-body">
+              <div class="dir-columns">
+                <div class="dir-column">
+                  <div class="dir-col-header">Left <span class="ref">main · 4653c81</span></div>
+                  <div class="dir-rows">
+                    <div class="dir-row folder"><span class="glyph">▾</span><span class="name">src/</span><span class="tail"></span></div>
+                    <div class="dir-row paired" style="padding-left:28px"><span class="glyph">◆</span><span class="name">diffEngine.ts</span><span class="tail"></span></div>
+                    <div class="dir-row paired" style="padding-left:28px"><span class="glyph">◆</span><span class="name">gitHistory.ts</span><span class="tail"></span></div>
+                    <div class="dir-row one-sided" style="padding-left:28px"><span class="glyph">◆</span><span class="name">oldHistory.ts</span><span class="tail"></span></div>
+                    <div class="dir-row" style="padding-left:28px;opacity:0.6"><span class="glyph">◆</span><span class="name">extension.ts</span><span class="tail"></span></div>
+                    <div class="dir-row" style="padding-left:28px"></div>
+                  </div>
+                </div>
+
+                <div class="dir-column">
+                  <div class="dir-col-header">Right <span class="ref">feat/history-cap · e08ca0a</span></div>
+                  <div class="dir-rows">
+                    <div class="dir-row folder"><span class="glyph">▾</span><span class="name">src/</span><span class="tail"></span></div>
+                    <div class="dir-row paired" style="padding-left:28px"><span class="glyph">◆</span><span class="name">diffEngine.ts</span><span class="tail"></span></div>
+                    <div class="dir-row paired" style="padding-left:28px"><span class="glyph">◆</span><span class="name">gitHistory.ts</span><span class="tail"></span></div>
+                    <div class="dir-row" style="padding-left:28px"></div>
+                    <div class="dir-row" style="padding-left:28px;opacity:0.6"><span class="glyph">◆</span><span class="name">extension.ts</span><span class="tail"></span></div>
+                    <div class="dir-row one-sided" style="padding-left:28px"><span class="glyph">◆</span><span class="name">fallbackViews.ts</span><span class="tail"></span></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- connectors linking matching rows -->
+              <svg class="connector" viewBox="0 0 800 216" preserveAspectRatio="none" aria-hidden="true" style="top:28px">
+                <!-- src/ folder connector -->
+                <path class="paired" d="M 400,0 C 420,0 420,22 440,22 L 440,22 C 420,22 420,0 400,0 Z" style="opacity:0" />
+                <!-- diffEngine.ts -->
+                <path class="paired" d="M 0,30 C 160,30 240,30 400,30 L 400,50 C 240,50 160,50 0,50 Z" />
+                <!-- gitHistory.ts -->
+                <path class="paired" d="M 0,54 C 160,54 240,54 400,54 L 400,74 C 240,74 160,74 0,74 Z" />
+                <!-- oldHistory.ts (only on left; collapse connector to the right column boundary) -->
+                <path class="one-sided" d="M 0,78 C 120,78 220,100 400,100 L 400,100 C 220,100 120,98 0,98 Z" />
+                <!-- fallbackViews.ts (only on right) -->
+                <path class="one-sided" d="M 0,145 C 180,145 280,126 400,126 L 400,146 C 280,146 180,165 0,165 Z" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="statusbar">
+            <div class="left">
+              <span>5 changed</span>
+              <span>· 3 paired, 2 one-sided</span>
+              <span>· 312 unchanged hidden</span>
+            </div>
+            <div class="hint">
+              <kbd>↵</kbd> open in diff · <kbd>[</kbd> / <kbd>]</kbd> sibling changed entry
+            </div>
+            <div class="right">
+              <span>src/</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pair-note">
+        <b>Why.</b>
+        <span>The three tree buttons used to sit on their own bar under the breadcrumb, and the LEFT/RIGHT git-ref headers also got their own bar. Folding both into the column headers (refs) and the right-hand action cluster (segmented Expand/Collapse/Collapse-Unchanged) removes two of today's four header rows without touching the tree, the row coloring, or the canvas connectors.</span>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         Screen 3 — File history (tweaks only)
+         ========================================================= -->
+    <section class="screen-wrap">
+      <div class="screen-label">
+        <span><b>3. File git history.</b> History toolbar collapses into the main header.</span>
+        <span class="note">Older/position/Newer/Staged Off were in a separate three-column toolbar below the breadcrumb. They fold into the right-hand action cluster (a segmented control + a pill toggle) so history looks and feels like diff. Left/right commit labels stay in the file headers where they already belong.</span>
+      </div>
+      <div class="screen">
+        <div id="container">
+          <div class="header">
+            <div class="brand">
+              <h1>Bygone</h1>
+              <span class="mode-chip">History</span>
+            </div>
+            <div class="scope">
+              <div class="breadcrumb">~/code/bygone<span class="sep">›</span>src<span class="sep">›</span><span class="leaf">gitHistory.ts</span></div>
+              <span class="scope-tag">86 commits</span>
+            </div>
+            <div class="actions">
+              <div class="group" aria-label="Commit navigation">
+                <button class="btn group-item" title="Older">← Older</button>
+                <span class="pos">12 / 86</span>
+                <button class="btn group-item is-on" title="Newer">Newer →</button>
+              </div>
+              <div class="divider"></div>
+              <button class="btn" title="Include the staged step in history">Staged Off</button>
+            </div>
+          </div>
+
+          <div class="workspace-shell no-rail">
+            <div class="diff-area">
+              <div class="file-panel">
+                <div class="file-header">
+                  gitHistory.ts
+                  <span class="meta">4653c81 · 2 days ago · David Mashburn</span>
+                </div>
+                <div class="file-content">
+                  <div class="code-line"><span class="ln">39</span><span class="tx">import { readFile } from 'fs'</span></div>
+                  <div class="code-line"><span class="ln">40</span><span class="tx"></span></div>
+                  <div class="code-line"><span class="ln">41</span><span class="tx">export function loadFileHistory(file: string) {</span></div>
+                  <div class="code-line one-sided"><span class="ln">42</span><span class="tx">  const commits = git.log({ maxCount: 100 })</span></div>
+                  <div class="code-line"><span class="ln">43</span><span class="tx">  return commits</span></div>
+                  <div class="code-line"><span class="ln">44</span><span class="tx">}</span></div>
+                </div>
+              </div>
+              <div class="file-panel">
+                <div class="file-header">
+                  gitHistory.ts
+                  <span class="meta">e08ca0a · 1 day ago · David Mashburn</span>
+                </div>
+                <div class="file-content">
+                  <div class="code-line"><span class="ln">39</span><span class="tx">import { readFile } from 'fs'</span></div>
+                  <div class="code-line"><span class="ln">40</span><span class="tx"></span></div>
+                  <div class="code-line"><span class="ln">41</span><span class="tx">export function loadFileHistory(file: string) {</span></div>
+                  <div class="code-line one-sided"><span class="ln">42</span><span class="tx">  const commits = git.log({ maxCount: 250 })</span></div>
+                  <div class="code-line"><span class="ln">43</span><span class="tx">  return commits</span></div>
+                  <div class="code-line"><span class="ln">44</span><span class="tx">}</span></div>
+                </div>
+              </div>
+
+              <svg class="connector" viewBox="0 0 800 460" preserveAspectRatio="none" aria-hidden="true">
+                <path class="one-sided" d="M 0,112 C 120,112 280,112 400,112 L 400,134 C 280,134 120,134 0,134 Z" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="statusbar">
+            <div class="left">
+              <span>gitHistory.ts</span>
+              <span>· 86 commits</span>
+            </div>
+            <div class="hint">
+              <kbd>←</kbd> / <kbd>→</kbd> scrub commits · <kbd>S</kbd> toggle staged · <kbd>↵</kbd> open in diff
+            </div>
+            <div class="right">
+              <span>commit 12 / 86</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pair-note">
+        <b>Why.</b>
+        <span>Today's history toolbar is a three-cell grid: left commit label / nav buttons / right commit label. The labels are redundant with the file headers directly under them. Moving the nav buttons into the main header's action cluster lets the file headers carry the commit labels alone, which matches how the two-way diff screen already works.</span>
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>
