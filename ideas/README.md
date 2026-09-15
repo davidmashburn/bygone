@@ -23,6 +23,10 @@ clear enough to discuss as an actionable plan.
 
 ## Current ideas
 
+- [macOS Cmd-W window close](macos-cmd-w-window-close.md) captures the missing
+  platform-standard close-window shortcut and dirty-session lifecycle question.
+- [Wrapped diff marker layout artifacts](wrapped-diff-marker-layout.md) captures
+  false-looking marker fragmentation caused by visual line wrapping.
 - [Archived UI chrome redesign (April 2026)](archived-ui-chrome-redesign-2026-04/README.md)
   preserves an earlier state model, design rationale, and visual prototypes as
   historical input rather than a current implementation plan.

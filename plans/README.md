@@ -26,6 +26,9 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [Editable worktree Git comparisons](editable-worktree-git-comparisons.md) —
+  make `WORKTREE` a live writable source in `--git-diff` while commits and the
+  index remain read-only snapshots.
 - [File-change overview and review entry-point](file-change-overview.md) —
   land unauthored branch review and generated Present on a start-here
   overview that ranks attention versus lockfiles, tests, and other noise.
