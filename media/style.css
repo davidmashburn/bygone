@@ -1517,18 +1517,15 @@ button.file-header {
     cursor: pointer;
 }
 
-.monaco-editor .bygone-one-sided-line-start,
-.monaco-editor .bygone-one-sided-line-end,
-.monaco-editor .bygone-paired-line-start,
-.monaco-editor .bygone-paired-line-end {
+.monaco-editor .bygone-one-sided-line-outline,
+.monaco-editor .bygone-paired-line-outline,
+.monaco-editor .bygone-one-sided-boundary-top,
+.monaco-editor .bygone-one-sided-boundary-bottom {
     box-sizing: border-box;
 }
 
-.monaco-editor .bygone-one-sided-line-start {
+.monaco-editor .bygone-one-sided-line-outline {
     border-top: 1.5px solid rgba(73, 190, 119, 0.92);
-}
-
-.monaco-editor .bygone-one-sided-line-end {
     border-bottom: 1.5px solid rgba(73, 190, 119, 0.92);
 }
 
@@ -1540,11 +1537,8 @@ button.file-header {
     border-bottom: 1.5px solid rgba(73, 190, 119, 0.92);
 }
 
-.monaco-editor .bygone-paired-line-start {
+.monaco-editor .bygone-paired-line-outline {
     border-top: 1.5px solid rgba(79, 124, 255, 0.92);
-}
-
-.monaco-editor .bygone-paired-line-end {
     border-bottom: 1.5px solid rgba(79, 124, 255, 0.92);
 }
 

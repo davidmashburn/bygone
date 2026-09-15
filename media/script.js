@@ -1858,18 +1858,10 @@ function addBlockEdgeDecorations(target, start, end, className) {
     const lastLine = end;
 
     target.push({
-        range: new monacoInstance.Range(firstLine, 1, firstLine, 1),
+        range: new monacoInstance.Range(firstLine, 1, lastLine, Number.MAX_SAFE_INTEGER),
         options: {
-            isWholeLine: true,
-            className: `${className}-start`
-        }
-    });
-
-    target.push({
-        range: new monacoInstance.Range(lastLine, 1, lastLine, 1),
-        options: {
-            isWholeLine: true,
-            className: `${className}-end`
+            blockClassName: `${className}-outline`,
+            blockDoesNotCollapse: true
         }
     });
 }
@@ -1883,8 +1875,7 @@ function addCollapsedBoundaryDecoration(target, anchorIndex, targetLineCount, cl
         target.push({
             range: new monacoInstance.Range(1, 1, 1, 1),
             options: {
-                isWholeLine: true,
-                className: `${className}-top`
+                blockClassName: `${className}-top`
             }
         });
         return;
@@ -1892,10 +1883,15 @@ function addCollapsedBoundaryDecoration(target, anchorIndex, targetLineCount, cl
 
     if (anchorIndex >= targetLineCount) {
         target.push({
-            range: new monacoInstance.Range(targetLineCount, 1, targetLineCount, 1),
+            range: new monacoInstance.Range(
+                targetLineCount,
+                Number.MAX_SAFE_INTEGER,
+                targetLineCount,
+                Number.MAX_SAFE_INTEGER
+            ),
             options: {
-                isWholeLine: true,
-                className: `${className}-bottom`
+                blockClassName: `${className}-bottom`,
+                blockIsAfterEnd: true
             }
         });
         return;
@@ -1904,8 +1900,7 @@ function addCollapsedBoundaryDecoration(target, anchorIndex, targetLineCount, cl
     target.push({
         range: new monacoInstance.Range(anchorIndex + 1, 1, anchorIndex + 1, 1),
         options: {
-            isWholeLine: true,
-            className: `${className}-top`
+            blockClassName: `${className}-top`
         }
     });
 }

@@ -2395,6 +2395,23 @@ function testWordWrapUsesSharedRendererAndStandaloneMenu() {
     assert.match(rendererStyles, /\.change-button\[data-tooltip\]::after/);
 }
 
+function testWrappedDiffMarkersUseViewAwareGeometry() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const connectorSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'connectors.js'), 'utf8');
+    const rendererStyles = fs.readFileSync(path.join(__dirname, '..', 'media', 'style.css'), 'utf8');
+
+    assert.match(rendererSource, /blockClassName: `\$\{className\}-outline`/);
+    assert.match(rendererSource, /blockDoesNotCollapse: true/);
+    assert.match(rendererSource, /blockClassName: `\$\{className\}-bottom`,\s*blockIsAfterEnd: true/);
+    assert.doesNotMatch(rendererSource, /className: `\$\{className\}-(?:start|end)`/);
+    assert.match(connectorSource, /editor\.getBottomForLineNumber\(lineNumber\)/);
+    assert.match(rendererStyles, /\.bygone-one-sided-line-outline[\s\S]{0,180}border-top:[\s\S]{0,180}border-bottom:/);
+
+    const longLine = `const message = '${'wrapped content '.repeat(30)}';`;
+    const model = buildTwoWayDiffModel(`${longLine}\nnext\n`, `inserted\n${longLine}\nnext\n`);
+    assert.deepEqual(model.blocks.map((block) => block.kind), ['insert']);
+}
+
 function testSessionSourcesRetainRefreshIntent() {
     const files = createFilesSource(['relative-left.txt', 'relative-right.txt']);
     assert.deepEqual(files.paths, [
@@ -4070,6 +4087,7 @@ async function run() {
     testSidebarsExposeResizeCollapseAndRestoreControls();
     testWordWrapControllerPersistsAndAppliesPreference();
     testWordWrapUsesSharedRendererAndStandaloneMenu();
+    testWrappedDiffMarkersUseViewAwareGeometry();
     testSessionSourcesRetainRefreshIntent();
     testDesktopWindowStatePersistsOnlyRestorableSessions();
     testReleasePrepInstallsAndGracefullyRestartsLocalArtifacts();
