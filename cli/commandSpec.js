@@ -144,6 +144,7 @@ const CLI_SPEC = Object.freeze({
         'Two positional paths auto-select file diff or directory compare.',
         'Three or more positional paths auto-select multi-panel file diff or multi-directory compare.',
         '`--git-diff` accepts branches, tags, SHAs, HEAD~1, stash@{0}, INDEX, and WORKTREE.',
+        'In `--git-diff`, committed refs and INDEX are read-only; WORKTREE (also WORKDIR or WORKINGTREE) is live and writable.',
         '`review` compares merge-base(BASE,HEAD) with HEAD and detects the default base when omitted.',
         '`present` turns the same range into an app-hosted, ordered change tour.',
         '`-C <directory>` resolves relative paths and Git refs from that directory without changing the shell working directory.',

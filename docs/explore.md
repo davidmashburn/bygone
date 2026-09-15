@@ -29,6 +29,14 @@ Replace and save operations are unavailable for read-only content.
 - **Git → Compare Revisions…** accepts two or more refs, including `INDEX` and
   `WORKTREE`, matching CLI `--git-diff`.
 
+In a revision comparison, committed refs and `INDEX` are read-only snapshots.
+`WORKTREE` (also accepted as `WORKDIR` or `WORKINGTREE`) is the live repository
+tree and stays writable. For example, `bygone -C repo --git-diff HEAD WORKTREE`
+opens the HEAD snapshot on the left and editable worktree files on the right;
+saving updates the repository file, including recreating a deleted file. The
+directory inventory follows `git ls-files -co --exclude-standard`, so ignored
+files and `.git` internals are not included.
+
 Branch exploration uses committed content. Dirty index and worktree changes
 are reported separately and are never silently folded into a commit snapshot.
 
