@@ -26,11 +26,12 @@ tracked by its owning plans rather than as unfinished host migration.
 
 The canonical [`.bygone` document format and macOS native opening](bygone-document-format.md)
 are complete. Windows and Linux associations remain explicit follow-up
-packaging work.
+packaging work. Version 2 unified-tour zoom modes shipped after this roadmap;
+version 1 remains readable on its legacy presentation path.
 
 The staged roadmap below is retained as a record of dependency and product-
-boundary decisions. It is not the current backlog. The two remaining
-follow-ups are indexed in [Plans](README.md) and owned by their focused plans.
+boundary decisions. It is not the current backlog. Remaining follow-ups are
+indexed in [Plans](README.md) and owned by their focused plans.
 
 ## Goal
 

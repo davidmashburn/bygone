@@ -1,5 +1,13 @@
 # Unified tour zoom modes
 
+## Status
+
+Implemented on `main`. `7cd1fba` added version 2 sources and manifests, the
+shared mode switcher, saved per-mode locations, final-diff derivation, and
+repository-backed history. `fb1b21e` made Final diff its own authored regular
+tour, kept Return to Tour mode-specific, and completed two-endpoint collapse.
+Version 1 remains readable without the mode control.
+
 ## Goal
 
 Let readers jump from an incremental explanation to the end result or Git

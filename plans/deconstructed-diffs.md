@@ -4,11 +4,11 @@
 
 Implemented on `main`, with checked-in open-source examples, exact final-state
 validation, and authoring guidance that labels synthetic content as
-explanation stages rather than commits. An active follow-up will make
-multi-file explanation stages comparison-local, add deconstructed tour
-markers, and expand stages into useful file and range focus slides.
+explanation stages rather than commits. Comparison-local file states,
+navigation, focus slides, and persistent deconstructed-tour markers shipped in
+`5661c20`; `5ae2300` restored ordinary diff navigation outside tour views.
 
-## Active follow-up: comparison-local stage navigation
+## Implemented follow-up: comparison-local stage navigation
 
 ### Problem
 
@@ -104,9 +104,12 @@ Stage 1 · file/range 1 → Stage 1 · file/range 2 → Stage 2 · file/range 1
    labels for the six states without overloading active-file or tour-focus
    styling.
 
-### Compatibility and scope
+### Compatibility and scope at delivery
 
-- Do not change the authored deconstructed-stage schema.
+- The comparison-local navigation work did not change the authored
+  deconstructed-stage schema. Version 2 later added the explicit real stack
+  and regular-tour steps required by
+  [unified tour zoom modes](unified-tour-zoom-modes.md).
 - Continue accepting compiled manifests that contain one step per stage.
 - Do not change file navigation in ordinary two-way or walkthrough scenes.
 - Do not make binary, submodule, oversized, or otherwise omitted files

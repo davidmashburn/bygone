@@ -5,6 +5,11 @@
 Implemented for the canonical format and macOS native opening; Windows and
 Linux associations are deferred.
 
+The original filename rollout retained source and manifest version 1.
+Subsequent unified-tour work introduced version 2 while preserving the version
+1 read path: version 2 sources and manifests require their originating local
+Git repository, while legacy version 1 manifests remain portable.
+
 Delivered on `main`:
 
 - `9ce31ce` bounds and validates untrusted authored-source loading.
@@ -24,10 +29,10 @@ packaged macOS app's `CFBundleDocumentTypes` entry.
 
 ## Goal
 
-Make `.bygone` the canonical filename extension for authored Bygone
-presentations without changing the version 1 YAML schema, breaking existing
-`.bygone.yaml` sources, or confusing Git-backed sources with portable compiled
-tour manifests.
+The original rollout made `.bygone` the canonical filename extension for
+authored Bygone presentations without changing the version 1 YAML schema,
+breaking existing `.bygone.yaml` sources, or confusing Git-backed sources with
+portable compiled tour manifests.
 
 The rollout should also make direct desktop opening reliable where packaging
 supports it. A file association is useful only when Bygone can locate the Git
@@ -37,16 +42,18 @@ repository needed to resolve the document's refs and anchors.
 
 | Artifact | Role | Portability |
 | --- | --- | --- |
-| `review.bygone` | Canonical authored UTF-8, single-document YAML source | Requires the corresponding local Git repository and referenced objects |
+| `review.bygone` | Canonical authored UTF-8, single-document YAML source; version 2 is current and version 1 remains readable | Requires the corresponding local Git repository and referenced objects |
 | `review.bygone.yaml` | Permanently supported explicit-YAML alias | Same repository dependency as `.bygone` |
-| `review.tour.json` | Compiled manifest containing resolved snapshots | Portable, subject to the sensitivity of embedded source |
+| Version 1 `review.tour.json` | Legacy compiled manifest containing resolved snapshots | Portable, subject to the sensitivity of embedded source |
+| Version 2 `review.tour.json` | Compiled manifest with unified zoom modes and live history | Requires the originating local Git repository |
 
-The authored source keeps `version: 1`. A filename change does not alter the
-data contract, and an explicitly supplied source with another extension should
-continue to validate when its contents are valid.
+The filename change itself did not alter version 1. Version 2 was introduced
+later as a breaking schema revision for unified zoom modes. Both versions
+remain readable, and an explicitly supplied source with another extension
+continues to validate when its contents are valid.
 
-Do not add a wrapper, archive, binary header, custom YAML tag, or repository
-path field in this rollout. The top-level version identifies the format.
+The rollout added no wrapper, archive, binary header, custom YAML tag, or
+repository path field. The top-level version identifies the format.
 
 ## Product rules
 
