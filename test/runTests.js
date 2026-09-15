@@ -893,6 +893,7 @@ function testEditorComfortUsesNativeMonacoActionsAndSourceModels() {
     assert.match(standaloneSource, /label: 'Selection'/);
     assert.match(standaloneSource, /label: 'Lines'/);
     assert.match(standaloneSource, /type: 'editorAction', actionId/);
+    assert.match(standaloneSource, /label: 'Window'[\s\S]{0,120}role: 'close'[\s\S]{0,120}role: 'minimize'/);
 }
 
 function testTextPanelsExposeMutabilityProvenance() {
