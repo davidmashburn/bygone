@@ -110,39 +110,18 @@ export function buildTwoWayDiffModel(
 
         if (change.removed && index + 1 < changes.length && changes[index + 1].added) {
             const nextChange = changes[index + 1];
-            const leftStart = renderedLeftLines.length;
-            const rightStart = renderedRightLines.length;
-            const alignedLines = alignReplacementLines(removedLines, nextChange.value);
-
-            for (const { left: removedLine, right: addedLine } of alignedLines) {
-                let renderedLeftLine: DiffLine | undefined;
-                let renderedRightLine: DiffLine | undefined;
-
-                if (removedLine !== undefined) {
-                    renderedLeftLine = makeDiffLine('removed', removedLine, leftLineNumber);
-                    renderedLeftLines.push(renderedLeftLine);
-                }
-
-                if (addedLine !== undefined) {
-                    renderedRightLine = makeDiffLine('added', addedLine, rightLineNumber);
-                    renderedRightLines.push(renderedRightLine);
-                }
-
-                if (renderedLeftLine && renderedRightLine) {
-                    applyInlineHighlightPair(renderedLeftLine, renderedRightLine);
-                }
-
-                rows.push(makeDiffRow(
-                    removedLine === undefined
-                        ? makePlaceholder()
-                        : makeDiffCell('removed', removedLine, leftLineNumber++),
-                    addedLine === undefined
-                        ? makePlaceholder()
-                        : makeDiffCell('added', addedLine, rightLineNumber++)
-                ));
-            }
-
-            blocks.push(makeDiffBlock('replace', leftStart, renderedLeftLines.length, rightStart, renderedRightLines.length));
+            const nextLineNumbers = appendReplacementCandidate(
+                removedLines,
+                nextChange.value,
+                leftLineNumber,
+                rightLineNumber,
+                rows,
+                renderedLeftLines,
+                renderedRightLines,
+                blocks
+            );
+            leftLineNumber = nextLineNumbers.left;
+            rightLineNumber = nextLineNumbers.right;
 
             index++;
             continue;
@@ -368,6 +347,128 @@ export interface AlignedReplacementLine {
     right?: string;
 }
 
+function appendReplacementCandidate(
+    leftLines: string[],
+    rightLines: string[],
+    initialLeftLineNumber: number,
+    initialRightLineNumber: number,
+    rows: DiffRow[],
+    renderedLeftLines: DiffLine[],
+    renderedRightLines: DiffLine[],
+    blocks: DiffBlock[]
+): { left: number; right: number } {
+    const aligned = alignReplacementLines(leftLines, rightLines);
+    const crediblePairs = aligned.filter((row) => (
+        row.left !== undefined
+        && row.right !== undefined
+        && hasCredibleLineCorrespondence(row.left, row.right)
+    )).length;
+    const coherentBlock = hasCoherentBlockCorrespondence(leftLines, rightLines, crediblePairs);
+    const normalized = aligned.flatMap((row) => {
+        if (row.left === undefined || row.right === undefined
+            || hasCredibleLineCorrespondence(row.left, row.right)) {
+            return [row];
+        }
+        return [{ left: row.left }, { right: row.right }];
+    });
+    let leftLineNumber = initialLeftLineNumber;
+    let rightLineNumber = initialRightLineNumber;
+    let blockKind: DiffBlock['kind'] | undefined;
+    let blockLeftStart = renderedLeftLines.length;
+    let blockRightStart = renderedRightLines.length;
+    const flushBlock = (): void => {
+        if (!blockKind) return;
+        blocks.push(makeDiffBlock(
+            blockKind,
+            blockLeftStart,
+            renderedLeftLines.length,
+            blockRightStart,
+            renderedRightLines.length
+        ));
+    };
+
+    for (const { left, right } of normalized) {
+        const nextKind: DiffBlock['kind'] = coherentBlock
+            ? 'replace'
+            : left !== undefined && right !== undefined
+                ? 'replace'
+                : left !== undefined ? 'delete' : 'insert';
+        if (blockKind !== nextKind) {
+            flushBlock();
+            blockKind = nextKind;
+            blockLeftStart = renderedLeftLines.length;
+            blockRightStart = renderedRightLines.length;
+        }
+
+        let renderedLeftLine: DiffLine | undefined;
+        let renderedRightLine: DiffLine | undefined;
+        if (left !== undefined) {
+            renderedLeftLine = makeDiffLine('removed', left, leftLineNumber);
+            renderedLeftLines.push(renderedLeftLine);
+        }
+        if (right !== undefined) {
+            renderedRightLine = makeDiffLine('added', right, rightLineNumber);
+            renderedRightLines.push(renderedRightLine);
+        }
+        if (renderedLeftLine && renderedRightLine) {
+            applyInlineHighlightPair(renderedLeftLine, renderedRightLine);
+        } else if (coherentBlock) {
+            if (renderedLeftLine) applyFullLineHighlight(renderedLeftLine);
+            if (renderedRightLine) applyFullLineHighlight(renderedRightLine);
+        }
+        rows.push(makeDiffRow(
+            left === undefined
+                ? makePlaceholder()
+                : makeDiffCell('removed', left, leftLineNumber++),
+            right === undefined
+                ? makePlaceholder()
+                : makeDiffCell('added', right, rightLineNumber++)
+        ));
+    }
+    flushBlock();
+    return { left: leftLineNumber, right: rightLineNumber };
+}
+
+function hasCredibleLineCorrespondence(left: string, right: string): boolean {
+    const score = scoreReplacementLinePair(left, right);
+    if (score.eligible) return true;
+    const leftAnchor = declarationAnchorKey(left);
+    if (leftAnchor && leftAnchor === declarationAnchorKey(right)) return true;
+    const leftTokens = new Set(tokenizeMatchingContent(normalizeMatchingContent(left)).filter(isSharedContentToken));
+    return tokenizeMatchingContent(normalizeMatchingContent(right))
+        .some((token) => leftTokens.has(token) && isSharedContentToken(token));
+}
+
+const NON_SUBSTANTIVE_SHARED_TOKENS = new Set([
+    'and', 'are', 'for', 'from', 'into', 'that', 'the', 'this', 'to', 'with'
+]);
+
+function isSharedContentToken(token: string): boolean {
+    return token.length >= 3
+        && /^[\p{L}\p{N}_$]+$/u.test(token)
+        && !NON_SUBSTANTIVE_SHARED_TOKENS.has(token);
+}
+
+function hasCoherentBlockCorrespondence(
+    leftLines: string[],
+    rightLines: string[],
+    crediblePairs: number
+): boolean {
+    if (crediblePairs === 0) return false;
+    const longestSide = Math.max(leftLines.length, rightLines.length);
+    if (longestSide <= 2 || crediblePairs * 2 >= longestSide) return true;
+    const roles = [...leftLines, ...rightLines].map(collectionLineRole);
+    return roles[0] !== null && roles.every((role) => role === roles[0]);
+}
+
+function collectionLineRole(line: string): 'bullet' | 'ordered' | 'quote' | null {
+    const normalized = line.trimStart();
+    if (/^[-*+]\s+/.test(normalized)) return 'bullet';
+    if (/^\d+[.)]\s+/.test(normalized)) return 'ordered';
+    if (/^>\s+/.test(normalized)) return 'quote';
+    return null;
+}
+
 export interface ReplacementLineScore {
     score: number;
     eligible: boolean;
@@ -402,6 +503,7 @@ export function alignReplacementLines(leftLines: string[], rightLines: string[])
     if (leftLines.length === 1 && rightLines.length === 1) {
         const singletonScore = scoreReplacementLinePair(leftLines[0], rightLines[0]);
         if ((singletonScore.eligible || singletonScore.score >= MINIMUM_SINGLE_PAIR_SCORE)
+            && hasCredibleLineCorrespondence(leftLines[0], rightLines[0])
             && haveCompatibleLineRoles(leftLines[0], rightLines[0])
             && isInformativeLine(normalizeMatchingContent(leftLines[0]))
             && isInformativeLine(normalizeMatchingContent(rightLines[0]))) {
@@ -1100,6 +1202,12 @@ function applyInlineHighlightPair(leftLine: DiffLine, rightLine: DiffLine): void
     if (hasInlineChanges) {
         leftLine.segments = leftSegments;
         rightLine.segments = rightSegments;
+    }
+}
+
+function applyFullLineHighlight(line: DiffLine): void {
+    if (/[^\s]/.test(line.content)) {
+        line.segments = [{ kind: line.kind, text: line.content, emphasis: true }];
     }
 }
 

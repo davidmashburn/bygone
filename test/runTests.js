@@ -2530,15 +2530,66 @@ function testReplacementMatchingRejectsLowInformationLines() {
     assert.equal(aligned.some((row) => row.left !== undefined && row.right !== undefined), false);
 }
 
-function testReplacementMatchingUsesPositionForInformativeSingletonHunks() {
+function testReplacementMatchingRequiresSharedContentForSingletonHunks() {
     assert.deepEqual(
         alignReplacementLines(['left a'], ['right a']),
-        [{ left: 'left a', right: 'right a' }]
+        [{ left: 'left a' }, { right: 'right a' }]
     );
     assert.deepEqual(
         alignReplacementLines(['foo'], ['bar']),
         [{ left: 'foo' }, { right: 'bar' }]
     );
+}
+
+function testReplacementBlockClassificationUsesBlockAndLineEvidenceSeparately() {
+    const coherentBefore = fs.readFileSync(path.join(__dirname, 'fixtures', 'replacement-block-before.md'), 'utf8');
+    const coherentAfter = fs.readFileSync(path.join(__dirname, 'fixtures', 'replacement-block-after.md'), 'utf8');
+    const coherent = buildTwoWayDiffModel(coherentBefore, coherentAfter);
+
+    assert.deepEqual(coherent.blocks.map((block) => block.kind), ['replace']);
+    for (const line of coherent.leftLines.filter((entry) => entry.kind === 'removed')) {
+        assert.equal(line.segments?.some((segment) => segment.emphasis), true);
+    }
+    for (const line of coherent.rightLines.filter((entry) => entry.kind === 'added')) {
+        assert.equal(line.segments?.some((segment) => segment.emphasis), true);
+    }
+    assert.equal(coherent.rows.some((row) => (
+        row.left.content.includes('Cache eviction')
+        && row.right.content.includes('Keyboard focus')
+    )), false);
+
+    const independentBefore = fs.readFileSync(path.join(__dirname, 'fixtures', 'block-correspondence-before.md'), 'utf8');
+    const independentAfter = fs.readFileSync(path.join(__dirname, 'fixtures', 'block-correspondence-after.md'), 'utf8');
+    const independent = buildTwoWayDiffModel(independentBefore, independentAfter);
+    const replacements = independent.blocks.filter((block) => block.kind === 'replace');
+
+    assert.equal(replacements.length, 1);
+    assert.deepEqual(replacements[0], {
+        kind: 'replace',
+        leftStart: 9,
+        leftEnd: 10,
+        rightStart: 10,
+        rightEnd: 11
+    });
+    assert.equal(independent.leftLines.find((line) => line.content === '## Cache eviction')?.segments, undefined);
+    assert.equal(independent.rightLines.find((line) => line.content === '## Keyboard shortcuts')?.segments, undefined);
+}
+
+function testSingleCrediblePairDoesNotColorUnrelatedSurroundingsBlue() {
+    const model = buildTwoWayDiffModel(
+        'Legacy cache eviction details.\nThe mode menu opens beside the active view.\nExpired entries are swept nightly.\n',
+        'Keyboard accelerator reference.\nThe mode menu opens above the active view.\nPress Escape to close the dialog.\n'
+    );
+
+    assert.equal(model.blocks.filter((block) => block.kind === 'replace').length, 1);
+    assert.equal(model.blocks.filter((block) => block.kind !== 'replace').length, 4);
+    assert.deepEqual(model.blocks.find((block) => block.kind === 'replace'), {
+        kind: 'replace',
+        leftStart: 1,
+        leftEnd: 2,
+        rightStart: 1,
+        rightEnd: 2
+    });
 }
 
 function testReplacementMatchingLeavesAmbiguousBoilerplateUnpaired() {
@@ -2776,13 +2827,15 @@ function testInlineHighlightsWhitespaceSensitiveChange() {
     assert.equal(model.rightLines[0].segments, undefined);
 }
 
-function testInlineHighlightsOnlyPairedReplaceLines() {
+function testInlineHighlightsEveryChangedReplaceLine() {
     const model = buildTwoWayDiffModel('alpha\nbeta\n', 'alpha changed\nbeta changed\ngamma\n');
 
     assert.equal(model.blocks[0].kind, 'replace');
     assert.ok(model.leftLines[0].segments);
     assert.ok(model.leftLines[1].segments);
-    assert.equal(model.rightLines[2].segments, undefined);
+    assert.deepEqual(model.rightLines[2].segments, [
+        { kind: 'added', text: 'gamma', emphasis: true }
+    ]);
 }
 
 function testPureDeleteHasNoInlineSegments() {
@@ -2807,8 +2860,12 @@ function testInlineHighlightsAlignAroundInsertedAndDeletedLines() {
     assert.equal(model.rows[2].right.kind, 'placeholder');
     assert.equal(model.rows[3].left.content, 'const three = 3;');
     assert.equal(model.rows[3].right.content, 'const three = 30;');
-    assert.equal(model.rightLines[0].segments, undefined);
-    assert.equal(model.leftLines[1].segments, undefined);
+    assert.deepEqual(model.rightLines[0].segments, [
+        { kind: 'added', text: 'const zero = 0;', emphasis: true }
+    ]);
+    assert.deepEqual(model.leftLines[1].segments, [
+        { kind: 'removed', text: 'const two = 2;', emphasis: true }
+    ]);
     assert.deepEqual(
         model.leftLines[0].segments?.filter((segment) => segment.emphasis).map((segment) => segment.text),
         ['1']
@@ -3988,7 +4045,9 @@ async function run() {
     testRefreshSessionUsesSemanticRendererAndMenuCommands();
     testTwoWayDiffAlignsInsertions();
     testReplacementMatchingRejectsLowInformationLines();
-    testReplacementMatchingUsesPositionForInformativeSingletonHunks();
+    testReplacementMatchingRequiresSharedContentForSingletonHunks();
+    testReplacementBlockClassificationUsesBlockAndLineEvidenceSeparately();
+    testSingleCrediblePairDoesNotColorUnrelatedSurroundingsBlue();
     testReplacementMatchingLeavesAmbiguousBoilerplateUnpaired();
     testReplacementMatchingPairsDistinctiveLinesAcrossUnevenHunks();
     testReplacementMatchingUsesUniqueDeclarationAnchors();
@@ -4003,7 +4062,7 @@ async function run() {
     testInlineHighlightsSingleWordReplacement();
     testInlineHighlightsPunctuationChange();
     testInlineHighlightsWhitespaceSensitiveChange();
-    testInlineHighlightsOnlyPairedReplaceLines();
+    testInlineHighlightsEveryChangedReplaceLine();
     testPureDeleteHasNoInlineSegments();
     testInlineHighlightsAlignAroundInsertedAndDeletedLines();
     testRendererDoesNotAddActiveOrAdjacentSemanticOverrides();
