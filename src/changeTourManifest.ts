@@ -1,7 +1,16 @@
 import type { BranchCommit, GitChangeKind } from './gitComparison';
 import { validateStepRequirement, type ChangeTourStepRequirement } from './changeTourSource';
 
-export const CHANGE_TOUR_MANIFEST_VERSION = 1 as const;
+export const CHANGE_TOUR_MANIFEST_VERSION = 2 as const;
+
+export type ChangeTourMode = 'explanation' | 'revisions' | 'final' | 'history';
+
+export interface ChangeTourZoom {
+    authoredDepth: Exclude<ChangeTourMode, 'history'>;
+    modes: ChangeTourMode[];
+    /** Real authored stacks, including two-panel stacks collapsed into Final diff. */
+    revisions: ChangeTourStackedScene[];
+}
 
 export interface ChangeTourNarrative {
     summary: string;
@@ -186,7 +195,9 @@ export interface ChangeTourChapter {
 }
 
 export interface ChangeTourManifest {
-    version: typeof CHANGE_TOUR_MANIFEST_VERSION;
+    version: 1 | typeof CHANGE_TOUR_MANIFEST_VERSION;
+    repository?: { root: string };
+    zoom?: ChangeTourZoom;
     title: string;
     windowTitle?: string;
     sourceUrl?: string;
@@ -212,7 +223,7 @@ export interface ChangeTourManifest {
 }
 
 export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
-    if (!isRecord(value) || value.version !== CHANGE_TOUR_MANIFEST_VERSION) {
+    if (!isRecord(value) || (value.version !== 1 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
         throw new Error(`Unsupported or missing change-tour manifest version.`);
     }
     requireString(value.title, 'title');
@@ -278,6 +289,8 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
         throw new Error('summary.changedFiles must match the number of files.');
     }
 
+    if (value.version === 2) validateZoom(value);
+
     return { ...value, files } as unknown as ChangeTourManifest;
 }
 
@@ -311,6 +324,45 @@ export function parseChangeTourStory(value: unknown): ChangeTourStory {
         }
     }
     return value as unknown as ChangeTourStory;
+}
+
+function validateZoom(value: Record<string, unknown>): void {
+    if (!isRecord(value.repository) || typeof value.repository.root !== 'string' || !value.repository.root) {
+        throw new Error('A v2 tour requires its originating repository.root.');
+    }
+    if (!isRecord(value.zoom) || !Array.isArray(value.zoom.revisions)) {
+        throw new Error('A v2 tour requires zoom metadata and real revision evidence.');
+    }
+    const scenes = value.scenes as ChangeTourScene[];
+    const revisions = value.zoom.revisions;
+    const ids = new Set<string>();
+    for (const [index, scene] of revisions.entries()) {
+        validateScene(scene, index);
+        if (scene.kind !== 'stacked-diff') throw new Error('zoom.revisions must contain real stacked-diff scenes.');
+        if (ids.has(scene.id)) throw new Error(`Duplicate zoom revision scene: ${scene.id}`);
+        ids.add(scene.id);
+        const range = value.range as ChangeTourManifest['range'];
+        if (scene.stack[0].oid !== range.mergeBaseOid || scene.stack[scene.stack.length - 1].oid !== range.headOid) {
+            throw new Error(`Revision scene ${scene.id} endpoints must match the final diff range.`);
+        }
+    }
+    for (const scene of scenes) {
+        if (scene.kind !== 'deconstructed-diff' && scene.kind !== 'stacked-diff') continue;
+        const real = revisions.find((candidate) => candidate.id === scene.id) as ChangeTourStackedScene | undefined;
+        if (!real) throw new Error(`Scene ${scene.id} is missing its real revision evidence.`);
+        if (scene.kind === 'deconstructed-diff' && (real.stack[0].oid !== scene.realRange.baseOid
+            || real.stack[real.stack.length - 1].oid !== scene.realRange.targetOid)) {
+            throw new Error(`Deconstructed scene ${scene.id} real stack endpoints must match its explanation range.`);
+        }
+    }
+    const explanation = scenes.some((scene) => scene.kind === 'deconstructed-diff');
+    const distinct = revisions.some((scene) => scene.stack.length > 2);
+    const depth = explanation ? 'explanation' : distinct ? 'revisions' : 'final';
+    const modes = [...(explanation ? ['explanation'] : []), ...(distinct ? ['revisions'] : []), 'final', 'history'];
+    if (value.zoom.authoredDepth !== depth || JSON.stringify(value.zoom.modes) !== JSON.stringify(modes)) {
+        throw new Error('zoom depth and modes must match the maximum authored depth.');
+    }
+    if (!Array.isArray(value.files)) throw new Error('A v2 tour requires final endpoint file evidence.');
 }
 
 function validateScene(value: unknown, index: number): asserts value is ChangeTourScene {
@@ -374,8 +426,8 @@ function validateScene(value: unknown, index: number): asserts value is ChangeTo
 }
 
 function validateStackedScene(value: Record<string, unknown>, index: number): void {
-    if (!Array.isArray(value.stack) || value.stack.length < 3 || value.stack.length > 6) {
-        throw new Error(`scenes[${index}].stack must contain between 3 and 6 revisions.`);
+    if (!Array.isArray(value.stack) || value.stack.length < 2 || value.stack.length > 6) {
+        throw new Error(`scenes[${index}].stack must contain between 2 and 6 revisions.`);
     }
     for (const [panelIndex, panel] of value.stack.entries()) {
         if (!isRecord(panel)) throw new Error(`scenes[${index}].stack[${panelIndex}] must be an object.`);

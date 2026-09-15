@@ -158,6 +158,15 @@ await build({
 
 await build({
     ...sharedOptions,
+    entryPoints: ['src/tourZoomSession.ts'],
+    outfile: 'out/tourZoomSession.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node16'
+});
+
+await build({
+    ...sharedOptions,
     entryPoints: ['src/tourNarration.ts'],
     outfile: 'out/tourNarration.js',
     platform: 'node',

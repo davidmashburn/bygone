@@ -8,9 +8,10 @@ suffix, and explicitly supplied files are validated by content rather than
 rejected by extension.
 
 An authored source is Git-backed, not portable: resolving refs and anchors
-requires the corresponding local repository and Git objects. A compiled
-`.tour.json` manifest contains the resolved source snapshots and is the
-portable artifact, although those snapshots may contain sensitive code.
+requires the corresponding local repository and Git objects. Version 2
+compiled manifests remain bound to that repository so the presenter can load
+live file history. Version 1 manifests remain readable as legacy portable
+artifacts, without the mode switcher.
 
 Packaged macOS builds register `.bygone` with Bygone, allowing a presentation
 inside its repository to open directly from Finder. Windows and Linux builds
@@ -31,7 +32,7 @@ The optional `range` pins the source's revisions for reproducibility; explicit
 command-line refs take precedence. Pinned OIDs still require their Git object
 database. The compiler resolves every anchor against the exact merge-base or
 head commit and writes the resulting commit IDs, line ranges, excerpts, file
-contents, and diffs into the portable JSON manifest served by the presenter.
+contents, and diffs into the JSON manifest served by the presenter.
 Compilation fails if an anchor has no match or has multiple matches without an
 explicit `occurrence`.
 
@@ -42,7 +43,7 @@ once. When omitted, the presenter falls back to `title`, then a generic tour lab
 ## Structure
 
 ```yaml
-version: 1
+version: 2
 title: A reviewer-facing title
 windowTitle: PR-1234
 sourceUrl: https://example.test/pull/123
@@ -119,12 +120,22 @@ results search the compiled base and head snapshots, open the exact file and
 side, and preserve **Return to tour** so exploration does not lose authored
 context.
 
+Version 2 tours show one mode control for jumping directly among the authored
+explanation, real revisions, the final endpoint diff, and live Git history.
+Only modes at or above the tour's maximum authored depth appear. A two-panel
+stack therefore collapses into Final diff rather than creating a duplicate
+Revisions mode. Each mode retains its own location; switching back without
+navigating restores that location exactly.
+
 Use a walkthrough by default. Use a [stacked-diff example](../examples/stacked-diff.bygone)
 only when every panel is a real selected Git revision. Use a
 [deconstructed-diff example](../examples/deconstructed-diff.bygone) when
 the teaching order is clearer than the real commit history; its cumulative
 panels are synthetic explanation stages and must never be described as
-commits. Every changed hunk must be assigned once or explicitly excluded.
+commits. In version 2, every deconstructed scene must also provide an explicit
+`stack` of the real revisions with the same base and final endpoints. Bygone
+does not infer that stack from Git history. Every changed hunk must be assigned
+once or explicitly excluded.
 
 See [Bygone's self-referencing history tour](../examples/bygone-history.bygone) for a complete walkthrough that pins and explains the commit where branch review was introduced.
 

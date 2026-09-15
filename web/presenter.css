@@ -10,6 +10,13 @@
     --tour-narrative-height: 296px;
 }
 
+.tour-mode-controls { display: grid; gap: 6px; margin: 12px 0; }
+.tour-mode-controls[hidden], .tour-mode-controls [hidden] { display: none; }
+.tour-mode-controls select { width: 100%; min-width: 0; padding: 6px; color: var(--tour-body); background: var(--tour-surface); border: 1px solid var(--tour-border); border-radius: 4px; font: inherit; }
+#tour-mode-status { color: var(--tour-muted); }
+body.tour-derived-mode { --tour-narrative-height: 0px; }
+body.tour-derived-mode #tour-narrative { display: none; }
+
 .tour-shell {
     position: fixed;
     inset: 0 auto 0 0;

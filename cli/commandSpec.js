@@ -148,7 +148,7 @@ const CLI_SPEC = Object.freeze({
         '`present` turns the same range into an app-hosted, ordered change tour.',
         '`-C <directory>` resolves relative paths and Git refs from that directory without changing the shell working directory.',
         '`tour validate` resolves every authored anchor; add `--json` for agent-readable output.',
-        '`tour compile` writes a portable manifest to stdout or `--output`; `tour schema` prints its source schema.',
+        '`tour compile` writes a repository-bound manifest to stdout or `--output`; `tour schema` prints its source schema.',
         '`tour context` emits compact, structured Git evidence for an LLM without invoking a model.',
         '`tour coverage` reports referenced changed hunks and author-declared explanation depth.',
         '`--branch-diff` is retained as an alias for `review`.',

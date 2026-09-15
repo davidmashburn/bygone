@@ -1,6 +1,6 @@
 import type { ChangeTourNarrative } from './changeTourManifest';
 
-export const CHANGE_TOUR_SOURCE_VERSION = 1 as const;
+export const CHANGE_TOUR_SOURCE_VERSION = 2 as const;
 
 export interface ChangeTourSourceAnchor {
     file: string;
@@ -96,6 +96,8 @@ export interface ChangeTourSourceDeconstructedScene extends ChangeTourNarrative 
     title: string;
     base?: string;
     target?: string;
+    /** Required in v2: the real tour underlying the explanation stages. */
+    stack?: ChangeTourSourceStackEntry[];
     stages: ChangeTourSourceDeconstructedStage[];
     exclusions?: ChangeTourSourceDeconstructedExclusion[];
 }
@@ -111,7 +113,7 @@ export interface ChangeTourSourceChapter {
 }
 
 export interface ChangeTourSource {
-    version: typeof CHANGE_TOUR_SOURCE_VERSION;
+    version: 1 | typeof CHANGE_TOUR_SOURCE_VERSION;
     title?: string;
     windowTitle?: string;
     sourceUrl?: string;
@@ -126,7 +128,7 @@ export interface ChangeTourSource {
 }
 
 export function parseChangeTourSource(value: unknown): ChangeTourSource {
-    if (!isRecord(value) || value.version !== CHANGE_TOUR_SOURCE_VERSION) {
+    if (!isRecord(value) || (value.version !== 1 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
         throw new Error('Unsupported or missing change-tour source version.');
     }
     requireOnlyKeys(value, ['version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'coverage'], 'source');
@@ -218,13 +220,14 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             validateNarrative(scene, path);
             if (scene.kind === 'deconstructed-diff') {
                 validateDeconstructedScene(scene, path);
+                if (value.version === 2 || scene.stack !== undefined) validateRealStack(scene.stack, `${path}.stack`, 2);
                 continue;
             }
             if (!Array.isArray(scene.steps) || scene.steps.length === 0) {
                 throw new Error(`${path} must contain a non-empty steps array.`);
             }
             if (scene.kind === 'stacked-diff') {
-                validateStackedScene(scene, path);
+                validateStackedScene(scene, path, value.version === 2 ? 2 : 3);
                 continue;
             }
             if (scene.kind !== undefined && scene.kind !== 'walkthrough') {
@@ -264,7 +267,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
 }
 
 function validateDeconstructedScene(scene: Record<string, unknown>, path: string): void {
-    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'base', 'target', 'stages', 'exclusions'], path);
+    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'base', 'target', 'stack', 'stages', 'exclusions'], path);
     optionalString(scene.base, `${path}.base`);
     optionalString(scene.target, `${path}.target`);
     if (!Array.isArray(scene.stages) || scene.stages.length === 0 || scene.stages.length > 12) {
@@ -310,10 +313,26 @@ function validateDeconstructedSelection(value: unknown, path: string, requiresRe
     if (requiresReason) requireString(value.reason, `${path}.reason`);
 }
 
-function validateStackedScene(scene: Record<string, unknown>, path: string): void {
+function validateRealStack(stack: unknown, path: string, minimum: number): void {
+    if (!Array.isArray(stack) || stack.length < minimum || stack.length > 6) {
+        throw new Error(`${path} must contain between ${minimum} and 6 explicit real revisions.`);
+    }
+    const ids = new Set<string>();
+    for (const [index, entry] of stack.entries()) {
+        if (!isRecord(entry)) throw new Error(`${path}[${index}] must be an object.`);
+        requireOnlyKeys(entry, ['id', 'ref', 'label'], `${path}[${index}]`);
+        requireString(entry.id, `${path}[${index}].id`);
+        requireString(entry.ref, `${path}[${index}].ref`);
+        optionalString(entry.label, `${path}[${index}].label`);
+        if (ids.has(entry.id)) throw new Error(`Duplicate stack entry id: ${entry.id}`);
+        ids.add(entry.id);
+    }
+}
+
+function validateStackedScene(scene: Record<string, unknown>, path: string, minimum = 3): void {
     requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'stack', 'files', 'steps'], path);
-    if (!Array.isArray(scene.stack) || scene.stack.length < 3 || scene.stack.length > 6) {
-        throw new Error(`${path}.stack must contain between 3 and 6 revisions.`);
+    if (!Array.isArray(scene.stack) || scene.stack.length < minimum || scene.stack.length > 6) {
+        throw new Error(`${path}.stack must contain between ${minimum} and 6 revisions.`);
     }
     const stackIds = new Set<string>();
     for (const [index, entry] of scene.stack.entries()) {

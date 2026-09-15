@@ -123,7 +123,7 @@ Change tours can layer an authored, code-connected narrative over the complete g
 
 Packaged macOS builds register `.bygone` with the desktop app, so Finder can open a presentation directly. Windows and Linux builds currently require opening the file through Bygone or the `bygone` command; they do not install an operating-system file association.
 
-Agents can validate anchors and structure with `bygone tour validate <file.bygone> --json`, compile a portable manifest with `bygone tour compile`, and retrieve the authoring contract with `bygone tour schema`. See [Generating change tours with an LLM](./docs/generating-change-tours.md).
+Agents can validate anchors and structure with `bygone tour validate <file.bygone> --json`, compile a repository-bound manifest with `bygone tour compile`, and retrieve the authoring contract with `bygone tour schema`. See [Generating change tours with an LLM](./docs/generating-change-tours.md).
 
 Install the agent skill:
 

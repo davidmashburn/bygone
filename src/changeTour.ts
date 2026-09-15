@@ -1,7 +1,6 @@
 import { execFileSync } from 'child_process';
 import { GitChangedPath, parseNameStatusZ, resolveBranchReviewRange, resolveReviewPathPair } from './gitComparison';
 import {
-    CHANGE_TOUR_MANIFEST_VERSION,
     ChangeTourChapter,
     ChangeTourDeconstructedScene,
     ChangeTourDeconstructedStep,
@@ -11,6 +10,7 @@ import {
     ChangeTourOmittedFile,
     ChangeTourResolvedAnchor,
     ChangeTourScene,
+    ChangeTourStackedScene,
     ChangeTourStory,
     ChangeTourWalkthroughScene,
     parseChangeTourManifest
@@ -68,7 +68,8 @@ export function buildChangeTourManifest(
     startPath: string,
     options: BuildChangeTourOptions = {}
 ): ChangeTourManifest {
-    const range = resolveBranchReviewRange(startPath, options.headRef, options.baseRef);
+    const range = resolveBranchReviewRange(startPath, options.headRef ?? options.source?.range?.head,
+        options.baseRef ?? options.source?.range?.base);
     const maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_TOUR_FILE_BYTES;
     const maxLineBytes = options.maxLineBytes ?? DEFAULT_MAX_TOUR_LINE_BYTES;
     const omittedFiles: string[] = [];
@@ -151,7 +152,9 @@ export function buildChangeTourManifest(
     const scenes = authored.scenes;
     const chapters = authored.chapters;
     const manifest: ChangeTourManifest = {
-        version: CHANGE_TOUR_MANIFEST_VERSION,
+        // Only authored v2 files opt into repository-bound zoom modes. Generated
+        // and legacy/story tours retain the portable v1 manifest contract.
+        version: options.source?.version ?? 1,
         title: options.source?.title || options.story?.title || options.title || `${range.headRef} against ${range.baseRef}`,
         windowTitle: options.source?.windowTitle,
         sourceUrl: options.source?.sourceUrl || options.story?.sourceUrl || options.sourceUrl,
@@ -175,6 +178,47 @@ export function buildChangeTourManifest(
         chapters,
         scenes
     };
+    if (manifest.version === 2) {
+        manifest.repository = { root: range.repoRoot };
+        const revisions: ChangeTourStackedScene[] = [];
+        for (const scene of scenes) {
+            let realStack: ChangeTourStackedScene | undefined;
+            if (scene.kind === 'stacked-diff') realStack = scene;
+            if (scene.kind === 'deconstructed-diff') {
+                const authoredScene = options.source?.chapters.flatMap((chapter) => chapter.scenes)
+                    .find((candidate) => candidate.id === scene.id);
+                if (authoredScene?.kind !== 'deconstructed-diff' || !authoredScene.stack) {
+                    throw new Error(`Deconstructed scene ${scene.id} requires an explicit real revision stack in v2.`);
+                }
+                realStack = buildStackedScene(range.repoRoot, {
+                    ...authoredScene,
+                    kind: 'stacked-diff',
+                    stack: authoredScene.stack,
+                    files: scene.files.map((file) => file.path),
+                    steps: []
+                }, files.map((file) => file.path));
+                if (realStack.stack[0].oid !== scene.realRange.baseOid
+                    || realStack.stack[realStack.stack.length - 1].oid !== scene.realRange.targetOid) {
+                    throw new Error(`Deconstructed scene ${scene.id} real stack endpoints must match its explanation range.`);
+                }
+            }
+            if (realStack) {
+                if (realStack.stack[0].oid !== range.mergeBaseOid
+                    || realStack.stack[realStack.stack.length - 1].oid !== range.headOid) {
+                    throw new Error(`Scene ${scene.id} real stack endpoints must match the tour's final diff range.`);
+                }
+                revisions.push(realStack);
+            }
+        }
+        const explanation = scenes.some((scene) => scene.kind === 'deconstructed-diff');
+        const distinctRevisions = revisions.some((scene) => scene.stack.length > 2);
+        manifest.zoom = {
+            authoredDepth: explanation ? 'explanation' : distinctRevisions ? 'revisions' : 'final',
+            modes: [...(explanation ? ['explanation' as const] : []),
+                ...(distinctRevisions ? ['revisions' as const] : []), 'final', 'history'],
+            revisions
+        };
+    }
     return parseChangeTourManifest(manifest);
 }
 
@@ -425,7 +469,7 @@ function buildStackedScene(
     repoRoot: string,
     source: Extract<ChangeTourSource['chapters'][number]['scenes'][number], { kind: 'stacked-diff' }>,
     availableFilePaths: readonly string[]
-): ChangeTourScene {
+): ChangeTourStackedScene {
     const stack = source.stack.map((entry) => ({
         id: entry.id,
         ref: entry.ref,
@@ -454,7 +498,8 @@ function buildStackedScene(
     let totalContentBytes = 0;
     const files = filePaths.flatMap((filePath) => {
         const aliases = new Set([filePath]);
-        for (const changes of adjacentChanges) {
+        // Starting from a final path, walk backwards through successive renames.
+        for (const changes of [...adjacentChanges].reverse()) {
             for (const change of changes) {
                 if (aliases.has(change.path) || (change.previousPath && aliases.has(change.previousPath))) {
                     aliases.add(change.path);
@@ -465,7 +510,9 @@ function buildStackedScene(
         let fileContentBytes = 0;
         const panels = [];
         for (const entry of stack) {
-            const resolvedPath = [...aliases].find((candidate) => gitBlobExists(repoRoot, entry.oid, candidate));
+            const candidates = [...aliases].filter((candidate) => gitBlobExists(repoRoot, entry.oid, candidate));
+            if (candidates.length > 1) throw new Error(`Ambiguous revision paths for ${filePath} at ${entry.ref}: ${candidates.join(', ')}`);
+            const resolvedPath = candidates[0];
             if (!resolvedPath) {
                 panels.push({ id: entry.id, label: `${entry.label} / ${filePath} (missing)`, content: '', exists: false });
                 continue;
@@ -492,6 +539,7 @@ function buildStackedScene(
         }
         return [{ path: filePath, panels }];
     });
+    if (files.length === 0) throw new Error(`Stacked scene ${source.id} has no materializable text files.`);
     const stackIds = stack.map((entry) => entry.id);
     return {
         id: source.id,
@@ -503,7 +551,10 @@ function buildStackedScene(
         takeaway: source.takeaway,
         stack,
         files,
-        steps: source.steps.map((step) => ({
+        steps: source.steps.length === 0 ? stack.slice(0, -1).map((_, pairIndex) => ({
+            id: `${source.id}-revision-${pairIndex}`,
+            title: '', body: '', file: files[0].path, pairIndex, side: 'right' as const
+        })) : source.steps.map((step) => ({
             id: step.id,
             title: step.title,
             body: step.body,

@@ -164,12 +164,13 @@ Retrieve the current contract:
 bygone tour schema > /tmp/change-tour-source.schema.json
 ```
 
-Write a `.bygone` file. The legacy `.bygone.yaml` spelling remains valid when
-generic YAML tooling requires it. Treat either authored source as Git-backed,
-not portable: pin `range.base` and `range.head` to the exact OIDs from the
-context, and keep the file within the corresponding repository so Bygone can
-resolve those objects. Use a compiled `.tour.json` only when a portable
-snapshot is required.
+Write a version 2 `.bygone` file. The legacy `.bygone.yaml` spelling remains
+valid when generic YAML tooling requires it. Treat the authored source and its
+compiled `.tour.json` as Git-backed, non-portable artifacts: pin `range.base`
+and `range.head` to the exact OIDs from the context, and keep them with the
+corresponding repository so Bygone can resolve those objects and live history.
+For every deconstructed scene, author the underlying real `stack` explicitly;
+do not infer it from the synthetic explanation stages or Git history.
 
 Set optional `windowTitle` when the tour should appear in the native window
 title — for example a pull request number (`PR-1234`) so multiple open tours
@@ -244,7 +245,7 @@ Tour tooling that does not open the app (`tour context`, `tour validate`, `tour 
 
 ## Compile or present
 
-Compile a portable manifest when the user needs an artifact:
+Compile a repository-bound manifest when the user needs an artifact:
 
 ```sh
 bygone tour compile review.bygone --output review.tour.json
