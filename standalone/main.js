@@ -820,9 +820,10 @@ function installApplicationMenu() {
             label: 'Window',
             role: 'windowMenu',
             submenu: [
+                { role: 'close' },
                 { role: 'minimize' },
                 { role: 'zoom' },
-                ...(isMac ? [{ type: 'separator' }, { role: 'front' }] : [{ role: 'close' }])
+                ...(isMac ? [{ type: 'separator' }, { role: 'front' }] : [])
             ]
         },
         ...(isDevelopment ? [{
