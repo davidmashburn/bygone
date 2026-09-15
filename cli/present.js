@@ -6,6 +6,7 @@ const { buildChangeTourManifest, parseChangeTourStory } = require('../out/change
 const { buildTourWindowTitle } = require('../out/windowTitle.js');
 const { tokenMatches } = require('./commandSpec.js');
 const { loadTourSource } = require('./tourFile.js');
+const { createTourHistory } = require('./tourHistory.js');
 
 const MIME_TYPES = new Map([
     ['.css', 'text/css; charset=utf-8'],
@@ -31,6 +32,7 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         story,
         source
     });
+    const history = createTourHistory(manifest);
     const serializedManifest = `${JSON.stringify(manifest, null, 2)}\n`;
     const outputPath = process.env.BYGONE_TOUR_OUTPUT;
     if (outputPath) {
@@ -46,6 +48,31 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
 
     const server = createServer((request, response) => {
         const requestUrl = new URL(request.url || '/', 'http://127.0.0.1');
+        if (requestUrl.pathname === '/history/list' || requestUrl.pathname === '/history/diff') {
+            if (request.method !== 'POST') return respondJson(response, 405, { error: 'Method not allowed' });
+            if (!isSameOriginLoopbackRequest(request)) return respondJson(response, 403, { error: 'Forbidden' });
+            if (!history) return respondJson(response, 404, { error: 'History requires a version 2 tour.' });
+            let body = '';
+            request.setEncoding('utf8');
+            request.on('data', chunk => {
+                body += chunk;
+                if (body.length > 8192) {
+                    respondJson(response, 413, { error: 'Request too large' });
+                    request.destroy();
+                }
+            });
+            request.on('end', () => {
+                if (response.writableEnded) return;
+                try {
+                    const input = JSON.parse(body);
+                    const result = requestUrl.pathname === '/history/list' ? history.list(input) : history.diff(input);
+                    respondJson(response, 200, result);
+                } catch {
+                    respondJson(response, 400, { error: 'Could not load history for this file and revision.' });
+                }
+            });
+            return;
+        }
         if (requestUrl.pathname === '/narration/claim') {
             if (request.method !== 'POST') {
                 respond(response, 405, 'Method not allowed');
@@ -192,6 +219,16 @@ function respond(response, statusCode, message) {
         response.writeHead(statusCode, { 'Content-Type': 'text/plain; charset=utf-8' });
     }
     response.end(message);
+}
+
+function respondJson(response, statusCode, body) {
+    if (!response.headersSent) {
+        response.writeHead(statusCode, {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'no-store'
+        });
+    }
+    response.end(JSON.stringify(body));
 }
 
 function isSameOriginLoopbackRequest(request) {

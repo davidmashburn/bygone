@@ -1558,6 +1558,15 @@ function testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases() {
     assert.equal(scene.steps[1].startLine, 2);
     assert.equal(scene.steps[1].endLine, 2);
     assert.equal(parseChangeTourManifest(JSON.parse(JSON.stringify(manifest))).scenes[0].kind, 'stacked-diff');
+    const v2Manifest = buildChangeTourManifest(repo, {
+        source: parseChangeTourSource({ ...source, version: 2 }),
+        baseRef: 'main',
+        headRef: 'stack/behavior'
+    });
+    assert.equal(v2Manifest.version, 2);
+    assert.equal(v2Manifest.zoom.authoredDepth, 'revisions');
+    assert.deepEqual(v2Manifest.zoom.modes, ['revisions', 'final', 'history']);
+    assert.equal(v2Manifest.zoom.revisions[0].stack.length, 3);
     const automaticSource = {
         ...source,
         chapters: [{
@@ -3746,6 +3755,30 @@ function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
             : candidate)
     });
     assert.equal(legacyManifest.scenes.find((candidate) => candidate.id === manifestScene.id).steps.length, 2);
+
+    const v2Source = parseChangeTourSource({
+        ...source,
+        version: 2,
+        chapters: source.chapters.map((chapter) => ({
+            ...chapter,
+            scenes: chapter.scenes.map((candidate) => candidate.id === scene.id
+                ? {
+                    ...candidate,
+                    stack: [
+                        { id: 'base', ref: 'main', label: 'Main' },
+                        { id: 'final', ref: 'HEAD', label: 'Final' }
+                    ]
+                }
+                : candidate)
+        }))
+    });
+    const v2Manifest = buildChangeTourManifest(repo, { source: v2Source });
+    assert.equal(v2Manifest.version, 2);
+    assert.equal(v2Manifest.repository.root, fs.realpathSync(repo));
+    assert.equal(v2Manifest.zoom.authoredDepth, 'explanation');
+    assert.deepEqual(v2Manifest.zoom.modes, ['explanation', 'final', 'history']);
+    assert.equal(v2Manifest.zoom.revisions[0].stack.length, 2);
+    assert.throws(() => parseChangeTourSource({ ...v2Source, chapters: source.chapters }), /explicit real revisions/);
     assert.equal(compiled.baselineFiles.find((file) => file.path === 'added.txt').exists, false);
     assert.equal(compiled.baselineFiles.find((file) => file.path === 'delete.txt').exists, true);
     assert.equal(compiled.stages[0].files.find((file) => file.path === 'app.txt').content, 'alpha\nBETA\ngamma\ndelta\n');

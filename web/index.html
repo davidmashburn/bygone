@@ -12,6 +12,13 @@
         <header class="tour-overview">
             <button id="tour-sidebar-hide" class="tour-sidebar-hide" type="button" title="Hide tour sidebar" aria-label="Hide tour sidebar">‹</button>
             <h1 id="tour-title"></h1>
+            <div id="tour-mode-controls" class="tour-mode-controls" hidden>
+                <label for="tour-mode-select">Mode</label>
+                <select id="tour-mode-select"></select>
+                <label for="tour-history-select" id="tour-history-label" hidden>Revision</label>
+                <select id="tour-history-select" hidden></select>
+                <div id="tour-mode-status" role="status" aria-live="polite"></div>
+            </div>
             <a id="tour-source" class="tour-source" target="_blank" rel="noreferrer" hidden>Open source ↗</a>
             <div class="tour-meta">
                 <div id="tour-range" class="tour-range"></div>

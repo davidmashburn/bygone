@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["version", "anchors", "connections", "chapters"],
   "properties": {
-    "version": { "const": 1 },
+    "version": { "enum": [1, 2] },
     "title": { "$ref": "#/$defs/nonEmptyString" },
     "windowTitle": {
       "$ref": "#/$defs/nonEmptyString",
@@ -58,6 +58,46 @@
       "items": { "$ref": "#/$defs/chapter" }
     }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "version": { "const": 1 } }, "required": ["version"] },
+      "then": {
+        "properties": {
+          "chapters": {
+            "items": {
+              "properties": {
+                "scenes": {
+                  "items": {
+                    "if": { "properties": { "kind": { "const": "stacked-diff" } }, "required": ["kind"] },
+                    "then": { "properties": { "stack": { "minItems": 3 } } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "version": { "const": 2 } }, "required": ["version"] },
+      "then": {
+        "properties": {
+          "chapters": {
+            "items": {
+              "properties": {
+                "scenes": {
+                  "items": {
+                    "if": { "properties": { "kind": { "const": "deconstructed-diff" } }, "required": ["kind"] },
+                    "then": { "required": ["stack"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "nonEmptyString": { "type": "string", "minLength": 1 },
     "stringArray": {
@@ -207,7 +247,7 @@
         "bullets": { "$ref": "#/$defs/stringArray" },
         "tags": { "$ref": "#/$defs/stringArray" },
         "takeaway": { "$ref": "#/$defs/nonEmptyString" },
-        "stack": { "type": "array", "minItems": 3, "maxItems": 6, "items": { "$ref": "#/$defs/stackEntry" } },
+        "stack": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "$ref": "#/$defs/stackEntry" } },
         "files": { "$ref": "#/$defs/stringArray" },
         "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/stackStep" } }
       }
@@ -268,6 +308,7 @@
         "takeaway": { "$ref": "#/$defs/nonEmptyString" },
         "base": { "$ref": "#/$defs/nonEmptyString" },
         "target": { "$ref": "#/$defs/nonEmptyString" },
+        "stack": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "$ref": "#/$defs/stackEntry" } },
         "stages": {
           "type": "array",
           "minItems": 1,

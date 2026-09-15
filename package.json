@@ -221,7 +221,7 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "watch": "tsc -watch -p ./",
-    "test": "npm run compile && node ./test/runTests.js"
+    "test": "npm run compile && node ./test/runTests.js && node --test ./test/tourZoomSession.test.js ./test/tourHistory.test.js"
   },
   "build": {
     "appId": "com.davidmashburn.bygone",

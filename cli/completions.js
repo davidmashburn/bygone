@@ -75,7 +75,7 @@ ${legacyOptions}
 ${historyOptions}
     )
     shells=('zsh:Z shell' 'bash:Bash' 'fish:Fish shell')
-    tour_actions=('context:Build structured change evidence' 'coverage:Measure authored tour coverage' 'validate:Validate source and anchors' 'compile:Compile a portable manifest' 'schema:Print the source schema')
+    tour_actions=('context:Build structured change evidence' 'coverage:Measure authored tour coverage' 'validate:Validate source and anchors' 'compile:Compile a repository-bound manifest' 'schema:Print the source schema')
 
     if (( CURRENT == 2 )); then
         _describe 'bygone command' root_items

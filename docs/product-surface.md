@@ -81,7 +81,7 @@ VS Code's native Search rather than another bundled ripgrep process.
 | `bygone`, paths, `--diff`, `--history`, `--git-diff`, `review` | Launch Explore sessions | Core launcher; desktop owns writes |
 | `present` and `present --tour` | Launch Present sessions | Core, read-only presentation |
 | `tour context` | Produce a bounded provider-neutral change dossier | Authoring support, read-only |
-| `tour validate`, `compile`, `schema`, and coverage options | Validate exact evidence and build portable manifests | Advanced authoring, read-only except explicit output files |
+| `tour validate`, `compile`, `schema`, and coverage options | Validate exact evidence and build repository-bound manifests | Advanced authoring, read-only except explicit output files |
 | `completion` | Generate shell completions from the shared command specification | Supporting tooling |
 
 ## Provenance and mutability vocabulary
