@@ -26,6 +26,9 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [Explicit read-only CLI launches](explicit-read-only-cli.md) — add a
+  host-enforced `--read-only` capability ceiling for otherwise-writable Explore
+  sessions without changing current defaults.
 - [Editable worktree Git comparisons](editable-worktree-git-comparisons.md) —
   make `WORKTREE` a live writable source in `--git-diff` while commits and the
   index remain read-only snapshots.
