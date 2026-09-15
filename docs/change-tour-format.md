@@ -132,9 +132,11 @@ only when every panel is a real selected Git revision. Use a
 [deconstructed-diff example](../examples/deconstructed-diff.bygone) when
 the teaching order is clearer than the real commit history; its cumulative
 panels are synthetic explanation stages and must never be described as
-commits. In version 2, every deconstructed scene must also provide an explicit
-`stack` of the real revisions with the same base and final endpoints. Bygone
-does not infer that stack from Git history. Every changed hunk must be assigned
+commits. In version 2, every deconstructed scene must also provide the regular
+endpoint tour's `steps` and an explicit `stack` of the real revisions with the
+same base and final endpoints. Final diff presents those authored walkthrough
+steps, while Explanation stages presents the synthetic reconstruction. Bygone
+does not infer the stack from Git history. Every changed hunk must be assigned
 once or explicitly excluded.
 
 See [Bygone's self-referencing history tour](../examples/bygone-history.bygone) for a complete walkthrough that pins and explains the commit where branch review was introduced.

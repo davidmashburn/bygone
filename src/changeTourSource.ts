@@ -98,6 +98,8 @@ export interface ChangeTourSourceDeconstructedScene extends ChangeTourNarrative 
     target?: string;
     /** Required in v2: the real tour underlying the explanation stages. */
     stack?: ChangeTourSourceStackEntry[];
+    /** Required in v2: the regular endpoint tour underlying the explanation stages. */
+    steps?: ChangeTourSourceStep[];
     stages: ChangeTourSourceDeconstructedStage[];
     exclusions?: ChangeTourSourceDeconstructedExclusion[];
 }
@@ -221,6 +223,9 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             if (scene.kind === 'deconstructed-diff') {
                 validateDeconstructedScene(scene, path);
                 if (value.version === 2 || scene.stack !== undefined) validateRealStack(scene.stack, `${path}.stack`, 2);
+                if (value.version === 2 || scene.steps !== undefined) {
+                    validateWalkthroughSteps(scene, path, value.anchors, connectionIds);
+                }
                 continue;
             }
             if (!Array.isArray(scene.steps) || scene.steps.length === 0) {
@@ -234,40 +239,14 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
                 throw new Error(`${path}.kind must be walkthrough, stacked-diff, or deconstructed-diff.`);
             }
             requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'steps'], path);
-            const stepIds = new Set<string>();
-            for (const [stepIndex, step] of scene.steps.entries()) {
-                const stepPath = `${path}.steps[${stepIndex}]`;
-                if (!isRecord(step)) {
-                    throw new Error(`${stepPath} must be an object.`);
-                }
-                requireString(step.id, `${stepPath}.id`);
-                requireString(step.title, `${stepPath}.title`);
-                requireString(step.body, `${stepPath}.body`);
-                requireString(step.focus, `${stepPath}.focus`);
-                requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth', 'requirement'], stepPath);
-                if (step.depth !== undefined && !['mentioned', 'explained', 'contextualized'].includes(String(step.depth))) {
-                    throw new Error(`${stepPath}.depth must be mentioned, explained, or contextualized.`);
-                }
-                validateStepRequirement(step.requirement, `${stepPath}.requirement`);
-                if (stepIds.has(step.id)) throw new Error(`Duplicate step id in scene ${scene.id}: ${step.id}`);
-                stepIds.add(step.id);
-                const focus = step.focus;
-                if (!value.anchors[focus]) {
-                    throw new Error(`${stepPath} references unknown anchor ${focus}.`);
-                }
-                optionalString(step.connection, `${stepPath}.connection`);
-                const connection = step.connection;
-                if (typeof connection === 'string' && !connectionIds.has(connection)) {
-                    throw new Error(`${stepPath} references unknown connection ${connection}.`);
-                }
-            }
+            validateWalkthroughSteps(scene, path, value.anchors, connectionIds);
         }
     }
     return { ...value, connections: rawConnections } as unknown as ChangeTourSource;
 }
 
 function validateDeconstructedScene(scene: Record<string, unknown>, path: string): void {
-    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'base', 'target', 'stack', 'stages', 'exclusions'], path);
+    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'base', 'target', 'stack', 'steps', 'stages', 'exclusions'], path);
     optionalString(scene.base, `${path}.base`);
     optionalString(scene.target, `${path}.target`);
     if (!Array.isArray(scene.stages) || scene.stages.length === 0 || scene.stages.length > 12) {
@@ -299,6 +278,38 @@ function validateDeconstructedScene(scene: Record<string, unknown>, path: string
             `${path}.exclusions[${exclusionIndex}]`,
             true
         ));
+    }
+}
+
+function validateWalkthroughSteps(
+    scene: Record<string, unknown>,
+    path: string,
+    anchors: Record<string, unknown>,
+    connectionIds: ReadonlySet<string>
+): void {
+    if (!Array.isArray(scene.steps) || scene.steps.length === 0) {
+        throw new Error(`${path} must contain a non-empty steps array.`);
+    }
+    const stepIds = new Set<string>();
+    for (const [stepIndex, step] of scene.steps.entries()) {
+        const stepPath = `${path}.steps[${stepIndex}]`;
+        if (!isRecord(step)) throw new Error(`${stepPath} must be an object.`);
+        requireString(step.id, `${stepPath}.id`);
+        requireString(step.title, `${stepPath}.title`);
+        requireString(step.body, `${stepPath}.body`);
+        requireString(step.focus, `${stepPath}.focus`);
+        requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth', 'requirement'], stepPath);
+        if (step.depth !== undefined && !['mentioned', 'explained', 'contextualized'].includes(String(step.depth))) {
+            throw new Error(`${stepPath}.depth must be mentioned, explained, or contextualized.`);
+        }
+        validateStepRequirement(step.requirement, `${stepPath}.requirement`);
+        if (stepIds.has(step.id)) throw new Error(`Duplicate step id in scene ${scene.id}: ${step.id}`);
+        stepIds.add(step.id);
+        if (!anchors[step.focus]) throw new Error(`${stepPath} references unknown anchor ${step.focus}.`);
+        optionalString(step.connection, `${stepPath}.connection`);
+        if (typeof step.connection === 'string' && !connectionIds.has(step.connection)) {
+            throw new Error(`${stepPath} references unknown connection ${step.connection}.`);
+        }
     }
 }
 

@@ -448,6 +448,11 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /return target \? showTourFileSelection\(target\.fileIndex\) : false/);
     assert.match(hostSource, /tourFocusFilePath/);
     assert.match(hostSource, /function returnToTourFocus/);
+    assert.match(hostSource, /const inTourMode = !state\.zoom[\s\S]{0,160}state\.zoom\.mode === state\.authoredTour\.zoom\.authoredDepth[\s\S]{0,80}state\.zoom\.mode === 'final'/);
+    assert.match(hostSource, /returnButton\.hidden = !inTourMode/);
+    assert.match(hostSource, /mode === 'final'\) return \{ \.\.\.tour, \.\.\.tour\.zoom\.final \}/);
+    assert.match(hostSource, /state\.zoom\.mode === 'revisions' \|\| state\.zoom\.mode === 'history'/);
+    assert.match(hostSource, /state\.zoom\.mode === state\.authoredTour\.zoom\.authoredDepth \|\| state\.zoom\.mode === 'final'/);
     assert.match(hostSource, /function renderMultiPanelStep/);
     assert.match(hostSource, /scene\.kind === 'deconstructed-diff'/);
     assert.match(hostSource, /scene\.stageLabel/);
@@ -458,6 +463,8 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     }
     assert.match(presenterSource, /\.tour-file\.is-comparison-changed/);
     assert.match(presenterSource, /\.tour-file\.is-comparison-empty/);
+    assert.match(presenterSource, /\.tour-source\[hidden\][\s\S]{0,80}display: none/);
+    assert.match(hostSource, /source\.removeAttribute\('href'\)/);
     assert.match(hostSource, /getMultiPanelDefinitions/);
     assert.match(hostSource, /type: 'showMultiDiff'/);
     assert.match(webMarkup, /id="tour-files"/);
@@ -1567,6 +1574,8 @@ function testStackedTourBuildsOrderedRevisionPanelsAndRenameAliases() {
     assert.equal(v2Manifest.zoom.authoredDepth, 'revisions');
     assert.deepEqual(v2Manifest.zoom.modes, ['revisions', 'final', 'history']);
     assert.equal(v2Manifest.zoom.revisions[0].stack.length, 3);
+    assert.deepEqual(v2Manifest.zoom.final.chapters[0].sceneIds, ['event-stack-final-1', 'event-stack-final-2']);
+    assert.ok(v2Manifest.zoom.final.scenes.every((candidate) => candidate.kind === 'text-diff'));
     const automaticSource = {
         ...source,
         chapters: [{
@@ -3759,6 +3768,10 @@ function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
     const v2Source = parseChangeTourSource({
         ...source,
         version: 2,
+        anchors: {
+            'final-model': { file: 'app.txt', revision: 'head', contains: 'BETA' },
+            'final-behavior': { file: 'app.txt', revision: 'head', contains: 'DELTA' }
+        },
         chapters: source.chapters.map((chapter) => ({
             ...chapter,
             scenes: chapter.scenes.map((candidate) => candidate.id === scene.id
@@ -3767,7 +3780,18 @@ function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
                     stack: [
                         { id: 'base', ref: 'main', label: 'Main' },
                         { id: 'final', ref: 'HEAD', label: 'Final' }
-                    ]
+                    ],
+                    steps: [{
+                        id: 'final-model',
+                        title: 'Review the final model',
+                        body: 'Read the model in its completed context.',
+                        focus: 'final-model'
+                    }, {
+                        id: 'final-behavior',
+                        title: 'Review the final behavior',
+                        body: 'Read the behavior in its completed context.',
+                        focus: 'final-behavior'
+                    }]
                 }
                 : candidate)
         }))
@@ -3778,7 +3802,32 @@ function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
     assert.equal(v2Manifest.zoom.authoredDepth, 'explanation');
     assert.deepEqual(v2Manifest.zoom.modes, ['explanation', 'final', 'history']);
     assert.equal(v2Manifest.zoom.revisions[0].stack.length, 2);
+    assert.deepEqual(v2Manifest.zoom.final.chapters, [{
+        id: 'explanation',
+        title: 'Explanation',
+        sceneIds: ['build-feature']
+    }]);
+    assert.equal(v2Manifest.zoom.final.scenes[0].kind, 'walkthrough');
+    assert.deepEqual(v2Manifest.zoom.final.scenes[0].steps.map((step) => step.focus.path), ['app.txt', 'app.txt']);
+    assert.deepEqual(v2Manifest.zoom.final.scenes[0].steps.map((step) => step.focus.revision), ['head', 'head']);
+    assert.deepEqual(v2Manifest.zoom.final.scenes[0].steps.map((step) => step.body), [
+        'Read the model in its completed context.',
+        'Read the behavior in its completed context.'
+    ]);
+    assert.equal(v2Manifest.zoom.final.scenes[0].steps[0].diff.leftContent, 'alpha\nbeta\ngamma\ndelta\n');
+    assert.equal(v2Manifest.zoom.final.scenes[0].steps[0].diff.rightContent, 'alpha\nBETA\ngamma\nDELTA\n');
     assert.throws(() => parseChangeTourSource({ ...v2Source, chapters: source.chapters }), /explicit real revisions/);
+    assert.throws(() => parseChangeTourSource({
+        ...v2Source,
+        chapters: v2Source.chapters.map((chapter) => ({
+            ...chapter,
+            scenes: chapter.scenes.map((candidate) => {
+                const withoutSteps = { ...candidate };
+                delete withoutSteps.steps;
+                return withoutSteps;
+            })
+        }))
+    }), /non-empty steps array/);
     assert.equal(compiled.baselineFiles.find((file) => file.path === 'added.txt').exists, false);
     assert.equal(compiled.baselineFiles.find((file) => file.path === 'delete.txt').exists, true);
     assert.equal(compiled.stages[0].files.find((file) => file.path === 'app.txt').content, 'alpha\nBETA\ngamma\ndelta\n');

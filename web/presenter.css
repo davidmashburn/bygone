@@ -141,6 +141,10 @@ body.tour-mode.tour-discussion #container {
     text-decoration: none;
 }
 
+.tour-source[hidden] {
+    display: none;
+}
+
 .tour-source:hover {
     color: #fff;
 }
