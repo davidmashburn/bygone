@@ -20,6 +20,13 @@ Writable filesystem panels are labeled **Writable file**. Git revisions,
 history, tours, and supplied snapshots are labeled **Read-only snapshot**.
 Replace and save operations are unavailable for read-only content.
 
+Pass `--read-only` anywhere in a desktop launch command to keep otherwise-live
+files visible and refreshable without allowing edits or saves. For example,
+`bygone --read-only --diff old.txt current.txt` and
+`bygone -C repo --git-diff HEAD WORKTREE --read-only` label their live sources
+**Read-only file**. The restriction remains in effect when the session refreshes;
+it does not change new comparisons opened later from the app menus.
+
 ## Ask Git questions
 
 - **File → View File or Directory History…** follows one path through commits and
@@ -31,7 +38,8 @@ Replace and save operations are unavailable for read-only content.
 
 In a revision comparison, committed refs and `INDEX` are read-only snapshots.
 `WORKTREE` (also accepted as `WORKDIR` or `WORKINGTREE`) is the live repository
-tree and stays writable. For example, `bygone -C repo --git-diff HEAD WORKTREE`
+tree and is writable unless the launch uses `--read-only`. For example,
+`bygone -C repo --git-diff HEAD WORKTREE`
 opens the HEAD snapshot on the left and editable worktree files on the right;
 saving updates the repository file, including recreating a deleted file. The
 directory inventory follows `git ls-files -co --exclude-standard`, so ignored

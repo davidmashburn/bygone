@@ -78,7 +78,7 @@ VS Code's native Search rather than another bundled ripgrep process.
 
 | Surface | Purpose | Mutability/maturity |
 | --- | --- | --- |
-| `bygone`, paths, `--diff`, `--history`, `--git-diff`, `review` | Launch Explore sessions | Core launcher; desktop owns writes |
+| `bygone`, paths, `--diff`, `--history`, `--git-diff`, `--read-only`, `review` | Launch Explore sessions | Core launcher; desktop owns writes; `--read-only` is a persisted capability ceiling for that launch |
 | `present` and `present --tour` | Launch Present sessions | Core, read-only presentation |
 | `tour context` | Produce a bounded provider-neutral change dossier | Authoring support, read-only |
 | `tour validate`, `compile`, `schema`, and coverage options | Validate exact evidence and build repository-bound manifests | Advanced authoring, read-only except explicit output files |
@@ -90,11 +90,13 @@ Use these labels consistently:
 
 - **Writable file:** filesystem content and a live `WORKTREE` column participating in dirty, undo,
   save, reload, watcher, and refresh behavior.
+- **Read-only file:** live filesystem content intentionally opened with editing
+  disabled; external changes and explicit session refresh remain available.
 - **Read-only snapshot:** committed Git, history, tour, or supplied content that
   cannot be replaced or saved over a source file.
 - **INDEX** and **WORKTREE:** repository work states; do not describe them as
   commits. `INDEX` is a read-only snapshot; `WORKTREE` is live and writable in
-  revision comparisons.
+  revision comparisons unless the launch uses `--read-only`.
 - **Explanation stage:** synthetic deconstructed content; never imply that it
   is a real commit.
 - **Real revision:** a panel resolved from an exact Git object identity.

@@ -15,41 +15,49 @@ function normalizePaths(paths) {
     return (paths || []).map((candidate) => path.resolve(candidate));
 }
 
-function createFilesSource(paths) {
-    return { kind: 'files', paths: normalizePaths(paths) };
+function readOnlyProperty(readOnly) {
+    return readOnly ? { readOnly: true } : {};
 }
 
-function createDirectoriesSource(paths, labels) {
+function createFilesSource(paths, readOnly = false) {
+    return { kind: 'files', paths: normalizePaths(paths), ...readOnlyProperty(readOnly) };
+}
+
+function createDirectoriesSource(paths, labels, readOnly = false) {
     return {
         kind: 'directories',
         paths: normalizePaths(paths),
-        ...(Array.isArray(labels) ? { labels: [...labels] } : {})
+        ...(Array.isArray(labels) ? { labels: [...labels] } : {}),
+        ...readOnlyProperty(readOnly)
     };
 }
 
-function createFileHistorySource(filePath, includeStaged, skipUnchanged) {
+function createFileHistorySource(filePath, includeStaged, skipUnchanged, readOnly = false) {
     return {
         kind: 'file-history',
         path: path.resolve(filePath),
         includeStaged: Boolean(includeStaged),
-        skipUnchanged: Boolean(skipUnchanged)
+        skipUnchanged: Boolean(skipUnchanged),
+        ...readOnlyProperty(readOnly)
     };
 }
 
-function createDirectoryHistorySource(dirPath, includeStaged, skipUnchanged) {
+function createDirectoryHistorySource(dirPath, includeStaged, skipUnchanged, readOnly = false) {
     return {
         kind: 'directory-history',
         path: path.resolve(dirPath),
         includeStaged: Boolean(includeStaged),
-        skipUnchanged: Boolean(skipUnchanged)
+        skipUnchanged: Boolean(skipUnchanged),
+        ...readOnlyProperty(readOnly)
     };
 }
 
-function createGitRefsSource(repoRoot, refs) {
+function createGitRefsSource(repoRoot, refs, readOnly = false) {
     return {
         kind: 'git-refs',
         repoRoot: path.resolve(repoRoot),
-        refs: [...refs]
+        refs: [...refs],
+        ...readOnlyProperty(readOnly)
     };
 }
 
