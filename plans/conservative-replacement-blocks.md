@@ -74,6 +74,21 @@ The completed [diff-matching plan](diff-matching-between-panels.md) improved
 line scoring and alignment, but explicitly left semantic block colors
 unchanged. This is a focused follow-up to that work.
 
+Verified against `main` at `fb1b21e`:
+
+- The unrelated body has no paired rows but still becomes a blue `replace`
+  block.
+- `## Cache eviction` versus `## Keyboard shortcuts` scores about `0.463`:
+  ordinarily ineligible, but accepted by the permissive singleton path and
+  given precise inline emphasis.
+- The genuine shared-setting edit scores about `0.919` and is ordinarily
+  eligible.
+- Only the middle edit in the coherent list is paired; the rewritten outer
+  items have no inline segments despite belonging to the blue block.
+
+These findings distinguish block-classification, false-pairing, and missing
+emphasis issues; they do not establish a general block-classification rule.
+
 ## Desired behavior
 
 - Blue blocks have credible correspondence as a whole; they may contain
@@ -163,20 +178,6 @@ list fixture does not make the small middle edit look like the only change.
 
 ### 5. Make correspondence explicit at the alignment boundary
 
-Replace the current aligned-row shape only if needed to prevent block
-construction from re-inferring pairing:
-
-```ts
-interface AlignedReplacementRow {
-    left?: string;
-    right?: string;
-    correspondence?: {
-        score: number;
-        confidence: 'high' | 'contextual';
-    };
-}
-```
-
 Production rendering does not need to expose numeric scores. Tests and
 diagnostics should be able to distinguish:
 
@@ -212,21 +213,6 @@ Verify consumers rather than changing their product semantics:
 
 ## Scope and non-goals
 
-Required:
-
-- regression fixtures for both committed Markdown comparisons;
-- distinct block-correspondence and line-pairing decisions;
-- block classification supported by substantive continuity;
-- complete changed-text emphasis inside coherent blue replacements;
-- green styling for independent removed and added content;
-- host/worker parity and consumer regression tests.
-
-Supporting:
-
-- test-only scoring diagnostics;
-- focused visual snapshots or manual comparison notes;
-- documentation of the blue-versus-green semantic contract.
-
 Not in scope:
 
 - changing the blue or green palette;
@@ -257,6 +243,12 @@ Automated coverage:
 - a coherent replacement containing unmatched lines can remain one blue block;
 - unchanged punctuation or blank lines do not confer block correspondence;
 - unrelated lines do not receive invented precise counterparts;
+- a mixed-content regression places one lightly edited sentence beside
+  independent removed/added material in the same coarse candidate; define its
+  expected block boundaries before selecting a rule, so one credible pair does
+  not automatically make unrelated surroundings blue;
+- false line counterparts are rejected inside otherwise coherent blue blocks,
+  not only in regions that become green;
 - genuinely edited prose and code lines remain paired;
 - paired lines receive precise inline segments, and unmatched lines inside blue
   blocks receive full changed-text emphasis;
