@@ -703,6 +703,11 @@ export class DiffViewProvider implements vscode.Disposable {
                     </div>
                 </div>
                 <div id="directory-diff" class="dir-view hidden">
+                    <div id="directory-view-tabs" class="directory-view-tabs" hidden>
+                        <button id="directory-overview-tab" type="button" title="Show change overview" aria-pressed="true">Overview</button>
+                        <button id="directory-files-tab" type="button" title="Show all changed files" aria-pressed="false">Files</button>
+                    </div>
+                    <section id="directory-overview" class="directory-overview" aria-label="Change overview" hidden></section>
                     <div class="dir-headers">
                         <div class="dir-col-header" id="dir-left-header">Left</div>
                         <div class="dir-header-gutter" aria-hidden="true"></div>

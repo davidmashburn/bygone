@@ -62,13 +62,15 @@ const {
 const { CLI_SPEC, renderCliHelp } = require('../cli/commandSpec.js');
 const { completionFileName, generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const {
+    buildChangeAttention,
     buildChangeTourContext,
     buildChangeTourManifest,
     buildDeconstructedScene,
     compileDeconstructedScene,
     parseChangeTourManifest,
     parseChangeTourSource,
-    parseChangeTourStory
+    parseChangeTourStory,
+    classifyChangeFileRole
 } = require('../out/changeTour.js');
 const { buildChangeInventory, materializeChangeUnits, parsePatchUnits } = require('../out/changeInventory.js');
 const { buildTourCoverageReport } = require('../out/tourCoverage.js');
@@ -921,6 +923,25 @@ function testProductSurfaceOverviewTracksHostsAndBoundaries() {
     assert.match(overview, /Only open-source Bygone fixtures/);
 }
 
+function testBranchReviewStartsWithACompleteChangeOverview() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    const standaloneHtml = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'index.html'), 'utf8');
+
+    assert.match(standaloneSource, /function buildReviewAttention\(review\)/);
+    assert.match(standaloneSource, /headRef: review\.headOid/);
+    assert.match(standaloneSource, /baseRef: review\.mergeBaseOid/);
+    assert.match(rendererSource, /setDirectoryViewMode\(review\?\.attention \? 'overview' : 'files'\)/);
+    assert.match(rendererSource, /appendAttentionGroup\(overview, 'Pay attention'/);
+    assert.match(rendererSource, /appendUsuallySkipGroups\(overview/);
+    assert.match(rendererSource, /\['Dependencies'/);
+    assert.match(rendererSource, /\['Generated and binary'/);
+    assert.match(rendererSource, /openDirectoryOverviewPath\(file\.path\)/);
+    assert.match(standaloneHtml, /id="directory-overview-tab"/);
+    assert.match(standaloneHtml, /id="directory-files-tab"/);
+    assert.match(standaloneHtml, /id="dir-rows"/);
+}
+
 function testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime() {
     const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
     const extensionSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'extension.ts'), 'utf8');
@@ -1141,7 +1162,14 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     fs.appendFileSync(path.join(repo, 'docs', 'architecture.md'), 'New event flow\n');
     fs.writeFileSync(path.join(repo, 'src', 'models.ts'), 'export const version = 2;\nexport interface Event {}\n');
     fs.mkdirSync(path.join(repo, 'tests'), { recursive: true });
-    fs.writeFileSync(path.join(repo, 'tests', 'models.test.ts'), 'it("works", () => {});\n');
+    fs.writeFileSync(path.join(repo, 'tests', 'models.test.ts'), [
+        'describe("models", () => {',
+        '  it("exports the event", () => {',
+        '    expect(true).toBe(true);',
+        '  });',
+        '});',
+        ''
+    ].join('\n'));
     runGit(repo, ['add', '.']);
     runGit(repo, ['commit', '-m', 'feat: explain event flow']);
 
@@ -1154,12 +1182,15 @@ function testChangeTourBuildsPortableNarrativeChapters() {
 
     assert.equal(manifest.title, 'Event flow tour');
     assert.equal(manifest.summary.changedFiles, 3);
-    assert.equal(manifest.summary.includedScenes, 3);
-    assert.deepEqual(manifest.chapters.map((chapter) => chapter.id), ['context', 'contracts', 'proof']);
-    assert.deepEqual(manifest.scenes.map((scene) => scene.path), [
-        'docs/architecture.md',
+    assert.equal(manifest.summary.includedScenes, 4);
+    assert.deepEqual(manifest.chapters.map((chapter) => chapter.id), ['start-here', 'context', 'contracts', 'proof']);
+    assert.equal(manifest.scenes[0].kind, 'discussion');
+    assert.equal(manifest.scenes[0].id, 'change-overview');
+    assert.match(manifest.scenes[0].summary, /3 files \(3 text, 0 binary\)/);
+    assert.deepEqual(manifest.scenes.slice(1).map((scene) => scene.path), [
         'src/models.ts',
-        'tests/models.test.ts'
+        'tests/models.test.ts',
+        'docs/architecture.md'
     ]);
     assert.deepEqual(manifest.files.map((file) => file.path), [
         'docs/architecture.md',
@@ -1304,11 +1335,63 @@ function testChangeTourBuildsPortableNarrativeChapters() {
         generatedAt: '2026-08-01T00:00:00.000Z'
     });
     assert.equal(guarded.summary.changedFiles, 4);
-    assert.equal(guarded.summary.includedScenes, 3);
+    assert.equal(guarded.summary.includedScenes, 4);
     assert.deepEqual(guarded.summary.omittedFiles, ['web/app.js.map']);
     assert.equal(guarded.files.length, 4);
     assert.equal(guarded.files.find((file) => file.path === 'web/app.js.map')?.kind, 'omitted');
     assert.equal(guarded.scenes.some((scene) => scene.kind === 'text-diff' && scene.path === 'web/app.js.map'), false);
+}
+
+function testChangeAttentionRanksProductionAndKeepsMechanicalFilesVisible() {
+    const input = [
+        {
+            path: 'src/types.ts', changeKind: 'modified', additions: 4, deletions: 1,
+            headText: 'export interface Session {}', symbolHints: ['Session']
+        },
+        {
+            path: 'src/session.ts', changeKind: 'modified', additions: 30, deletions: 8,
+            headText: "import { Session } from './types';"
+        },
+        {
+            path: 'tests/session.test.ts', changeKind: 'added', additions: 20, deletions: 0,
+            headText: 'describe("Session", () => {})'
+        },
+        { path: 'package-lock.json', changeKind: 'modified', additions: 100, deletions: 100, headText: '{}' }
+    ];
+    const attention = buildChangeAttention(input);
+    assert.equal(attention.entryPath, 'src/types.ts');
+    assert.equal(attention.entryReason, 'Referenced by 2 other changed files.');
+    assert.deepEqual(attention.focusPaths, ['src/session.ts', 'tests/session.test.ts']);
+    assert.deepEqual(attention.mechanicalPaths, ['package-lock.json']);
+    assert.equal(attention.files.length, input.length);
+    assert.deepEqual(buildChangeAttention(input), attention);
+    assert.equal(classifyChangeFileRole('feature.lock'), 'production');
+    assert.equal(classifyChangeFileRole('Cargo.lock'), 'dependency');
+
+    const testOnly = buildChangeAttention([{ path: 'tests/only.test.ts', changeKind: 'modified', additions: 2, deletions: 1 }]);
+    assert.equal(testOnly.entryPath, null);
+    assert.match(testOnly.entryReason, /only tests/);
+
+    const lockfileOnly = buildChangeAttention([{ path: 'Cargo.lock', changeKind: 'modified', additions: 80, deletions: 70 }]);
+    assert.equal(lockfileOnly.entryPath, null);
+    assert.equal(lockfileOnly.fallbackPath, 'Cargo.lock');
+    assert.deepEqual(lockfileOnly.mechanicalPaths, ['Cargo.lock']);
+
+    const singleProduction = buildChangeAttention([{ path: 'src/index.ts', changeKind: 'added', additions: 3, deletions: 0 }]);
+    assert.equal(singleProduction.entryPath, 'src/index.ts');
+    assert.equal(singleProduction.entryReason, 'Only production file in this range.');
+
+    const renamed = buildChangeAttention([{
+        path: 'src/session.ts', previousPath: 'src/auth.ts', changeKind: 'renamed', additions: 4, deletions: 2
+    }]);
+    assert.equal(renamed.files[0].previousPath, 'src/auth.ts');
+
+    const omitted = buildChangeAttention([
+        { path: 'assets/logo.png', changeKind: 'added', additions: null, deletions: null, binary: true },
+        { path: 'web/app.js.map', changeKind: 'modified', additions: 30, deletions: 30 }
+    ]);
+    assert.equal(omitted.entryPath, null);
+    assert.deepEqual(omitted.mechanicalPaths, ['assets/logo.png', 'web/app.js.map']);
 }
 
 function testTourStepRequirementsValidateAndRenderAsChips() {
@@ -4077,6 +4160,7 @@ async function run() {
     testEditorComfortUsesNativeMonacoActionsAndSourceModels();
     testTextPanelsExposeMutabilityProvenance();
     testProductSurfaceOverviewTracksHostsAndBoundaries();
+    testBranchReviewStartsWithACompleteChangeOverview();
     testVsCodeSurfaceHandsLargeWorkToDesktopAndPackagesOnlyRuntime();
     testLineClickSelectsContainingTwoWayChange();
     testLineClickIgnoresCollapsedSideOfOneSidedChange();
@@ -4087,6 +4171,7 @@ async function run() {
     testGitNameStatusParserPreservesRenameMetadata();
     testCliSpecificationDrivesHelpAndEveryCompletionFormat();
     testCliPrintsGeneratedCompletionsWithoutStartingElectron();
+    testChangeAttentionRanksProductionAndKeepsMechanicalFilesVisible();
     testChangeTourBuildsPortableNarrativeChapters();
     testTourStepRequirementsValidateAndRenderAsChips();
     testWindowTitleHelpersFocusActiveMultiPanelContext();

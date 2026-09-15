@@ -6,13 +6,21 @@ source evidence while keeping the complete changed-file set available.
 ## Generated and authored tours
 
 - **Present Current Branch** or `bygone present` generates a deterministic
-  reading order for the committed merge-base-to-tip range.
+  reading order for the committed merge-base-to-tip range. It begins with a
+  change overview that reports range size, recommends a **Start here** file when
+  the evidence supports one, and separates **Pay attention** from **Usually
+  skip** first-pass reading hints. Next advances to the recommended file.
 - **Open Authored Tour…** or `bygone present --tour path.bygone` opens a
   narrative whose anchors have been compiled to exact source locations.
 
 The Files rail is independent of the narrative. Browsing another file keeps
 the active tour anchor visible and offers **Return to Tour** to restore the
 scene's intended focus.
+
+Generated overview ranking is deterministic for the resolved Git object IDs.
+It never hides files and does not invent an entry point for a test-only,
+lockfile-only, binary, or generated-only change. Authored tours keep their
+authored first scene and order.
 
 ## Listen to a tour
 

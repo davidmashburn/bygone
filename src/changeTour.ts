@@ -20,11 +20,14 @@ import { ChangeTourSource, ChangeTourSourceStep, parseChangeTourSource } from '.
 import { buildDeconstructedScene } from './deconstructedChange';
 import { buildTwoWayDiffModel } from './diffEngine';
 import { buildTourFocusRanges } from './tourAnnotations';
+import { buildChangeAttention, classifyChangeFileRole } from './changeAttention';
 
 export { parseChangeTourManifest, parseChangeTourStory } from './changeTourManifest';
 export { parseChangeTourSource } from './changeTourSource';
 export { buildChangeTourContext } from './changeTourContext';
 export type { BuildChangeTourContextOptions, ChangeTourContext } from './changeTourContext';
+export { buildChangeAttention, classifyChangeFileRole, CHANGE_ATTENTION_VERSION } from './changeAttention';
+export type { ChangeAttention, ChangeAttentionFile, ChangeAttentionInputFile, ChangeFileRole } from './changeAttention';
 export { buildChangeInventory, materializeChangeUnits } from './changeInventory';
 export type { BuildChangeInventoryOptions, ChangeInventory, ChangeInventoryFile, ChangeUnit } from './changeInventory';
 export { buildDeconstructedScene, compileDeconstructedScene } from './deconstructedChange';
@@ -78,9 +81,10 @@ export function buildChangeTourManifest(
     const sceneRecords: Array<{ chapter: ChapterDefinition; scene: ChangeTourDiffScene }> = [];
     let totalAdditions = 0;
     let totalDeletions = 0;
+    let totalBinaryFiles = 0;
 
     for (const changedPath of range.changedPaths) {
-        const { additions, deletions } = readGitLineStats(
+        const { additions, deletions, binary } = readGitLineStats(
             range.repoRoot,
             range.mergeBaseOid,
             range.headOid,
@@ -89,6 +93,7 @@ export function buildChangeTourManifest(
         );
         totalAdditions += additions;
         totalDeletions += deletions;
+        if (binary) totalBinaryFiles += 1;
         const pair = resolveReviewPathPair(range.changedPaths, changedPath.path);
         if (!pair) {
             omittedFiles.push(changedPath.path);
@@ -138,18 +143,47 @@ export function buildChangeTourManifest(
         left.chapter.priority - right.chapter.priority
         || left.scene.path.localeCompare(right.scene.path)
     ));
-    const defaultScenes = sceneRecords.map(({ scene }, index) => ({ ...scene, id: `file-${index + 1}` }));
+    let defaultScenes = sceneRecords.map(({ scene }, index) => ({ ...scene, id: `file-${index + 1}` }));
     if (options.story && options.source) {
         throw new Error('A change tour can use either a legacy story or a source file, not both.');
+    }
+    const attention = buildChangeAttention(files.map((file) => ({
+        path: file.path,
+        previousPath: file.previousPath,
+        changeKind: file.changeKind,
+        additions: file.additions,
+        deletions: file.deletions,
+        binary: file.kind === 'omitted',
+        headText: file.kind === 'text-diff' ? file.rightContent : undefined,
+        symbolHints: file.kind === 'text-diff' ? findDeclarationNames(file.rightContent) : []
+    })));
+    if (!options.story && !options.source && attention.entryPath) {
+        const focusRank = (scenePath: string): number => {
+            const index = attention.focusPaths.indexOf(scenePath);
+            return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+        };
+        defaultScenes = [...defaultScenes].sort((left, right) => (
+            Number(right.path === attention.entryPath) - Number(left.path === attention.entryPath)
+            || focusRank(left.path) - focusRank(right.path)
+            || left.id.localeCompare(right.id)
+        ));
     }
     const authored = options.source
         ? applySource(parseChangeTourSource(options.source), defaultScenes, range.repoRoot)
         : options.story
         ? applyStory(options.story, defaultScenes)
-        : {
-            scenes: defaultScenes as ChangeTourScene[],
-            chapters: buildChapters(sceneRecords, new Map(defaultScenes.map((scene) => [scene.path, scene.id])))
-        };
+        : buildGeneratedTourLanding(
+            defaultScenes,
+            buildChapters(sceneRecords, new Map(defaultScenes.map((scene) => [scene.path, scene.id]))),
+            attention,
+            {
+                changedFiles: range.changedPaths.length,
+                binaryFiles: totalBinaryFiles,
+                additions: totalAdditions,
+                deletions: totalDeletions,
+                commitCount: range.commits.length
+            }
+        );
     const scenes = authored.scenes;
     const chapters = authored.chapters;
     const finalScenes = ('finalScenes' in authored ? authored.finalScenes : scenes) as ChangeTourScene[];
@@ -733,20 +767,62 @@ function buildChapters(
 
 function chapterForPath(filePath: string): ChapterDefinition {
     const lower = filePath.toLowerCase();
-    const fileName = lower.split('/').pop() || lower;
-    if (lower.startsWith('docs/') || fileName === 'readme.md' || fileName.includes('architecture')) {
+    const role = classifyChangeFileRole(filePath);
+    if (role === 'documentation' || lower.includes('architecture')) {
         return CHAPTERS.context;
     }
-    if (/(^|\/)(tests?|__tests__)(\/|$)/.test(lower) || /(^|\/)test_[^/]+$/.test(lower)) {
+    if (role === 'test') {
         return CHAPTERS.proof;
     }
     if (/(^|\/)(models?|schema|types?|contracts?)\.[^/]+$/.test(lower)) {
         return CHAPTERS.contracts;
     }
-    if (/(^|\/)(package-lock\.json|.*\.lock|pyproject\.toml|package\.json)$/.test(lower)) {
+    if (role === 'dependency' || role === 'generated') {
         return CHAPTERS.packaging;
     }
     return CHAPTERS.behavior;
+}
+
+function buildGeneratedTourLanding(
+    scenes: ChangeTourDiffScene[],
+    chapters: ChangeTourChapter[],
+    attention: ReturnType<typeof buildChangeAttention>,
+    summary: { changedFiles: number; binaryFiles: number; additions: number; deletions: number; commitCount: number }
+): { scenes: ChangeTourScene[]; chapters: ChangeTourChapter[] } {
+    const entry = attention.entryPath
+        ? `Start here: ${attention.entryPath} — ${attention.entryReason}`
+        : `No single entry-point — ${attention.entryReason}`;
+    const focus = attention.focusPaths.length > 0
+        ? `Pay attention: ${attention.focusPaths.join(', ')}`
+        : 'Pay attention: no additional production files were identified.';
+    const skipped = attention.backgroundPaths.length + attention.mechanicalPaths.length;
+    const overview = {
+        id: 'change-overview',
+        kind: 'discussion' as const,
+        title: 'Change overview',
+        summary: `${summary.changedFiles} files (${summary.changedFiles - summary.binaryFiles} text, ${summary.binaryFiles} binary) · +${summary.additions} −${summary.deletions} · ${summary.commitCount} commits`,
+        bullets: [entry, focus, `Usually skip on a first pass: ${skipped} file${skipped === 1 ? '' : 's'}. All files remain available.`],
+        tags: ['start here', 'first pass'],
+        takeaway: attention.entryPath ? `Next: open ${attention.entryPath}.` : 'Next: open the first available textual change.'
+    };
+    return {
+        scenes: [overview, ...scenes],
+        chapters: [
+            { id: 'start-here', title: 'Start here', sceneIds: [overview.id] },
+            ...chapters
+        ]
+    };
+}
+
+function findDeclarationNames(content: string): string[] {
+    const names = new Set<string>();
+    for (const line of content.split('\n')) {
+        const match = line.match(/^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function|class|interface|type|enum|const|let|var)\s+([A-Za-z_$][\w$]*)/)
+            || line.match(/^\s*(?:async\s+)?(?:class|def)\s+([A-Za-z_]\w*)/);
+        if (match) names.add(match[1]);
+        if (names.size >= 25) break;
+    }
+    return [...names];
 }
 
 function buildSceneNote(kind: string, additions: number, deletions: number, previousPath?: string): string {
@@ -820,7 +896,7 @@ function readGitLineStats(
     headOid: string,
     filePath: string,
     previousPath?: string
-): { additions: number; deletions: number } {
+): { additions: number; deletions: number; binary: boolean } {
     const output = execFileSync('git', [
         'diff',
         '--numstat',
@@ -837,6 +913,7 @@ function readGitLineStats(
     const [additionsText = '0', deletionsText = '0'] = output.trim().split(/\s+/, 3);
     return {
         additions: Number.parseInt(additionsText, 10) || 0,
-        deletions: Number.parseInt(deletionsText, 10) || 0
+        deletions: Number.parseInt(deletionsText, 10) || 0,
+        binary: additionsText === '-' || deletionsText === '-'
     };
 }

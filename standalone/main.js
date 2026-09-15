@@ -5,6 +5,8 @@ const { pathToFileURL } = require('url');
 const { execFileSync } = require('child_process');
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const { buildTwoWayDiffModel } = require('../src/diffEngine.ts');
+const { buildChangeAttention } = require('../src/changeAttention.ts');
+const { buildChangeTourContext } = require('../src/changeTourContext.ts');
 const { buildBinaryComparison, classifyFile } = require('../src/binaryComparison.ts');
 const { GitHistoryService } = require('../src/gitHistory.ts');
 const { createJavaScriptSampleFilePair } = require('../src/sampleFiles.ts');
@@ -2400,6 +2402,8 @@ async function openGitBranchReview(cwd, branch, mainRef, options = {}) {
         return;
     }
 
+    const { attention, attentionSummary } = buildReviewAttention(review);
+
     const leftRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-review-base-'));
     const rightRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-review-head-'));
     trackedGitDiffTempRoots.add(leftRoot);
@@ -2423,9 +2427,37 @@ async function openGitBranchReview(cwd, branch, mainRef, options = {}) {
         source: options.source || createBranchReviewSource(review.repoRoot || cwd, branch, mainRef),
         review: {
             ...review,
+            attention,
+            attentionSummary,
             viewedPaths: new Set()
         }
     });
+}
+
+function buildReviewAttention(review) {
+    const context = buildChangeTourContext(review.repoRoot, {
+        headRef: review.headOid,
+        baseRef: review.mergeBaseOid,
+        generatedAt: new Date(0).toISOString()
+    });
+    return {
+        attention: buildChangeAttention(context.files.map((file) => ({
+            path: file.path,
+            previousPath: file.previousPath,
+            changeKind: file.changeKind,
+            additions: file.additions,
+            deletions: file.deletions,
+            binary: file.binary,
+            headText: file.patch,
+            symbolHints: file.symbolHints.map((symbol) => symbol.name)
+        }))),
+        attentionSummary: {
+            textualFiles: context.summary.changedFiles - context.summary.binaryFiles,
+            binaryFiles: context.summary.binaryFiles,
+            additions: context.summary.additions,
+            deletions: context.summary.deletions
+        }
+    };
 }
 
 async function openDirectoryHistory(dirPath, includeStaged = historyIncludeStagedPreference, options = {}) {
@@ -2697,7 +2729,9 @@ function buildReviewViewState(review) {
         viewedCount,
         commitCount: review.commits.length,
         mergeCommitCount: review.commits.filter((commit) => commit.parentOids.length > 1).length,
-        commits: review.commits
+        commits: review.commits,
+        attention: review.attention,
+        attentionSummary: review.attentionSummary
     };
 }
 
@@ -5582,6 +5616,7 @@ function buildSessionFromSource(source) {
         }
         const tempRoots = [];
         try {
+            const { attention, attentionSummary } = buildReviewAttention(review);
             tempRoots.push(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-review-base-')));
             trackedGitDiffTempRoots.add(tempRoots[0]);
             tempRoots.push(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-review-head-')));
@@ -5596,7 +5631,7 @@ function buildSessionFromSource(source) {
                 source,
                 {
                     tempRoots,
-                    review: { ...review, viewedPaths: new Set() }
+                    review: { ...review, attention, attentionSummary, viewedPaths: new Set() }
                 }
             );
         } catch (error) {
