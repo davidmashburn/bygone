@@ -32,7 +32,7 @@ const { generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js'
 const { tokenMatches, tokensFor } = require('../cli/commandSpec.js');
 const { startPresentation } = require('../cli/present.js');
 const { resolveWorkingDirectory } = require('../cli/workingDirectory.js');
-const { getCliArgsFromArgv, getForwardedLaunchArgs } = require('./launchArgs.js');
+const { extractReadOnlyLaunchOption, getCliArgsFromArgv, getForwardedLaunchArgs } = require('./launchArgs.js');
 const { readWindowState, writeWindowState } = require('./windowState.js');
 const {
     buildHistoryTitle,
@@ -1265,47 +1265,47 @@ async function routeLaunchTarget(launchTarget) {
     }
 
     if (launchTarget.kind === 'blank') {
-        await openBlankDiff();
+        await openBlankDiff(Boolean(launchTarget.readOnly));
         return;
     }
 
     if (launchTarget.kind === 'diff') {
-        await openPathPair(launchTarget.leftPath, launchTarget.rightPath, 'diff');
+        await openPathPair(launchTarget.leftPath, launchTarget.rightPath, 'diff', { source: requestedSource });
         return;
     }
 
     if (launchTarget.kind === 'directory') {
-        await openPathPair(launchTarget.leftPath, launchTarget.rightPath, 'directory');
+        await openPathPair(launchTarget.leftPath, launchTarget.rightPath, 'directory', { source: requestedSource });
         return;
     }
 
     if (launchTarget.kind === 'directory-history') {
-        await openDirectoryHistory(launchTarget.dirPath, Boolean(launchTarget.includeStaged));
+        await openDirectoryHistory(launchTarget.dirPath, Boolean(launchTarget.includeStaged), { source: requestedSource });
         return;
     }
 
     if (launchTarget.kind === 'multi-directory') {
-        await openDirectories(launchTarget.paths);
+        await openDirectories(launchTarget.paths, { source: requestedSource });
         return;
     }
 
     if (launchTarget.kind === 'pair') {
-        await openPathPair(launchTarget.leftPath, launchTarget.rightPath, 'auto');
+        await openPathPair(launchTarget.leftPath, launchTarget.rightPath, 'auto', { source: requestedSource });
         return;
     }
 
     if (launchTarget.kind === 'history') {
-        await openHistory(launchTarget.filePath, Boolean(launchTarget.includeStaged));
+        await openHistory(launchTarget.filePath, Boolean(launchTarget.includeStaged), { source: requestedSource });
         return;
     }
 
     if (launchTarget.kind === 'multi-diff') {
-        await openMultiDiff(launchTarget.paths);
+        await openMultiDiff(launchTarget.paths, { source: requestedSource });
         return;
     }
 
     if (launchTarget.kind === 'git-diff') {
-        await openGitRefs(launchTarget.cwd || process.cwd(), launchTarget.refs);
+        await openGitRefs(launchTarget.cwd || process.cwd(), launchTarget.refs, { source: requestedSource });
         return;
     }
 
@@ -1336,27 +1336,27 @@ async function routeLaunchTarget(launchTarget) {
 
 function sourceForLaunchTarget(launchTarget) {
     if (launchTarget.kind === 'diff' || launchTarget.kind === 'pair') {
-        return createFilesSource([launchTarget.leftPath, launchTarget.rightPath]);
+        return createFilesSource([launchTarget.leftPath, launchTarget.rightPath], launchTarget.readOnly);
     }
     if (launchTarget.kind === 'multi-diff') {
-        return createFilesSource(launchTarget.paths);
+        return createFilesSource(launchTarget.paths, launchTarget.readOnly);
     }
     if (launchTarget.kind === 'directory') {
-        return createDirectoriesSource([launchTarget.leftPath, launchTarget.rightPath]);
+        return createDirectoriesSource([launchTarget.leftPath, launchTarget.rightPath], undefined, launchTarget.readOnly);
     }
     if (launchTarget.kind === 'multi-directory') {
-        return createDirectoriesSource(launchTarget.paths);
+        return createDirectoriesSource(launchTarget.paths, undefined, launchTarget.readOnly);
     }
     if (launchTarget.kind === 'history') {
-        return createFileHistorySource(launchTarget.filePath, launchTarget.includeStaged, historySkipUnchangedPreference);
+        return createFileHistorySource(launchTarget.filePath, launchTarget.includeStaged, historySkipUnchangedPreference, launchTarget.readOnly);
     }
     if (launchTarget.kind === 'directory-history') {
-        return createDirectoryHistorySource(launchTarget.dirPath, launchTarget.includeStaged, historySkipUnchangedPreference);
+        return createDirectoryHistorySource(launchTarget.dirPath, launchTarget.includeStaged, historySkipUnchangedPreference, launchTarget.readOnly);
     }
     if (launchTarget.kind === 'git-diff') {
         try {
             const repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], launchTarget.cwd || process.cwd()));
-            return createGitRefsSource(repoRoot, launchTarget.refs);
+            return createGitRefsSource(repoRoot, launchTarget.refs, launchTarget.readOnly);
         } catch {
             return null;
         }
@@ -1377,6 +1377,12 @@ function getCliArgs() {
 }
 
 function parseLaunchArgs(args) {
+    const extracted = extractReadOnlyLaunchOption(args);
+    const launchTarget = parseLaunchArgsCore(extracted.args);
+    return extracted.readOnly ? { ...launchTarget, readOnly: true } : launchTarget;
+}
+
+function parseLaunchArgsCore(args) {
     const { cwd, launchArgs } = normalizeLaunchArgs(args);
     const includeStaged = launchArgs.some((arg) => tokenMatches('includeStaged', arg));
     let capturePath = null;
@@ -1730,10 +1736,10 @@ async function handleRendererMessage(message) {
     }
 
     if (message.type === 'recomputeDiff' && session.mode === 'diff') {
-        if (session.left.editable !== false) {
+        if (!session.source?.readOnly && session.left.editable !== false) {
             session.left.content = message.leftContent;
         }
-        if (session.right.editable !== false) {
+        if (!session.source?.readOnly && session.right.editable !== false) {
             session.right.content = message.rightContent;
         }
         session.left.dirty = session.left.content !== session.left.savedContent;
@@ -1819,7 +1825,7 @@ async function handleRendererMessage(message) {
         && session.mode === 'multi-diff'
         && session.multi) {
         const panel = session.multi.files.find((entry) => entry.id === message.panelId);
-        if (panel?.editable !== false) {
+        if (!session.source?.readOnly && panel?.editable !== false) {
             panel.content = message.content;
             panel.dirty = panel.content !== panel.savedContent;
             refreshSessionWindowTitle();
@@ -2097,9 +2103,13 @@ async function openDirectories(dirs, options = {}) {
     const labels = Array.isArray(options.labels) && options.labels.length === resolvedDirs.length
         ? [...options.labels]
         : resolvedDirs.map((dir) => path.basename(dir));
+    const readOnly = Boolean(options.source?.readOnly);
     const columns = resolvedDirs.map((root, index) => ({
         root,
-        editable: options.columns?.[index]?.editable ?? !options.review,
+        editable: !readOnly && (options.columns?.[index]?.editable ?? !options.review),
+        ...(readOnly && (options.columns?.[index]?.editable ?? !options.review)
+            ? { mutabilityLabel: 'Read-only file' }
+            : {}),
         includedPaths: options.columns?.[index]?.includedPaths
     }));
 
@@ -2167,16 +2177,24 @@ async function addDirectoryColumn(side) {
     if (side === 'left') {
         session.directory.dirs.unshift(newDir);
         session.directory.labels.unshift(newLabel);
-        session.directory.columns.unshift({ root: newDir, editable: true });
+        session.directory.columns.unshift({
+            root: newDir,
+            editable: !session.source?.readOnly,
+            ...(session.source?.readOnly ? { mutabilityLabel: 'Read-only file' } : {})
+        });
     } else {
         session.directory.dirs.push(newDir);
         session.directory.labels.push(newLabel);
-        session.directory.columns.push({ root: newDir, editable: true });
+        session.directory.columns.push({
+            root: newDir,
+            editable: !session.source?.readOnly,
+            ...(session.source?.readOnly ? { mutabilityLabel: 'Read-only file' } : {})
+        });
     }
 
     session.left = createSideState(session.directory.dirs[0], '');
     session.right = createSideState(session.directory.dirs[session.directory.dirs.length - 1], '');
-    session.source = createDirectoriesSource(session.directory.dirs, session.directory.labels);
+    session.source = createDirectoriesSource(session.directory.dirs, session.directory.labels, session.source?.readOnly);
     await sendCurrentDirectoryDiff();
 }
 
@@ -2215,7 +2233,7 @@ async function removeDirectoryColumn(sideIndex) {
     session.directory.columns.splice(sideIndex, 1);
     session.left = createSideState(session.directory.dirs[0], '');
     session.right = createSideState(session.directory.dirs[session.directory.dirs.length - 1], '');
-    session.source = createDirectoriesSource(session.directory.dirs, session.directory.labels);
+    session.source = createDirectoriesSource(session.directory.dirs, session.directory.labels, session.source?.readOnly);
     await sendCurrentDirectoryDiff();
 }
 
@@ -2337,7 +2355,12 @@ async function openGitRefs(cwd, refs, options = {}) {
             if (r.kind === 'worktree') {
                 dirs.push(repoRoot);
                 labels.push(customLabel || getGitDiffSourceLabel(r));
-                columns.push({ root: repoRoot, editable: true, includedPaths: collectWorkingTreeInventory(repoRoot) });
+                columns.push({
+                    root: repoRoot,
+                    editable: !options.source?.readOnly,
+                    ...(options.source?.readOnly ? { mutabilityLabel: 'Read-only file' } : {}),
+                    includedPaths: collectWorkingTreeInventory(repoRoot)
+                });
                 continue;
             }
             const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-gitdiff-'));
@@ -2433,7 +2456,8 @@ async function openDirectoryHistory(dirPath, includeStaged = historyIncludeStage
         source: cloneSessionSource(options.source || createDirectoryHistorySource(
             resolvedDir,
             includeStaged,
-            historyState.skipUnchanged
+            historyState.skipUnchanged,
+            options.source?.readOnly
         )),
         left: createSideState('', ''),
         right: createSideState('', ''),
@@ -3074,8 +3098,8 @@ async function openDiff(leftPath, rightPath, options = {}) {
         session = {
             mode: 'diff',
             source: cloneSessionSource(options.source || createFilesSource([leftPath, rightPath])),
-            left: createSideState(leftPath, ''),
-            right: createSideState(rightPath, ''),
+            left: { ...createSideState(leftPath, ''), editable: !options.source?.readOnly },
+            right: { ...createSideState(rightPath, ''), editable: !options.source?.readOnly },
             binaryComparison,
             history: null,
             directory: null,
@@ -3118,8 +3142,8 @@ async function openHistory(filePath, includeStaged = historyIncludeStagedPrefere
         skipUnchanged: Boolean(historySkipUnchangedPreference)
     };
     const files = [
-        createHistoryMultiPanelState(firstEntry, 0, 'left', resolvedPath),
-        createHistoryMultiPanelState(firstEntry, 0, 'right', resolvedPath)
+        createHistoryMultiPanelState(firstEntry, 0, 'left', resolvedPath, options.source?.readOnly),
+        createHistoryMultiPanelState(firstEntry, 0, 'right', resolvedPath, options.source?.readOnly)
     ];
 
     session = {
@@ -3127,7 +3151,8 @@ async function openHistory(filePath, includeStaged = historyIncludeStagedPrefere
         source: cloneSessionSource(options.source || createFileHistorySource(
             resolvedPath,
             includeStaged,
-            historySource.skipUnchanged
+            historySource.skipUnchanged,
+            options.source?.readOnly
         )),
         left: createSideState('', ''),
         right: createSideState('', ''),
@@ -3150,7 +3175,7 @@ async function openHistory(filePath, includeStaged = historyIncludeStagedPrefere
     await sendCurrentMultiDiff();
 }
 
-async function openPathPair(leftPath, rightPath, expectedMode) {
+async function openPathPair(leftPath, rightPath, expectedMode, options = {}) {
     const resolvedLeft = path.resolve(leftPath);
     const resolvedRight = path.resolve(rightPath);
     const leftKind = getPathKind(resolvedLeft);
@@ -3158,7 +3183,7 @@ async function openPathPair(leftPath, rightPath, expectedMode) {
 
     if (expectedMode === 'directory') {
         if (leftKind === 'directory' && rightKind === 'directory') {
-            await openDirectories([resolvedLeft, resolvedRight]);
+            await openDirectories([resolvedLeft, resolvedRight], options);
             return;
         }
 
@@ -3168,7 +3193,7 @@ async function openPathPair(leftPath, rightPath, expectedMode) {
 
     if (expectedMode === 'diff') {
         if (leftKind === 'file' && rightKind === 'file') {
-            await openDiff(resolvedLeft, resolvedRight);
+            await openDiff(resolvedLeft, resolvedRight, options);
             return;
         }
 
@@ -3177,12 +3202,12 @@ async function openPathPair(leftPath, rightPath, expectedMode) {
     }
 
     if (leftKind === 'directory' && rightKind === 'directory') {
-        await openDirectories([resolvedLeft, resolvedRight]);
+        await openDirectories([resolvedLeft, resolvedRight], options);
         return;
     }
 
     if (leftKind === 'file' && rightKind === 'file') {
-        await openDiff(resolvedLeft, resolvedRight);
+        await openDiff(resolvedLeft, resolvedRight, options);
         return;
     }
 
@@ -3199,7 +3224,7 @@ async function openMultiDiff(filePaths, options = {}) {
         return;
     }
 
-    const files = resolvedPaths.map((filePath) => createMultiPanelState(filePath));
+    const files = resolvedPaths.map((filePath) => createMultiPanelState(filePath, !options.source?.readOnly));
 
     session = {
         mode: 'multi-diff',
@@ -3223,14 +3248,14 @@ async function openMultiDiff(filePaths, options = {}) {
     await sendCurrentMultiDiff();
 }
 
-async function openBlankDiff() {
+async function openBlankDiff(readOnly = false) {
     if (!await confirmSessionReplacement('open a blank comparison')) {
         return;
     }
-    const panel = createBlankMultiPanelState();
+    const panel = createBlankMultiPanelState(!readOnly);
     session = {
         mode: 'multi-diff',
-        source: { kind: 'blank' },
+        source: { kind: 'blank', ...(readOnly ? { readOnly: true } : {}) },
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,
@@ -3330,10 +3355,10 @@ async function addMultiPanel(anchorPanelId, side) {
         return;
     }
 
-    const panel = createBlankMultiPanelState();
+    const panel = createBlankMultiPanelState(!session.source?.readOnly);
     const insertIndex = side === 'left' ? anchorIndex : anchorIndex + 1;
     session.multi.files.splice(insertIndex, 0, panel);
-    session.source = { kind: 'synthetic' };
+    session.source = { kind: 'synthetic', ...(session.source?.readOnly ? { readOnly: true } : {}) };
     session.multi.activePanelId = panel.id;
     session.multi.activePairIndex = normalizeMultiPairIndex(
         side === 'left' ? insertIndex : insertIndex - 1,
@@ -3360,7 +3385,7 @@ async function addHistoryPanelToMulti(side) {
             return;
         }
 
-        const panel = createHistoryMultiPanelState(source.entries[olderIndex], olderIndex, 'left', source.filePath);
+        const panel = createHistoryMultiPanelState(source.entries[olderIndex], olderIndex, 'left', source.filePath, session.source?.readOnly);
         session.multi.files.unshift(panel);
         session.multi.activePanelId = panel.id;
         session.multi.activePairIndex = normalizeMultiPairIndex(0, session.multi.files.length);
@@ -3375,7 +3400,7 @@ async function addHistoryPanelToMulti(side) {
             return;
         }
 
-        const panel = createHistoryMultiPanelState(source.entries[newerIndex], newerIndex, 'right', source.filePath);
+        const panel = createHistoryMultiPanelState(source.entries[newerIndex], newerIndex, 'right', source.filePath, session.source?.readOnly);
         session.multi.files.push(panel);
         session.multi.activePanelId = panel.id;
         session.multi.activePairIndex = normalizeMultiPairIndex(session.multi.files.length - 2, session.multi.files.length);
@@ -3453,21 +3478,21 @@ async function openHistoryAsMultiPanel(side) {
     }
 
     const files = [
-        createHistoryMultiPanelState(currentEntry, session.history.index, 'left', session.history.filePath),
-        createHistoryMultiPanelState(currentEntry, session.history.index, 'right', session.history.filePath)
+        createHistoryMultiPanelState(currentEntry, session.history.index, 'left', session.history.filePath, session.source?.readOnly),
+        createHistoryMultiPanelState(currentEntry, session.history.index, 'right', session.history.filePath, session.source?.readOnly)
     ];
     let extended = false;
 
     if (side === 'left') {
         const olderIndex = getHistoryNeighborIndex(session.history, session.history.index, 'older');
         if (olderIndex !== null) {
-            files.unshift(createHistoryMultiPanelState(session.history.entries[olderIndex], olderIndex, 'left', session.history.filePath));
+            files.unshift(createHistoryMultiPanelState(session.history.entries[olderIndex], olderIndex, 'left', session.history.filePath, session.source?.readOnly));
             extended = true;
         }
     } else {
         const newerIndex = getHistoryNeighborIndex(session.history, session.history.index, 'newer');
         if (newerIndex !== null) {
-            files.push(createHistoryMultiPanelState(session.history.entries[newerIndex], newerIndex, 'right', session.history.filePath));
+            files.push(createHistoryMultiPanelState(session.history.entries[newerIndex], newerIndex, 'right', session.history.filePath, session.source?.readOnly));
             extended = true;
         }
     }
@@ -3836,8 +3861,8 @@ async function openFileHistorySearchResult(historyIndex) {
     const entry = source.entries[historyIndex];
     if (!entry) return;
     session.multi.files = [
-        createHistoryMultiPanelState(entry, historyIndex, 'left', source.filePath),
-        createHistoryMultiPanelState(entry, historyIndex, 'right', source.filePath)
+        createHistoryMultiPanelState(entry, historyIndex, 'left', source.filePath, session.source?.readOnly),
+        createHistoryMultiPanelState(entry, historyIndex, 'right', source.filePath, session.source?.readOnly)
     ];
     session.multi.activePanelId = session.multi.files[1].id;
     session.multi.activePairIndex = 0;
@@ -3850,19 +3875,28 @@ function buildDirectoryEntries(context) {
     });
 }
 
-function getDirectoryColumns(dirs, columns, review) {
-    return dirs.map((root, index) => columns?.[index] || { root, editable: !review });
+function getDirectoryColumns(dirs, columns, review, readOnly = false) {
+    return dirs.map((root, index) => {
+        const column = columns?.[index] || { root, editable: !review };
+        const intrinsicallyEditable = column.editable !== false;
+        return {
+            ...column,
+            editable: intrinsicallyEditable && !readOnly,
+            ...(intrinsicallyEditable && readOnly ? { mutabilityLabel: 'Read-only file' } : {})
+        };
+    });
 }
 
-function getDirectoryFileLabel(label, relativePath, exists, editable) {
-    return `${label} / ${relativePath}${exists ? '' : ' (missing)'} · ${editable ? 'Writable file' : 'Read-only snapshot'}`;
+function getDirectoryFileLabel(label, relativePath, exists, column) {
+    const mutabilityLabel = column.editable ? 'Writable file' : (column.mutabilityLabel || 'Read-only snapshot');
+    return `${label} / ${relativePath}${exists ? '' : ' (missing)'} · ${mutabilityLabel}`;
 }
 
 async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review = null, columns = null) {
     if (!await confirmSessionReplacement('open another directory file')) {
         return;
     }
-    const resolvedColumns = getDirectoryColumns(dirs, columns, review);
+    const resolvedColumns = getDirectoryColumns(dirs, columns, review, session.source?.readOnly);
     const panels = dirs.map((dir, i) => {
         const filePath = path.join(dir, relativePath);
         const exists = getPathKind(filePath) === 'file';
@@ -3875,7 +3909,8 @@ async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review =
             content,
             savedContent: content,
             dirty: false,
-            editable
+            editable,
+            mutabilityLabel: resolvedColumns[i]?.mutabilityLabel
         };
     });
 
@@ -3916,7 +3951,7 @@ async function openDirectoryFileDiff(dirs, labels, relativePath, review = null, 
     const rightPath = path.join(dirs[1], rightRelativePath);
     const leftExists = getPathKind(leftPath) === 'file';
     const rightExists = getPathKind(rightPath) === 'file';
-    const resolvedColumns = getDirectoryColumns(dirs, columns, review);
+    const resolvedColumns = getDirectoryColumns(dirs, columns, review, session.source?.readOnly);
     const leftEditable = Boolean(resolvedColumns[0]?.editable);
     const rightEditable = Boolean(resolvedColumns[1]?.editable);
 
@@ -3928,16 +3963,16 @@ async function openDirectoryFileDiff(dirs, labels, relativePath, review = null, 
     const binaryComparison = buildBinaryComparison(
         leftPath,
         rightPath,
-        getDirectoryFileLabel(labels[0], leftRelativePath, leftExists, leftEditable),
-        getDirectoryFileLabel(labels[1], rightRelativePath, rightExists, rightEditable)
+        getDirectoryFileLabel(labels[0], leftRelativePath, leftExists, resolvedColumns[0]),
+        getDirectoryFileLabel(labels[1], rightRelativePath, rightExists, resolvedColumns[1])
     );
     const leftContent = leftExists && !binaryComparison ? readFileContent(leftPath) : '';
     const rightContent = rightExists && !binaryComparison ? readFileContent(rightPath) : '';
     const left = createSideState(leftPath, leftContent);
     const right = createSideState(rightPath, rightContent);
 
-    left.label = getDirectoryFileLabel(labels[0], leftRelativePath, leftExists, leftEditable);
-    right.label = getDirectoryFileLabel(labels[1], rightRelativePath, rightExists, rightEditable);
+    left.label = getDirectoryFileLabel(labels[0], leftRelativePath, leftExists, resolvedColumns[0]);
+    right.label = getDirectoryFileLabel(labels[1], rightRelativePath, rightExists, resolvedColumns[1]);
     left.editable = leftEditable;
     right.editable = rightEditable;
 
@@ -4171,6 +4206,7 @@ async function sendCurrentMultiDiff() {
             content: file.content,
             editable: file.editable !== false,
             dirty: Boolean(file.dirty),
+            mutabilityLabel: file.mutabilityLabel,
             addLeftEnabled,
             removeEnabled,
             addRightEnabled
@@ -4423,6 +4459,7 @@ async function sendCurrentDiff() {
             left: session.left.editable !== false,
             right: session.right.editable !== false
         },
+        readOnlyLabel: session.source?.readOnly ? 'Read-only file' : undefined,
         canReturnToDirectory: Boolean(session.returnDirectory),
         comparisonSummary: session.returnDirectory?.comparisonSummary
     };
@@ -4513,7 +4550,8 @@ async function sendCurrentHistoryEntry() {
             rightPath: session.history.filePath
         },
         diffModel,
-        editableSides: buildHistoryEditableSides(entry),
+        editableSides: buildHistoryEditableSides(entry, session.source?.readOnly),
+        readOnlyLabel: session.source?.readOnly && entry.commit === 'WORKTREE' ? 'Read-only file' : undefined,
         history: {
             fileName,
             canGoBack: visiblePosition >= 0 && visiblePosition < visibleIndices.length - 1,
@@ -4555,10 +4593,10 @@ async function sendCurrentHistoryEntry() {
     }
 }
 
-function buildHistoryEditableSides(entry) {
+function buildHistoryEditableSides(entry, readOnly = false) {
     return {
         left: false,
-        right: entry.commit === 'WORKTREE'
+        right: entry.commit === 'WORKTREE' && !readOnly
     };
 }
 
@@ -4586,7 +4624,7 @@ function buildFileHistoryRailState(historyState) {
 }
 
 async function updateEditableHistoryDiff(_leftContent, rightContent) {
-    if (session.mode !== 'history' || !session.history) {
+    if (session.mode !== 'history' || !session.history || session.source?.readOnly) {
         return;
     }
 
@@ -4601,7 +4639,7 @@ async function updateEditableHistoryDiff(_leftContent, rightContent) {
 }
 
 async function updateEditableDirectoryHistoryDiff(_leftContent, rightContent) {
-    if (session.mode !== 'directory-history' || !session.dirHistory?.viewRelativePath) {
+    if (session.mode !== 'directory-history' || !session.dirHistory?.viewRelativePath || session.source?.readOnly) {
         return;
     }
 
@@ -4705,7 +4743,12 @@ async function updateHistorySkipUnchanged(skipUnchanged) {
     historySkipUnchangedPreference = skipUnchanged;
 
     if (session.mode === 'history' && session.history) {
-        session.source = createFileHistorySource(session.history.filePath, session.history.includeStaged, skipUnchanged);
+        session.source = createFileHistorySource(
+            session.history.filePath,
+            session.history.includeStaged,
+            skipUnchanged,
+            session.source?.readOnly
+        );
         session.history.skipUnchanged = skipUnchanged;
         const normalizedIndex = normalizeHistoryIndex(getVisibleFileHistoryIndices(session.history), session.history.index);
         if (normalizedIndex !== null) {
@@ -4716,7 +4759,12 @@ async function updateHistorySkipUnchanged(skipUnchanged) {
     }
 
     if (session.mode === 'directory-history' && session.dirHistory) {
-        session.source = createDirectoryHistorySource(session.dirHistory.dirPath, session.dirHistory.includeStaged, skipUnchanged);
+        session.source = createDirectoryHistorySource(
+            session.dirHistory.dirPath,
+            session.dirHistory.includeStaged,
+            skipUnchanged,
+            session.source?.readOnly
+        );
         session.dirHistory.skipUnchanged = skipUnchanged;
         const normalizedIndex = normalizeHistoryIndex(getVisibleDirectoryHistoryIndices(session.dirHistory), session.dirHistory.index);
         if (normalizedIndex !== null) {
@@ -4768,7 +4816,7 @@ async function saveSide(side) {
     }
 
     const target = session[side];
-    if (target.editable === false) {
+    if (session.source?.readOnly || target.editable === false) {
         return false;
     }
     let targetPath = target.path;
@@ -4802,7 +4850,7 @@ async function saveSide(side) {
 }
 
 async function saveHistorySide(side) {
-    if (side !== 'right' || !session.history) {
+    if (side !== 'right' || !session.history || session.source?.readOnly) {
         return false;
     }
 
@@ -4819,7 +4867,7 @@ async function saveHistorySide(side) {
 }
 
 async function saveDirectoryHistorySide(side) {
-    if (side !== 'right' || !session.dirHistory?.viewRelativePath) {
+    if (side !== 'right' || !session.dirHistory?.viewRelativePath || session.source?.readOnly) {
         return false;
     }
 
@@ -4919,7 +4967,7 @@ async function saveDirtyMultiPanels() {
 }
 
 async function saveMultiPanel(panel, { dialogTitle, refreshView }) {
-    if (panel.editable === false) {
+    if (session.source?.readOnly || panel.editable === false) {
         return false;
     }
     let targetPath = panel.path;
@@ -4957,7 +5005,7 @@ async function saveMultiPanel(panel, { dialogTitle, refreshView }) {
 }
 
 async function saveDirtyHistoryEntries() {
-    if (!session.history) {
+    if (!session.history || session.source?.readOnly) {
         return true;
     }
 
@@ -4974,7 +5022,7 @@ async function saveDirtyHistoryEntries() {
 }
 
 async function saveDirtyDirectoryHistoryEntries() {
-    if (!session.dirHistory) {
+    if (!session.dirHistory || session.source?.readOnly) {
         return true;
     }
 
@@ -5411,7 +5459,7 @@ function buildSessionFromSource(source) {
                 returnDirectory: null
             };
         }
-        const files = paths.map((filePath) => createMultiPanelState(filePath));
+        const files = paths.map((filePath) => createMultiPanelState(filePath, !source.readOnly));
         return {
             mode: 'multi-diff',
             source: cloneSessionSource(source),
@@ -5454,8 +5502,8 @@ function buildSessionFromSource(source) {
             skipUnchanged: Boolean(source.skipUnchanged)
         };
         const files = [
-            createHistoryMultiPanelState(entries[0], 0, 'left', source.path),
-            createHistoryMultiPanelState(entries[0], 0, 'right', source.path)
+            createHistoryMultiPanelState(entries[0], 0, 'left', source.path, source.readOnly),
+            createHistoryMultiPanelState(entries[0], 0, 'right', source.path, source.readOnly)
         ];
         return {
             mode: 'multi-diff',
@@ -5503,7 +5551,8 @@ function buildSessionFromSource(source) {
                 if (resolvedSource.kind === 'worktree') {
                     return {
                         root: source.repoRoot,
-                        editable: true,
+                        editable: !source.readOnly,
+                        ...(source.readOnly ? { mutabilityLabel: 'Read-only file' } : {}),
                         includedPaths: collectWorkingTreeInventory(source.repoRoot)
                     };
                 }
@@ -5560,7 +5609,7 @@ function buildSessionFromSource(source) {
 }
 
 function createDirectorySession(dirs, labels, source, options = {}) {
-    const columns = getDirectoryColumns(dirs, options.columns, options.review);
+    const columns = getDirectoryColumns(dirs, options.columns, options.review, source?.readOnly);
     return {
         mode: 'directory',
         source: cloneSessionSource(source),
@@ -5604,8 +5653,8 @@ async function restoreSessionNavigation(snapshot) {
         if (matchingIndex >= 0) {
             const entry = historySource.entries[matchingIndex];
             const files = [
-                createHistoryMultiPanelState(entry, matchingIndex, 'left', historySource.filePath),
-                createHistoryMultiPanelState(entry, matchingIndex, 'right', historySource.filePath)
+                createHistoryMultiPanelState(entry, matchingIndex, 'left', historySource.filePath, session.source?.readOnly),
+                createHistoryMultiPanelState(entry, matchingIndex, 'right', historySource.filePath, session.source?.readOnly)
             ];
             session.multi.files = files;
             const activeIndex = snapshot.historySide === 'left' ? 0 : 1;
@@ -5788,7 +5837,7 @@ function createSideState(filePath, content) {
     };
 }
 
-function createMultiPanelState(filePath) {
+function createMultiPanelState(filePath, editable = true) {
     const content = readFileContent(filePath);
     return {
         id: `panel-${nextMultiPanelId++}`,
@@ -5797,11 +5846,12 @@ function createMultiPanelState(filePath) {
         content,
         savedContent: content,
         dirty: false,
-        editable: true
+        editable,
+        ...(!editable ? { mutabilityLabel: 'Read-only file' } : {})
     };
 }
 
-function createBlankMultiPanelState() {
+function createBlankMultiPanelState(editable = true) {
     return {
         id: `panel-${nextMultiPanelId++}`,
         path: '',
@@ -5809,7 +5859,8 @@ function createBlankMultiPanelState() {
         content: '',
         savedContent: '',
         dirty: false,
-        editable: true
+        editable,
+        ...(!editable ? { mutabilityLabel: 'Read-only file' } : {})
     };
 }
 
@@ -5831,9 +5882,10 @@ function getHistoryNeighborIndex(historyState, entryIndex, direction) {
     return null;
 }
 
-function createHistoryMultiPanelState(entry, entryIndex, side, filePath) {
+function createHistoryMultiPanelState(entry, entryIndex, side, filePath, readOnly = false) {
     const isRight = side === 'right';
-    const editable = isRight && entry.commit === 'WORKTREE';
+    const isLiveFile = isRight && entry.commit === 'WORKTREE';
+    const editable = isLiveFile && !readOnly;
     const content = isRight ? entry.rightContent : entry.leftContent;
     const savedContent = editable ? readFileContent(filePath) : content;
 
@@ -5845,6 +5897,7 @@ function createHistoryMultiPanelState(entry, entryIndex, side, filePath) {
         savedContent,
         dirty: editable ? Boolean(entry.rightDirty) : false,
         editable,
+        ...(isLiveFile && readOnly ? { mutabilityLabel: 'Read-only file' } : {}),
         historyEntryIndex: entryIndex,
         historySide: side
     };

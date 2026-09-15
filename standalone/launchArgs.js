@@ -13,7 +13,16 @@ function getForwardedLaunchArgs(argv, additionalData, options) {
     return getCliArgsFromArgv(argv, options);
 }
 
+function extractReadOnlyLaunchOption(args) {
+    const filteredArgs = args.filter((arg) => arg !== '--read-only');
+    return {
+        args: filteredArgs,
+        readOnly: filteredArgs.length !== args.length
+    };
+}
+
 module.exports = {
+    extractReadOnlyLaunchOption,
     getCliArgsFromArgv,
     getForwardedLaunchArgs
 };

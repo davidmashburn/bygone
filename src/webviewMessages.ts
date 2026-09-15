@@ -90,6 +90,7 @@ export interface ShowDiffMessage {
         left: boolean;
         right: boolean;
     };
+    readOnlyLabel?: string;
     comparisonSummary?: string;
     initialChangeIndex?: number;
     tourAnnotations?: TourAnnotation[];
@@ -123,6 +124,7 @@ export interface MultiDiffPanel {
     languageId?: string;
     editable?: boolean;
     dirty?: boolean;
+    mutabilityLabel?: string;
 }
 
 export interface MultiDiffPair {

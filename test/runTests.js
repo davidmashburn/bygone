@@ -47,7 +47,7 @@ const {
     readWordWrapPreference,
     writeWordWrapPreference
 } = require('../media/wrapController.js');
-const { getCliArgsFromArgv, getForwardedLaunchArgs } = require('../standalone/launchArgs.js');
+const { extractReadOnlyLaunchOption, getCliArgsFromArgv, getForwardedLaunchArgs } = require('../standalone/launchArgs.js');
 const { normalizeWindowState, readWindowState, writeWindowState } = require('../standalone/windowState.js');
 const {
     createBranchReviewSource,
@@ -898,8 +898,9 @@ function testEditorComfortUsesNativeMonacoActionsAndSourceModels() {
 
 function testTextPanelsExposeMutabilityProvenance() {
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
-    assert.match(rendererSource, /panel\.editable \? 'Writable file' : 'Read-only snapshot'/);
-    assert.match(rendererSource, /button\.textContent = !hasEditableSide \? 'Read-only snapshot'/);
+    assert.match(rendererSource, /panel\.mutabilityLabel \|\| 'Read-only snapshot'/);
+    assert.match(rendererSource, /button\.textContent = !hasEditableSide \? hostReadOnlyLabel/);
+    assert.match(rendererSource, /hostReadOnlyLabel === 'Read-only file'/);
 }
 
 function testProductSurfaceOverviewTracksHostsAndBoundaries() {
@@ -2422,6 +2423,12 @@ function testSessionSourcesRetainRefreshIntent() {
     assert.equal(isRefreshableSource({ kind: 'blank' }), false);
     assert.equal(sessionSourcesEqual(files, createFilesSource(['relative-left.txt', 'relative-right.txt'])), true);
     assert.equal(sessionSourcesEqual(files, createFilesSource(['relative-right.txt', 'relative-left.txt'])), false);
+    assert.deepEqual(createFilesSource(['relative-left.txt'], true), {
+        kind: 'files',
+        paths: [path.resolve('relative-left.txt')],
+        readOnly: true
+    });
+    assert.equal(sessionSourcesEqual(files, createFilesSource(['relative-left.txt', 'relative-right.txt'], true)), false);
 
     assert.deepEqual(createDirectoriesSource(['/tmp/left', '/tmp/right'], ['Old', 'New']).labels, ['Old', 'New']);
     assert.deepEqual(createFileHistorySource('/tmp/file.txt', true, false), {
@@ -2441,12 +2448,37 @@ function testSessionSourcesRetainRefreshIntent() {
         repoRoot: '/tmp/repo',
         refs: ['main', 'INDEX', 'WORKTREE']
     });
+    assert.equal(createDirectoriesSource(['/tmp/left', '/tmp/right'], undefined, true).readOnly, true);
+    assert.equal(createFileHistorySource('/tmp/file.txt', true, false, true).readOnly, true);
+    assert.equal(createDirectoryHistorySource('/tmp/project', false, true, true).readOnly, true);
+    assert.equal(createGitRefsSource('/tmp/repo', ['HEAD', 'WORKTREE'], true).readOnly, true);
     assert.deepEqual(createBranchReviewSource('/tmp/repo', 'feature', 'main'), {
         kind: 'branch-review',
         repoRoot: '/tmp/repo',
         headRef: 'feature',
         baseRef: 'main'
     });
+}
+
+function testReadOnlyLaunchOptionIsGlobalAndExplicit() {
+    assert.deepEqual(extractReadOnlyLaunchOption(['--read-only', '--diff', 'a', 'b']), {
+        args: ['--diff', 'a', 'b'],
+        readOnly: true
+    });
+    assert.deepEqual(extractReadOnlyLaunchOption(['--git-diff', 'HEAD', 'WORKTREE', '--read-only']), {
+        args: ['--git-diff', 'HEAD', 'WORKTREE'],
+        readOnly: true
+    });
+    assert.deepEqual(extractReadOnlyLaunchOption(['--diff', 'a', 'b']), {
+        args: ['--diff', 'a', 'b'],
+        readOnly: false
+    });
+
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    assert.match(standaloneSource, /const extracted = extractReadOnlyLaunchOption\(args\)/);
+    assert.match(standaloneSource, /if \(!session\.source\?\.readOnly && session\.left\.editable !== false\)/);
+    assert.match(standaloneSource, /if \(session\.source\?\.readOnly \|\| panel\.editable === false\)/);
+    assert.match(standaloneSource, /createMultiPanelState\(filePath, !source\.readOnly\)/);
 }
 
 function testDesktopWindowStatePersistsOnlyRestorableSessions() {
@@ -3193,10 +3225,10 @@ function testDirectoryDiffCanFilterAWorktreeByGitInventory() {
 function testGitWorktreeComparisonKeepsOnlyWorktreeWritable() {
     const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
     assert.match(standaloneSource, /\['ls-files', '-co', '-z', '--exclude-standard'\]/);
-    assert.match(standaloneSource, /resolvedSource\.kind === 'worktree'[\s\S]{0,260}root: source\.repoRoot,[\s\S]{0,100}editable: true/);
+    assert.match(standaloneSource, /resolvedSource\.kind === 'worktree'[\s\S]{0,260}root: source\.repoRoot,[\s\S]{0,100}editable: !source\.readOnly/);
     assert.match(standaloneSource, /columns\.push\(\{ root, editable: false \}\)/);
     assert.match(standaloneSource, /left: session\.left\.editable !== false,[\s\S]{0,100}right: session\.right\.editable !== false/);
-    assert.match(standaloneSource, /if \(target\.editable === false\) \{[\s\S]{0,80}return false/);
+    assert.match(standaloneSource, /if \(session\.source\?\.readOnly \|\| target\.editable === false\) \{[\s\S]{0,80}return false/);
     assert.match(standaloneSource, /fs\.mkdirSync\(path\.dirname\(targetPath\), \{ recursive: true \}\)/);
 }
 
@@ -4089,6 +4121,7 @@ async function run() {
     testWordWrapUsesSharedRendererAndStandaloneMenu();
     testWrappedDiffMarkersUseViewAwareGeometry();
     testSessionSourcesRetainRefreshIntent();
+    testReadOnlyLaunchOptionIsGlobalAndExplicit();
     testDesktopWindowStatePersistsOnlyRestorableSessions();
     testReleasePrepInstallsAndGracefullyRestartsLocalArtifacts();
     testRefreshSessionUsesSemanticRendererAndMenuCommands();

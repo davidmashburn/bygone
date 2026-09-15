@@ -69,6 +69,7 @@ let currentDiffRows = [];
 let scrollMaps = null;
 let historyMode = false;
 let hostEditableSides = { left: true, right: true };
+let hostReadOnlyLabel = 'Read-only snapshot';
 let userReadOnly = false;
 let directoryEntries = [];
 let multiEditors = [];
@@ -274,7 +275,8 @@ host.onMessage((message) => {
             message.comparisonSummary || null,
             message.initialChangeIndex,
             message.tourAnnotations || [],
-            message.sourceInfo || null
+            message.sourceInfo || null,
+            message.readOnlyLabel || null
         );
         return;
     }
@@ -362,7 +364,8 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.comparisonSummary || null,
             pendingTwoWayPayload.initialChangeIndex,
             pendingTwoWayPayload.tourAnnotations || [],
-            pendingTwoWayPayload.sourceInfo || null
+            pendingTwoWayPayload.sourceInfo || null,
+            pendingTwoWayPayload.readOnlyLabel || null
         );
         pendingTwoWayPayload = undefined;
     }
@@ -510,7 +513,7 @@ function isDarkColor(color) {
     return luminance < 140;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = [], sourceInfo = null) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = [], sourceInfo = null, readOnlyLabel = null) {
     const diffEpoch = ++twoWayDiffEpoch;
     const comparisonKey = comparisonId || `${file1}\u0000${file2}`;
     const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
@@ -520,6 +523,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     historyMode = Boolean(history);
     activeDirectoryEntryPath = null;
     hostEditableSides = normalizeEditableSides(nextEditableSides, historyMode);
+    hostReadOnlyLabel = readOnlyLabel || 'Read-only snapshot';
     if (hostEditableSides.left && !hostEditableSides.right) {
         activePaneSide = 'left';
     } else if (hostEditableSides.right) {
@@ -1198,7 +1202,7 @@ function renderMultiDiffShell(panels) {
             + `<span class="multi-pane-title">${escapeHtml(panel.label)}</span>`
             + `<span class="multi-pane-dirty${panel.dirty ? ' is-visible' : ''}" aria-hidden="true" title="Unsaved changes">•</span>`
             + `</button>`
-            + `<span class="multi-pane-provenance ${panel.editable ? 'is-writable' : 'is-readonly'}">${panel.editable ? 'Writable file' : 'Read-only snapshot'}</span>`
+            + `<span class="multi-pane-provenance ${panel.editable ? 'is-writable' : 'is-readonly'}">${escapeHtml(panel.editable ? 'Writable file' : (panel.mutabilityLabel || 'Read-only snapshot'))}</span>`
             + `<span class="multi-pane-actions">`
             + `<button class="multi-pane-action" type="button" data-multi-add-side="left" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the left" aria-label="Add panel to the left"${panel.addLeftEnabled ? '' : ' disabled'}>+</button>`
             + `<button class="multi-pane-action multi-pane-action-danger" type="button" data-multi-remove-panel="${escapeAttr(panel.id)}" title="Remove panel" aria-label="Remove panel"${panel.removeEnabled ? '' : ' disabled'}>×</button>`
@@ -3466,9 +3470,11 @@ function updateEditModeToolbar() {
     toolbar.hidden = currentMode !== MODE_TWO_WAY;
     button.disabled = !hasEditableSide;
     button.classList.toggle('is-readonly', userReadOnly);
-    button.textContent = !hasEditableSide ? 'Read-only snapshot' : (userReadOnly ? 'Read-only' : 'Editing On');
+    button.textContent = !hasEditableSide ? hostReadOnlyLabel : (userReadOnly ? 'Read-only' : 'Editing On');
     button.title = !hasEditableSide
-        ? 'This comparison contains historical, committed, or synthetic snapshots'
+        ? (hostReadOnlyLabel === 'Read-only file'
+            ? 'Editing was disabled when this comparison was opened'
+            : 'This comparison contains historical, committed, or synthetic snapshots')
         : userReadOnly
         ? 'Allow editing for writable panes'
         : 'Freeze writable panes';

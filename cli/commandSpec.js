@@ -10,6 +10,7 @@ const CLI_SPEC = Object.freeze({
         'bygone --diff <file1> <file2> <file3> [...]',
         'bygone --history <path>',
         'bygone --git-diff <ref1> <ref2> [<ref3>...]',
+        'bygone --read-only <desktop-arguments...>',
         'bygone review [<head>] [--base <base>]',
         'bygone -C <directory> <command-or-path> [...]',
         'bygone present [<head>] [--base <base>] [--tour <file.bygone>]',
@@ -108,6 +109,13 @@ const CLI_SPEC = Object.freeze({
             argument: 'path'
         },
         {
+            id: 'readOnly',
+            kind: 'global',
+            tokens: ['--read-only'],
+            description: 'Open live Explore sources without allowing edits',
+            argument: 'none'
+        },
+        {
             id: 'directory',
             kind: 'global',
             tokens: ['-C'],
@@ -145,6 +153,7 @@ const CLI_SPEC = Object.freeze({
         'Three or more positional paths auto-select multi-panel file diff or multi-directory compare.',
         '`--git-diff` accepts branches, tags, SHAs, HEAD~1, stash@{0}, INDEX, and WORKTREE.',
         'In `--git-diff`, committed refs and INDEX are read-only; WORKTREE (also WORKDIR or WORKINGTREE) is live and writable.',
+        '`--read-only` prevents editing every live file or WORKTREE panel in the launched Explore session.',
         '`review` compares merge-base(BASE,HEAD) with HEAD and detects the default base when omitted.',
         '`present` turns the same range into an app-hosted, ordered change tour.',
         '`-C <directory>` resolves relative paths and Git refs from that directory without changing the shell working directory.',
