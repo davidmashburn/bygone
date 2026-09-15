@@ -4441,8 +4441,14 @@ async function sendCurrentDiff() {
                 oneSidedLineCount: document.querySelectorAll('.bygone-one-sided-line').length,
                 inlineHighlightCount: document.querySelectorAll('.bygone-inline-blue').length,
                 activeDiffCount: document.querySelectorAll('.bygone-active-diff').length,
-                pairedLineBackground: getComputedStyle(document.querySelector('.bygone-paired-line')).backgroundColor,
-                inlineHighlightBackground: getComputedStyle(document.querySelector('.bygone-inline-blue')).backgroundColor,
+                pairedLineBackground: (() => {
+                    const element = document.querySelector('.bygone-paired-line');
+                    return element ? getComputedStyle(element).backgroundColor : '';
+                })(),
+                inlineHighlightBackground: (() => {
+                    const element = document.querySelector('.bygone-inline-blue');
+                    return element ? getComputedStyle(element).backgroundColor : '';
+                })(),
                 directoryRailVisible: !document.getElementById('history-rail')?.hidden,
                 directoryRailItemCount: document.querySelectorAll('.history-rail-item').length,
                 directoryReturnVisible: !document.getElementById('directory-return-toolbar')?.hidden,
