@@ -517,8 +517,9 @@
         }
 
         function getEditorBottomForLine(editor, lineNumber, editorRect, containerRect) {
-            return getEditorTopForLine(editor, lineNumber, editorRect, containerRect)
-                + editor.getOption(options.getMonaco().editor.EditorOption.lineHeight);
+            return editorRect.top - containerRect.top
+                + editor.getBottomForLineNumber(lineNumber)
+                - editor.getScrollTop();
         }
 
         function strokeReplaceBlockOutline(leftBounds, rightBounds, cpOffset, leftRect, rightRect, containerRect, color) {
