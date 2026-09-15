@@ -88,12 +88,13 @@ VS Code's native Search rather than another bundled ripgrep process.
 
 Use these labels consistently:
 
-- **Writable file:** filesystem/worktree content participating in dirty, undo,
+- **Writable file:** filesystem content and a live `WORKTREE` column participating in dirty, undo,
   save, reload, watcher, and refresh behavior.
 - **Read-only snapshot:** committed Git, history, tour, or supplied content that
   cannot be replaced or saved over a source file.
 - **INDEX** and **WORKTREE:** repository work states; do not describe them as
-  commits.
+  commits. `INDEX` is a read-only snapshot; `WORKTREE` is live and writable in
+  revision comparisons.
 - **Explanation stage:** synthetic deconstructed content; never imply that it
   is a real commit.
 - **Real revision:** a panel resolved from an exact Git object identity.

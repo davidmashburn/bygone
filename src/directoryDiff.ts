@@ -44,13 +44,24 @@ function collectUnionEntries(
     roots: string[],
     relativeDir: string,
     depth: number,
-    result: DirectoryEntry[]
+    result: DirectoryEntry[],
+    includedPaths: Array<ReadonlySet<string> | undefined>
 ): boolean {
     const maps = roots.map((root) => new Map(safeReadDir(path.join(root, relativeDir)).map(e => [e.name, e])));
     let hasChanges = false;
 
     const allNames = [...new Set(maps.flatMap((entryMap) => [...entryMap.keys()]))]
-        .filter(name => !name.startsWith('.'))
+        .filter((name) => maps.some((entryMap, sideIndex) => {
+            if (!entryMap.has(name)) {
+                return false;
+            }
+            const inventory = includedPaths[sideIndex];
+            if (!inventory) {
+                return !name.startsWith('.');
+            }
+            const relativePath = relativeDir ? `${relativeDir}/${name}` : name;
+            return inventory.has(relativePath);
+        }))
         .sort((a, b) => {
             const aIsDir = maps.some((entryMap) => entryMap.get(a)?.isDirectory() ?? false);
             const bIsDir = maps.some((entryMap) => entryMap.get(b)?.isDirectory() ?? false);
@@ -78,7 +89,7 @@ function collectUnionEntries(
         const entryIndex = result.length - 1;
 
         if (isDirectory) {
-            childrenChanged = collectUnionEntries(roots, relPath, depth + 1, result);
+            childrenChanged = collectUnionEntries(roots, relPath, depth + 1, result, includedPaths);
         }
 
         const status = getEntryStatus(roots, relPath, sideEntries, sides, isDirectory, childrenChanged);
@@ -216,10 +227,32 @@ export function buildDirectoryComparison(leftDir: string, rightDir: string): Dir
     return buildMultiDirectoryComparison([leftDir, rightDir]);
 }
 
-export function buildMultiDirectoryComparison(dirs: string[]): DirectoryEntry[] {
+export interface MultiDirectoryComparisonOptions {
+    includedPaths?: Array<ReadonlySet<string> | undefined>;
+}
+
+export function buildMultiDirectoryComparison(
+    dirs: string[],
+    options: MultiDirectoryComparisonOptions = {}
+): DirectoryEntry[] {
     const entries: DirectoryEntry[] = [];
-    collectUnionEntries(dirs, '', 0, entries);
+    const includedPaths = dirs.map((_dir, index) => expandIncludedPaths(options.includedPaths?.[index]));
+    collectUnionEntries(dirs, '', 0, entries, includedPaths);
     return entries;
+}
+
+function expandIncludedPaths(inventory: ReadonlySet<string> | undefined): ReadonlySet<string> | undefined {
+    if (!inventory) {
+        return undefined;
+    }
+    const expanded = new Set<string>();
+    for (const relativePath of inventory) {
+        const parts = relativePath.split('/').filter(Boolean);
+        for (let length = 1; length <= parts.length; length += 1) {
+            expanded.add(parts.slice(0, length).join('/'));
+        }
+    }
+    return expanded;
 }
 
 function readPositiveIntegerEnv(name: string, fallback: number): number {

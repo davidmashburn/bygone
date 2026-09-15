@@ -3152,6 +3152,36 @@ function testMultiDirectoryDiffDetectsPartialAndModifiedFiles() {
     assert.deepEqual(partialEntry?.sides, [true, false, false]);
 }
 
+function testDirectoryDiffCanFilterAWorktreeByGitInventory() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-directory-inventory-test-'));
+    const snapshot = path.join(root, 'snapshot');
+    const worktree = path.join(root, 'worktree');
+    fs.mkdirSync(snapshot, { recursive: true });
+    fs.mkdirSync(path.join(worktree, '.github'), { recursive: true });
+    fs.writeFileSync(path.join(worktree, 'tracked.txt'), 'tracked\n', 'utf8');
+    fs.writeFileSync(path.join(worktree, 'ignored.log'), 'ignored\n', 'utf8');
+    fs.writeFileSync(path.join(worktree, '.github', 'workflow.yml'), 'name: test\n', 'utf8');
+
+    const entries = buildMultiDirectoryComparison([snapshot, worktree], {
+        includedPaths: [undefined, new Set(['tracked.txt', '.github/workflow.yml'])]
+    });
+
+    assert.ok(entries.some((entry) => entry.relativePath === 'tracked.txt'));
+    assert.ok(entries.some((entry) => entry.relativePath === '.github/'));
+    assert.ok(entries.some((entry) => entry.relativePath === '.github/workflow.yml'));
+    assert.ok(!entries.some((entry) => entry.relativePath === 'ignored.log'));
+}
+
+function testGitWorktreeComparisonKeepsOnlyWorktreeWritable() {
+    const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    assert.match(standaloneSource, /\['ls-files', '-co', '-z', '--exclude-standard'\]/);
+    assert.match(standaloneSource, /resolvedSource\.kind === 'worktree'[\s\S]{0,260}root: source\.repoRoot,[\s\S]{0,100}editable: true/);
+    assert.match(standaloneSource, /columns\.push\(\{ root, editable: false \}\)/);
+    assert.match(standaloneSource, /left: session\.left\.editable !== false,[\s\S]{0,100}right: session\.right\.editable !== false/);
+    assert.match(standaloneSource, /if \(target\.editable === false\) \{[\s\S]{0,80}return false/);
+    assert.match(standaloneSource, /fs\.mkdirSync\(path\.dirname\(targetPath\), \{ recursive: true \}\)/);
+}
+
 function testDirectoryDiffLeavesIdenticalFilesSame() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-directory-test-'));
     const left = path.join(root, 'left');
@@ -4079,6 +4109,8 @@ async function run() {
     testDuplicateMultiPanelDecorationsRenderOnce();
     testDirectoryDiffDetectsModifiedFiles();
     testMultiDirectoryDiffDetectsPartialAndModifiedFiles();
+    testDirectoryDiffCanFilterAWorktreeByGitInventory();
+    testGitWorktreeComparisonKeepsOnlyWorktreeWritable();
     testDirectoryDiffLeavesIdenticalFilesSame();
     testDirectoryDiffHandlesLargeModifiedFiles();
     testDirectoryDiffKeepsLargeIdenticalFilesSame();

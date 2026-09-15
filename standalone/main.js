@@ -1729,8 +1729,12 @@ async function handleRendererMessage(message) {
     }
 
     if (message.type === 'recomputeDiff' && session.mode === 'diff') {
-        session.left.content = message.leftContent;
-        session.right.content = message.rightContent;
+        if (session.left.editable !== false) {
+            session.left.content = message.leftContent;
+        }
+        if (session.right.editable !== false) {
+            session.right.content = message.rightContent;
+        }
         session.left.dirty = session.left.content !== session.left.savedContent;
         session.right.dirty = session.right.content !== session.right.savedContent;
         await sendCurrentDiff();
@@ -1814,7 +1818,7 @@ async function handleRendererMessage(message) {
         && session.mode === 'multi-diff'
         && session.multi) {
         const panel = session.multi.files.find((entry) => entry.id === message.panelId);
-        if (panel) {
+        if (panel?.editable !== false) {
             panel.content = message.content;
             panel.dirty = panel.content !== panel.savedContent;
             refreshSessionWindowTitle();
@@ -2092,6 +2096,11 @@ async function openDirectories(dirs, options = {}) {
     const labels = Array.isArray(options.labels) && options.labels.length === resolvedDirs.length
         ? [...options.labels]
         : resolvedDirs.map((dir) => path.basename(dir));
+    const columns = resolvedDirs.map((root, index) => ({
+        root,
+        editable: options.columns?.[index]?.editable ?? !options.review,
+        includedPaths: options.columns?.[index]?.includedPaths
+    }));
 
     session = {
         mode: 'directory',
@@ -2102,6 +2111,7 @@ async function openDirectories(dirs, options = {}) {
         directory: {
             dirs: resolvedDirs,
             labels,
+            columns,
             tempRoots: Array.isArray(options.tempRoots) ? [...options.tempRoots] : [],
             review: options.review || null
         },
@@ -2156,9 +2166,11 @@ async function addDirectoryColumn(side) {
     if (side === 'left') {
         session.directory.dirs.unshift(newDir);
         session.directory.labels.unshift(newLabel);
+        session.directory.columns.unshift({ root: newDir, editable: true });
     } else {
         session.directory.dirs.push(newDir);
         session.directory.labels.push(newLabel);
+        session.directory.columns.push({ root: newDir, editable: true });
     }
 
     session.left = createSideState(session.directory.dirs[0], '');
@@ -2199,6 +2211,7 @@ async function removeDirectoryColumn(sideIndex) {
 
     session.directory.dirs.splice(sideIndex, 1);
     session.directory.labels.splice(sideIndex, 1);
+    session.directory.columns.splice(sideIndex, 1);
     session.left = createSideState(session.directory.dirs[0], '');
     session.right = createSideState(session.directory.dirs[session.directory.dirs.length - 1], '');
     session.source = createDirectoriesSource(session.directory.dirs, session.directory.labels);
@@ -2259,6 +2272,27 @@ function materializeGitDiffSource(repoRoot, source, targetRoot) {
     materializeGitTree(repoRoot, '', targetRoot, source.sha);
 }
 
+function collectWorkingTreeInventory(repoRoot) {
+    const output = execFileSync('git', ['ls-files', '-co', '-z', '--exclude-standard'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        maxBuffer: GIT_MAX_BUFFER_BYTES
+    });
+    const inventory = new Set();
+    for (const relativePath of output.split('\0')) {
+        if (!relativePath || path.isAbsolute(relativePath)) {
+            continue;
+        }
+        const normalized = relativePath.split(path.sep).join('/');
+        const resolved = path.resolve(repoRoot, normalized);
+        if (resolved === repoRoot || !resolved.startsWith(`${repoRoot}${path.sep}`)) {
+            continue;
+        }
+        inventory.add(normalized);
+    }
+    return inventory;
+}
+
 function getGitDiffSourceLabel(source) {
     if (source.label) {
         return source.label;
@@ -2294,16 +2328,24 @@ async function openGitRefs(cwd, refs, options = {}) {
     const tempRoots = [];
     const dirs = [];
     const labels = [];
+    const columns = [];
 
     try {
         for (const r of resolved) {
+            const customLabel = options.labels?.[dirs.length];
+            if (r.kind === 'worktree') {
+                dirs.push(repoRoot);
+                labels.push(customLabel || getGitDiffSourceLabel(r));
+                columns.push({ root: repoRoot, editable: true, includedPaths: collectWorkingTreeInventory(repoRoot) });
+                continue;
+            }
             const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-gitdiff-'));
             tempRoots.push(root);
             trackedGitDiffTempRoots.add(root);
             materializeGitDiffSource(repoRoot, r, root);
             dirs.push(root);
-            const customLabel = options.labels?.[dirs.length - 1];
             labels.push(customLabel || getGitDiffSourceLabel(r));
+            columns.push({ root, editable: false });
         }
     } catch (error) {
         cleanupGitDiffTempRoots(tempRoots);
@@ -2313,6 +2355,7 @@ async function openGitRefs(cwd, refs, options = {}) {
 
     await openDirectories(dirs, {
         labels,
+        columns,
         tempRoots,
         skipConfirm: Boolean(options.skipConfirm),
         source: options.source || createGitRefsSource(repoRoot, refs)
@@ -2640,7 +2683,7 @@ async function sendCurrentDirectoryDiff() {
 
     const review = session.directory.review;
     const entries = applyReviewMetadata(
-        buildMultiDirectoryComparison(session.directory.dirs),
+        buildDirectoryEntries(session.directory),
         review
     );
 
@@ -3473,14 +3516,16 @@ async function openDirectoryEntry(relativePath) {
                 session.returnDirectory.dirs,
                 session.returnDirectory.labels,
                 relativePath,
-                session.returnDirectory.review
+                session.returnDirectory.review,
+                session.returnDirectory.columns
             );
         } else {
             await openDirectoryEntryMultiPanel(
                 session.returnDirectory.dirs,
                 session.returnDirectory.labels,
                 relativePath,
-                session.returnDirectory.review
+                session.returnDirectory.review,
+                session.returnDirectory.columns
             );
         }
         return;
@@ -3508,11 +3553,11 @@ async function openDirectoryEntry(relativePath) {
     }
 
     if (session.directory.dirs.length === 2) {
-        await openDirectoryFileDiff(session.directory.dirs, session.directory.labels, reviewKey, review);
+        await openDirectoryFileDiff(session.directory.dirs, session.directory.labels, reviewKey, review, session.directory.columns);
         return;
     }
 
-    await openDirectoryEntryMultiPanel(session.directory.dirs, session.directory.labels, relativePath, review);
+    await openDirectoryEntryMultiPanel(session.directory.dirs, session.directory.labels, relativePath, review, session.directory.columns);
 }
 
 function searchCurrentChangeSet(message) {
@@ -3522,7 +3567,7 @@ function searchCurrentChangeSet(message) {
         return;
     }
     try {
-        const entries = applyReviewMetadata(buildMultiDirectoryComparison(context.dirs), context.review)
+        const entries = applyReviewMetadata(buildDirectoryEntries(context), context.review)
             .filter((entry) => !entry.isDirectory && entry.status !== 'same');
         const snapshots = [];
         for (const entry of entries) {
@@ -3798,22 +3843,38 @@ async function openFileHistorySearchResult(historyIndex) {
     await sendCurrentMultiDiff();
 }
 
-async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review = null) {
+function buildDirectoryEntries(context) {
+    return buildMultiDirectoryComparison(context?.dirs || [], {
+        includedPaths: context?.columns?.map((column) => column.includedPaths)
+    });
+}
+
+function getDirectoryColumns(dirs, columns, review) {
+    return dirs.map((root, index) => columns?.[index] || { root, editable: !review });
+}
+
+function getDirectoryFileLabel(label, relativePath, exists, editable) {
+    return `${label} / ${relativePath}${exists ? '' : ' (missing)'} · ${editable ? 'Writable file' : 'Read-only snapshot'}`;
+}
+
+async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review = null, columns = null) {
     if (!await confirmSessionReplacement('open another directory file')) {
         return;
     }
+    const resolvedColumns = getDirectoryColumns(dirs, columns, review);
     const panels = dirs.map((dir, i) => {
         const filePath = path.join(dir, relativePath);
         const exists = getPathKind(filePath) === 'file';
         const content = exists ? readFileContent(filePath) : '';
+        const editable = Boolean(resolvedColumns[i]?.editable);
         return {
             id: `panel-${nextMultiPanelId++}`,
-            path: exists ? filePath : '',
+            path: filePath,
             label: `${labels[i]} / ${relativePath}${exists ? '' : ' (missing)'}`,
             content,
             savedContent: content,
             dirty: false,
-            editable: false
+            editable
         };
     });
 
@@ -3834,7 +3895,7 @@ async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review =
             historySource: null
         },
         dirHistory: null,
-        returnDirectory: { dirs, labels, relativePath, review, source, tempRoots }
+        returnDirectory: { dirs, labels, columns: resolvedColumns, relativePath, review, source, tempRoots }
     };
 
     clearWatchers();
@@ -3842,7 +3903,7 @@ async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review =
     await sendCurrentMultiDiff();
 }
 
-async function openDirectoryFileDiff(dirs, labels, relativePath, review = null) {
+async function openDirectoryFileDiff(dirs, labels, relativePath, review = null, columns = null) {
     if (!await confirmSessionReplacement('open another directory file')) {
         return;
     }
@@ -3854,6 +3915,9 @@ async function openDirectoryFileDiff(dirs, labels, relativePath, review = null) 
     const rightPath = path.join(dirs[1], rightRelativePath);
     const leftExists = getPathKind(leftPath) === 'file';
     const rightExists = getPathKind(rightPath) === 'file';
+    const resolvedColumns = getDirectoryColumns(dirs, columns, review);
+    const leftEditable = Boolean(resolvedColumns[0]?.editable);
+    const rightEditable = Boolean(resolvedColumns[1]?.editable);
 
     if (!leftExists && !rightExists) {
         await showInfo('That entry does not exist on either side.');
@@ -3863,16 +3927,18 @@ async function openDirectoryFileDiff(dirs, labels, relativePath, review = null) 
     const binaryComparison = buildBinaryComparison(
         leftPath,
         rightPath,
-        `${labels[0]} / ${leftRelativePath}${leftExists ? '' : ' (missing)'}`,
-        `${labels[1]} / ${rightRelativePath}${rightExists ? '' : ' (missing)'}`
+        getDirectoryFileLabel(labels[0], leftRelativePath, leftExists, leftEditable),
+        getDirectoryFileLabel(labels[1], rightRelativePath, rightExists, rightEditable)
     );
     const leftContent = leftExists && !binaryComparison ? readFileContent(leftPath) : '';
     const rightContent = rightExists && !binaryComparison ? readFileContent(rightPath) : '';
-    const left = createSideState(leftExists ? leftPath : '', leftContent);
-    const right = createSideState(rightExists ? rightPath : '', rightContent);
+    const left = createSideState(leftPath, leftContent);
+    const right = createSideState(rightPath, rightContent);
 
-    left.label = `${labels[0]} / ${leftRelativePath}${leftExists ? '' : ' (missing)'}`;
-    right.label = `${labels[1]} / ${rightRelativePath}${rightExists ? '' : ' (missing)'}`;
+    left.label = getDirectoryFileLabel(labels[0], leftRelativePath, leftExists, leftEditable);
+    right.label = getDirectoryFileLabel(labels[1], rightRelativePath, rightExists, rightEditable);
+    left.editable = leftEditable;
+    right.editable = rightEditable;
 
     const source = cloneSessionSource(session.source);
     const tempRoots = [...(session.directory?.tempRoots || session.returnDirectory?.tempRoots || [])];
@@ -3889,6 +3955,7 @@ async function openDirectoryFileDiff(dirs, labels, relativePath, review = null) 
         returnDirectory: {
             dirs: [...dirs],
             labels: [...labels],
+            columns: resolvedColumns,
             relativePath: reviewKey,
             comparisonSummary: reviewPair?.summary,
             review,
@@ -3912,7 +3979,7 @@ async function returnToDirectoryView() {
         if (!await confirmSessionReplacement('return to the directory comparison')) {
             return;
         }
-        const { dirs, labels, review, source, tempRoots } = session.returnDirectory;
+        const { dirs, labels, columns, review, source, tempRoots } = session.returnDirectory;
 
         session = {
             mode: 'directory',
@@ -3923,6 +3990,7 @@ async function returnToDirectoryView() {
             directory: {
                 dirs,
                 labels,
+                columns,
                 tempRoots: [...(tempRoots || [])],
                 review: review || null
             },
@@ -3946,7 +4014,7 @@ function buildChangedFileEntries(entries) {
 
 function buildReturnDirectoryEntries(returnDirectory) {
     if (!returnDirectory?.review) {
-        return buildChangedFileEntries(buildMultiDirectoryComparison(returnDirectory?.dirs || []));
+        return buildChangedFileEntries(buildDirectoryEntries(returnDirectory));
     }
 
     return returnDirectory.review.changedPaths.map((changedPath) => ({
@@ -4017,14 +4085,16 @@ async function navigateSiblingFile(direction) {
                 session.returnDirectory.dirs,
                 session.returnDirectory.labels,
                 nextEntry.relativePath,
-                session.returnDirectory.review
+                session.returnDirectory.review,
+                session.returnDirectory.columns
             );
         } else {
             await openDirectoryEntryMultiPanel(
                 session.returnDirectory.dirs,
                 session.returnDirectory.labels,
                 nextEntry.relativePath,
-                session.returnDirectory.review
+                session.returnDirectory.review,
+                session.returnDirectory.columns
             );
         }
         return;
@@ -4349,8 +4419,8 @@ async function sendCurrentDiff() {
         fileNavigation: buildStandaloneFileNavigationState(),
         directoryNavigation: buildDirectoryDrilldownNavigationState(),
         editableSides: {
-            left: !session.returnDirectory?.review,
-            right: !session.returnDirectory?.review
+            left: session.left.editable !== false,
+            right: session.right.editable !== false
         },
         canReturnToDirectory: Boolean(session.returnDirectory),
         comparisonSummary: session.returnDirectory?.comparisonSummary
@@ -4691,6 +4761,9 @@ async function saveSide(side) {
     }
 
     const target = session[side];
+    if (target.editable === false) {
+        return false;
+    }
     let targetPath = target.path;
 
     if (!targetPath) {
@@ -4710,6 +4783,7 @@ async function saveSide(side) {
         targetPath = result.filePath;
     }
 
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     fs.writeFileSync(targetPath, target.content, 'utf8');
     target.path = targetPath;
     target.label = path.basename(targetPath);
@@ -4838,6 +4912,9 @@ async function saveDirtyMultiPanels() {
 }
 
 async function saveMultiPanel(panel, { dialogTitle, refreshView }) {
+    if (panel.editable === false) {
+        return false;
+    }
     let targetPath = panel.path;
     if (!targetPath) {
         if (!mainWindow) {
@@ -4856,6 +4933,7 @@ async function saveMultiPanel(panel, { dialogTitle, refreshView }) {
         targetPath = result.filePath;
     }
 
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     fs.writeFileSync(targetPath, panel.content, 'utf8');
     panel.path = targetPath;
     panel.label = path.basename(targetPath);
@@ -4926,7 +5004,7 @@ async function reloadSide(side) {
         return;
     }
 
-    const freshContent = readFileContent(target.path);
+    const freshContent = getPathKind(target.path) === 'file' ? readFileContent(target.path) : '';
     target.content = freshContent;
     target.savedContent = freshContent;
     target.dirty = false;
@@ -4943,7 +5021,7 @@ async function reloadActiveMultiPanel() {
         return;
     }
 
-    const freshContent = readFileContent(panel.path);
+    const freshContent = getPathKind(panel.path) === 'file' ? readFileContent(panel.path) : '';
     panel.content = freshContent;
     panel.savedContent = freshContent;
     panel.dirty = false;
@@ -5414,18 +5492,26 @@ function buildSessionFromSource(source) {
         const resolved = source.refs.map((ref) => resolveGitRefForDiff(source.repoRoot, ref));
         const tempRoots = [];
         try {
-            const dirs = resolved.map((resolvedSource) => {
+            const columns = resolved.map((resolvedSource) => {
+                if (resolvedSource.kind === 'worktree') {
+                    return {
+                        root: source.repoRoot,
+                        editable: true,
+                        includedPaths: collectWorkingTreeInventory(source.repoRoot)
+                    };
+                }
                 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-gitdiff-'));
                 tempRoots.push(root);
                 trackedGitDiffTempRoots.add(root);
                 materializeGitDiffSource(source.repoRoot, resolvedSource, root);
-                return root;
+                return { root, editable: false };
             });
+            const dirs = columns.map((column) => column.root);
             return createDirectorySession(
                 dirs,
                 resolved.map((resolvedSource) => getGitDiffSourceLabel(resolvedSource)),
                 source,
-                { tempRoots }
+                { tempRoots, columns }
             );
         } catch (error) {
             cleanupGitDiffTempRoots(tempRoots);
@@ -5467,6 +5553,7 @@ function buildSessionFromSource(source) {
 }
 
 function createDirectorySession(dirs, labels, source, options = {}) {
+    const columns = getDirectoryColumns(dirs, options.columns, options.review);
     return {
         mode: 'directory',
         source: cloneSessionSource(source),
@@ -5476,6 +5563,7 @@ function createDirectorySession(dirs, labels, source, options = {}) {
         directory: {
             dirs: [...dirs],
             labels: [...labels],
+            columns,
             tempRoots: [...(options.tempRoots || [])],
             review: options.review || null
         },
@@ -5525,7 +5613,7 @@ async function restoreSessionNavigation(snapshot) {
     if (session.mode === 'directory' && snapshot.relativePath) {
         const entries = session.directory?.review
             ? session.directory.review.changedPaths.map((entry) => entry.path)
-            : buildChangedFileEntries(buildMultiDirectoryComparison(session.directory?.dirs || []))
+            : buildChangedFileEntries(buildDirectoryEntries(session.directory))
                 .map((entry) => entry.relativePath);
         if (entries.includes(snapshot.relativePath)) {
             await openDirectoryEntry(snapshot.relativePath);
