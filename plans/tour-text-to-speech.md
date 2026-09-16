@@ -2,9 +2,13 @@
 
 ## Status
 
-Proposed as an independently shippable accessibility and usability feature.
-It does not depend on microphone input, conversational voice, or an agent
-connection.
+Implemented on `main` beginning with `42cec59`, with control and navigation
+refinements in `7285427`, `674bf84`, `ebecbc1`, and `15f4bc8`.
+
+Tours now provide device speech, semantic narration segments, accessible
+playback controls, playback-aware navigation, and lifecycle guards. The
+feature remains independent of microphone input, conversational voice, and an
+agent connection.
 
 ## Goal
 

@@ -2,7 +2,12 @@
 
 ## Status
 
-Draft.
+Implemented through Phase 3 on `feat/file-change-overview` by `620f660`.
+
+The implementation adds the shared versioned attention model, a generated
+Present overview scene, and an Explore branch-review Overview/Files landing.
+Authored tour order and the complete changed-file inventory remain unchanged.
+Phase 4 agent-context JSON remains optional and was not included.
 
 ## Goal
 

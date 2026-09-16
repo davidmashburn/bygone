@@ -2,7 +2,12 @@
 
 ## Status
 
-Ready to implement after the current active plan set.
+Implemented on `main` by `35c09c2`.
+
+The CLI now accepts a global `--read-only` option and carries the capability
+ceiling through desktop launch intents, initial comparisons, directory
+drill-down, history, and refresh. Without the option, existing writable
+defaults are unchanged.
 
 ## Decision
 

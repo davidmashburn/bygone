@@ -26,30 +26,13 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
-- [Explicit read-only CLI launches](explicit-read-only-cli.md) — add a
-  host-enforced `--read-only` capability ceiling for otherwise-writable Explore
-  sessions without changing current defaults.
-- [Editable worktree Git comparisons](editable-worktree-git-comparisons.md) —
-  make `WORKTREE` a live writable source in `--git-diff` while commits and the
-  index remain read-only snapshots.
-- [File-change overview and review entry-point](file-change-overview.md) —
-  land unauthored branch review and generated Present on a start-here
-  overview that ranks attention versus lockfiles, tests, and other noise.
-- [First-class tour narration with text to speech](tour-text-to-speech.md) —
-  add high-quality, synchronized read-aloud support without coupling it to
-  microphone or agent work.
 - [Conversational voice and originating-agent routing](conversational-voice-and-agent-routing.md) —
   separately explore text-first, evidence-grounded questions and an ephemeral
   local route back to an authoring agent.
-- [Monaco editor comfort](editor-power.md) — enable familiar multi-line editing,
-  shortcuts, and language-aware behavior already available in Monaco.
 - [`.bygone` document format and native opening](bygone-document-format.md) —
   add Windows and Linux native associations when packaging support is ready.
 - [Focused multi-panel strip](focused-multi-panel-strip.md) — profile unusually
   large stacks and retain the interaction QA matrix for future renderer work.
-- [Conservative replacement blocks](conservative-replacement-blocks.md) —
-  prevent unrelated lines from becoming blue replacements and render
-  unmatched portions of coarse replacement hunks as green one-sided blocks.
 
 ## Completed plans and design references
 
@@ -68,3 +51,9 @@ status headings identify the release outcome; they are not queued work.
 - [Deconstructed diffs](deconstructed-diffs.md)
 - [Unified tour zoom modes](unified-tour-zoom-modes.md)
 - [0.8 product implementation roadmap](implementation-roadmap.md)
+- [Explicit read-only CLI launches](explicit-read-only-cli.md)
+- [Editable worktree Git comparisons](editable-worktree-git-comparisons.md)
+- [File-change overview and review entry-point](file-change-overview.md)
+- [First-class tour narration with text to speech](tour-text-to-speech.md)
+- [Monaco editor comfort](editor-power.md)
+- [Conservative replacement blocks](conservative-replacement-blocks.md)

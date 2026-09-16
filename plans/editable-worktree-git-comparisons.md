@@ -2,7 +2,11 @@
 
 ## Status
 
-Ready to implement as a focused standalone Explore correction.
+Implemented on `main` by `64a3d3a`.
+
+`WORKTREE` sources now resolve to live repository paths and remain writable;
+commit, branch, tag, and `INDEX` sources remain read-only snapshots. Panel
+mutability is derived independently for two-way and multi-panel comparisons.
 
 ## Decision
 

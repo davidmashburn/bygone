@@ -1,5 +1,13 @@
 # Conservative replacement blocks
 
+## Status
+
+Implemented on `main` by `0aba51b`.
+
+Replacement classification now keeps credible line correspondence blue and
+splits unrelated unmatched regions into one-sided green blocks. The committed
+fixtures and regression coverage preserve the distinction.
+
 ## Goal
 
 Make Bygone's diff colors tell the truth about correspondence:
