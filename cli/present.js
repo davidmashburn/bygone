@@ -3,6 +3,7 @@ const { createServer } = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
 const { buildChangeTourManifest, parseChangeTourStory } = require('../out/changeTour.js');
+const { buildTourAuthoringCoverage, buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { buildTourWindowTitle } = require('../out/windowTitle.js');
 const { tokenMatches } = require('./commandSpec.js');
 const { loadTourSource } = require('./tourFile.js');
@@ -24,7 +25,7 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         ? parseChangeTourStory(JSON.parse(readFileSync(path.resolve(cwd, process.env.BYGONE_TOUR_STORY), 'utf8')))
         : undefined;
     const source = tourPath ? loadTourSource(cwd, tourPath).source : undefined;
-    const manifest = buildChangeTourManifest(cwd, {
+    const builtManifest = buildChangeTourManifest(cwd, {
         headRef: explicitHeadRef || source?.range?.head || headRef,
         baseRef: baseRef || source?.range?.base,
         title: process.env.BYGONE_TOUR_TITLE,
@@ -32,6 +33,9 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         story,
         source
     });
+    const manifest = source
+        ? { ...builtManifest, authoringCoverage: buildTourAuthoringCoverage(buildTourCoverageReport(cwd, source)) }
+        : builtManifest;
     const history = createTourHistory(manifest);
     const serializedManifest = `${JSON.stringify(manifest, null, 2)}\n`;
     const outputPath = process.env.BYGONE_TOUR_OUTPUT;

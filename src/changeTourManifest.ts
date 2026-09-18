@@ -199,6 +199,23 @@ export interface ChangeTourChapter {
     sceneIds: string[];
 }
 
+export interface ChangeTourAuthoringCoverage {
+    walkthrough: {
+        scope: 'tour' | 'final';
+        coveredUnits: number;
+        includedUnits: number;
+        coveragePercent: number;
+    };
+    explanationAssignments: Array<{
+        sceneId: string;
+        assignedUnits: number;
+        excludedUnits: number;
+        completeUnits: number;
+        totalUnits: number;
+        assignmentPercent: number;
+    }>;
+}
+
 export interface ChangeTourManifest {
     version: 1 | typeof CHANGE_TOUR_MANIFEST_VERSION;
     repository?: { root: string };
@@ -225,6 +242,8 @@ export interface ChangeTourManifest {
     files: ChangeTourFile[];
     chapters: ChangeTourChapter[];
     scenes: ChangeTourScene[];
+    /** Optional authoring diagnostics supplied by the local presentation host. */
+    authoringCoverage?: ChangeTourAuthoringCoverage;
 }
 
 export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
@@ -294,9 +313,43 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
         throw new Error('summary.changedFiles must match the number of files.');
     }
 
+    if (value.authoringCoverage !== undefined) {
+        validateAuthoringCoverage(value.authoringCoverage, value.version);
+    }
+
     if (value.version === 2) validateZoom(value);
 
     return { ...value, files } as unknown as ChangeTourManifest;
+}
+
+function validateAuthoringCoverage(value: unknown, version: 1 | 2): asserts value is ChangeTourAuthoringCoverage {
+    if (!isRecord(value) || !isRecord(value.walkthrough) || !Array.isArray(value.explanationAssignments)) {
+        throw new Error('authoringCoverage must contain walkthrough and explanationAssignments.');
+    }
+    const expectedScope = version === 2 ? 'final' : 'tour';
+    if (value.walkthrough.scope !== expectedScope) {
+        throw new Error(`authoringCoverage.walkthrough.scope must be ${expectedScope}.`);
+    }
+    requireNonNegativeInteger(value.walkthrough.coveredUnits, 'authoringCoverage.walkthrough.coveredUnits');
+    requireNonNegativeInteger(value.walkthrough.includedUnits, 'authoringCoverage.walkthrough.includedUnits');
+    requirePercentage(value.walkthrough.coveragePercent, 'authoringCoverage.walkthrough.coveragePercent');
+    if (value.walkthrough.coveredUnits > value.walkthrough.includedUnits) {
+        throw new Error('authoringCoverage.walkthrough.coveredUnits must not exceed includedUnits.');
+    }
+    for (const [index, assignment] of value.explanationAssignments.entries()) {
+        const path = `authoringCoverage.explanationAssignments[${index}]`;
+        if (!isRecord(assignment)) throw new Error(`${path} must be an object.`);
+        requireString(assignment.sceneId, `${path}.sceneId`);
+        requireNonNegativeInteger(assignment.assignedUnits, `${path}.assignedUnits`);
+        requireNonNegativeInteger(assignment.excludedUnits, `${path}.excludedUnits`);
+        requireNonNegativeInteger(assignment.completeUnits, `${path}.completeUnits`);
+        requireNonNegativeInteger(assignment.totalUnits, `${path}.totalUnits`);
+        requirePercentage(assignment.assignmentPercent, `${path}.assignmentPercent`);
+        if (assignment.assignedUnits + assignment.excludedUnits !== assignment.completeUnits
+            || assignment.completeUnits > assignment.totalUnits) {
+            throw new Error(`${path} contains inconsistent unit counts.`);
+        }
+    }
 }
 
 export function parseChangeTourStory(value: unknown): ChangeTourStory {
@@ -627,6 +680,12 @@ function requireStringArray(value: unknown, path: string): asserts value is stri
 function requireNonNegativeInteger(value: unknown, path: string): asserts value is number {
     if (!Number.isInteger(value) || Number(value) < 0) {
         throw new Error(`${path} must be a non-negative integer.`);
+    }
+}
+
+function requirePercentage(value: unknown, path: string): asserts value is number {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) {
+        throw new Error(`${path} must be a number from 0 to 100.`);
     }
 }
 

@@ -160,7 +160,7 @@ const CLI_SPEC = Object.freeze({
         '`tour validate` resolves every authored anchor; add `--json` for agent-readable output.',
         '`tour compile` writes a repository-bound manifest to stdout or `--output`; `tour schema` prints its source schema.',
         '`tour context` emits compact, structured Git evidence for an LLM without invoking a model.',
-        '`tour coverage` reports referenced changed hunks and author-declared explanation depth.',
+        '`tour coverage` reports authored walkthrough anchor coverage and author-declared explanation depth; for v2 tours it reads Final mode and reports deconstructed Explanation assignment separately, while `--minimum-coverage` gates the walkthrough metric.',
         '`--branch-diff` is retained as an alias for `review`.',
         '`completion` prints a completion script for Zsh, Bash, or Fish.',
         'In the standalone app, drop 1 file for history, 2 files/directories for compare, or 3+ matching paths for multi-panel compare.'

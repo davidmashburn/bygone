@@ -169,6 +169,59 @@ body.tour-mode.tour-discussion #container {
     white-space: nowrap;
 }
 
+.tour-authoring-coverage {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.tour-authoring-coverage[hidden] {
+    display: none;
+}
+
+.tour-coverage-item {
+    display: grid;
+    gap: 5px;
+    padding-left: 8px;
+    border-left: 2px solid var(--tour-accent-bright);
+}
+
+.tour-coverage-item[data-metric="assignment"] {
+    border-left-color: #74d6ad;
+}
+
+.tour-coverage-heading {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    color: var(--tour-muted);
+    line-height: 1.35;
+}
+
+.tour-coverage-heading strong {
+    flex: none;
+    color: var(--tour-body);
+    font-weight: 600;
+}
+
+.tour-coverage-meter {
+    height: 3px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.tour-coverage-meter span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--tour-accent-bright);
+}
+
+.tour-coverage-item[data-metric="assignment"] .tour-coverage-meter span {
+    background: #74d6ad;
+}
+
 .tour-search {
     padding: 10px 12px;
     border-bottom: 1px solid var(--tour-border);

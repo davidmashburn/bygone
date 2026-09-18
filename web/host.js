@@ -830,13 +830,14 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const source = document.getElementById('tour-source');
         const range = document.getElementById('tour-range');
         const stats = document.getElementById('tour-stats');
+        const authoringCoverage = document.getElementById('tour-authoring-coverage');
         const scenes = document.getElementById('tour-scenes');
         const sceneCount = document.getElementById('tour-scene-count');
         const files = document.getElementById('tour-files');
         const fileCount = document.getElementById('tour-file-count');
         const commits = document.getElementById('tour-commits');
         const commitsSummary = document.getElementById('tour-commits-summary');
-        if (!shell || !title || !source || !range || !stats || !scenes || !sceneCount || !files || !fileCount || !commits || !commitsSummary) {
+        if (!shell || !title || !source || !range || !stats || !authoringCoverage || !scenes || !sceneCount || !files || !fileCount || !commits || !commitsSummary) {
             throw new Error('Presenter UI is incomplete.');
         }
         shell.hidden = false;
@@ -854,6 +855,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const resolvedHead = tour.range.headOid.slice(0, 7);
         range.textContent = `${baseLabel} → ${headLabel}${headLabel === resolvedHead ? '' : ` · ${resolvedHead}`}`;
         stats.textContent = `${formatCount(tour.summary.changedFiles, 'file')} · +${tour.summary.additions} −${tour.summary.deletions} · ${formatCount(tour.summary.commitCount, 'commit')}`;
+        renderAuthoringCoverage(authoringCoverage, tour.authoringCoverage);
         sceneCount.textContent = String(tour.scenes.length);
         fileCount.textContent = String(tour.files.length);
         commitsSummary.textContent = formatCount(tour.summary.commitCount, 'commit');
@@ -939,6 +941,54 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             item.append(oid, document.createTextNode(commit.summary));
             return item;
         }));
+    }
+
+    function renderAuthoringCoverage(container, coverage) {
+        container.replaceChildren();
+        container.hidden = !coverage;
+        if (!coverage) return;
+        const rows = [{
+            metric: 'walkthrough',
+            label: coverage.walkthrough.scope === 'final' ? 'Final walkthrough' : 'Walkthrough',
+            covered: coverage.walkthrough.coveredUnits,
+            total: coverage.walkthrough.includedUnits,
+            percent: coverage.walkthrough.coveragePercent,
+            description: 'Distinct change hunks referenced by authored focus anchors.'
+        }, ...coverage.explanationAssignments.map((assignment) => ({
+            metric: 'assignment',
+            label: coverage.explanationAssignments.length > 1
+                ? `Explanation assignment · ${assignment.sceneId}`
+                : 'Explanation assignment',
+            covered: assignment.completeUnits,
+            total: assignment.totalUnits,
+            percent: assignment.assignmentPercent,
+            description: `${assignment.assignedUnits} assigned, ${assignment.excludedUnits} explicitly excluded.`
+        }))];
+        for (const row of rows) {
+            const item = document.createElement('div');
+            item.className = 'tour-coverage-item';
+            item.dataset.metric = row.metric;
+            item.title = row.description;
+            const heading = document.createElement('div');
+            heading.className = 'tour-coverage-heading';
+            const label = document.createElement('span');
+            label.textContent = row.label;
+            const value = document.createElement('strong');
+            value.textContent = `${row.covered}/${row.total} · ${row.percent}%`;
+            heading.append(label, value);
+            const meter = document.createElement('div');
+            meter.className = 'tour-coverage-meter';
+            meter.setAttribute('role', 'progressbar');
+            meter.setAttribute('aria-label', row.label);
+            meter.setAttribute('aria-valuemin', '0');
+            meter.setAttribute('aria-valuemax', '100');
+            meter.setAttribute('aria-valuenow', String(row.percent));
+            const fill = document.createElement('span');
+            fill.style.width = `${row.percent}%`;
+            meter.append(fill);
+            item.append(heading, meter);
+            container.append(item);
+        }
     }
 
     function showTourScene(index, stepIndex = 0, options = {}) {

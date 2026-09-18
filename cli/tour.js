@@ -27,7 +27,8 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
         const report = buildTourCoverageReport(cwd, source);
         output.write(options.json ? `${JSON.stringify(report, null, 2)}\n` : renderCoverageReport(report));
         if (options.minimumCoverage !== undefined && report.totals.coveragePercent < options.minimumCoverage) {
-            throw new Error(`Tour coverage ${report.totals.coveragePercent}% is below the required ${options.minimumCoverage}%.`);
+            const label = report.version === 2 ? 'Final walkthrough coverage' : 'Tour coverage';
+            throw new Error(`${label} ${report.totals.coveragePercent}% is below the required ${options.minimumCoverage}%.`);
         }
         return { action: 'coverage', sourcePath: resolvedPath, report };
     }
@@ -98,10 +99,20 @@ function parseTourArgs(args) {
 }
 
 function renderCoverageReport(report) {
+    const coverageLabel = report.version === 2 ? 'Final walkthrough coverage' : 'Tour coverage';
     const lines = [
-        `Tour coverage: ${report.totals.coveredUnits}/${report.totals.includedUnits} hunks (${report.totals.coveragePercent}%)`,
+        `${coverageLabel}: ${report.totals.coveredUnits}/${report.totals.includedUnits} hunks (${report.totals.coveragePercent}%)`,
         `Depth: ${report.depth.mentioned} mentioned · ${report.depth.explained} explained · ${report.depth.contextualized} contextualized`
     ];
+    if (report.version === 2) {
+        for (const assignment of report.explanationAssignments) {
+            const suffix = report.explanationAssignments.length > 1 ? ` (${assignment.sceneId})` : '';
+            lines.push(
+                `Explanation assignment${suffix}: ${assignment.completeUnits}/${assignment.totalUnits} hunks `
+                + `(${assignment.assignmentPercent}%; ${assignment.assignedUnits} assigned, ${assignment.excludedUnits} excluded)`
+            );
+        }
+    }
     if (report.totals.excludedUnits > 0) lines.push(`Excluded: ${report.totals.excludedUnits}/${report.totals.originalUnits} hunks`);
     for (const file of report.files.filter((entry) => entry.uncoveredHunks.length > 0)) {
         lines.push(`${file.path}: ${file.uncoveredHunks.length} uncovered (${file.uncoveredHunks.join(', ')})`);

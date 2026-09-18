@@ -73,7 +73,7 @@ const {
     classifyChangeFileRole
 } = require('../out/changeTour.js');
 const { buildChangeInventory, materializeChangeUnits, parsePatchUnits } = require('../out/changeInventory.js');
-const { buildTourCoverageReport } = require('../out/tourCoverage.js');
+const { buildTourAuthoringCoverage, buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { parsePresentArgs } = require('../cli/present.js');
 const { parseTourArgs, runTourCommand } = require('../cli/tour.js');
 const { readTourSourceDocument } = require('../cli/tourFile.js');
@@ -471,6 +471,11 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /type: 'showMultiDiff'/);
     assert.match(webMarkup, /id="tour-files"/);
     assert.match(webMarkup, /id="tour-return-focus"/);
+    assert.match(webMarkup, /id="tour-authoring-coverage"[^>]+aria-label="Tour authoring coverage"[^>]+hidden/);
+    assert.match(hostSource, /renderAuthoringCoverage\(authoringCoverage, tour\.authoringCoverage\)/);
+    assert.match(hostSource, /coverage\.walkthrough\.scope === 'final' \? 'Final walkthrough' : 'Walkthrough'/);
+    assert.match(hostSource, /metric: 'assignment'/);
+    assert.match(presenterSource, /\.tour-coverage-item\[data-metric="assignment"\]/);
     assert.match(presenterSource, /\.tour-rail-sections[\s\S]{0,180}grid-template-rows/);
     assert.match(hostSource, /tourPrevious\?\.addEventListener\('click', \(\) => showTourLinear\(-1\)\)/);
     for (const markup of [webMarkup, providerSource]) {
@@ -1316,6 +1321,12 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.equal(coverage.totals.coveragePercent, 50);
     assert.deepEqual(coverage.depth, { mentioned: 0, explained: 0, contextualized: 1 });
     assert.equal(coverage.files.find((file) => file.path === 'tests/models.test.ts').uncoveredHunks.length, 1);
+    const authoringCoverage = buildTourAuthoringCoverage(coverage);
+    assert.deepEqual(authoringCoverage, {
+        walkthrough: { scope: 'tour', coveredUnits: 1, includedUnits: 2, coveragePercent: 50 },
+        explanationAssignments: []
+    });
+    assert.deepEqual(parseChangeTourManifest({ ...anchored, authoringCoverage }).authoringCoverage, authoringCoverage);
     assert.throws(() => buildChangeTourManifest(repo, {
         headRef: 'feature/tour', baseRef: 'main', source: {
             ...source,
@@ -1700,6 +1711,7 @@ function testPresenterServerInjectsWindowTitleIntoHtml() {
     const presentSource = fs.readFileSync(path.join(__dirname, '..', 'cli', 'present.js'), 'utf8');
     assert.match(presentSource, /buildTourWindowTitle\(manifest, 'Bygone'\)/);
     assert.match(presentSource, /<title>\$\{escapeHtml\(tourWindowTitle\)\}<\/title>/);
+    assert.match(presentSource, /source[\s\S]{0,160}authoringCoverage: buildTourAuthoringCoverage\(buildTourCoverageReport\(cwd, source\)\)/);
 }
 
 function testNpmPackageStagesCliRuntimeDependencies() {
@@ -4055,6 +4067,11 @@ function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
                         body: 'Read the model in its completed context.',
                         focus: 'final-model'
                     }, {
+                        id: 'final-model-again',
+                        title: 'Revisit the final model',
+                        body: 'The same hunk remains one covered unit.',
+                        focus: 'final-model'
+                    }, {
                         id: 'final-behavior',
                         title: 'Review the final behavior',
                         body: 'Read the behavior in its completed context.',
@@ -4076,14 +4093,83 @@ function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
         sceneIds: ['build-feature']
     }]);
     assert.equal(v2Manifest.zoom.final.scenes[0].kind, 'walkthrough');
-    assert.deepEqual(v2Manifest.zoom.final.scenes[0].steps.map((step) => step.focus.path), ['app.txt', 'app.txt']);
-    assert.deepEqual(v2Manifest.zoom.final.scenes[0].steps.map((step) => step.focus.revision), ['head', 'head']);
+    assert.deepEqual(v2Manifest.zoom.final.scenes[0].steps.map((step) => step.focus.path), ['app.txt', 'app.txt', 'app.txt']);
+    assert.deepEqual(v2Manifest.zoom.final.scenes[0].steps.map((step) => step.focus.revision), ['head', 'head', 'head']);
     assert.deepEqual(v2Manifest.zoom.final.scenes[0].steps.map((step) => step.body), [
         'Read the model in its completed context.',
+        'The same hunk remains one covered unit.',
         'Read the behavior in its completed context.'
     ]);
     assert.equal(v2Manifest.zoom.final.scenes[0].steps[0].diff.leftContent, 'alpha\nbeta\ngamma\ndelta\n');
     assert.equal(v2Manifest.zoom.final.scenes[0].steps[0].diff.rightContent, 'alpha\nBETA\ngamma\nDELTA\n');
+    const v2Coverage = buildTourCoverageReport(repo, v2Source);
+    assert.equal(v2Coverage.version, 2);
+    assert.equal(v2Coverage.walkthroughScope, 'final');
+    assert.equal(v2Coverage.totals.originalUnits, 5);
+    assert.equal(v2Coverage.totals.coveredUnits, 2);
+    assert.equal(v2Coverage.totals.coveragePercent, 40);
+    assert.deepEqual(v2Coverage.depth, { mentioned: 2, explained: 0, contextualized: 0 });
+    assert.deepEqual(v2Coverage.explanationAssignments, [{
+        sceneId: 'build-feature',
+        assignedUnits: 4,
+        excludedUnits: 1,
+        completeUnits: 5,
+        totalUnits: 5,
+        assignmentPercent: 100
+    }]);
+    const v2AuthoringCoverage = buildTourAuthoringCoverage(v2Coverage);
+    assert.deepEqual(v2AuthoringCoverage, {
+        walkthrough: { scope: 'final', coveredUnits: 2, includedUnits: 5, coveragePercent: 40 },
+        explanationAssignments: v2Coverage.explanationAssignments
+    });
+    assert.deepEqual(
+        parseChangeTourManifest({ ...v2Manifest, authoringCoverage: v2AuthoringCoverage }).authoringCoverage,
+        v2AuthoringCoverage
+    );
+    assert.throws(
+        () => parseChangeTourManifest({
+            ...v2Manifest,
+            authoringCoverage: { ...v2AuthoringCoverage, walkthrough: { ...v2AuthoringCoverage.walkthrough, scope: 'tour' } }
+        }),
+        /walkthrough\.scope must be final/
+    );
+    assert.deepEqual(v2Coverage.unsupported, [{ path: 'asset.bin', material: 'binary' }]);
+    assert.deepEqual(
+        v2Coverage.files.find((file) => file.path === 'renamed.txt'),
+        {
+            path: 'renamed.txt', originalUnits: 0, includedUnits: 0,
+            coveredUnits: 0, coveragePercent: 100, uncoveredHunks: []
+        }
+    );
+
+    const v2CoverageWithExclusion = buildTourCoverageReport(repo, {
+        ...v2Source,
+        coverage: { exclusions: [{ path: 'setup.txt', reason: 'Setup is reviewed separately.' }] }
+    });
+    assert.equal(v2CoverageWithExclusion.totals.excludedUnits, 1);
+    assert.equal(v2CoverageWithExclusion.totals.includedUnits, 4);
+    assert.equal(v2CoverageWithExclusion.totals.coveredUnits, 2);
+    assert.equal(v2CoverageWithExclusion.totals.coveragePercent, 50);
+    assert.deepEqual(v2CoverageWithExclusion.explanationAssignments, v2Coverage.explanationAssignments);
+
+    const sourcePath = path.join(os.tmpdir(), `bygone-v2-coverage-${process.pid}.bygone`);
+    fs.writeFileSync(sourcePath, JSON.stringify(v2Source), 'utf8');
+    let plainCoverageOutput = '';
+    runTourCommand(['coverage', sourcePath, '--minimum-coverage', '40'], repo, repo, {
+        write(chunk) { plainCoverageOutput += chunk; }
+    });
+    assert.match(plainCoverageOutput, /^Final walkthrough coverage: 2\/5 hunks \(40%\)$/m);
+    assert.match(plainCoverageOutput, /^Explanation assignment: 5\/5 hunks \(100%; 4 assigned, 1 excluded\)$/m);
+    let jsonCoverageOutput = '';
+    runTourCommand(['coverage', sourcePath, '--json'], repo, repo, {
+        write(chunk) { jsonCoverageOutput += chunk; }
+    });
+    assert.deepEqual(JSON.parse(jsonCoverageOutput), v2Coverage);
+    assert.throws(
+        () => runTourCommand(['coverage', sourcePath, '--minimum-coverage', '41'], repo, repo, { write() {} }),
+        /Final walkthrough coverage 40% is below the required 41%/
+    );
+    fs.rmSync(sourcePath, { force: true });
     assert.throws(() => parseChangeTourSource({ ...v2Source, chapters: source.chapters }), /explicit real revisions/);
     assert.throws(() => parseChangeTourSource({
         ...v2Source,
