@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.8.15
+
+- Fixed v2 deconstructed-tour coverage so authored Final-mode walkthrough anchors determine coverage while Explanation assignment completeness remains a separate metric
+- Added distinct Final walkthrough coverage and Explanation assignment indicators to authored tours in the Present sidebar
+
 ## 0.8.14
 
 - Reorganized desktop menus around familiar File, Edit, Git, Present, Navigate, View, and Window responsibilities while exposing file, directory, revision, branch, history, tour, and blank-comparison workflows
