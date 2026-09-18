@@ -1717,6 +1717,7 @@ function testPresenterServerInjectsWindowTitleIntoHtml() {
 function testNpmPackageStagesCliRuntimeDependencies() {
     const npmPackageSource = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'package-npm.mjs'), 'utf8');
     assert.match(npmPackageSource, /copyFile\('out\/changeTour\.js'\)/);
+    assert.match(npmPackageSource, /copyFile\('out\/gitComparison\.js'\)/);
     assert.match(npmPackageSource, /copyFile\('out\/tourCoverage\.js'\)/);
     assert.match(npmPackageSource, /copyFile\('out\/windowTitle\.js'\)/);
 }

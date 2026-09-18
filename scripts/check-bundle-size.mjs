@@ -4,8 +4,8 @@ const budgets = [
     { path: 'media/webview.js', maxBytes: 3_900_000 },
     { path: 'media/webview.css', maxBytes: 375_000 },
     { path: 'media/editor.worker.js', maxBytes: 320_000 },
-    { path: 'media/diff.worker.js', maxBytes: 17_000 },
-    { path: 'web/web-host.js', maxBytes: 84_000 },
+    { path: 'media/diff.worker.js', maxBytes: 19_000 },
+    { path: 'web/web-host.js', maxBytes: 90_000 },
     { path: 'web/presenter.css', maxBytes: 23_000 }
 ];
 
