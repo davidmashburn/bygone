@@ -23,7 +23,6 @@ Publish everything:
 
 ```bash
 export BYGONE_HOMEBREW_TAP=/path/to/homebrew-tap
-npm whoami
 gh auth status
 npm run release:publish
 ```
@@ -34,10 +33,9 @@ aborts unless the worktree is clean and the current branch is `main`, pushes
 installs the artifacts locally, then publishes npm, GitHub, and Homebrew.
 The Homebrew tap defaults to the sibling `homebrew-bygone` checkout; set
 `BYGONE_HOMEBREW_TAP` only when the tap is elsewhere.
-If npm authentication is missing, the command launches browser login. For an
-unpublished version, it checks authentication again and pauses immediately
-before `npm publish`; press Enter only when ready to complete npm's time-limited
-passkey prompt.
+Creating the GitHub release pushes the version tag. That tag starts the
+protected Release workflow, which waits for approval and publishes npm through
+OIDC trusted publishing without a long-lived npm token.
 
 Upload `bygone-<version>.vsix` from the Visual Studio Marketplace publisher
 page. GitHub OIDC support has merged into `vsce`, but Marketplace has not yet
@@ -62,12 +60,11 @@ The main scripts are:
   - requires a clean `main` worktree
   - pushes `main` and waits for that commit's GitHub Release Check workflow
   - rebuilds and installs the release locally, including a graceful desktop restart
-  - logs into npm when needed and pauses immediately before the interactive npm publish challenge
-  - publishes npm
   - creates a GitHub release with desktop artifacts
+  - triggers the protected GitHub Actions workflow that publishes npm through OIDC
   - updates and pushes the Homebrew tap
 - `npm run release:publish:npm`
-  - publishes only the staged npm package
+  - manual fallback that publishes only the staged npm package
 
 Related packaging commands:
 
@@ -91,17 +88,16 @@ You need accounts on three services:
 
 ### 1. npm
 
-This is required for publishing the standalone package.
+This is required for publishing the standalone package. Routine releases use
+npm trusted publishing from GitHub Actions, so no npm token is stored in the
+repository.
 
 - Sign up: [npm signup](https://www.npmjs.com/signup)
 - Docs: [npm getting started](https://docs.npmjs.com/getting-started)
 
-After creating the account:
-
-```bash
-npm login
-npm whoami
-```
+Configure `@davmash/bygone` with a trusted publisher for the
+`davidmashburn/bygone` repository, the `release.yml` workflow, and the
+`npm-publish` environment.
 
 ### 2. GitHub
 
@@ -165,17 +161,12 @@ This repository should contain the tap structure used by the release script:
 - `Formula/`
 - `Casks/`
 
-### 1. npm authentication
+### 1. npm trusted publishing
 
-```bash
-npm whoami
-```
-
-If that fails:
-
-```bash
-npm login
-```
+The npm package must trust `.github/workflows/release.yml` in
+`davidmashburn/bygone`, scoped to the `npm-publish` environment. The GitHub
+environment should require a reviewer so pushing a tag does not publish by
+itself.
 
 ### 2. GitHub authentication
 
@@ -305,9 +296,11 @@ npm run release:publish
 
 This runs the full publish path:
 
-1. `npm publish dist/npm-package --access public`
-2. `gh release create v<version> ... --notes-file CHANGELOG.md`
-3. update, commit, and push the Homebrew tap
+1. `gh release create v<version> ... --notes-file CHANGELOG.md`
+2. the pushed tag starts `.github/workflows/release.yml`
+3. after environment approval, Actions validates the tag and package metadata,
+   runs `npm run release:check`, and publishes `dist/npm-package` through OIDC
+4. update, commit, and push the Homebrew tap
 
 Publish the VS Code extension separately by uploading the already-built
 `bygone-<version>.vsix` through the Marketplace publisher page.
@@ -344,9 +337,12 @@ The repository-local packaging notes are also in:
 
 Check:
 
-- `npm whoami`
 - `gh auth status`
 - `echo $BYGONE_HOMEBREW_TAP`
+
+If the GitHub release succeeds but npm publishing does not, inspect the Release
+workflow and confirm that both the GitHub `npm-publish` environment and npm
+trusted-publisher configuration match `.github/workflows/release.yml`.
 
 ### VS Code publishing is not automated
 

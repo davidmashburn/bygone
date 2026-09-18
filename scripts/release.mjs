@@ -4,7 +4,6 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { createInterface } from 'readline/promises';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(path.join(repoRoot, 'package.json'), 'utf8'));
@@ -57,24 +56,14 @@ if (shouldPublish) {
 } else {
     console.log('');
     console.log(`Built Bygone ${version} artifacts without publishing.`);
-    console.log('Pass --publish to publish npm, GitHub desktop artifacts, and a Homebrew tap update.');
+    console.log('Pass --publish to create the GitHub desktop release and update the Homebrew tap.');
+    console.log('The release tag publishes npm through the protected GitHub Actions workflow.');
 }
 printMarketplaceUploadLinks();
 
 async function publishArtifacts() {
-    const npmPackagePath = path.join(repoRoot, 'dist', 'npm-package');
     const desktopArtifacts = await findDesktopArtifacts();
 
-    requireFile(path.join(npmPackagePath, 'package.json'), 'staged npm package');
-
-    if (!(await isPublishedNpmVersion(npmPackagePath))) {
-        await ensureNpmAuthenticated();
-        await pauseForNpmPublish(npmPackagePath);
-        await run('npm', ['publish', npmPackagePath, '--access', 'public']);
-    } else {
-        console.log(`\n$ npm publish ${npmPackagePath} --access public`);
-        console.log(`npm ${version} is already published, skipping npm publish and continuing with the remaining release steps.`);
-    }
     await run('gh', [
         'release',
         'create',
@@ -127,14 +116,6 @@ async function waitForReleaseCheckRun(headOid) {
     throw new Error(`Timed out waiting for the Release Check workflow for ${headOid}.`);
 }
 
-async function isPublishedNpmVersion(packagePath) {
-    const pkg = JSON.parse(await readFile(path.join(packagePath, 'package.json'), 'utf8'));
-    const packageName = pkg.name;
-    const manifest = JSON.parse(await runCapture('npm', ['view', packageName, 'versions', '--json']));
-    const versions = Array.isArray(manifest) ? manifest : (manifest ? [manifest] : []);
-    return versions.includes(pkg.version);
-}
-
 async function preflightPublish() {
     if (skipDmg) {
         throw new Error('Publishing requires a DMG because the Homebrew cask hash is computed from it. Remove --skip-dmg before publishing.');
@@ -144,33 +125,7 @@ async function preflightPublish() {
         throw new Error(`Homebrew tap checkout not found: ${homebrewTapRoot}. Set BYGONE_HOMEBREW_TAP to override it.`);
     }
 
-    await ensureNpmAuthenticated();
     await run('gh', ['auth', 'status']);
-}
-
-async function ensureNpmAuthenticated() {
-    try {
-        await run('npm', ['whoami']);
-    } catch {
-        console.log('\nnpm authentication is missing or expired. Starting browser login.');
-        await run('npm', ['login', '--auth-type=web']);
-        await run('npm', ['whoami']);
-    }
-}
-
-async function pauseForNpmPublish(packagePath) {
-    if (!process.stdin.isTTY || !process.stdout.isTTY) {
-        throw new Error('npm publishing requires an interactive terminal for passkey authentication.');
-    }
-    const pkg = JSON.parse(await readFile(path.join(packagePath, 'package.json'), 'utf8'));
-    const prompt = createInterface({ input: process.stdin, output: process.stdout });
-    try {
-        await prompt.question(
-            `\nReady to publish ${pkg.name}@${pkg.version}. Press Enter to start the time-limited npm passkey flow... `
-        );
-    } finally {
-        prompt.close();
-    }
 }
 
 function printMarketplaceUploadLinks() {

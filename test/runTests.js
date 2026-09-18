@@ -2616,6 +2616,7 @@ function testDesktopWindowStatePersistsOnlyRestorableSessions() {
 
 function testReleasePrepInstallsAndGracefullyRestartsLocalArtifacts() {
     const releaseSource = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'release.mjs'), 'utf8');
+    const releaseWorkflow = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'release.yml'), 'utf8');
     const devSyncSource = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'dev-sync.mjs'), 'utf8');
 
     assert.match(releaseSource, /for \(const \[command, commandArgs\] of buildSteps\)[\s\S]{0,500}npm', \['run', 'reinstall'\]/);
@@ -2624,10 +2625,14 @@ function testReleasePrepInstallsAndGracefullyRestartsLocalArtifacts() {
     assert.match(releaseSource, /git', \['branch', '--show-current'\][\s\S]{0,200}requires the main branch/);
     assert.match(releaseSource, /git', \['push', 'origin', 'main'\][\s\S]{0,300}gh', \['run', 'watch', runId, '--exit-status'\]/);
     assert.match(releaseSource, /process\.env\.BYGONE_HOMEBREW_TAP \|\| path\.join\(repoRoot, '\.\.', 'homebrew-bygone'\)/);
-    assert.match(releaseSource, /async function ensureNpmAuthenticated\(\)[\s\S]{0,400}npm', \['login', '--auth-type=web'\][\s\S]{0,150}npm', \['whoami'\]/);
-    assert.match(releaseSource, /if \(!\(await isPublishedNpmVersion\(npmPackagePath\)\)\) \{\s+await ensureNpmAuthenticated\(\);\s+await pauseForNpmPublish\(npmPackagePath\);\s+await run\('npm', \['publish'/);
-    assert.match(releaseSource, /Ready to publish \$\{pkg\.name\}@\$\{pkg\.version\}\. Press Enter to start the time-limited npm passkey flow/);
-    assert.match(releaseSource, /npm publishing requires an interactive terminal for passkey authentication/);
+    assert.doesNotMatch(releaseSource, /await run\('npm', \['publish'/);
+    assert.match(releaseWorkflow, /tags: \["v\*"\]/);
+    assert.match(releaseWorkflow, /id-token: write/);
+    assert.match(releaseWorkflow, /environment: npm-publish/);
+    assert.match(releaseWorkflow, /Tag \$GITHUB_REF_NAME does not match package\.json version \$pkg/);
+    assert.match(releaseWorkflow, /repository\.url is '\$actual', expected '\$expected'/);
+    assert.match(releaseWorkflow, /run: npm run release:check/);
+    assert.match(releaseWorkflow, /run: npm publish \.\/dist\/npm-package --access public/);
     assert.match(releaseSource, /printMarketplaceUploadLinks\(\);/);
     assert.match(releaseSource, /https:\/\/marketplace\.visualstudio\.com\/manage\/publishers\/\$\{encodeURIComponent\(packageJson\.publisher\)\}/);
     assert.match(releaseSource, /VSIX file: \$\{pathToFileURL\(vsixPath\)\.href\}/);
