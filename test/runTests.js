@@ -2648,11 +2648,59 @@ function testTwoWayDiffAlignsInsertions() {
     const model = buildTwoWayDiffModel('a\nb\nc\n', 'a\nx\nb\nc\n');
 
     assert.equal(model.hasChanges, true);
+    assert.equal(model.quality, 'exact');
     assert.equal(model.rows.length, 4);
     assert.equal(model.rows[1].left.kind, 'placeholder');
     assert.equal(model.rows[1].right.kind, 'added');
     assert.equal(model.rows[1].right.content, 'x');
     assert.equal(model.rightLines[1].segments, undefined);
+}
+
+function testTwoWayDiffRecognizesIdenticalContentWithoutDiffing() {
+    const content = `${'x'.repeat(20_000)}\n`;
+    const model = buildTwoWayDiffModel(content, content, { timeoutMs: 1 });
+
+    assert.equal(model.hasChanges, false);
+    assert.equal(model.quality, 'exact');
+    assert.equal(model.blocks.length, 0);
+    assert.equal(model.rows.length, 1);
+    assert.equal(model.rows[0].left.content, model.rows[0].right.content);
+}
+
+function testTwoWayDiffComparesLongJsonLinesExactly() {
+    const payload = 'x'.repeat(1_200);
+    const left = Array.from({ length: 170 }, (_value, index) => (
+        JSON.stringify({ run: 'left', index, payload })
+    )).join('\n');
+    const right = Array.from({ length: 155 }, (_value, index) => (
+        JSON.stringify({ run: 'right', index, payload })
+    )).join('\n');
+
+    const model = buildTwoWayDiffModel(left, right);
+
+    assert.equal(model.quality, 'exact');
+    assert.equal(model.hasChanges, true);
+    assert.ok(model.blocks.length > 0);
+    assert.equal(model.leftLines[0].kind, 'removed');
+    assert.equal(model.rightLines[0].kind, 'added');
+}
+
+function testTwoWayDiffLabelsTimeoutFallback() {
+    const left = Array.from({ length: 5_000 }, (_value, index) => `left-${index}`).join('\n');
+    const right = Array.from({ length: 5_000 }, (_value, index) => `right-${index}`).join('\n');
+    const model = buildTwoWayDiffModel(left, right, { timeoutMs: 1 });
+
+    assert.equal(model.quality, 'fallback');
+    assert.equal(model.hasChanges, true);
+    assert.equal(model.blocks.length, 1);
+}
+
+function testTwoWayDiffOutcomeMessagesDistinguishResults() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+
+    assert.match(rendererSource, /model\.quality === 'fallback'[\s\S]{0,180}setStatus\('Showing simplified diff[^\n]+, true\)/);
+    assert.match(rendererSource, /!model\.hasChanges[\s\S]{0,120}setStatus\('Files are identical\.', true\)/);
+    assert.match(rendererSource, /Unable to compute diff:/);
 }
 
 function testReplacementMatchingRejectsLowInformationLines() {
@@ -4211,6 +4259,10 @@ async function run() {
     testReleasePrepInstallsAndGracefullyRestartsLocalArtifacts();
     testRefreshSessionUsesSemanticRendererAndMenuCommands();
     testTwoWayDiffAlignsInsertions();
+    testTwoWayDiffRecognizesIdenticalContentWithoutDiffing();
+    testTwoWayDiffComparesLongJsonLinesExactly();
+    testTwoWayDiffLabelsTimeoutFallback();
+    testTwoWayDiffOutcomeMessagesDistinguishResults();
     testReplacementMatchingRejectsLowInformationLines();
     testReplacementMatchingRequiresSharedContentForSingletonHunks();
     testReplacementBlockClassificationUsesBlockAndLineEvidenceSeparately();

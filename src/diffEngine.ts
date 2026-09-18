@@ -40,6 +40,7 @@ export interface TwoWayDiffModel {
     rightLines: DiffLine[];
     blocks: DiffBlock[];
     hasChanges: boolean;
+    quality: 'exact' | 'fallback';
 }
 
 export interface ThreeWayMergeModel {
@@ -76,13 +77,24 @@ export function buildTwoWayDiffModel(
 ): TwoWayDiffModel {
     const leftLines = normalizeLines(leftContent);
     const rightLines = normalizeLines(rightContent);
-    const changes = Diff.diffArrays(leftLines, rightLines, {
+
+    if (leftContent === rightContent) {
+        return buildIdenticalTwoWayDiffModel(leftLines);
+    }
+
+    const interned = internDiffLines(leftLines, rightLines);
+    const internedChanges = Diff.diffArrays(interned.left, interned.right, {
         timeout: options.timeoutMs ?? DIFF_TIMEOUT_MS
     });
 
-    if (!changes) {
+    if (!internedChanges) {
         return buildConservativeTwoWayDiffModel(leftLines, rightLines);
     }
+
+    const changes = internedChanges.map((change) => ({
+        ...change,
+        value: change.value.map((lineId) => interned.lines[lineId])
+    }));
 
     const rows: DiffRow[] = [];
     const renderedLeftLines: DiffLine[] = [];
@@ -164,7 +176,48 @@ export function buildTwoWayDiffModel(
         leftLines: renderedLeftLines,
         rightLines: renderedRightLines,
         blocks,
-        hasChanges
+        hasChanges,
+        quality: 'exact'
+    };
+}
+
+function internDiffLines(leftLines: string[], rightLines: string[]): {
+    left: number[];
+    right: number[];
+    lines: string[];
+} {
+    const lineIds = new Map<string, number>();
+    const lines: string[] = [];
+    const intern = (line: string): number => {
+        const existingId = lineIds.get(line);
+        if (existingId !== undefined) {
+            return existingId;
+        }
+
+        const lineId = lines.length;
+        lineIds.set(line, lineId);
+        lines.push(line);
+        return lineId;
+    };
+
+    return {
+        left: leftLines.map(intern),
+        right: rightLines.map(intern),
+        lines
+    };
+}
+
+function buildIdenticalTwoWayDiffModel(lines: string[]): TwoWayDiffModel {
+    return {
+        rows: lines.map((line, index) => makeDiffRow(
+            makeDiffCell('context', line, index + 1),
+            makeDiffCell('context', line, index + 1)
+        )),
+        leftLines: lines.map((line, index) => makeDiffLine('context', line, index + 1)),
+        rightLines: lines.map((line, index) => makeDiffLine('context', line, index + 1)),
+        blocks: [],
+        hasChanges: false,
+        quality: 'exact'
     };
 }
 
@@ -196,7 +249,8 @@ function buildConservativeTwoWayDiffModel(leftLines: string[], rightLines: strin
         blocks: rows.length === 0
             ? []
             : [makeDiffBlock(blockKind, 0, leftLines.length, 0, rightLines.length)],
-        hasChanges: rows.length > 0
+        hasChanges: rows.length > 0,
+        quality: 'fallback'
     };
 }
 
@@ -489,6 +543,7 @@ const CONTEXTUAL_AMBIGUITY_MARGIN = 0.05;
 const GAP_PENALTY = -0.12;
 const MAX_BOUNDED_CANDIDATES = 5_000;
 const MAX_LARGE_HUNK_ANCHORS = 2_000;
+const MAX_ALIGNMENT_CHARACTER_CELLS = 50_000_000;
 const MAX_RARE_TOKEN_OCCURRENCES = 4;
 const MAX_CONTEXTUAL_HUNK_LINES = 8;
 const MAX_CONTEXTUAL_LENGTH_DELTA = 4;
@@ -499,6 +554,14 @@ export function alignReplacementLines(leftLines: string[], rightLines: string[])
     }
     if (rightLines.length === 0) {
         return leftLines.map((left) => ({ left }));
+    }
+    const leftCharacterCount = leftLines.reduce((total, line) => total + line.length, 0);
+    const rightCharacterCount = rightLines.reduce((total, line) => total + line.length, 0);
+    if (leftCharacterCount * rightCharacterCount > MAX_ALIGNMENT_CHARACTER_CELLS) {
+        return [
+            ...leftLines.map((left) => ({ left })),
+            ...rightLines.map((right) => ({ right }))
+        ];
     }
     if (leftLines.length === 1 && rightLines.length === 1) {
         const singletonScore = scoreReplacementLinePair(leftLines[0], rightLines[0]);

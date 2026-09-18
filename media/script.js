@@ -567,6 +567,9 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
         },
         applyDecorations: () => applyDiffDecorations(suppliedDiffModel, currentTourAnnotations)
     });
+    if (diffModel) {
+        updateTwoWayDiffOutcomeStatus(suppliedDiffModel);
+    }
     updateTwoWayEditorOptions();
     updateChangeToolbarState();
     if (comparisonChanged) {
@@ -609,6 +612,7 @@ function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextAc
             updateChangeToolbarState();
             connectorController.scheduleDrawConnections();
             revealActiveDiff(false);
+            updateTwoWayDiffOutcomeStatus(model);
             notifyRenderComplete();
         })
         .catch((error) => {
@@ -618,6 +622,16 @@ function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextAc
             }
         })
         .finally(endDiffJob);
+}
+
+function updateTwoWayDiffOutcomeStatus(model) {
+    if (model.quality === 'fallback') {
+        setStatus('Showing simplified diff because exact comparison exceeded the time limit.', true);
+    } else if (!model.hasChanges) {
+        setStatus('Files are identical.', true);
+    } else {
+        setStatus('', false);
+    }
 }
 
 function showBinaryDiff(message) {
