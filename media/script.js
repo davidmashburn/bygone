@@ -612,6 +612,13 @@ function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextAc
             updateChangeToolbarState();
             connectorController.scheduleDrawConnections();
             revealActiveDiff(false);
+            // Diff calculation can finish after the initial tour reveal. Keep the
+            // authored evidence in view instead of landing on the first hunk.
+            const activeAnnotation = currentTourAnnotations.find((annotation) => annotation.active);
+            if (activeAnnotation) {
+                const editor = activeAnnotation.side === 'left' ? leftEditor : rightEditor;
+                editor.revealLineInCenter(activeAnnotation.startLine, monacoInstance.editor.ScrollType.Immediate);
+            }
             updateTwoWayDiffOutcomeStatus(model);
             notifyRenderComplete();
         })

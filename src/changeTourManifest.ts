@@ -1,5 +1,10 @@
 import type { BranchCommit, GitChangeKind } from './gitComparison';
-import { validateStepRequirement, type ChangeTourStepRequirement } from './changeTourSource';
+import {
+    validateChangeTourReview,
+    validateStepRequirement,
+    type ChangeTourReview,
+    type ChangeTourStepRequirement
+} from './changeTourSource';
 
 export const CHANGE_TOUR_MANIFEST_VERSION = 2 as const;
 
@@ -242,6 +247,7 @@ export interface ChangeTourManifest {
     files: ChangeTourFile[];
     chapters: ChangeTourChapter[];
     scenes: ChangeTourScene[];
+    review?: ChangeTourReview;
     /** Optional authoring diagnostics supplied by the local presentation host. */
     authoringCoverage?: ChangeTourAuthoringCoverage;
 }
@@ -319,7 +325,37 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
 
     if (value.version === 2) validateZoom(value);
 
+    if (value.review !== undefined) {
+        const evidenceScenes = value.version === 2 && isRecord(value.zoom) && isRecord(value.zoom.final)
+            ? value.zoom.final.scenes
+            : value.scenes;
+        validateChangeTourReview(value.review, {
+            expectedRange: {
+                baseOid: String(value.range.mergeBaseOid),
+                headOid: String(value.range.headOid)
+            },
+            authoredWalkthroughSteps: collectAuthoredWalkthroughStepIds(evidenceScenes)
+        });
+    }
+
     return { ...value, files } as unknown as ChangeTourManifest;
+}
+
+function collectAuthoredWalkthroughStepIds(value: unknown): ReadonlyMap<string, ReadonlySet<string>> {
+    const scenes = new Map<string, ReadonlySet<string>>();
+    if (!Array.isArray(value)) return scenes;
+    for (const scene of value) {
+        if (!isRecord(scene) || scene.kind !== 'walkthrough' || !Array.isArray(scene.steps)
+            || typeof scene.id !== 'string') {
+            continue;
+        }
+        const stepIds = new Set<string>();
+        for (const step of scene.steps) {
+            if (isRecord(step) && typeof step.id === 'string') stepIds.add(step.id);
+        }
+        scenes.set(scene.id, stepIds);
+    }
+    return scenes;
 }
 
 function validateAuthoringCoverage(value: unknown, version: 1 | 2): asserts value is ChangeTourAuthoringCoverage {
