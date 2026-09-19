@@ -285,10 +285,11 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const diff3Input = document.getElementById('web-diff3-input');
         const tourPrevious = document.getElementById('tour-previous');
         const tourNext = document.getElementById('tour-next');
+        const tourOverview = document.getElementById('tour-overview');
+        const tourCurrentStep = document.getElementById('tour-current-step');
+        const tourNarration = document.getElementById('tour-narration');
         const tourReturnFocus = document.getElementById('tour-return-focus');
         const tourShowInCode = document.getElementById('tour-show-in-code');
-        const tourStartSteps = document.getElementById('tour-start-steps');
-        const tourContext = document.getElementById('tour-context');
         const tourSearchInput = document.getElementById('tour-search-input');
         const tourSearchScope = document.getElementById('tour-search-scope');
         const tourListen = document.getElementById('tour-listen');
@@ -342,16 +343,11 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
 
         tourPrevious?.addEventListener('click', () => showTourLinear(-1));
         tourNext?.addEventListener('click', () => showTourLinear(1));
-        tourStartSteps?.addEventListener('click', () => showTourScene(
-            state.activeSceneIndex,
-            state.activeStepIndex,
-            { userNavigation: true, showIntro: false }
-        ));
+        tourOverview?.addEventListener('click', () => setNarrativeView('overview'));
+        tourCurrentStep?.addEventListener('click', () => setNarrativeView('step'));
+        tourNarration?.addEventListener('click', () => toggleNarrationSettings());
         tourReturnFocus?.addEventListener('click', returnToTourFocus);
         tourShowInCode?.addEventListener('click', showActiveStepInCode);
-        tourContext?.addEventListener('toggle', () => {
-            if (tourContext.open) setSceneIntroVisible(false);
-        });
         tourSearchInput?.addEventListener('input', renderTourSearchResults);
         tourSearchScope?.addEventListener('change', renderTourSearchResults);
         tourListen?.addEventListener('click', toggleNarrationFromHost);
@@ -498,7 +494,8 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         if (!deviceNarrationAvailable || state.mode !== 'tour') return;
         const unit = buildActiveNarrationUnit('playback-start');
         if (!unit) return;
-        setSceneIntroVisible(false);
+        const firstSegment = unit.segments[0];
+        setSceneIntroVisible(Boolean(firstSegment && ['chapter', 'scene-title', 'summary', 'bullet', 'takeaway'].includes(firstSegment.source.field)));
         state.renderedNarrationUnit = unit;
         renderCurrentNarrativeForNarrationUnit(unit);
         narrationController.start(unit, true);
@@ -594,7 +591,9 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         element.classList.toggle('is-paused', paused);
         const context = element.closest('#tour-context');
         if (context) {
-            context.open = true;
+            const sceneField = ['chapter', 'scene-title', 'summary', 'bullet', 'takeaway'].includes(segment.source.field);
+            setSceneIntroVisible(sceneField);
+        } else if (element.closest('#tour-step')) {
             setSceneIntroVisible(false);
         }
         const narrative = document.getElementById('tour-narrative-content');
@@ -646,9 +645,8 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             markZoomNavigation();
             showTourScene(match.sceneIndex, match.stepIndex ?? 0, { showIntro: false });
             if (match.stepIndex === undefined) {
-                const context = document.getElementById('tour-context');
-                context.open = true;
-                context.scrollIntoView({ block: 'start' });
+                setSceneIntroVisible(true);
+                document.getElementById('tour-context')?.scrollIntoView({ block: 'start' });
             }
             return;
         }
@@ -1582,11 +1580,61 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             ? scene.steps[state.activeStepIndex]
             : null;
         state.sceneIntroVisible = Boolean(visible && step);
-        const intro = document.getElementById('tour-scene-intro');
-        if (intro) intro.hidden = !state.sceneIntroVisible;
+        const context = document.getElementById('tour-context');
+        if (context) context.open = !step || state.sceneIntroVisible;
         const stepPanel = document.getElementById('tour-step');
         if (stepPanel) stepPanel.hidden = !step || state.sceneIntroVisible;
+        renderNarrativeViewControls();
         renderTourProgress();
+        updateTourLocationUrl();
+    }
+
+    function setNarrativeView(view) {
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        if (!scene) return;
+        markZoomNavigation();
+        if (view === 'overview') {
+            setSceneIntroVisible(true);
+        } else if (isSteppedTourScene(scene)) {
+            setSceneIntroVisible(false);
+        }
+        document.getElementById('tour-narrative-content')?.scrollTo({ top: 0 });
+    }
+
+    function toggleNarrationSettings() {
+        const settings = document.getElementById('tour-audio-settings');
+        if (!settings) return;
+        settings.open = !settings.open;
+        renderNarrativeViewControls();
+        if (settings.open) {
+            window.requestAnimationFrame(() => settings.scrollIntoView({ block: 'nearest' }));
+        }
+    }
+
+    function renderNarrativeViewControls() {
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        const hasStep = Boolean(scene && isSteppedTourScene(scene) && scene.steps[state.activeStepIndex]);
+        const overview = document.getElementById('tour-overview');
+        const currentStep = document.getElementById('tour-current-step');
+        const narration = document.getElementById('tour-narration');
+        const settings = document.getElementById('tour-audio-settings');
+        if (overview) overview.setAttribute('aria-pressed', String(!hasStep || state.sceneIntroVisible));
+        if (currentStep) {
+            currentStep.disabled = !hasStep;
+            currentStep.setAttribute('aria-pressed', String(hasStep && !state.sceneIntroVisible));
+        }
+        if (narration) narration.setAttribute('aria-expanded', String(Boolean(settings?.open)));
+    }
+
+    function updateTourLocationUrl() {
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        if (!scene) return;
+        const parameters = new URLSearchParams(window.location.search);
+        parameters.set('scene', scene.id);
+        const step = isSteppedTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
+        if (step && !state.sceneIntroVisible) parameters.set('step', step.id);
+        else parameters.delete('step');
+        window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
     }
 
     function renderTourProgress() {
@@ -1600,15 +1648,16 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const introVisible = Boolean(state.sceneIntroVisible && step);
         const previousTarget = getCurrentLinearTourTarget(-1);
         const nextTarget = getCurrentLinearTourTarget(1);
+        const startLabel = state.activeStepIndex === 0 ? 'Start steps' : 'Current step →';
         previous.disabled = !previousTarget;
         next.disabled = introVisible ? !step : !nextTarget;
-        next.textContent = introVisible ? 'Start steps' : nextTarget ? 'Next →' : 'End of tour';
+        next.textContent = introVisible ? startLabel : nextTarget ? 'Next →' : 'End of tour';
         next.title = introVisible
-            ? 'Start the steps for this scene'
+            ? state.activeStepIndex === 0 ? 'Start the steps for this scene' : 'Return to the current step'
             : nextTarget
                 ? 'Next tour item (Right or Page Down)'
                 : 'You have reached the end of the tour';
-        next.setAttribute('aria-label', introVisible ? 'Start steps' : nextTarget ? 'Next tour item' : 'End of tour');
+        next.setAttribute('aria-label', introVisible ? state.activeStepIndex === 0 ? 'Start steps' : 'Current step' : nextTarget ? 'Next tour item' : 'End of tour');
     }
 
     function getActiveStepCodeTarget(scene = state.tour?.scenes[state.activeSceneIndex]) {
@@ -1701,15 +1750,12 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const stepBody = document.getElementById('tour-step-body');
         const stepRequirement = document.getElementById('tour-step-requirement');
         const connection = document.getElementById('tour-connection');
-        const sceneIntro = document.getElementById('tour-scene-intro');
-        const sceneIntroTitle = document.getElementById('tour-scene-intro-title');
-        const sceneIntroSummary = document.getElementById('tour-scene-intro-summary');
         const stepCode = document.getElementById('tour-step-code');
         const stepCodeLocation = document.getElementById('tour-step-code-location');
         const showInCode = document.getElementById('tour-show-in-code');
         const previous = document.getElementById('tour-previous');
         const next = document.getElementById('tour-next');
-        if (!narrative || !breadcrumb || !chapter || !title || !summary || !bullets || !tags || !takeaway || !stepPanel || !stepTitle || !stepBody || !stepRequirement || !connection || !sceneIntro || !sceneIntroTitle || !sceneIntroSummary || !stepCode || !stepCodeLocation || !showInCode || !previous || !next) {
+        if (!narrative || !breadcrumb || !chapter || !title || !summary || !bullets || !tags || !takeaway || !stepPanel || !stepTitle || !stepBody || !stepRequirement || !connection || !stepCode || !stepCodeLocation || !showInCode || !previous || !next) {
             throw new Error('Tour narrative UI is incomplete.');
         }
         narrative.hidden = false;
@@ -1735,9 +1781,6 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             ? scene.steps[state.activeStepIndex]
             : null;
         const showIntro = state.sceneIntroVisible && Boolean(step);
-        sceneIntroTitle.textContent = scene.title;
-        sceneIntroSummary.textContent = scene.summary;
-        setSceneIntroVisible(showIntro);
         const context = document.getElementById('tour-context');
         const contextLabel = document.getElementById('tour-context-label');
         if (context.dataset.sceneId !== scene.id) {
@@ -1745,10 +1788,10 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             context.dataset.sceneId = scene.id;
         }
         context.classList.toggle('is-primary', !step);
-        contextLabel.hidden = !step;
+        contextLabel.hidden = true;
         contextLabel.textContent = `Scene context · ${scene.title}`;
         if (!step) context.open = true;
-        if (state.sceneIntroVisible) context.open = false;
+        setSceneIntroVisible(showIntro);
         stepPanel.hidden = !step || state.sceneIntroVisible;
         if (step) {
             renderNarrationField(stepTitle, step.title, { field: 'step-title' }, narrationUnit, {

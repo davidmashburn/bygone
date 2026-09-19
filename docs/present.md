@@ -16,12 +16,13 @@ source evidence while keeping the complete changed-file set available.
 The active scene expands into named, selectable steps in the outline. The
 current step's title and explanation lead the reading panel; put the
 evidence-grounded rationale and tradeoffs for that code beside it in the step
-body. **Scene context** opens the scene's overview, supporting points, and
-takeaway. Previous and Next stay visible while long explanations scroll. Scenes
-without steps show their full narrative directly.
+body. **Overview** opens the full scene narrative, including its supporting
+points and takeaway; **Current step** returns to the same step. These controls
+and Previous/Next stay visible while long explanations scroll. Scenes without
+steps show their full narrative directly.
 
 When you enter a stepped scene from the outline, the reading area starts with a
-compact scene introduction containing its title and summary. Choose **Start
+full scene overview, including its bullets, tags, and takeaway. Choose **Start
 steps** to open the first step; a direct link that includes a step opens that
 step immediately. The header reports the current position as `Scene N of M ·
 Step N of M`, and the final navigation control is **End of tour**. The reading
@@ -53,8 +54,8 @@ Use **Listen** in the narrative header or **Present → Listen to Tour** in the
 desktop app to read the tour aloud with a device voice. Narration works
 offline and does not send tour text to a hosted speech service.
 
-Expand **Narration settings** for sentence navigation, Stop, voice, and speed.
-Listen becomes Pause or Resume during playback. Scene context opens when its
+Choose **Narration** above the reading area for sentence navigation, Stop, voice,
+and speed. Listen becomes Pause or Resume during playback. The overview opens when its
 text is spoken so the highlighted sentence remains visible.
 
 - **Pause/Resume** retains the current sentence; **Stop** clears playback. The
