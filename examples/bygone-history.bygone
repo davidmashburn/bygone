@@ -47,34 +47,34 @@ chapters:
     scenes:
       - id: review-pipeline
         title: From Git history to a visual workspace
-        summary: Follow the branch-review feature through its historical boundary, portable model, presentation seam, and proof.
+        summary: Follow the branch-review feature from its historical boundary to the reusable comparison surface and the test that fixes its semantics.
         bullets:
-          - The comparison starts at merge-base rather than whichever ref happens to be named as the base.
-          - Git-specific work ends once two temporary trees have been materialized.
-          - Existing directory comparison then provides navigation and drill-down without a second renderer.
+          - Resolve the range before materializing files for the comparison.
+          - Keep Git-specific preparation at the temporary-tree handoff.
+          - Read the fixture as a proof of range semantics, separate from the renderer.
         tags: [git, architecture, dogfood]
         takeaway: Bygone reviews its own history using the same boundary it introduced in this commit.
         steps:
           - id: establish-boundary
             title: Establish the historical boundary
-            body: The review represents everything introduced since the branch diverged, including changes made around merges.
+            body: Using the unique merge base makes the review start at branch divergence; the resolver rejects multiple merge bases instead of silently choosing one.
             focus: choose-merge-base
           - id: make-range-portable
             title: Describe the review as data
-            body: Changed paths and commits are collected into a range that neither renderer needs to rediscover.
+            body: BranchReviewRange carries changed paths and commits once, so the renderer can consume prepared history rather than rediscovering Git state.
             focus: describe-range
           - id: turn-history-into-files
             title: Materialize two review trees
-            body: The Git-specific layer creates base and head snapshots for only the changed paths.
+            body: Materializing only changed paths creates the two snapshots the diff can read; the temporary roots add setup and cleanup around the read-only comparison.
             focus: materialize-boundary
             connection: range-to-snapshot
           - id: reuse-the-diff-surface
             title: Reuse directory comparison
-            body: VS Code hands those snapshots to Bygone's existing directory workflow instead of introducing a branch-only view.
+            body: Passing the roots to compareDirectories keeps branch review on the established directory workflow, so navigation and drill-down are reused instead of implemented in a branch-specific renderer.
             focus: open-review-surface
             connection: snapshot-to-surface
           - id: lock-the-semantics
             title: Prove the range starts at divergence
-            body: The test creates a real repository and asserts the selected merge base, changed paths, and commits.
+            body: The fixture asserts the merge base, changed paths, and commit count; renderer behavior needs separate checks.
             focus: prove-merge-base
             connection: semantics-to-proof

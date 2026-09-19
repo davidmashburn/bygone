@@ -14,10 +14,24 @@ source evidence while keeping the complete changed-file set available.
   narrative whose anchors have been compiled to exact source locations.
 
 The active scene expands into named, selectable steps in the outline. The
-current step's title and explanation lead the reading panel; **Scene context**
-opens the scene's overview, supporting points, and takeaway. Previous and Next
-stay visible while long explanations scroll. Scenes without steps show their
-full narrative directly.
+current step's title and explanation lead the reading panel; put the
+evidence-grounded rationale and tradeoffs for that code beside it in the step
+body. **Scene context** opens the scene's overview, supporting points, and
+takeaway. Previous and Next stay visible while long explanations scroll. Scenes
+without steps show their full narrative directly.
+
+When you enter a stepped scene from the outline, the reading area starts with a
+compact scene introduction containing its title and summary. Choose **Start
+steps** to open the first step; a direct link that includes a step opens that
+step immediately. The header reports the current position as `Scene N of M ·
+Step N of M`, and the final navigation control is **End of tour**. The reading
+area uses the available width beside the sidebar and fills the viewport on
+narrow screens above the diff.
+
+The code view uses the available width for an added or deleted file when only
+one side is present. An empty **Present** view keeps the regular split layout.
+When the current step has an exact source target, **Show in code** refocuses the
+corresponding file and line.
 
 Expand **Files** at the bottom of the sidebar to browse all changed files.
 The Files rail is independent of the narrative. Browsing another file keeps
@@ -78,6 +92,11 @@ conversation. Those remain separate from the offline, device-first baseline.
 
 Tour content is read-only. Author or revise the YAML and recompile it rather
 than editing historical or synthetic panels in the presenter.
+
+The authored tour currently has no separate review-notes surface. Keep open
+questions and review decisions in the review record that accompanies the tour;
+the scene and step narrative should explain the implemented change and the
+tradeoffs supported by its evidence.
 
 ## Authoring workflow
 

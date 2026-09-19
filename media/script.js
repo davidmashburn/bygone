@@ -100,6 +100,7 @@ let currentFileNavigation = { canGoPrevious: false, canGoNext: false };
 let activePaneSide = 'right';
 let activeDirectoryEntryPath = null;
 let currentTwoWayComparisonKey = null;
+let currentTwoWayFileExists = { left: true, right: true };
 let suppressDirectoryScrollSync = false;
 let refreshSessionState = { enabled: false, status: 'disabled', message: null };
 let pendingNavigationRestore = null;
@@ -276,7 +277,8 @@ host.onMessage((message) => {
             message.initialChangeIndex,
             message.tourAnnotations || [],
             message.sourceInfo || null,
-            message.readOnlyLabel || null
+            message.readOnlyLabel || null,
+            message.fileExists || null
         );
         return;
     }
@@ -365,7 +367,8 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.initialChangeIndex,
             pendingTwoWayPayload.tourAnnotations || [],
             pendingTwoWayPayload.sourceInfo || null,
-            pendingTwoWayPayload.readOnlyLabel || null
+            pendingTwoWayPayload.readOnlyLabel || null,
+            pendingTwoWayPayload.fileExists || null
         );
         pendingTwoWayPayload = undefined;
     }
@@ -513,11 +516,18 @@ function isDarkColor(color) {
     return luminance < 140;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = [], sourceInfo = null, readOnlyLabel = null) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = [], sourceInfo = null, readOnlyLabel = null, fileExists = null) {
     const diffEpoch = ++twoWayDiffEpoch;
     const comparisonKey = comparisonId || `${file1}\u0000${file2}`;
     const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
+    const nextFileExists = normalizeFileExists(fileExists);
+    const layoutChanged = currentTwoWayFileExists.left !== nextFileExists.left
+        || currentTwoWayFileExists.right !== nextFileExists.right;
+    const navigationBeforeLayoutChange = layoutChanged && !comparisonChanged && currentMode === MODE_TWO_WAY
+        ? captureNavigationState()
+        : null;
     currentMode = MODE_TWO_WAY;
+    currentTwoWayFileExists = nextFileExists;
     currentTwoWayComparisonKey = comparisonKey;
     currentTourAnnotations = tourAnnotations;
     historyMode = Boolean(history);
@@ -529,6 +539,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     } else if (hostEditableSides.right) {
         activePaneSide = 'right';
     }
+    activePaneSide = resolveVisibleTwoWaySide(activePaneSide);
     const suppliedDiffModel = diffModel || { rows: [], leftLines: [], rightLines: [], blocks: [], hasChanges: false };
     setCurrentDiffModel(suppliedDiffModel);
     const nextActiveDiffIndex = Number.isInteger(initialChangeIndex)
@@ -541,6 +552,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     disposeMultiEditors();
 
     toggleView(VIEW_IDS.twoWay);
+    applyTwoWayLayout(currentTwoWayFileExists);
     setStatus('', false);
     setTextContent('file-info', comparisonSummary || `Comparing ${file1} and ${file2}`);
     setTextContent('file1-header', file1);
@@ -576,12 +588,13 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
         resetTwoWayScrollPositions();
     }
     layoutEditors();
+    restoreTwoWayNavigationAfterLayout(navigationBeforeLayoutChange);
     const activeTourAnnotation = tourAnnotations.find((annotation) => annotation.active);
     if (comparisonChanged && !activeTourAnnotation) {
         revealActiveDiff(false);
     }
     if (activeTourAnnotation) {
-        const editor = activeTourAnnotation.side === 'left' ? leftEditor : rightEditor;
+        const editor = getTwoWayEditor(activeTourAnnotation.side);
         requestAnimationFrame(() => requestAnimationFrame(() => {
             if (diffEpoch !== twoWayDiffEpoch || currentMode !== MODE_TWO_WAY) return;
             editor.revealLineInCenter(
@@ -616,7 +629,7 @@ function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextAc
             // finishes. Preserve that focus instead of reverting to a hunk.
             const activeAnnotation = currentTourAnnotations.find((annotation) => annotation.active);
             if (activeAnnotation) {
-                const editor = activeAnnotation.side === 'left' ? leftEditor : rightEditor;
+                const editor = getTwoWayEditor(activeAnnotation.side);
                 editor.revealLineInCenter(activeAnnotation.startLine, monacoInstance.editor.ScrollType.Immediate);
             } else {
                 revealActiveDiff(false);
@@ -656,10 +669,12 @@ function showBinaryDiff(message) {
     scrollMaps = null;
     directoryEntries = [];
     hostEditableSides = { left: false, right: false };
+    currentTwoWayFileExists = { left: true, right: true };
 
     disposeTwoWayEditors();
     disposeMultiEditors();
     toggleView(VIEW_IDS.twoWay);
+    applyTwoWayLayout(currentTwoWayFileExists);
     setStatus('', false);
     const subject = comparison.kind === 'image' ? 'Images' : 'Binary files';
     setTextContent(
@@ -1862,6 +1877,84 @@ function normalizeEditableSides(nextEditableSides, isHistoryMode) {
     };
 }
 
+function normalizeFileExists(nextFileExists) {
+    if (!nextFileExists || typeof nextFileExists !== 'object') {
+        return { left: true, right: true };
+    }
+
+    const normalized = {
+        left: typeof nextFileExists.left === 'boolean' ? nextFileExists.left : true,
+        right: typeof nextFileExists.right === 'boolean' ? nextFileExists.right : true
+    };
+
+    // A two-way comparison cannot render a meaningful single present side
+    // when both explicit flags are false. Keep the normal split as a safe
+    // fallback for malformed host payloads.
+    return normalized.left || normalized.right ? normalized : { left: true, right: true };
+}
+
+function applyTwoWayLayout(fileExists) {
+    const twoWayView = getElement('two-way-diff');
+    if (!twoWayView) {
+        return;
+    }
+
+    const normalizedFileExists = normalizeFileExists(fileExists);
+    const isSingleSided = normalizedFileExists.left !== normalizedFileExists.right;
+    twoWayView.classList.toggle('is-single-sided', isSingleSided);
+
+    [
+        ['left', getElement('file1-content')],
+        ['right', getElement('file2-content')]
+    ].forEach(([side, content]) => {
+        const panel = content?.closest('.file-panel');
+        if (!panel) {
+            return;
+        }
+
+        const exists = normalizedFileExists[side];
+        panel.hidden = !exists;
+        panel.classList.toggle('is-absent-side', !exists);
+        panel.setAttribute('aria-hidden', exists ? 'false' : 'true');
+    });
+}
+
+function resolveVisibleTwoWaySide(side) {
+    if (side === 'left' && currentTwoWayFileExists.left) {
+        return 'left';
+    }
+    if (side === 'right' && currentTwoWayFileExists.right) {
+        return 'right';
+    }
+    if (currentTwoWayFileExists.left) {
+        return 'left';
+    }
+    if (currentTwoWayFileExists.right) {
+        return 'right';
+    }
+    return side;
+}
+
+function getTwoWayEditor(side) {
+    return resolveVisibleTwoWaySide(side) === 'left' ? leftEditor : rightEditor;
+}
+
+function restoreTwoWayNavigationAfterLayout(navigation) {
+    if (!navigation || currentMode !== MODE_TWO_WAY) {
+        return;
+    }
+
+    const previousSuppression = suppressEditorEvents;
+    suppressEditorEvents = true;
+    try {
+        setActivePane(resolveVisibleTwoWaySide(navigation.activePaneSide), false);
+        restoreEditorNavigation(leftEditor, navigation.editorStates?.left);
+        restoreEditorNavigation(rightEditor, navigation.editorStates?.right);
+    } finally {
+        suppressEditorEvents = previousSuppression;
+    }
+}
+
 function isSideEditable(side) {
     if (side === 'left') {
         return hostEditableSides.left && !userReadOnly;
@@ -2396,6 +2489,10 @@ function initializeEditModeToolbar() {
 function setActivePane(side, focusEditor) {
     if (side !== 'left' && side !== 'right') {
         return;
+    }
+
+    if (currentMode === MODE_TWO_WAY) {
+        side = resolveVisibleTwoWaySide(side);
     }
 
     activePaneSide = side;
@@ -3238,9 +3335,15 @@ function revealVisibleSearchMatch(index) {
 }
 
 function revealHostSearchResult(message) {
-    const editor = currentMode === MODE_TWO_WAY
-        ? (message.sideIndex === 0 ? leftEditor : rightEditor)
-        : multiEditors[message.sideIndex];
+    let editor;
+    if (currentMode === MODE_TWO_WAY) {
+        const requestedSide = message.sideIndex === 0 ? 'left' : 'right';
+        const visibleSide = resolveVisibleTwoWaySide(requestedSide);
+        setActivePane(visibleSide, false);
+        editor = visibleSide === 'left' ? leftEditor : rightEditor;
+    } else {
+        editor = multiEditors[message.sideIndex];
+    }
     if (!editor) return;
     const range = {
         startLineNumber: message.lineNumber,

@@ -80,7 +80,7 @@ chapters:
         steps:
           - id: persist-first
             title: Persist the recommendation
-            body: This exact line establishes the ordering guarantee.
+            body: This exact line establishes the ordering guarantee before the side effect runs.
             focus: durable-decision
             connection: contract-to-write
             requirement:
@@ -90,6 +90,18 @@ chapters:
               source: tracker:PROJ-123
               confidence: high
 ```
+
+Scene fields provide framing: `summary` states the scene's purpose, `bullets`
+give supporting points, and `takeaway` states what the reader should retain.
+Step `body` is the canonical place for the evidence-specific explanation,
+including why the focused code matters and any rationale or tradeoff that the
+source supports. Keeping that explanation beside `focus` lets the reader assess
+the claim while the code is visible and avoids repeating it in scene framing.
+
+The current source schema has no separate `notes` field. Keep unresolved
+questions and review decisions in the review record that accompanies the tour;
+do not add an ad hoc notes key or present those decisions as settled step
+rationale.
 
 ## Requirements
 

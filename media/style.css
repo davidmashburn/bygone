@@ -819,6 +819,15 @@ body.is-resizing-sidebar .history-rail-resizer {
     box-sizing: border-box;
 }
 
+#two-way-diff.is-single-sided {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+}
+
+#two-way-diff.is-single-sided:not(.hidden) ~ #connection-canvas {
+    display: none;
+}
+
 #three-way-diff {
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -1303,6 +1312,10 @@ div.repository-replace-preview label span { overflow: hidden; text-overflow: ell
     flex-direction: column;
     border: 1px solid var(--vscode-panel-border);
     background: var(--vscode-editor-background);
+}
+
+.file-panel.is-absent-side {
+    display: none;
 }
 
 .file-header {

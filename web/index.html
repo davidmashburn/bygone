@@ -75,9 +75,19 @@
             <button id="tour-next" type="button" title="Next tour item (Right or Page Down)">Next →</button>
         </nav>
         <div id="tour-narrative-content" class="tour-narrative-content">
+            <div id="tour-scene-intro" class="tour-scene-intro" hidden>
+                <div class="tour-scene-intro-kicker">Scene introduction</div>
+                <h2 id="tour-scene-intro-title" class="tour-scene-intro-title"></h2>
+                <p id="tour-scene-intro-summary" class="tour-scene-intro-summary"></p>
+                <button id="tour-start-steps" class="tour-start-steps" type="button" title="Start the steps for this scene">Start steps →</button>
+            </div>
             <div id="tour-step" class="tour-step" hidden>
                 <h2 id="tour-step-title" class="tour-step-title"></h2>
                 <p id="tour-step-body" class="tour-step-body"></p>
+                <div id="tour-step-code" class="tour-step-code" hidden>
+                    <span id="tour-step-code-location" class="tour-step-code-location"></span>
+                    <button id="tour-show-in-code" class="tour-show-in-code" type="button" title="Show this step in code">Show in code</button>
+                </div>
                 <div id="tour-step-requirement" class="tour-step-requirement" hidden></div>
                 <div id="tour-connection" class="tour-connection" hidden></div>
             </div>
