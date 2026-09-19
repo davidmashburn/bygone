@@ -106,7 +106,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                     commit: state.historyCommit || definitions[panel + 1]?.oid || state.authoredTour.range.headOid,
                     navigation,
                     focusId: document.activeElement?.id,
-                    narrativeScroll: document.getElementById('tour-narrative')?.scrollTop || 0
+                    narrativeScroll: document.getElementById('tour-narrative-content')?.scrollTop || 0
                 });
             };
             const timer = window.setTimeout(() => finish(null), 1000);
@@ -216,7 +216,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             const location = zoomRestore;
             zoomRestore = null;
             emit({ type: 'restoreNavigationState', navigation: location.navigation });
-            const narrative = document.getElementById('tour-narrative');
+            const narrative = document.getElementById('tour-narrative-content');
             if (narrative) narrative.scrollTop = location.narrativeScroll || 0;
             if (location.focusId && location.focusId !== 'tour-mode-select') document.getElementById(location.focusId)?.focus({ preventScroll: true });
         }
@@ -294,6 +294,10 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         initializeTourSidebar();
         initializeTourNarrativeResizer();
         initializeNarrationVoices();
+        document.getElementById('tour-files-toggle')?.addEventListener('click', () => {
+            const files = document.getElementById('tour-files');
+            setTourFilesOpen(files.hidden);
+        });
 
         compareTestButton?.addEventListener('click', () => {
             compareTestFiles();
@@ -536,6 +540,8 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                 : playbackState.kind === 'paused' ? 'Resume narration' : 'Listen from the current tour item';
             listen.title = listenLabel;
             listen.setAttribute('aria-label', listenLabel);
+            document.getElementById('tour-listen-label').textContent = isPlaying
+                ? 'Pause' : playbackState.kind === 'paused' ? 'Resume' : 'Listen';
         }
         if (stop) stop.disabled = playbackState.kind !== 'playing' && playbackState.kind !== 'paused';
         if (skipBack) skipBack.disabled = !narrationController.canSkipSegment(-1);
@@ -568,7 +574,9 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         if (!element) return;
         element.classList.add('is-speaking');
         element.classList.toggle('is-paused', paused);
-        const narrative = document.getElementById('tour-narrative');
+        const context = element.closest('#tour-context');
+        if (context) context.open = true;
+        const narrative = document.getElementById('tour-narrative-content');
         if (!narrative) return;
         const elementBounds = element.getBoundingClientRect();
         const narrativeBounds = narrative.getBoundingClientRect();
@@ -616,6 +624,11 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         if (match.kind === 'narrative') {
             markZoomNavigation();
             showTourScene(match.sceneIndex, match.stepIndex ?? 0);
+            if (match.stepIndex === undefined) {
+                const context = document.getElementById('tour-context');
+                context.open = true;
+                context.scrollIntoView({ block: 'start' });
+            }
             return;
         }
         if (!showTourFileAtIndex(match.fileIndex)) return;
@@ -681,7 +694,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const stored = Number.parseInt(window.localStorage.getItem(TOUR_SIDEBAR_STORAGE_KEY) || '', 10);
         return Number.isFinite(stored)
             ? Math.min(TOUR_SIDEBAR_MAX_WIDTH, Math.max(TOUR_SIDEBAR_MIN_WIDTH, stored))
-            : 360;
+            : 300;
     }
 
     function maximumTourSidebarWidth() {
@@ -902,6 +915,29 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                 }
                 button.append(number, copy);
                 scenes.append(button);
+                if (isSteppedTourScene(scene)) {
+                    const steps = document.createElement('div');
+                    steps.className = 'tour-outline-steps';
+                    steps.dataset.sceneId = scene.id;
+                    steps.hidden = true;
+                    steps.id = `tour-outline-${index}`;
+                    button.setAttribute('aria-controls', steps.id);
+                    button.setAttribute('aria-expanded', 'false');
+                    scene.steps.forEach((step, stepIndex) => {
+                        const stepButton = document.createElement('button');
+                        stepButton.type = 'button';
+                        stepButton.className = 'tour-outline-step';
+                        stepButton.dataset.sceneId = scene.id;
+                        stepButton.dataset.stepIndex = String(stepIndex);
+                        const stage = scene.kind === 'deconstructed-diff'
+                            ? `Stage ${(step.stageIndex ?? step.pairIndex) + 1}: ` : '';
+                        stepButton.textContent = `${stepIndex + 1}. ${stage}${step.title}`;
+                        stepButton.title = `Open step ${stepIndex + 1}: ${step.title}`;
+                        stepButton.addEventListener('click', () => showTourScene(index, stepIndex, { userNavigation: true }));
+                        steps.append(stepButton);
+                    });
+                    scenes.append(steps);
+                }
             }
         }
         files.replaceChildren(...tour.files.map((file, index) => {
@@ -949,7 +985,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         if (!coverage) return;
         const rows = [{
             metric: 'walkthrough',
-            label: coverage.walkthrough.scope === 'final' ? 'Final walkthrough' : 'Walkthrough',
+            label: coverage.walkthrough.scope === 'final' ? 'Final diff hunk coverage' : 'Diff hunk coverage',
             covered: coverage.walkthrough.coveredUnits,
             total: coverage.walkthrough.includedUnits,
             percent: coverage.walkthrough.coveragePercent,
@@ -1004,6 +1040,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             return null;
         }
         const scene = tour.scenes[index];
+        const changedLocation = state.activeSceneIndex !== index || state.activeStepIndex !== stepIndex;
         state.activeSceneIndex = index;
         state.activeStepIndex = isSteppedTourScene(scene)
             ? Math.min(Math.max(stepIndex, 0), Math.max(scene.steps.length - 1, 0))
@@ -1017,9 +1054,21 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                 : null;
         const location = getSceneLocation(tour, index);
         document.querySelectorAll('.tour-scene').forEach((button) => {
-            button.classList.toggle('is-active', button.dataset.sceneId === scene.id);
+            const active = button.dataset.sceneId === scene.id;
+            button.classList.toggle('is-active', active);
+            if (button.hasAttribute('aria-expanded')) button.setAttribute('aria-expanded', String(active));
+            if (active && !isSteppedTourScene(scene)) button.setAttribute('aria-current', 'step');
+            else button.removeAttribute('aria-current');
         });
-        document.querySelector(`.tour-scene[data-scene-id="${scene.id}"]`)?.scrollIntoView({ block: 'nearest' });
+        document.querySelectorAll('.tour-outline-steps').forEach((steps) => { steps.hidden = steps.dataset.sceneId !== scene.id; });
+        document.querySelectorAll('.tour-outline-step').forEach((button) => {
+            const active = button.dataset.sceneId === scene.id && Number(button.dataset.stepIndex) === state.activeStepIndex;
+            button.classList.toggle('is-active', active);
+            if (active) button.setAttribute('aria-current', 'step');
+            else button.removeAttribute('aria-current');
+        });
+        document.querySelector('#tour-scenes [aria-current="step"]')?.scrollIntoView({ block: 'nearest' });
+        if (changedLocation) document.getElementById('tour-narrative-content').scrollTop = 0;
         const narrationUnit = buildActiveNarrationUnit(options.narrationEntry || 'playback-start');
         state.renderedNarrationUnit = narrationUnit;
         renderTourNarrative(scene, location, narrationUnit);
@@ -1322,6 +1371,12 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         return true;
     }
 
+    function setTourFilesOpen(open) {
+        document.getElementById('tour-files').hidden = !open;
+        document.getElementById('tour-files-toggle').setAttribute('aria-expanded', String(open));
+        document.querySelector('.tour-files-section').classList.toggle('is-open', open);
+    }
+
     function updateTourFileSelection() {
         const scene = state.tour?.scenes[state.activeSceneIndex];
         const step = isMultiPanelTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
@@ -1421,11 +1476,9 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
     }
 
     function formatTourBreadcrumb(location, scene, stepIndex) {
-        const parts = [`Ch ${location.chapterNumber}`, `Scene ${location.sceneInChapter}/${location.scenesInChapter}`];
-        if (isSteppedTourScene(scene)) {
-            parts.push(`Step ${stepIndex + 1}/${scene.steps.length}`);
-        }
-        return parts.join(' · ');
+        return isSteppedTourScene(scene)
+            ? `Step ${stepIndex + 1} of ${scene.steps.length}`
+            : `Scene ${location.sceneInChapter} of ${location.scenesInChapter}`;
     }
 
     function findChangeIndexAtSourceLine(diffModel, side, sourceLine) {
@@ -1506,6 +1559,16 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const step = isSteppedTourScene(scene)
             ? scene.steps[state.activeStepIndex]
             : null;
+        const context = document.getElementById('tour-context');
+        const contextLabel = document.getElementById('tour-context-label');
+        if (context.dataset.sceneId !== scene.id) {
+            context.open = !step;
+            context.dataset.sceneId = scene.id;
+        }
+        context.classList.toggle('is-primary', !step);
+        contextLabel.hidden = !step;
+        contextLabel.textContent = `Scene context · ${scene.title}`;
+        if (!step) context.open = true;
         stepPanel.hidden = !step;
         if (step) {
             renderNarrationField(stepTitle, step.title, { field: 'step-title' }, narrationUnit, {

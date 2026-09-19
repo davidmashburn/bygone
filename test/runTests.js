@@ -473,10 +473,10 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(webMarkup, /id="tour-return-focus"/);
     assert.match(webMarkup, /id="tour-authoring-coverage"[^>]+aria-label="Tour authoring coverage"[^>]+hidden/);
     assert.match(hostSource, /renderAuthoringCoverage\(authoringCoverage, tour\.authoringCoverage\)/);
-    assert.match(hostSource, /coverage\.walkthrough\.scope === 'final' \? 'Final walkthrough' : 'Walkthrough'/);
+    assert.match(hostSource, /coverage\.walkthrough\.scope === 'final' \? 'Final diff hunk coverage' : 'Diff hunk coverage'/);
     assert.match(hostSource, /metric: 'assignment'/);
     assert.match(presenterSource, /\.tour-coverage-item\[data-metric="assignment"\]/);
-    assert.match(presenterSource, /\.tour-rail-sections[\s\S]{0,180}grid-template-rows/);
+    assert.match(presenterSource, /\.tour-rail-sections[\s\S]{0,180}flex-direction: column/);
     assert.match(hostSource, /tourPrevious\?\.addEventListener\('click', \(\) => showTourLinear\(-1\)\)/);
     for (const markup of [webMarkup, providerSource]) {
         assert.match(markup, /id="next-file" class="change-button icon-button"/);
@@ -3182,7 +3182,7 @@ function testDynamicButtonsHaveTooltips() {
         });
     }
     const createdTourButtons = tourSource.match(/document\.createElement\('button'\)/g) || [];
-    const titledTourButtons = tourSource.match(/button\.title\s*=/g) || [];
+    const titledTourButtons = tourSource.match(/\b(?:button|stepButton)\.title\s*=/g) || [];
     assert.equal(titledTourButtons.length, createdTourButtons.length, 'every dynamically-created tour button should receive a tooltip');
     assert.match(rendererSource, /Run search \(Enter\)/);
     assert.match(rendererSource, /Close Search in Files \(Esc\)/);

@@ -1,5 +1,5 @@
 :root {
-    --tour-rail-width: 360px;
+    --tour-rail-width: 300px;
     --tour-accent-bright: #a99fff;
     --tour-surface: #11131a;
     --tour-border: rgba(255, 255, 255, 0.09);
@@ -7,7 +7,7 @@
     --tour-faint: rgba(232, 235, 246, 0.72);
     --tour-body: #eef1fa;
     --tour-body-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --tour-narrative-height: 296px;
+    --tour-narrative-height: 264px;
 }
 
 .tour-mode-controls { display: grid; gap: 6px; margin: 12px 0; }
@@ -304,8 +304,8 @@ body.tour-mode.tour-discussion #container {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    overflow: auto;
-    padding: 20px 26px 18px;
+    overflow: hidden;
+    padding: 12px 24px 16px;
     color: #f5f6fb;
     border-bottom: 1px solid var(--tour-border);
     background: #151821;
@@ -342,11 +342,12 @@ body.tour-discussion .tour-narrative-resizer {
 
 .tour-narrative-nav {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
     gap: 12px;
     align-items: center;
-    margin-bottom: 14px;
-    padding: 0 0 10px;
+    flex-shrink: 0;
+    margin-bottom: 12px;
+    padding: 0 0 8px;
     border-bottom: 1px solid var(--tour-border);
     background: rgba(255, 255, 255, 0.025);
 }
@@ -509,13 +510,14 @@ body.tour-discussion .tour-narrative-resizer {
 }
 
 .tour-rail-sections {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     flex: 1;
     min-height: 0;
-    grid-template-rows: minmax(150px, 1fr) minmax(150px, 1fr);
 }
 
 .tour-rail-section {
+    flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -637,6 +639,7 @@ body.tour-discussion .tour-narrative-resizer {
 .tour-chapter-title {
     margin: 15px 10px 7px;
     color: var(--tour-muted);
+    font-size: 12px;
     font-weight: 750;
     letter-spacing: 0.09em;
     text-transform: uppercase;
@@ -757,7 +760,7 @@ body.tour-discussion .tour-narrative-resizer {
 
 .tour-narrative-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 430px);
+    grid-template-columns: minmax(0, 1fr);
     gap: 18px 24px;
 }
 
@@ -844,8 +847,8 @@ body.tour-discussion .tour-narrative-resizer {
     display: none;
 }
 
-.tour-step-title { color: #fff; font-size: 13px; font-weight: 750; }
-.tour-step-body { margin: 3px 0 0; color: var(--tour-body); line-height: 1.45; }
+.tour-step-title { color: #fff; font-size: 23px; font-weight: 700; }
+.tour-step-body { margin: 8px 0 0; max-width: 85ch; color: var(--tour-body); font-size: 15px; line-height: 1.6; }
 
 .tour-step-requirement {
     display: flex;
@@ -892,7 +895,7 @@ body.tour-discussion .tour-narrative-resizer {
 }
 
 body.tour-discussion .tour-narrative {
-    display: block;
+    display: flex;
     bottom: 0;
     height: auto;
     padding: clamp(48px, 10vh, 100px) clamp(44px, 8vw, 120px);
@@ -940,10 +943,53 @@ body.tour-discussion .tour-narrative-takeaway {
     font-family: var(--vscode-editor-font-family, monospace);
 }
 
+/* Keep the active explanation visible while context and settings scroll. */
+.tour-narrative-content { flex: 1; min-height: 0; overflow: auto; padding-right: 8px; }
+.tour-narrative .tour-step { padding: 0; border: 0; background: none; }
+.tour-narrative .tour-step-title { font-size: 23px; }
+.tour-context, .tour-audio-settings { margin-top: 14px; }
+.tour-context > summary, .tour-audio-settings > summary, .tour-details > summary {
+    cursor: pointer; color: var(--tour-muted); padding: 5px 0; line-height: 1.5;
+}
+.tour-context > summary:hover, .tour-audio-settings > summary:hover, .tour-details > summary:hover { color: #fff; }
+.tour-context > summary:focus-visible, .tour-audio-settings > summary:focus-visible,
+.tour-details > summary:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 2px; }
+.tour-context[open] > .tour-narrative-layout { margin-top: 12px; }
+.tour-context.is-primary { margin-top: 0; }
+.tour-context.is-primary > summary[hidden] { display: none; }
+.tour-context.is-primary > .tour-narrative-layout { margin-top: 0; }
+.tour-audio-settings .tour-narration-controls { margin: 8px 0 0; }
+.tour-details { margin-top: 10px; font-size: 12px; }
+.tour-details .tour-source { display: inline-block; margin-top: 8px; }
+.tour-details .tour-source[hidden] { display: none; }
+.tour-files-section { flex: 0 0 auto; }
+.tour-files-section.is-open { flex: 0 1 45%; min-height: 90px; }
+.tour-files[hidden], .tour-outline-steps[hidden] { display: none; }
+#tour-files-toggle {
+    border: 0; background: none; color: inherit; font: inherit; padding: 0;
+    letter-spacing: inherit; text-transform: inherit; cursor: pointer;
+}
+#tour-files-toggle::before { content: '▸ '; }
+#tour-files-toggle[aria-expanded="true"]::before { content: '▾ '; }
+#tour-files-toggle:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 3px; }
+.tour-outline-steps { display: grid; gap: 3px; margin: 6px 0 16px 19px; border-left: 1px solid var(--tour-border); padding-left: 10px; }
+.tour-outline-step {
+    border: 1px solid transparent; border-radius: 5px; background: none;
+    color: var(--tour-muted); font: 12px/1.5 var(--tour-body-font); text-align: left;
+    padding: 8px 10px; cursor: pointer; overflow-wrap: anywhere;
+}
+.tour-outline-step:hover { background: rgba(255,255,255,.05); }
+.tour-outline-step.is-active { background: rgba(101,83,255,.16); color: #fff; border-color: rgba(169,159,255,.4); }
+.tour-outline-step:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 1px; }
+.tour-scene.is-active { background: rgba(255,255,255,.025); border-color: transparent; }
+.tour-scene-note { display: none; }
+#tour-listen { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+#tour-listen svg { width: 14px; height: 14px; fill: currentColor; }
+
 @media (max-width: 1100px) {
     :root {
         --tour-rail-width: 285px;
-        --tour-narrative-height: 380px;
+        --tour-narrative-height: 264px;
     }
 
     .tour-narrative-layout {

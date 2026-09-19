@@ -13,9 +13,20 @@ source evidence while keeping the complete changed-file set available.
 - **Open Authored Tour…** or `bygone present --tour path.bygone` opens a
   narrative whose anchors have been compiled to exact source locations.
 
+The active scene expands into named, selectable steps in the outline. The
+current step's title and explanation lead the reading panel; **Scene context**
+opens the scene's overview, supporting points, and takeaway. Previous and Next
+stay visible while long explanations scroll. Scenes without steps show their
+full narrative directly.
+
+Expand **Files** at the bottom of the sidebar to browse all changed files.
 The Files rail is independent of the narrative. Browsing another file keeps
 the active tour anchor visible and offers **Return to Tour** to restore the
 scene's intended focus.
+
+**Tour details** contains the source link, range, change counts, and authored
+diff-hunk coverage. Coverage describes how much code the author anchored; it
+does not measure your reading progress. The header shows your current step.
 
 Generated overview ranking is deterministic for the resolved Git object IDs.
 It never hides files and does not invent an entry point for a test-only,
@@ -27,6 +38,10 @@ authored first scene and order.
 Use **Listen** in the narrative header or **Present → Listen to Tour** in the
 desktop app to read the tour aloud with a device voice. Narration works
 offline and does not send tour text to a hosted speech service.
+
+Expand **Narration settings** for sentence navigation, Stop, voice, and speed.
+Listen becomes Pause or Resume during playback. Scene context opens when its
+text is spoken so the highlighted sentence remains visible.
 
 - **Pause/Resume** retains the current sentence; **Stop** clears playback. The
   outer jump controls move one sentence backward or forward within the current

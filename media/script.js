@@ -576,13 +576,14 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
         resetTwoWayScrollPositions();
     }
     layoutEditors();
-    if (comparisonChanged) {
+    const activeTourAnnotation = tourAnnotations.find((annotation) => annotation.active);
+    if (comparisonChanged && !activeTourAnnotation) {
         revealActiveDiff(false);
     }
-    const activeTourAnnotation = tourAnnotations.find((annotation) => annotation.active);
     if (activeTourAnnotation) {
         const editor = activeTourAnnotation.side === 'left' ? leftEditor : rightEditor;
         requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (diffEpoch !== twoWayDiffEpoch || currentMode !== MODE_TWO_WAY) return;
             editor.revealLineInCenter(
                 activeTourAnnotation.startLine,
                 monacoInstance.editor.ScrollType.Immediate
@@ -611,7 +612,15 @@ function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextAc
             applyDiffDecorations(model, currentTourAnnotations);
             updateChangeToolbarState();
             connectorController.scheduleDrawConnections();
-            revealActiveDiff(false);
+            // A direct tour step can select an anchor before async diff work
+            // finishes. Preserve that focus instead of reverting to a hunk.
+            const activeAnnotation = currentTourAnnotations.find((annotation) => annotation.active);
+            if (activeAnnotation) {
+                const editor = activeAnnotation.side === 'left' ? leftEditor : rightEditor;
+                editor.revealLineInCenter(activeAnnotation.startLine, monacoInstance.editor.ScrollType.Immediate);
+            } else {
+                revealActiveDiff(false);
+            }
             updateTwoWayDiffOutcomeStatus(model);
             notifyRenderComplete();
         })
