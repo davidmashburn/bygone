@@ -50,12 +50,13 @@ authored first scene and order.
 
 ## Listen to a tour
 
-Use **Listen** in the narrative header or **Present → Listen to Tour** in the
+Use **Listen** beside the reading-view toggles or **Present → Listen to Tour** in the
 desktop app to read the tour aloud with a device voice. Narration works
 offline and does not send tour text to a hosted speech service.
 
-Choose **Narration** above the reading area for sentence navigation, Stop, voice,
-and speed. Listen becomes Pause or Resume during playback. The overview opens when its
+Narration controls appear beside **Overview** and **Current step** by default,
+with sentence navigation, Stop, voice, and speed. Use the right-edge chevron to
+hide them, and **‹ Narration** to bring them back. Listen becomes Pause or Resume during playback. The overview opens when its
 text is spoken so the highlighted sentence remains visible.
 
 - **Pause/Resume** retains the current sentence; **Stop** clears playback. The

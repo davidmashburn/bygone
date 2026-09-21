@@ -342,7 +342,7 @@ body.tour-discussion .tour-narrative-resizer {
 
 .tour-narrative-nav {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 12px;
     align-items: center;
     flex-shrink: 0;
@@ -1026,7 +1026,7 @@ body.tour-discussion .tour-narrative-takeaway {
 .tour-narrative-content { flex: 1; min-height: 0; overflow: auto; padding-right: 8px; }
 .tour-narrative .tour-step { padding: 0; border: 0; background: none; }
 .tour-narrative .tour-step-title { font-size: 23px; }
-.tour-context, .tour-audio-settings { margin-top: 14px; }
+.tour-context { margin-top: 14px; }
 .tour-context > summary, .tour-audio-settings > summary, .tour-details > summary {
     cursor: pointer; color: var(--tour-muted); padding: 5px 0; line-height: 1.5;
 }
@@ -1039,7 +1039,36 @@ body.tour-discussion .tour-narrative-takeaway {
 .tour-context.is-primary { margin-top: 0; }
 .tour-context.is-primary > summary[hidden] { display: none; }
 .tour-context.is-primary > .tour-narrative-layout { margin-top: 0; }
-.tour-audio-settings .tour-narration-controls { margin: 8px 0 0; }
+.tour-narration-dock {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    min-width: 0;
+}
+.tour-audio-settings { min-width: 0; }
+.tour-audio-settings[hidden] { display: none; }
+.tour-narration-dock .tour-narration-controls {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+}
+.tour-narration-dock #tour-listen {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--tour-accent-bright);
+}
+.tour-narration-dock #tour-listen svg { width: 12px; height: 12px; fill: currentColor; }
+.tour-narration-dock #tour-narration { flex-shrink: 0; }
+.tour-narration-dock #tour-narration-voice { max-width: 150px; }
+.tour-narration-dock .tour-narration-status {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .tour-details { margin-top: 10px; font-size: 12px; }
 .tour-details .tour-source { display: inline-block; margin-top: 8px; }
 .tour-details .tour-source[hidden] { display: none; }

@@ -1604,11 +1604,8 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
     function toggleNarrationSettings() {
         const settings = document.getElementById('tour-audio-settings');
         if (!settings) return;
-        settings.open = !settings.open;
+        settings.hidden = !settings.hidden;
         renderNarrativeViewControls();
-        if (settings.open) {
-            window.requestAnimationFrame(() => settings.scrollIntoView({ block: 'nearest' }));
-        }
     }
 
     function renderNarrativeViewControls() {
@@ -1623,7 +1620,13 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             currentStep.disabled = !hasStep;
             currentStep.setAttribute('aria-pressed', String(hasStep && !state.sceneIntroVisible));
         }
-        if (narration) narration.setAttribute('aria-expanded', String(Boolean(settings?.open)));
+        if (narration) {
+            const expanded = Boolean(settings && !settings.hidden);
+            narration.setAttribute('aria-expanded', String(expanded));
+            narration.textContent = expanded ? '›' : '‹ Narration';
+            narration.title = expanded ? 'Hide narration controls' : 'Show narration controls';
+            narration.setAttribute('aria-label', narration.title);
+        }
     }
 
     function updateTourLocationUrl() {
