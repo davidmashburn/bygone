@@ -483,7 +483,9 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
         assert.doesNotMatch(markup, /id="next-file" class="[^"]*change-button-primary/);
     }
     assert.match(hostSource, /parameters\.get\('step'\)/);
-    assert.match(hostSource, /parameters\.set\('step', scene\.steps\[state\.activeStepIndex\]\.id\)/);
+    assert.match(hostSource, /parameters\.set\('step', step\.id\)/);
+    assert.match(hostSource, /parameters\.get\('view'\) === 'overview'/);
+    assert.match(hostSource, /parameters\.set\('view', 'overview'\)/);
     assert.match(hostSource, /isInteractiveKeyTarget\(event\.target\)/);
     assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+--tour-rail-height/);
     assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+grid-template-columns: minmax\(190px/);

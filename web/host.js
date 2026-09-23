@@ -846,7 +846,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                 parameters.get('step')
             );
             showTourScene(requestedPosition.sceneIndex, requestedPosition.stepIndex, {
-                showIntro: !parameters.get('step')
+                showIntro: parameters.get('view') === 'overview' || !parameters.get('step')
             });
             renderNarrationPlaybackState(narrationController.state);
             setStatus('');
@@ -1115,14 +1115,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                 narrationController.followDirectNavigation(narrationUnit);
             }
         }
-        const parameters = new URLSearchParams(window.location.search);
-        parameters.set('scene', scene.id);
-        if (isSteppedTourScene(scene) && !state.sceneIntroVisible) {
-            parameters.set('step', scene.steps[state.activeStepIndex].id);
-        } else {
-            parameters.delete('step');
-        }
-        window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
+        updateTourLocationUrl();
         if (scene.kind === 'discussion') {
             document.body.classList.add('tour-discussion');
             updateTourFileSelection();
@@ -1635,8 +1628,10 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const parameters = new URLSearchParams(window.location.search);
         parameters.set('scene', scene.id);
         const step = isSteppedTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
-        if (step && !state.sceneIntroVisible) parameters.set('step', step.id);
+        if (step) parameters.set('step', step.id);
         else parameters.delete('step');
+        if (step && state.sceneIntroVisible) parameters.set('view', 'overview');
+        else parameters.delete('view');
         window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
     }
 

@@ -1064,10 +1064,9 @@ body.tour-discussion .tour-narrative-takeaway {
 .tour-narration-dock #tour-narration { flex-shrink: 0; }
 .tour-narration-dock #tour-narration-voice { max-width: 150px; }
 .tour-narration-dock .tour-narration-status {
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 .tour-details { margin-top: 10px; font-size: 12px; }
 .tour-details .tour-source { display: inline-block; margin-top: 8px; }
