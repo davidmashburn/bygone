@@ -72,8 +72,7 @@
             <button id="tour-next" type="button" title="Next tour item (Right or Page Down)">Next →</button>
         </nav>
         <div class="tour-narrative-toolbar" role="group" aria-label="Tour reading view">
-            <button id="tour-overview" type="button" title="Show the full scene overview" aria-controls="tour-context" aria-pressed="false">Overview</button>
-            <button id="tour-current-step" type="button" title="Show the current tour step" aria-controls="tour-step" aria-pressed="true">Current step</button>
+            <nav id="tour-reading-path" class="tour-reading-path" aria-label="Reading hierarchy"></nav>
             <div class="tour-narration-dock">
                 <div id="tour-audio-settings" class="tour-audio-settings">
                     <div id="tour-narration-controls" class="tour-narration-controls" role="group" aria-label="Tour narration">
@@ -109,6 +108,7 @@
             </div>
         </div>
         <div id="tour-narrative-content" class="tour-narrative-content">
+            <section id="tour-parent-view" class="tour-parent-view" hidden></section>
             <div id="tour-step" class="tour-step" hidden>
                 <h2 id="tour-step-title" class="tour-step-title"></h2>
                 <p id="tour-step-body" class="tour-step-body"></p>
@@ -129,6 +129,7 @@
                         <ul id="tour-narrative-bullets" class="tour-narrative-bullets"></ul>
                         <div id="tour-narrative-tags" class="tour-narrative-tags"></div>
                         <div id="tour-narrative-takeaway" class="tour-narrative-takeaway"></div>
+                        <div id="tour-scene-children" class="tour-child-items"></div>
                     </div>
                 </div>
             </details>

@@ -1216,3 +1216,15 @@ body.tour-discussion .tour-narrative-takeaway {
         transition: none;
     }
 }
+
+/* The reading path stays available alongside narration at every depth. */
+.tour-reading-path { display: flex; align-items: center; gap: 4px; min-width: 160px; flex: 1 1 160px; }
+.tour-reading-path button { min-width: 0; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tour-reading-path button + button::before { content: '›'; margin-right: 8px; color: var(--tour-muted); }
+.tour-reading-path button[aria-current], .tour-child-items button[aria-current] { color: #fff; border-color: var(--tour-accent-bright); background: rgba(169, 159, 255, 0.13); }
+.tour-parent-view[hidden], .tour-context[hidden] { display: none; }
+.tour-child-items { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 12px; }
+.tour-child-items button, .tour-parent-view > button { font: inherit; text-align: left; color: var(--tour-body); background: rgba(255, 255, 255, 0.035); border: 1px solid var(--tour-border); border-radius: 5px; padding: 6px 9px; cursor: pointer; }
+.tour-child-items button:focus-visible, .tour-parent-view > button:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 2px; }
+
+.tour-reading-path button[data-level="step"] { flex-shrink: 0; }

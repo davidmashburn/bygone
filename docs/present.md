@@ -16,10 +16,12 @@ source evidence while keeping the complete changed-file set available.
 The active scene expands into named, selectable steps in the outline. The
 current step's title and explanation lead the reading panel; put the
 evidence-grounded rationale and tradeoffs for that code beside it in the step
-body. **Overview** opens the full scene narrative, including its supporting
-points and takeaway; **Current step** returns to the same step. These controls
-and Previous/Next stay visible while long explanations scroll. Scenes without
-steps show their full narrative directly.
+body. The reading breadcrumb follows **Tour → Chapter → Scene → Step**, using
+actual titles and omitting redundant single-child levels. Select a parent to
+browse its children; select the scene title for its supporting points and
+takeaway. **Resume step N** returns to your reading position, which survives
+refreshing a parent view. The breadcrumb and Previous/Next stay visible while
+long explanations scroll. Scenes without steps show their narrative directly.
 
 When you enter a stepped scene from the outline, the reading area starts with a
 full scene overview, including its bullets, tags, and takeaway. Choose **Start
@@ -50,11 +52,11 @@ authored first scene and order.
 
 ## Listen to a tour
 
-Use **Listen** beside the reading-view toggles or **Present → Listen to Tour** in the
+Use **Listen** beside the reading breadcrumb or **Present → Listen to Tour** in the
 desktop app to read the tour aloud with a device voice. Narration works
 offline and does not send tour text to a hosted speech service.
 
-Narration controls appear beside **Overview** and **Current step** by default,
+Narration controls appear beside the reading breadcrumb by default,
 with sentence navigation, Stop, voice, and speed. Use the right-edge chevron to
 hide them, and **‹ Narration** to bring them back. Listen becomes Pause or Resume during playback. The overview opens when its
 text is spoken so the highlighted sentence remains visible.

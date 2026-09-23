@@ -44,6 +44,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         activeSceneIndex: -1,
         activeStepIndex: 0,
         sceneIntroVisible: false,
+        narrativeParent: null,
         activeTourFilePath: null,
         tourFocusFilePath: null,
         tourSidebarWidth: readStoredTourSidebarWidth(),
@@ -285,8 +286,6 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const diff3Input = document.getElementById('web-diff3-input');
         const tourPrevious = document.getElementById('tour-previous');
         const tourNext = document.getElementById('tour-next');
-        const tourOverview = document.getElementById('tour-overview');
-        const tourCurrentStep = document.getElementById('tour-current-step');
         const tourNarration = document.getElementById('tour-narration');
         const tourReturnFocus = document.getElementById('tour-return-focus');
         const tourShowInCode = document.getElementById('tour-show-in-code');
@@ -343,8 +342,6 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
 
         tourPrevious?.addEventListener('click', () => showTourLinear(-1));
         tourNext?.addEventListener('click', () => showTourLinear(1));
-        tourOverview?.addEventListener('click', () => setNarrativeView('overview'));
-        tourCurrentStep?.addEventListener('click', () => setNarrativeView('step'));
         tourNarration?.addEventListener('click', () => toggleNarrationSettings());
         tourReturnFocus?.addEventListener('click', returnToTourFocus);
         tourShowInCode?.addEventListener('click', showActiveStepInCode);
@@ -848,6 +845,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             showTourScene(requestedPosition.sceneIndex, requestedPosition.stepIndex, {
                 showIntro: parameters.get('view') === 'overview' || !parameters.get('step')
             });
+            if (['tour', 'chapter'].includes(parameters.get('view'))) setNarrativeView(parameters.get('view'));
             renderNarrationPlaybackState(narrationController.state);
             setStatus('');
         } catch (error) {
@@ -1104,7 +1102,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             else button.removeAttribute('aria-current');
         });
         document.querySelector('#tour-scenes [aria-current="step"]')?.scrollIntoView({ block: 'nearest' });
-        if (changedLocation) document.getElementById('tour-narrative-content').scrollTop = 0;
+        if (changedLocation || options.showIntro !== undefined) document.getElementById('tour-narrative-content').scrollTop = 0;
         const narrationUnit = buildActiveNarrationUnit(options.narrationEntry || 'playback-start');
         state.renderedNarrationUnit = narrationUnit;
         renderTourNarrative(scene, location, narrationUnit);
@@ -1292,6 +1290,10 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
     }
 
     function showTourLinear(direction) {
+        if (direction === 1 && state.narrativeParent) {
+            showTourScene(state.activeSceneIndex, state.activeStepIndex, { userNavigation: true, showIntro: false });
+            return true;
+        }
         if (direction === 1 && state.sceneIntroVisible) {
             const scene = state.tour?.scenes[state.activeSceneIndex];
             if (scene && isSteppedTourScene(scene) && scene.steps[state.activeStepIndex]) {
@@ -1572,6 +1574,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const step = scene && isSteppedTourScene(scene)
             ? scene.steps[state.activeStepIndex]
             : null;
+        state.narrativeParent = null;
         state.sceneIntroVisible = Boolean(visible && step);
         const context = document.getElementById('tour-context');
         if (context) context.open = !step || state.sceneIntroVisible;
@@ -1586,12 +1589,88 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const scene = state.tour?.scenes[state.activeSceneIndex];
         if (!scene) return;
         markZoomNavigation();
-        if (view === 'overview') {
-            setSceneIntroVisible(true);
-        } else if (isSteppedTourScene(scene)) {
-            setSceneIntroVisible(false);
+        if (view === 'tour' || view === 'chapter') {
+            state.narrativeParent = view;
+            renderNarrativeViewControls();
+            renderTourProgress();
+            updateTourLocationUrl();
+        } else {
+            setSceneIntroVisible(view === 'scene');
         }
         document.getElementById('tour-narrative-content')?.scrollTo({ top: 0 });
+        document.querySelector(`#tour-reading-path [data-level="${view}"]`)?.focus({ preventScroll: true });
+    }
+
+    function readingButton(label, title, action) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = label;
+        button.title = title;
+        button.addEventListener('click', action);
+        return button;
+    }
+
+    function renderReadingHierarchy(scene, hasStep) {
+        const tour = state.tour;
+        if (!tour || !scene) return;
+        const chapter = tour.chapters.find((item) => item.sceneIds.includes(scene.id));
+        const selected = state.narrativeParent || (hasStep && !state.sceneIntroVisible ? 'step' : 'scene');
+        const path = document.getElementById('tour-reading-path');
+        const levels = [];
+        // A single-child level adds no useful navigation choice.
+        if (tour.scenes.length > 1) levels.push(['tour', tour.title]);
+        if (tour.chapters.length > 1 && chapter && (chapter.sceneIds.length > 1 || state.narrativeParent === 'chapter')) levels.push(['chapter', chapter.title]);
+        levels.push(['scene', scene.title]);
+        if (hasStep) levels.push(['step', `Step ${state.activeStepIndex + 1}`]);
+        path.replaceChildren(...levels.map(([level, title]) => {
+            const tooltip = level === 'step' ? `${title}: ${scene.steps[state.activeStepIndex].title}` : `${level}: ${title}`;
+            const button = readingButton(title, tooltip, () => setNarrativeView(level));
+            button.dataset.level = level;
+            if (level === selected) button.setAttribute('aria-current', 'location');
+            return button;
+        }));
+        const parent = document.getElementById('tour-parent-view');
+        parent.hidden = !state.narrativeParent;
+        document.getElementById('tour-context').hidden = Boolean(state.narrativeParent);
+        document.getElementById('tour-step').hidden = Boolean(state.narrativeParent) || !hasStep || state.sceneIntroVisible;
+        const resume = () => showTourScene(state.activeSceneIndex, state.activeStepIndex, { userNavigation: true, showIntro: false });
+        const sceneLink = (child) => {
+            const index = tour.scenes.indexOf(child);
+            return readingButton(child.title, `Read scene: ${child.title}`, () => showTourScene(index,
+                index === state.activeSceneIndex ? state.activeStepIndex : 0,
+                { userNavigation: true, showIntro: true }));
+        };
+        parent.replaceChildren();
+        if (state.narrativeParent) {
+            const heading = document.createElement('h2');
+            heading.textContent = state.narrativeParent === 'tour' ? tour.title : chapter?.title || tour.title;
+            parent.append(heading, readingButton(hasStep ? `Resume step ${state.activeStepIndex + 1}: ${scene.steps[state.activeStepIndex].title}` : `Resume: ${scene.title}`, 'Resume your reading position', resume));
+            const children = document.createElement('div');
+            children.className = 'tour-child-items';
+            if (state.narrativeParent === 'tour' && tour.chapters.length > 1) {
+                for (const item of tour.chapters) {
+                    const first = tour.scenes.findIndex((child) => child.id === item.sceneIds[0]);
+                    if (first < 0) continue;
+                    children.append(readingButton(item.title, `Read chapter: ${item.title}`, () => {
+                        if (!item.sceneIds.includes(scene.id)) showTourScene(first, 0, { userNavigation: true, showIntro: true });
+                        setNarrativeView(item.sceneIds.length > 1 ? 'chapter' : 'scene');
+                    }));
+                }
+            } else {
+                for (const child of tour.scenes.filter((item) => state.narrativeParent === 'tour' || chapter?.sceneIds.includes(item.id))) children.append(sceneLink(child));
+            }
+            parent.append(children);
+        }
+        const children = document.getElementById('tour-scene-children');
+        children.replaceChildren();
+        if (hasStep) {
+            children.append(readingButton(`Resume step ${state.activeStepIndex + 1}`, 'Resume your reading position', resume));
+            scene.steps.forEach((step, index) => {
+                const button = readingButton(`${index + 1}. ${step.title}`, `Read step: ${step.title}`, () => showTourScene(state.activeSceneIndex, index, { userNavigation: true, showIntro: false }));
+                if (index === state.activeStepIndex) button.setAttribute('aria-current', 'step');
+                children.append(button);
+            });
+        }
     }
 
     function toggleNarrationSettings() {
@@ -1604,15 +1683,9 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
     function renderNarrativeViewControls() {
         const scene = state.tour?.scenes[state.activeSceneIndex];
         const hasStep = Boolean(scene && isSteppedTourScene(scene) && scene.steps[state.activeStepIndex]);
-        const overview = document.getElementById('tour-overview');
-        const currentStep = document.getElementById('tour-current-step');
         const narration = document.getElementById('tour-narration');
         const settings = document.getElementById('tour-audio-settings');
-        if (overview) overview.setAttribute('aria-pressed', String(!hasStep || state.sceneIntroVisible));
-        if (currentStep) {
-            currentStep.disabled = !hasStep;
-            currentStep.setAttribute('aria-pressed', String(hasStep && !state.sceneIntroVisible));
-        }
+        renderReadingHierarchy(scene, hasStep);
         if (narration) {
             const expanded = Boolean(settings && !settings.hidden);
             narration.setAttribute('aria-expanded', String(expanded));
@@ -1630,7 +1703,8 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const step = isSteppedTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
         if (step) parameters.set('step', step.id);
         else parameters.delete('step');
-        if (step && state.sceneIntroVisible) parameters.set('view', 'overview');
+        if (state.narrativeParent) parameters.set('view', state.narrativeParent);
+        else if (step && state.sceneIntroVisible) parameters.set('view', 'overview');
         else parameters.delete('view');
         window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
     }
@@ -1643,19 +1717,19 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const step = scene && isSteppedTourScene(scene)
             ? scene.steps[state.activeStepIndex]
             : null;
-        const introVisible = Boolean(state.sceneIntroVisible && step);
+        const introVisible = Boolean(state.narrativeParent || (state.sceneIntroVisible && step));
         const previousTarget = getCurrentLinearTourTarget(-1);
         const nextTarget = getCurrentLinearTourTarget(1);
-        const startLabel = state.activeStepIndex === 0 ? 'Start steps' : 'Current step →';
+        const startLabel = state.narrativeParent ? (step ? `Resume step ${state.activeStepIndex + 1}` : 'Resume scene') : state.activeStepIndex === 0 ? 'Start steps' : `Resume step ${state.activeStepIndex + 1}`;
         previous.disabled = !previousTarget;
-        next.disabled = introVisible ? !step : !nextTarget;
+        next.disabled = introVisible ? false : !nextTarget;
         next.textContent = introVisible ? startLabel : nextTarget ? 'Next →' : 'End of tour';
         next.title = introVisible
             ? state.activeStepIndex === 0 ? 'Start the steps for this scene' : 'Return to the current step'
             : nextTarget
                 ? 'Next tour item (Right or Page Down)'
                 : 'You have reached the end of the tour';
-        next.setAttribute('aria-label', introVisible ? state.activeStepIndex === 0 ? 'Start steps' : 'Current step' : nextTarget ? 'Next tour item' : 'End of tour');
+        next.setAttribute('aria-label', introVisible ? startLabel : nextTarget ? 'Next tour item' : 'End of tour');
     }
 
     function getActiveStepCodeTarget(scene = state.tour?.scenes[state.activeSceneIndex]) {
