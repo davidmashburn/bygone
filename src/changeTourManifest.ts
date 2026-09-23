@@ -247,6 +247,11 @@ export interface ChangeTourManifest {
 }
 
 export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
+    if (isRecord(value) && Number.isInteger(value.version) && Number(value.version) > CHANGE_TOUR_MANIFEST_VERSION) {
+        throw new Error(
+            `This tour uses manifest format version ${value.version}, but this version of Bygone supports up to version ${CHANGE_TOUR_MANIFEST_VERSION}. Upgrade Bygone to open it.`
+        );
+    }
     if (!isRecord(value) || (value.version !== 1 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
         throw new Error(`Unsupported or missing change-tour manifest version.`);
     }

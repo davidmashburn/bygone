@@ -1204,6 +1204,10 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     ]);
     assert.equal(parseChangeTourManifest(JSON.parse(JSON.stringify(manifest))).version, 1);
     assert.throws(() => parseChangeTourManifest({ version: 1 }), /title must be a string/);
+    assert.throws(
+        () => parseChangeTourManifest({ version: 3 }),
+        /manifest format version 3, but this version of Bygone supports up to version 2\. Upgrade Bygone to open it\./
+    );
 
     const story = parseChangeTourStory({
         title: 'Authored event flow',
@@ -1335,6 +1339,10 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     }), /did not match/);
     assert.throws(() => parseChangeTourSource({ ...source, inventedField: true }), /unknown field: inventedField/);
     assert.throws(() => parseChangeTourSource({ ...source, chapters: [] }), /non-empty array/);
+    assert.throws(
+        () => parseChangeTourSource({ ...source, version: 3 }),
+        /source format version 3, but this version of Bygone supports up to version 2\. Upgrade Bygone to open it\./
+    );
 
     fs.mkdirSync(path.join(repo, 'web'), { recursive: true });
     fs.writeFileSync(path.join(repo, 'web', 'app.js.map'), `${'A'.repeat(70 * 1024)}\n`, 'utf8');

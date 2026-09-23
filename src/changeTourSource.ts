@@ -130,6 +130,11 @@ export interface ChangeTourSource {
 }
 
 export function parseChangeTourSource(value: unknown): ChangeTourSource {
+    if (isRecord(value) && Number.isInteger(value.version) && Number(value.version) > CHANGE_TOUR_SOURCE_VERSION) {
+        throw new Error(
+            `This tour uses source format version ${value.version}, but this version of Bygone supports up to version ${CHANGE_TOUR_SOURCE_VERSION}. Upgrade Bygone to open it.`
+        );
+    }
     if (!isRecord(value) || (value.version !== 1 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
         throw new Error('Unsupported or missing change-tour source version.');
     }
