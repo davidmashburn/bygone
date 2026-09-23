@@ -574,6 +574,53 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(rendererSource, /editorMode === MODE_MULTI_WAY[\s\S]{0,2600}candidate\.panelIndex === panelIndex/);
 }
 
+function testEditorScrollSyncIgnoresExtentOnlyChanges() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const scrollHandler = rendererSource.match(
+        /editor\.onDidScrollChange\(\(event\) => \{([\s\S]*?)\n {4}\}\);\s+\n {4}editor\.onDidContentSizeChange/
+    );
+    assert.ok(scrollHandler, 'renderer scroll handler should be available for focused regression coverage');
+
+    const invokeScrollHandler = (event, editorMode = 'two-way') => {
+        const calls = [];
+        const handler = new Function(
+            'event',
+            'suppressEditorEvents',
+            'connectorController',
+            'editorMode',
+            'MODE_MULTI_WAY',
+            'synchronizeMultiScroll',
+            'synchronizeEditorScroll',
+            'editor',
+            scrollHandler[1]
+        );
+        handler(
+            event,
+            false,
+            { scheduleDrawConnections: () => calls.push('draw') },
+            editorMode,
+            'multi-way',
+            () => calls.push('multi-scroll'),
+            () => calls.push('two-way-scroll'),
+            {}
+        );
+        return calls;
+    };
+
+    assert.deepEqual(
+        invokeScrollHandler({ scrollTopChanged: false, scrollLeftChanged: false, scrollWidthChanged: true }),
+        ['draw']
+    );
+    assert.deepEqual(
+        invokeScrollHandler({ scrollTopChanged: true, scrollLeftChanged: false }),
+        ['two-way-scroll', 'draw']
+    );
+    assert.deepEqual(
+        invokeScrollHandler({ scrollTopChanged: false, scrollLeftChanged: true }, 'multi-way'),
+        ['multi-scroll', 'draw']
+    );
+}
+
 function testStackedDiffTourAnnotations() {
     const {
         buildStackedTourAnnotations,
@@ -4295,6 +4342,7 @@ async function run() {
     testWebTourHostSeparatesFileAndNarrativeNavigation();
     testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls();
     testTourAnnotationPersistsAcrossChangeNavigation();
+    testEditorScrollSyncIgnoresExtentOnlyChanges();
     testStackedDiffTourAnnotations();
     testTourTransitionUpdatesLongDocumentBeforeDeepAnnotation();
     testEditingKeepsCompletedMultiDiffVisibleUntilReplacementArrives();

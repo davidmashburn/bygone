@@ -1203,8 +1203,10 @@ function createEditor(container, editorMode, side = null, initialModel = null) {
         }
     });
 
-    editor.onDidScrollChange(() => {
-        if (suppressEditorEvents) {
+    editor.onDidScrollChange((event) => {
+        // Monaco also emits this event when layout changes only the scroll extent.
+        // Synchronizing that event can bounce a revealed tour anchor out of view.
+        if (suppressEditorEvents || (!event.scrollTopChanged && !event.scrollLeftChanged)) {
             connectorController.scheduleDrawConnections();
             return;
         }
