@@ -134,14 +134,19 @@ const connectorController = window.BygoneConnectors.createConnectorController({
     getMonaco: () => monacoInstance
 });
 
-function notifyRenderComplete() {
+function notifyRenderComplete(renderRequestId = undefined) {
+    const completionRequestId = renderRequestId;
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
             applyPendingNavigationRestore();
-            host.postMessage({
+            const completion = {
                 type: 'renderComplete',
                 mode: currentMode
-            });
+            };
+            if (completionRequestId !== undefined) {
+                completion.renderRequestId = completionRequestId;
+            }
+            host.postMessage(completion);
         });
     });
 }
@@ -278,7 +283,8 @@ host.onMessage((message) => {
             message.tourAnnotations || [],
             message.sourceInfo || null,
             message.readOnlyLabel || null,
-            message.fileExists || null
+            message.fileExists || null,
+            message.renderRequestId
         );
         return;
     }
@@ -296,7 +302,8 @@ host.onMessage((message) => {
             message.labels,
             message.history || null,
             message.canMutate !== false,
-            message.review || null
+            message.review || null,
+            message.renderRequestId
         );
         return;
     }
@@ -319,7 +326,8 @@ host.onMessage((message) => {
             message.mutationEnabled !== false,
             message.initialChangeIndex,
             Boolean(message.revealFirstChangeInEachPanel),
-            message.tourAnnotations || []
+            message.tourAnnotations || [],
+            message.renderRequestId
         );
         return;
     }
@@ -368,7 +376,8 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.tourAnnotations || [],
             pendingTwoWayPayload.sourceInfo || null,
             pendingTwoWayPayload.readOnlyLabel || null,
-            pendingTwoWayPayload.fileExists || null
+            pendingTwoWayPayload.fileExists || null,
+            pendingTwoWayPayload.renderRequestId
         );
         pendingTwoWayPayload = undefined;
     }
@@ -386,7 +395,8 @@ window.addEventListener('load', async () => {
             pendingMultiPayload.mutationEnabled !== false,
             pendingMultiPayload.initialChangeIndex,
             Boolean(pendingMultiPayload.revealFirstChangeInEachPanel),
-            pendingMultiPayload.tourAnnotations || []
+            pendingMultiPayload.tourAnnotations || [],
+            pendingMultiPayload.renderRequestId
         );
         pendingMultiPayload = undefined;
     }
@@ -516,7 +526,7 @@ function isDarkColor(color) {
     return luminance < 140;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = [], sourceInfo = null, readOnlyLabel = null, fileExists = null) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = [], sourceInfo = null, readOnlyLabel = null, fileExists = null, renderRequestId = undefined) {
     const diffEpoch = ++twoWayDiffEpoch;
     const comparisonKey = comparisonId || `${file1}\u0000${file2}`;
     const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
@@ -607,13 +617,13 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     connectorController.scheduleDrawConnections();
 
     if (!diffModel) {
-        computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, diffEpoch);
+        computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, diffEpoch, renderRequestId);
     } else {
-        notifyRenderComplete();
+        notifyRenderComplete(renderRequestId);
     }
 }
 
-function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, epoch) {
+function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, epoch, renderRequestId = undefined) {
     beginDiffJob();
     requestDiffAsync(leftContent, rightContent)
         .then((model) => {
@@ -635,12 +645,12 @@ function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextAc
                 revealActiveDiff(false);
             }
             updateTwoWayDiffOutcomeStatus(model);
-            notifyRenderComplete();
+            notifyRenderComplete(renderRequestId);
         })
         .catch((error) => {
             if (epoch === twoWayDiffEpoch && currentMode === MODE_TWO_WAY && currentTwoWayComparisonKey === comparisonKey) {
                 setStatus(`Unable to compute diff: ${error.message}`, true);
-                notifyRenderComplete();
+                notifyRenderComplete(renderRequestId);
             }
         })
         .finally(endDiffJob);
@@ -757,7 +767,7 @@ function formatByteLength(bytes) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canMutate = true, review = null) {
+function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canMutate = true, review = null, renderRequestId = undefined) {
     currentMode = 'directory';
     historyMode = false;
     currentDiffModel = null;
@@ -798,7 +808,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
     setDirectoryViewMode(review?.attention ? 'overview' : 'files');
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
-    notifyRenderComplete();
+    notifyRenderComplete(renderRequestId);
 }
 
 function renderDirectoryOverview(review) {
@@ -942,7 +952,7 @@ function setDirectoryViewMode(mode) {
     getElement('directory-files-tab').setAttribute('aria-pressed', String(!showOverview));
 }
 
-function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = []) {
+function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = [], renderRequestId = undefined) {
     if (!Array.isArray(panels) || panels.length < 1) {
         return;
     }
@@ -1034,7 +1044,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     });
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
-    notifyRenderComplete();
+    notifyRenderComplete(renderRequestId);
     computeMissingPairDiffsAsync(revealFirstChangeInEachPanel);
 }
 

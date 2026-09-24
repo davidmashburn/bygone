@@ -50,6 +50,28 @@ It never hides files and does not invent an entry point for a test-only,
 lockfile-only, binary, or generated-only change. Authored tours keep their
 authored first scene and order.
 
+## Explore and follow tours
+
+Version 2 presentations group the mode switcher into **Explore** and **Tours**:
+
+- **History** browses a file's actual Git revisions. Select a revision, choose
+  **Compare from here**, then select another revision and choose **Compare to
+  here**. Shortcuts compare with the parent or review base.
+- **Compare** shows a plain two-way diff between the selected revisions.
+  Change either endpoint or swap their order. Comparisons opened from file
+  history stay on that file; **Show all changed files** expands the same range.
+  **Final diff** selects the review base and head across all changed files.
+- **Historical tour** explains actual revision states, including intermediate
+  changes, updates, and reverts. It retains chapters, scenes, steps, and narration.
+- **Deconstructed tour** explains the change through authored, synthetic
+  cumulative stages. Its panels are explanation stages, not Git commits.
+
+Only available authored tours appear. A real revision stack does not by itself
+create a Historical tour. Each mode remembers its own reading or browsing
+position during the session; entering a tour for the first time starts at its
+beginning. Switching modes does not infer a corresponding step in another tour.
+The active tour position or comparison is also reflected in the URL for refresh.
+
 ## Listen to a tour
 
 Use **Listen** beside the reading breadcrumb or **Present → Listen to Tour** in the
@@ -117,3 +139,18 @@ See [the change tour format](./change-tour-format.md) and
 [LLM-assisted generation](./generating-change-tours.md) for the complete
 contract. Checked-in examples include real stacked revisions and explicitly
 synthetic deconstructed stages.
+
+### Directory evidence in an Overview
+
+An authored scene can show a directory comparison in its Overview. Open a file
+to inspect the same comparison while keeping the overview text, narration, and
+reading position. The **Overview** breadcrumb returns to its file tree; **Start steps**
+or **Resume step** follows the authored explanation.
+
+Historical and Deconstructed scenes use a stable comparison: by default, the
+first and last scene panels, or explicit endpoints chosen by the author. Moving
+between steps never changes this comparison. The column labels identify its endpoints. Walkthrough scenes use
+the review's base-to-head comparison. Authors can limit the overview to a
+subdirectory; unavailable file contents remain marked as omitted. While browsing
+a file, `Overview › file path` shows where you are, with a reminder that narration
+still describes the overview.

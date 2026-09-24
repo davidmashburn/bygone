@@ -15,8 +15,34 @@
             <div id="tour-mode-controls" class="tour-mode-controls" hidden>
                 <label for="tour-mode-select">Mode</label>
                 <select id="tour-mode-select"></select>
-                <label for="tour-history-select" id="tour-history-label" hidden>Revision</label>
-                <select id="tour-history-select" hidden></select>
+                <p id="tour-mode-description" class="tour-mode-description"></p>
+                <div id="tour-history-controls" class="tour-evidence-controls" hidden>
+                    <label for="tour-history-select">Revision</label>
+                    <select id="tour-history-select"></select>
+                    <div class="tour-evidence-actions">
+                        <button id="tour-history-from" type="button" title="Use this revision as the comparison start">Compare from here</button>
+                        <button id="tour-history-to" type="button" title="Compare the selected start with this revision" disabled>Compare to here</button>
+                    </div>
+                    <p id="tour-history-from-status" role="status"></p>
+                    <div class="tour-evidence-actions">
+                        <button id="tour-history-parent" type="button" title="Compare this revision with its parent">Compare with parent</button>
+                        <button id="tour-history-base" type="button" title="Compare this revision with the review base">Compare with review base</button>
+                        <button id="tour-history-final" type="button" title="Compare the review base with its head across all changed files">Final diff</button>
+                    </div>
+                </div>
+                <div id="tour-compare-controls" class="tour-evidence-controls" hidden>
+                    <label for="tour-compare-from">From</label>
+                    <select id="tour-compare-from"></select>
+                    <label for="tour-compare-to">To</label>
+                    <select id="tour-compare-to"></select>
+                    <div id="tour-compare-scope"></div>
+                    <div class="tour-evidence-actions">
+                        <button id="tour-compare-swap" type="button" title="Reverse the comparison endpoints">Swap</button>
+                        <button id="tour-compare-clear" type="button" title="Clear the comparison and return to History">Clear</button>
+                        <button id="tour-compare-final" type="button" title="Compare the review base with its head across all changed files">Final diff</button>
+                        <button id="tour-compare-all" type="button" title="Compare these revisions across all changed files" hidden>Show all changed files</button>
+                    </div>
+                </div>
                 <div id="tour-mode-status" role="status" aria-live="polite"></div>
             </div>
             <details class="tour-details">
@@ -150,6 +176,12 @@
 
     <div id="container">
         <div id="header">
+            <nav id="tour-directory-breadcrumb" class="tour-directory-breadcrumb header-align-diff" aria-label="Overview evidence" hidden>
+                <button id="tour-directory-root" type="button" title="Return to the overview directory comparison (Cmd/Ctrl+[)" aria-current="location">Overview</button>
+                <span id="tour-directory-separator" aria-hidden="true" hidden>›</span>
+                <span id="tour-directory-file" class="tour-directory-file" aria-current="location" hidden></span>
+                <span id="tour-directory-narration-context" class="tour-directory-narration-context" hidden>Narration describes the overview</span>
+            </nav>
             <div id="file-info" class="header-align-diff">Choose a compare command to render a diff.</div>
             <div id="status-banner" class="status-banner header-align-diff" role="status" aria-live="polite" aria-atomic="true" hidden></div>
             <div id="directory-return-toolbar" class="directory-return-toolbar header-align-diff" hidden>

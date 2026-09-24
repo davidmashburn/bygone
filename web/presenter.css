@@ -1228,3 +1228,46 @@ body.tour-discussion .tour-narrative-takeaway {
 .tour-child-items button:focus-visible, .tour-parent-view > button:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 2px; }
 
 .tour-reading-path button[data-level="step"] { flex-shrink: 0; }
+
+/* Exploration shares the evidence viewer, while both authored tours keep narration. */
+.tour-mode-description, #tour-history-from-status { margin: 2px 0; color: var(--tour-muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.tour-evidence-controls { display: grid; gap: 6px; }
+.tour-evidence-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.tour-evidence-actions button { padding: 5px 8px; border: 1px solid var(--tour-border); border-radius: 5px; background: var(--tour-surface); color: var(--tour-body); font: inherit; font-size: 12px; cursor: pointer; }
+.tour-evidence-actions button:hover { border-color: var(--tour-accent-bright); }
+.tour-evidence-actions button:disabled { opacity: .5; cursor: default; }
+#tour-compare-scope { font-size: 12px; overflow-wrap: anywhere; }
+body.tour-derived-mode .tour-rail-section:has(#tour-scenes),
+body.tour-derived-mode .tour-narrative-resizer,
+body.tour-derived-mode .tour-search { display: none; }
+body.tour-derived-mode .tour-overview { flex-shrink: 0; }
+body.tour-derived-mode .tour-shell { overflow-y: auto; }
+body.tour-derived-mode .tour-files-section.is-open { flex: 1; }
+
+/* File inspection remains nested beneath the narrated directory overview. */
+.tour-directory-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-block: 8px;
+    font: 12px var(--tour-body-font);
+    color: var(--tour-muted);
+}
+.tour-directory-breadcrumb[hidden],
+.tour-directory-breadcrumb [hidden],
+body.tour-directory-overview #directory-return-toolbar,
+body.tour-directory-file-open #file-info { display: none; }
+.tour-directory-breadcrumb button {
+    border: 0;
+    border-radius: 4px;
+    padding: 4px 6px;
+    background: transparent;
+    color: var(--tour-accent-bright);
+    font: inherit;
+    cursor: pointer;
+}
+.tour-directory-breadcrumb button:hover { background: rgba(255, 255, 255, 0.07); }
+.tour-directory-breadcrumb button:focus-visible { outline: 2px solid var(--tour-accent-bright); }
+.tour-directory-file { overflow-wrap: anywhere; color: var(--tour-body); }
+.tour-directory-narration-context { margin-left: auto; color: var(--tour-faint); }

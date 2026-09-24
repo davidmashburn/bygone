@@ -1,24 +1,47 @@
 const assert = require('node:assert/strict');
-const { TourZoomSession, mapZoomLocation } = require('../out/tourZoomSession.js');
-const stage = { sceneIndex: 2, stepIndex: 4, path: 'a.ts', navigation: { scrollTop: 80 } };
-const session = new TourZoomSession('explanation');
-const origin = session.depart(stage);
-session.enter('history', { sceneIndex: 0, stepIndex: 0, path: 'a.ts' });
-assert.equal(session.depart({ sceneIndex: 0, stepIndex: 0, path: 'a.ts' }), origin);
-session.enter('final', { sceneIndex: 0, stepIndex: 0, path: 'a.ts' });
-session.depart({ sceneIndex: 0, stepIndex: 0, path: 'a.ts' });
-assert.deepEqual(session.enter('explanation', null), { location: stage, restore: true });
-session.depart(stage);
-session.enter('final', null);
+const { TourZoomSession } = require('../out/tourZoomSession.js');
+
+const defaultLocation = { sceneIndex: 0, stepIndex: 0, path: null };
+const historyLocation = {
+    sceneIndex: 2,
+    stepIndex: 4,
+    path: 'a.ts',
+    navigation: { scrollTop: 80 },
+    focusId: 'tour-next',
+    narrativeScroll: 120,
+    view: 'step',
+    narrativeParent: null,
+    sceneIntroVisible: false
+};
+const compareLocation = {
+    sceneIndex: 1,
+    stepIndex: 0,
+    path: 'b.ts',
+    line: 18,
+    commit: 'abc123'
+};
+
+const session = new TourZoomSession('history');
+
+// Entering a mode for the first time always starts at the neutral cursor.
+assert.deepEqual(session.enter('history', { sceneIndex: 8, stepIndex: 2, path: 'mapped.ts' }), {
+    location: defaultLocation,
+    restore: false
+});
+
+// Each mode owns its cursor, and navigating between modes never infers a landing.
+session.depart(historyLocation);
 session.navigate();
-session.depart({ sceneIndex: 1, stepIndex: 0, path: 'b.ts' });
-const mapped = { sceneIndex: 3, stepIndex: 0, path: 'b.ts' };
-assert.deepEqual(session.enter('explanation', mapped), { location: mapped, restore: false });
-session.depart(mapped); // A mapped landing must not overwrite the old explanation cursor.
-session.enter('history', null);
+assert.deepEqual(session.enter('compare'), { location: defaultLocation, restore: false });
 session.navigate();
-session.depart({ sceneIndex: 0, stepIndex: 0, path: 'unmapped.ts' });
-assert.deepEqual(session.enter('explanation', null), { location: stage, restore: true });
-assert.equal(mapZoomLocation({ ...stage, path: 'old.ts', line: 20 }, [{ steps: [{ file: 'new.ts', startLine: 1 }, { file: 'new.ts', startLine: 19 }] }], [{ path: 'new.ts', previousPath: 'old.ts' }]).stepIndex, 1);
-assert.equal(mapZoomLocation(stage, [], []), null);
+session.depart(compareLocation);
+assert.deepEqual(session.enter('history'), { location: historyLocation, restore: true });
+assert.deepEqual(session.enter('compare'), { location: compareLocation, restore: true });
+
+// Saving again always replaces the active mode's cursor exactly.
+const updatedHistoryLocation = { ...historyLocation, sceneIndex: 3, view: 'scene' };
+session.enter('history');
+assert.equal(session.depart(updatedHistoryLocation), updatedHistoryLocation);
+assert.deepEqual(session.enter('history'), { location: updatedHistoryLocation, restore: true });
+
 console.log('Tour zoom session tests passed.');

@@ -450,11 +450,11 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /return target \? showTourFileSelection\(target\.fileIndex\) : false/);
     assert.match(hostSource, /tourFocusFilePath/);
     assert.match(hostSource, /function returnToTourFocus/);
-    assert.match(hostSource, /const inTourMode = !state\.zoom[\s\S]{0,160}state\.zoom\.mode === state\.authoredTour\.zoom\.authoredDepth[\s\S]{0,80}state\.zoom\.mode === 'final'/);
+    assert.match(hostSource, /const inTourMode = isNarrativeMode\(\)/);
     assert.match(hostSource, /returnButton\.hidden = !inTourMode/);
-    assert.match(hostSource, /mode === 'final'\) return \{ \.\.\.tour, \.\.\.tour\.zoom\.final \}/);
-    assert.match(hostSource, /state\.zoom\.mode === 'revisions' \|\| state\.zoom\.mode === 'history'/);
-    assert.match(hostSource, /state\.zoom\.mode === state\.authoredTour\.zoom\.authoredDepth \|\| state\.zoom\.mode === 'final'/);
+    assert.match(hostSource, /authoredTours\(\)\[mode\]/);
+    assert.match(hostSource, /classList\.toggle\('tour-derived-mode', !isNarrativeMode\(\)\)/);
+    assert.match(hostSource, /state\.zoom\.mode === 'historical' \|\| state\.zoom\.mode === 'deconstructed'/);
     assert.match(hostSource, /function renderMultiPanelStep/);
     assert.match(hostSource, /scene\.kind === 'deconstructed-diff'/);
     assert.match(hostSource, /scene\.stageLabel/);
@@ -473,7 +473,7 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(webMarkup, /id="tour-return-focus"/);
     assert.match(webMarkup, /id="tour-authoring-coverage"[^>]+aria-label="Tour authoring coverage"[^>]+hidden/);
     assert.match(hostSource, /renderAuthoringCoverage\(authoringCoverage, tour\.authoringCoverage\)/);
-    assert.match(hostSource, /coverage\.walkthrough\.scope === 'final' \? 'Final diff hunk coverage' : 'Diff hunk coverage'/);
+    assert.match(hostSource, /label: 'Anchored diff hunks'/);
     assert.match(hostSource, /metric: 'assignment'/);
     assert.match(presenterSource, /\.tour-coverage-item\[data-metric="assignment"\]/);
     assert.match(presenterSource, /\.tour-rail-sections[\s\S]{0,180}flex-direction: column/);

@@ -7,16 +7,25 @@ import {
     ChangeTourDiffScene,
     ChangeTourFile,
     ChangeTourManifest,
+    ChangeTourModeTour,
+    ChangeTourTours,
     ChangeTourNarrative,
     ChangeTourOmittedFile,
     ChangeTourResolvedAnchor,
     ChangeTourScene,
+    ChangeTourSceneOverview,
     ChangeTourStackedScene,
     ChangeTourStory,
     ChangeTourWalkthroughScene,
     parseChangeTourManifest
 } from './changeTourManifest';
-import { ChangeTourSource, ChangeTourSourceStep, parseChangeTourSource } from './changeTourSource';
+import {
+    ChangeTourSource,
+    ChangeTourSourceChapter,
+    ChangeTourSourceSceneOverview,
+    ChangeTourSourceStep,
+    parseChangeTourSource
+} from './changeTourSource';
 import { buildDeconstructedScene } from './deconstructedChange';
 import { buildTwoWayDiffModel } from './diffEngine';
 import { buildTourFocusRanges } from './tourAnnotations';
@@ -168,8 +177,9 @@ export function buildChangeTourManifest(
             || left.id.localeCompare(right.id)
         ));
     }
-    const authored = options.source
-        ? applySource(parseChangeTourSource(options.source), defaultScenes, range.repoRoot)
+    const parsedSource = options.source ? parseChangeTourSource(options.source) : undefined;
+    const authored = parsedSource
+        ? applySource(parsedSource, defaultScenes, range.repoRoot)
         : options.story
         ? applyStory(options.story, defaultScenes)
         : buildGeneratedTourLanding(
@@ -191,10 +201,10 @@ export function buildChangeTourManifest(
     const manifest: ChangeTourManifest = {
         // Only authored v2 files opt into repository-bound zoom modes. Generated
         // and legacy/story tours retain the portable v1 manifest contract.
-        version: options.source?.version ?? 1,
-        title: options.source?.title || options.story?.title || options.title || `${range.headRef} against ${range.baseRef}`,
-        windowTitle: options.source?.windowTitle,
-        sourceUrl: options.source?.sourceUrl || options.story?.sourceUrl || options.sourceUrl,
+        version: parsedSource?.version ?? 1,
+        title: parsedSource?.title || options.story?.title || options.title || `${range.headRef} against ${range.baseRef}`,
+        windowTitle: parsedSource?.windowTitle,
+        sourceUrl: parsedSource?.sourceUrl || options.story?.sourceUrl || options.sourceUrl,
         generatedAt: options.generatedAt || new Date().toISOString(),
         range: {
             baseRef: range.baseRef,
@@ -215,6 +225,17 @@ export function buildChangeTourManifest(
         chapters,
         scenes
     };
+    const authoredModeTours = parsedSource
+        ? buildAuthoredModeTours(
+            parsedSource,
+            authored as CompiledSourceTour,
+            defaultScenes,
+            range.repoRoot,
+            range.mergeBaseOid,
+            range.headOid
+        )
+        : undefined;
+    if (authoredModeTours) manifest.tours = authoredModeTours;
     if (manifest.version === 2) {
         manifest.repository = { root: range.repoRoot };
         const revisions: ChangeTourStackedScene[] = [];
@@ -222,7 +243,7 @@ export function buildChangeTourManifest(
             let realStack: ChangeTourStackedScene | undefined;
             if (scene.kind === 'stacked-diff') realStack = scene;
             if (scene.kind === 'deconstructed-diff') {
-                const authoredScene = options.source?.chapters.flatMap((chapter) => chapter.scenes)
+                const authoredScene = parsedSource?.chapters.flatMap((chapter) => chapter.scenes)
                     .find((candidate) => candidate.id === scene.id);
                 if (authoredScene?.kind !== 'deconstructed-diff' || !authoredScene.stack) {
                     throw new Error(`Deconstructed scene ${scene.id} requires an explicit real revision stack in v2.`);
@@ -230,6 +251,7 @@ export function buildChangeTourManifest(
                 realStack = buildStackedScene(range.repoRoot, {
                     ...authoredScene,
                     kind: 'stacked-diff',
+                    overview: compileSceneOverview(authoredScene.overview, false),
                     stack: authoredScene.stack,
                     files: scene.files.map((file) => file.path),
                     steps: []
@@ -260,16 +282,27 @@ export function buildChangeTourManifest(
     return parseChangeTourManifest(manifest);
 }
 
-function applySource(
-    source: ChangeTourSource,
-    defaultScenes: ChangeTourDiffScene[],
-    repoRoot: string
-): {
+interface CompiledSourceTour {
     scenes: ChangeTourScene[];
     chapters: ChangeTourChapter[];
     finalScenes: ChangeTourScene[];
     finalChapters: ChangeTourChapter[];
-} {
+}
+
+function applySource(
+    source: ChangeTourSource,
+    defaultScenes: ChangeTourDiffScene[],
+    repoRoot: string
+): CompiledSourceTour {
+    return applySourceChapters(source, source.chapters, defaultScenes, repoRoot);
+}
+
+function applySourceChapters(
+    source: ChangeTourSource,
+    chaptersToCompile: ChangeTourSourceChapter[],
+    defaultScenes: ChangeTourDiffScene[],
+    repoRoot: string
+): CompiledSourceTour {
     const available = new Map(defaultScenes.map((scene) => [scene.path, scene]));
     const resolvedAnchors = new Map<string, ChangeTourResolvedAnchor>();
     for (const [id, anchor] of Object.entries(source.anchors)) {
@@ -291,7 +324,7 @@ function applySource(
     const finalScenes: ChangeTourScene[] = [];
     const finalChapters: ChangeTourChapter[] = [];
 
-    for (const chapter of source.chapters) {
+    for (const chapter of chaptersToCompile) {
         const sceneIds: string[] = [];
         const finalSceneIds: string[] = [];
         for (const authoredScene of chapter.scenes) {
@@ -347,12 +380,109 @@ function applySource(
     return { scenes, chapters, finalScenes, finalChapters };
 }
 
+/**
+ * Compile independently authored mode chapters without borrowing generated
+ * scenes from the root tour.  The root chapters remain the v1/v2 compatibility
+ * tour; mode tours are emitted only when the source supplies one or when a v2
+ * source contains enough authored material for an exact legacy fallback.
+ */
+function buildAuthoredModeTours(
+    source: ChangeTourSource,
+    root: CompiledSourceTour,
+    defaultScenes: ChangeTourDiffScene[],
+    repoRoot: string,
+    mergeBaseOid: string,
+    headOid: string
+): ChangeTourTours | undefined {
+    const tours: ChangeTourTours = {};
+
+    if (source.tours?.historical) {
+        const compiled = applySourceChapters(source, source.tours.historical.chapters, defaultScenes, repoRoot);
+        validateHistoricalStackEndpoints(compiled.scenes, mergeBaseOid, headOid);
+        tours.historical = { chapters: compiled.chapters, scenes: compiled.scenes };
+    } else if (source.version === 2) {
+        const fallback = buildHistoricalFallback(source.chapters, root);
+        if (fallback) tours.historical = fallback;
+    }
+
+    if (source.tours?.deconstructed) {
+        const compiled = applySourceChapters(source, source.tours.deconstructed.chapters, defaultScenes, repoRoot);
+        tours.deconstructed = { chapters: compiled.chapters, scenes: compiled.scenes };
+    } else if (source.version === 2 && source.chapters.some((chapter) => (
+        chapter.scenes.some((scene) => scene.kind === 'deconstructed-diff')
+    ))) {
+        // Preserve the existing v2 authored result exactly.  This fallback is
+        // intentionally based on scene ids and chapter order, never inferred
+        // by matching files or narrative text across modes.
+        tours.deconstructed = { chapters: root.chapters, scenes: root.scenes };
+    }
+
+    return tours.historical || tours.deconstructed ? tours : undefined;
+}
+
+function validateHistoricalStackEndpoints(
+    scenes: readonly ChangeTourScene[],
+    mergeBaseOid: string,
+    headOid: string
+): void {
+    for (const scene of scenes) {
+        if (scene.kind !== 'stacked-diff') continue;
+        if (scene.stack[0].oid !== mergeBaseOid || scene.stack[scene.stack.length - 1].oid !== headOid) {
+            throw new Error(`Historical scene ${scene.id} real stack endpoints must match the tour's final diff range.`);
+        }
+    }
+}
+
+function buildHistoricalFallback(
+    sourceChapters: ChangeTourSourceChapter[],
+    root: CompiledSourceTour
+): ChangeTourModeTour | undefined {
+    const regularScenes = new Map(root.scenes.map((scene) => [scene.id, scene]));
+    const finalScenes = new Map(root.finalScenes.map((scene) => [scene.id, scene]));
+    const scenes: ChangeTourScene[] = [];
+    const chapters: ChangeTourChapter[] = [];
+    for (const chapter of sourceChapters) {
+        const sceneIds: string[] = [];
+        for (const authoredScene of chapter.scenes) {
+            // A deconstructed scene becomes part of Historical only when the
+            // source explicitly authored endpoint walkthrough steps.  Its
+            // synthetic scene is never copied into this mode.
+            const scene = authoredScene.kind === 'deconstructed-diff'
+                ? authoredScene.steps ? finalScenes.get(authoredScene.id) : undefined
+                : regularScenes.get(authoredScene.id);
+            if (!scene) continue;
+            scenes.push(scene);
+            sceneIds.push(scene.id);
+        }
+        if (sceneIds.length > 0) chapters.push({ id: chapter.id, title: chapter.title, sceneIds });
+    }
+    return scenes.length > 0 ? { chapters, scenes } : undefined;
+}
+
+function compileSceneOverview(
+    overview: ChangeTourSourceSceneOverview | undefined,
+    includeComparison = true
+): ChangeTourSceneOverview | undefined {
+    if (!overview) return undefined;
+    return {
+        kind: overview.kind,
+        ...(overview.path === undefined ? {} : { path: overview.path }),
+        ...(includeComparison && overview.comparison ? { comparison: { ...overview.comparison } } : {})
+    };
+}
+
 function buildWalkthroughManifestScene(
-    authoredScene: ChangeTourNarrative & { id: string; title: string; steps: ChangeTourSourceStep[] },
+    authoredScene: ChangeTourNarrative & {
+        id: string;
+        title: string;
+        overview?: ChangeTourSourceSceneOverview;
+        steps: ChangeTourSourceStep[];
+    },
     available: ReadonlyMap<string, ChangeTourDiffScene>,
     resolvedAnchors: ReadonlyMap<string, ChangeTourResolvedAnchor>,
     connections: ReadonlyMap<string, NonNullable<ChangeTourWalkthroughScene['steps'][number]['connection']>>
 ): ChangeTourWalkthroughScene {
+    const overview = compileSceneOverview(authoredScene.overview, false);
     return {
         id: authoredScene.id,
         kind: 'walkthrough',
@@ -361,6 +491,7 @@ function buildWalkthroughManifestScene(
         bullets: authoredScene.bullets,
         tags: authoredScene.tags,
         takeaway: authoredScene.takeaway,
+        ...(overview ? { overview } : {}),
         steps: authoredScene.steps.map((step) => {
             const focus = requireResolvedAnchor(resolvedAnchors, step.focus);
             const diff = available.get(focus.path);
@@ -450,6 +581,7 @@ function buildDeconstructedManifestScene(
     });
     if (files.length === 0) throw new Error(`Deconstructed scene ${source.id} has no staged files.`);
     const steps = buildDeconstructedFocusSteps(source.id, compiled.stages, files);
+    const overview = compileSceneOverview(source.overview);
     return {
         id: source.id,
         kind: 'deconstructed-diff',
@@ -458,6 +590,7 @@ function buildDeconstructedManifestScene(
         bullets: source.bullets,
         tags: source.tags,
         takeaway: source.takeaway,
+        ...(overview ? { overview } : {}),
         stageLabel: 'Explanation stages',
         realRange: {
             baseRef: baseRef || compiled.baseOid,
@@ -616,6 +749,7 @@ function buildStackedScene(
     });
     if (files.length === 0) throw new Error(`Stacked scene ${source.id} has no materializable text files.`);
     const stackIds = stack.map((entry) => entry.id);
+    const overview = compileSceneOverview(source.overview);
     return {
         id: source.id,
         kind: 'stacked-diff',
@@ -624,6 +758,7 @@ function buildStackedScene(
         bullets: source.bullets,
         tags: source.tags,
         takeaway: source.takeaway,
+        ...(overview ? { overview } : {}),
         stack,
         files,
         steps: source.steps.length === 0 ? stack.slice(0, -1).map((_, pairIndex) => ({

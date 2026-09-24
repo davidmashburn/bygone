@@ -1,9 +1,12 @@
 import type { BranchCommit, GitChangeKind } from './gitComparison';
-import { validateStepRequirement, type ChangeTourStepRequirement } from './changeTourSource';
+import { validateSceneOverview, validateStepRequirement, type ChangeTourStepRequirement } from './changeTourSource';
 
 export const CHANGE_TOUR_MANIFEST_VERSION = 2 as const;
 
 export type ChangeTourMode = 'explanation' | 'revisions' | 'final' | 'history';
+
+/** Canonical mode ids used by the presentation host for authored mode tours. */
+export type ChangeTourModeId = 'history' | 'compare' | 'historical' | 'deconstructed';
 
 export interface ChangeTourZoom {
     authoredDepth: Exclude<ChangeTourMode, 'history'>;
@@ -22,6 +25,17 @@ export interface ChangeTourNarrative {
     bullets: string[];
     tags: string[];
     takeaway: string;
+}
+
+export interface ChangeTourSceneOverview {
+    kind: 'directory-diff';
+    path?: string;
+    comparison?: ChangeTourSceneOverviewComparison;
+}
+
+export interface ChangeTourSceneOverviewComparison {
+    from: string;
+    to: string;
 }
 
 export interface ChangeTourDiffScene extends ChangeTourNarrative {
@@ -91,6 +105,7 @@ export interface ChangeTourWalkthroughScene extends ChangeTourNarrative {
     id: string;
     kind: 'walkthrough';
     title: string;
+    overview?: ChangeTourSceneOverview;
     steps: ChangeTourWalkthroughStep[];
 }
 
@@ -129,6 +144,7 @@ export interface ChangeTourStackedScene extends ChangeTourNarrative {
     id: string;
     kind: 'stacked-diff';
     title: string;
+    overview?: ChangeTourSceneOverview;
     stack: ChangeTourStackPanel[];
     files: ChangeTourStackFile[];
     steps: ChangeTourStackStep[];
@@ -153,6 +169,7 @@ export interface ChangeTourDeconstructedScene extends ChangeTourNarrative {
     id: string;
     kind: 'deconstructed-diff';
     title: string;
+    overview?: ChangeTourSceneOverview;
     stageLabel: 'Explanation stages';
     realRange: {
         baseRef: string;
@@ -199,6 +216,16 @@ export interface ChangeTourChapter {
     sceneIds: string[];
 }
 
+export interface ChangeTourModeTour {
+    chapters: ChangeTourChapter[];
+    scenes: ChangeTourScene[];
+}
+
+export interface ChangeTourTours {
+    historical?: ChangeTourModeTour;
+    deconstructed?: ChangeTourModeTour;
+}
+
 export interface ChangeTourAuthoringCoverage {
     walkthrough: {
         scope: 'tour' | 'final';
@@ -242,6 +269,8 @@ export interface ChangeTourManifest {
     files: ChangeTourFile[];
     chapters: ChangeTourChapter[];
     scenes: ChangeTourScene[];
+    /** Independently authored mode tours. The legacy root tour remains authoritative when absent. */
+    tours?: ChangeTourTours;
     /** Optional authoring diagnostics supplied by the local presentation host. */
     authoringCoverage?: ChangeTourAuthoringCoverage;
 }
@@ -317,6 +346,10 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
         validateAuthoringCoverage(value.authoringCoverage, value.version);
     }
 
+    if (value.tours !== undefined) {
+        validateModeTours(value.tours);
+    }
+
     if (value.version === 2) validateZoom(value);
 
     return { ...value, files } as unknown as ChangeTourManifest;
@@ -348,6 +381,50 @@ function validateAuthoringCoverage(value: unknown, version: 1 | 2): asserts valu
         if (assignment.assignedUnits + assignment.excludedUnits !== assignment.completeUnits
             || assignment.completeUnits > assignment.totalUnits) {
             throw new Error(`${path} contains inconsistent unit counts.`);
+        }
+    }
+}
+
+function validateModeTours(value: unknown): asserts value is ChangeTourTours {
+    if (!isRecord(value)) throw new Error('Change-tour manifest tours must be an object.');
+    if (value.historical === undefined && value.deconstructed === undefined) {
+        throw new Error('Change-tour manifest tours must contain a historical or deconstructed tour.');
+    }
+    for (const mode of ['historical', 'deconstructed'] as const) {
+        const tour = value[mode];
+        if (tour === undefined) continue;
+        if (!isRecord(tour) || !Array.isArray(tour.chapters) || !Array.isArray(tour.scenes)
+            || tour.chapters.length === 0 || tour.scenes.length === 0) {
+            throw new Error(`Change-tour manifest tours.${mode} must contain non-empty chapters and scenes arrays.`);
+        }
+        const sceneIds = new Set<string>();
+        let hasDeconstructed = false;
+        for (const [index, scene] of tour.scenes.entries()) {
+            validateScene(scene, index);
+            if (sceneIds.has(scene.id)) {
+                throw new Error(`Duplicate ${mode} tour scene id: ${scene.id}`);
+            }
+            sceneIds.add(scene.id);
+            if (scene.kind === 'deconstructed-diff') hasDeconstructed = true;
+            if (mode === 'historical' && scene.kind === 'deconstructed-diff') {
+                throw new Error('Historical tours cannot contain synthetic deconstructed scenes.');
+            }
+        }
+        if (mode === 'deconstructed' && !hasDeconstructed) {
+            throw new Error('Deconstructed tours must contain a constructed deconstructed-diff scene.');
+        }
+        for (const [index, chapter] of tour.chapters.entries()) {
+            if (!isRecord(chapter)) {
+                throw new Error(`tours.${mode}.chapters[${index}] must be an object.`);
+            }
+            requireString(chapter.id, `tours.${mode}.chapters[${index}].id`);
+            requireString(chapter.title, `tours.${mode}.chapters[${index}].title`);
+            requireStringArray(chapter.sceneIds, `tours.${mode}.chapters[${index}].sceneIds`);
+            for (const sceneId of chapter.sceneIds) {
+                if (!sceneIds.has(sceneId)) {
+                    throw new Error(`tours.${mode} chapter references unknown scene id: ${sceneId}`);
+                }
+            }
         }
     }
 }
@@ -455,9 +532,11 @@ function validateScene(value: unknown, index: number): asserts value is ChangeTo
     }
     validateNarrative(value, `scenes[${index}]`);
     if (value.kind === 'discussion') {
+        validateSceneOverview(value.overview, `scenes[${index}].overview`, { allowComparison: false });
         return;
     }
     if (value.kind === 'walkthrough') {
+        validateSceneOverview(value.overview, `scenes[${index}].overview`, { allowComparison: false });
         if (!Array.isArray(value.steps) || value.steps.length === 0) {
             throw new Error(`scenes[${index}].steps must be a non-empty array.`);
         }
@@ -486,12 +565,19 @@ function validateScene(value: unknown, index: number): asserts value is ChangeTo
     }
     if (value.kind === 'stacked-diff') {
         validateStackedScene(value, index);
+        validateSceneOverview(value.overview, `scenes[${index}].overview`, {
+            endpointIds: (value.stack as Record<string, unknown>[]).map((panel) => (panel as Record<string, unknown>).id as string)
+        });
         return;
     }
     if (value.kind === 'deconstructed-diff') {
         validateDeconstructedScene(value, index);
+        validateSceneOverview(value.overview, `scenes[${index}].overview`, {
+            endpointIds: (value.panels as Record<string, unknown>[]).map((panel) => (panel as Record<string, unknown>).id as string)
+        });
         return;
     }
+    validateSceneOverview(value.overview, `scenes[${index}].overview`, { allowComparison: false });
     for (const key of ['path', 'leftLabel', 'rightLabel', 'leftContent', 'rightContent']) {
         requireString(value[key], `scenes[${index}].${key}`);
     }
