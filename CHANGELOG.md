@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.8.16
+
+- Clarified authored-tour errors when a document requires a newer format version
+- Made tag-triggered npm release checks fetch repository history needed by checked-in tour fixtures
+
 ## 0.8.15
 
 - Fixed v2 deconstructed-tour coverage so authored Final-mode walkthrough anchors determine coverage while Explanation assignment completeness remains a separate metric
