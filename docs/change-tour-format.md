@@ -8,10 +8,12 @@ suffix, and explicitly supplied files are validated by content rather than
 rejected by extension.
 
 An authored source is Git-backed, not portable: resolving refs and anchors
-requires the corresponding local repository and Git objects. Version 2
+requires the corresponding local repository and Git objects. Version 2 and 3
 compiled manifests remain bound to that repository so the presenter can load
 live file history. Version 1 manifests remain readable as legacy portable
-artifacts, without the mode switcher.
+artifacts, without the mode switcher. Version 3 adds independent authored
+tours, scene directory overviews, and review notes; versions 1 and 2 remain
+accepted without those fields.
 
 Packaged macOS builds register `.bygone` with Bygone, allowing a presentation
 inside its repository to open directly from Finder. Windows and Linux builds
@@ -42,7 +44,7 @@ once. When omitted, the presenter falls back to `title`, then a generic tour lab
 
 ## Independent authored tours
 
-Version 2 can supply `tours.historical.chapters` and
+Version 3 can supply `tours.historical.chapters` and
 `tours.deconstructed.chapters`. Each uses the chapter and scene structure below,
 with the document's shared range, anchors, and connections. This lets one file
 explain actual revisions and also teach the change through synthetic stages.
@@ -66,7 +68,7 @@ Compare.
 
 ## Scene directory overviews
 
-An authored walkthrough, stacked-diff, or deconstructed-diff scene may carry a
+In version 3, an authored walkthrough, stacked-diff, or deconstructed-diff scene may carry a
 directory overview for the presenter to render alongside the current scene:
 
 ```yaml
@@ -102,7 +104,7 @@ Use an explicit authored Historical scene to choose a narrower real comparison.
 ## Structure
 
 ```yaml
-version: 2
+version: 3
 title: A reviewer-facing title
 windowTitle: PR-1234
 sourceUrl: https://example.test/pull/123
@@ -191,7 +193,7 @@ results search the compiled base and head snapshots, open the exact file and
 side, and preserve **Return to tour** so exploration does not lose authored
 context.
 
-Version 2 tours show one mode control for jumping directly among the authored
+Version 2 and 3 tours show one mode control for jumping directly among the authored
 explanation, real revisions, the final endpoint diff, and live Git history.
 Only modes at or above the tour's maximum authored depth appear. A two-panel
 stack therefore collapses into Final diff rather than creating a duplicate
@@ -203,7 +205,7 @@ only when every panel is a real selected Git revision. Use a
 [deconstructed-diff example](../examples/deconstructed-diff.bygone) when
 the teaching order is clearer than the real commit history; its cumulative
 panels are synthetic explanation stages and must never be described as
-commits. In version 2, every deconstructed scene must also provide the regular
+commits. In version 2 and 3, every root deconstructed scene must also provide the regular
 endpoint tour's `steps` and an explicit `stack` of the real revisions with the
 same base and final endpoints. Final diff presents those authored walkthrough
 steps, while Explanation stages presents the synthetic reconstruction. Bygone

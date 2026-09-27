@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["version", "anchors", "connections", "chapters"],
   "properties": {
-    "version": { "enum": [1, 2] },
+    "version": { "enum": [1, 2, 3] },
     "title": { "$ref": "#/$defs/nonEmptyString" },
     "windowTitle": {
       "$ref": "#/$defs/nonEmptyString",
@@ -70,9 +70,25 @@
   },
   "allOf": [
     {
+      "if": { "properties": { "version": { "enum": [1, 2] } }, "required": ["version"] },
+      "then": {
+        "not": { "anyOf": [{ "required": ["tours"] }, { "required": ["review"] }] },
+        "properties": {
+          "chapters": {
+            "items": {
+              "properties": {
+                "scenes": {
+                  "items": { "not": { "required": ["overview"] } }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "if": { "properties": { "version": { "const": 1 } }, "required": ["version"] },
       "then": {
-        "not": { "required": ["tours"] },
         "properties": {
           "chapters": {
             "items": {
@@ -90,7 +106,7 @@
       }
     },
     {
-      "if": { "properties": { "version": { "const": 2 } }, "required": ["version"] },
+      "if": { "properties": { "version": { "enum": [2, 3] } }, "required": ["version"] },
       "then": {
         "properties": {
           "chapters": {

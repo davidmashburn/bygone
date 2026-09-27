@@ -72,7 +72,7 @@ function makeSource(inventory) {
         }]
     };
     return {
-        version: 2,
+        version: 3,
         range: { base: 'main', head: 'feature' },
         anchors: {
             root: { file: 'app.txt', revision: 'head', contains: 'alpha' },
@@ -150,7 +150,7 @@ test('independent authored tours compile and coverage uses each mode explicitly'
     }
 });
 
-test('v2 root deconstruction falls back to exact authored mode tours', () => {
+test('v3 root deconstruction falls back to exact authored mode tours', () => {
     const { root } = makeRepository();
     try {
         const inventory = buildChangeInventory(root, { baseRef: 'main', headRef: 'feature' });
@@ -209,10 +209,12 @@ test('mode source validation preserves v1 root deconstruction and rejects invali
         }]
     };
     assert.doesNotThrow(() => parseChangeTourSource(source));
-    assert.throws(() => parseChangeTourSource({ ...source, tours: { deconstructed: { chapters: source.chapters } } }), /require version 2/);
+    assert.throws(() => parseChangeTourSource({ ...source, tours: { deconstructed: { chapters: source.chapters } } }), /require version 3/);
     const syntheticChapters = source.chapters;
     source.version = 2;
     source.chapters = [{ id: 'root', title: 'Root', scenes: [{ id: 'root', kind: 'walkthrough', title: 'Root', ...narrative('Root.'), steps: [{ id: 'step', title: 'Step', body: 'Body', focus: 'root' }] }] }];
+    assert.throws(() => parseChangeTourSource({ ...source, tours: { deconstructed: { chapters: syntheticChapters } } }), /require version 3/);
+    source.version = 3;
     assert.throws(() => parseChangeTourSource({ ...source, tours: {} }), /tours must contain/);
     assert.throws(() => parseChangeTourSource({
         ...source,

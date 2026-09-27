@@ -1051,7 +1051,7 @@ import { TourZoomSession } from '../src/tourZoomSession.ts';
             state.authoredTour = state.tour;
             const tours = authoredTours();
             const initialMode = tours.deconstructed ? 'deconstructed' : 'historical';
-            state.zoom = state.tour.version === 2 ? new TourZoomSession(initialMode) : null;
+            state.zoom = state.tour.version >= 2 ? new TourZoomSession(initialMode) : null;
             if (state.zoom) state.tour = zoomTour(initialMode);
             state.mode = 'tour';
             document.body.classList.add('tour-mode');

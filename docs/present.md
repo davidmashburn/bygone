@@ -52,7 +52,8 @@ authored first scene and order.
 
 ## Explore and follow tours
 
-Version 2 presentations group the mode switcher into **Explore** and **Tours**:
+Version 2 and 3 presentations group the mode switcher into **Explore** and **Tours**.
+Independent Historical and Deconstructed tours require version 3:
 
 - **History** browses a file's actual Git revisions. Select a revision, choose
   **Compare from here**, then select another revision and choose **Compare to
@@ -119,10 +120,10 @@ conversation. Those remain separate from the offline, device-first baseline.
 Tour content is read-only. Author or revise the YAML and recompile it rather
 than editing historical or synthetic panels in the presenter.
 
-The authored tour currently has no separate review-notes surface. Keep open
-questions and review decisions in the review record that accompanies the tour;
-the scene and step narrative should explain the implemented change and the
-tradeoffs supported by its evidence.
+Version 3 authored tours may expose a separate, read-only **Review notes** panel
+for evidence-linked concepts, boundaries, tradeoffs, and open questions. Scene
+and step narrative should still explain the implemented change and the tradeoffs
+supported by its evidence.
 
 ## Authoring workflow
 
@@ -142,7 +143,7 @@ synthetic deconstructed stages.
 
 ### Directory evidence in an Overview
 
-An authored scene can show a directory comparison in its Overview. Open a file
+In version 3, an authored scene can show a directory comparison in its Overview. Open a file
 to inspect the same comparison while keeping the overview text, narration, and
 reading position. The **Overview** breadcrumb returns to its file tree; **Start steps**
 or **Resume step** follows the authored explanation.

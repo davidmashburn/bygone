@@ -92,7 +92,7 @@ export function buildTourCoverageReport(startPath: string, sourceValue: unknown)
     const includedUnits = textualUnits.filter((unit) => !excludedIds.has(unit.id));
     const coverage = new Map<string, CoveredUnit>();
     const contextualOnlyEvidence: TourCoverageReport['contextualOnlyEvidence'] = [];
-    const percentageDecimalPlaces = manifest.version === 2 ? 2 : 0;
+    const percentageDecimalPlaces = manifest.version >= 2 ? 2 : 0;
 
     // An independently authored Historical tour is the preferred walkthrough
     // evidence.  Deconstructed-only tours may intentionally omit endpoint
@@ -100,7 +100,7 @@ export function buildTourCoverageReport(startPath: string, sourceValue: unknown)
     // walkthrough scenes to count.
     const authoredHistoricalScenes = manifest.tours?.historical?.scenes;
     const historicalHasWalkthrough = authoredHistoricalScenes?.some((scene) => scene.kind === 'walkthrough') === true;
-    const walkthroughScenes = manifest.version === 2
+    const walkthroughScenes = manifest.version >= 2
         ? requireFinalScenes(historicalHasWalkthrough ? authoredHistoricalScenes : manifest.zoom?.final.scenes)
         : historicalHasWalkthrough ? authoredHistoricalScenes : manifest.scenes;
     for (const scene of walkthroughScenes) {

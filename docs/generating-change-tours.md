@@ -59,7 +59,7 @@ Use `bygone tour schema` to print the current JSON Schema. The checked-in schema
 - Avoid claims about runtime behavior, safety, or intent that have no linked evidence.
 - Use connections sparingly. A connection should answer “how are these two facts related?”
 - Preserve access to the complete change instead of presenting the tour as exhaustive review.
-- Keep unresolved questions and review decisions in the external review record that accompanies the tour. The current `.bygone` schema has no separate notes field for them.
+- In a version 3 source, keep unresolved questions and review decisions in the top-level `review` block rather than presenting them as settled scene narration.
 
 ## Anchor rules
 
@@ -85,7 +85,7 @@ Requirements:
 - include behavior and its proof;
 - put each evidence-grounded rationale or tradeoff beside its focused step;
 - leave secondary files to Bygone's complete Files rail;
-- keep unresolved questions and review decisions in the accompanying review record rather than adding an unsupported notes key;
+- for version 3, keep unresolved questions and review decisions in the top-level `review` block rather than adding an unsupported notes key;
 - run `bygone tour validate <file> --json` and repair all errors before finishing.
 ```
 
@@ -93,7 +93,7 @@ The generated prose remains a proposal. Validation proves that its evidence exis
 
 ## Optional review notes
 
-An authored source may add a top-level `review` block when a reviewer needs a
+A version 3 authored source may add a top-level `review` block when a reviewer needs a
 small set of concepts, boundaries, tradeoffs, or open questions alongside the
 walkthrough. This is opt-in: the Present header shows a **Review notes** button
 only when the compiled manifest includes review notes, and the button opens a
@@ -121,10 +121,9 @@ Each item uses one of `concept`, `boundary`, `tradeoff`, or `question`.
 Concept, boundary, and tradeoff items need at least one link to an existing
 walkthrough scene and step. A question may leave `evidence` empty, but it must
 include a `nextCheck` describing the follow-up that would resolve it. Evidence
-for a version 1 source resolves against its original walkthrough scenes. For a
-version 2 source it resolves against the **Final walkthrough**; if the reader
-is in history or a revisions view, following an evidence link first returns to
-that final range before selecting the scene and step.
+resolves against the **Final walkthrough**. If the reader is in history or a
+revisions view, following an evidence link first returns to that final range
+before selecting the scene and step.
 
 The `baseOid` pin is the resolved merge-base OID, which may differ from the
 requested base ref; `headOid` is the resolved head OID. Both pins must match

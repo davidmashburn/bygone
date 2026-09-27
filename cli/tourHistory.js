@@ -249,7 +249,7 @@ function pathExistsAt(root, oid, filePath) {
 }
 
 function createTourHistory(manifest) {
-    if (manifest.version !== 2) return null;
+    if (manifest.version < 2) return null;
     let root;
     try {
         root = realpathSync(manifest.repository.root);

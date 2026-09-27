@@ -7,7 +7,7 @@ import {
     type ChangeTourStepRequirement
 } from './changeTourSource';
 
-export const CHANGE_TOUR_MANIFEST_VERSION = 2 as const;
+export const CHANGE_TOUR_MANIFEST_VERSION = 3 as const;
 
 export type ChangeTourMode = 'explanation' | 'revisions' | 'final' | 'history';
 
@@ -250,7 +250,7 @@ export interface ChangeTourAuthoringCoverage {
 }
 
 export interface ChangeTourManifest {
-    version: 1 | typeof CHANGE_TOUR_MANIFEST_VERSION;
+    version: 1 | 2 | typeof CHANGE_TOUR_MANIFEST_VERSION;
     repository?: { root: string };
     zoom?: ChangeTourZoom;
     title: string;
@@ -288,7 +288,7 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
             `This tour uses manifest format version ${value.version}, but this version of Bygone supports up to version ${CHANGE_TOUR_MANIFEST_VERSION}. Upgrade Bygone to open it.`
         );
     }
-    if (!isRecord(value) || (value.version !== 1 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
+    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
         throw new Error(`Unsupported or missing change-tour manifest version.`);
     }
     requireString(value.title, 'title');
@@ -321,7 +321,7 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
 
     const sceneIds = new Set<string>();
     for (const [index, candidate] of value.scenes.entries()) {
-        validateScene(candidate, index);
+        validateScene(candidate, index, value.version);
         if (sceneIds.has(candidate.id)) {
             throw new Error(`Duplicate change-tour scene id: ${candidate.id}`);
         }
@@ -359,13 +359,15 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
     }
 
     if (value.tours !== undefined) {
-        validateModeTours(value.tours);
+        if (value.version !== 3) throw new Error('Independent tours require manifest version 3.');
+        validateModeTours(value.tours, value.version);
     }
 
-    if (value.version === 2) validateZoom(value);
+    if (value.version !== 1) validateZoom(value, value.version);
 
     if (value.review !== undefined) {
-        const evidenceScenes = value.version === 2 && isRecord(value.zoom) && isRecord(value.zoom.final)
+        if (value.version !== 3) throw new Error('Review notes require manifest version 3.');
+        const evidenceScenes = value.version >= 2 && isRecord(value.zoom) && isRecord(value.zoom.final)
             ? value.zoom.final.scenes
             : value.scenes;
         validateChangeTourReview(value.review, {
@@ -397,11 +399,11 @@ function collectAuthoredWalkthroughStepIds(value: unknown): ReadonlyMap<string, 
     return scenes;
 }
 
-function validateAuthoringCoverage(value: unknown, version: 1 | 2): asserts value is ChangeTourAuthoringCoverage {
+function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 3): asserts value is ChangeTourAuthoringCoverage {
     if (!isRecord(value) || !isRecord(value.walkthrough) || !Array.isArray(value.explanationAssignments)) {
         throw new Error('authoringCoverage must contain walkthrough and explanationAssignments.');
     }
-    const expectedScope = version === 2 ? 'final' : 'tour';
+    const expectedScope = version >= 2 ? 'final' : 'tour';
     if (value.walkthrough.scope !== expectedScope) {
         throw new Error(`authoringCoverage.walkthrough.scope must be ${expectedScope}.`);
     }
@@ -427,7 +429,7 @@ function validateAuthoringCoverage(value: unknown, version: 1 | 2): asserts valu
     }
 }
 
-function validateModeTours(value: unknown): asserts value is ChangeTourTours {
+function validateModeTours(value: unknown, version: 3): asserts value is ChangeTourTours {
     if (!isRecord(value)) throw new Error('Change-tour manifest tours must be an object.');
     if (value.historical === undefined && value.deconstructed === undefined) {
         throw new Error('Change-tour manifest tours must contain a historical or deconstructed tour.');
@@ -442,7 +444,7 @@ function validateModeTours(value: unknown): asserts value is ChangeTourTours {
         const sceneIds = new Set<string>();
         let hasDeconstructed = false;
         for (const [index, scene] of tour.scenes.entries()) {
-            validateScene(scene, index);
+            validateScene(scene, index, version);
             if (sceneIds.has(scene.id)) {
                 throw new Error(`Duplicate ${mode} tour scene id: ${scene.id}`);
             }
@@ -503,7 +505,7 @@ export function parseChangeTourStory(value: unknown): ChangeTourStory {
     return value as unknown as ChangeTourStory;
 }
 
-function validateZoom(value: Record<string, unknown>): void {
+function validateZoom(value: Record<string, unknown>, version: 2 | 3): void {
     if (!isRecord(value.repository) || typeof value.repository.root !== 'string' || !value.repository.root) {
         throw new Error('A v2 tour requires its originating repository.root.');
     }
@@ -514,7 +516,7 @@ function validateZoom(value: Record<string, unknown>): void {
     const revisions = value.zoom.revisions;
     const ids = new Set<string>();
     for (const [index, scene] of revisions.entries()) {
-        validateScene(scene, index);
+        validateScene(scene, index, version);
         if (scene.kind !== 'stacked-diff') throw new Error('zoom.revisions must contain real stacked-diff scenes.');
         if (ids.has(scene.id)) throw new Error(`Duplicate zoom revision scene: ${scene.id}`);
         ids.add(scene.id);
@@ -545,7 +547,7 @@ function validateZoom(value: Record<string, unknown>): void {
     }
     const finalSceneIds = new Set<string>();
     for (const [index, scene] of value.zoom.final.scenes.entries()) {
-        validateScene(scene, index);
+        validateScene(scene, index, version);
         if (scene.kind === 'stacked-diff' || scene.kind === 'deconstructed-diff') {
             throw new Error('zoom.final must contain only non-stacked scenes.');
         }
@@ -565,12 +567,15 @@ function validateZoom(value: Record<string, unknown>): void {
     }
 }
 
-function validateScene(value: unknown, index: number): asserts value is ChangeTourScene {
+function validateScene(value: unknown, index: number, version: 1 | 2 | 3): asserts value is ChangeTourScene {
     if (!isRecord(value) || !['text-diff', 'discussion', 'walkthrough', 'stacked-diff', 'deconstructed-diff'].includes(String(value.kind))) {
         throw new Error(`scenes[${index}] must be a text-diff, discussion, walkthrough, stacked-diff, or deconstructed-diff scene.`);
     }
     for (const key of ['id', 'title']) {
         requireString(value[key], `scenes[${index}].${key}`);
+    }
+    if (value.overview !== undefined && version !== 3) {
+        throw new Error(`scenes[${index}].overview requires manifest version 3.`);
     }
     validateNarrative(value, `scenes[${index}]`);
     if (value.kind === 'discussion') {
@@ -593,7 +598,7 @@ function validateScene(value: unknown, index: number): asserts value is ChangeTo
             }
             validateStepRequirement(step.requirement, `${path}.requirement`);
             validateResolvedAnchor(step.focus, `${path}.focus`);
-            validateScene(step.diff, index);
+            validateScene(step.diff, index, version);
             if (step.diff.kind !== 'text-diff') throw new Error(`${path}.diff must be a text-diff scene.`);
             if (step.connection !== undefined) {
                 if (!isRecord(step.connection)) throw new Error(`${path}.connection must be an object.`);
@@ -743,7 +748,7 @@ function validateMultiPanelSteps(value: unknown, panelCount: number, index: numb
 function validateTourFile(value: unknown, index: number): asserts value is ChangeTourFile {
     if (!isRecord(value)) throw new Error(`files[${index}] must be an object.`);
     if (value.kind === 'text-diff') {
-        validateScene(value, index);
+        validateScene(value, index, 1);
         return;
     }
     if (value.kind !== 'omitted') {

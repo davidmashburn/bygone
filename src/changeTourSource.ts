@@ -1,6 +1,6 @@
 import type { ChangeTourNarrative } from './changeTourManifest';
 
-export const CHANGE_TOUR_SOURCE_VERSION = 2 as const;
+export const CHANGE_TOUR_SOURCE_VERSION = 3 as const;
 
 export interface ChangeTourSourceAnchor {
     file: string;
@@ -140,9 +140,9 @@ export interface ChangeTourSourceDeconstructedScene extends ChangeTourNarrative 
     overview?: ChangeTourSourceSceneOverview;
     base?: string;
     target?: string;
-    /** Required for v2 root deconstruction; mode-specific Deconstructed may omit it. */
+    /** Required for v2+ root deconstruction; mode-specific Deconstructed may omit it. */
     stack?: ChangeTourSourceStackEntry[];
-    /** Required for v2 root deconstruction when endpoint walkthrough evidence is authored. */
+    /** Required for v2+ root deconstruction when endpoint walkthrough evidence is authored. */
     steps?: ChangeTourSourceStep[];
     stages: ChangeTourSourceDeconstructedStage[];
     exclusions?: ChangeTourSourceDeconstructedExclusion[];
@@ -173,7 +173,7 @@ export interface ChangeTourSourceTours {
 }
 
 export interface ChangeTourSource {
-    version: 1 | typeof CHANGE_TOUR_SOURCE_VERSION;
+    version: 1 | 2 | typeof CHANGE_TOUR_SOURCE_VERSION;
     title?: string;
     windowTitle?: string;
     sourceUrl?: string;
@@ -195,7 +195,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             `This tour uses source format version ${value.version}, but this version of Bygone supports up to version ${CHANGE_TOUR_SOURCE_VERSION}. Upgrade Bygone to open it.`
         );
     }
-    if (!isRecord(value) || (value.version !== 1 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
+    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
         throw new Error('Unsupported or missing change-tour source version.');
     }
     requireOnlyKeys(value, [
@@ -277,7 +277,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         'root'
     );
     if (value.tours !== undefined) {
-        if (value.version !== 2) throw new Error('Independent tours require version 2.');
+        if (value.version !== 3) throw new Error('Independent tours require version 3.');
         if (!isRecord(value.tours)) throw new Error('tours must be an object.');
         requireOnlyKeys(value.tours, ['historical', 'deconstructed'], 'tours');
         if (value.tours.historical === undefined && value.tours.deconstructed === undefined) {
@@ -293,6 +293,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         }
     }
     if (value.review !== undefined) {
+        if (value.version !== 3) throw new Error('Review notes require version 3.');
         validateChangeTourReview(value.review, { authoredWalkthroughSteps });
     }
     return { ...value, connections: rawConnections } as unknown as ChangeTourSource;
@@ -303,7 +304,7 @@ type SourceTourValidationMode = 'root' | 'historical' | 'deconstructed';
 function validateSourceChapters(
     chaptersValue: unknown,
     chaptersPath: string,
-    version: 1 | 2,
+    version: 1 | 2 | 3,
     anchors: Record<string, unknown>,
     connectionIds: ReadonlySet<string>,
     mode: SourceTourValidationMode
@@ -331,6 +332,9 @@ function validateSourceChapters(
             requireString(scene.title, `${path}.title`);
             if (sceneIds.has(scene.id)) throw new Error(`Duplicate scene id: ${scene.id}`);
             sceneIds.add(scene.id);
+            if (scene.overview !== undefined && version !== 3) {
+                throw new Error(`${path}.overview requires version 3.`);
+            }
             validateNarrative(scene, path);
             if (scene.kind === 'deconstructed-diff') {
                 if (mode === 'historical') {
@@ -342,10 +346,10 @@ function validateSourceChapters(
                 });
                 // Legacy v1 root deconstruction predates repository-bound real
                 // revision evidence and intentionally permits a synthetic-only
-                // scene.  v2 root scenes and explicit Historical scenes retain
+                // scene.  v2+ root scenes and explicit Historical scenes retain
                 // the real-evidence requirement; a mode-specific Deconstructed
                 // tour is synthetic by design and may omit stack/steps.
-                const requireRealEvidence = mode === 'root' && version === 2;
+                const requireRealEvidence = mode === 'root' && version >= 2;
                 if (requireRealEvidence || scene.stack !== undefined) {
                     validateRealStack(scene.stack, `${path}.stack`, 2);
                 }
@@ -364,7 +368,7 @@ function validateSourceChapters(
                 // A mode-specific Historical tour may intentionally contain
                 // only its two real endpoint revisions.  Preserve the older
                 // v1 three-panel requirement for the legacy root chapters.
-                validateStackedScene(scene, path, mode === 'root' ? (version === 2 ? 2 : 3) : 2);
+                validateStackedScene(scene, path, mode === 'root' ? (version >= 2 ? 2 : 3) : 2);
                 validateSceneOverview(scene.overview, `${path}.overview`, {
                     endpointIds: stackedOverviewEndpointIds(scene, path)
                 });

@@ -17,7 +17,7 @@ const HEAD_OID = '2'.repeat(40);
 
 function sourceWithReview(review = validReview()) {
     return {
-        version: 1,
+        version: 3,
         anchors: {
             changed: { file: 'value.txt', revision: 'head', contains: 'changed' }
         },
@@ -67,8 +67,9 @@ function validReview(overrides = {}) {
 }
 
 function makeManifest(review = validReview()) {
-    return {
-        version: 1,
+    const manifest = {
+        version: 3,
+        repository: { root: '/tmp/bygone-review-notes' },
         title: 'Review notes',
         generatedAt: '2026-09-19T00:00:00.000Z',
         range: {
@@ -138,6 +139,13 @@ function makeManifest(review = validReview()) {
         }],
         ...(review === undefined ? {} : { review })
     };
+    manifest.zoom = {
+        authoredDepth: 'final',
+        modes: ['final', 'history'],
+        revisions: [],
+        final: { chapters: manifest.chapters, scenes: manifest.scenes }
+    };
+    return manifest;
 }
 
 function git(cwd, ...args) {
@@ -176,6 +184,7 @@ test('source review notes validate shape, evidence, and question follow-up', () 
         }]
     });
     assert.equal(parseChangeTourSource(source).review.items[0].id, 'question');
+    assert.throws(() => parseChangeTourSource({ ...source, version: 2 }), /Review notes require version 3/);
     assert.throws(
         () => parseChangeTourSource({ ...source, review: { ...source.review, items: [] } }),
         /review\.items must be a non-empty array/
@@ -277,6 +286,7 @@ test('compiler pins review notes to the resolved range and preserves evidence', 
 
 test('manifest review validation rejects dangling evidence and allows absent review', () => {
     assert.equal(parseChangeTourManifest(makeManifest()).review.items.length, 2);
+    assert.throws(() => parseChangeTourManifest({ ...makeManifest(), version: 2 }), /Review notes require manifest version 3/);
     const withoutReview = makeManifest();
     delete withoutReview.review;
     assert.equal(parseChangeTourManifest(withoutReview).review, undefined);
@@ -296,13 +306,13 @@ test('manifest review validation rejects dangling evidence and allows absent rev
     );
 });
 
-test('v2 reviews resolve evidence against explicit deconstructed final steps', () => {
+test('v3 reviews resolve evidence against explicit deconstructed final steps', () => {
     const repo = createReviewRepo();
     try {
         const inventory = buildChangeInventory(repo.root, { baseRef: 'main', headRef: 'feature/review' });
         const hunkId = inventory.files.find((file) => file.path === 'value.txt').units[0].id;
         const source = {
-            version: 2,
+            version: 3,
             range: { base: 'main', head: 'feature/review' },
             anchors: {
                 changed: { file: 'value.txt', revision: 'head', contains: 'changed' }
@@ -351,7 +361,7 @@ test('v2 reviews resolve evidence against explicit deconstructed final steps', (
         };
         const parsed = parseChangeTourSource(source);
         const manifest = buildChangeTourManifest(repo.root, { source: parsed });
-        assert.equal(manifest.version, 2);
+        assert.equal(manifest.version, 3);
         assert.equal(manifest.zoom.final.scenes[0].kind, 'walkthrough');
         assert.equal(manifest.zoom.final.scenes[0].steps[0].id, 'final-value');
         assert.deepEqual(manifest.review, source.review);

@@ -1254,8 +1254,8 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.equal(parseChangeTourManifest(JSON.parse(JSON.stringify(manifest))).version, 1);
     assert.throws(() => parseChangeTourManifest({ version: 1 }), /title must be a string/);
     assert.throws(
-        () => parseChangeTourManifest({ version: 3 }),
-        /manifest format version 3, but this version of Bygone supports up to version 2\. Upgrade Bygone to open it\./
+        () => parseChangeTourManifest({ version: 4 }),
+        /manifest format version 4, but this version of Bygone supports up to version 3\. Upgrade Bygone to open it\./
     );
 
     const story = parseChangeTourStory({
@@ -1389,8 +1389,8 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.throws(() => parseChangeTourSource({ ...source, inventedField: true }), /unknown field: inventedField/);
     assert.throws(() => parseChangeTourSource({ ...source, chapters: [] }), /non-empty array/);
     assert.throws(
-        () => parseChangeTourSource({ ...source, version: 3 }),
-        /source format version 3, but this version of Bygone supports up to version 2\. Upgrade Bygone to open it\./
+        () => parseChangeTourSource({ ...source, version: 4 }),
+        /source format version 4, but this version of Bygone supports up to version 3\. Upgrade Bygone to open it\./
     );
 
     fs.mkdirSync(path.join(repo, 'web'), { recursive: true });
@@ -1891,7 +1891,7 @@ function testAgentTourCommandsValidateCompileAndExposeSchema() {
 
     const outputPath = path.join(os.tmpdir(), `bygone-tour-${process.pid}.json`);
     runTourCommand(['compile', sourcePath, '--output', outputPath], repoRoot, repoRoot, { write() {} });
-    assert.equal(parseChangeTourManifest(JSON.parse(fs.readFileSync(outputPath, 'utf8'))).version, 1);
+    assert.equal(parseChangeTourManifest(JSON.parse(fs.readFileSync(outputPath, 'utf8'))).version, 3);
     fs.rmSync(outputPath, { force: true });
 
     let schemaOutput = '';

@@ -208,7 +208,7 @@ export function buildChangeTourManifest(
     const finalScenes = ('finalScenes' in authored ? authored.finalScenes : scenes) as ChangeTourScene[];
     const finalChapters = ('finalChapters' in authored ? authored.finalChapters : chapters) as ChangeTourChapter[];
     const manifest: ChangeTourManifest = {
-        // Only authored v2 files opt into repository-bound zoom modes. Generated
+        // Only authored v2+ files opt into repository-bound zoom modes. Generated
         // and legacy/story tours retain the portable v1 manifest contract.
         version: source?.version ?? 1,
         title: source?.title || options.story?.title || options.title || `${range.headRef} against ${range.baseRef}`,
@@ -235,7 +235,7 @@ export function buildChangeTourManifest(
         scenes,
         ...(source?.review ? { review: source.review } : {})
     };
-    const authoredModeTours = source
+    const authoredModeTours = source?.version === 3
         ? buildAuthoredModeTours(
             source,
             authored as CompiledSourceTour,
@@ -246,7 +246,7 @@ export function buildChangeTourManifest(
         )
         : undefined;
     if (authoredModeTours) manifest.tours = authoredModeTours;
-    if (manifest.version === 2) {
+    if (manifest.version >= 2) {
         manifest.repository = { root: range.repoRoot };
         const revisions: ChangeTourStackedScene[] = [];
         for (const scene of scenes) {
@@ -256,7 +256,7 @@ export function buildChangeTourManifest(
                 const authoredScene = source?.chapters.flatMap((chapter) => chapter.scenes)
                     .find((candidate) => candidate.id === scene.id);
                 if (authoredScene?.kind !== 'deconstructed-diff' || !authoredScene.stack) {
-                    throw new Error(`Deconstructed scene ${scene.id} requires an explicit real revision stack in v2.`);
+                    throw new Error(`Deconstructed scene ${scene.id} requires an explicit real revision stack in v2+.`);
                 }
                 realStack = buildStackedScene(range.repoRoot, {
                     ...authoredScene,
@@ -392,9 +392,9 @@ function applySourceChapters(
 
 /**
  * Compile independently authored mode chapters without borrowing generated
- * scenes from the root tour.  The root chapters remain the v1/v2 compatibility
- * tour; mode tours are emitted only when the source supplies one or when a v2
- * source contains enough authored material for an exact legacy fallback.
+ * scenes from the root tour.  The root chapters remain the compatibility tour;
+ * mode tours are emitted only for v3, when the source supplies one or contains
+ * enough authored material for an exact legacy fallback.
  */
 function buildAuthoredModeTours(
     source: ChangeTourSource,
@@ -410,7 +410,7 @@ function buildAuthoredModeTours(
         const compiled = applySourceChapters(source, source.tours.historical.chapters, defaultScenes, repoRoot);
         validateHistoricalStackEndpoints(compiled.scenes, mergeBaseOid, headOid);
         tours.historical = { chapters: compiled.chapters, scenes: compiled.scenes };
-    } else if (source.version === 2) {
+    } else if (source.version === 3) {
         const fallback = buildHistoricalFallback(source.chapters, root);
         if (fallback) tours.historical = fallback;
     }
@@ -418,10 +418,10 @@ function buildAuthoredModeTours(
     if (source.tours?.deconstructed) {
         const compiled = applySourceChapters(source, source.tours.deconstructed.chapters, defaultScenes, repoRoot);
         tours.deconstructed = { chapters: compiled.chapters, scenes: compiled.scenes };
-    } else if (source.version === 2 && source.chapters.some((chapter) => (
+    } else if (source.version === 3 && source.chapters.some((chapter) => (
         chapter.scenes.some((scene) => scene.kind === 'deconstructed-diff')
     ))) {
-        // Preserve the existing v2 authored result exactly.  This fallback is
+        // Preserve the existing repository-bound authored result exactly. This fallback is
         // intentionally based on scene ids and chapter order, never inferred
         // by matching files or narrative text across modes.
         tours.deconstructed = { chapters: root.chapters, scenes: root.scenes };
