@@ -90,3 +90,48 @@ Requirements:
 ```
 
 The generated prose remains a proposal. Validation proves that its evidence exists and is reproducible; a reviewer must still judge whether its interpretation is correct.
+
+## Optional review notes
+
+An authored source may add a top-level `review` block when a reviewer needs a
+small set of concepts, boundaries, tradeoffs, or open questions alongside the
+walkthrough. This is opt-in: the Present header shows a **Review notes** button
+only when the compiled manifest includes review notes, and the button opens a
+read-only panel. The panel is an authored interpretation layer; its linked
+scene/step evidence is checked, while its conclusions remain claims for the
+reviewer to assess. The complete Files rail remains available and unchanged.
+
+Review notes pin the exact range they describe:
+
+```yaml
+review:
+  baseOid: 292fe9248c5c49f762489dc688296fc100d120bc
+  headOid: 75b6d7c0303124ec314aa790d6b808c4a9d9ea0e
+  items:
+    - id: range-contract
+      kind: concept
+      title: The range has one historical boundary
+      body: The note explains the invariant a reviewer should keep in mind.
+      evidence:
+        - sceneId: review-pipeline
+          stepId: establish-boundary
+```
+
+Each item uses one of `concept`, `boundary`, `tradeoff`, or `question`.
+Concept, boundary, and tradeoff items need at least one link to an existing
+walkthrough scene and step. A question may leave `evidence` empty, but it must
+include a `nextCheck` describing the follow-up that would resolve it. Evidence
+for a version 1 source resolves against its original walkthrough scenes. For a
+version 2 source it resolves against the **Final walkthrough**; if the reader
+is in history or a revisions view, following an evidence link first returns to
+that final range before selecting the scene and step.
+
+The `baseOid` pin is the resolved merge-base OID, which may differ from the
+requested base ref; `headOid` is the resolved head OID. Both pins must match
+the resolved range. Compilation rejects a review whose pins describe a changed
+range, and imported manifests reject a review whose pins do not match the
+manifest range. `tour validate` checks the shape, OIDs, and scene/step
+grounding of review notes; it does not verify that an authored interpretation
+is semantically correct. It also does not run or attest to external checks such
+as tests, CI, or the `nextCheck` follow-up. Those claims belong in the note only
+when the author has evidence for them.

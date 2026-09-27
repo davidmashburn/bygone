@@ -51,6 +51,36 @@ export interface ChangeTourSourceSceneOverviewComparison {
     to: string;
 }
 
+export type ChangeTourReviewItemKind = 'concept' | 'boundary' | 'tradeoff' | 'question';
+
+export interface ChangeTourReviewEvidence {
+    sceneId: string;
+    stepId: string;
+}
+
+export interface ChangeTourReviewItem {
+    id: string;
+    kind: ChangeTourReviewItemKind;
+    title: string;
+    body: string;
+    evidence: ChangeTourReviewEvidence[];
+    nextCheck?: string;
+}
+
+export interface ChangeTourReview {
+    baseOid: string;
+    headOid: string;
+    items: ChangeTourReviewItem[];
+}
+
+export interface ChangeTourReviewValidationContext {
+    expectedRange?: {
+        baseOid: string;
+        headOid: string;
+    };
+    authoredWalkthroughSteps?: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
 export interface ChangeTourSourceWalkthroughScene extends ChangeTourNarrative {
     id: string;
     kind?: 'walkthrough';
@@ -156,6 +186,7 @@ export interface ChangeTourSource {
     chapters: ChangeTourSourceChapter[];
     tours?: ChangeTourSourceTours;
     coverage?: { exclusions: ChangeTourCoverageExclusion[] };
+    review?: ChangeTourReview;
 }
 
 export function parseChangeTourSource(value: unknown): ChangeTourSource {
@@ -168,7 +199,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         throw new Error('Unsupported or missing change-tour source version.');
     }
     requireOnlyKeys(value, [
-        'version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage'
+        'version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage', 'review'
     ], 'source');
     optionalString(value.title, 'title');
     optionalString(value.windowTitle, 'windowTitle');
@@ -237,7 +268,14 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         }
         connectionIds.add(id);
     }
-    validateSourceChapters(value.chapters, 'chapters', value.version, value.anchors, connectionIds, 'root');
+    const authoredWalkthroughSteps = validateSourceChapters(
+        value.chapters,
+        'chapters',
+        value.version,
+        value.anchors,
+        connectionIds,
+        'root'
+    );
     if (value.tours !== undefined) {
         if (value.version !== 2) throw new Error('Independent tours require version 2.');
         if (!isRecord(value.tours)) throw new Error('tours must be an object.');
@@ -254,6 +292,9 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             validateSourceChapters(tour.chapters, `${path}.chapters`, value.version, value.anchors, connectionIds, mode);
         }
     }
+    if (value.review !== undefined) {
+        validateChangeTourReview(value.review, { authoredWalkthroughSteps });
+    }
     return { ...value, connections: rawConnections } as unknown as ChangeTourSource;
 }
 
@@ -266,12 +307,13 @@ function validateSourceChapters(
     anchors: Record<string, unknown>,
     connectionIds: ReadonlySet<string>,
     mode: SourceTourValidationMode
-): void {
+): ReadonlyMap<string, ReadonlySet<string>> {
     if (!Array.isArray(chaptersValue) || chaptersValue.length === 0) {
         throw new Error(`${chaptersPath} must be a non-empty array.`);
     }
     const chapterIds = new Set<string>();
     const sceneIds = new Set<string>();
+    const authoredWalkthroughSteps = new Map<string, ReadonlySet<string>>();
     for (const [chapterIndex, chapter] of chaptersValue.entries()) {
         const chapterPath = `${chaptersPath}[${chapterIndex}]`;
         if (!isRecord(chapter) || !Array.isArray(chapter.scenes) || chapter.scenes.length === 0) {
@@ -309,6 +351,9 @@ function validateSourceChapters(
                 }
                 if (requireRealEvidence || scene.steps !== undefined) {
                     validateWalkthroughSteps(scene, path, anchors, connectionIds);
+                    if (scene.steps !== undefined) {
+                        authoredWalkthroughSteps.set(scene.id, collectStepIds(scene.steps));
+                    }
                 }
                 continue;
             }
@@ -331,6 +376,7 @@ function validateSourceChapters(
             requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'overview', 'steps'], path);
             validateSceneOverview(scene.overview, `${path}.overview`, { allowComparison: false });
             validateWalkthroughSteps(scene, path, anchors, connectionIds);
+            authoredWalkthroughSteps.set(scene.id, collectStepIds(scene.steps));
         }
     }
     if (mode === 'deconstructed' && !chaptersValue.some((chapter) => (
@@ -339,6 +385,7 @@ function validateSourceChapters(
     ))) {
         throw new Error(`${chaptersPath} must contain at least one deconstructed-diff scene.`);
     }
+    return authoredWalkthroughSteps;
 }
 
 function stackedOverviewEndpointIds(scene: Record<string, unknown>, path: string): string[] {
@@ -362,6 +409,84 @@ function deconstructedOverviewEndpointIds(scene: Record<string, unknown>, path: 
             .map((stage) => typeof stage.id === 'string' ? `explanation-stage-${stage.id}` : '')
             .filter((id) => id.length > 0)
     ];
+}
+
+export function validateChangeTourReview(
+    value: unknown,
+    context: ChangeTourReviewValidationContext = {}
+): asserts value is ChangeTourReview {
+    if (!isRecord(value)) {
+        throw new Error('review must be an object.');
+    }
+    requireOnlyKeys(value, ['baseOid', 'headOid', 'items'], 'review');
+    requireFullGitOid(value.baseOid, 'review.baseOid');
+    requireFullGitOid(value.headOid, 'review.headOid');
+    if (!Array.isArray(value.items) || value.items.length === 0) {
+        throw new Error('review.items must be a non-empty array.');
+    }
+
+    if (context.expectedRange) {
+        if (normalizeGitOid(value.baseOid) !== normalizeGitOid(context.expectedRange.baseOid)) {
+            throw new Error(
+                `Stale review: review.baseOid ${value.baseOid} does not match `
+                + `the resolved range.mergeBaseOid ${context.expectedRange.baseOid}.`
+            );
+        }
+        if (normalizeGitOid(value.headOid) !== normalizeGitOid(context.expectedRange.headOid)) {
+            throw new Error(
+                `Stale review: review.headOid ${value.headOid} does not match `
+                + `the resolved range.headOid ${context.expectedRange.headOid}.`
+            );
+        }
+    }
+
+    const itemIds = new Set<string>();
+    for (const [index, item] of value.items.entries()) {
+        const itemPath = `review.items[${index}]`;
+        if (!isRecord(item)) throw new Error(`${itemPath} must be an object.`);
+        requireOnlyKeys(item, ['id', 'kind', 'title', 'body', 'evidence', 'nextCheck'], itemPath);
+        requireReviewString(item.id, `${itemPath}.id`);
+        if (itemIds.has(item.id)) throw new Error(`Duplicate review item id: ${item.id}`);
+        itemIds.add(item.id);
+        if (typeof item.kind !== 'string'
+            || !['concept', 'boundary', 'tradeoff', 'question'].includes(item.kind)) {
+            throw new Error(`${itemPath}.kind must be concept, boundary, tradeoff, or question.`);
+        }
+        requireReviewString(item.title, `${itemPath}.title`);
+        requireReviewString(item.body, `${itemPath}.body`);
+        if (!Array.isArray(item.evidence)) {
+            throw new Error(`${itemPath}.evidence must be an array.`);
+        }
+        if (item.kind !== 'question' && item.evidence.length === 0) {
+            throw new Error(`${itemPath}.evidence must contain at least one reference for claims.`);
+        }
+        if (item.kind === 'question' && item.nextCheck === undefined) {
+            throw new Error(`${itemPath}.nextCheck must be a non-empty string for question items.`);
+        }
+        if (item.nextCheck !== undefined) requireReviewString(item.nextCheck, `${itemPath}.nextCheck`);
+
+        for (const [evidenceIndex, evidence] of item.evidence.entries()) {
+            const evidencePath = `${itemPath}.evidence[${evidenceIndex}]`;
+            if (!isRecord(evidence)) throw new Error(`${evidencePath} must be an object.`);
+            requireOnlyKeys(evidence, ['sceneId', 'stepId'], evidencePath);
+            requireReviewString(evidence.sceneId, `${evidencePath}.sceneId`);
+            requireReviewString(evidence.stepId, `${evidencePath}.stepId`);
+            if (context.authoredWalkthroughSteps) {
+                const stepIds = context.authoredWalkthroughSteps.get(evidence.sceneId);
+                if (!stepIds) {
+                    throw new Error(
+                        `${evidencePath} references unknown authored walkthrough scene ${evidence.sceneId}.`
+                    );
+                }
+                if (!stepIds.has(evidence.stepId)) {
+                    throw new Error(
+                        `${evidencePath} references unknown authored walkthrough step `
+                        + `${evidence.sceneId}/${evidence.stepId}.`
+                    );
+                }
+            }
+        }
+    }
 }
 
 function validateDeconstructedScene(scene: Record<string, unknown>, path: string): void {
@@ -570,6 +695,15 @@ export function validateDirectoryOverviewPath(value: unknown, path: string): ass
     }
 }
 
+function collectStepIds(value: unknown): ReadonlySet<string> {
+    const ids = new Set<string>();
+    if (!Array.isArray(value)) return ids;
+    for (const step of value) {
+        if (isRecord(step) && typeof step.id === 'string') ids.add(step.id);
+    }
+    return ids;
+}
+
 function validateNarrative(value: Record<string, unknown>, path: string): void {
     requireString(value.summary, `${path}.summary`);
     requireStringArray(value.bullets, `${path}.bullets`);
@@ -585,6 +719,23 @@ function requireString(value: unknown, path: string): asserts value is string {
     if (typeof value !== 'string' || value.length === 0) {
         throw new Error(`${path} must be a non-empty string.`);
     }
+}
+
+function requireFullGitOid(value: unknown, path: string): asserts value is string {
+    requireString(value, path);
+    if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(value)) {
+        throw new Error(`${path} must be a full 40- or 64-character hexadecimal Git OID.`);
+    }
+}
+
+function requireReviewString(value: unknown, path: string): asserts value is string {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+        throw new Error(`${path} must be a non-empty string.`);
+    }
+}
+
+function normalizeGitOid(value: string): string {
+    return value.toLowerCase();
 }
 
 function optionalString(value: unknown, path: string): void {

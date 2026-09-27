@@ -24,7 +24,8 @@ import {
     ChangeTourSourceChapter,
     ChangeTourSourceSceneOverview,
     ChangeTourSourceStep,
-    parseChangeTourSource
+    parseChangeTourSource,
+    validateChangeTourReview
 } from './changeTourSource';
 import { buildDeconstructedScene } from './deconstructedChange';
 import { buildTwoWayDiffModel } from './diffEngine';
@@ -81,8 +82,17 @@ export function buildChangeTourManifest(
     startPath: string,
     options: BuildChangeTourOptions = {}
 ): ChangeTourManifest {
-    const range = resolveBranchReviewRange(startPath, options.headRef ?? options.source?.range?.head,
-        options.baseRef ?? options.source?.range?.base);
+    const source = options.source ? parseChangeTourSource(options.source) : undefined;
+    const range = resolveBranchReviewRange(startPath, options.headRef ?? source?.range?.head,
+        options.baseRef ?? source?.range?.base);
+    if (source?.review) {
+        validateChangeTourReview(source.review, {
+            expectedRange: {
+                baseOid: range.mergeBaseOid,
+                headOid: range.headOid
+            }
+        });
+    }
     const maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_TOUR_FILE_BYTES;
     const maxLineBytes = options.maxLineBytes ?? DEFAULT_MAX_TOUR_LINE_BYTES;
     const omittedFiles: string[] = [];
@@ -153,7 +163,7 @@ export function buildChangeTourManifest(
         || left.scene.path.localeCompare(right.scene.path)
     ));
     let defaultScenes = sceneRecords.map(({ scene }, index) => ({ ...scene, id: `file-${index + 1}` }));
-    if (options.story && options.source) {
+    if (options.story && source) {
         throw new Error('A change tour can use either a legacy story or a source file, not both.');
     }
     const attention = buildChangeAttention(files.map((file) => ({
@@ -177,9 +187,8 @@ export function buildChangeTourManifest(
             || left.id.localeCompare(right.id)
         ));
     }
-    const parsedSource = options.source ? parseChangeTourSource(options.source) : undefined;
-    const authored = parsedSource
-        ? applySource(parsedSource, defaultScenes, range.repoRoot)
+    const authored = source
+        ? applySource(source, defaultScenes, range.repoRoot)
         : options.story
         ? applyStory(options.story, defaultScenes)
         : buildGeneratedTourLanding(
@@ -201,10 +210,10 @@ export function buildChangeTourManifest(
     const manifest: ChangeTourManifest = {
         // Only authored v2 files opt into repository-bound zoom modes. Generated
         // and legacy/story tours retain the portable v1 manifest contract.
-        version: parsedSource?.version ?? 1,
-        title: parsedSource?.title || options.story?.title || options.title || `${range.headRef} against ${range.baseRef}`,
-        windowTitle: parsedSource?.windowTitle,
-        sourceUrl: parsedSource?.sourceUrl || options.story?.sourceUrl || options.sourceUrl,
+        version: source?.version ?? 1,
+        title: source?.title || options.story?.title || options.title || `${range.headRef} against ${range.baseRef}`,
+        windowTitle: source?.windowTitle,
+        sourceUrl: source?.sourceUrl || options.story?.sourceUrl || options.sourceUrl,
         generatedAt: options.generatedAt || new Date().toISOString(),
         range: {
             baseRef: range.baseRef,
@@ -223,11 +232,12 @@ export function buildChangeTourManifest(
         commits: range.commits,
         files,
         chapters,
-        scenes
+        scenes,
+        ...(source?.review ? { review: source.review } : {})
     };
-    const authoredModeTours = parsedSource
+    const authoredModeTours = source
         ? buildAuthoredModeTours(
-            parsedSource,
+            source,
             authored as CompiledSourceTour,
             defaultScenes,
             range.repoRoot,
@@ -243,7 +253,7 @@ export function buildChangeTourManifest(
             let realStack: ChangeTourStackedScene | undefined;
             if (scene.kind === 'stacked-diff') realStack = scene;
             if (scene.kind === 'deconstructed-diff') {
-                const authoredScene = parsedSource?.chapters.flatMap((chapter) => chapter.scenes)
+                const authoredScene = source?.chapters.flatMap((chapter) => chapter.scenes)
                     .find((candidate) => candidate.id === scene.id);
                 if (authoredScene?.kind !== 'deconstructed-diff' || !authoredScene.stack) {
                     throw new Error(`Deconstructed scene ${scene.id} requires an explicit real revision stack in v2.`);
