@@ -100,6 +100,7 @@ let currentFileNavigation = { canGoPrevious: false, canGoNext: false };
 let activePaneSide = 'right';
 let activeDirectoryEntryPath = null;
 let currentTwoWayComparisonKey = null;
+let currentTwoWayFileExists = { left: true, right: true };
 let suppressDirectoryScrollSync = false;
 let refreshSessionState = { enabled: false, status: 'disabled', message: null };
 let pendingNavigationRestore = null;
@@ -133,14 +134,19 @@ const connectorController = window.BygoneConnectors.createConnectorController({
     getMonaco: () => monacoInstance
 });
 
-function notifyRenderComplete() {
+function notifyRenderComplete(renderRequestId = undefined) {
+    const completionRequestId = renderRequestId;
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
             applyPendingNavigationRestore();
-            host.postMessage({
+            const completion = {
                 type: 'renderComplete',
                 mode: currentMode
-            });
+            };
+            if (completionRequestId !== undefined) {
+                completion.renderRequestId = completionRequestId;
+            }
+            host.postMessage(completion);
         });
     });
 }
@@ -276,7 +282,9 @@ host.onMessage((message) => {
             message.initialChangeIndex,
             message.tourAnnotations || [],
             message.sourceInfo || null,
-            message.readOnlyLabel || null
+            message.readOnlyLabel || null,
+            message.fileExists || null,
+            message.renderRequestId
         );
         return;
     }
@@ -294,7 +302,8 @@ host.onMessage((message) => {
             message.labels,
             message.history || null,
             message.canMutate !== false,
-            message.review || null
+            message.review || null,
+            message.renderRequestId
         );
         return;
     }
@@ -317,7 +326,8 @@ host.onMessage((message) => {
             message.mutationEnabled !== false,
             message.initialChangeIndex,
             Boolean(message.revealFirstChangeInEachPanel),
-            message.tourAnnotations || []
+            message.tourAnnotations || [],
+            message.renderRequestId
         );
         return;
     }
@@ -365,7 +375,9 @@ window.addEventListener('load', async () => {
             pendingTwoWayPayload.initialChangeIndex,
             pendingTwoWayPayload.tourAnnotations || [],
             pendingTwoWayPayload.sourceInfo || null,
-            pendingTwoWayPayload.readOnlyLabel || null
+            pendingTwoWayPayload.readOnlyLabel || null,
+            pendingTwoWayPayload.fileExists || null,
+            pendingTwoWayPayload.renderRequestId
         );
         pendingTwoWayPayload = undefined;
     }
@@ -383,7 +395,8 @@ window.addEventListener('load', async () => {
             pendingMultiPayload.mutationEnabled !== false,
             pendingMultiPayload.initialChangeIndex,
             Boolean(pendingMultiPayload.revealFirstChangeInEachPanel),
-            pendingMultiPayload.tourAnnotations || []
+            pendingMultiPayload.tourAnnotations || [],
+            pendingMultiPayload.renderRequestId
         );
         pendingMultiPayload = undefined;
     }
@@ -513,11 +526,18 @@ function isDarkColor(color) {
     return luminance < 140;
 }
 
-function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = [], sourceInfo = null, readOnlyLabel = null) {
+function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = [], sourceInfo = null, readOnlyLabel = null, fileExists = null, renderRequestId = undefined) {
     const diffEpoch = ++twoWayDiffEpoch;
     const comparisonKey = comparisonId || `${file1}\u0000${file2}`;
     const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
+    const nextFileExists = normalizeFileExists(fileExists);
+    const layoutChanged = currentTwoWayFileExists.left !== nextFileExists.left
+        || currentTwoWayFileExists.right !== nextFileExists.right;
+    const navigationBeforeLayoutChange = layoutChanged && !comparisonChanged && currentMode === MODE_TWO_WAY
+        ? captureNavigationState()
+        : null;
     currentMode = MODE_TWO_WAY;
+    currentTwoWayFileExists = nextFileExists;
     currentTwoWayComparisonKey = comparisonKey;
     currentTourAnnotations = tourAnnotations;
     historyMode = Boolean(history);
@@ -529,6 +549,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     } else if (hostEditableSides.right) {
         activePaneSide = 'right';
     }
+    activePaneSide = resolveVisibleTwoWaySide(activePaneSide);
     const suppliedDiffModel = diffModel || { rows: [], leftLines: [], rightLines: [], blocks: [], hasChanges: false };
     setCurrentDiffModel(suppliedDiffModel);
     const nextActiveDiffIndex = Number.isInteger(initialChangeIndex)
@@ -541,6 +562,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     disposeMultiEditors();
 
     toggleView(VIEW_IDS.twoWay);
+    applyTwoWayLayout(currentTwoWayFileExists);
     setStatus('', false);
     setTextContent('file-info', comparisonSummary || `Comparing ${file1} and ${file2}`);
     setTextContent('file1-header', file1);
@@ -576,13 +598,15 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
         resetTwoWayScrollPositions();
     }
     layoutEditors();
-    if (comparisonChanged) {
+    restoreTwoWayNavigationAfterLayout(navigationBeforeLayoutChange);
+    const activeTourAnnotation = tourAnnotations.find((annotation) => annotation.active);
+    if (comparisonChanged && !activeTourAnnotation) {
         revealActiveDiff(false);
     }
-    const activeTourAnnotation = tourAnnotations.find((annotation) => annotation.active);
     if (activeTourAnnotation) {
-        const editor = activeTourAnnotation.side === 'left' ? leftEditor : rightEditor;
+        const editor = getTwoWayEditor(activeTourAnnotation.side);
         requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (diffEpoch !== twoWayDiffEpoch || currentMode !== MODE_TWO_WAY) return;
             editor.revealLineInCenter(
                 activeTourAnnotation.startLine,
                 monacoInstance.editor.ScrollType.Immediate
@@ -593,13 +617,13 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     connectorController.scheduleDrawConnections();
 
     if (!diffModel) {
-        computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, diffEpoch);
+        computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, diffEpoch, renderRequestId);
     } else {
-        notifyRenderComplete();
+        notifyRenderComplete(renderRequestId);
     }
 }
 
-function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, epoch) {
+function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, epoch, renderRequestId = undefined) {
     beginDiffJob();
     requestDiffAsync(leftContent, rightContent)
         .then((model) => {
@@ -611,14 +635,22 @@ function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextAc
             applyDiffDecorations(model, currentTourAnnotations);
             updateChangeToolbarState();
             connectorController.scheduleDrawConnections();
-            revealActiveDiff(false);
+            // A direct tour step can select an anchor before async diff work
+            // finishes. Preserve that focus instead of reverting to a hunk.
+            const activeAnnotation = currentTourAnnotations.find((annotation) => annotation.active);
+            if (activeAnnotation) {
+                const editor = getTwoWayEditor(activeAnnotation.side);
+                editor.revealLineInCenter(activeAnnotation.startLine, monacoInstance.editor.ScrollType.Immediate);
+            } else {
+                revealActiveDiff(false);
+            }
             updateTwoWayDiffOutcomeStatus(model);
-            notifyRenderComplete();
+            notifyRenderComplete(renderRequestId);
         })
         .catch((error) => {
             if (epoch === twoWayDiffEpoch && currentMode === MODE_TWO_WAY && currentTwoWayComparisonKey === comparisonKey) {
                 setStatus(`Unable to compute diff: ${error.message}`, true);
-                notifyRenderComplete();
+                notifyRenderComplete(renderRequestId);
             }
         })
         .finally(endDiffJob);
@@ -647,10 +679,12 @@ function showBinaryDiff(message) {
     scrollMaps = null;
     directoryEntries = [];
     hostEditableSides = { left: false, right: false };
+    currentTwoWayFileExists = { left: true, right: true };
 
     disposeTwoWayEditors();
     disposeMultiEditors();
     toggleView(VIEW_IDS.twoWay);
+    applyTwoWayLayout(currentTwoWayFileExists);
     setStatus('', false);
     const subject = comparison.kind === 'image' ? 'Images' : 'Binary files';
     setTextContent(
@@ -733,7 +767,7 @@ function formatByteLength(bytes) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canMutate = true, review = null) {
+function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canMutate = true, review = null, renderRequestId = undefined) {
     currentMode = 'directory';
     historyMode = false;
     currentDiffModel = null;
@@ -774,7 +808,7 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
     setDirectoryViewMode(review?.attention ? 'overview' : 'files');
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
-    notifyRenderComplete();
+    notifyRenderComplete(renderRequestId);
 }
 
 function renderDirectoryOverview(review) {
@@ -918,7 +952,7 @@ function setDirectoryViewMode(mode) {
     getElement('directory-files-tab').setAttribute('aria-pressed', String(!showOverview));
 }
 
-function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = []) {
+function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = [], renderRequestId = undefined) {
     if (!Array.isArray(panels) || panels.length < 1) {
         return;
     }
@@ -1010,7 +1044,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     });
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();
-    notifyRenderComplete();
+    notifyRenderComplete(renderRequestId);
     computeMissingPairDiffsAsync(revealFirstChangeInEachPanel);
 }
 
@@ -1179,8 +1213,10 @@ function createEditor(container, editorMode, side = null, initialModel = null) {
         }
     });
 
-    editor.onDidScrollChange(() => {
-        if (suppressEditorEvents) {
+    editor.onDidScrollChange((event) => {
+        // Monaco also emits this event when layout changes only the scroll extent.
+        // Synchronizing that event can bounce a revealed tour anchor out of view.
+        if (suppressEditorEvents || (!event.scrollTopChanged && !event.scrollLeftChanged)) {
             connectorController.scheduleDrawConnections();
             return;
         }
@@ -1853,6 +1889,84 @@ function normalizeEditableSides(nextEditableSides, isHistoryMode) {
     };
 }
 
+function normalizeFileExists(nextFileExists) {
+    if (!nextFileExists || typeof nextFileExists !== 'object') {
+        return { left: true, right: true };
+    }
+
+    const normalized = {
+        left: typeof nextFileExists.left === 'boolean' ? nextFileExists.left : true,
+        right: typeof nextFileExists.right === 'boolean' ? nextFileExists.right : true
+    };
+
+    // A two-way comparison cannot render a meaningful single present side
+    // when both explicit flags are false. Keep the normal split as a safe
+    // fallback for malformed host payloads.
+    return normalized.left || normalized.right ? normalized : { left: true, right: true };
+}
+
+function applyTwoWayLayout(fileExists) {
+    const twoWayView = getElement('two-way-diff');
+    if (!twoWayView) {
+        return;
+    }
+
+    const normalizedFileExists = normalizeFileExists(fileExists);
+    const isSingleSided = normalizedFileExists.left !== normalizedFileExists.right;
+    twoWayView.classList.toggle('is-single-sided', isSingleSided);
+
+    [
+        ['left', getElement('file1-content')],
+        ['right', getElement('file2-content')]
+    ].forEach(([side, content]) => {
+        const panel = content?.closest('.file-panel');
+        if (!panel) {
+            return;
+        }
+
+        const exists = normalizedFileExists[side];
+        panel.hidden = !exists;
+        panel.classList.toggle('is-absent-side', !exists);
+        panel.setAttribute('aria-hidden', exists ? 'false' : 'true');
+    });
+}
+
+function resolveVisibleTwoWaySide(side) {
+    if (side === 'left' && currentTwoWayFileExists.left) {
+        return 'left';
+    }
+    if (side === 'right' && currentTwoWayFileExists.right) {
+        return 'right';
+    }
+    if (currentTwoWayFileExists.left) {
+        return 'left';
+    }
+    if (currentTwoWayFileExists.right) {
+        return 'right';
+    }
+    return side;
+}
+
+function getTwoWayEditor(side) {
+    return resolveVisibleTwoWaySide(side) === 'left' ? leftEditor : rightEditor;
+}
+
+function restoreTwoWayNavigationAfterLayout(navigation) {
+    if (!navigation || currentMode !== MODE_TWO_WAY) {
+        return;
+    }
+
+    const previousSuppression = suppressEditorEvents;
+    suppressEditorEvents = true;
+    try {
+        setActivePane(resolveVisibleTwoWaySide(navigation.activePaneSide), false);
+        restoreEditorNavigation(leftEditor, navigation.editorStates?.left);
+        restoreEditorNavigation(rightEditor, navigation.editorStates?.right);
+    } finally {
+        suppressEditorEvents = previousSuppression;
+    }
+}
+
 function isSideEditable(side) {
     if (side === 'left') {
         return hostEditableSides.left && !userReadOnly;
@@ -2387,6 +2501,10 @@ function initializeEditModeToolbar() {
 function setActivePane(side, focusEditor) {
     if (side !== 'left' && side !== 'right') {
         return;
+    }
+
+    if (currentMode === MODE_TWO_WAY) {
+        side = resolveVisibleTwoWaySide(side);
     }
 
     activePaneSide = side;
@@ -3229,9 +3347,15 @@ function revealVisibleSearchMatch(index) {
 }
 
 function revealHostSearchResult(message) {
-    const editor = currentMode === MODE_TWO_WAY
-        ? (message.sideIndex === 0 ? leftEditor : rightEditor)
-        : multiEditors[message.sideIndex];
+    let editor;
+    if (currentMode === MODE_TWO_WAY) {
+        const requestedSide = message.sideIndex === 0 ? 'left' : 'right';
+        const visibleSide = resolveVisibleTwoWaySide(requestedSide);
+        setActivePane(visibleSide, false);
+        editor = visibleSide === 'left' ? leftEditor : rightEditor;
+    } else {
+        editor = multiEditors[message.sideIndex];
+    }
     if (!editor) return;
     const range = {
         startLineNumber: message.lineNumber,

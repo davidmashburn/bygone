@@ -17,7 +17,8 @@ import {
     getFirstChangeSourceRange
 } from '../src/tourAnnotations.ts';
 import { buildTourWindowTitle } from '../src/windowTitle.ts';
-import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
+import { buildTourDirectoryEvidence } from '../src/tourDirectoryEvidence.ts';
+import { TourZoomSession } from '../src/tourZoomSession.ts';
 
 (function initializeWebHost() {
     const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
@@ -41,8 +42,14 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         zoomSwitching: false,
         historyCommit: null,
         historyEntries: [],
+        historyPath: null,
+        compare: null,
+        compareFrom: null,
         activeSceneIndex: -1,
         activeStepIndex: 0,
+        sceneIntroVisible: false,
+        narrativeParent: null,
+        directoryEvidence: null,
         activeTourFilePath: null,
         tourFocusFilePath: null,
         tourSidebarWidth: readStoredTourSidebarWidth(),
@@ -76,6 +83,10 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
     });
 
     function emit(message) {
+        if (message.type === 'showDiff' || message.type === 'showMultiDiff' || message.type === 'showDirectoryDiff') {
+            message = { ...message, renderRequestId: ++renderRequestId };
+            if (zoomRestore) zoomRestoreRequestId = message.renderRequestId;
+        }
         window.dispatchEvent(new window.CustomEvent('bygone:host-message', {
             detail: message
         }));
@@ -84,9 +95,14 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
     let navigationRequestId = 0;
     const navigationRequests = new Map();
     let zoomRestore = null;
+    let renderRequestId = 0;
+    let zoomRestoreRequestId = null;
 
     function markZoomNavigation() {
-        if (!state.zoomSwitching) state.zoom?.navigate();
+        if (!state.zoomSwitching) {
+            zoomRestore = null;
+            state.zoom?.navigate();
+        }
     }
 
     function captureZoomLocation() {
@@ -106,7 +122,9 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                     commit: state.historyCommit || definitions[panel + 1]?.oid || state.authoredTour.range.headOid,
                     navigation,
                     focusId: document.activeElement?.id,
-                    narrativeScroll: document.getElementById('tour-narrative')?.scrollTop || 0
+                    narrativeParent: state.narrativeParent,
+                    sceneIntroVisible: state.sceneIntroVisible,
+                    narrativeScroll: document.getElementById('tour-narrative-content')?.scrollTop || 0
                 });
             };
             const timer = window.setTimeout(() => finish(null), 1000);
@@ -115,32 +133,92 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         });
     }
 
+    const modeLabels = {
+        history: 'History', compare: 'Compare', historical: 'Historical tour', deconstructed: 'Deconstructed tour'
+    };
+    const modeDescriptions = {
+        history: 'Explore commits and choose revisions to compare.',
+        compare: 'Inspect the changes between two revisions.',
+        historical: 'Actual revisions, with explanations of updates, reversals, and decisions.',
+        deconstructed: 'The change broken into constructed stages for explanation.'
+    };
+    let evidenceRequest = 0;
+
+    function authoredTours(tour = state.authoredTour) {
+        if (tour.tours) return tour.tours;
+        // Compatibility for previously compiled manifests. Never turn a generated
+        // revision stack with no authored narration into an additional tour.
+        const deconstructed = tour.scenes.some((scene) => scene.kind === 'deconstructed-diff');
+        return { [deconstructed ? 'deconstructed' : 'historical']: { scenes: tour.scenes, chapters: tour.chapters } };
+    }
+
+    function availableModes() {
+        return ['history', 'compare', ...Object.keys(authoredTours()).filter((mode) => authoredTours()[mode])];
+    }
+
+    function isNarrativeMode() {
+        return !state.zoom || state.zoom.mode === 'historical' || state.zoom.mode === 'deconstructed';
+    }
+
     function zoomTour(mode) {
         const tour = state.authoredTour;
-        if (mode === tour.zoom.authoredDepth) return tour;
-        if (mode === 'final') return { ...tour, ...tour.zoom.final };
-        const scenes = tour.zoom.revisions;
-        return { ...tour, scenes, chapters: [{ id: 'zoom-revisions', title: 'Revisions', sceneIds: scenes.map((scene) => scene.id) }] };
+        if (authoredTours()[mode]) return { ...tour, ...authoredTours()[mode] };
+        return { ...tour, scenes: [], chapters: [], files: mode === 'compare' && state.compare ? state.compare.files : tour.files };
     }
 
     function renderZoomControl() {
         const controls = document.getElementById('tour-mode-controls');
-        if (!controls) return;
         controls.hidden = !state.zoom;
         if (!state.zoom) return;
-        const labels = { explanation: 'Explanation stages', revisions: 'Revisions', final: 'Final diff', history: 'Git history' };
         const select = document.getElementById('tour-mode-select');
-        select.replaceChildren(...state.authoredTour.zoom.modes.map((mode) => {
-            const option = document.createElement('option');
-            option.value = mode;
-            option.textContent = labels[mode];
-            return option;
-        }));
+        select.replaceChildren();
+        for (const [label, modes] of [['Explore', ['history', 'compare']], ['Tours', ['historical', 'deconstructed']]]) {
+            const group = document.createElement('optgroup');
+            group.label = label;
+            for (const mode of modes.filter((item) => availableModes().includes(item))) {
+                const option = document.createElement('option');
+                option.value = mode;
+                option.textContent = modeLabels[mode];
+                group.append(option);
+            }
+            if (group.children.length) select.append(group);
+        }
         select.value = state.zoom.mode;
+        document.getElementById('tour-mode-description').textContent = modeDescriptions[state.zoom.mode];
         const history = state.zoom.mode === 'history';
-        document.getElementById('tour-history-select').hidden = !history;
-        document.getElementById('tour-history-label').hidden = !history;
-        document.body.classList.toggle('tour-derived-mode', state.zoom.mode === 'revisions' || state.zoom.mode === 'history');
+        document.getElementById('tour-history-controls').hidden = !history;
+        document.getElementById('tour-compare-controls').hidden = state.zoom.mode !== 'compare';
+        document.body.classList.toggle('tour-derived-mode', !isNarrativeMode());
+        if (!isNarrativeMode()) {
+            document.body.classList.remove('tour-discussion');
+            setTourFilesOpen(true);
+        }
+        renderComparisonControls();
+    }
+
+    function renderComparisonControls() {
+        const range = state.authoredTour.range;
+        const refs = new Map([[range.mergeBaseOid, `${range.mergeBaseOid.slice(0, 7)} · Review base`], [range.headOid, `${range.headOid.slice(0, 7)} · Review head`]]);
+        for (const item of state.authoredTour.commits) refs.set(item.oid, `${item.shortOid} · ${item.summary}`);
+        for (const item of state.historyEntries) refs.set(item.commit, `${item.shortCommit} · ${item.summary}`);
+        for (const field of ['from', 'to']) {
+            const value = state.compare?.[field] || (field === 'from' ? range.mergeBaseOid : range.headOid);
+            if (!refs.has(value)) refs.set(value, value.slice(0, 7));
+            const select = document.getElementById(`tour-compare-${field}`);
+            select.replaceChildren(...Array.from(refs, ([oid, label]) => {
+                const option = document.createElement('option');
+                option.value = oid;
+                option.textContent = label;
+                return option;
+            }));
+            select.value = value;
+        }
+        document.getElementById('tour-compare-scope').textContent = state.compare?.path ? `File: ${state.compare.path}` : 'All changed files';
+        document.getElementById('tour-compare-all').hidden = !state.compare?.path;
+        document.getElementById('tour-history-from-status').textContent = state.compareFrom
+            ? `Compare from ${state.compareFrom.commit.slice(0, 7)}. Choose another revision, then Compare to here.` : '';
+        document.getElementById('tour-history-to').disabled = !state.compareFrom || !state.historyCommit;
+        for (const id of ['tour-history-from', 'tour-history-parent', 'tour-history-base']) document.getElementById(id).disabled = !state.historyCommit;
     }
 
     async function historyRequest(endpoint, body) {
@@ -150,55 +228,147 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         return result;
     }
 
-    async function showZoomHistory(path, commit, reload = true) {
-        if (reload) {
-            const result = await historyRequest('list', { path, commit });
-            state.historyEntries = result.entries;
-            commit = result.selectedCommit;
-            document.getElementById('tour-mode-status').textContent = result.fallback || '';
-            const select = document.getElementById('tour-history-select');
-            select.replaceChildren(...result.entries.map((entry) => {
-                const option = document.createElement('option');
-                option.value = entry.commit;
-                option.textContent = `${entry.shortCommit} ${entry.summary}`;
-                return option;
-            }));
-        }
-        if (!commit) throw new Error('No file history is available for this path.');
-        const entry = state.historyEntries.find((item) => item.commit === commit);
-        const diff = await historyRequest('diff', { path: entry?.path || path, commit });
-        state.historyCommit = commit;
-        document.getElementById('tour-history-select').value = commit;
-        emitDiffScene({ ...diff, kind: 'text-diff', takeaway: '', focusChangeIndex: 0 }, [], `history-${commit}-${diff.path}`);
+    function reportModeError(error) {
+        document.getElementById('tour-mode-status').textContent = error instanceof Error ? error.message : String(error);
     }
 
-    async function switchZoomMode(mode) {
-        if (!state.zoom || state.zoomSwitching || mode === state.zoom.mode) return;
+    async function showZoomHistory(path, commit, reload = true) {
+        const request = ++evidenceRequest;
+        let entries = state.historyEntries;
+        let status = '';
+        if (reload) {
+            const result = await historyRequest('list', { path, commit: state.authoredTour.range.headOid });
+            if (request !== evidenceRequest) return;
+            entries = result.entries;
+            commit = entries.some((entry) => entry.commit === commit) ? commit : result.selectedCommit;
+            status = result.fallback || '';
+        }
+        if (!commit) throw new Error('No file history is available for this path.');
+        const entry = entries.find((item) => item.commit === commit);
+        const diff = await historyRequest('diff', { path: entry?.path || path, commit });
+        if (request !== evidenceRequest || state.zoom.mode !== 'history') return;
+        state.historyEntries = entries;
+        if (reload) state.historyPath = path;
+        state.historyCommit = commit;
+        const select = document.getElementById('tour-history-select');
+        select.replaceChildren(...entries.map((item) => {
+            const option = document.createElement('option');
+            option.value = item.commit;
+            option.textContent = `${item.shortCommit} ${item.summary}`;
+            return option;
+        }));
+        select.value = commit;
+        emitDiffScene({ ...diff, kind: 'text-diff', takeaway: '', focusChangeIndex: 0 }, [], `history-${commit}-${diff.path}`);
+        document.getElementById('tour-mode-status').textContent = status;
+        renderComparisonControls();
+        updateTourLocationUrl();
+    }
+
+    async function showComparison(selection, selectedPath) {
+        selection = { from: selection.from, to: selection.to, ...(selection.path ? { path: selection.path } : {}) };
+        const request = ++evidenceRequest;
+        const result = await historyRequest('compare', selection);
+        if (request !== evidenceRequest || state.zoom.mode !== 'compare') return;
+        state.compare = { ...selection, files: result.files };
+        state.tour = zoomTour('compare');
+        state.activeSceneIndex = -1;
+        state.tourFocusFilePath = null;
+        renderTourShell();
+        renderZoomControl();
+        renderTourSearchResults();
+        const file = result.files.find((item) => item.kind === 'text-diff' && item.path === selectedPath)
+            || result.files.find((item) => item.kind === 'text-diff');
+        if (file) emitDiffScene({ ...file, takeaway: '' }, [], `compare-${selection.from}-${selection.to}-${file.path}`);
+        else {
+            state.activeTourFilePath = null;
+            emitDiffScene({ path: 'No text changes', leftContent: '', rightContent: '', leftLabel: selection.from.slice(0, 7), rightLabel: selection.to.slice(0, 7), takeaway: '' }, [], `compare-empty-${request}`);
+            state.activeTourFilePath = null;
+            zoomRestore = null;
+        }
+        document.getElementById('tour-mode-status').textContent = result.files.length
+            ? (file ? '' : 'Changed files cannot be displayed as text. See the file list for details.')
+            : 'No changes between these revisions.';
+        updateTourLocationUrl();
+    }
+
+    async function openComparison(selection) {
+        if (state.zoomSwitching) return;
+        if (state.zoom.mode !== 'compare') await switchZoomMode('compare', selection);
+        else await showComparison(selection, state.activeTourFilePath);
+    }
+
+    function finalComparison() {
+        return { from: state.authoredTour.range.mergeBaseOid, to: state.authoredTour.range.headOid };
+    }
+
+    function selectedHistoryPath() {
+        return state.historyEntries.find((entry) => entry.commit === state.historyCommit)?.path || state.historyPath;
+    }
+
+    async function switchZoomMode(mode, comparison, selectedPath) {
+        if (!state.zoom || state.zoomSwitching || mode === state.zoom.mode || !availableModes().includes(mode)) return;
         state.zoomSwitching = true;
+        ++evidenceRequest;
+        const previousMode = state.zoom.mode;
+        let origin;
         try {
-            const origin = state.zoom.depart(await captureZoomLocation());
+            origin = await captureZoomLocation();
+            state.zoom.depart(origin);
             narrationController.pauseForExternalOwner();
+            const landing = state.zoom.enter(mode);
+            state.activeSceneIndex = -1;
+            state.activeStepIndex = 0;
+            state.narrativeParent = null;
+            state.directoryEvidence = null;
+            state.sceneIntroVisible = false;
+            state.tourFocusFilePath = null;
             state.tour = zoomTour(mode);
-            const mapped = mapZoomLocation(origin, state.tour.scenes, state.tour.files);
-            const landing = state.zoom.enter(mode, mapped);
             renderTourShell();
             renderTourSearchResults();
             renderZoomControl();
-            document.getElementById('tour-mode-status').textContent = mapped || landing.restore ? '' : 'No corresponding location; showing the first available change.';
-            zoomRestore = landing.restore ? landing.location : null;
+            document.getElementById('tour-mode-status').textContent = '';
+            zoomRestore = landing.restore && !comparison ? landing.location : null;
             if (mode === 'history') {
-                await showZoomHistory(landing.location.path || state.tour.files.find((file) => file.kind === 'text-diff')?.path, landing.location.commit || origin.commit);
+                await showZoomHistory(state.historyPath || landing.location.path || state.tour.files.find((file) => file.kind === 'text-diff')?.path, landing.location.commit);
+            } else if (mode === 'compare') {
+                await showComparison(comparison || state.compare || finalComparison(), selectedPath || landing.location.path);
             } else {
                 state.historyCommit = null;
-                showTourScene(Math.max(0, landing.location.sceneIndex), landing.location.stepIndex, { zoomLanding: true });
+                showTourScene(Math.max(0, landing.location.sceneIndex), landing.location.stepIndex, {
+                    zoomLanding: true, showIntro: landing.restore ? landing.location.sceneIntroVisible : true
+                });
+                if (landing.restore && landing.location.narrativeParent) setNarrativeView(landing.location.narrativeParent);
                 if (landing.location.path && state.activeTourFilePath !== landing.location.path) {
                     const index = state.tour.files.findIndex((file) => file.path === landing.location.path);
                     if (index >= 0) showTourFileSelection(index);
                 }
-                if (!landing.restore && landing.location.line) emit({ type: 'revealSearchResult', lineNumber: landing.location.line });
             }
+            updateTourLocationUrl();
         } catch (error) {
-            document.getElementById('tour-mode-status').textContent = error instanceof Error ? error.message : String(error);
+            zoomRestore = null;
+            state.zoom.enter(previousMode);
+            state.tour = zoomTour(previousMode);
+            if (origin) {
+                state.activeSceneIndex = origin.sceneIndex;
+                state.activeStepIndex = origin.stepIndex;
+                state.activeTourFilePath = origin.path;
+                state.narrativeParent = origin.narrativeParent;
+                state.sceneIntroVisible = origin.sceneIntroVisible;
+            }
+            renderTourShell();
+            renderZoomControl();
+            renderTourSearchResults();
+            if (origin && isNarrativeMode()) {
+                zoomRestore = origin;
+                showTourScene(origin.sceneIndex, origin.stepIndex, { zoomLanding: true, showIntro: origin.sceneIntroVisible });
+                if (origin.narrativeParent) setNarrativeView(origin.narrativeParent);
+                if (origin.path && state.activeTourFilePath !== origin.path) {
+                    showTourFileSelection(state.tour.files.findIndex((file) => file.path === origin.path));
+                }
+            }
+            updateTourFileSelection();
+            updateTourLocationUrl();
+            reportModeError(error);
         } finally {
             state.zoomSwitching = false;
         }
@@ -212,11 +382,11 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             navigationRequests.get(message.requestId)?.(message.navigation);
             return;
         }
-        if (message.type === 'renderComplete' && zoomRestore) {
+        if (message.type === 'renderComplete' && zoomRestore && message.renderRequestId === zoomRestoreRequestId) {
             const location = zoomRestore;
             zoomRestore = null;
             emit({ type: 'restoreNavigationState', navigation: location.navigation });
-            const narrative = document.getElementById('tour-narrative');
+            const narrative = document.getElementById('tour-narrative-content');
             if (narrative) narrative.scrollTop = location.narrativeScroll || 0;
             if (location.focusId && location.focusId !== 'tour-mode-select') document.getElementById(location.focusId)?.focus({ preventScroll: true });
         }
@@ -232,6 +402,17 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             return;
         }
 
+        if (state.mode === 'tour' && state.directoryEvidence && isNarrativeMode()) {
+            if (message.type === 'openDirectoryEntry') {
+                openTourDirectoryFile(message.relativePath);
+                return;
+            }
+            if (message.type === 'returnToDirectory') {
+                showTourDirectoryOverview();
+                return;
+            }
+        }
+
         if (message.type === 'navigateFile' && state.mode === 'tour') {
             showTourFile(message.direction === 'previous' ? -1 : 1);
             return;
@@ -241,7 +422,10 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             const sceneIndex = message.sceneIndex;
             const stepIndex = message.stepIndex;
             if (Number.isInteger(sceneIndex) && Number.isInteger(stepIndex)) {
-                showTourScene(sceneIndex, stepIndex, { userNavigation: true });
+                showTourScene(sceneIndex, stepIndex, {
+                    userNavigation: true,
+                    showIntro: false
+                });
             }
             return;
         }
@@ -266,8 +450,34 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
     function bindControls() {
         document.getElementById('tour-mode-select')?.addEventListener('change', (event) => void switchZoomMode(event.target.value));
         document.getElementById('tour-history-select')?.addEventListener('change', (event) => {
-            markZoomNavigation();
-            void showZoomHistory(state.activeTourFilePath, event.target.value, false).catch((error) => { document.getElementById('tour-mode-status').textContent = error.message; });
+            void showZoomHistory(state.historyPath, event.target.value, false).catch(reportModeError);
+        });
+        const action = (id, handler) => document.getElementById(id)?.addEventListener('click', () => {
+            Promise.resolve().then(handler).catch(reportModeError);
+        });
+        action('tour-history-from', () => {
+            state.compareFrom = { commit: state.historyCommit, path: selectedHistoryPath() };
+            renderComparisonControls();
+        });
+        action('tour-history-to', () => openComparison({ from: state.compareFrom.commit, to: state.historyCommit, path: state.compareFrom.path }));
+        action('tour-history-parent', () => {
+            const parent = state.historyEntries.find((entry) => entry.commit === state.historyCommit)?.parentCommit;
+            if (!parent) { reportModeError('This is the first commit; History already shows its comparison with the empty tree.'); return; }
+            return openComparison({ from: parent, to: state.historyCommit, path: selectedHistoryPath() });
+        });
+        action('tour-history-base', () => openComparison({ from: state.authoredTour.range.mergeBaseOid, to: state.historyCommit, path: selectedHistoryPath() }));
+        action('tour-history-final', () => openComparison(finalComparison()));
+        action('tour-compare-final', () => openComparison(finalComparison()));
+        action('tour-compare-swap', () => openComparison({ from: state.compare.to, to: state.compare.from, ...(state.compare.path ? { path: state.compare.path } : {}) }));
+        action('tour-compare-all', () => openComparison({ from: state.compare.from, to: state.compare.to }));
+        action('tour-compare-clear', async () => {
+            state.compareFrom = null;
+            await switchZoomMode('history');
+            state.compare = null;
+        });
+        for (const field of ['from', 'to']) document.getElementById(`tour-compare-${field}`)?.addEventListener('change', (event) => {
+            const selection = { from: state.compare.from, to: state.compare.to, ...(state.compare.path ? { path: state.compare.path } : {}), [field]: event.target.value };
+            void openComparison(selection).catch((error) => { renderComparisonControls(); reportModeError(error); });
         });
         // Only user input counts. Renderer reveals, synchronized scrolling and restores do not.
         for (const type of ['wheel', 'pointerdown', 'keydown']) document.addEventListener(type, (event) => {
@@ -281,7 +491,9 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const diff3Input = document.getElementById('web-diff3-input');
         const tourPrevious = document.getElementById('tour-previous');
         const tourNext = document.getElementById('tour-next');
+        const tourNarration = document.getElementById('tour-narration');
         const tourReturnFocus = document.getElementById('tour-return-focus');
+        const tourShowInCode = document.getElementById('tour-show-in-code');
         const tourSearchInput = document.getElementById('tour-search-input');
         const tourSearchScope = document.getElementById('tour-search-scope');
         const tourListen = document.getElementById('tour-listen');
@@ -294,6 +506,10 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         initializeTourSidebar();
         initializeTourNarrativeResizer();
         initializeNarrationVoices();
+        document.getElementById('tour-files-toggle')?.addEventListener('click', () => {
+            const files = document.getElementById('tour-files');
+            setTourFilesOpen(files.hidden);
+        });
 
         compareTestButton?.addEventListener('click', () => {
             compareTestFiles();
@@ -331,7 +547,13 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
 
         tourPrevious?.addEventListener('click', () => showTourLinear(-1));
         tourNext?.addEventListener('click', () => showTourLinear(1));
+        tourNarration?.addEventListener('click', () => toggleNarrationSettings());
         tourReturnFocus?.addEventListener('click', returnToTourFocus);
+        document.getElementById('tour-directory-root')?.addEventListener('click', () => {
+            setNarrativeView('scene');
+            document.getElementById('tour-directory-root').focus({ preventScroll: true });
+        });
+        tourShowInCode?.addEventListener('click', showActiveStepInCode);
         tourSearchInput?.addEventListener('input', renderTourSearchResults);
         tourSearchScope?.addEventListener('change', renderTourSearchResults);
         tourListen?.addEventListener('click', toggleNarrationFromHost);
@@ -478,6 +700,8 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         if (!deviceNarrationAvailable || state.mode !== 'tour') return;
         const unit = buildActiveNarrationUnit('playback-start');
         if (!unit) return;
+        const firstSegment = unit.segments[0];
+        setSceneIntroVisible(Boolean(firstSegment && ['chapter', 'scene-title', 'summary', 'bullet', 'takeaway'].includes(firstSegment.source.field)));
         state.renderedNarrationUnit = unit;
         renderCurrentNarrativeForNarrationUnit(unit);
         narrationController.start(unit, true);
@@ -511,7 +735,8 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         if (!target) return null;
         return showTourScene(target.sceneIndex, target.stepIndex, {
             narrationNavigation: 'controller',
-            narrationEntry: 'continuous'
+            narrationEntry: 'continuous',
+            showIntro: false
         });
     }
 
@@ -536,6 +761,8 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                 : playbackState.kind === 'paused' ? 'Resume narration' : 'Listen from the current tour item';
             listen.title = listenLabel;
             listen.setAttribute('aria-label', listenLabel);
+            document.getElementById('tour-listen-label').textContent = isPlaying
+                ? 'Pause' : playbackState.kind === 'paused' ? 'Resume' : 'Listen';
         }
         if (stop) stop.disabled = playbackState.kind !== 'playing' && playbackState.kind !== 'paused';
         if (skipBack) skipBack.disabled = !narrationController.canSkipSegment(-1);
@@ -568,7 +795,14 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         if (!element) return;
         element.classList.add('is-speaking');
         element.classList.toggle('is-paused', paused);
-        const narrative = document.getElementById('tour-narrative');
+        const context = element.closest('#tour-context');
+        if (context) {
+            const sceneField = ['chapter', 'scene-title', 'summary', 'bullet', 'takeaway'].includes(segment.source.field);
+            setSceneIntroVisible(sceneField);
+        } else if (element.closest('#tour-step')) {
+            setSceneIntroVisible(false);
+        }
+        const narrative = document.getElementById('tour-narrative-content');
         if (!narrative) return;
         const elementBounds = element.getBoundingClientRect();
         const narrativeBounds = narrative.getBoundingClientRect();
@@ -615,10 +849,15 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         if (!match) return;
         if (match.kind === 'narrative') {
             markZoomNavigation();
-            showTourScene(match.sceneIndex, match.stepIndex ?? 0);
+            showTourScene(match.sceneIndex, match.stepIndex ?? 0, { showIntro: false });
+            if (match.stepIndex === undefined) {
+                setSceneIntroVisible(true);
+                document.getElementById('tour-context')?.scrollIntoView({ block: 'start' });
+            }
             return;
         }
         if (!showTourFileAtIndex(match.fileIndex)) return;
+        setSceneIntroVisible(false);
         window.requestAnimationFrame(() => emit({
             type: 'revealSearchResult',
             sideIndex: match.sideIndex,
@@ -681,7 +920,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const stored = Number.parseInt(window.localStorage.getItem(TOUR_SIDEBAR_STORAGE_KEY) || '', 10);
         return Number.isFinite(stored)
             ? Math.min(TOUR_SIDEBAR_MAX_WIDTH, Math.max(TOUR_SIDEBAR_MIN_WIDTH, stored))
-            : 360;
+            : 300;
     }
 
     function maximumTourSidebarWidth() {
@@ -800,7 +1039,10 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             }
             state.tour = parseChangeTourManifest(await response.json());
             state.authoredTour = state.tour;
-            state.zoom = state.tour.version === 2 ? new TourZoomSession(state.tour.zoom.authoredDepth) : null;
+            const tours = authoredTours();
+            const initialMode = tours.deconstructed ? 'deconstructed' : 'historical';
+            state.zoom = state.tour.version === 2 ? new TourZoomSession(initialMode) : null;
+            if (state.zoom) state.tour = zoomTour(initialMode);
             state.mode = 'tour';
             document.body.classList.add('tour-mode');
             renderTourShell();
@@ -812,7 +1054,34 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                 parameters.get('scene'),
                 parameters.get('step')
             );
-            showTourScene(requestedPosition.sceneIndex, requestedPosition.stepIndex);
+            showTourScene(requestedPosition.sceneIndex, requestedPosition.stepIndex, {
+                showIntro: parameters.get('view') === 'overview' || !parameters.get('step')
+            });
+            if (['tour', 'chapter'].includes(parameters.get('view'))) setNarrativeView(parameters.get('view'));
+            if (state.zoom) {
+                const aliases = { explanation: 'deconstructed', revisions: 'historical', final: 'compare' };
+                const requestedMode = aliases[parameters.get('mode')] || parameters.get('mode');
+                if (requestedMode === 'history') {
+                    state.historyPath = parameters.get('file');
+                    state.zoom.enter('history');
+                    state.tour = zoomTour('history');
+                    renderTourShell();
+                    renderZoomControl();
+                    await showZoomHistory(state.historyPath || state.tour.files.find((file) => file.kind === 'text-diff')?.path, parameters.get('commit'));
+                } else if (requestedMode === 'compare') {
+                    await switchZoomMode('compare', {
+                        from: parameters.get('from') || state.authoredTour.range.mergeBaseOid,
+                        to: parameters.get('to') || state.authoredTour.range.headOid,
+                        ...(parameters.get('scope') ? { path: parameters.get('scope') } : {})
+                    }, parameters.get('file'));
+                } else if (requestedMode && requestedMode !== state.zoom.mode && availableModes().includes(requestedMode)) {
+                    await switchZoomMode(requestedMode);
+                    const position = resolveTourPosition(state.tour.scenes, parameters.get('scene'), parameters.get('step'));
+                    showTourScene(position.sceneIndex, position.stepIndex, { showIntro: parameters.get('view') === 'overview' || !parameters.get('step') });
+                    if (['tour', 'chapter'].includes(parameters.get('view'))) setNarrativeView(parameters.get('view'));
+                }
+            }
+            if (state.directoryEvidence && parameters.get('file')) openTourDirectoryFile(parameters.get('file'));
             renderNarrationPlaybackState(narrationController.state);
             setStatus('');
         } catch (error) {
@@ -821,6 +1090,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
     }
 
     function renderTourShell() {
+        renderDirectoryOverviewBreadcrumb();
         const tour = state.tour;
         if (!tour) {
             return;
@@ -878,7 +1148,10 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                 button.dataset.sceneId = scene.id;
                 if (scene.kind === 'text-diff') button.dataset.filePath = scene.path;
                 button.title = `Open scene: ${scene.kind === 'text-diff' ? scene.path : scene.title}`;
-                button.addEventListener('click', () => showTourScene(index, 0, { userNavigation: true }));
+                button.addEventListener('click', () => showTourScene(index, 0, {
+                    userNavigation: true,
+                    showIntro: true
+                }));
                 const number = document.createElement('span');
                 number.className = 'tour-scene-number';
                 number.textContent = String(index + 1).padStart(2, '0');
@@ -902,6 +1175,32 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                 }
                 button.append(number, copy);
                 scenes.append(button);
+                if (isSteppedTourScene(scene)) {
+                    const steps = document.createElement('div');
+                    steps.className = 'tour-outline-steps';
+                    steps.dataset.sceneId = scene.id;
+                    steps.hidden = true;
+                    steps.id = `tour-outline-${index}`;
+                    button.setAttribute('aria-controls', steps.id);
+                    button.setAttribute('aria-expanded', 'false');
+                    scene.steps.forEach((step, stepIndex) => {
+                        const stepButton = document.createElement('button');
+                        stepButton.type = 'button';
+                        stepButton.className = 'tour-outline-step';
+                        stepButton.dataset.sceneId = scene.id;
+                        stepButton.dataset.stepIndex = String(stepIndex);
+                        const stage = scene.kind === 'deconstructed-diff'
+                            ? `Stage ${(step.stageIndex ?? step.pairIndex) + 1}: ` : '';
+                        stepButton.textContent = `${stepIndex + 1}. ${stage}${step.title}`;
+                        stepButton.title = `Open step ${stepIndex + 1}: ${step.title}`;
+                        stepButton.addEventListener('click', () => showTourScene(index, stepIndex, {
+                            userNavigation: true,
+                            showIntro: false
+                        }));
+                        steps.append(stepButton);
+                    });
+                    scenes.append(steps);
+                }
             }
         }
         files.replaceChildren(...tour.files.map((file, index) => {
@@ -949,16 +1248,16 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         if (!coverage) return;
         const rows = [{
             metric: 'walkthrough',
-            label: coverage.walkthrough.scope === 'final' ? 'Final walkthrough' : 'Walkthrough',
+            label: 'Anchored diff hunks',
             covered: coverage.walkthrough.coveredUnits,
             total: coverage.walkthrough.includedUnits,
             percent: coverage.walkthrough.coveragePercent,
-            description: 'Distinct change hunks referenced by authored focus anchors.'
+            description: 'Distinct change hunks referenced by authored base/head focus anchors. Revision-stack steps are not counted.'
         }, ...coverage.explanationAssignments.map((assignment) => ({
             metric: 'assignment',
             label: coverage.explanationAssignments.length > 1
-                ? `Explanation assignment · ${assignment.sceneId}`
-                : 'Explanation assignment',
+                ? `Deconstructed assignment · ${assignment.sceneId}`
+                : 'Deconstructed assignment',
             covered: assignment.completeUnits,
             total: assignment.totalUnits,
             percent: assignment.assignmentPercent,
@@ -1004,6 +1303,17 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             return null;
         }
         const scene = tour.scenes[index];
+        state.directoryEvidence = null;
+        renderDirectoryOverviewBreadcrumb();
+        const changedLocation = state.activeSceneIndex !== index || state.activeStepIndex !== stepIndex;
+        const changedScene = state.activeSceneIndex !== index;
+        if (options.showIntro !== undefined) {
+            state.sceneIntroVisible = Boolean(options.showIntro && isSteppedTourScene(scene));
+        } else if (changedScene) {
+            state.sceneIntroVisible = isSteppedTourScene(scene);
+        } else if (changedLocation) {
+            state.sceneIntroVisible = false;
+        }
         state.activeSceneIndex = index;
         state.activeStepIndex = isSteppedTourScene(scene)
             ? Math.min(Math.max(stepIndex, 0), Math.max(scene.steps.length - 1, 0))
@@ -1017,33 +1327,39 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                 : null;
         const location = getSceneLocation(tour, index);
         document.querySelectorAll('.tour-scene').forEach((button) => {
-            button.classList.toggle('is-active', button.dataset.sceneId === scene.id);
+            const active = button.dataset.sceneId === scene.id;
+            button.classList.toggle('is-active', active);
+            if (button.hasAttribute('aria-expanded')) button.setAttribute('aria-expanded', String(active));
+            if (active && !isSteppedTourScene(scene)) button.setAttribute('aria-current', 'step');
+            else button.removeAttribute('aria-current');
         });
-        document.querySelector(`.tour-scene[data-scene-id="${scene.id}"]`)?.scrollIntoView({ block: 'nearest' });
+        document.querySelectorAll('.tour-outline-steps').forEach((steps) => { steps.hidden = steps.dataset.sceneId !== scene.id; });
+        document.querySelectorAll('.tour-outline-step').forEach((button) => {
+            const active = button.dataset.sceneId === scene.id && Number(button.dataset.stepIndex) === state.activeStepIndex;
+            button.classList.toggle('is-active', active);
+            if (active) button.setAttribute('aria-current', 'step');
+            else button.removeAttribute('aria-current');
+        });
+        document.querySelector('#tour-scenes [aria-current="step"]')?.scrollIntoView({ block: 'nearest' });
+        if (changedLocation || options.showIntro !== undefined) document.getElementById('tour-narrative-content').scrollTop = 0;
         const narrationUnit = buildActiveNarrationUnit(options.narrationEntry || 'playback-start');
         state.renderedNarrationUnit = narrationUnit;
         renderTourNarrative(scene, location, narrationUnit);
-        if (narrationUnit && !options.zoomLanding && (!state.zoom || state.zoom.mode === state.authoredTour.zoom.authoredDepth || state.zoom.mode === 'final')) {
+        if (narrationUnit && !options.zoomLanding && (!state.zoom || isNarrativeMode())) {
             if (options.narrationNavigation === 'linear') {
                 narrationController.followLinearNavigation(narrationUnit);
             } else if (options.narrationNavigation !== 'controller') {
                 narrationController.followDirectNavigation(narrationUnit);
             }
         }
-        const parameters = new URLSearchParams(window.location.search);
-        parameters.set('scene', scene.id);
-        if (isSteppedTourScene(scene)) {
-            parameters.set('step', scene.steps[state.activeStepIndex].id);
-        } else {
-            parameters.delete('step');
-        }
-        window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
+        updateTourLocationUrl();
         if (scene.kind === 'discussion') {
             document.body.classList.add('tour-discussion');
             updateTourFileSelection();
             return narrationUnit;
         }
         document.body.classList.remove('tour-discussion');
+        if (state.sceneIntroVisible && showTourDirectoryOverview()) return narrationUnit;
         if (scene.kind === 'walkthrough') {
             renderWalkthroughStep(scene);
             return narrationUnit;
@@ -1054,6 +1370,46 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         }
         emitDiffScene(scene, buildTourAnnotationsForFile(scene.path));
         return narrationUnit;
+    }
+
+    function setDirectoryOverviewStatus(message) {
+        const banner = document.getElementById('status-banner');
+        banner.textContent = message;
+        banner.hidden = !message;
+    }
+
+    function showTourDirectoryOverview() {
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        if (!isNarrativeMode() || scene?.overview?.kind !== 'directory-diff') return false;
+        const evidence = buildTourDirectoryEvidence(state.tour, scene);
+        state.directoryEvidence = evidence;
+        state.activeTourFilePath = null;
+        updateTourFileSelection();
+        document.body.classList.remove('tour-discussion');
+        emit({
+            type: 'showDirectoryDiff',
+            leftLabel: evidence.labels[0], rightLabel: evidence.labels[1],
+            labels: evidence.labels, entries: evidence.entries, canMutate: false
+        });
+        setDirectoryOverviewStatus(evidence.entries.length ? '' : 'No changed files in this directory for the selected comparison.');
+        updateTourLocationUrl();
+        return true;
+    }
+
+    function openTourDirectoryFile(path) {
+        const evidence = state.directoryEvidence;
+        if (!evidence) return false;
+        const file = evidence.files.find((candidate) => candidate.path === path);
+        if (!file) {
+            const omitted = evidence.omitted.find((candidate) => candidate.path === path);
+            setDirectoryOverviewStatus(omitted ? `${path}: ${omitted.reason}` : 'This file has no change in the overview comparison.');
+            return false;
+        }
+        markZoomNavigation();
+        setDirectoryOverviewStatus('');
+        emitDiffScene(file, [], `directory-${state.tour.scenes[state.activeSceneIndex].id}-${path}`);
+        updateTourLocationUrl();
+        return true;
     }
 
     function buildTourAnnotationsForFile(filePath) {
@@ -1095,9 +1451,14 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         state.activeTourFilePath = scene.path;
         updateTourFileSelection();
         const diffModel = buildTwoWayDiffModel(scene.leftContent, scene.rightContent);
-        const leftLabel = formatTourPaneLabel(scene, scene.leftLabel, 'base');
-        const rightLabel = formatTourPaneLabel(scene, scene.rightLabel, 'head');
+        const leftLabel = formatTourPaneLabel(scene, scene.leftLabel, state.zoom?.mode === 'compare' ? 'from' : 'base');
+        const rightLabel = formatTourPaneLabel(scene, scene.rightLabel, state.zoom?.mode === 'compare' ? 'to' : 'head');
         const activeAnnotation = annotations.find((annotation) => annotation.active);
+        const fileExists = scene.changeKind === 'added'
+            ? { left: false, right: true }
+            : scene.changeKind === 'deleted'
+                ? { left: true, right: false }
+                : { left: true, right: true };
         emit({
             type: 'showDiff',
             file1: leftLabel,
@@ -1105,7 +1466,9 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             comparisonId: `tour-${comparisonId}`,
             leftContent: scene.leftContent,
             rightContent: scene.rightContent,
-            sourceInfo: { leftPath: scene.path, rightPath: scene.path },
+            canReturnToDirectory: Boolean(state.directoryEvidence),
+            sourceInfo: { leftPath: scene.previousPath || scene.path, rightPath: scene.path },
+            fileExists,
             diffModel,
             history: null,
             fileNavigation: {
@@ -1113,7 +1476,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                 canGoNext: Boolean(getCurrentTourFileTarget(1))
             },
             editableSides: { left: false, right: false },
-            comparisonSummary: `${scene.path} · ${scene.takeaway}`,
+            comparisonSummary: scene.takeaway ? `${scene.path} · ${scene.takeaway}` : scene.path,
             initialChangeIndex: activeAnnotation
                 ? findChangeIndexAtSourceLine(
                     diffModel,
@@ -1208,14 +1571,30 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
     }
 
     function showTourLinear(direction) {
+        if (direction === 1 && state.narrativeParent) {
+            showTourScene(state.activeSceneIndex, state.activeStepIndex, { userNavigation: true, showIntro: false });
+            return true;
+        }
+        if (direction === 1 && state.sceneIntroVisible) {
+            const scene = state.tour?.scenes[state.activeSceneIndex];
+            if (scene && isSteppedTourScene(scene) && scene.steps[state.activeStepIndex]) {
+                showTourScene(state.activeSceneIndex, state.activeStepIndex, {
+                    userNavigation: true,
+                    showIntro: false
+                });
+                return true;
+            }
+        }
         const target = getCurrentLinearTourTarget(direction);
         if (!target) {
             return false;
         }
+        const enteringScene = target.sceneIndex !== state.activeSceneIndex;
         showTourScene(target.sceneIndex, target.stepIndex, {
             userNavigation: true,
             narrationNavigation: 'linear',
-            narrationEntry: 'playback-start'
+            narrationEntry: 'playback-start',
+            showIntro: enteringScene && target.stepIndex === 0 && !narrationController.engaged
         });
         return true;
     }
@@ -1226,6 +1605,13 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             return null;
         }
         const scene = tour.scenes[state.activeSceneIndex];
+        if (state.directoryEvidence) {
+            const files = state.directoryEvidence.files;
+            const index = files.findIndex((file) => file.path === state.activeTourFilePath);
+            const target = files[index + direction];
+            const fileIndex = target ? tour.files.findIndex((file) => file.path === target.path) : -1;
+            return fileIndex >= 0 ? { fileIndex, path: target.path } : null;
+        }
         if (isMultiPanelTourScene(scene)) {
             const pairIndex = scene.steps[state.activeStepIndex]?.pairIndex;
             if (!Number.isInteger(pairIndex)) return null;
@@ -1271,9 +1657,15 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         if (!selected || selected.kind !== 'text-diff') return false;
         markZoomNavigation();
         if (state.zoom?.mode === 'history') {
-            void showZoomHistory(selected.path, state.historyCommit).catch((error) => { document.getElementById('tour-mode-status').textContent = error.message; });
+            void showZoomHistory(selected.path, null).catch((error) => { document.getElementById('tour-mode-status').textContent = error.message; });
             return true;
         }
+        if (state.zoom?.mode === 'compare') {
+            emitDiffScene({ ...selected, takeaway: '' }, [], `compare-${state.compare.from}-${state.compare.to}-${selected.path}`);
+            updateTourLocationUrl();
+            return true;
+        }
+        if (state.directoryEvidence && isNarrativeMode()) return openTourDirectoryFile(selected.path);
         if (!state.zoomSwitching) narrationController.interruptForExploration();
         const scene = state.tour?.scenes[state.activeSceneIndex];
         if (isMultiPanelTourScene(scene)) {
@@ -1306,6 +1698,7 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
     }
 
     function returnToTourFocus() {
+        if (state.directoryEvidence) return showTourDirectoryOverview();
         const scene = state.tour?.scenes[state.activeSceneIndex];
         if (!scene || !state.tourFocusFilePath) {
             return false;
@@ -1322,18 +1715,61 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         return true;
     }
 
+    function setTourFilesOpen(open) {
+        document.getElementById('tour-files').hidden = !open;
+        document.getElementById('tour-files-toggle').setAttribute('aria-expanded', String(open));
+        document.querySelector('.tour-files-section').classList.toggle('is-open', open);
+    }
+
+    function renderDirectoryOverviewBreadcrumb() {
+        const visible = Boolean(state.directoryEvidence && isNarrativeMode());
+        const filePath = visible ? state.activeTourFilePath : null;
+        document.body.classList.toggle('tour-directory-overview', visible);
+        document.body.classList.toggle('tour-directory-file-open', Boolean(filePath));
+        document.getElementById('tour-directory-breadcrumb').hidden = !visible;
+        const root = document.getElementById('tour-directory-root');
+        if (filePath) root.removeAttribute('aria-current');
+        else root.setAttribute('aria-current', 'location');
+        document.getElementById('tour-directory-separator').hidden = !filePath;
+        const file = document.getElementById('tour-directory-file');
+        file.textContent = filePath || '';
+        file.hidden = !filePath;
+        const context = document.getElementById('tour-directory-narration-context');
+        context.hidden = !filePath;
+        context.textContent = `Narration describes the ${state.narrativeParent || 'overview'}`;
+    }
+
     function updateTourFileSelection() {
+        renderDirectoryOverviewBreadcrumb();
         const scene = state.tour?.scenes[state.activeSceneIndex];
         const step = isMultiPanelTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
         document.querySelectorAll('.tour-file').forEach((button) => {
             const filePath = button.dataset.filePath;
             button.classList.toggle('is-active', filePath === state.activeTourFilePath);
-            button.classList.toggle('is-tour-focus', filePath === state.tourFocusFilePath);
+            button.classList.toggle('is-tour-focus', !state.directoryEvidence && filePath === state.tourFocusFilePath);
+            button.disabled = Boolean(state.directoryEvidence && !state.directoryEvidence.files.some((file) => file.path === filePath));
             button.classList.remove('is-comparison-changed', 'is-comparison-empty');
             delete button.dataset.comparisonState;
             const tourFile = state.tour?.files.find((file) => file.path === filePath);
             const marker = button.querySelector('.tour-file-marker');
             const meta = button.querySelector('.tour-file-meta');
+            if (state.directoryEvidence && button.disabled && tourFile?.kind === 'text-diff') {
+                const label = 'Not in this overview comparison';
+                button.setAttribute('title', `${filePath} · ${label}`);
+                button.setAttribute('aria-label', `${filePath}, ${label}`);
+                if (meta) meta.textContent = label;
+                if (marker) marker.textContent = '○';
+                return;
+            }
+            if (state.directoryEvidence && tourFile?.kind === 'text-diff') {
+                const evidenceFile = state.directoryEvidence.files.find((file) => file.path === filePath);
+                const label = `${formatChangeKind(evidenceFile.changeKind)} in overview`;
+                button.setAttribute('title', `${filePath} · ${label}`);
+                button.setAttribute('aria-label', `${filePath}, ${label}`);
+                if (meta) meta.textContent = label;
+                if (marker) marker.textContent = changeKindMarker(evidenceFile.changeKind);
+                return;
+            }
             if (step && tourFile?.kind === 'text-diff') {
                 const comparisonFile = getMultiPanelFile(scene, filePath);
                 if (comparisonFile) {
@@ -1363,12 +1799,9 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         document.querySelector(`.tour-file.is-active`)?.scrollIntoView({ block: 'nearest' });
         const returnButton = document.getElementById('tour-return-focus');
         if (returnButton) {
-            const inTourMode = !state.zoom
-                || state.zoom.mode === state.authoredTour.zoom.authoredDepth
-                || state.zoom.mode === 'final';
-            returnButton.hidden = !inTourMode
-                || !state.tourFocusFilePath
-                || state.activeTourFilePath === state.tourFocusFilePath;
+            const inTourMode = isNarrativeMode();
+            returnButton.hidden = !inTourMode || Boolean(state.directoryEvidence)
+                || !state.tourFocusFilePath || state.activeTourFilePath === state.tourFocusFilePath;
         }
     }
 
@@ -1416,16 +1849,16 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
             chapterIndex,
             chapterNumber: chapterIndex >= 0 ? chapterIndex + 1 : sceneIndex + 1,
             sceneInChapter,
-            scenesInChapter
+            scenesInChapter,
+            sceneNumber: sceneIndex + 1,
+            sceneCount: tour.scenes.length
         };
     }
 
     function formatTourBreadcrumb(location, scene, stepIndex) {
-        const parts = [`Ch ${location.chapterNumber}`, `Scene ${location.sceneInChapter}/${location.scenesInChapter}`];
-        if (isSteppedTourScene(scene)) {
-            parts.push(`Step ${stepIndex + 1}/${scene.steps.length}`);
-        }
-        return parts.join(' · ');
+        return isSteppedTourScene(scene)
+            ? `Scene ${location.sceneNumber} of ${location.sceneCount} · Step ${stepIndex + 1} of ${scene.steps.length}`
+            : `Scene ${location.sceneNumber} of ${location.sceneCount}`;
     }
 
     function findChangeIndexAtSourceLine(diffModel, side, sourceLine) {
@@ -1465,6 +1898,270 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         renderTourNarrative(scene, getSceneLocation(state.tour, state.activeSceneIndex), unit);
     }
 
+    function setSceneIntroVisible(visible) {
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        const step = scene && isSteppedTourScene(scene)
+            ? scene.steps[state.activeStepIndex]
+            : null;
+        state.narrativeParent = null;
+        state.sceneIntroVisible = Boolean(visible && step);
+        const context = document.getElementById('tour-context');
+        if (context) context.open = !step || state.sceneIntroVisible;
+        const stepPanel = document.getElementById('tour-step');
+        if (stepPanel) stepPanel.hidden = !step || state.sceneIntroVisible;
+        renderNarrativeViewControls();
+        renderTourProgress();
+        if (state.sceneIntroVisible && !state.directoryEvidence) {
+            showTourDirectoryOverview();
+        } else if (!state.sceneIntroVisible && state.directoryEvidence) {
+            state.directoryEvidence = null;
+            if (scene.kind === 'walkthrough') renderWalkthroughStep(scene);
+            else if (isMultiPanelTourScene(scene)) renderMultiPanelStep(scene);
+        }
+        updateTourLocationUrl();
+    }
+
+    function setNarrativeView(view) {
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        if (!scene) return;
+        markZoomNavigation();
+        if (view === 'tour' || view === 'chapter') {
+            state.narrativeParent = view;
+            renderNarrativeViewControls();
+            renderTourProgress();
+            updateTourLocationUrl();
+        } else {
+            setSceneIntroVisible(view === 'scene');
+            if (view === 'scene') showTourDirectoryOverview();
+        }
+        document.getElementById('tour-narrative-content')?.scrollTo({ top: 0 });
+        document.querySelector(`#tour-reading-path [data-level="${view}"]`)?.focus({ preventScroll: true });
+    }
+
+    function readingButton(label, title, action) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = label;
+        button.title = title;
+        button.addEventListener('click', action);
+        return button;
+    }
+
+    function renderReadingHierarchy(scene, hasStep) {
+        const tour = state.tour;
+        if (!tour || !scene) return;
+        const chapter = tour.chapters.find((item) => item.sceneIds.includes(scene.id));
+        const selected = state.narrativeParent || (hasStep && !state.sceneIntroVisible ? 'step' : 'scene');
+        const path = document.getElementById('tour-reading-path');
+        const levels = [];
+        // A single-child level adds no useful navigation choice.
+        if (tour.scenes.length > 1) levels.push(['tour', tour.title]);
+        if (tour.chapters.length > 1 && chapter && (chapter.sceneIds.length > 1 || state.narrativeParent === 'chapter')) levels.push(['chapter', chapter.title]);
+        levels.push(['scene', scene.title]);
+        if (hasStep) levels.push(['step', `Step ${state.activeStepIndex + 1}`]);
+        path.replaceChildren(...levels.map(([level, title]) => {
+            const tooltip = level === 'step' ? `${title}: ${scene.steps[state.activeStepIndex].title}` : `${level}: ${title}`;
+            const button = readingButton(title, tooltip, () => setNarrativeView(level));
+            button.dataset.level = level;
+            if (level === selected) button.setAttribute('aria-current', 'location');
+            return button;
+        }));
+        const parent = document.getElementById('tour-parent-view');
+        parent.hidden = !state.narrativeParent;
+        document.getElementById('tour-context').hidden = Boolean(state.narrativeParent);
+        document.getElementById('tour-step').hidden = Boolean(state.narrativeParent) || !hasStep || state.sceneIntroVisible;
+        const resume = () => showTourScene(state.activeSceneIndex, state.activeStepIndex, { userNavigation: true, showIntro: false });
+        const sceneLink = (child) => {
+            const index = tour.scenes.indexOf(child);
+            return readingButton(child.title, `Read scene: ${child.title}`, () => showTourScene(index,
+                index === state.activeSceneIndex ? state.activeStepIndex : 0,
+                { userNavigation: true, showIntro: true }));
+        };
+        parent.replaceChildren();
+        if (state.narrativeParent) {
+            const heading = document.createElement('h2');
+            heading.textContent = state.narrativeParent === 'tour' ? tour.title : chapter?.title || tour.title;
+            parent.append(heading, readingButton(hasStep ? `Resume step ${state.activeStepIndex + 1}: ${scene.steps[state.activeStepIndex].title}` : `Resume: ${scene.title}`, 'Resume your reading position', resume));
+            const children = document.createElement('div');
+            children.className = 'tour-child-items';
+            if (state.narrativeParent === 'tour' && tour.chapters.length > 1) {
+                for (const item of tour.chapters) {
+                    const first = tour.scenes.findIndex((child) => child.id === item.sceneIds[0]);
+                    if (first < 0) continue;
+                    children.append(readingButton(item.title, `Read chapter: ${item.title}`, () => {
+                        if (!item.sceneIds.includes(scene.id)) showTourScene(first, 0, { userNavigation: true, showIntro: true });
+                        setNarrativeView(item.sceneIds.length > 1 ? 'chapter' : 'scene');
+                    }));
+                }
+            } else {
+                for (const child of tour.scenes.filter((item) => state.narrativeParent === 'tour' || chapter?.sceneIds.includes(item.id))) children.append(sceneLink(child));
+            }
+            parent.append(children);
+        }
+        const children = document.getElementById('tour-scene-children');
+        children.replaceChildren();
+        if (hasStep) {
+            children.append(readingButton(`Resume step ${state.activeStepIndex + 1}`, 'Resume your reading position', resume));
+            scene.steps.forEach((step, index) => {
+                const button = readingButton(`${index + 1}. ${step.title}`, `Read step: ${step.title}`, () => showTourScene(state.activeSceneIndex, index, { userNavigation: true, showIntro: false }));
+                if (index === state.activeStepIndex) button.setAttribute('aria-current', 'step');
+                children.append(button);
+            });
+        }
+    }
+
+    function toggleNarrationSettings() {
+        const settings = document.getElementById('tour-audio-settings');
+        if (!settings) return;
+        settings.hidden = !settings.hidden;
+        renderNarrativeViewControls();
+    }
+
+    function renderNarrativeViewControls() {
+        renderDirectoryOverviewBreadcrumb();
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        const hasStep = Boolean(scene && isSteppedTourScene(scene) && scene.steps[state.activeStepIndex]);
+        const narration = document.getElementById('tour-narration');
+        const settings = document.getElementById('tour-audio-settings');
+        renderReadingHierarchy(scene, hasStep);
+        if (narration) {
+            const expanded = Boolean(settings && !settings.hidden);
+            narration.setAttribute('aria-expanded', String(expanded));
+            narration.textContent = expanded ? '›' : '‹ Narration';
+            narration.title = expanded ? 'Hide narration controls' : 'Show narration controls';
+            narration.setAttribute('aria-label', narration.title);
+        }
+    }
+
+    function updateTourLocationUrl() {
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        const parameters = new URLSearchParams(window.location.search);
+        for (const key of ['from', 'to', 'scope', 'commit', 'file']) parameters.delete(key);
+        if (state.zoom) parameters.set('mode', state.zoom.mode);
+        if (state.zoom && !isNarrativeMode()) {
+            for (const key of ['scene', 'step', 'view']) parameters.delete(key);
+            if (state.zoom.mode === 'compare' && state.compare) {
+                parameters.set('from', state.compare.from);
+                parameters.set('to', state.compare.to);
+                if (state.compare.path) parameters.set('scope', state.compare.path);
+            }
+            if (state.zoom.mode === 'history' && state.historyCommit) parameters.set('commit', state.historyCommit);
+            if (state.activeTourFilePath) parameters.set('file', state.zoom.mode === 'history' ? state.historyPath : state.activeTourFilePath);
+            window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
+            return;
+        }
+        if (!scene) return;
+        parameters.set('scene', scene.id);
+        const step = isSteppedTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
+        if (step) parameters.set('step', step.id);
+        else parameters.delete('step');
+        if (state.directoryEvidence && state.activeTourFilePath) parameters.set('file', state.activeTourFilePath);
+        else parameters.delete('file');
+        if (state.narrativeParent) parameters.set('view', state.narrativeParent);
+        else if (step && state.sceneIntroVisible) parameters.set('view', 'overview');
+        else parameters.delete('view');
+        window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
+    }
+
+    function renderTourProgress() {
+        const previous = document.getElementById('tour-previous');
+        const next = document.getElementById('tour-next');
+        if (!previous || !next) return;
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        const step = scene && isSteppedTourScene(scene)
+            ? scene.steps[state.activeStepIndex]
+            : null;
+        const introVisible = Boolean(state.narrativeParent || (state.sceneIntroVisible && step));
+        const previousTarget = getCurrentLinearTourTarget(-1);
+        const nextTarget = getCurrentLinearTourTarget(1);
+        const startLabel = state.narrativeParent ? (step ? `Resume step ${state.activeStepIndex + 1}` : 'Resume scene') : state.activeStepIndex === 0 ? 'Start steps' : `Resume step ${state.activeStepIndex + 1}`;
+        previous.disabled = !previousTarget;
+        next.disabled = introVisible ? false : !nextTarget;
+        next.textContent = introVisible ? startLabel : nextTarget ? 'Next →' : 'End of tour';
+        next.title = introVisible
+            ? state.activeStepIndex === 0 ? 'Start the steps for this scene' : 'Return to the current step'
+            : nextTarget
+                ? 'Next tour item (Right or Page Down)'
+                : 'You have reached the end of the tour';
+        next.setAttribute('aria-label', introVisible ? startLabel : nextTarget ? 'Next tour item' : 'End of tour');
+    }
+
+    function getActiveStepCodeTarget(scene = state.tour?.scenes[state.activeSceneIndex]) {
+        if (!scene || !isSteppedTourScene(scene)) return null;
+        const step = scene.steps[state.activeStepIndex];
+        if (!step) return null;
+        if (scene.kind === 'walkthrough') {
+            const focus = step.focus;
+            if (!focus?.path || !Number.isInteger(focus.startLine)) return null;
+            return {
+                filePath: focus.path,
+                sideIndex: focus.revision === 'base' ? 0 : 1,
+                lineNumber: focus.startLine,
+                label: `${focus.path}:${focus.startLine}`
+            };
+        }
+
+        let startLine = step.startLine;
+        if (!Number.isInteger(startLine)) {
+            const file = getMultiPanelFile(scene, step.file);
+            const left = file?.panels?.[step.pairIndex];
+            const right = file?.panels?.[step.pairIndex + 1];
+            if (left && right) {
+                const diffModel = buildTwoWayDiffModel(left.content, right.content);
+                const range = getFirstChangeSourceRange(diffModel, step.side);
+                startLine = range?.startLine;
+            }
+        }
+        if (!step.file || !Number.isInteger(startLine)) return null;
+        return {
+            filePath: step.file,
+            sideIndex: step.pairIndex + (step.side === 'right' ? 1 : 0),
+            lineNumber: startLine,
+            label: `${step.file}:${startLine}`
+        };
+    }
+
+    function renderStepCodeTarget(container, location, button, scene) {
+        const target = getActiveStepCodeTarget(scene);
+        if (!target) {
+            container.hidden = true;
+            location.textContent = '';
+            button.hidden = true;
+            button.disabled = true;
+            return;
+        }
+        location.textContent = target.label;
+        location.title = `Focused source: ${target.label}`;
+        button.hidden = false;
+        button.disabled = false;
+        container.hidden = false;
+    }
+
+    function showActiveStepInCode() {
+        const target = getActiveStepCodeTarget();
+        const scene = state.tour?.scenes[state.activeSceneIndex];
+        if (state.sceneIntroVisible || !target || !scene) return false;
+        narrationController.interruptForExploration();
+        if (state.activeTourFilePath !== target.filePath) {
+            const fileIndex = state.tour.files.findIndex((file) => (
+                file.kind === 'text-diff' && file.path === target.filePath
+            ));
+            if (fileIndex < 0) return false;
+            const rendered = isMultiPanelTourScene(scene)
+                ? showTourFileSelection(fileIndex)
+                : showTourFileAtIndex(fileIndex, false);
+            if (!rendered) return false;
+        }
+        window.requestAnimationFrame(() => emit({
+            type: 'revealSearchResult',
+            sideIndex: target.sideIndex,
+            lineNumber: target.lineNumber,
+            startColumn: 1,
+            endColumn: 1
+        }));
+        return true;
+    }
+
     function renderTourNarrative(scene, location, narrationUnit) {
         const narrative = document.getElementById('tour-narrative');
         const breadcrumb = document.getElementById('tour-breadcrumb');
@@ -1479,9 +2176,12 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const stepBody = document.getElementById('tour-step-body');
         const stepRequirement = document.getElementById('tour-step-requirement');
         const connection = document.getElementById('tour-connection');
+        const stepCode = document.getElementById('tour-step-code');
+        const stepCodeLocation = document.getElementById('tour-step-code-location');
+        const showInCode = document.getElementById('tour-show-in-code');
         const previous = document.getElementById('tour-previous');
         const next = document.getElementById('tour-next');
-        if (!narrative || !breadcrumb || !chapter || !title || !summary || !bullets || !tags || !takeaway || !stepPanel || !stepTitle || !stepBody || !stepRequirement || !connection || !previous || !next) {
+        if (!narrative || !breadcrumb || !chapter || !title || !summary || !bullets || !tags || !takeaway || !stepPanel || !stepTitle || !stepBody || !stepRequirement || !connection || !stepCode || !stepCodeLocation || !showInCode || !previous || !next) {
             throw new Error('Tour narrative UI is incomplete.');
         }
         narrative.hidden = false;
@@ -1506,7 +2206,19 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
         const step = isSteppedTourScene(scene)
             ? scene.steps[state.activeStepIndex]
             : null;
-        stepPanel.hidden = !step;
+        const showIntro = state.sceneIntroVisible && Boolean(step);
+        const context = document.getElementById('tour-context');
+        const contextLabel = document.getElementById('tour-context-label');
+        if (context.dataset.sceneId !== scene.id) {
+            context.open = !step;
+            context.dataset.sceneId = scene.id;
+        }
+        context.classList.toggle('is-primary', !step);
+        contextLabel.hidden = true;
+        contextLabel.textContent = `Scene context · ${scene.title}`;
+        if (!step) context.open = true;
+        setSceneIntroVisible(showIntro);
+        stepPanel.hidden = !step || state.sceneIntroVisible;
         if (step) {
             renderNarrationField(stepTitle, step.title, { field: 'step-title' }, narrationUnit, {
                 prefix: scene.kind === 'deconstructed-diff'
@@ -1524,15 +2236,16 @@ import { TourZoomSession, mapZoomLocation } from '../src/tourZoomSession.ts';
                 connection.hidden = true;
                 connection.textContent = '';
             }
+            renderStepCodeTarget(stepCode, stepCodeLocation, showInCode, scene);
         } else {
             stepTitle.textContent = '';
             stepBody.textContent = '';
             renderStepRequirement(stepRequirement, null);
             connection.hidden = true;
             connection.textContent = '';
+            renderStepCodeTarget(stepCode, stepCodeLocation, showInCode, scene);
         }
-        previous.disabled = !getCurrentLinearTourTarget(-1);
-        next.disabled = !getCurrentLinearTourTarget(1);
+        renderTourProgress();
     }
 
     function formatRequirementMeta(requirement) {

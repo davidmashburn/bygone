@@ -40,10 +40,22 @@ export interface ChangeTourCoverageExclusion {
     reason: string;
 }
 
+export interface ChangeTourSourceSceneOverview {
+    kind: 'directory-diff';
+    path?: string;
+    comparison?: ChangeTourSourceSceneOverviewComparison;
+}
+
+export interface ChangeTourSourceSceneOverviewComparison {
+    from: string;
+    to: string;
+}
+
 export interface ChangeTourSourceWalkthroughScene extends ChangeTourNarrative {
     id: string;
     kind?: 'walkthrough';
     title: string;
+    overview?: ChangeTourSourceSceneOverview;
     steps: ChangeTourSourceStep[];
 }
 
@@ -67,6 +79,7 @@ export interface ChangeTourSourceStackedScene extends ChangeTourNarrative {
     id: string;
     kind: 'stacked-diff';
     title: string;
+    overview?: ChangeTourSourceSceneOverview;
     stack: ChangeTourSourceStackEntry[];
     files?: string[];
     steps: ChangeTourSourceStackStep[];
@@ -94,11 +107,12 @@ export interface ChangeTourSourceDeconstructedScene extends ChangeTourNarrative 
     id: string;
     kind: 'deconstructed-diff';
     title: string;
+    overview?: ChangeTourSourceSceneOverview;
     base?: string;
     target?: string;
-    /** Required in v2: the real tour underlying the explanation stages. */
+    /** Required for v2 root deconstruction; mode-specific Deconstructed may omit it. */
     stack?: ChangeTourSourceStackEntry[];
-    /** Required in v2: the regular endpoint tour underlying the explanation stages. */
+    /** Required for v2 root deconstruction when endpoint walkthrough evidence is authored. */
     steps?: ChangeTourSourceStep[];
     stages: ChangeTourSourceDeconstructedStage[];
     exclusions?: ChangeTourSourceDeconstructedExclusion[];
@@ -114,6 +128,20 @@ export interface ChangeTourSourceChapter {
     scenes: ChangeTourSourceScene[];
 }
 
+/**
+ * An independently authored mode keeps the same evidence namespace as the
+ * source document.  Range, anchors, and connections remain shared on the
+ * source; only the chapter and scene narrative varies by mode.
+ */
+export interface ChangeTourSourceTour {
+    chapters: ChangeTourSourceChapter[];
+}
+
+export interface ChangeTourSourceTours {
+    historical?: ChangeTourSourceTour;
+    deconstructed?: ChangeTourSourceTour;
+}
+
 export interface ChangeTourSource {
     version: 1 | typeof CHANGE_TOUR_SOURCE_VERSION;
     title?: string;
@@ -126,6 +154,7 @@ export interface ChangeTourSource {
     anchors: Record<string, ChangeTourSourceAnchor>;
     connections: ChangeTourSourceConnection[];
     chapters: ChangeTourSourceChapter[];
+    tours?: ChangeTourSourceTours;
     coverage?: { exclusions: ChangeTourCoverageExclusion[] };
 }
 
@@ -138,7 +167,9 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
     if (!isRecord(value) || (value.version !== 1 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
         throw new Error('Unsupported or missing change-tour source version.');
     }
-    requireOnlyKeys(value, ['version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'coverage'], 'source');
+    requireOnlyKeys(value, [
+        'version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage'
+    ], 'source');
     optionalString(value.title, 'title');
     optionalString(value.windowTitle, 'windowTitle');
     optionalString(value.sourceUrl, 'sourceUrl');
@@ -206,19 +237,53 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         }
         connectionIds.add(id);
     }
+    validateSourceChapters(value.chapters, 'chapters', value.version, value.anchors, connectionIds, 'root');
+    if (value.tours !== undefined) {
+        if (value.version !== 2) throw new Error('Independent tours require version 2.');
+        if (!isRecord(value.tours)) throw new Error('tours must be an object.');
+        requireOnlyKeys(value.tours, ['historical', 'deconstructed'], 'tours');
+        if (value.tours.historical === undefined && value.tours.deconstructed === undefined) {
+            throw new Error('tours must contain a historical or deconstructed tour.');
+        }
+        for (const mode of ['historical', 'deconstructed'] as const) {
+            const tour = value.tours[mode];
+            if (tour === undefined) continue;
+            const path = `tours.${mode}`;
+            if (!isRecord(tour)) throw new Error(`${path} must be an object.`);
+            requireOnlyKeys(tour, ['chapters'], path);
+            validateSourceChapters(tour.chapters, `${path}.chapters`, value.version, value.anchors, connectionIds, mode);
+        }
+    }
+    return { ...value, connections: rawConnections } as unknown as ChangeTourSource;
+}
+
+type SourceTourValidationMode = 'root' | 'historical' | 'deconstructed';
+
+function validateSourceChapters(
+    chaptersValue: unknown,
+    chaptersPath: string,
+    version: 1 | 2,
+    anchors: Record<string, unknown>,
+    connectionIds: ReadonlySet<string>,
+    mode: SourceTourValidationMode
+): void {
+    if (!Array.isArray(chaptersValue) || chaptersValue.length === 0) {
+        throw new Error(`${chaptersPath} must be a non-empty array.`);
+    }
     const chapterIds = new Set<string>();
     const sceneIds = new Set<string>();
-    for (const [chapterIndex, chapter] of value.chapters.entries()) {
+    for (const [chapterIndex, chapter] of chaptersValue.entries()) {
+        const chapterPath = `${chaptersPath}[${chapterIndex}]`;
         if (!isRecord(chapter) || !Array.isArray(chapter.scenes) || chapter.scenes.length === 0) {
-            throw new Error(`chapters[${chapterIndex}] must contain a non-empty scenes array.`);
+            throw new Error(`${chapterPath} must contain a non-empty scenes array.`);
         }
-        requireString(chapter.id, `chapters[${chapterIndex}].id`);
-        requireString(chapter.title, `chapters[${chapterIndex}].title`);
-        requireOnlyKeys(chapter, ['id', 'title', 'scenes'], `chapters[${chapterIndex}]`);
+        requireString(chapter.id, `${chapterPath}.id`);
+        requireString(chapter.title, `${chapterPath}.title`);
+        requireOnlyKeys(chapter, ['id', 'title', 'scenes'], chapterPath);
         if (chapterIds.has(chapter.id)) throw new Error(`Duplicate chapter id: ${chapter.id}`);
         chapterIds.add(chapter.id);
         for (const [sceneIndex, scene] of chapter.scenes.entries()) {
-            const path = `chapters[${chapterIndex}].scenes[${sceneIndex}]`;
+            const path = `${chapterPath}.scenes[${sceneIndex}]`;
             if (!isRecord(scene)) throw new Error(`${path} must be an object.`);
             requireString(scene.id, `${path}.id`);
             requireString(scene.title, `${path}.title`);
@@ -226,10 +291,24 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             sceneIds.add(scene.id);
             validateNarrative(scene, path);
             if (scene.kind === 'deconstructed-diff') {
+                if (mode === 'historical') {
+                    throw new Error(`${path} cannot contain a deconstructed-diff scene in the historical tour.`);
+                }
                 validateDeconstructedScene(scene, path);
-                if (value.version === 2 || scene.stack !== undefined) validateRealStack(scene.stack, `${path}.stack`, 2);
-                if (value.version === 2 || scene.steps !== undefined) {
-                    validateWalkthroughSteps(scene, path, value.anchors, connectionIds);
+                validateSceneOverview(scene.overview, `${path}.overview`, {
+                    endpointIds: deconstructedOverviewEndpointIds(scene, path)
+                });
+                // Legacy v1 root deconstruction predates repository-bound real
+                // revision evidence and intentionally permits a synthetic-only
+                // scene.  v2 root scenes and explicit Historical scenes retain
+                // the real-evidence requirement; a mode-specific Deconstructed
+                // tour is synthetic by design and may omit stack/steps.
+                const requireRealEvidence = mode === 'root' && version === 2;
+                if (requireRealEvidence || scene.stack !== undefined) {
+                    validateRealStack(scene.stack, `${path}.stack`, 2);
+                }
+                if (requireRealEvidence || scene.steps !== undefined) {
+                    validateWalkthroughSteps(scene, path, anchors, connectionIds);
                 }
                 continue;
             }
@@ -237,21 +316,56 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
                 throw new Error(`${path} must contain a non-empty steps array.`);
             }
             if (scene.kind === 'stacked-diff') {
-                validateStackedScene(scene, path, value.version === 2 ? 2 : 3);
+                // A mode-specific Historical tour may intentionally contain
+                // only its two real endpoint revisions.  Preserve the older
+                // v1 three-panel requirement for the legacy root chapters.
+                validateStackedScene(scene, path, mode === 'root' ? (version === 2 ? 2 : 3) : 2);
+                validateSceneOverview(scene.overview, `${path}.overview`, {
+                    endpointIds: stackedOverviewEndpointIds(scene, path)
+                });
                 continue;
             }
             if (scene.kind !== undefined && scene.kind !== 'walkthrough') {
                 throw new Error(`${path}.kind must be walkthrough, stacked-diff, or deconstructed-diff.`);
             }
-            requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'steps'], path);
-            validateWalkthroughSteps(scene, path, value.anchors, connectionIds);
+            requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'overview', 'steps'], path);
+            validateSceneOverview(scene.overview, `${path}.overview`, { allowComparison: false });
+            validateWalkthroughSteps(scene, path, anchors, connectionIds);
         }
     }
-    return { ...value, connections: rawConnections } as unknown as ChangeTourSource;
+    if (mode === 'deconstructed' && !chaptersValue.some((chapter) => (
+        isRecord(chapter) && Array.isArray(chapter.scenes)
+        && chapter.scenes.some((scene) => isRecord(scene) && scene.kind === 'deconstructed-diff')
+    ))) {
+        throw new Error(`${chaptersPath} must contain at least one deconstructed-diff scene.`);
+    }
+}
+
+function stackedOverviewEndpointIds(scene: Record<string, unknown>, path: string): string[] {
+    if (!Array.isArray(scene.stack)) {
+        throw new Error(`${path}.stack must be an array.`);
+    }
+    return scene.stack
+        .filter(isRecord)
+        .map((entry) => typeof entry.id === 'string' ? entry.id : '')
+        .filter((id) => id.length > 0);
+}
+
+function deconstructedOverviewEndpointIds(scene: Record<string, unknown>, path: string): string[] {
+    if (!Array.isArray(scene.stages)) {
+        throw new Error(`${path}.stages must be an array.`);
+    }
+    return [
+        'explanation-baseline',
+        ...scene.stages
+            .filter(isRecord)
+            .map((stage) => typeof stage.id === 'string' ? `explanation-stage-${stage.id}` : '')
+            .filter((id) => id.length > 0)
+    ];
 }
 
 function validateDeconstructedScene(scene: Record<string, unknown>, path: string): void {
-    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'base', 'target', 'stack', 'steps', 'stages', 'exclusions'], path);
+    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'overview', 'base', 'target', 'stack', 'steps', 'stages', 'exclusions'], path);
     optionalString(scene.base, `${path}.base`);
     optionalString(scene.target, `${path}.target`);
     if (!Array.isArray(scene.stages) || scene.stages.length === 0 || scene.stages.length > 12) {
@@ -346,7 +460,7 @@ function validateRealStack(stack: unknown, path: string, minimum: number): void 
 }
 
 function validateStackedScene(scene: Record<string, unknown>, path: string, minimum = 3): void {
-    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'stack', 'files', 'steps'], path);
+    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'overview', 'stack', 'files', 'steps'], path);
     if (!Array.isArray(scene.stack) || scene.stack.length < minimum || scene.stack.length > 6) {
         throw new Error(`${path}.stack must contain between ${minimum} and 6 revisions.`);
     }
@@ -403,6 +517,56 @@ export function validateStepRequirement(value: unknown, path: string): void {
     optionalString(value.source, `${path}.source`);
     if (value.confidence !== undefined && !['high', 'medium', 'low'].includes(String(value.confidence))) {
         throw new Error(`${path}.confidence must be high, medium, or low.`);
+    }
+}
+
+export interface SceneOverviewValidationOptions {
+    allowComparison?: boolean;
+    endpointIds?: readonly string[];
+}
+
+export function validateSceneOverview(
+    value: unknown,
+    path: string,
+    options: SceneOverviewValidationOptions = {}
+): asserts value is ChangeTourSourceSceneOverview | undefined {
+    if (value === undefined) return;
+    if (!isRecord(value)) throw new Error(`${path} must be an object.`);
+    requireOnlyKeys(value, ['kind', 'path', 'comparison'], path);
+    if (value.kind !== 'directory-diff') {
+        throw new Error(`${path}.kind must be directory-diff.`);
+    }
+    if (value.path !== undefined) validateDirectoryOverviewPath(value.path, `${path}.path`);
+    if (value.comparison === undefined) return;
+    if (options.allowComparison === false) {
+        throw new Error(`${path}.comparison is not supported for walkthrough scenes; use the fixed base-to-head comparison.`);
+    }
+    if (!isRecord(value.comparison)) throw new Error(`${path}.comparison must be an object.`);
+    requireOnlyKeys(value.comparison, ['from', 'to'], `${path}.comparison`);
+    requireString(value.comparison.from, `${path}.comparison.from`);
+    requireString(value.comparison.to, `${path}.comparison.to`);
+    if (value.comparison.from === value.comparison.to) {
+        throw new Error(`${path}.comparison.from and to must identify distinct endpoints.`);
+    }
+    if (options.endpointIds !== undefined) {
+        for (const endpoint of [value.comparison.from, value.comparison.to]) {
+            if (!options.endpointIds.includes(endpoint)) {
+                throw new Error(`${path}.comparison endpoint ${endpoint} is not defined by this scene.`);
+            }
+        }
+    }
+}
+
+export function validateDirectoryOverviewPath(value: unknown, path: string): asserts value is string {
+    requireString(value, path);
+    if (value.includes('\\')) {
+        throw new Error(`${path} must use a relative POSIX directory path without backslashes.`);
+    }
+    if (value.startsWith('/') || /^[A-Za-z]:/.test(value)) {
+        throw new Error(`${path} must be relative to the repository root.`);
+    }
+    if (value.split('/').some((segment) => segment === '..')) {
+        throw new Error(`${path} must not contain parent-directory traversal.`);
     }
 }
 

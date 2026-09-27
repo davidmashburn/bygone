@@ -59,3 +59,110 @@ test('history paths reject traversal and accept literal pathspec characters', ()
     }
     assert.equal(validatePath(':(glob)*.txt'), ':(glob)*.txt');
 });
+
+test('commit comparisons cover whole trees, scoped unchanged files, reverse endpoints, and bounded content', () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-tour-compare-')));
+    const git = (...args) => execFileSync('git', args, {
+        cwd: root,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+    }).trim();
+    const literalPath = ':(glob)*.txt';
+    try {
+        git('init');
+        git('config', 'user.email', 'test@example.com');
+        git('config', 'user.name', 'Test');
+        fs.writeFileSync(path.join(root, 'old.txt'), 'first line\nsecond line\n');
+        fs.writeFileSync(path.join(root, 'delete-me.txt'), 'remove this\n');
+        fs.writeFileSync(path.join(root, 'same.txt'), 'unchanged\n');
+        fs.writeFileSync(path.join(root, literalPath), 'literal before\n');
+        fs.writeFileSync(path.join(root, 'binary.bin'), Buffer.from([0, 1, 2]));
+        fs.writeFileSync(path.join(root, 'large.txt'), Buffer.alloc(2 * 1024 * 1024 + 1, 97));
+        git('add', '.');
+        git('commit', '-m', 'Root snapshot');
+        const rootCommit = git('rev-parse', 'HEAD');
+
+        git('mv', 'old.txt', 'renamed.txt');
+        fs.writeFileSync(path.join(root, 'renamed.txt'), 'first line\nsecond line\nrenamed\n');
+        fs.writeFileSync(path.join(root, 'created.txt'), 'new file\n');
+        fs.writeFileSync(path.join(root, literalPath), 'literal after\n');
+        fs.writeFileSync(path.join(root, 'binary.bin'), Buffer.from([0, 1, 3]));
+        git('rm', 'delete-me.txt');
+        git('add', '--all');
+        git('commit', '-m', 'Change snapshot');
+        const changedCommit = git('rev-parse', 'HEAD');
+
+        const history = createTourHistory({
+            version: 2,
+            repository: { root },
+            range: { headOid: changedCommit, mergeBaseOid: rootCommit }
+        });
+
+        const wholeTree = history.compare({ from: rootCommit, to: changedCommit });
+        assert.deepEqual(wholeTree.from, rootCommit);
+        assert.deepEqual(wholeTree.to, changedCommit);
+        const filesByPath = new Map(wholeTree.files.map(file => [file.path, file]));
+        assert.deepEqual([...filesByPath.keys()].sort(), [
+            literalPath,
+            'binary.bin',
+            'created.txt',
+            'delete-me.txt',
+            'renamed.txt'
+        ].sort());
+        assert.equal(filesByPath.get('renamed.txt').kind, 'text-diff');
+        assert.equal(filesByPath.get('renamed.txt').changeKind, 'renamed');
+        assert.equal(filesByPath.get('renamed.txt').previousPath, 'old.txt');
+        assert.equal(filesByPath.get('renamed.txt').leftContent, 'first line\nsecond line\n');
+        assert.equal(filesByPath.get('renamed.txt').rightContent, 'first line\nsecond line\nrenamed\n');
+        assert.equal(filesByPath.get('renamed.txt').additions, 1);
+        assert.equal(filesByPath.get('renamed.txt').deletions, 0);
+        assert.equal(filesByPath.get('created.txt').changeKind, 'added');
+        assert.equal(filesByPath.get('created.txt').leftContent, '');
+        assert.equal(filesByPath.get('created.txt').rightContent, 'new file\n');
+        assert.equal(filesByPath.get('created.txt').additions, 1);
+        assert.equal(filesByPath.get('created.txt').deletions, 0);
+        assert.equal(filesByPath.get('delete-me.txt').changeKind, 'deleted');
+        assert.equal(filesByPath.get('delete-me.txt').leftContent, 'remove this\n');
+        assert.equal(filesByPath.get('delete-me.txt').rightContent, '');
+        assert.equal(filesByPath.get('delete-me.txt').additions, 0);
+        assert.equal(filesByPath.get('delete-me.txt').deletions, 1);
+        assert.equal(filesByPath.get(literalPath).rightContent, 'literal after\n');
+        assert.equal(filesByPath.get('binary.bin').kind, 'omitted');
+        assert.match(filesByPath.get('binary.bin').reason, /Binary/);
+
+        const unchanged = history.compare({ from: rootCommit, to: changedCommit, path: 'same.txt' });
+        assert.equal(unchanged.files.length, 1);
+        assert.equal(unchanged.files[0].changeKind, 'unchanged');
+        assert.equal(unchanged.files[0].leftContent, 'unchanged\n');
+        assert.equal(unchanged.files[0].rightContent, 'unchanged\n');
+
+        const literal = history.compare({ from: rootCommit, to: changedCommit, path: literalPath });
+        assert.equal(literal.files.length, 1);
+        assert.equal(literal.files[0].path, literalPath);
+        assert.equal(literal.files[0].rightContent, 'literal after\n');
+
+        const oversized = history.compare({ from: rootCommit, to: changedCommit, path: 'large.txt' });
+        assert.equal(oversized.files.length, 1);
+        assert.equal(oversized.files[0].kind, 'omitted');
+        assert.match(oversized.files[0].reason, /too large/);
+
+        const reverse = history.compare({ from: changedCommit, to: rootCommit });
+        const reverseByPath = new Map(reverse.files.map(file => [file.path, file]));
+        assert.equal(reverseByPath.get('old.txt').changeKind, 'renamed');
+        assert.equal(reverseByPath.get('old.txt').previousPath, 'renamed.txt');
+        assert.equal(reverseByPath.get('old.txt').leftContent, 'first line\nsecond line\nrenamed\n');
+        assert.equal(reverseByPath.get('old.txt').rightContent, 'first line\nsecond line\n');
+        assert.equal(reverseByPath.get('created.txt').changeKind, 'deleted');
+        assert.equal(reverseByPath.get('delete-me.txt').changeKind, 'added');
+        assert.deepEqual(history.compare({ from: rootCommit, to: rootCommit }).files, []);
+
+        const revisions = history.revisions({ commit: rootCommit });
+        assert.equal(revisions.entries[0].commit, rootCommit);
+        assert.equal(history.list({ commit: changedCommit }).entries[0].commit, changedCommit);
+        assert.throws(() => history.compare({ from: '--all', to: changedCommit }), /full Git commit ID/);
+        assert.throws(() => history.compare({ from: rootCommit, to: '0'.repeat(40) }), /could not be resolved/);
+        assert.throws(() => history.compare({ from: rootCommit, to: changedCommit, path: '../secret' }), /relative/);
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});

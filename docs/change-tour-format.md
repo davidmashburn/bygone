@@ -40,6 +40,65 @@ The optional `windowTitle` sets the native window title for the tour presenter.
 Use a short label such as a pull request number when several tours may be open at
 once. When omitted, the presenter falls back to `title`, then a generic tour label.
 
+## Independent authored tours
+
+Version 2 can supply `tours.historical.chapters` and
+`tours.deconstructed.chapters`. Each uses the chapter and scene structure below,
+with the document's shared range, anchors, and connections. This lets one file
+explain actual revisions and also teach the change through synthetic stages.
+
+The required root `chapters` remain the compatible default tour. When a mode is
+not explicitly supplied, its authored content can come from those chapters:
+real walkthroughs and stacks supply Historical tour; deconstructed scenes supply
+Deconstructed tour. Explicit endpoint walkthrough steps on a deconstructed scene
+can supply Historical content, but a generated revision stack alone cannot.
+
+Historical tour accepts walkthroughs and real stacked diffs, including a stack
+with just two endpoints. It rejects synthetic deconstructed scenes.
+Deconstructed tour requires at least one deconstructed scene; other walkthrough
+scenes can add context and proof. Its synthetic stages do not need a matching
+authored historical step. Both modes retain their own chapter, scene, and step
+order; the presenter does not infer cross-tour mappings.
+
+See `examples/navigation-lab.bygone.yaml` for both tours in one file, and
+[presentation navigation](./present.md#explore-and-follow-tours) for History and
+Compare.
+
+## Scene directory overviews
+
+An authored walkthrough, stacked-diff, or deconstructed-diff scene may carry a
+directory overview for the presenter to render alongside the current scene:
+
+```yaml
+overview:
+  kind: directory-diff
+  path: web
+```
+
+`path` is optional and is relative to the repository root. Omit it or use `.`
+for the root directory. Absolute paths, backslashes, and `..` path segments are
+rejected. The compiler preserves this evidence on the corresponding compiled
+scene in the root tour and any authored mode or fallback that contains it; it
+does not create a separate scene kind.
+
+The comparison is stable regardless of the saved step. Stacked and deconstructed
+scenes default to their first and last panels; walkthroughs use the review's
+base-to-head comparison. For a narrower authored comparison, add:
+
+```yaml
+comparison:
+  from: before
+  to: hierarchy
+```
+
+Place `comparison` inside `overview`. For stacked scenes, endpoints are `stack`
+entry IDs. For deconstructed scenes, use `explanation-baseline` or
+`explanation-stage-<stage-id>`. Both endpoints must exist and differ. Walkthroughs
+reject this option. When a deconstructed scene produces a fallback Historical
+or walkthrough view, its synthetic endpoints are not mapped to real revisions:
+the fallback retains the directory scope and uses its default full comparison.
+Use an explicit authored Historical scene to choose a narrower real comparison.
+
 ## Structure
 
 ```yaml
@@ -80,7 +139,7 @@ chapters:
         steps:
           - id: persist-first
             title: Persist the recommendation
-            body: This exact line establishes the ordering guarantee.
+            body: This exact line establishes the ordering guarantee before the side effect runs.
             focus: durable-decision
             connection: contract-to-write
             requirement:
@@ -90,6 +149,18 @@ chapters:
               source: tracker:PROJ-123
               confidence: high
 ```
+
+Scene fields provide framing: `summary` states the scene's purpose, `bullets`
+give supporting points, and `takeaway` states what the reader should retain.
+Step `body` is the canonical place for the evidence-specific explanation,
+including why the focused code matters and any rationale or tradeoff that the
+source supports. Keeping that explanation beside `focus` lets the reader assess
+the claim while the code is visible and avoids repeating it in scene framing.
+
+The current source schema has no separate `notes` field. Keep unresolved
+questions and review decisions in the review record that accompanies the tour;
+do not add an ad hoc notes key or present those decisions as settled step
+rationale.
 
 ## Requirements
 

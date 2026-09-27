@@ -310,7 +310,7 @@ function testTourSearchFindsNarrativeStepsAndExactCodeLocations() {
     assert.match(markup, /id="tour-search-input"/);
     assert.match(markup, /Narrative \+ code/);
     assert.match(host, /type: 'revealSearchResult'/);
-    assert.match(host, /showTourScene\(match\.sceneIndex, match\.stepIndex \?\? 0\)/);
+    assert.match(host, /showTourScene\(match\.sceneIndex, match\.stepIndex \?\? 0, \{ showIntro: false \}\)/);
 }
 
 function testDeconstructedTourNavigationTraversesExplanationStages() {
@@ -450,11 +450,11 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /return target \? showTourFileSelection\(target\.fileIndex\) : false/);
     assert.match(hostSource, /tourFocusFilePath/);
     assert.match(hostSource, /function returnToTourFocus/);
-    assert.match(hostSource, /const inTourMode = !state\.zoom[\s\S]{0,160}state\.zoom\.mode === state\.authoredTour\.zoom\.authoredDepth[\s\S]{0,80}state\.zoom\.mode === 'final'/);
+    assert.match(hostSource, /const inTourMode = isNarrativeMode\(\)/);
     assert.match(hostSource, /returnButton\.hidden = !inTourMode/);
-    assert.match(hostSource, /mode === 'final'\) return \{ \.\.\.tour, \.\.\.tour\.zoom\.final \}/);
-    assert.match(hostSource, /state\.zoom\.mode === 'revisions' \|\| state\.zoom\.mode === 'history'/);
-    assert.match(hostSource, /state\.zoom\.mode === state\.authoredTour\.zoom\.authoredDepth \|\| state\.zoom\.mode === 'final'/);
+    assert.match(hostSource, /authoredTours\(\)\[mode\]/);
+    assert.match(hostSource, /classList\.toggle\('tour-derived-mode', !isNarrativeMode\(\)\)/);
+    assert.match(hostSource, /state\.zoom\.mode === 'historical' \|\| state\.zoom\.mode === 'deconstructed'/);
     assert.match(hostSource, /function renderMultiPanelStep/);
     assert.match(hostSource, /scene\.kind === 'deconstructed-diff'/);
     assert.match(hostSource, /scene\.stageLabel/);
@@ -473,17 +473,19 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(webMarkup, /id="tour-return-focus"/);
     assert.match(webMarkup, /id="tour-authoring-coverage"[^>]+aria-label="Tour authoring coverage"[^>]+hidden/);
     assert.match(hostSource, /renderAuthoringCoverage\(authoringCoverage, tour\.authoringCoverage\)/);
-    assert.match(hostSource, /coverage\.walkthrough\.scope === 'final' \? 'Final walkthrough' : 'Walkthrough'/);
+    assert.match(hostSource, /label: 'Anchored diff hunks'/);
     assert.match(hostSource, /metric: 'assignment'/);
     assert.match(presenterSource, /\.tour-coverage-item\[data-metric="assignment"\]/);
-    assert.match(presenterSource, /\.tour-rail-sections[\s\S]{0,180}grid-template-rows/);
+    assert.match(presenterSource, /\.tour-rail-sections[\s\S]{0,180}flex-direction: column/);
     assert.match(hostSource, /tourPrevious\?\.addEventListener\('click', \(\) => showTourLinear\(-1\)\)/);
     for (const markup of [webMarkup, providerSource]) {
         assert.match(markup, /id="next-file" class="change-button icon-button"/);
         assert.doesNotMatch(markup, /id="next-file" class="[^"]*change-button-primary/);
     }
     assert.match(hostSource, /parameters\.get\('step'\)/);
-    assert.match(hostSource, /parameters\.set\('step', scene\.steps\[state\.activeStepIndex\]\.id\)/);
+    assert.match(hostSource, /parameters\.set\('step', step\.id\)/);
+    assert.match(hostSource, /parameters\.get\('view'\) === 'overview'/);
+    assert.match(hostSource, /parameters\.set\('view', 'overview'\)/);
     assert.match(hostSource, /isInteractiveKeyTarget\(event\.target\)/);
     assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+--tour-rail-height/);
     assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+grid-template-columns: minmax\(190px/);
@@ -544,7 +546,7 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(rendererSource, /let currentTourAnnotations = \[\];/);
     assert.match(rendererSource, /currentTwoWayComparisonKey = comparisonKey;\s+currentTourAnnotations = tourAnnotations;/);
     assert.match(rendererSource, /function setActiveDiffIndex[\s\S]{0,300}applyDiffDecorations\(currentDiffModel, currentTourAnnotations\)/);
-    assert.match(rendererSource, /function showTwoWayDiff[\s\S]{0,2600}applyTwoWayRenderTransition\(\{[\s\S]{0,700}updateEditorValues\(leftContent, rightContent,[\s\S]{0,250}activeDiffIndex = nextResolvedDiffIndex[\s\S]{0,300}applyDiffDecorations\(suppliedDiffModel, currentTourAnnotations\)/);
+    assert.match(rendererSource, /function showTwoWayDiff[\s\S]{0,3600}applyTwoWayRenderTransition\(\{[\s\S]{0,700}updateEditorValues\(leftContent, rightContent,[\s\S]{0,250}activeDiffIndex = nextResolvedDiffIndex[\s\S]{0,300}applyDiffDecorations\(suppliedDiffModel, currentTourAnnotations\)/);
     assert.match(rendererSource, /const nextActiveDiffIndex = Number\.isInteger\(initialChangeIndex\)[\s\S]{0,100}\? initialChangeIndex[\s\S]{0,100}: comparisonChanged[\s\S]{0,100}\? 0[\s\S]{0,100}: activeDiffIndex/);
     assert.doesNotMatch(rendererSource, /function showTwoWayDiff[\s\S]{0,1400}setActiveDiffIndex\(/);
     assert.match(rendererSource, /className: tourAnnotation\.active \? 'bygone-tour-anchor' : 'bygone-tour-anchor-inactive'/);
@@ -570,6 +572,53 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(rendererSource, /function pushTourAnnotationDecoration/);
     assert.match(rendererSource, /applyMultiDiffDecorations[\s\S]{0,4000}currentTourAnnotations/);
     assert.match(rendererSource, /editorMode === MODE_MULTI_WAY[\s\S]{0,2600}candidate\.panelIndex === panelIndex/);
+}
+
+function testEditorScrollSyncIgnoresExtentOnlyChanges() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const scrollHandler = rendererSource.match(
+        /editor\.onDidScrollChange\(\(event\) => \{([\s\S]*?)\n {4}\}\);\s+\n {4}editor\.onDidContentSizeChange/
+    );
+    assert.ok(scrollHandler, 'renderer scroll handler should be available for focused regression coverage');
+
+    const invokeScrollHandler = (event, editorMode = 'two-way') => {
+        const calls = [];
+        const handler = new Function(
+            'event',
+            'suppressEditorEvents',
+            'connectorController',
+            'editorMode',
+            'MODE_MULTI_WAY',
+            'synchronizeMultiScroll',
+            'synchronizeEditorScroll',
+            'editor',
+            scrollHandler[1]
+        );
+        handler(
+            event,
+            false,
+            { scheduleDrawConnections: () => calls.push('draw') },
+            editorMode,
+            'multi-way',
+            () => calls.push('multi-scroll'),
+            () => calls.push('two-way-scroll'),
+            {}
+        );
+        return calls;
+    };
+
+    assert.deepEqual(
+        invokeScrollHandler({ scrollTopChanged: false, scrollLeftChanged: false, scrollWidthChanged: true }),
+        ['draw']
+    );
+    assert.deepEqual(
+        invokeScrollHandler({ scrollTopChanged: true, scrollLeftChanged: false }),
+        ['two-way-scroll', 'draw']
+    );
+    assert.deepEqual(
+        invokeScrollHandler({ scrollTopChanged: false, scrollLeftChanged: true }, 'multi-way'),
+        ['multi-scroll', 'draw']
+    );
 }
 
 function testStackedDiffTourAnnotations() {
@@ -3190,7 +3239,7 @@ function testDynamicButtonsHaveTooltips() {
         });
     }
     const createdTourButtons = tourSource.match(/document\.createElement\('button'\)/g) || [];
-    const titledTourButtons = tourSource.match(/button\.title\s*=/g) || [];
+    const titledTourButtons = tourSource.match(/\b(?:button|stepButton)\.title\s*=/g) || [];
     assert.equal(titledTourButtons.length, createdTourButtons.length, 'every dynamically-created tour button should receive a tooltip');
     assert.match(rendererSource, /Run search \(Enter\)/);
     assert.match(rendererSource, /Close Search in Files \(Esc\)/);
@@ -4301,6 +4350,7 @@ async function run() {
     testWebTourHostSeparatesFileAndNarrativeNavigation();
     testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls();
     testTourAnnotationPersistsAcrossChangeNavigation();
+    testEditorScrollSyncIgnoresExtentOnlyChanges();
     testStackedDiffTourAnnotations();
     testTourTransitionUpdatesLongDocumentBeforeDeepAnnotation();
     testEditingKeepsCompletedMultiDiffVisibleUntilReplacementArrives();

@@ -1,5 +1,6 @@
-/** Session cursors are only replaced by deliberate navigation, never by a fallback landing. */
-export type TourZoomMode = 'explanation' | 'revisions' | 'final' | 'history';
+/** The canonical views that keep an independent cursor in a tour session. */
+export type TourZoomMode = 'history' | 'compare' | 'historical' | 'deconstructed';
+
 export interface ZoomLocation {
     sceneIndex: number;
     stepIndex: number;
@@ -9,81 +10,40 @@ export interface ZoomLocation {
     navigation?: unknown;
     focusId?: string;
     narrativeScroll?: number;
+    view?: string;
+    narrativeParent?: string | null;
+    sceneIntroVisible?: boolean;
 }
 
-interface ZoomStep {
-    file?: string;
-    startLine?: number;
-    endLine?: number;
-    diff?: { path?: string };
-}
-
-interface ZoomScene {
-    path?: string;
-    steps?: ZoomStep[];
-}
-
-interface ZoomFile {
-    kind?: string;
-    path?: string;
-    previousPath?: string;
+function defaultZoomLocation(): ZoomLocation {
+    return { sceneIndex: 0, stepIndex: 0, path: null };
 }
 
 export class TourZoomSession {
-    private cursors = new Map<TourZoomMode, { location: ZoomLocation; epoch: number }>();
-    private epoch = 0;
-    private dirty = false;
-    private origin: ZoomLocation | null = null;
+    private cursors = new Map<TourZoomMode, ZoomLocation>();
+
     constructor(public mode: TourZoomMode) {}
 
-    navigate(): void { this.dirty = true; }
+    /** Kept as a no-op for callers that mark navigation before capturing a cursor. */
+    navigate(): void {}
 
+    /** Save the current mode's exact cursor, including its view and UI state. */
     depart(location: ZoomLocation): ZoomLocation {
-        if (this.dirty || !this.origin) {
-            if (this.dirty) this.epoch++;
-            this.origin = location;
-            this.cursors.set(this.mode, { location, epoch: this.epoch });
-        } else if (!this.cursors.has(this.mode)) {
-            this.cursors.set(this.mode, { location, epoch: this.epoch });
-        }
-        this.dirty = false;
-        return this.origin;
+        this.cursors.set(this.mode, location);
+        return location;
     }
 
-    enter(mode: TourZoomMode, mapped: ZoomLocation | null): { location: ZoomLocation; restore: boolean } {
-        const saved = this.cursors.get(mode);
+    /**
+     * Enter a mode using only that mode's saved cursor.
+     *
+     * The optional second argument remains accepted for callers being migrated
+     * from the old cross-mode mapping API, but it is deliberately ignored.
+     */
+    enter(mode: TourZoomMode, _mapped?: ZoomLocation | null): { location: ZoomLocation; restore: boolean } {
         this.mode = mode;
-        this.dirty = false;
-        if (saved && (saved.epoch === this.epoch || !mapped)) return { location: saved.location, restore: true };
-        return { location: mapped || { sceneIndex: 0, stepIndex: 0, path: null }, restore: false };
+        const saved = this.cursors.get(mode);
+        return saved
+            ? { location: saved, restore: true }
+            : { location: defaultZoomLocation(), restore: false };
     }
-}
-
-/** Prefer matching rename aliases and then the closest authored range in the file. */
-export function mapZoomLocation(
-    origin: ZoomLocation,
-    scenes: ZoomScene[],
-    files: ZoomFile[]
-): ZoomLocation | null {
-    const file = files.find((entry) => entry.path === origin.path || entry.previousPath === origin.path);
-    const aliases = new Set([origin.path, file?.path, file?.previousPath].filter(Boolean));
-    let best: ZoomLocation | null = null;
-    let distance = Infinity;
-    scenes.forEach((scene, sceneIndex) => {
-        const candidates = scene.steps || [{ file: scene.path }];
-        candidates.forEach((step: ZoomStep, stepIndex: number) => {
-            const path = step.diff?.path || step.file || scene.path;
-            if (!aliases.has(path)) return;
-            const start = step.startLine || 1;
-            const end = step.endLine || start;
-            const line = origin.line || start;
-            const delta = Math.max(start - line, line - end, 0);
-            if (delta < distance) {
-                distance = delta;
-                best = { sceneIndex, stepIndex, path: path ?? null, line: origin.line, commit: origin.commit };
-            }
-        });
-    });
-    if (!best && file?.kind === 'text-diff') return { sceneIndex: 0, stepIndex: 0, path: file.path ?? null, line: origin.line, commit: origin.commit };
-    return best;
 }

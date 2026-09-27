@@ -52,7 +52,8 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
 
     const server = createServer((request, response) => {
         const requestUrl = new URL(request.url || '/', 'http://127.0.0.1');
-        if (requestUrl.pathname === '/history/list' || requestUrl.pathname === '/history/diff') {
+        if (requestUrl.pathname === '/history/list' || requestUrl.pathname === '/history/diff'
+            || requestUrl.pathname === '/history/compare' || requestUrl.pathname === '/history/revisions') {
             if (request.method !== 'POST') return respondJson(response, 405, { error: 'Method not allowed' });
             if (!isSameOriginLoopbackRequest(request)) return respondJson(response, 403, { error: 'Forbidden' });
             if (!history) return respondJson(response, 404, { error: 'History requires a version 2 tour.' });
@@ -69,7 +70,13 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
                 if (response.writableEnded) return;
                 try {
                     const input = JSON.parse(body);
-                    const result = requestUrl.pathname === '/history/list' ? history.list(input) : history.diff(input);
+                    const result = requestUrl.pathname === '/history/list'
+                        ? history.list(input)
+                        : requestUrl.pathname === '/history/diff'
+                            ? history.diff(input)
+                            : requestUrl.pathname === '/history/compare'
+                                ? history.compare(input)
+                                : history.revisions(input);
                     respondJson(response, 200, result);
                 } catch {
                     respondJson(response, 400, { error: 'Could not load history for this file and revision.' });

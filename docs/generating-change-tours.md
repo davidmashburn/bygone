@@ -30,9 +30,10 @@ The skill documents how to install Bygone itself when the CLI is missing.
 3. Identify the small set of reviewer questions that explain why the change exists and how it works.
 4. Arrange those questions into conceptual chapters rather than filename order.
 5. Attach every walkthrough step to an exact snippet in either the base or head revision.
-6. Add a connection only when it explains a meaningful relationship between two pieces of evidence.
-7. Write the `.bygone` source.
-8. Validate it and repair every reported problem:
+6. Put the reason the focused code matters, including any evidence-grounded tradeoff, in that step's `body`.
+7. Add a connection only when it explains a meaningful relationship between two pieces of evidence.
+8. Write the `.bygone` source.
+9. Validate it and repair every reported problem:
 
    ```sh
    bygone tour validate review.bygone --json
@@ -53,10 +54,12 @@ Use `bygone tour schema` to print the current JSON Schema. The checked-in schema
 - Lead with contracts, invariants, or architectural boundaries before their consumers.
 - Pair behavior with the tests or evidence that prove it.
 - Keep mechanical, generated, and lockfile changes out of the authored narrative unless they alter the reviewer’s conclusion; they remain visible in the complete Files rail.
-- Make each annotation explain why the focused code matters; do not merely paraphrase its syntax.
+- Make each step body explain why the focused code matters, including a concise rationale or tradeoff when the source supports one; do not merely paraphrase its syntax.
+- Use scene summary, bullets, and takeaway for the scene's purpose and retained point. Do not repeat step bodies there when the step already carries the explanation.
 - Avoid claims about runtime behavior, safety, or intent that have no linked evidence.
 - Use connections sparingly. A connection should answer “how are these two facts related?”
 - Preserve access to the complete change instead of presenting the tour as exhaustive review.
+- Keep unresolved questions and review decisions in the external review record that accompanies the tour. The current `.bygone` schema has no separate notes field for them.
 
 ## Anchor rules
 
@@ -80,7 +83,9 @@ Requirements:
 - link every step to a unique source snippet;
 - connect code locations only when the relationship adds explanatory value;
 - include behavior and its proof;
+- put each evidence-grounded rationale or tradeoff beside its focused step;
 - leave secondary files to Bygone's complete Files rail;
+- keep unresolved questions and review decisions in the accompanying review record rather than adding an unsupported notes key;
 - run `bygone tour validate <file> --json` and repair all errors before finishing.
 ```
 

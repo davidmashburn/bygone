@@ -94,9 +94,15 @@ export function buildTourCoverageReport(startPath: string, sourceValue: unknown)
     const contextualOnlyEvidence: TourCoverageReport['contextualOnlyEvidence'] = [];
     const percentageDecimalPlaces = manifest.version === 2 ? 2 : 0;
 
+    // An independently authored Historical tour is the preferred walkthrough
+    // evidence.  Deconstructed-only tours may intentionally omit endpoint
+    // steps, so retain the legacy Final/root fallback when Historical has no
+    // walkthrough scenes to count.
+    const authoredHistoricalScenes = manifest.tours?.historical?.scenes;
+    const historicalHasWalkthrough = authoredHistoricalScenes?.some((scene) => scene.kind === 'walkthrough') === true;
     const walkthroughScenes = manifest.version === 2
-        ? requireFinalScenes(manifest.zoom?.final.scenes)
-        : manifest.scenes;
+        ? requireFinalScenes(historicalHasWalkthrough ? authoredHistoricalScenes : manifest.zoom?.final.scenes)
+        : historicalHasWalkthrough ? authoredHistoricalScenes : manifest.scenes;
     for (const scene of walkthroughScenes) {
         if (scene.kind !== 'walkthrough') continue;
         for (const step of scene.steps) {
@@ -179,7 +185,8 @@ function buildExplanationAssignments(
         && file.headContent !== undefined
     ));
     const totalUnits = materializableFiles.reduce((total, file) => total + file.units.length, 0);
-    return source.chapters
+    const deconstructedChapters = source.tours?.deconstructed?.chapters || source.chapters;
+    return deconstructedChapters
         .flatMap((chapter) => chapter.scenes)
         .filter((scene): scene is ChangeTourSourceDeconstructedScene => scene.kind === 'deconstructed-diff')
         .map((scene) => {
