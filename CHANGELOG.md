@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.9.0
+
+- Added independently authored Historical and Deconstructed tours with stable per-mode reading positions
+- Added optional scene-level directory overviews with safe repository-relative scoping and authored comparison endpoints
+- Added evidence-linked review notes for concepts, boundaries, tradeoffs, and open questions
+- Introduced source and manifest format v3 for the new tour metadata while preserving v1 and v2 compatibility
+
 ## 0.8.16
 
 - Clarified authored-tour errors when a document requires a newer format version
