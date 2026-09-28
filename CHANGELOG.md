@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Replaced tour mode and comparison endpoint drop-downs with direct mode buttons and multi-select revision comparison
+- Added two-or-more-panel Compare views ordered from oldest to newest with adjacent diffs
+
+## 0.9.1
+
+- Restored authored Final walkthroughs and legacy Final deep links for version 2 deconstructed tours
+- Reused the full revision rail and toolbar in tour History mode while preserving the selected file on first entry
+- Expanded Files and Tour details by default and kept Scene context available alongside the active step
+
 ## 0.9.0
 
 - Added independently authored Historical and Deconstructed tours with stable per-mode reading positions

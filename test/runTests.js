@@ -436,6 +436,7 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     const webMarkup = fs.readFileSync(path.join(__dirname, '..', 'web', 'index.html'), 'utf8');
     const providerSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'diffViewProvider.ts'), 'utf8');
     const presenterSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'presenter.css'), 'utf8');
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
 
     assert.match(hostSource, /message\.type === 'navigateFile'[\s\S]{0,180}showTourFile/);
     assert.doesNotMatch(hostSource, /message\.type === 'navigateFile'[\s\S]{0,180}showTourLinear/);
@@ -453,8 +454,25 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /const inTourMode = isNarrativeMode\(\)/);
     assert.match(hostSource, /returnButton\.hidden = !inTourMode/);
     assert.match(hostSource, /authoredTours\(\)\[mode\]/);
+    assert.match(hostSource, /function legacyFinalTour[\s\S]{0,350}tour\.zoom\?\.final/);
+    assert.match(hostSource, /final: legacyFinalTour\(\) \? 'historical' : 'compare'/);
+    assert.match(hostSource, /mode === 'historical' && legacyFinalTour\(\) \? 'Final tour'/);
     assert.match(hostSource, /classList\.toggle\('tour-derived-mode', !isNarrativeMode\(\)\)/);
     assert.match(hostSource, /state\.zoom\.mode === 'historical' \|\| state\.zoom\.mode === 'deconstructed'/);
+    assert.match(hostSource, /state\.zoom\.enter\(mode, mode === 'history' \? origin : null\)/);
+    assert.match(hostSource, /state\.zoom\?\.mode === 'history'[\s\S]{0,100}state\.historyPath \|\| scene\.path/);
+    assert.match(hostSource, /function formatTourPaneLabel[\s\S]{0,120}state\.zoom\?\.mode === 'history'[\s\S]{0,40}return label/);
+    assert.match(hostSource, /buildZoomHistoryState\(entries, commit, diff\)/);
+    assert.match(hostSource, /message\.type === 'historyBack' \|\| message\.type === 'historyForward'/);
+    assert.match(hostSource, /message\.type === 'selectHistoryEntry'/);
+    assert.match(hostSource, /message\.type === 'toggleHistorySelection'/);
+    assert.doesNotMatch(webMarkup, /id="tour-history-select"/);
+    assert.doesNotMatch(webMarkup, /<select[^>]+id="tour-(?:mode|compare)/);
+    assert.match(webMarkup, /id="tour-mode-tabs"/);
+    assert.match(webMarkup, /id="tour-history-compare"/);
+    assert.match(rendererSource, /data-rail-select/);
+    assert.match(hostSource, /type: 'showMultiDiff'[\s\S]{0,260}history: buildComparisonHistoryState/);
+    assert.match(rendererSource, /workingTreeControls === false/);
     assert.match(hostSource, /function renderMultiPanelStep/);
     assert.match(hostSource, /scene\.kind === 'deconstructed-diff'/);
     assert.match(hostSource, /scene\.stageLabel/);
@@ -469,7 +487,11 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /source\.removeAttribute\('href'\)/);
     assert.match(hostSource, /getMultiPanelDefinitions/);
     assert.match(hostSource, /type: 'showMultiDiff'/);
-    assert.match(webMarkup, /id="tour-files"/);
+    assert.match(webMarkup, /class="tour-details" open/);
+    assert.match(webMarkup, /tour-files-section is-open/);
+    assert.match(webMarkup, /id="tour-files-toggle"[^>]+aria-expanded="true"/);
+    assert.match(webMarkup, /id="tour-files" class="tour-files" aria-label="Changed files"><\/nav>/);
+    assert.match(hostSource, /contextLabel\.hidden = !step/);
     assert.match(webMarkup, /id="tour-return-focus"/);
     assert.match(webMarkup, /id="tour-authoring-coverage"[^>]+aria-label="Tour authoring coverage"[^>]+hidden/);
     assert.match(hostSource, /renderAuthoringCoverage\(authoringCoverage, tour\.authoringCoverage\)/);

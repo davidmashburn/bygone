@@ -210,6 +210,8 @@ function buildComparisonFile(root, from, to, changedPath, statsByPath) {
         path: changedPath.path,
         ...(changedPath.previousPath ? { previousPath: changedPath.previousPath } : {}),
         changeKind: changedPath.kind,
+        leftPath: pair.leftPath,
+        rightPath: pair.rightPath,
         leftContent: reason ? '' : left.content,
         rightContent: reason ? '' : right.content,
         leftLabel,
@@ -229,6 +231,8 @@ function buildUnchangedPath(root, from, to, filePath) {
         kind: reason ? 'omitted' : 'text-diff',
         path: filePath,
         changeKind: 'unchanged',
+        leftPath: filePath,
+        rightPath: filePath,
         leftContent: reason ? '' : left.content,
         rightContent: reason ? '' : right.content,
         leftLabel: `${filePath} @ ${from.slice(0, 7)}`,
@@ -248,6 +252,53 @@ function pathExistsAt(root, oid, filePath) {
     }
 }
 
+function aggregateComparisonFiles(commits, comparisons) {
+    const groups = [];
+    for (const [pairIndex, comparison] of comparisons.entries()) {
+        for (const file of comparison.files) {
+            const aliases = [file.path, file.previousPath, file.leftPath, file.rightPath].filter(Boolean);
+            const matches = groups.filter(group => aliases.some(alias => group.aliases.has(alias)));
+            const group = matches.shift() || { aliases: new Set(), files: [], panels: Array(commits.length).fill(null) };
+            if (!groups.includes(group)) groups.push(group);
+            for (const duplicate of matches) {
+                for (const alias of duplicate.aliases) group.aliases.add(alias);
+                group.files.push(...duplicate.files);
+                for (let index = 0; index < group.panels.length; index += 1) group.panels[index] ||= duplicate.panels[index];
+                groups.splice(groups.indexOf(duplicate), 1);
+            }
+            for (const alias of aliases) group.aliases.add(alias);
+            group.files.push(file);
+            if (file.kind === 'text-diff') {
+                group.panels[pairIndex] = { content: file.leftContent, path: file.leftPath || file.previousPath || file.path };
+                group.panels[pairIndex + 1] = { content: file.rightContent, path: file.rightPath || file.path };
+            }
+        }
+    }
+    return groups.map(group => {
+        for (let index = 1; index < group.panels.length; index += 1) group.panels[index] ||= group.panels[index - 1];
+        for (let index = group.panels.length - 2; index >= 0; index -= 1) group.panels[index] ||= group.panels[index + 1];
+        const source = group.files[group.files.length - 1];
+        const filePath = [...group.panels].reverse().find(panel => panel?.path)?.path || source.path;
+        const omitted = group.files.find(file => file.kind === 'omitted');
+        return {
+            kind: omitted ? 'omitted' : 'text-diff',
+            path: filePath,
+            changeKind: source.changeKind,
+            additions: group.files.reduce((sum, file) => sum + (file.additions || 0), 0),
+            deletions: group.files.reduce((sum, file) => sum + (file.deletions || 0), 0),
+            ...(omitted ? { reason: omitted.reason } : {}),
+            comparisonPanels: group.panels.map((panel, index) => ({
+                id: `compare-${commits[index]}`,
+                label: `${panel?.path || filePath} @ ${commits[index].slice(0, 7)}`,
+                commit: commits[index],
+                path: panel?.path || filePath,
+                content: panel?.content || '',
+                editable: false
+            }))
+        };
+    });
+}
+
 function createTourHistory(manifest) {
     if (manifest.version < 2) return null;
     let root;
@@ -258,6 +309,21 @@ function createTourHistory(manifest) {
         validateCommit(root, manifest.range.mergeBaseOid);
     } catch {
         throw new Error('This v2 tour requires its originating Git repository. Restore the repository before presenting it.');
+    }
+    function compare(input) {
+        input = requireInput(input);
+        const from = validateCommit(root, input.from);
+        const to = validateCommit(root, input.to);
+        const changedPaths = listChangedPaths(root, from, to);
+        const statsByPath = buildStatsMap(readNumstats(root, from, to));
+        if (input.path !== undefined) {
+            const filePath = validatePath(input.path);
+            const changedPath = changedPaths.find(item => item.path === filePath || item.previousPath === filePath);
+            if (changedPath) return { from, to, files: [buildComparisonFile(root, from, to, changedPath, statsByPath)] };
+            if (!pathExistsAt(root, from, filePath) && !pathExistsAt(root, to, filePath)) return { from, to, files: [] };
+            return { from, to, files: [buildUnchangedPath(root, from, to, filePath)] };
+        }
+        return { from, to, files: changedPaths.map(changedPath => buildComparisonFile(root, from, to, changedPath, statsByPath)) };
     }
     return {
         list(input) {
@@ -330,27 +396,20 @@ function createTourHistory(manifest) {
                 leftLabel: `${leftPath} @ ${parentCommit ? parentCommit.slice(0, 7) : 'empty'}`,
                 rightLabel: `${rightPath} @ ${commit.slice(0, 7)}` };
         },
-        compare(input) {
+        compare,
+        compareMany(input) {
             input = requireInput(input);
-            const from = validateCommit(root, input.from);
-            const to = validateCommit(root, input.to);
-            const changedPaths = listChangedPaths(root, from, to);
-            const statsByPath = buildStatsMap(readNumstats(root, from, to));
-            if (input.path !== undefined) {
-                const filePath = validatePath(input.path);
-                const changedPath = changedPaths.find(item => item.path === filePath || item.previousPath === filePath);
-                if (changedPath) {
-                    return { from, to, files: [buildComparisonFile(root, from, to, changedPath, statsByPath)] };
-                }
-                if (!pathExistsAt(root, from, filePath) && !pathExistsAt(root, to, filePath)) {
-                    return { from, to, files: [] };
-                }
-                return { from, to, files: [buildUnchangedPath(root, from, to, filePath)] };
-            }
-            return {
+            if (!Array.isArray(input.commits) || input.commits.length < 2) throw new Error('Comparison requires at least two commits.');
+            const commits = input.commits.map(commit => validateCommit(root, commit));
+            if (new Set(commits).size !== commits.length) throw new Error('Comparison commits must be unique.');
+            const comparisons = commits.slice(0, -1).map((from, index) => compare({
                 from,
-                to,
-                files: changedPaths.map(changedPath => buildComparisonFile(root, from, to, changedPath, statsByPath))
+                to: commits[index + 1],
+                ...(input.path !== undefined ? { path: input.path } : {})
+            }));
+            return {
+                commits,
+                files: aggregateComparisonFiles(commits, comparisons)
             };
         }
     };

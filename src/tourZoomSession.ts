@@ -33,17 +33,12 @@ export class TourZoomSession {
         return location;
     }
 
-    /**
-     * Enter a mode using only that mode's saved cursor.
-     *
-     * The optional second argument remains accepted for callers being migrated
-     * from the old cross-mode mapping API, but it is deliberately ignored.
-     */
-    enter(mode: TourZoomMode, _mapped?: ZoomLocation | null): { location: ZoomLocation; restore: boolean } {
+    /** Enter a mode using its saved cursor, or an optional first-visit location. */
+    enter(mode: TourZoomMode, initial?: ZoomLocation | null): { location: ZoomLocation; restore: boolean } {
         this.mode = mode;
         const saved = this.cursors.get(mode);
         return saved
             ? { location: saved, restore: true }
-            : { location: defaultZoomLocation(), restore: false };
+            : { location: initial ?? defaultZoomLocation(), restore: false };
     }
 }

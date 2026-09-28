@@ -14,3 +14,10 @@ When adding or revising planning material:
   in `plans/`.
 - Keep implementation work based on `main`. Copy or adapt an approved plan
   into implementation context when needed instead of merging branch history.
+
+# Main branch commits
+
+After creating a commit directly on `main`, run `npm run dev:sync` before
+reporting the work complete. This rebuilds the repository artifacts and
+installs the refreshed command-line tools, VS Code extension, and desktop app
+for the current platform.

@@ -36,12 +36,12 @@ one side is present. An empty **Present** view keeps the regular split layout.
 When the current step has an exact source target, **Show in code** refocuses the
 corresponding file and line.
 
-Expand **Files** at the bottom of the sidebar to browse all changed files.
-The Files rail is independent of the narrative. Browsing another file keeps
+**Files** at the bottom of the sidebar is expanded by default and can be
+collapsed. The Files rail is independent of the narrative. Browsing another file keeps
 the active tour anchor visible and offers **Return to Tour** to restore the
 scene's intended focus.
 
-**Tour details** contains the source link, range, change counts, and authored
+**Tour details** is expanded by default and contains the source link, range, change counts, and authored
 diff-hunk coverage. Coverage describes how much code the author anchored; it
 does not measure your reading progress. The header shows your current step.
 
@@ -52,26 +52,40 @@ authored first scene and order.
 
 ## Explore and follow tours
 
-Version 2 and 3 presentations group the mode switcher into **Explore** and **Tours**.
+Version 2 and 3 presentations expose **History**, **Compare**, and the available
+authored tours as direct mode buttons.
 Independent Historical and Deconstructed tours require version 3:
 
-- **History** browses a file's actual Git revisions. Select a revision, choose
-  **Compare from here**, then select another revision and choose **Compare to
-  here**. Shortcuts compare with the parent or review base.
-- **Compare** shows a plain two-way diff between the selected revisions.
-  Change either endpoint or swap their order. Comparisons opened from file
-  history stay on that file; **Show all changed files** expands the same range.
-  **Final diff** selects the review base and head across all changed files.
+- **History** browses a file's actual Git revisions. Check two or more revisions
+  in the revision rail, then choose **Compare selected**. Activating a revision's
+  label previews it without changing the comparison selection. Shortcuts compare
+  the active revision with its parent or the review base.
+- **Compare** shows one panel per selected revision, oldest to newest, with a
+  diff between each adjacent pair. The revision rail remains available for
+  adding or removing panels, and activating a selected revision focuses its
+  panel. Comparisons opened from file history stay on that file; **Show all
+  changed files** expands the same range. **Final diff** selects the review base
+  and head across all changed files.
 - **Historical tour** explains actual revision states, including intermediate
   changes, updates, and reverts. It retains chapters, scenes, steps, and narration.
 - **Deconstructed tour** explains the change through authored, synthetic
   cumulative stages. Its panels are explanation stages, not Git commits.
 
+Previously compiled version 2 deconstructed tours retain their separate
+authored **Final tour** alongside the synthetic stages. Existing `mode=final`
+links open that walkthrough; other final-diff links open Compare at the review
+endpoints.
+
 Only available authored tours appear. A real revision stack does not by itself
 create a Historical tour. Each mode remembers its own reading or browsing
 position during the session; entering a tour for the first time starts at its
-beginning. Switching modes does not infer a corresponding step in another tour.
+beginning. Entering History for the first time keeps the file currently being
+inspected; later returns restore History's own file and revision. Switching
+modes does not infer a corresponding step in another tour.
 The active tour position or comparison is also reflected in the URL for refresh.
+
+While reading a step, expand **Scene context** beneath it to keep the scene's
+summary, supporting points, and takeaway visible without leaving the step.
 
 ## Listen to a tour
 

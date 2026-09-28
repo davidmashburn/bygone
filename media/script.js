@@ -2294,7 +2294,7 @@ function initializeHistoryRail() {
     });
 
     rail.addEventListener('click', (event) => {
-        const target = event.target instanceof Element ? event.target.closest('[data-rail-tab], [data-rail-item], [data-rail-collapse]') : null;
+        const target = event.target instanceof Element ? event.target.closest('[data-rail-tab], [data-rail-item], [data-rail-select], [data-rail-collapse]') : null;
         if (!target) {
             return;
         }
@@ -2303,6 +2303,12 @@ function initializeHistoryRail() {
             navigationRailCollapsed = true;
             renderHistoryRail();
             resizeDiffWorkspace();
+            return;
+        }
+
+        if (target.hasAttribute('data-rail-select')) {
+            const itemIndex = Number.parseInt(target.getAttribute('data-rail-index') || '', 10);
+            if (Number.isInteger(itemIndex)) host.postMessage({ type: 'toggleHistorySelection', index: itemIndex });
             return;
         }
 
@@ -4698,6 +4704,8 @@ function updateHistoryToolbar(history) {
     toolbar.hidden = false;
     backButton.disabled = !history.canGoBack;
     forwardButton.disabled = !history.canGoForward;
+    stagedButton.hidden = history.workingTreeControls === false;
+    skipUnchangedButton.hidden = history.workingTreeControls === false;
     stagedButton.setAttribute('aria-pressed', history.includeStaged ? 'true' : 'false');
     stagedButton.classList.toggle('is-active', Boolean(history.includeStaged));
     skipUnchangedButton.setAttribute('aria-pressed', history.skipUnchanged ? 'true' : 'false');
@@ -4830,14 +4838,15 @@ function renderHistoryRailItem(item, tabId, index) {
         ? ` data-rail-path="${escapeAttr(item.relativePath)}" data-file-path="${escapeAttr(item.relativePath)}"`
         : '';
 
-    const action = item.kind === 'directory-entry' ? 'Open file' : 'Open history entry';
-    return `<button class="history-rail-item${activeClass}${statusClass}" type="button" title="${action}: ${escapeAttr(item.label)}" data-rail-item="true" data-rail-tab="${escapeAttr(tabId)}"${kindAttr}${indexAttr}${pathAttr}>`
-        + `<span class="history-rail-marker">${escapeHtml(marker)}</span>`
-        + `<span class="history-rail-text">`
-        + `<span class="history-rail-label">${escapeHtml(item.label)}</span>`
-        + meta
-        + `</span>`
-        + `</button>`;
+    const action = item.kind === 'directory-entry' ? 'Open file' : 'Preview history entry';
+    const selection = item.kind === 'history-entry'
+        ? `<button class="history-rail-selection${item.selected ? ' selected' : ''}" type="button" role="checkbox" aria-checked="${String(Boolean(item.selected))}" title="${item.selected ? 'Remove from' : 'Add to'} comparison" data-rail-select="true"${indexAttr}>${item.selected ? '✓' : ''}</button>`
+        : `<span class="history-rail-marker">${escapeHtml(marker)}</span>`;
+    return `<div class="history-rail-item${activeClass}${statusClass}">`
+        + selection
+        + `<button class="history-rail-entry" type="button" title="${action}: ${escapeAttr(item.label)}" data-rail-item="true" data-rail-tab="${escapeAttr(tabId)}"${kindAttr}${indexAttr}${pathAttr}>`
+        + `<span class="history-rail-text"><span class="history-rail-label">${escapeHtml(item.label)}</span>${meta}</span>`
+        + `</button></div>`;
 }
 
 function getHistoryRailItems(tabId) {

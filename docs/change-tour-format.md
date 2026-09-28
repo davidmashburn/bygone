@@ -193,12 +193,13 @@ results search the compiled base and head snapshots, open the exact file and
 side, and preserve **Return to tour** so exploration does not lose authored
 context.
 
-Version 2 and 3 tours show one mode control for jumping directly among the authored
-explanation, real revisions, the final endpoint diff, and live Git history.
-Only modes at or above the tour's maximum authored depth appear. A two-panel
-stack therefore collapses into Final diff rather than creating a duplicate
-Revisions mode. Each mode retains its own location; switching back without
-navigating restores that location exactly.
+Version 2 and 3 tours show one mode control for moving among live Git History,
+arbitrary Compare ranges, and the authored tours available in that manifest.
+Previously compiled version 2 deconstructed tours retain their authored final
+endpoint walkthrough as **Final tour** beside **Deconstructed tour**. Other
+version 2 tours appear as **Historical tour**, while their endpoint comparison
+remains available through **Final diff** in Compare. Each mode retains its own
+location; switching back restores that location exactly.
 
 Use a walkthrough by default. Use a [stacked-diff example](../examples/stacked-diff.bygone)
 only when every panel is a real selected Git revision. Use a

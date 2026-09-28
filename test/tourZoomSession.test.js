@@ -23,19 +23,20 @@ const compareLocation = {
 
 const session = new TourZoomSession('history');
 
-// Entering a mode for the first time always starts at the neutral cursor.
-assert.deepEqual(session.enter('history', { sceneIndex: 8, stepIndex: 2, path: 'mapped.ts' }), {
-    location: defaultLocation,
+// A first visit can keep relevant context from the mode being left.
+const historySeed = { sceneIndex: 8, stepIndex: 2, path: 'mapped.ts', commit: 'seed123' };
+assert.deepEqual(session.enter('history', historySeed), {
+    location: historySeed,
     restore: false
 });
 
-// Each mode owns its cursor, and navigating between modes never infers a landing.
+// Each mode owns its cursor after the first visit.
 session.depart(historyLocation);
 session.navigate();
 assert.deepEqual(session.enter('compare'), { location: defaultLocation, restore: false });
 session.navigate();
 session.depart(compareLocation);
-assert.deepEqual(session.enter('history'), { location: historyLocation, restore: true });
+assert.deepEqual(session.enter('history', historySeed), { location: historyLocation, restore: true });
 assert.deepEqual(session.enter('compare'), { location: compareLocation, restore: true });
 
 // Saving again always replaces the active mode's cursor exactly.

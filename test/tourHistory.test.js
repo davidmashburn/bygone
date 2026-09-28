@@ -112,6 +112,8 @@ test('commit comparisons cover whole trees, scoped unchanged files, reverse endp
         assert.equal(filesByPath.get('renamed.txt').kind, 'text-diff');
         assert.equal(filesByPath.get('renamed.txt').changeKind, 'renamed');
         assert.equal(filesByPath.get('renamed.txt').previousPath, 'old.txt');
+        assert.equal(filesByPath.get('renamed.txt').leftPath, 'old.txt');
+        assert.equal(filesByPath.get('renamed.txt').rightPath, 'renamed.txt');
         assert.equal(filesByPath.get('renamed.txt').leftContent, 'first line\nsecond line\n');
         assert.equal(filesByPath.get('renamed.txt').rightContent, 'first line\nsecond line\nrenamed\n');
         assert.equal(filesByPath.get('renamed.txt').additions, 1);
@@ -133,6 +135,8 @@ test('commit comparisons cover whole trees, scoped unchanged files, reverse endp
         const unchanged = history.compare({ from: rootCommit, to: changedCommit, path: 'same.txt' });
         assert.equal(unchanged.files.length, 1);
         assert.equal(unchanged.files[0].changeKind, 'unchanged');
+        assert.equal(unchanged.files[0].leftPath, 'same.txt');
+        assert.equal(unchanged.files[0].rightPath, 'same.txt');
         assert.equal(unchanged.files[0].leftContent, 'unchanged\n');
         assert.equal(unchanged.files[0].rightContent, 'unchanged\n');
 
@@ -145,6 +149,20 @@ test('commit comparisons cover whole trees, scoped unchanged files, reverse endp
         assert.equal(oversized.files.length, 1);
         assert.equal(oversized.files[0].kind, 'omitted');
         assert.match(oversized.files[0].reason, /too large/);
+
+        fs.writeFileSync(path.join(root, 'renamed.txt'), 'first line\nsecond line\nrenamed again\n');
+        git('add', 'renamed.txt');
+        git('commit', '-m', 'Change renamed file again');
+        const thirdCommit = git('rev-parse', 'HEAD');
+        const many = history.compareMany({ commits: [rootCommit, changedCommit, thirdCommit], path: 'renamed.txt' });
+        assert.deepEqual(many.commits, [rootCommit, changedCommit, thirdCommit]);
+        assert.equal(many.files.length, 1);
+        assert.deepEqual(many.files[0].comparisonPanels.map(panel => panel.path), ['old.txt', 'renamed.txt', 'renamed.txt']);
+        assert.deepEqual(many.files[0].comparisonPanels.map(panel => panel.content), [
+            'first line\nsecond line\n',
+            'first line\nsecond line\nrenamed\n',
+            'first line\nsecond line\nrenamed again\n'
+        ]);
 
         const reverse = history.compare({ from: changedCommit, to: rootCommit });
         const reverseByPath = new Map(reverse.files.map(file => [file.path, file]));
@@ -162,6 +180,8 @@ test('commit comparisons cover whole trees, scoped unchanged files, reverse endp
         assert.throws(() => history.compare({ from: '--all', to: changedCommit }), /full Git commit ID/);
         assert.throws(() => history.compare({ from: rootCommit, to: '0'.repeat(40) }), /could not be resolved/);
         assert.throws(() => history.compare({ from: rootCommit, to: changedCommit, path: '../secret' }), /relative/);
+        assert.throws(() => history.compareMany({ commits: [rootCommit] }), /at least two/);
+        assert.throws(() => history.compareMany({ commits: [rootCommit, rootCommit] }), /unique/);
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }

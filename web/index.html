@@ -13,17 +13,13 @@
             <button id="tour-sidebar-hide" class="tour-sidebar-hide" type="button" title="Hide tour sidebar" aria-label="Hide tour sidebar">‹</button>
             <h1 id="tour-title"></h1>
             <div id="tour-mode-controls" class="tour-mode-controls" hidden>
-                <label for="tour-mode-select">Mode</label>
-                <select id="tour-mode-select"></select>
+                <span class="tour-mode-label">Mode</span>
+                <nav id="tour-mode-tabs" class="tour-mode-tabs" aria-label="Presentation mode"></nav>
                 <p id="tour-mode-description" class="tour-mode-description"></p>
                 <div id="tour-history-controls" class="tour-evidence-controls" hidden>
-                    <label for="tour-history-select">Revision</label>
-                    <select id="tour-history-select"></select>
                     <div class="tour-evidence-actions">
-                        <button id="tour-history-from" type="button" title="Use this revision as the comparison start">Compare from here</button>
-                        <button id="tour-history-to" type="button" title="Compare the selected start with this revision" disabled>Compare to here</button>
+                        <button id="tour-history-compare" type="button" title="Compare the selected revisions" disabled>Compare selected (0)</button>
                     </div>
-                    <p id="tour-history-from-status" role="status"></p>
                     <div class="tour-evidence-actions">
                         <button id="tour-history-parent" type="button" title="Compare this revision with its parent">Compare with parent</button>
                         <button id="tour-history-base" type="button" title="Compare this revision with the review base">Compare with review base</button>
@@ -31,13 +27,8 @@
                     </div>
                 </div>
                 <div id="tour-compare-controls" class="tour-evidence-controls" hidden>
-                    <label for="tour-compare-from">From</label>
-                    <select id="tour-compare-from"></select>
-                    <label for="tour-compare-to">To</label>
-                    <select id="tour-compare-to"></select>
                     <div id="tour-compare-scope"></div>
                     <div class="tour-evidence-actions">
-                        <button id="tour-compare-swap" type="button" title="Reverse the comparison endpoints">Swap</button>
                         <button id="tour-compare-clear" type="button" title="Clear the comparison and return to History">Clear</button>
                         <button id="tour-compare-final" type="button" title="Compare the review base with its head across all changed files">Final diff</button>
                         <button id="tour-compare-all" type="button" title="Compare these revisions across all changed files" hidden>Show all changed files</button>
@@ -45,7 +36,7 @@
                 </div>
                 <div id="tour-mode-status" role="status" aria-live="polite"></div>
             </div>
-            <details class="tour-details">
+            <details class="tour-details" open>
                 <summary>Tour details</summary>
                 <a id="tour-source" class="tour-source" target="_blank" rel="noreferrer" hidden>Open source ↗</a>
                 <div class="tour-meta">
@@ -76,13 +67,13 @@
                 </header>
                 <nav id="tour-scenes" class="tour-scenes" aria-label="Change tour scenes"></nav>
             </section>
-            <section class="tour-rail-section tour-files-section">
+            <section class="tour-rail-section tour-files-section is-open">
                 <header class="tour-rail-heading">
-                    <button id="tour-files-toggle" type="button" title="Show or hide changed files" aria-expanded="false" aria-controls="tour-files">Files</button>
+                    <button id="tour-files-toggle" type="button" title="Show or hide changed files" aria-expanded="true" aria-controls="tour-files">Files</button>
                     <span id="tour-file-count" class="tour-rail-count"></span>
                     <button id="tour-return-focus" class="tour-return-focus" type="button" title="Return to the file focused by the current tour step" hidden>Return to tour</button>
                 </header>
-                <nav id="tour-files" class="tour-files" aria-label="Changed files" hidden></nav>
+                <nav id="tour-files" class="tour-files" aria-label="Changed files"></nav>
             </section>
         </div>
         <details class="tour-commits-section">

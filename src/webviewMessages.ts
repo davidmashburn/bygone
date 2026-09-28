@@ -18,6 +18,7 @@ export interface HistoryViewState {
     rightTimestamp: string;
     includeStaged?: boolean;
     skipUnchanged?: boolean;
+    workingTreeControls?: boolean;
     rail?: HistoryRailState;
 }
 
@@ -30,6 +31,7 @@ export interface HistoryRailItem {
     label: string;
     meta?: string;
     active?: boolean;
+    selected?: boolean;
     status?: string;
     kind?: 'history-entry' | 'directory-entry';
     index?: number;
@@ -147,6 +149,7 @@ export interface ShowMultiDiffMessage {
     pairs: MultiDiffPair[];
     activePanelId?: string | null;
     activePairIndex?: number | null;
+    history?: (HistoryViewState & { fileName: string }) | null;
     canReturnToDirectory?: boolean;
     directoryNavigation?: DirectoryNavigationState | null;
     fileNavigation?: FileNavigationState | null;
@@ -201,6 +204,11 @@ export interface OpenDirectoryEntryMessage {
 
 export interface SelectHistoryEntryMessage {
     type: 'selectHistoryEntry';
+    index: number;
+}
+
+export interface ToggleHistorySelectionMessage {
+    type: 'toggleHistorySelection';
     index: number;
 }
 
@@ -271,6 +279,7 @@ export type WebviewInboundMessage =
     | HistoryNavigationMessage
     | OpenDirectoryEntryMessage
     | SelectHistoryEntryMessage
+    | ToggleHistorySelectionMessage
     | ReturnToDirectoryMessage
     | NavigateFileMessage
     | NavigateTourStepMessage
@@ -307,6 +316,11 @@ export function isOpenDirectoryEntryMessage(message: unknown): message is OpenDi
 export function isSelectHistoryEntryMessage(message: unknown): message is SelectHistoryEntryMessage {
     return getMessageType(message) === 'selectHistoryEntry'
         && Number.isInteger((message as SelectHistoryEntryMessage).index);
+}
+
+export function isToggleHistorySelectionMessage(message: unknown): message is ToggleHistorySelectionMessage {
+    return getMessageType(message) === 'toggleHistorySelection'
+        && Number.isInteger((message as ToggleHistorySelectionMessage).index);
 }
 
 export function isNavigateFileMessage(message: unknown): message is NavigateFileMessage {

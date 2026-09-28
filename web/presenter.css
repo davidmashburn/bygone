@@ -1086,6 +1086,7 @@ body.tour-discussion .tour-narrative-takeaway {
 .tour-context.is-primary { margin-top: 0; }
 .tour-context.is-primary > summary[hidden] { display: none; }
 .tour-context.is-primary > .tour-narrative-layout { margin-top: 0; }
+.tour-step + .tour-context { margin-top: 14px; }
 .tour-narration-dock {
     display: flex;
     align-items: center;
@@ -1277,7 +1278,13 @@ body.tour-discussion .tour-narrative-takeaway {
 .tour-reading-path button[data-level="step"] { flex-shrink: 0; }
 
 /* Exploration shares the evidence viewer, while both authored tours keep narration. */
-.tour-mode-description, #tour-history-from-status { margin: 2px 0; color: var(--tour-muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.tour-mode-label { color: var(--tour-muted); font-size: 12px; }
+.tour-mode-tabs { display: flex; flex-wrap: wrap; gap: 5px; }
+.tour-mode-tabs button { padding: 5px 8px; border: 1px solid var(--tour-border); border-radius: 5px; background: var(--tour-surface); color: var(--tour-body); font: inherit; font-size: 12px; cursor: pointer; }
+.tour-mode-tabs button:hover { border-color: var(--tour-accent-bright); }
+.tour-mode-tabs button.is-active { color: #fff; border-color: var(--tour-accent-bright); background: rgba(169, 159, 255, 0.13); }
+.tour-mode-tabs button:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 2px; }
+.tour-mode-description { margin: 2px 0; color: var(--tour-muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
 .tour-evidence-controls { display: grid; gap: 6px; }
 .tour-evidence-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .tour-evidence-actions button { padding: 5px 8px; border: 1px solid var(--tour-border); border-radius: 5px; background: var(--tour-surface); color: var(--tour-body); font: inherit; font-size: 12px; cursor: pointer; }

@@ -4,7 +4,7 @@
   "displayName": "Bygone",
   "desktopName": "com.davidmashburn.bygone.desktop",
   "description": "See how change happened. Visual diff and file history for VS Code.",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "author": "David Mashburn",
   "license": "MIT",
   "private": false,
@@ -221,7 +221,7 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "watch": "tsc -watch -p ./",
-    "test": "npm run compile && node ./test/runTests.js && node --test ./test/tourZoomSession.test.js ./test/tourHistory.test.js ./test/changeTourAuthoredModes.test.js ./test/renderCompleteToken.test.js ./test/tourDirectoryOverview.test.js ./test/tourDirectoryEvidence.test.js ./test/reviewNotes.test.js"
+    "test": "npm run compile && node ./test/runTests.js && node --test ./test/tourZoomSession.test.js ./test/tourComparison.test.js ./test/tourHistory.test.js ./test/changeTourAuthoredModes.test.js ./test/renderCompleteToken.test.js ./test/tourDirectoryOverview.test.js ./test/tourDirectoryEvidence.test.js ./test/reviewNotes.test.js"
   },
   "build": {
     "appId": "com.davidmashburn.bygone",
