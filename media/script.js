@@ -4927,11 +4927,12 @@ function renderHistoryRailItem(item, tabId, index) {
         ? `<span class="history-rail-panel-badge" title="Active comparison panel ${item.panelNumber}" aria-label="Active comparison panel ${item.panelNumber}">${item.panelNumber}</span>`
         : '';
     const fileMarker = item.changesFile ? '<span class="history-file-change" title="Changed the current file" aria-label="Changed the current file">●</span>' : '';
-    const tourMarker = item.inTour ? '<span class="history-tour-marker">Tour</span>' : '';
+    const tourMarker = item.inTour ? '<span class="history-tour-marker" role="img" title="In tour range" aria-label="In tour range"></span>' : '';
+    const metadata = meta || fileMarker ? `<span class="history-rail-metadata">${fileMarker}${meta}</span>` : '';
     return `<div class="history-rail-item${activeClass}${panelClass}${statusClass}"${item.panelNumber ? ` data-rail-panel="${item.panelNumber}"` : ''}>`
-        + selection
+        + tourMarker + selection
         + `<button class="history-rail-entry" type="button" title="${action}: ${escapeAttr(item.label)}" data-rail-item="true" data-rail-tab="${escapeAttr(tabId)}"${kindAttr}${indexAttr}${pathAttr}>`
-        + `<span class="history-rail-text"><span class="history-rail-label">${escapeHtml(item.label)}</span>${meta}</span>${fileMarker}${tourMarker}${panelBadge}`
+        + `<span class="history-rail-text"><span class="history-rail-label">${escapeHtml(item.label)}</span>${metadata}</span>${panelBadge}`
         + `</button></div>`;
 }
 

@@ -4453,6 +4453,41 @@ async function testPresentHistoryUsesStableCommitAxis() {
     assert.equal(requests.length, 5, 'Returning to History reuses its saved panels');
 }
 
+function testCommitRowMarkersStayIndependent() {
+    const source = fs.readFileSync(path.join(__dirname, '../media/script.js'), 'utf8');
+    const start = source.indexOf('function renderHistoryRailItem(');
+    const end = source.indexOf('function getHistoryRailItems(', start);
+    assert.ok(start >= 0 && end > start);
+    const render = new Function('escapeHtml', 'escapeAttr', `${source.slice(start, end)}; return renderHistoryRailItem;`)(String, String);
+    for (let flags = 0; flags < 16; flags++) {
+        const item = {
+            kind: 'history-entry', label: 'abc123 Commit title', meta: '2026-09-29',
+            inTour: Boolean(flags & 1), changesFile: Boolean(flags & 2),
+            panelNumber: flags & 4 ? 2 : undefined, selected: Boolean(flags & 8)
+        };
+        const html = render(item, 'history', 0);
+        assert.equal(html.includes('class="history-tour-marker"'), item.inTour);
+        assert.equal(html.includes('aria-label="In tour range"'), item.inTour);
+        assert.equal(html.includes('class="history-file-change"'), item.changesFile);
+        assert.equal(html.includes('class="history-rail-panel-badge"'), Boolean(item.panelNumber));
+        assert.equal(html.includes(' panel-active'), Boolean(item.panelNumber));
+        assert.equal(html.includes('aria-checked="true"'), item.selected);
+        assert.doesNotMatch(html, />Tour<|history-rail-item[^"\n]*selected/);
+        if (item.inTour) {
+            assert.ok(html.indexOf('history-tour-marker') < html.indexOf('history-rail-selection'), 'Tour stripe sits outside the checkbox');
+        }
+        if (item.changesFile) {
+            assert.match(html, /history-rail-metadata"><span class="history-file-change"[^>]*>●<\/span><span class="history-rail-meta">/);
+        }
+        if (item.panelNumber) {
+            assert.match(html, /<\/span><\/span><span class="history-rail-panel-badge"/);
+        }
+    }
+    const markup = fs.readFileSync(path.join(__dirname, '../web/index.html'), 'utf8');
+    assert.match(markup, /class="tour-range-swatch" aria-hidden="true"><\/span>Tour range/);
+    assert.doesNotMatch(markup, /Tour =/);
+}
+
 function testPresentInitialCommitHighlights() {
     const source = fs.readFileSync(path.join(__dirname, '../web/host.js'), 'utf8');
     const section = (start, end) => {
@@ -4523,6 +4558,7 @@ function testPresentInitialCommitHighlights() {
 }
 
 async function run() {
+    testCommitRowMarkersStayIndependent();
     testPresentInitialCommitHighlights();
     await testPresentHistoryPanelWorkspace();
     await testPresentHistoryUsesStableCommitAxis();

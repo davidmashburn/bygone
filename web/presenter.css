@@ -1294,7 +1294,16 @@ body.tour-discussion .tour-narrative { max-height: none; }
     margin: 0;
     font-size: 12px;
     opacity: .7;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
 }
-
-.history-file-change { color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2b36b); }
-.history-tour-marker { font-size: 12px; opacity: .65; }
+.tour-commit-legend > span { white-space: nowrap; }
+.tour-range-swatch {
+    display: inline-block;
+    width: 3px;
+    height: 10px;
+    margin-right: 5px;
+    border-radius: 2px;
+    background: var(--bygone-tour-range-color, #a99bf5);
+}
