@@ -758,6 +758,14 @@ body.is-resizing-sidebar .history-rail-resizer {
     background: color-mix(in srgb, var(--vscode-button-background) 18%, transparent);
 }
 
+.history-rail-item.panel-active {
+    background: color-mix(in srgb, var(--vscode-button-background) 12%, transparent);
+}
+
+.history-rail-item.panel-active:not(.active) {
+    border-color: color-mix(in srgb, var(--vscode-focusBorder, #4f7cff) 42%, transparent);
+}
+
 .history-rail-entry {
     display: flex;
     flex: 1;
@@ -794,6 +802,21 @@ body.is-resizing-sidebar .history-rail-resizer {
 .history-rail-entry:focus-visible {
     outline: 2px solid var(--vscode-focusBorder, #4f7cff);
     outline-offset: 1px;
+}
+
+.history-rail-panel-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 19px;
+    min-width: 19px;
+    height: 19px;
+    margin-left: 6px;
+    border-radius: 999px;
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    font-size: 11px;
+    font-weight: 700;
 }
 
 .history-rail-item .history-rail-marker {

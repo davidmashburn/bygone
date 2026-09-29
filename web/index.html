@@ -13,30 +13,11 @@
             <button id="tour-sidebar-hide" class="tour-sidebar-hide" type="button" title="Hide tour sidebar" aria-label="Hide tour sidebar">‹</button>
             <h1 id="tour-title"></h1>
             <div id="tour-mode-controls" class="tour-mode-controls" hidden>
-                <span class="tour-mode-label">Mode</span>
                 <nav id="tour-mode-tabs" class="tour-mode-tabs" aria-label="Presentation mode"></nav>
                 <p id="tour-mode-description" class="tour-mode-description"></p>
-                <div id="tour-history-controls" class="tour-evidence-controls" hidden>
-                    <div class="tour-evidence-actions">
-                        <button id="tour-history-compare" type="button" title="Compare the selected revisions" disabled>Compare selected (0)</button>
-                    </div>
-                    <div class="tour-evidence-actions">
-                        <button id="tour-history-parent" type="button" title="Compare this revision with its parent">Compare with parent</button>
-                        <button id="tour-history-base" type="button" title="Compare this revision with the review base">Compare with review base</button>
-                        <button id="tour-history-final" type="button" title="Compare the review base with its head across all changed files">Final diff</button>
-                    </div>
-                </div>
-                <div id="tour-compare-controls" class="tour-evidence-controls" hidden>
-                    <div id="tour-compare-scope"></div>
-                    <div class="tour-evidence-actions">
-                        <button id="tour-compare-clear" type="button" title="Clear the comparison and return to History">Clear</button>
-                        <button id="tour-compare-final" type="button" title="Compare the review base with its head across all changed files">Final diff</button>
-                        <button id="tour-compare-all" type="button" title="Compare these revisions across all changed files" hidden>Show all changed files</button>
-                    </div>
-                </div>
                 <div id="tour-mode-status" role="status" aria-live="polite"></div>
             </div>
-            <details class="tour-details" open>
+            <details class="tour-details">
                 <summary>Tour details</summary>
                 <a id="tour-source" class="tour-source" target="_blank" rel="noreferrer" hidden>Open source ↗</a>
                 <div class="tour-meta">
@@ -47,39 +28,68 @@
             </details>
             <button id="tour-review-toggle" class="tour-review-toggle" type="button" title="Read authored review notes and open their evidence" aria-controls="tour-review" aria-expanded="false" hidden>Review notes</button>
         </header>
-        <section class="tour-search" aria-label="Search tour">
-            <div class="tour-search-controls">
-                <input id="tour-search-input" type="search" placeholder="Search tour" aria-label="Search tour narrative and code">
-                <select id="tour-search-scope" aria-label="Tour search scope" title="Tour search scope">
-                    <option value="all">Narrative + code</option>
-                    <option value="narrative">Narrative</option>
-                    <option value="code">Code</option>
-                </select>
-            </div>
-            <div id="tour-search-status" class="tour-search-status" role="status" aria-live="polite"></div>
-            <div id="tour-search-results" class="tour-search-results" role="listbox"></div>
-        </section>
-        <div class="tour-rail-sections">
-            <section class="tour-rail-section">
+        <nav id="tour-navigator-tabs" class="tour-navigator-tabs" aria-label="Tour navigator">
+            <button type="button" data-tour-navigator="tour" aria-controls="tour-navigator-tour" aria-selected="true" title="Browse tour scenes">Tour <span id="tour-scene-count" class="tour-rail-count"></span></button>
+            <button type="button" data-tour-navigator="files" aria-controls="tour-navigator-files" aria-selected="false" title="Browse changed files">Files <span id="tour-file-count" class="tour-rail-count"></span></button>
+            <button type="button" data-tour-navigator="commits" aria-controls="tour-navigator-commits" aria-selected="false" title="Browse revisions">Commits</button>
+        </nav>
+        <div class="tour-navigator-content">
+            <section id="tour-navigator-tour" class="tour-navigator-panel" data-tour-navigator-panel="tour">
+                <details class="tour-search-disclosure">
+                    <summary>Search tour</summary>
+                    <section class="tour-search" aria-label="Search tour">
+                        <div class="tour-search-controls">
+                            <input id="tour-search-input" type="search" placeholder="Search tour" aria-label="Search tour narrative and code">
+                            <select id="tour-search-scope" aria-label="Tour search scope" title="Tour search scope">
+                                <option value="all">Narrative + code</option>
+                                <option value="narrative">Narrative</option>
+                                <option value="code">Code</option>
+                            </select>
+                        </div>
+                        <div id="tour-search-status" class="tour-search-status" role="status" aria-live="polite"></div>
+                        <div id="tour-search-results" class="tour-search-results" role="listbox"></div>
+                    </section>
+                </details>
                 <header class="tour-rail-heading">
                     <span>Tour</span>
-                    <span id="tour-scene-count" class="tour-rail-count"></span>
                 </header>
                 <nav id="tour-scenes" class="tour-scenes" aria-label="Change tour scenes"></nav>
             </section>
-            <section class="tour-rail-section tour-files-section is-open">
+            <section id="tour-navigator-files" class="tour-navigator-panel" data-tour-navigator-panel="files" hidden>
                 <header class="tour-rail-heading">
-                    <button id="tour-files-toggle" type="button" title="Show or hide changed files" aria-expanded="true" aria-controls="tour-files">Files</button>
-                    <span id="tour-file-count" class="tour-rail-count"></span>
+                    <span>Files</span>
                     <button id="tour-return-focus" class="tour-return-focus" type="button" title="Return to the file focused by the current tour step" hidden>Return to tour</button>
                 </header>
                 <nav id="tour-files" class="tour-files" aria-label="Changed files"></nav>
             </section>
+            <section id="tour-navigator-commits" class="tour-navigator-panel" data-tour-navigator-panel="commits" hidden>
+                <div id="tour-history-controls" class="tour-evidence-controls" hidden>
+                    <div class="tour-evidence-actions">
+                        <button id="tour-history-compare" type="button" title="Compare the selected revisions" disabled>Compare selected (0)</button>
+                        <button id="tour-history-clear" type="button" title="Uncheck all draft revisions without changing panels">Clear selection</button>
+                        <button id="tour-history-reset" type="button" title="Select the revisions currently loaded in panels">Reset selection</button>
+                        <button id="tour-history-parent" type="button" title="Compare this revision with its parent">Parent</button>
+                        <button id="tour-history-base" type="button" title="Compare this revision with the review base">Review base</button>
+                        <button id="tour-history-final" type="button" title="Compare the review base with its head across all changed files">Final diff</button>
+                    </div>
+                </div>
+                <div id="tour-compare-controls" class="tour-evidence-controls" hidden>
+                    <div id="tour-compare-scope"></div>
+                    <div class="tour-evidence-actions">
+                        <button id="tour-compare-apply" type="button" title="Update the comparison with the selected revisions" disabled>Update comparison (0)</button>
+                        <button id="tour-compare-clear" type="button" title="Uncheck all draft revisions without changing panels">Clear selection</button>
+                        <button id="tour-compare-reset" type="button" title="Select the revisions currently loaded in panels">Reset selection</button>
+                        <button id="tour-compare-final" type="button" title="Compare the review base with its head across all changed files">Final diff</button>
+                        <button id="tour-compare-all" type="button" title="Compare these revisions across all changed files" hidden>All files</button>
+                    </div>
+                </div>
+                <div id="tour-commits-host" class="tour-commits-host"></div>
+                <details class="tour-commits-section">
+                    <summary id="tour-commits-summary">0 commits</summary>
+                    <ol id="tour-commits" class="tour-commits"></ol>
+                </details>
+            </section>
         </div>
-        <details class="tour-commits-section">
-            <summary id="tour-commits-summary">0 commits</summary>
-            <ol id="tour-commits" class="tour-commits"></ol>
-        </details>
         <div id="tour-sidebar-resizer" class="tour-sidebar-resizer" role="separator" aria-label="Resize tour sidebar" title="Resize tour sidebar (Left/Right; Home/End)" aria-orientation="vertical" aria-valuemin="240" aria-valuemax="600" tabindex="0"></div>
     </aside>
     <section id="tour-review" class="tour-review" aria-labelledby="tour-review-title" hidden>
@@ -100,7 +110,7 @@
         <div class="tour-narrative-toolbar" role="group" aria-label="Tour reading view">
             <nav id="tour-reading-path" class="tour-reading-path" aria-label="Reading hierarchy"></nav>
             <div class="tour-narration-dock">
-                <div id="tour-audio-settings" class="tour-audio-settings">
+                <div id="tour-audio-settings" class="tour-audio-settings" hidden>
                     <div id="tour-narration-controls" class="tour-narration-controls" role="group" aria-label="Tour narration">
                         <button id="tour-listen" type="button" title="Listen from the current tour item" aria-label="Listen from the current tour item">
                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="tour-icon-fill tour-play-pause-icon" d="m8 5 11 7-11 7Z"/></svg><span id="tour-listen-label">Listen</span>
@@ -130,7 +140,7 @@
                         <span id="tour-narration-status" class="tour-narration-status" role="status" aria-live="polite" aria-atomic="true">Device voice ready</span>
                     </div>
                 </div>
-                <button id="tour-narration" type="button" title="Hide narration controls" aria-label="Hide narration controls" aria-controls="tour-audio-settings" aria-expanded="true">›</button>
+                <button id="tour-narration" type="button" title="Show narration controls" aria-label="Show narration controls" aria-controls="tour-audio-settings" aria-expanded="false">‹ Narration</button>
             </div>
         </div>
         <div id="tour-narrative-content" class="tour-narrative-content">
@@ -161,7 +171,6 @@
             </details>
         </div>
     </section>
-    <div id="tour-narrative-resizer" class="tour-narrative-resizer" role="separator" aria-label="Resize tour header" title="Resize tour header (Up/Down; Home/End)" aria-orientation="horizontal" aria-valuemin="180" tabindex="0"></div>
     <div class="web-toolbar">
         <div class="web-toolbar-group">
             <button id="web-compare-test" type="button" title="Compare sample files">Compare Test Files</button>

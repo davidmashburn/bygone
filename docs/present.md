@@ -13,7 +13,9 @@ source evidence while keeping the complete changed-file set available.
 - **Open Authored Tour…** or `bygone present --tour path.bygone` opens a
   narrative whose anchors have been compiled to exact source locations.
 
-The active scene expands into named, selectable steps in the outline. The
+The left navigator switches directly among **Tour**, **Files**, and **Commits**;
+only one of those lists is visible at a time. The active scene expands into
+named, selectable steps in the Tour outline. The
 current step's title and explanation lead the reading panel; put the
 evidence-grounded rationale and tradeoffs for that code beside it in the step
 body. The reading breadcrumb follows **Tour → Chapter → Scene → Step**, using
@@ -28,22 +30,25 @@ full scene overview, including its bullets, tags, and takeaway. Choose **Start
 steps** to open the first step; a direct link that includes a step opens that
 step immediately. The header reports the current position as `Scene N of M ·
 Step N of M`, and the final navigation control is **End of tour**. The reading
-area uses the available width beside the sidebar and fills the viewport on
-narrow screens above the diff.
+area is content-sized above the evidence so the diff keeps most of the
+workspace. On narrow screens, the navigator becomes an overlay instead of
+stacking another permanent region above the diff.
 
 The code view uses the available width for an added or deleted file when only
 one side is present. An empty **Present** view keeps the regular split layout.
 When the current step has an exact source target, **Show in code** refocuses the
 corresponding file and line.
 
-**Files** at the bottom of the sidebar is expanded by default and can be
-collapsed. The Files rail is independent of the narrative. Browsing another file keeps
-the active tour anchor visible and offers **Return to Tour** to restore the
-scene's intended focus.
+Choose **Files** in the navigator to browse the complete change set without
+changing the active tour position. Browsing another file keeps the active tour
+anchor visible and offers **Return to Tour** to restore the scene's intended
+focus.
 
-**Tour details** is expanded by default and contains the source link, range, change counts, and authored
-diff-hunk coverage. Coverage describes how much code the author anchored; it
-does not measure your reading progress. The header shows your current step.
+**Tour details** is available on demand and contains the source link, range,
+change counts, and authored diff-hunk coverage. Coverage describes how much
+code the author anchored; it does not measure your reading progress. The
+header shows your current step. Tour search is likewise disclosed on demand or
+opened by `Cmd/Ctrl+Shift+F`.
 
 Generated overview ranking is deterministic for the resolved Git object IDs.
 It never hides files and does not invent an entry point for a test-only,
@@ -56,16 +61,26 @@ Version 2 and 3 presentations expose **History**, **Compare**, and the available
 authored tours as direct mode buttons.
 Independent Historical and Deconstructed tours require version 3:
 
-- **History** browses a file's actual Git revisions. Check two or more revisions
-  in the revision rail, then choose **Compare selected**. Activating a revision's
-  label previews it without changing the comparison selection. Shortcuts compare
+- **History** browses a file's actual Git revisions. Choose **Commits** in the
+  navigator, check two or more revisions, then choose **Compare selected**.
+  History starts with a commit and its parent. Panel `+` controls expand into
+  older or newer revisions; `×` removes a panel, with a minimum of two. Returning
+  from Compare restores the expanded History workspace. Activating a loaded
+  revision focuses its panel; another revision moves the history window while
+  retaining its panel count where older history is available. Shortcuts compare
   the active revision with its parent or the review base.
 - **Compare** shows one panel per selected revision, oldest to newest, with a
-  diff between each adjacent pair. The revision rail remains available for
-  adding or removing panels, and activating a selected revision focuses its
+  diff between each adjacent pair. The Commit navigator remains available for
+  editing a draft selection; **Update comparison** applies it. Activating a loaded revision focuses its
   panel. Comparisons opened from file history stay on that file; **Show all
   changed files** expands the same range. **Final diff** selects the review base
   and head across all changed files.
+
+History and Compare share numbered panels and matching commit-list badges.
+Loaded revisions remain highlighted, with stronger emphasis on visible panels.
+Parent/base revisions absent from the file history appear as labeled extra rows.
+**Clear selection** unchecks draft revisions without changing modes or panels;
+**Reset selection** selects the revisions currently loaded in the workspace.
 - **Historical tour** explains actual revision states, including intermediate
   changes, updates, and reverts. It retains chapters, scenes, steps, and narration.
 - **Deconstructed tour** explains the change through authored, synthetic
@@ -93,9 +108,10 @@ Use **Listen** beside the reading breadcrumb or **Present → Listen to Tour** i
 desktop app to read the tour aloud with a device voice. Narration works
 offline and does not send tour text to a hosted speech service.
 
-Narration controls appear beside the reading breadcrumb by default,
-with sentence navigation, Stop, voice, and speed. Use the right-edge chevron to
-hide them, and **‹ Narration** to bring them back. Listen becomes Pause or Resume during playback. The overview opens when its
+Narration controls are available from **‹ Narration** beside the reading
+breadcrumb, with sentence navigation, Stop, voice, and speed. Use the
+right-edge chevron to collapse them again. Listen becomes Pause or Resume
+during playback. The overview opens when its
 text is spoken so the highlighted sentence remains visible.
 
 - **Pause/Resume** retains the current sentence; **Stop** clears playback. The

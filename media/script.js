@@ -289,6 +289,19 @@ host.onMessage((message) => {
         return;
     }
 
+    if (message.type === 'focusHistoryPanel') {
+        setActiveMultiPanel(message.panelId, true);
+        return;
+    }
+
+    if (message.type === 'updateHistorySelection') {
+        for (const items of Object.values(historyRailState?.itemsByTab || {})) {
+            for (const item of items) item.selected = message.commits.includes(item.commit);
+        }
+        renderHistoryRail();
+        return;
+    }
+
     if (message.type === 'showBinaryDiff') {
         showBinaryDiff(message);
         return;
@@ -1213,6 +1226,10 @@ function createEditor(container, editorMode, side = null, initialModel = null) {
         }
     });
 
+    editor.onDidLayoutChange(() => {
+        connectorController.scheduleDrawConnections();
+    });
+
     editor.onDidScrollChange((event) => {
         // Monaco also emits this event when layout changes only the scroll extent.
         // Synchronizing that event can bounce a revealed tour anchor out of view.
@@ -1394,7 +1411,7 @@ function renderMultiDiffShell(panels) {
             + `<div class="multi-pane-header" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header-top">`
             + `<button class="multi-pane-title-wrap multi-pane-select" type="button" title="Select panel: ${escapeAttr(panel.label)}" data-file-path="${escapeAttr(panel.path || panel.label)}" data-multi-select-panel="${escapeAttr(panel.id)}" data-panel-id="${escapeAttr(panel.id)}" aria-pressed="false">`
-            + `<span class="multi-pane-title">${escapeHtml(panel.label)}</span>`
+            + `<span class="multi-pane-title">${index + 1}. ${escapeHtml(panel.label)}</span>`
             + `<span class="multi-pane-dirty${panel.dirty ? ' is-visible' : ''}" aria-hidden="true" title="Unsaved changes">•</span>`
             + `</button>`
             + `<span class="multi-pane-provenance ${panel.editable ? 'is-writable' : 'is-readonly'}">${escapeHtml(panel.editable ? 'Writable file' : (panel.mutabilityLabel || 'Read-only snapshot'))}</span>`
@@ -1763,10 +1780,25 @@ function updateFocusedStripControls() {
     const current = pairMode ? focusedStripLayout.pairIndex : focusedStripLayout.panelIndex;
     const total = pairMode ? Math.max(1, multiPanels.length - 1) : multiPanels.length;
     position.textContent = pairMode
-        ? `Comparison ${current + 1}–${current + 2} of ${multiPanels.length}`
+        ? `Panels ${current + 1}–${current + 2} of ${multiPanels.length}`
         : `Panel ${current + 1} of ${multiPanels.length}`;
     previous.disabled = current <= 0;
     next.disabled = current >= total - 1;
+    previous.hidden = total <= 1;
+    next.hidden = total <= 1;
+    for (const items of Object.values(historyRailState?.itemsByTab || {})) {
+        for (const item of items) {
+            if (item.panelNumber) item.active = pairMode
+                ? item.panelNumber === current + 1 || item.panelNumber === current + 2
+                : item.panelNumber === current + 1;
+        }
+    }
+    getElement('history-rail').querySelectorAll('[data-rail-panel]').forEach((row) => {
+        const number = Number(row.getAttribute('data-rail-panel'));
+        row.classList.toggle('active', pairMode
+            ? number === current + 1 || number === current + 2
+            : number === current + 1);
+    });
 }
 
 function moveFocusedStrip(direction) {
@@ -2285,6 +2317,7 @@ function initializeHistoryRail() {
     const showButton = getElement('show-navigation-sidebar');
 
     applyNavigationSidebarWidth();
+    window.addEventListener('bygone:present-navigator-change', renderHistoryRail);
     showButton.addEventListener('click', () => {
         navigationRailCollapsed = false;
         directoryRailVisible = true;
@@ -2308,7 +2341,13 @@ function initializeHistoryRail() {
 
         if (target.hasAttribute('data-rail-select')) {
             const itemIndex = Number.parseInt(target.getAttribute('data-rail-index') || '', 10);
-            if (Number.isInteger(itemIndex)) host.postMessage({ type: 'toggleHistorySelection', index: itemIndex });
+            if (Number.isInteger(itemIndex)) {
+                const item = getHistoryRailItems(target.getAttribute('data-rail-tab') || activeHistoryRailTabId)
+                    .find((candidate) => candidate.index === itemIndex);
+                if (item) item.selected = !item.selected;
+                renderHistoryRail();
+                host.postMessage({ type: 'toggleHistorySelection', index: itemIndex });
+            }
             return;
         }
 
@@ -2317,6 +2356,12 @@ function initializeHistoryRail() {
             const itemIndex = Number.parseInt(target.getAttribute('data-rail-index') || '', 10);
             const item = getHistoryRailItems(tabId).find((candidate) => candidate.index === itemIndex || candidate.relativePath === target.getAttribute('data-rail-path'));
             if (!item) {
+                return;
+            }
+
+            if (item.kind === 'panel-revision' && item.panelNumber) {
+                const panel = multiPanels[item.panelNumber - 1];
+                if (panel) setActiveMultiPanel(panel.id, true);
                 return;
             }
 
@@ -4753,9 +4798,16 @@ function renderHistoryRail() {
     const rail = getElement('history-rail');
     const container = getElement('container');
     const showButton = getElement('show-navigation-sidebar');
+    const tourHost = document.getElementById('tour-commits-host');
+    const presentOwned = document.body.classList.contains('tour-mode')
+        && historyRailKind === 'history'
+        && Boolean(tourHost);
+    const targetParent = presentOwned ? tourHost : getElement('diff-workspace');
+    if (rail.parentElement !== targetParent) targetParent.prepend(rail);
+    rail.classList.toggle('present-navigation-rail', presentOwned);
     const railAvailable = Boolean(historyRailState);
     const railRequested = railAvailable
-        && !navigationRailCollapsed
+        && (presentOwned || !navigationRailCollapsed)
         && !(historyRailKind === 'directory' && !directoryRailVisible);
 
     if (!railRequested) {
@@ -4763,7 +4815,7 @@ function renderHistoryRail() {
         rail.classList.add('hidden');
         rail.innerHTML = '';
         container.classList.remove('history-rail-visible');
-        showButton.hidden = !railAvailable;
+        showButton.hidden = presentOwned || !railAvailable;
         return;
     }
 
@@ -4775,12 +4827,14 @@ function renderHistoryRail() {
     rail.hidden = false;
     rail.classList.remove('hidden');
     showButton.hidden = true;
-    container.classList.add('history-rail-visible');
+    container.classList.toggle('history-rail-visible', !presentOwned);
     rail.innerHTML = [
-        '<div class="history-rail-controls">',
-        `<span>${historyRailKind === 'directory' ? 'Files' : 'History'}</span>`,
-        '<button class="history-rail-collapse" type="button" title="Hide navigation sidebar" aria-label="Hide navigation sidebar" data-rail-collapse>‹</button>',
-        '</div>',
+        ...(presentOwned ? [] : [
+            '<div class="history-rail-controls">',
+            `<span>${historyRailKind === 'directory' ? 'Files' : 'History'}</span>`,
+            '<button class="history-rail-collapse" type="button" title="Hide navigation sidebar" aria-label="Hide navigation sidebar" data-rail-collapse>‹</button>',
+            '</div>'
+        ]),
         '<div class="history-rail-tabs">',
         ...tabs.map((tab) => {
             const isActive = tab.id === (activeTab?.id || null);
@@ -4792,7 +4846,9 @@ function renderHistoryRail() {
             ? items.map((item, index) => renderHistoryRailItem(item, activeTab?.id || '', index))
             : ['<div class="history-rail-empty">No entries</div>']),
         '</div>',
-        `<div class="history-rail-resizer" role="separator" aria-label="Resize navigation sidebar" title="Resize navigation sidebar (Left/Right; Home/End)" aria-orientation="vertical" aria-valuemin="${NAVIGATION_SIDEBAR_MIN_WIDTH}" aria-valuemax="${maximumNavigationSidebarWidth()}" aria-valuenow="${navigationRailWidth}" tabindex="0" data-rail-resizer></div>`
+        ...(presentOwned ? [] : [
+            `<div class="history-rail-resizer" role="separator" aria-label="Resize navigation sidebar" title="Resize navigation sidebar (Left/Right; Home/End)" aria-orientation="vertical" aria-valuemin="${NAVIGATION_SIDEBAR_MIN_WIDTH}" aria-valuemax="${maximumNavigationSidebarWidth()}" aria-valuenow="${navigationRailWidth}" tabindex="0" data-rail-resizer></div>`
+        ])
     ].join('');
 }
 
@@ -4832,6 +4888,7 @@ function renderHistoryRailItem(item, tabId, index) {
     const marker = item.status ? historyRailStatusGlyph(item.status) : '•';
     const meta = item.meta ? `<span class="history-rail-meta">${escapeHtml(item.meta)}</span>` : '';
     const activeClass = item.active ? ' active' : '';
+    const panelClass = item.panelNumber ? ' panel-active' : '';
     const kindAttr = item.kind ? ` data-rail-kind="${escapeAttr(item.kind)}"` : '';
     const indexAttr = Number.isInteger(item.index) ? ` data-rail-index="${String(item.index)}"` : ` data-rail-index="${String(index)}"`;
     const pathAttr = typeof item.relativePath === 'string'
@@ -4839,13 +4896,16 @@ function renderHistoryRailItem(item, tabId, index) {
         : '';
 
     const action = item.kind === 'directory-entry' ? 'Open file' : 'Preview history entry';
-    const selection = item.kind === 'history-entry'
-        ? `<button class="history-rail-selection${item.selected ? ' selected' : ''}" type="button" role="checkbox" aria-checked="${String(Boolean(item.selected))}" title="${item.selected ? 'Remove from' : 'Add to'} comparison" data-rail-select="true"${indexAttr}>${item.selected ? '✓' : ''}</button>`
+    const selection = item.kind === 'history-entry' || (item.kind === 'panel-revision' && item.commit)
+        ? `<button class="history-rail-selection${item.selected ? ' selected' : ''}" type="button" role="checkbox" aria-checked="${String(Boolean(item.selected))}" title="${item.selected ? 'Remove from' : 'Add to'} comparison" data-rail-select="true" data-rail-tab="${escapeAttr(tabId)}"${indexAttr}>${item.selected ? '✓' : ''}</button>`
         : `<span class="history-rail-marker">${escapeHtml(marker)}</span>`;
-    return `<div class="history-rail-item${activeClass}${statusClass}">`
+    const panelBadge = item.panelNumber
+        ? `<span class="history-rail-panel-badge" title="Active comparison panel ${item.panelNumber}" aria-label="Active comparison panel ${item.panelNumber}">${item.panelNumber}</span>`
+        : '';
+    return `<div class="history-rail-item${activeClass}${panelClass}${statusClass}"${item.panelNumber ? ` data-rail-panel="${item.panelNumber}"` : ''}>`
         + selection
         + `<button class="history-rail-entry" type="button" title="${action}: ${escapeAttr(item.label)}" data-rail-item="true" data-rail-tab="${escapeAttr(tabId)}"${kindAttr}${indexAttr}${pathAttr}>`
-        + `<span class="history-rail-text"><span class="history-rail-label">${escapeHtml(item.label)}</span>${meta}</span>`
+        + `<span class="history-rail-text"><span class="history-rail-label">${escapeHtml(item.label)}</span>${meta}</span>${panelBadge}`
         + `</button></div>`;
 }
 

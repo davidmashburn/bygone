@@ -364,29 +364,6 @@ body.tour-mode.tour-discussion #container {
     display: none;
 }
 
-.tour-narrative-resizer {
-    position: fixed;
-    z-index: 120;
-    top: calc(var(--tour-narrative-height) - 4px);
-    right: 0;
-    left: var(--tour-rail-width);
-    height: 8px;
-    cursor: row-resize;
-    touch-action: none;
-}
-
-.tour-narrative-resizer:hover,
-.tour-narrative-resizer:focus-visible,
-body.is-resizing-tour-narrative .tour-narrative-resizer {
-    background: rgba(169, 159, 255, 0.75);
-    outline: none;
-}
-
-body:not(.tour-mode) .tour-narrative-resizer,
-body.tour-discussion .tour-narrative-resizer {
-    display: none;
-}
-
 .tour-narrative-nav {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -594,23 +571,6 @@ body.tour-discussion .tour-narrative-resizer {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
-.tour-rail-sections {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-}
-
-.tour-rail-section {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    min-height: 0;
-}
-
-.tour-rail-section + .tour-rail-section { border-top: 1px solid var(--tour-border); }
 
 .tour-rail-heading {
     display: flex;
@@ -1119,16 +1079,7 @@ body.tour-discussion .tour-narrative-takeaway {
 .tour-details { margin-top: 10px; font-size: 12px; }
 .tour-details .tour-source { display: inline-block; margin-top: 8px; }
 .tour-details .tour-source[hidden] { display: none; }
-.tour-files-section { flex: 0 0 auto; }
-.tour-files-section.is-open { flex: 0 1 45%; min-height: 90px; }
 .tour-files[hidden], .tour-outline-steps[hidden] { display: none; }
-#tour-files-toggle {
-    border: 0; background: none; color: inherit; font: inherit; padding: 0;
-    letter-spacing: inherit; text-transform: inherit; cursor: pointer;
-}
-#tour-files-toggle::before { content: '▸ '; }
-#tour-files-toggle[aria-expanded="true"]::before { content: '▾ '; }
-#tour-files-toggle:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 3px; }
 .tour-outline-steps { display: grid; gap: 3px; margin: 6px 0 16px 19px; border-left: 1px solid var(--tour-border); padding-left: 10px; }
 .tour-outline-step {
     border: 1px solid transparent; border-radius: 5px; background: none;
@@ -1151,111 +1102,6 @@ body.tour-discussion .tour-narrative-takeaway {
 
     .tour-narrative-layout {
         grid-template-columns: minmax(0, 1fr);
-    }
-}
-
-@media (max-width: 720px) {
-    :root {
-        --tour-rail-height: clamp(190px, 28vh, 260px);
-        --tour-rail-width: 0px;
-        --tour-narrative-height: clamp(300px, 42vh, 380px);
-    }
-
-    body.tour-mode {
-        --tour-rail-width: 0px;
-    }
-
-    .tour-shell {
-        inset: 0 0 auto;
-        display: grid;
-        width: 100%;
-        height: var(--tour-rail-height);
-        grid-template-columns: minmax(190px, 0.85fr) minmax(0, 1.15fr);
-        grid-template-rows: auto minmax(0, 1fr) auto;
-        border-right: 0;
-        border-bottom: 1px solid var(--tour-border);
-        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
-    }
-
-    .tour-sidebar-resizer {
-        display: none;
-    }
-
-    body.tour-sidebar-hidden {
-        --tour-rail-height: 0px;
-    }
-
-    .tour-overview {
-        grid-row: 1 / span 3;
-        overflow: auto;
-        padding: 16px;
-        border-right: 1px solid var(--tour-border);
-        border-bottom: 0;
-    }
-
-    .tour-overview h1 {
-        font-size: 17px;
-    }
-
-    .tour-search {
-        grid-column: 2;
-        grid-row: 1;
-        padding: 7px 8px 4px;
-    }
-
-    .tour-search-results { max-height: 72px; }
-
-    .tour-rail-sections {
-        grid-column: 2;
-        grid-row: 2;
-    }
-
-    .tour-commits-section {
-        grid-column: 2;
-        grid-row: 3;
-        max-height: 72px;
-    }
-
-    .tour-narrative {
-        top: var(--tour-rail-height);
-        left: 0;
-        padding: 16px 18px;
-    }
-
-    .tour-narrative-resizer {
-        top: calc(var(--tour-rail-height) + var(--tour-narrative-height) - 4px);
-        left: 0;
-    }
-
-    body.tour-mode #container {
-        width: 100vw;
-        height: calc(100vh - var(--tour-rail-height) - var(--tour-narrative-height));
-        margin-top: calc(var(--tour-rail-height) + var(--tour-narrative-height));
-        margin-left: 0;
-    }
-
-    body.tour-discussion .tour-narrative {
-        top: var(--tour-rail-height);
-        padding: clamp(28px, 7vh, 56px) 24px;
-    }
-
-    .tour-narrative-nav {
-        gap: 6px;
-    }
-
-    .tour-narrative-nav button {
-        min-width: 64px;
-        padding-inline: 7px;
-    }
-
-    .tour-narration-controls select {
-        max-width: 150px;
-    }
-
-    .tour-narration-status {
-        width: 100%;
-        margin-left: 0;
-        text-align: left;
     }
 }
 
@@ -1286,17 +1132,15 @@ body.tour-discussion .tour-narrative-takeaway {
 .tour-mode-tabs button:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 2px; }
 .tour-mode-description { margin: 2px 0; color: var(--tour-muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
 .tour-evidence-controls { display: grid; gap: 6px; }
+.tour-evidence-controls[hidden] { display: none; }
 .tour-evidence-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .tour-evidence-actions button { padding: 5px 8px; border: 1px solid var(--tour-border); border-radius: 5px; background: var(--tour-surface); color: var(--tour-body); font: inherit; font-size: 12px; cursor: pointer; }
 .tour-evidence-actions button:hover { border-color: var(--tour-accent-bright); }
 .tour-evidence-actions button:disabled { opacity: .5; cursor: default; }
 #tour-compare-scope { font-size: 12px; overflow-wrap: anywhere; }
-body.tour-derived-mode .tour-rail-section:has(#tour-scenes),
-body.tour-derived-mode .tour-narrative-resizer,
 body.tour-derived-mode .tour-search { display: none; }
 body.tour-derived-mode .tour-overview { flex-shrink: 0; }
 body.tour-derived-mode .tour-shell { overflow-y: auto; }
-body.tour-derived-mode .tour-files-section.is-open { flex: 1; }
 
 /* File inspection remains nested beneath the narrated directory overview. */
 .tour-directory-breadcrumb {
@@ -1325,3 +1169,122 @@ body.tour-directory-file-open #file-info { display: none; }
 .tour-directory-breadcrumb button:focus-visible { outline: 2px solid var(--tour-accent-bright); }
 .tour-directory-file { overflow-wrap: anywhere; color: var(--tour-body); }
 .tour-directory-narration-context { margin-left: auto; color: var(--tour-faint); }
+
+/* Present uses one task navigator; secondary tools no longer compete for rail space. */
+.tour-overview {
+    flex: 0 0 auto;
+    padding: 16px 44px 12px 16px;
+}
+
+.tour-overview h1 { margin-bottom: 6px; font-size: 18px; }
+.tour-mode-controls { margin: 8px 0 0; }
+.tour-review-toggle { margin-top: 8px; }
+.tour-details { margin-top: 8px; }
+
+.tour-navigator-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 8px;
+    border-bottom: 1px solid var(--tour-border);
+}
+
+.tour-navigator-tabs button {
+    min-width: 0;
+    padding: 7px 5px;
+    overflow: hidden;
+    color: var(--tour-muted);
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    font: inherit;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.tour-navigator-tabs button:hover { background: rgba(255, 255, 255, 0.05); }
+.tour-navigator-tabs button.is-active { color: #fff; border-color: var(--tour-border); background: rgba(169, 159, 255, 0.13); }
+.tour-navigator-tabs button:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 1px; }
+
+.tour-navigator-content,
+.tour-navigator-panel,
+.tour-commits-host {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.tour-navigator-panel { flex-direction: column; }
+.tour-navigator-panel[hidden] { display: none; }
+.tour-search-disclosure { flex: 0 0 auto; border-bottom: 1px solid var(--tour-border); }
+.tour-search-disclosure > summary { padding: 8px 12px; color: var(--tour-muted); cursor: pointer; }
+.tour-search-disclosure > summary:hover { color: #fff; }
+.tour-search-disclosure > summary:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: -2px; }
+.tour-search-disclosure .tour-search { border-bottom: 0; }
+.tour-scenes, .tour-files { min-height: 0; }
+.tour-evidence-controls { flex: 0 0 auto; padding: 8px; border-bottom: 1px solid var(--tour-border); }
+.tour-commits-host { flex-direction: column; }
+.tour-commits-section { flex: 0 0 auto; max-height: 34%; }
+
+#history-rail.present-navigation-rail {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.present-navigation-rail .history-rail-tabs { padding: 8px 8px 4px; }
+.present-navigation-rail .history-rail-list { padding: 4px 8px 10px; }
+
+/* Narrative is a compact, content-sized context card above the evidence. */
+.tour-narrative {
+    height: auto;
+    max-height: min(38vh, 360px);
+    padding: 10px 18px 12px;
+}
+
+.tour-narrative-nav { margin-bottom: 6px; padding-bottom: 6px; }
+.tour-narrative-toolbar { margin-bottom: 6px; padding-bottom: 6px; }
+.tour-narrative-content { flex: 0 1 auto; }
+body.tour-discussion .tour-narrative { max-height: none; }
+
+@media (max-width: 720px) {
+    :root { --tour-rail-width: 0px; }
+
+    .tour-shell {
+        inset: 0 auto 0 0;
+        display: flex;
+        width: min(88vw, 340px);
+        height: 100vh;
+        border-right: 1px solid var(--tour-border);
+        border-bottom: 0;
+        box-shadow: 18px 0 45px rgba(0, 0, 0, 0.34);
+    }
+
+    .tour-overview {
+        overflow: visible;
+        padding: 14px 44px 10px 14px;
+        border-right: 0;
+        border-bottom: 1px solid var(--tour-border);
+    }
+
+    .tour-sidebar-resizer { display: none; }
+    .tour-narrative { top: 0; left: 0; max-height: min(44vh, 340px); padding: 10px 14px 12px; }
+    .tour-narrative-nav { gap: 6px; }
+    .tour-narrative-nav button { min-width: 64px; padding-inline: 7px; }
+    .tour-narration-controls select { max-width: 150px; }
+    .tour-narration-status { width: 100%; margin-left: 0; text-align: left; }
+
+    body.tour-mode #container {
+        width: 100vw;
+        height: calc(100vh - var(--tour-narrative-height));
+        margin-top: var(--tour-narrative-height);
+        margin-left: 0;
+    }
+
+    body.tour-discussion .tour-narrative { top: 0; }
+}

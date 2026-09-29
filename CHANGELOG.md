@@ -4,6 +4,7 @@
 
 - Replaced tour mode and comparison endpoint drop-downs with direct mode buttons and multi-select revision comparison
 - Added two-or-more-panel Compare views ordered from oldest to newest with adjacent diffs
+- Unified Present navigation into one Tour, Files, or Commits navigator and made narrative context content-sized above the evidence
 
 ## 0.9.1
 

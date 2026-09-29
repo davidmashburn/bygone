@@ -25,9 +25,6 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
     const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
     const TOUR_SIDEBAR_MIN_WIDTH = 240;
     const TOUR_SIDEBAR_MAX_WIDTH = 600;
-    const TOUR_NARRATIVE_STORAGE_KEY = 'bygone.tourNarrativeHeight';
-    const TOUR_NARRATIVE_MIN_HEIGHT = 180;
-    const TOUR_DIFF_MIN_HEIGHT = 180;
     const TOUR_NARRATION_VOICE_STORAGE_KEY = 'bygone.tourNarrationVoice';
     const TOUR_NARRATION_RATE_STORAGE_KEY = 'bygone.tourNarrationRate';
     const NARRATION_RATES = new Set([0.75, 1, 1.25, 1.5]);
@@ -44,8 +41,14 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         historyCommit: null,
         historyEntries: [],
         historyPath: null,
+        historyPanels: [],
+        historyFocus: null,
+        historyDiff: null,
         compare: null,
+        comparisonFocus: null,
         comparisonCommits: [],
+        comparisonDraftCommits: [],
+        comparisonDraftInitialized: false,
         activeSceneIndex: -1,
         activeStepIndex: 0,
         sceneIntroVisible: false,
@@ -55,7 +58,7 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         tourFocusFilePath: null,
         tourSidebarWidth: readStoredTourSidebarWidth(),
         tourSidebarHidden: false,
-        tourNarrativeHeight: readStoredTourNarrativeHeight(),
+        tourNavigatorTab: 'tour',
         narrationVoiceURI: window.localStorage.getItem(TOUR_NARRATION_VOICE_STORAGE_KEY) || '',
         narrationRate: readStoredNarrationRate(),
         narrationVoices: [],
@@ -210,16 +213,21 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         document.body.classList.toggle('tour-derived-mode', !isNarrativeMode());
         if (!isNarrativeMode()) {
             document.body.classList.remove('tour-discussion');
-            setTourFilesOpen(true);
+            setTourNavigatorTab('commits');
+        } else if (state.tourNavigatorTab === 'commits') {
+            setTourNavigatorTab('tour');
         }
         renderComparisonControls();
     }
 
     function renderComparisonControls() {
-        const count = state.comparisonCommits.length;
+        const count = state.comparisonDraftCommits.length;
         const compareButton = document.getElementById('tour-history-compare');
         compareButton.textContent = `Compare selected (${count})`;
         compareButton.disabled = count < 2;
+        const updateButton = document.getElementById('tour-compare-apply');
+        updateButton.textContent = `Update comparison (${count})`;
+        updateButton.disabled = count < 2;
         document.getElementById('tour-compare-scope').textContent = state.compare?.path ? `File: ${state.compare.path}` : 'All changed files';
         document.getElementById('tour-compare-all').hidden = !state.compare?.path;
         for (const id of ['tour-history-parent', 'tour-history-base']) document.getElementById(id).disabled = !state.historyCommit;
@@ -240,16 +248,16 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
 
     function seedComparisonSelection(entries, commit) {
         const visible = new Set(entries.map((entry) => entry.commit));
-        state.comparisonCommits = state.comparisonCommits.filter((selected) => visible.has(selected));
-        if (state.comparisonCommits.length >= 2) {
-            state.comparisonCommits = normalizeComparisonSelection({ commits: state.comparisonCommits }).commits;
+        state.comparisonDraftCommits = state.comparisonDraftCommits.filter((selected) => visible.has(selected));
+        if (state.comparisonDraftCommits.length >= 2) {
+            state.comparisonDraftCommits = normalizeComparisonSelection({ commits: state.comparisonDraftCommits }).commits;
             return;
         }
         const index = entries.findIndex((entry) => entry.commit === commit);
         const adjacent = entries[index + 1] || entries[index - 1];
-        state.comparisonCommits = [adjacent?.commit, commit].filter(Boolean);
-        if (state.comparisonCommits.length >= 2) {
-            state.comparisonCommits = normalizeComparisonSelection({ commits: state.comparisonCommits }).commits;
+        state.comparisonDraftCommits = [adjacent?.commit, commit].filter(Boolean);
+        if (state.comparisonDraftCommits.length >= 2) {
+            state.comparisonDraftCommits = normalizeComparisonSelection({ commits: state.comparisonDraftCommits }).commits;
         }
     }
 
@@ -277,18 +285,32 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         }
         if (!commit) throw new Error('No file history is available for this path.');
         const entry = entries.find((item) => item.commit === commit);
+        if (state.historyPath === path && state.historyCommit === commit && state.historyPanels.length) {
+            renderZoomHistoryPanels();
+            return;
+        }
         const diff = await historyRequest('diff', { path: entry?.path || path, commit });
         if (request !== evidenceRequest || state.zoom.mode !== 'history') return;
         state.historyEntries = entries;
         if (reload) state.historyPath = path;
         state.historyCommit = commit;
-        seedComparisonSelection(entries, commit);
-        emitDiffScene(
-            { ...diff, kind: 'text-diff', takeaway: '', focusChangeIndex: 0 },
-            [],
-            `history-${commit}-${diff.path}`,
-            buildZoomHistoryState(entries, commit, diff)
-        );
+        const width = Math.max(2, state.historyPanels.length);
+        state.historyDiff = diff;
+        const panel = (oid, content, label) => ({ id: `history-${oid || 'empty'}`, commit: oid, content, label, path: diff.path, editable: false });
+        state.historyPanels = [panel(diff.parentCommit, diff.leftContent, diff.parentCommit?.slice(0, 7) || 'Empty tree'), panel(commit, diff.rightContent, entry ? `${entry.shortCommit} ${entry.summary}` : commit.slice(0, 7))];
+        state.historyFocus = `history-${commit}`;
+        while (state.historyPanels.length < width) {
+            const older = historyNeighbor(state.historyPanels[0], 'left');
+            if (!older) break;
+            const snapshot = await historyRequest('diff', { path: older.path || path, commit: older.commit });
+            if (request !== evidenceRequest || state.zoom.mode !== 'history') return;
+            state.historyPanels.unshift(panel(older.commit, snapshot.rightContent, `${older.shortCommit} ${older.summary}`));
+        }
+        if (!state.comparisonDraftInitialized) {
+            seedComparisonSelection(entries, commit);
+            state.comparisonDraftInitialized = true;
+        }
+        renderZoomHistoryPanels();
         document.getElementById('tour-mode-status').textContent = status;
         renderComparisonControls();
         updateTourLocationUrl();
@@ -315,13 +337,69 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
                         label: `${item.shortCommit} ${item.summary}`.trim(),
                         meta: item.timestamp,
                         active: itemIndex === index,
-                        selected: state.comparisonCommits.includes(item.commit),
+                        selected: state.comparisonDraftCommits.includes(item.commit),
                         kind: 'history-entry',
                         index: itemIndex
                     }))
                 }
             }
         };
+    }
+
+    function historyNeighbor(panel, side) {
+        const order = chronologicalComparisonCommits();
+        const index = order.indexOf(panel.commit);
+        if (index < 0) return null;
+        const loaded = new Set(state.historyPanels.map((item) => item.commit));
+        const candidates = side === 'left' ? order.slice(0, index).reverse() : order.slice(index + 1);
+        const oid = candidates.find((candidate) => !loaded.has(candidate) && state.historyEntries.some((entry) => entry.commit === candidate));
+        return state.historyEntries.find((entry) => entry.commit === oid);
+    }
+
+    function panelHistoryState(history, commits, focus) {
+        const items = history.rail.itemsByTab.history;
+        for (const item of items) {
+            item.commit = state.historyEntries[item.index]?.commit;
+            item.panelNumber = commits.indexOf(item.commit) + 1 || null;
+            item.active = item.commit === focus;
+        }
+        commits.forEach((commit, index) => {
+            if (items.some((item) => item.commit === commit)) return;
+            items.push({ label: commit ? `${commit.slice(0, 7)} · Parent/base revision` : 'Empty tree', commit, selected: state.comparisonDraftCommits.includes(commit), panelNumber: index + 1, active: commit === focus, kind: 'panel-revision', index: -index - 1 });
+        });
+        return history;
+    }
+
+    function renderZoomHistoryPanels() {
+        const panels = state.historyPanels.map((panel) => ({ ...panel, addLeftEnabled: Boolean(historyNeighbor(panel, 'left')), addRightEnabled: Boolean(historyNeighbor(panel, 'right')), removeEnabled: state.historyPanels.length > 2 }));
+        const focus = panels.find((panel) => panel.id === state.historyFocus)?.commit;
+        state.activeTourFilePath = state.historyPath;
+        updateTourFileSelection();
+        emit({ type: 'showMultiDiff', panels, pairs: panels.slice(0, -1).map((panel, index) => ({ leftIndex: index, rightIndex: index + 1, diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content) })), activePanelId: state.historyFocus, mutationEnabled: true,
+            history: panelHistoryState(buildZoomHistoryState(state.historyEntries, state.historyCommit, state.historyDiff), panels.map((panel) => panel.commit), focus) });
+    }
+
+    async function changeHistoryPanels(message) {
+        const anchor = state.historyPanels.find((panel) => panel.id === (message.anchorPanelId || message.panelId));
+        if (!anchor) return;
+        if (message.type === 'multiRemovePanel') {
+            if (state.historyPanels.length <= 2) return;
+            ++evidenceRequest;
+            state.historyPanels = state.historyPanels.filter((panel) => panel !== anchor);
+            if (state.historyFocus === anchor.id) state.historyFocus = state.historyPanels.at(-1).id;
+        } else {
+            const entry = historyNeighbor(anchor, message.side);
+            if (!entry) return;
+            const request = ++evidenceRequest;
+            const diff = await historyRequest('diff', { path: entry.path || state.historyPath, commit: entry.commit });
+            if (request !== evidenceRequest || state.zoom.mode !== 'history') return;
+            const panel = { id: `history-${entry.commit}`, commit: entry.commit, content: diff.rightContent, label: `${entry.shortCommit} ${entry.summary}`, path: diff.path, editable: false };
+            state.historyPanels.push(panel);
+            const order = chronologicalComparisonCommits();
+            state.historyPanels.sort((a, b) => order.indexOf(a.commit) - order.indexOf(b.commit));
+            state.historyFocus = panel.id;
+        }
+        renderZoomHistoryPanels();
     }
 
     function navigateZoomHistory(direction) {
@@ -349,7 +427,8 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
                         label: `${item.shortCommit} ${item.summary}`.trim(),
                         meta: item.timestamp,
                         active: item.commit === focusCommit,
-                        selected: selection.commits.includes(item.commit),
+                        selected: state.comparisonDraftCommits.includes(item.commit),
+                        panelNumber: selection.commits.indexOf(item.commit) + 1 || null,
                         kind: 'history-entry',
                         index
                     }))
@@ -361,6 +440,8 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
     function showComparisonFile(file, focusCommit = null) {
         if (!file || file.kind !== 'text-diff') return false;
         const panels = file.comparisonPanels;
+        focusCommit = focusCommit || state.comparisonFocus;
+        state.comparisonFocus = focusCommit;
         const pairs = panels.slice(0, -1).map((panel, index) => ({
             leftIndex: index,
             rightIndex: index + 1,
@@ -373,7 +454,7 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
             panels,
             pairs,
             activePanelId: focusCommit ? `compare-${focusCommit}` : null,
-            history: buildComparisonHistoryState(state.compare, focusCommit),
+            history: panelHistoryState(buildComparisonHistoryState(state.compare, focusCommit), state.compare.commits, focusCommit),
             fileNavigation: {
                 canGoPrevious: Boolean(getCurrentTourFileTarget(-1)),
                 canGoNext: Boolean(getCurrentTourFileTarget(1))
@@ -391,6 +472,7 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         if (request !== evidenceRequest || state.zoom.mode !== 'compare') return;
         const files = result.files;
         state.comparisonCommits = selection.commits;
+        state.comparisonDraftCommits = selection.commits;
         state.compare = { ...selection, files };
         state.tour = zoomTour('compare');
         state.activeSceneIndex = -1;
@@ -451,7 +533,7 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
             document.getElementById('tour-mode-status').textContent = '';
             zoomRestore = landing.restore && !comparison ? landing.location : null;
             if (mode === 'history') {
-                await showZoomHistory(state.historyPath || landing.location.path || state.tour.files.find((file) => file.kind === 'text-diff')?.path, landing.location.commit);
+                await showZoomHistory(state.historyPath || landing.location.path || state.tour.files.find((file) => file.kind === 'text-diff')?.path, state.historyCommit || landing.location.commit);
             } else if (mode === 'compare') {
                 await showComparison(comparison || state.compare || finalComparison(), selectedPath || landing.location.path);
             } else {
@@ -536,6 +618,24 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         }
 
         if (state.mode === 'tour' && ['history', 'compare'].includes(state.zoom?.mode)) {
+            if (state.zoom.mode === 'history' && ['multiAddPanel', 'multiRemovePanel'].includes(message.type)) {
+                void changeHistoryPanels(message).catch(reportModeError);
+                return;
+            }
+            if (state.zoom.mode === 'history' && message.type === 'multiSetActivePanel') {
+                state.historyFocus = message.panelId;
+                return;
+            }
+            if (message.type === 'multiSetActivePair' || message.type === 'multiSetActivePanel') {
+                if (state.zoom.mode === 'history') {
+                    state.historyFocus = state.historyPanels[message.pairIndex]?.id || state.historyFocus;
+                } else {
+                    state.comparisonFocus = message.type === 'multiSetActivePanel'
+                        ? message.panelId.replace(/^compare-/, '')
+                        : state.comparisonCommits[message.pairIndex];
+                }
+                return;
+            }
             if (message.type === 'historyBack' || message.type === 'historyForward') {
                 if (state.zoom.mode !== 'history') return;
                 const navigation = navigateZoomHistory(message.type === 'historyBack' ? 1 : -1);
@@ -543,30 +643,28 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
                 return;
             }
             if (message.type === 'toggleHistorySelection' && Number.isInteger(message.index)) {
-                const entry = state.historyEntries[message.index];
-                if (!entry) return;
-                const nextCommits = state.comparisonCommits.includes(entry.commit)
-                    ? state.comparisonCommits.filter((commit) => commit !== entry.commit)
-                    : [...state.comparisonCommits, entry.commit];
-                state.comparisonCommits = nextCommits.length >= 2
+                const commits = state.zoom.mode === 'history' ? state.historyPanels.map((panel) => panel.commit) : state.comparisonCommits;
+                const entry = message.index < 0 ? { commit: commits[-message.index - 1] } : state.historyEntries[message.index];
+                if (!entry?.commit) return;
+                const nextCommits = state.comparisonDraftCommits.includes(entry.commit)
+                    ? state.comparisonDraftCommits.filter((commit) => commit !== entry.commit)
+                    : [...state.comparisonDraftCommits, entry.commit];
+                state.comparisonDraftCommits = nextCommits.length >= 2
                     ? normalizeComparisonSelection({ commits: nextCommits }).commits
                     : nextCommits;
                 renderComparisonControls();
-                if (state.zoom.mode === 'history') {
-                    void showZoomHistory(state.historyPath, state.historyCommit, false).catch(reportModeError);
-                } else if (state.comparisonCommits.length >= 2) {
-                    void showComparison({ ...state.compare, commits: state.comparisonCommits }, state.activeTourFilePath, entry.commit).catch(reportModeError);
-                } else {
-                    void switchZoomMode('history').catch(reportModeError);
-                }
                 return;
             }
             if (message.type === 'selectHistoryEntry' && Number.isInteger(message.index)) {
                 const entry = state.historyEntries[message.index];
-                if (entry && state.zoom.mode === 'history') void showZoomHistory(state.historyPath, entry.commit, false).catch(reportModeError);
+                if (entry && state.zoom.mode === 'history') {
+                    const panel = state.historyPanels.find((item) => item.commit === entry.commit);
+                    if (panel) { state.historyFocus = panel.id; emit({ type: 'focusHistoryPanel', panelId: panel.id }); }
+                    else void showZoomHistory(state.historyPath, entry.commit, false).catch(reportModeError);
+                }
                 if (entry && state.zoom.mode === 'compare' && state.comparisonCommits.includes(entry.commit)) {
-                    const file = state.compare?.files.find((candidate) => candidate.path === state.activeTourFilePath);
-                    if (file) showComparisonFile(file, entry.commit);
+                    state.comparisonFocus = entry.commit;
+                    emit({ type: 'focusHistoryPanel', panelId: `compare-${entry.commit}` });
                 }
                 return;
             }
@@ -624,7 +722,8 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         const action = (id, handler) => document.getElementById(id)?.addEventListener('click', () => {
             Promise.resolve().then(handler).catch(reportModeError);
         });
-        action('tour-history-compare', () => openComparison({ commits: state.comparisonCommits, path: selectedHistoryPath() }));
+        action('tour-history-compare', () => openComparison({ commits: state.comparisonDraftCommits, path: selectedHistoryPath() }));
+        action('tour-compare-apply', () => openComparison({ commits: state.comparisonDraftCommits, path: state.compare?.path }));
         action('tour-history-parent', () => {
             const parent = state.historyEntries.find((entry) => entry.commit === state.historyCommit)?.parentCommit;
             if (!parent) { reportModeError('This is the first commit; History already shows its comparison with the empty tree.'); return; }
@@ -634,10 +733,16 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         action('tour-history-final', () => openComparison(finalComparison()));
         action('tour-compare-final', () => openComparison(finalComparison()));
         action('tour-compare-all', () => openComparison({ commits: state.compare.commits }));
-        action('tour-compare-clear', async () => {
-            await switchZoomMode('history');
-            state.compare = null;
-        });
+        const updateDraft = (commits) => {
+            state.comparisonDraftInitialized = true;
+            state.comparisonDraftCommits = commits.filter(Boolean);
+            renderComparisonControls();
+            emit({ type: 'updateHistorySelection', commits: state.comparisonDraftCommits });
+        };
+        for (const mode of ['history', 'compare']) {
+            action(`tour-${mode}-clear`, () => updateDraft([]));
+            action(`tour-${mode}-reset`, () => updateDraft(state.zoom.mode === 'history' ? state.historyPanels.map((panel) => panel.commit) : state.comparisonCommits));
+        }
         // Only user input counts. Renderer reveals, synchronized scrolling and restores do not.
         for (const type of ['wheel', 'pointerdown', 'keydown']) document.addEventListener(type, (event) => {
             if (!event.isTrusted || event.target?.closest?.('#tour-mode-controls')) return;
@@ -663,11 +768,11 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         const tourRate = document.getElementById('tour-narration-rate');
 
         initializeTourSidebar();
-        initializeTourNarrativeResizer();
+        initializeTourNarrativeLayout();
         initializeNarrationVoices();
-        document.getElementById('tour-files-toggle')?.addEventListener('click', () => {
-            const files = document.getElementById('tour-files');
-            setTourFilesOpen(files.hidden);
+        document.getElementById('tour-navigator-tabs')?.addEventListener('click', (event) => {
+            const button = event.target instanceof Element ? event.target.closest('[data-tour-navigator]') : null;
+            if (button?.dataset.tourNavigator) setTourNavigatorTab(button.dataset.tourNavigator);
         });
 
         compareTestButton?.addEventListener('click', () => {
@@ -743,6 +848,8 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
                 event.preventDefault();
                 event.stopImmediatePropagation();
                 if (state.tourSidebarHidden) setTourSidebarHidden(false);
+                setTourNavigatorTab('tour');
+                document.querySelector('.tour-search-disclosure')?.setAttribute('open', '');
                 tourSearchInput?.focus();
                 tourSearchInput?.select();
                 return;
@@ -1109,83 +1216,16 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         window.dispatchEvent(new Event('resize'));
     }
 
-    function initializeTourNarrativeResizer() {
-        const resizer = document.getElementById('tour-narrative-resizer');
-        if (!resizer) return;
-
-        applyTourNarrativeHeight();
-        resizer.addEventListener('pointerdown', (event) => {
-            event.preventDefault();
-            document.body.classList.add('is-resizing-tour-narrative');
-            resizer.setPointerCapture?.(event.pointerId);
-            window.dispatchEvent(new CustomEvent('bygone:workspace-resize-start'));
-
-            const narrativeTop = document.getElementById('tour-narrative')?.getBoundingClientRect().top || 0;
-            const move = (moveEvent) => setTourNarrativeHeight(moveEvent.clientY - narrativeTop);
-            const finish = () => {
-                document.body.classList.remove('is-resizing-tour-narrative');
-                window.removeEventListener('pointermove', move);
-                window.removeEventListener('pointerup', finish);
-                window.removeEventListener('pointercancel', finish);
-                window.dispatchEvent(new CustomEvent('bygone:workspace-resize-end'));
-                storeTourNarrativeHeight();
-            };
-            window.addEventListener('pointermove', move);
-            window.addEventListener('pointerup', finish);
-            window.addEventListener('pointercancel', finish);
-        });
-
-        resizer.addEventListener('keydown', (event) => {
-            if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
-            event.preventDefault();
-            const nextHeight = event.key === 'Home'
-                ? TOUR_NARRATIVE_MIN_HEIGHT
-                : event.key === 'End'
-                    ? maximumTourNarrativeHeight()
-                    : state.tourNarrativeHeight + (event.key === 'ArrowUp' ? -16 : 16);
-            setTourNarrativeHeight(nextHeight);
-            storeTourNarrativeHeight();
-        });
-
-        window.addEventListener('resize', () => {
-            state.tourNarrativeHeight = Math.min(maximumTourNarrativeHeight(), state.tourNarrativeHeight);
-            applyTourNarrativeHeight();
-        });
-    }
-
-    function readStoredTourNarrativeHeight() {
-        const stored = Number.parseInt(window.localStorage.getItem(TOUR_NARRATIVE_STORAGE_KEY) || '', 10);
-        if (Number.isFinite(stored)) return Math.max(TOUR_NARRATIVE_MIN_HEIGHT, stored);
-        const cssDefault = Number.parseInt(
-            window.getComputedStyle(document.documentElement).getPropertyValue('--tour-narrative-height'),
-            10
-        );
-        return Number.isFinite(cssDefault) ? cssDefault : 296;
-    }
-
-    function maximumTourNarrativeHeight() {
-        const narrativeTop = document.getElementById('tour-narrative')?.getBoundingClientRect().top || 0;
-        return Math.max(TOUR_NARRATIVE_MIN_HEIGHT, window.innerHeight - narrativeTop - TOUR_DIFF_MIN_HEIGHT);
-    }
-
-    function setTourNarrativeHeight(height) {
-        state.tourNarrativeHeight = Math.min(
-            maximumTourNarrativeHeight(),
-            Math.max(TOUR_NARRATIVE_MIN_HEIGHT, Math.round(height))
-        );
-        applyTourNarrativeHeight();
-        window.dispatchEvent(new Event('resize'));
-    }
-
-    function applyTourNarrativeHeight() {
-        document.documentElement.style.setProperty('--tour-narrative-height', `${state.tourNarrativeHeight}px`);
-        const resizer = document.getElementById('tour-narrative-resizer');
-        resizer?.setAttribute('aria-valuemax', String(maximumTourNarrativeHeight()));
-        resizer?.setAttribute('aria-valuenow', String(state.tourNarrativeHeight));
-    }
-
-    function storeTourNarrativeHeight() {
-        window.localStorage.setItem(TOUR_NARRATIVE_STORAGE_KEY, String(state.tourNarrativeHeight));
+    function initializeTourNarrativeLayout() {
+        const narrative = document.getElementById('tour-narrative');
+        if (!narrative) return;
+        const updateHeight = () => {
+            const height = narrative.hidden ? 0 : Math.ceil(narrative.getBoundingClientRect().height);
+            document.documentElement.style.setProperty('--tour-narrative-height', `${height}px`);
+            window.dispatchEvent(new Event('resize'));
+        };
+        new ResizeObserver(updateHeight).observe(narrative);
+        updateHeight();
     }
 
     async function loadTour(manifestUrl) {
@@ -1409,6 +1449,7 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
             item.append(oid, document.createTextNode(commit.summary));
             return item;
         }));
+        setTourNavigatorTab(state.tourNavigatorTab);
     }
 
     function setReviewNotesOpen(open) {
@@ -1976,10 +2017,20 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         return true;
     }
 
-    function setTourFilesOpen(open) {
-        document.getElementById('tour-files').hidden = !open;
-        document.getElementById('tour-files-toggle').setAttribute('aria-expanded', String(open));
-        document.querySelector('.tour-files-section').classList.toggle('is-open', open);
+    function setTourNavigatorTab(tab) {
+        if (!['tour', 'files', 'commits'].includes(tab)) return;
+        state.tourNavigatorTab = tab;
+        document.querySelectorAll('[data-tour-navigator]').forEach((button) => {
+            const active = button.dataset.tourNavigator === tab;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-selected', String(active));
+            button.tabIndex = active ? 0 : -1;
+        });
+        document.querySelectorAll('[data-tour-navigator-panel]').forEach((panel) => {
+            panel.hidden = panel.dataset.tourNavigatorPanel !== tab;
+        });
+        window.dispatchEvent(new CustomEvent('bygone:present-navigator-change', { detail: { tab } }));
+        window.dispatchEvent(new Event('resize'));
     }
 
     function renderDirectoryOverviewBreadcrumb() {

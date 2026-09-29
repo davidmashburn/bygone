@@ -437,6 +437,7 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     const providerSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'diffViewProvider.ts'), 'utf8');
     const presenterSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'presenter.css'), 'utf8');
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    const rendererStyles = fs.readFileSync(path.join(__dirname, '..', 'media', 'style.css'), 'utf8');
 
     assert.match(hostSource, /message\.type === 'navigateFile'[\s\S]{0,180}showTourFile/);
     assert.doesNotMatch(hostSource, /message\.type === 'navigateFile'[\s\S]{0,180}showTourLinear/);
@@ -470,8 +471,16 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.doesNotMatch(webMarkup, /<select[^>]+id="tour-(?:mode|compare)/);
     assert.match(webMarkup, /id="tour-mode-tabs"/);
     assert.match(webMarkup, /id="tour-history-compare"/);
+    assert.match(webMarkup, /id="tour-compare-apply"/);
     assert.match(rendererSource, /data-rail-select/);
-    assert.match(hostSource, /type: 'showMultiDiff'[\s\S]{0,260}history: buildComparisonHistoryState/);
+    assert.match(hostSource, /comparisonDraftCommits: \[\]/);
+    assert.match(hostSource, /message\.type === 'toggleHistorySelection'[\s\S]{0,1200}renderComparisonControls\(\);[\s\S]{0,40}return;/);
+    assert.doesNotMatch(hostSource, /message\.type === 'toggleHistorySelection'[\s\S]{0,700}showComparison\(/);
+    assert.match(rendererSource, /item\.selected = !item\.selected;\s+renderHistoryRail\(\);/);
+    assert.match(rendererSource, /history-rail-panel-badge/);
+    assert.match(rendererStyles, /\.history-rail-item\.panel-active/);
+    assert.match(presenterSource, /\.tour-evidence-controls\[hidden\] \{ display: none; \}/);
+    assert.match(hostSource, /history: panelHistoryState\(buildComparisonHistoryState/);
     assert.match(rendererSource, /workingTreeControls === false/);
     assert.match(hostSource, /function renderMultiPanelStep/);
     assert.match(hostSource, /scene\.kind === 'deconstructed-diff'/);
@@ -487,9 +496,14 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /source\.removeAttribute\('href'\)/);
     assert.match(hostSource, /getMultiPanelDefinitions/);
     assert.match(hostSource, /type: 'showMultiDiff'/);
-    assert.match(webMarkup, /class="tour-details" open/);
-    assert.match(webMarkup, /tour-files-section is-open/);
-    assert.match(webMarkup, /id="tour-files-toggle"[^>]+aria-expanded="true"/);
+    assert.match(webMarkup, /class="tour-details"/);
+    assert.doesNotMatch(webMarkup, /class="tour-details" open/);
+    assert.match(webMarkup, /id="tour-navigator-tabs"/);
+    for (const tab of ['tour', 'files', 'commits']) {
+        assert.match(webMarkup, new RegExp(`data-tour-navigator="${tab}"`));
+        assert.match(webMarkup, new RegExp(`data-tour-navigator-panel="${tab}"`));
+    }
+    assert.match(webMarkup, /id="tour-commits-host"/);
     assert.match(webMarkup, /id="tour-files" class="tour-files" aria-label="Changed files"><\/nav>/);
     assert.match(hostSource, /contextLabel\.hidden = !step/);
     assert.match(webMarkup, /id="tour-return-focus"/);
@@ -498,7 +512,10 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /label: 'Anchored diff hunks'/);
     assert.match(hostSource, /metric: 'assignment'/);
     assert.match(presenterSource, /\.tour-coverage-item\[data-metric="assignment"\]/);
-    assert.match(presenterSource, /\.tour-rail-sections[\s\S]{0,180}flex-direction: column/);
+    assert.match(presenterSource, /\.tour-navigator-tabs[\s\S]{0,140}grid-template-columns: repeat\(3/);
+    assert.match(presenterSource, /#history-rail\.present-navigation-rail/);
+    assert.match(rendererSource, /tourHost = document\.getElementById\('tour-commits-host'\)/);
+    assert.match(rendererSource, /rail\.classList\.toggle\('present-navigation-rail', presentOwned\)/);
     assert.match(hostSource, /tourPrevious\?\.addEventListener\('click', \(\) => showTourLinear\(-1\)\)/);
     for (const markup of [webMarkup, providerSource]) {
         assert.match(markup, /id="next-file" class="change-button icon-button"/);
@@ -509,11 +526,8 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /parameters\.get\('view'\) === 'overview'/);
     assert.match(hostSource, /parameters\.set\('view', 'overview'\)/);
     assert.match(hostSource, /isInteractiveKeyTarget\(event\.target\)/);
-    assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+--tour-rail-height/);
-    assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+grid-template-columns: minmax\(190px/);
-    assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+\.tour-search \{[\s\S]{0,100}grid-column: 2;[\s\S]{0,100}grid-row: 1;/);
-    assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+\.tour-rail-sections \{[\s\S]{0,100}grid-row: 2;/);
-    assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+\.tour-commits-section \{[\s\S]{0,100}grid-row: 3;/);
+    assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+width: min\(88vw, 340px\)/);
+    assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+height: calc\(100vh - var\(--tour-narrative-height\)\)/);
 }
 
 function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
@@ -640,6 +654,15 @@ function testEditorScrollSyncIgnoresExtentOnlyChanges() {
     assert.deepEqual(
         invokeScrollHandler({ scrollTopChanged: false, scrollLeftChanged: true }, 'multi-way'),
         ['multi-scroll', 'draw']
+    );
+}
+
+function testEditorLayoutChangesRedrawConnectors() {
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
+    assert.match(
+        rendererSource,
+        /editor\.onDidLayoutChange\(\(\) => \{\s+connectorController\.scheduleDrawConnections\(\);\s+\}\);/,
+        'connector gutters should redraw after Monaco finishes resizing a diff pane'
     );
 }
 
@@ -2519,10 +2542,9 @@ function testSidebarsExposeResizeCollapseAndRestoreControls() {
     assert.match(presenterMarkup, /id="tour-sidebar-show"/);
     assert.match(presenterMarkup, /id="tour-sidebar-resizer"[^>]+role="separator"/);
     assert.match(presenterHost, /TOUR_SIDEBAR_STORAGE_KEY/);
-    assert.match(presenterMarkup, /id="tour-narrative-resizer"[^>]+aria-orientation="horizontal"/);
-    assert.match(presenterHost, /TOUR_NARRATIVE_STORAGE_KEY/);
-    assert.match(presenterHost, /maximumTourNarrativeHeight/);
-    assert.match(presenterHost, /bygone:workspace-resize-start/);
+    assert.doesNotMatch(presenterMarkup, /id="tour-narrative-resizer"/);
+    assert.match(presenterHost, /function initializeTourNarrativeLayout/);
+    assert.match(presenterHost, /new ResizeObserver\(updateHeight\)/);
     assert.match(rendererSource, /captureWorkspaceResizeScrollSnapshot/);
     assert.match(rendererSource, /restoreWorkspaceResizeScrollSnapshot/);
     assert.doesNotMatch(presenterSource, /font(?:-size)?:\s*(?:500\s+)?(?:9|10|11)px\b/);
@@ -4358,7 +4380,38 @@ function shortCommit(repo, rev) {
     return runGit(repo, ['rev-parse', '--short', rev]);
 }
 
+async function testPresentHistoryPanelWorkspace() {
+    const source = fs.readFileSync(path.join(__dirname, '../web/host.js'), 'utf8');
+    const implementation = source.slice(source.indexOf('    function historyNeighbor('), source.indexOf('    function navigateZoomHistory('));
+    const state = {
+        zoom: { mode: 'history' }, historyPath: 'file.txt', historyCommit: 'c', historyDiff: {},
+        historyEntries: ['c', 'a'].map((commit) => ({ commit, shortCommit: commit, summary: commit })),
+        historyPanels: ['b', 'c'].map((commit) => ({ id: `history-${commit}`, commit, content: commit })),
+        historyFocus: 'history-c', comparisonDraftCommits: []
+    };
+    let rendered;
+    const history = () => ({ rail: { itemsByTab: { history: state.historyEntries.map((entry, index) => ({ index, label: entry.commit })) } } });
+    const workspace = new Function('state', 'chronologicalComparisonCommits', 'historyRequest', 'buildZoomHistoryState', 'buildTwoWayDiffModel', 'updateTourFileSelection', 'emit',
+        `let evidenceRequest = 0; ${implementation}; return { historyNeighbor, panelHistoryState, changeHistoryPanels, renderZoomHistoryPanels };`
+    )(state, () => ['a', 'b', 'c'], async (_endpoint, input) => ({ rightContent: input.commit, path: 'file.txt' }), history, () => ({}), () => {}, (message) => { rendered = message; });
+    workspace.renderZoomHistoryPanels();
+    assert.equal(rendered.panels.length, 2);
+    assert.equal(rendered.panels[0].removeEnabled, false);
+    const parent = rendered.history.rail.itemsByTab.history.find((item) => item.commit === 'b');
+    assert.equal(parent.panelNumber, 1);
+    assert.equal(parent.kind, 'panel-revision');
+    assert.equal(workspace.historyNeighbor(state.historyPanels[1], 'right'), undefined);
+    await workspace.changeHistoryPanels({ type: 'multiAddPanel', anchorPanelId: 'history-b', side: 'left' });
+    assert.deepEqual(state.historyPanels.map((panel) => panel.commit), ['a', 'b', 'c']);
+    assert.equal(rendered.panels.every((panel) => panel.removeEnabled), true);
+    assert.deepEqual(state.comparisonDraftCommits, []);
+    await workspace.changeHistoryPanels({ type: 'multiRemovePanel', panelId: 'history-a' });
+    await workspace.changeHistoryPanels({ type: 'multiRemovePanel', panelId: 'history-b' });
+    assert.deepEqual(state.historyPanels.map((panel) => panel.commit), ['b', 'c']);
+}
+
 async function run() {
+    await testPresentHistoryPanelWorkspace();
     testTourLinearNavigationTraversesStepsAndScenes();
     testTourNarrationBuildsSemanticSentenceSegments();
     testTourNarrationSplitsLongTextAndExcludesRawTechnicalTargets();
@@ -4373,6 +4426,7 @@ async function run() {
     testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls();
     testTourAnnotationPersistsAcrossChangeNavigation();
     testEditorScrollSyncIgnoresExtentOnlyChanges();
+    testEditorLayoutChangesRedrawConnectors();
     testStackedDiffTourAnnotations();
     testTourTransitionUpdatesLongDocumentBeforeDeepAnnotation();
     testEditingKeepsCompletedMultiDiffVisibleUntilReplacementArrives();
