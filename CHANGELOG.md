@@ -2,12 +2,17 @@
 
 ## Unreleased
 
+## 0.9.2
+
 - Shared the expanded commit navigator across tours, History, and Compare, with explicit draft submission and loaded-panel badges
 - Kept History's commit axis and expanded panels stable across files, with markers for commits that changed the current file
 - Preserved navigator tabs and comparison drafts across mode switches
 - Replaced tour mode and comparison endpoint drop-downs with direct mode buttons and multi-select revision comparison
 - Added two-or-more-panel Compare views ordered from oldest to newest with adjacent diffs
-- Unified Present navigation into one Tour, Files, or Commits navigator and made narrative context content-sized above the evidence
+- Unified Present navigation into one Tour, Files, or Commits navigator
+- Made tours a continuous reading flow through title, chapters, scene overviews, and steps, with a collapsible outline and scene context above each step
+- Added shared workspace tour discovery, editable skill-based v3 authoring prompts, and same-repository transitions into History
+- Clarified tour mode restoration and directory overview scope while preserving first-visit History context
 
 ## 0.9.1
 

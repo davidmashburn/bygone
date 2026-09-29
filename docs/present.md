@@ -9,30 +9,31 @@ source evidence while keeping the complete changed-file set available.
   reading order for the committed merge-base-to-tip range. It begins with a
   change overview that reports range size, recommends a **Start here** file when
   the evidence supports one, and separates **Pay attention** from **Usually
-  skip** first-pass reading hints. Next advances to the recommended file.
+  skip** first-pass reading hints. Continue through the reading flow to reach
+  the recommended file.
 - **Open Authored Tour…** or `bygone present --tour path.bygone` opens a
   narrative whose anchors have been compiled to exact source locations.
 
 The left navigator switches directly among **Tour**, **Files**, and **Commits**;
-only one of those lists is visible at a time. The active scene expands into
-named, selectable steps in the Tour outline. The
-current step's title and explanation lead the reading panel; put the
-evidence-grounded rationale and tradeoffs for that code beside it in the step
-body. The reading breadcrumb follows **Tour → Chapter → Scene → Step**, using
-actual titles and omitting redundant single-child levels. Select a parent to
-browse its children; select the scene title for its supporting points and
-takeaway. **Resume step N** returns to your reading position, which survives
-refreshing a parent view. The breadcrumb and Previous/Next stay visible while
-long explanations scroll. Scenes without steps show their narrative directly.
+only one of those lists is visible at a time. The Tour outline has independently
+collapsible chapters and scenes; selecting a title jumps to that reading stop
+without changing which sections are expanded.
 
-When you enter a stepped scene from the outline, the reading area starts with a
-full scene overview, including its bullets, tags, and takeaway. Choose **Start
-steps** to open the first step; a direct link that includes a step opens that
-step immediately. The header reports the current position as `Scene N of M ·
-Step N of M`, and the final navigation control is **End of tour**. The reading
-area is content-sized above the evidence so the diff keeps most of the
-workspace. On narrow screens, the navigator becomes an overlay instead of
-stacking another permanent region above the diff.
+The reading panel flows continuously through the tour title, chapters, scene
+overviews, and steps. Scroll the narrative or use keyboard navigation to move
+through that order; the corresponding code evidence follows. Scrolling the code
+does not advance the narrative. Each scene overview is a distinct stop with its
+supporting points and takeaway. Each step keeps a collapsed **Scene context**
+disclosure above its title and explanation. Expanding that disclosure does not
+move the reading position.
+
+A direct link to a step opens that step immediately. The header reports the
+current position as `Scene N of M · Step N of M`, or identifies the overview.
+The reading panel scrolls within a bounded area above the evidence; no Start,
+Resume, or Previous/Next buttons interrupt the flow. Returning from History or
+Compare restores the tour's saved reading position. On narrow screens, the
+navigator becomes an overlay instead of stacking another permanent region
+above the diff.
 
 The code view uses the available width for an added or deleted file when only
 one side is present. An empty **Present** view keeps the regular split layout.
@@ -44,8 +45,8 @@ changing the active tour position. While reading a step, browsing another file
 keeps the active tour anchor visible; **Return to Tour** restores the scene's
 intended focus. While a directory **Overview** is active, files open in its
 comparison and files outside that comparison are disabled. Opening a file keeps
-the overview text and saved step. Select **Overview** above the diff to return
-to the tree, or **Resume step** to continue the tour.
+the overview text and reading position. Select **Overview** above the diff to
+return to the tree, or continue through the narrative to the next step.
 
 **Tour details** is available on demand and contains the source link, range,
 change counts, and authored diff-hunk coverage. Coverage describes how much
@@ -187,8 +188,9 @@ synthetic deconstructed stages.
 
 In version 3, an authored scene can show a directory comparison in its Overview. Open a file
 to inspect the same comparison while keeping the overview text, narration, and
-reading position. The **Overview** breadcrumb returns to its file tree; **Start steps**
-or **Resume step** follows the authored explanation.
+reading position. The **Overview** breadcrumb returns to its file tree;
+scroll through the narrative or select a step in the outline to continue the
+authored explanation.
 
 Stacked and Deconstructed scenes use a stable comparison: by default, the first
 and last scene panels, or explicit endpoints chosen by the author. Moving between
