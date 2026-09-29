@@ -2,21 +2,23 @@
 
 ## Overview
 
-Bygone is a VS Code extension and standalone Electron app that provides a custom side-by-side diff experience with:
+Bygone is a change-understanding tool with a VS Code companion, a standalone Electron app, CLI/agent commands, and a browser presenter. It supports:
 
-- editable two-way diffs
-- prototype adjacent N-panel diffs
-- flowing connectors and contours
-- inline and line-level highlighting
-- file-history stepping through git commits
+- file, directory, revision, branch, and history exploration
+- editable two-way comparisons and read-only multi-panel comparisons
+- inline and line-level highlighting, connectors, and synchronized scrolling
+- generated and authored change tours with source evidence and narration
 
-The codebase is split into three runtime halves:
+The hosts share the browser renderer in [`media/`](./media). Control and domain code lives in [`src/`](./src), the Electron host in [`standalone/`](./standalone), the command-line surface in [`cli/`](./cli), and the browser presenter in [`web/`](./web). The host bridges share diff, history, search, and tour contracts; VS Code also hands richer sessions and authored tours off to the desktop host.
 
-1. The extension host side in [`src/`](./src)
-2. The shared browser UI in [`media/`](./media)
-3. The standalone Electron host in [`standalone/`](./standalone)
+## Product and Host Map
 
-The host decides what to compare and computes structured diff data. The browser UI renders that data, manages the Monaco editors, and draws the connector geometry. The VS Code host and Electron host now use the same bundled browser runtime through different host bridges.
+- **Explore (standalone):** Blank, file, directory, file-history, directory-history, Git revision, branch-review, search, and multi-panel sessions. Live working-tree content can be edited; committed revisions and read-only sessions are presented as snapshots.
+- **Present (standalone or browser):** Generated branch tours and authored `.bygone` tours. Historical tours use real revisions, including real stacked-diff scenes with two or more panels. Deconstructed tours use synthetic explanation stages. Version 3 authored sources can provide independent Historical and Deconstructed modes plus review notes.
+- **VS Code companion:** Contextual file comparison and history, with desktop handoffs for directories, three or more files, branch review, and the `Open Authored Tour in Desktop` command.
+- **CLI and agent tools:** Launch paths, history and Git-diff modes, `review` and `present`, tour context/validation/compilation/coverage/schema, and shell completions.
+
+Version 2 and version 3 tour sources and compiled manifests are repository-bound: source validation and compilation resolve anchors and Git objects from the originating repository, and the resulting artifacts are not portable. Version 1 manifests remain readable as the legacy portable format. Authored tours are opened from the standalone **Open Authored Tour…** menu or through the CLI and are presented in the repository context that validates them.
 
 ## Top-Level Layout
 
@@ -48,6 +50,8 @@ The host decides what to compare and computes structured diff data. The browser 
 
 - [`diff.d.ts`](./src/diff.d.ts)
   Local type declarations for the `diff` package.
+
+The same directory also contains the workspace, comparison, search, and tour domain modules. In particular, [`workspaceGit.ts`](./src/workspaceGit.ts), [`workspaceHistory.ts`](./src/workspaceHistory.ts), and [`workspacePrompt.ts`](./src/workspacePrompt.ts) keep repository context and transitions consistent across desktop modes. [`changeTour.ts`](./src/changeTour.ts), [`changeTourSource.ts`](./src/changeTourSource.ts), [`changeTourManifest.ts`](./src/changeTourManifest.ts), [`changeTourContext.ts`](./src/changeTourContext.ts), [`changeInventory.ts`](./src/changeInventory.ts), and [`tourCoverage.ts`](./src/tourCoverage.ts) implement tour source reading, compilation, evidence, and coverage.
 
 ### `media/`
 
@@ -84,6 +88,21 @@ The host decides what to compare and computes structured diff data. The browser 
 - [`bygone-screenshot.png`](./media/bygone-screenshot.png)
   README screenshot.
 
+The remaining media modules provide workspace controls, navigation, search, decorations, wrapping, and transition helpers used by the shared renderer.
+
+### `cli/`
+
+- [`commandSpec.js`](./cli/commandSpec.js) defines the command and argument contract.
+- [`tour.js`](./cli/tour.js), [`tourFile.js`](./cli/tourFile.js), and [`tourHistory.js`](./cli/tourHistory.js) implement tour and history commands.
+- [`present.js`](./cli/present.js) compiles or reads a tour, starts the loopback presentation server, and launches the presenter.
+- [`workingDirectory.js`](./cli/workingDirectory.js) and [`completions.js`](./cli/completions.js) handle repository context and shell completion.
+
+### `web/`
+
+- [`index.html`](./web/index.html) is the browser presenter shell.
+- [`host.js`](./web/host.js) connects the presenter to the loopback tour server and shared runtime.
+- [`presenter.css`](./web/presenter.css) contains presenter-specific layout and controls.
+
 ### `scripts/`
 
 - [`build.mjs`](./scripts/build.mjs)
@@ -104,7 +123,7 @@ The host decides what to compare and computes structured diff data. The browser 
 ### `standalone/`
 
 - [`main.js`](./standalone/main.js)
-  Electron main process. Owns menus, CLI launch parsing, file I/O, git history loading, save/reload, watch prompts, and bridge messages into the shared UI.
+  Electron main process. Owns menus, CLI launch parsing, file I/O, repository sessions, history and search loading, save/reload, watch prompts, authored-tour opening, and bridge messages into the shared UI.
 
 - [`preload.js`](./standalone/preload.js)
   Electron preload bridge. Exposes the same browser-host contract that the VS Code webview uses.
@@ -115,7 +134,7 @@ The host decides what to compare and computes structured diff data. The browser 
 ### `test/`
 
 - [`runTests.js`](./test/runTests.js)
-  Simple unit checks for diff behavior, plus narrow checks for the retained internal merge helper.
+  Node test entrypoint for diff behavior, Git/workspace contracts, tour reading and compilation, and release-facing checks.
 
 ## Runtime Architecture
 
@@ -148,9 +167,13 @@ Its responsibilities are:
 
 It should not own rendering details or raw webview message parsing.
 
+The desktop equivalent is [`standalone/main.js`](./standalone/main.js), which turns launch arguments and menu actions into workspace sessions. [`workspaceHost.js`](./standalone/workspaceHost.js) coordinates Explore, History, Historical tour, and Deconstructed tour modes while the workspace modules in `src/` resolve repository context and Git-backed state.
+
 ### 3. Structured Diff Model
 
 [`diffEngine.ts`](./src/diffEngine.ts) is the core logic layer.
+
+The surrounding comparison modules add directory, binary, revision, branch, and multi-panel inputs. Tour compilation produces a separate manifest model so rendering code can consume exact evidence without reparsing source files.
 
 For two-way diffs it produces a `TwoWayDiffModel` with:
 
@@ -188,18 +211,7 @@ It handles:
 
 The message contracts are typed in [`webviewMessages.ts`](./src/webviewMessages.ts). The webview HTML now injects a small host bridge object so the shared renderer can run without directly depending on `acquireVsCodeApi()`.
 
-Outbound message types:
-
-- `showDiff`
-- `showDirectoryDiff`
-- `showMultiDiff`
-
-Inbound message types:
-
-- `ready`
-- `recomputeDiff`
-- `historyBack`
-- `historyForward`
+The contracts cover the major render inputs `showDiff`, `showBinaryDiff`, `showDirectoryDiff`, `showMultiDiff`, and `showThreeWayMerge`. Inbound messages cover readiness and recomputation, history and directory navigation, multi-panel updates, staged/unchanged toggles, tour-step navigation, editing, and refresh. Keep additions in [`webviewMessages.ts`](./src/webviewMessages.ts) so the extension, Electron, and browser bridges stay aligned.
 
 There is also an external launch path through [`uriHandler.ts`](./src/uriHandler.ts), which accepts:
 
@@ -225,20 +237,25 @@ The main orchestration code lives in [`script.js`](./media/script.js).
 
 Its responsibilities are:
 
-- receiving `showDiff`, `showDirectoryDiff`, and `showMultiDiff`
+- receiving two-way, binary, directory, multi-panel, and tour render inputs
 - initializing Monaco
-- creating the two editable editors
-- creating read-only adjacent multi-panel editors
+- creating editable two-way editors and read-only adjacent multi-panel editors
 - applying Monaco decorations from the diff model
 - sending debounced `recomputeDiff` messages back to the active host
 - maintaining diff-row-based synchronized scrolling
-- driving the history toolbar
+- driving history, workspace, search, and tour controls
 
 The key design choice here is that scrolling is not purely proportional. It maps through the aligned diff rows so insert/delete blocks anchor correctly.
 
 The renderer talks to a generic `window.__BYGONE_HOST__` bridge when present, and falls back to a VS Code bridge if it is running inside the extension webview.
 
-### 6. Connector Rendering
+### 6. Tour Compilation and Presenters
+
+Tour source is read from a `.bygone` document (with legacy `.bygone.yaml` support) and compiled by [`changeTour.ts`](./src/changeTour.ts) into the manifest consumed by the presenters. Version 3 supports independent authored Historical and Deconstructed tours, scene directory overviews, real stacked revisions with two or more panels, synthetic deconstructed stages, and review notes.
+
+The CLI and standalone host use the same compilation path. [`present.js`](./cli/present.js) starts a loopback server for the compiled tour and opens the browser presenter. [`web/host.js`](./web/host.js) supplies that browser-side host bridge; the standalone Electron window embeds the presenter through [`workspaceHost.js`](./standalone/workspaceHost.js). Version 2 and version 3 manifests include repository identity and Git-backed evidence, so presentation stays bound to the repository that validates the source. Version 1 remains the legacy portable format.
+
+### 7. Connector Rendering
 
 [`connectors.js`](./media/connectors.js) owns the custom visual geometry.
 
@@ -253,7 +270,7 @@ It builds a controller that:
 
 This module is intentionally separate because it is the most geometry-heavy and easiest part to destabilize if mixed back into the main webview logic.
 
-### 7. DOM/Static Rendering Helpers
+### 8. DOM/Static Rendering Helpers
 
 [`dom.js`](./media/dom.js) owns small DOM helpers and simple non-Monaco line rendering helpers retained for internal/unwired views.
 
@@ -281,33 +298,25 @@ Git history support is centered around [`gitHistory.ts`](./src/gitHistory.ts).
 5. loads file contents for `parent:file` and `commit:file`
 6. returns a list of `FileHistoryEntry` objects
 
-The history viewer is intentionally simple:
-
-- one file at a time
-- single-parent stepping
-- commit vs direct parent
-
-It is not yet trying to model merge commits or working tree vs `HEAD`.
+When requested, it also prepends INDEX and WORKTREE entries. WORKTREE content can remain editable unless the session is read-only; committed snapshots and INDEX are materialized as read-only inputs. Each committed entry compares the file with that commit’s first parent; `git log --follow` selects the file history. Directory history is orchestrated by the standalone host, while workspace-history and Git-comparison modules support broader revision exploration and materialization. Branch review has its own merge-base-to-tip range.
 
 ## Build Pipeline
 
 The build entrypoint is [`build.mjs`](./scripts/build.mjs).
 
-Current outputs:
+Current outputs include:
 
-- bundled extension host: [`out/extension.js`](./out/extension.js)
-- test target: [`out/diffEngine.js`](./out/diffEngine.js)
-- bundled webview runtime: [`media/webview.js`](./media/webview.js)
-- bundled webview CSS: [`media/webview.css`](./media/webview.css)
-- bundled Monaco worker: [`media/editor.worker.js`](./media/editor.worker.js)
+- bundled extension host and shared domain modules under [`out/`](./out/), including comparison, history, workspace, and tour code
+- standalone Electron main/preload bundles
+- bundled webview runtime, CSS, Monaco editor worker, and diff worker under [`media/`](./media/)
+- browser presenter bundle under [`web/`](./web/)
 
 Build steps:
 
 1. typecheck with `tsc --noEmit`
-2. bundle extension host with `esbuild`
-3. bundle test-target diff engine with `esbuild`
-4. bundle webview runtime with `esbuild`
-5. bundle Monaco worker with `esbuild`
+2. bundle extension, shared domain, CLI, standalone, and presenter entrypoints with `esbuild`
+3. bundle the webview runtime and CSS
+4. bundle Monaco editor and diff workers
 
 The build also clears old outputs first so stale files do not leak into packaging.
 
@@ -317,38 +326,19 @@ Packaging is driven by:
 
 - [`package.json`](./package.json)
 - [`.vscodeignore`](./.vscodeignore)
+- [`check-vsix-contents.mjs`](./scripts/check-vsix-contents.mjs)
 
-The package now ships only runtime assets:
+The VSIX has an explicit allowlist containing:
 
 - `out/extension.js`
-- bundled webview assets
-- icon
-- screenshot
-- manifest/docs/license files
+- shared webview and worker assets
+- icon, screenshot, and required metadata/docs/license files
 
-Source files, raw webview modules, source maps, and `node_modules` are excluded from the VSIX.
+The standalone package includes the Electron host, browser presenter, and runtime assets. The npm package includes the CLI, tour/runtime modules, schemas, examples, and user-facing documentation. The contents check rejects unexpected or missing VSIX files and enforces the release size limit.
 
 ## Test Strategy
 
-[`runTests.js`](./test/runTests.js) is intentionally narrow and logic-focused.
-
-It currently validates:
-
-- insertion alignment
-- inline word-style highlighting
-- punctuation and whitespace behavior
-- replace-block pairing behavior
-- delete behavior
-- narrow checks for the retained internal merge helper
-
-What it does not cover yet:
-
-- command registration behavior
-- webview startup behavior
-- Monaco/editor integration
-- git-history command integration
-
-So current tests protect the model layer well, but not the full extension runtime.
+[`runTests.js`](./test/runTests.js) runs the core diff checks plus contract checks for Git comparison/history, workspace state, tour reading and compilation, authored modes, coverage, navigation, review notes, packaging, and release/privacy surfaces. The focused tests under [`test/`](./test/) exercise workspace hosts, tour presentation, directory evidence, and repository context. Smoke scripts cover selected standalone and tour-reading startup paths; native Electron, VS Code, and browser lifecycle behavior still requires host-level testing.
 
 ## Important Design Decisions
 
@@ -381,19 +371,9 @@ work coherently without the UI reparsing plain text diffs.
 
 The webview was moved away from Monaco’s shipped AMD runtime tree and into bundled assets. This reduced the VSIX from a large multi-thousand-file package to a much smaller release artifact and removed the `vsce` file-count warning.
 
-## Current Weak Spots
+### Repository-Bound Tour Artifacts
 
-### 1. Directory compare depth
-
-Directory compare now classifies modified files and can drill down into file diffs, including adjacent multi-panel diffs from three-directory comparisons. Deep tree ergonomics and richer filtering are still early.
-
-### 2. Webview size
-
-The file-count warning is gone, but [`webview.js`](./media/webview.js) is still large because Monaco is bundled into it. That is acceptable for now, but still the single largest runtime asset.
-
-### 3. Limited integration testing
-
-The code is much cleaner now, but runtime confidence still depends heavily on manual testing in VS Code.
+Version 2 and version 3 authored sources and manifests keep repository identity and exact Git evidence in the validation path. This preserves trustworthy anchors and zoom targets while making those artifacts dependent on the repository that contains the referenced objects. Version 1 remains readable for legacy portable artifacts.
 
 ## Maintenance Guidance
 
@@ -406,6 +386,9 @@ If you need to change the code:
 - change connector visuals in [`connectors.js`](./media/connectors.js)
 - change simple DOM rendering/helpers in [`dom.js`](./media/dom.js)
 - change git-history resolution in [`gitHistory.ts`](./src/gitHistory.ts)
+- change workspace sessions and repository context in [`workspaceHost.js`](./standalone/workspaceHost.js), [`workspaceGit.ts`](./src/workspaceGit.ts), and [`workspaceHistory.ts`](./src/workspaceHistory.ts)
+- change tour source, validation, compilation, or evidence in [`changeTour.ts`](./src/changeTour.ts), [`changeTourSource.ts`](./src/changeTourSource.ts), [`changeTourManifest.ts`](./src/changeTourManifest.ts), and the related `tour*.ts` modules
+- change CLI/presenter behavior in [`commandSpec.js`](./cli/commandSpec.js) and [`present.js`](./cli/present.js)
 - change package outputs in [`build.mjs`](./scripts/build.mjs)
 
 Good rule:
@@ -414,12 +397,3 @@ Good rule:
 - keep rendering in rendering files
 - keep git shell logic out of UI/control code
 - keep message contracts centralized
-
-## Recommended Next Steps
-
-If this codebase keeps growing, the best next improvements are:
-
-1. Add extension-host integration tests for command and provider flows.
-2. Add filtering, search, and collapse-state persistence to directory compare.
-3. Add working-tree vs `HEAD` support to file history.
-4. Add release automation for build, package, and smoke validation.
