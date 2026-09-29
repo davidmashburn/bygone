@@ -177,9 +177,9 @@ chapters:
     takeaway: The reading level and the return step are separate pieces of state.
     steps:
     - id: remember-step
-      title: Keep the step in the URL
-      body: The step ID remains in the URL even when a parent view is selected. The view parameter records
-        which level is being read.
+      title: Keep your step ready to resume
+      body: Selecting a parent keeps your current step ready to resume. The URL preserves the step and
+        selected reading level, so refreshing restores both.
       focus: remember-step
     - id: resume-parent
       title: Resume from a parent
@@ -220,8 +220,8 @@ chapters:
     bullets: []
     tags:
     - navigation-demo
-    takeaway: Use the mode menu to compare the synthetic explanation, real revisions, final endpoint walkthrough,
-      and live file history.
+    takeaway: Use the mode buttons to open either tour or live History. To inspect the final result without narration,
+      open Compare and choose Final diff.
     steps:
     - id: width-test
       title: A width change only redraws
@@ -322,10 +322,10 @@ tours:
             takeaway: The reading level and the return step are separate pieces of state.
             steps:
               - id: remember-step
-                title: Keep the step in the URL
+                title: Keep your step ready to resume
                 body: >-
-                  The step ID remains in the URL even when a parent view is selected. The view
-                  parameter records which level is being read.
+                  Selecting a parent keeps your current step ready to resume. The URL preserves the step and
+                  selected reading level, so refreshing restores both.
                 focus: remember-step
               - id: resume-parent
                 title: Resume from a parent
@@ -398,8 +398,8 @@ tours:
             tags:
               - navigation-demo
             takeaway: >-
-              Use the mode menu to compare the synthetic explanation, real revisions, final endpoint
-              walkthrough, and live file history.
+              Use the mode buttons to open either tour or live History. To inspect the final result without
+              narration, open Compare and choose Final diff.
             steps:
               - id: width-test
                 title: A width change only redraws

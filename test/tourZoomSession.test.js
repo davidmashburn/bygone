@@ -35,9 +35,7 @@ assert.deepEqual(session.enter('history', historySeed), {
 
 // Each mode owns its cursor after the first visit.
 session.depart(historyLocation);
-session.navigate();
 assert.deepEqual(session.enter('compare'), { location: defaultLocation, restore: false });
-session.navigate();
 session.depart(compareLocation);
 assert.deepEqual(session.enter('history', historySeed), { location: historyLocation, restore: true });
 assert.deepEqual(session.enter('compare'), { location: compareLocation, restore: true });

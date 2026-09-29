@@ -84,8 +84,10 @@ scene in the root tour and any authored mode or fallback that contains it; it
 does not create a separate scene kind.
 
 The comparison is stable regardless of the saved step. Stacked and deconstructed
-scenes default to their first and last panels; walkthroughs use the review's
-base-to-head comparison. For a narrower authored comparison, add:
+scenes default to their first and last panels and compare only files materialized
+in those scene panels. Walkthroughs use the review's base-to-head comparison and
+its tour files, including omitted entries. Any of the three scene types can
+scope the overview to a subdirectory. For a narrower authored comparison, add:
 
 ```yaml
 comparison:
@@ -206,12 +208,13 @@ only when every panel is a real selected Git revision. Use a
 [deconstructed-diff example](../examples/deconstructed-diff.bygone) when
 the teaching order is clearer than the real commit history; its cumulative
 panels are synthetic explanation stages and must never be described as
-commits. In version 2 and 3, every root deconstructed scene must also provide the regular
-endpoint tour's `steps` and an explicit `stack` of the real revisions with the
-same base and final endpoints. Final diff presents those authored walkthrough
-steps, while Explanation stages presents the synthetic reconstruction. Bygone
-does not infer the stack from Git history. Every changed hunk must be assigned
-once or explicitly excluded.
+commits. In versions 2 and 3, a `deconstructed-diff` scene in root `chapters`
+requires a real `stack` with the same base and final endpoints and nonempty
+walkthrough `steps` for compatibility. In version 3, a scene authored inside
+`tours.deconstructed` may omit both because that tour is synthetic by design.
+Explicit `tours.historical` content supplies its own explanation of real
+revisions. Bygone does not infer a real stack from Git history. Every changed
+hunk must be assigned once or explicitly excluded.
 
 See [Bygone's self-referencing history tour](../examples/bygone-history.bygone) for a complete walkthrough that pins and explains the commit where branch review was introduced.
 

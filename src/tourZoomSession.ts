@@ -26,9 +26,6 @@ export class TourZoomSession {
 
     constructor(public mode: TourZoomMode) {}
 
-    /** Kept as a no-op for callers that mark navigation before capturing a cursor. */
-    navigate(): void {}
-
     /** Save the current mode's exact cursor, including its view and UI state. */
     depart(location: ZoomLocation): ZoomLocation {
         this.cursors.set(this.mode, location);
