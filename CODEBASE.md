@@ -2,21 +2,117 @@
 
 ## Overview
 
-Bygone is a VS Code extension and standalone Electron app that provides a custom side-by-side diff experience with:
+Bygone is a change-understanding system with several hosts around one diff renderer:
 
-- editable two-way diffs
-- prototype adjacent N-panel diffs
-- flowing connectors and contours
-- inline and line-level highlighting
-- file-history stepping through git commits
+- the standalone Electron explorer
+- the standalone tour presenter
+- the VS Code extension
+- the browser presenter
+- the CLI and agent-facing tour tools
 
-The codebase is split into three runtime halves:
+The codebase was originally organized as three runtime halves:
 
 1. The extension host side in [`src/`](./src)
 2. The shared browser UI in [`media/`](./media)
 3. The standalone Electron host in [`standalone/`](./standalone)
 
-The host decides what to compare and computes structured diff data. The browser UI renders that data, manages the Monaco editors, and draws the connector geometry. The VS Code host and Electron host now use the same bundled browser runtime through different host bridges.
+The host decides what to compare and computes structured diff data. The browser UI renders that data, manages the Monaco editors, and draws the connector geometry. The VS Code host and Electron host use the same bundled browser runtime through different host bridges. Change tours add a second host path: the CLI compiles a portable manifest, a local HTTP server serves it, and a dedicated desktop or browser presenter renders it.
+
+## Product Surface Map
+
+This section is the internal map of what Bygone exposes. It exists to prevent a shared renderer from being mistaken for one undifferentiated product surface.
+
+Use these maturity labels consistently:
+
+- **Core**: a primary user workflow that should be discoverable, documented, and protected by release checks.
+- **Secondary**: supported, but not part of the shortest product explanation.
+- **Advanced authoring**: intentionally explicit tooling for people or agents constructing a presentation.
+- **Developer-only**: smoke, sample, capture, or debugging behavior that should not appear as a normal product command.
+- **Experimental**: implemented and tested, but not yet supported by sufficient examples or usage guidance.
+
+### Standalone explorer
+
+The main Electron window is the primary interactive product. Its session model lives in [`standalone/main.js`](./standalone/main.js).
+
+| Mode | User question | Primary entry | Revision model | Editing | Maturity |
+| --- | --- | --- | --- | --- | --- |
+| Blank diff | “I need scratch panes before I have files.” | `bygone --diff` outside a Git range | No revisions | Yes | Secondary |
+| File diff | “How do these two concrete files differ?” | Two files, drag/drop, or **Compare Files** | Two supplied snapshots | Yes | Core |
+| Multi-file diff | “How does this file vary across several snapshots?” | Three or more files or **Compare Multiple Files** | Ordered supplied snapshots | Yes | Secondary |
+| Directory diff | “What differs between these directories?” | Two or more directories | Ordered directory snapshots | Drill-down files can be edited | Core for two directories; secondary for N directories |
+| File history | “How did this file change over time?” | One file or `--history <file>` | Real commit/parent history plus optional staged/working state | Current-side edits are supported | Core |
+| Directory history | “What changed in this area over time?” | No args in a Git repo, one directory, or `--history <directory>` | Real directory snapshots across history | Drill-down current-side edits are supported | Core |
+| Git ref comparison | “How do these exact refs or work states differ?” | `--git-diff <ref1> <ref2> [...]` | Real refs, `INDEX`, and `WORKTREE` | Depends on source | Secondary; CLI-discovered |
+| Branch review | “What is the committed branch delta from its merge base?” | `review` or **Review Current Branch** | Merge base to committed head | Read-only review snapshots | Secondary |
+
+The argument-count shortcuts are convenient, but they are not the mental model. Documentation and UI copy should lead with the user question and name the resulting mode explicitly.
+
+### Tour presenter
+
+`bygone present` does not replace the main explorer session. It compiles a manifest, starts a loopback HTTP server, and opens a separate tour window. Treat it as a presentation product that reuses the renderer, not as another explorer mode.
+
+| Scene type | What it represents | When to use it | When not to use it | Maturity |
+| --- | --- | --- | --- | --- |
+| Plain text diff | One complete file-level base/head comparison | Automatic tours and complete-file browsing | When authored narrative is needed | Core fallback |
+| Walkthrough | A sequence of authored focus steps over the real base/head diff | Explaining a causal path through one or more changed files | Showing intermediate revisions or inventing a logical implementation order | Core authored form |
+| Stacked diff | Three to six real Git refs shown as adjacent revisions | Explaining how code actually evolved across selected commits, tags, or branches | Explaining a squashed change whose logical stages never existed as refs | Experimental advanced authoring |
+| Deconstructed diff | Synthetic cumulative stages assembled from hunks in one real base-to-target diff | Teaching a logical implementation order when real commit history is noisy, squashed, or absent | Claiming that the stages were commits or historical states | Experimental advanced authoring |
+
+The terminology is important:
+
+- A **stacked diff** contains real Git objects. Its labels and ordering make a historical claim.
+- A **deconstructed diff** contains virtual explanation states. It does not reconstruct commits and must never be described as “deconstructed commits.”
+- A **walkthrough** keeps the actual base/head endpoints and changes only the reader's focus.
+- Explorer `--git-diff` and a tour `stacked-diff` can use similar refs, but they serve different jobs: open-ended inspection versus authored presentation.
+
+Stacked and deconstructed scenes currently have schema, compiler, renderer, and unit-test support, but no checked-in source example. Until each has an end-to-end example and authoring guidance, keep both labeled experimental.
+
+### Tour authoring and automation
+
+These commands are tooling, not standalone viewing modes:
+
+| Command | Audience | Contract |
+| --- | --- | --- |
+| `tour context` | Agents and authors | Emit bounded Git evidence without invoking a model |
+| `tour validate` | Authors and CI | Resolve refs, anchors, scene structure, and advanced-stage assignments |
+| `tour compile` | Hosts and artifact builders | Produce the portable manifest consumed by presenters |
+| `tour coverage` | Authors and CI | Report which changed units the narrative references and at what declared depth |
+| `tour schema` | Editors and agents | Publish the machine-readable source contract |
+
+These commands should remain composable and non-interactive. Do not move their complexity into the desktop menus merely to make every capability visible.
+
+### Companion hosts
+
+- The **VS Code extension** should provide contextual file comparison and history, or hand off app-sized branch, directory, multi-panel, and tour work to the standalone app.
+- The **browser presenter** is the portable tour host. It does not own filesystem mutation, Git discovery, or desktop session management.
+- The **CLI** is the stable routing and automation boundary. Developer-only flags such as test, smoke, capture, and window sizing should not be marketed as product modes.
+
+### Discoverability gaps
+
+The implementation currently exposes more than the product explains:
+
+- Tours can only be opened through the CLI; the desktop **File** menu cannot open a `.bygone.yaml` file.
+- `--git-diff`, blank diff, and explicit tour authoring are CLI-only paths.
+- The menu item **Compare File History…** accepts a directory and silently becomes directory history.
+- **Compare Multiple Files…** accepts one file and silently becomes file history.
+- **Compare Test Files** and **Toggle Developer Tools** are developer conveniences exposed in production menus.
+- Branch review reports files as viewed, but the UI can still imply a stronger review/checklist meaning.
+- Stacked and deconstructed scenes are advertised in the changelog but absent from the authoring guide and checked-in examples.
+
+### Surface guardrails
+
+Before adding a mode or scene type, answer all of these in the same change:
+
+1. What user question does it answer that an existing mode does not?
+2. Is it explorer behavior, presentation behavior, authoring tooling, or developer support?
+3. Does it use real revisions, supplied snapshots, or synthetic states?
+4. Is it editable, and which save/undo/reload lifecycle owns those edits?
+5. How does a user discover it without reading source code?
+6. Which walkthrough or example demonstrates its intended use?
+7. Which host owns it, and which hosts should only hand off to it?
+8. What maturity label does it carry until those requirements are satisfied?
+
+If those answers are unclear, extend an existing mode rather than creating another entry path.
 
 ## Top-Level Layout
 
@@ -112,10 +208,49 @@ The host decides what to compare and computes structured diff data. The browser 
 - [`index.html`](./standalone/index.html)
   Standalone window shell that mounts the same shared bundled UI used by the extension.
 
+### `cli/`
+
+- [`commandSpec.js`](./cli/commandSpec.js)
+  Shared CLI vocabulary used by help, parsing, and shell completion.
+
+- [`present.js`](./cli/present.js)
+  Compiles a branch range or authored tour, serves the portable manifest on loopback HTTP, and launches the presenter.
+
+- [`tour.js`](./cli/tour.js)
+  Non-interactive validation, compilation, context, coverage, and schema commands for authors, agents, and CI.
+
+### `web/`
+
+- [`index.html`](./web/index.html)
+  Browser presenter shell for compiled change-tour manifests.
+
+- [`host.js`](./web/host.js)
+  Source host bridge for browser presentation and file selection.
+
+- [`presenter.css`](./web/presenter.css)
+  Tour rail and presenter-specific layout layered around the shared renderer.
+
+### Change-tour domain code
+
+- [`changeTour.ts`](./src/changeTour.ts)
+  Builds automatic manifests and compiles walkthrough, stacked, and deconstructed authored scenes.
+
+- [`changeTourSource.ts`](./src/changeTourSource.ts)
+  Validates the human-authored YAML model.
+
+- [`changeTourManifest.ts`](./src/changeTourManifest.ts)
+  Defines and validates the portable host-independent manifest.
+
+- [`deconstructedChange.ts`](./src/deconstructedChange.ts)
+  Builds synthetic cumulative explanation stages from owned change hunks.
+
+- [`changeTourContext.ts`](./src/changeTourContext.ts), [`changeInventory.ts`](./src/changeInventory.ts), and [`tourCoverage.ts`](./src/tourCoverage.ts)
+  Produce bounded authoring evidence, stable change units, and coverage reports.
+
 ### `test/`
 
 - [`runTests.js`](./test/runTests.js)
-  Simple unit checks for diff behavior, plus narrow checks for the retained internal merge helper.
+  Logic and contract checks spanning diff behavior, Git ranges and history, CLI parsing, desktop session helpers, change-tour compilation, advanced scene types, coverage, packaging, and retained internal merge behavior.
 
 ## Runtime Architecture
 
@@ -318,27 +453,21 @@ Packaging is driven by:
 - [`package.json`](./package.json)
 - [`.vscodeignore`](./.vscodeignore)
 
-The package now ships only runtime assets:
+Generated source maps, `node_modules`, TypeScript sources, raw webview modules, and desktop sources are excluded from the VSIX. The current ignore-list approach is still permissive: the extension package also picks up tour sources, browser-presenter files, CLI helpers, shell completions, mockups, Homebrew templates, and internal documentation that the extension does not call. Treat that as packaging-boundary drift rather than intentional extension functionality.
 
-- `out/extension.js`
-- bundled webview assets
-- icon
-- screenshot
-- manifest/docs/license files
-
-Source files, raw webview modules, source maps, and `node_modules` are excluded from the VSIX.
+When the extension surface is narrowed, prefer an explicit extension file allowlist or add a package-content assertion. Sharing source code across hosts does not require distributing every host's documentation and tooling in every artifact.
 
 ## Test Strategy
 
-[`runTests.js`](./test/runTests.js) is intentionally narrow and logic-focused.
+[`runTests.js`](./test/runTests.js) is broad but still primarily logic-focused.
 
 It currently validates:
 
-- insertion alignment
-- inline word-style highlighting
-- punctuation and whitespace behavior
-- replace-block pairing behavior
-- delete behavior
+- diff alignment, matching, highlighting, and performance boundaries
+- Git history, range, rename, directory, and binary behavior
+- CLI launch parsing, completion generation, and selected desktop session helpers
+- tour source, manifest, context, inventory, coverage, walkthrough, stacked, and deconstructed contracts
+- package, release, and privacy assertions
 - narrow checks for the retained internal merge helper
 
 What it does not cover yet:
@@ -346,9 +475,9 @@ What it does not cover yet:
 - command registration behavior
 - webview startup behavior
 - Monaco/editor integration
-- git-history command integration
+- full Git and filesystem integration across every launch mode
 
-So current tests protect the model layer well, but not the full extension runtime.
+So current tests protect model and contract layers well, but not the full Electron, VS Code, or browser interaction lifecycle.
 
 ## Important Design Decisions
 
