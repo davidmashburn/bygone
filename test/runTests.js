@@ -4420,7 +4420,7 @@ async function testPresentHistoryUsesStableCommitAxis() {
         authoredTour: { range: { headOid: 'd' } }, zoom: { mode: 'history' },
         historyEntries: ['d', 'c', 'b', 'a'].map((commit) => ({ commit, shortCommit: commit, summary: commit })),
         historyPanels: [], historyPath: null, historyCommit: null,
-        comparisonDraftInitialized: true, comparisonDraftCommits: ['a', 'd']
+        comparisonDraftCommits: []
     };
     const requests = [];
     const historyRequest = async (endpoint, input) => {
@@ -4432,11 +4432,13 @@ async function testPresentHistoryUsesStableCommitAxis() {
     let renders = 0;
     let urls = 0;
     const show = new Function('state', 'historyRequest', 'renderZoomHistoryPanels', 'updateTourLocationUrl',
-        `let evidenceRequest = 0; const document = { getElementById: () => ({}) }; const renderComparisonControls = () => {}; const seedComparisonSelection = () => { throw new Error('Draft overwritten'); }; const historyNeighbor = () => null; ${implementation}; return showZoomHistory;`
+        `let evidenceRequest = 0; const document = { getElementById: () => ({}) }; const renderComparisonControls = () => {}; const historyNeighbor = () => null; ${implementation}; return showZoomHistory;`
     )(state, historyRequest, () => { renders++; }, () => { urls++; });
     await show('first.txt', 'c');
     assert.deepEqual(state.historyPanels.map((panel) => panel.commit), ['b', 'c']);
+    assert.deepEqual(state.comparisonDraftCommits, [], 'Entering History must not check boxes for the displayed panels');
     assert.equal(state.historyCommit, 'c', 'An unchanged commit remains the active revision');
+    state.comparisonDraftCommits = ['a', 'd']; // An explicit user draft survives navigation.
     state.historyPanels.unshift({ id: 'history-a', commit: 'a', content: '', path: 'first.txt' });
     state.historyFocus = 'history-b';
     await show('second.txt', 'c');
@@ -4451,7 +4453,77 @@ async function testPresentHistoryUsesStableCommitAxis() {
     assert.equal(requests.length, 5, 'Returning to History reuses its saved panels');
 }
 
+function testPresentInitialCommitHighlights() {
+    const source = fs.readFileSync(path.join(__dirname, '../web/host.js'), 'utf8');
+    const section = (start, end) => {
+        const from = source.indexOf(start);
+        const to = source.indexOf(end, from);
+        assert.ok(from >= 0 && to > from, `Missing host section: ${start}`);
+        return source.slice(from, to);
+    };
+    const implementation = [
+        section('    function emit(', '    let navigationRequestId'),
+        section('    function displayedCommits(', '    async function fileHistory('),
+        section('    function panelHistoryState(', '    function renderZoomHistoryPanels('),
+        section('    function buildComparisonHistoryState(', '    function showComparisonFile(')
+    ].join('\n');
+    const scene = { kind: 'stacked-diff', stack: [{ id: 'base', oid: 'a' }, { id: 'middle', oid: 'b' }, { id: 'head', oid: 'c' }] };
+    const state = {
+        mode: 'tour', zoom: { mode: 'historical' }, tour: { scenes: [scene] }, activeSceneIndex: 0,
+        authoredTour: { range: { mergeBaseOid: 'a', headOid: 'c' }, commits: [{ oid: 'b' }, { oid: 'c' }] },
+        historyEntries: ['c', 'b'].map((commit) => ({ commit, shortCommit: commit, summary: commit, timestamp: '' })),
+        displayedPanels: [], comparisonDraftCommits: [], directoryEvidence: {}
+    };
+    const messages = [];
+    const emit = new Function('state', 'window', 'isMultiPanelTourScene', 'getMultiPanelDefinitions',
+        `let renderRequestId = 0; const zoomRestore = null; ${implementation}; return emit;`
+    )(state, {
+        CustomEvent: class { constructor(_type, options) { this.detail = options.detail; } },
+        dispatchEvent: (event) => messages.push(event.detail)
+    }, (item) => ['stacked-diff', 'deconstructed-diff'].includes(item?.kind), (item) => item.stack || item.panels);
+    const rows = () => messages.at(-1).history.rail.itemsByTab.history;
+    const numbered = () => rows().filter((item) => item.panelNumber).map((item) => [item.commit, item.panelNumber]).sort();
+
+    // First render is commonly the directory overview, before any History visit.
+    emit({ type: 'showDirectoryDiff' });
+    assert.deepEqual(numbered(), [['a', 1], ['c', 2]]);
+    assert.equal(rows().find((item) => item.commit === 'a').kind, 'panel-revision');
+    assert.equal(rows().some((item) => item.selected), false);
+
+    // An explicitly chosen overview pair, including reverse order, is authoritative.
+    scene.overview = { comparison: { from: 'head', to: 'middle' } };
+    emit({ type: 'showDirectoryDiff' });
+    assert.deepEqual(numbered(), [['b', 2], ['c', 1]]);
+    emit({ type: 'showDiff' });
+    assert.deepEqual(numbered(), [['b', 2], ['c', 1]], 'Drill-down preserves the overview revision mapping');
+
+    state.directoryEvidence = null;
+    state.comparisonDraftCommits = ['b'];
+    emit({ type: 'showMultiDiff', panels: scene.stack.map((panel) => ({ id: panel.id, commit: panel.oid })) });
+    assert.deepEqual(numbered(), [['a', 1], ['b', 2], ['c', 3]]);
+    assert.deepEqual(rows().filter((item) => item.selected).map((item) => item.commit), ['b']);
+
+    state.zoom.mode = 'compare';
+    state.comparisonCommits = ['a', 'b'];
+    emit({ type: 'showDiff' });
+    assert.deepEqual(numbered(), [['a', 1], ['b', 2]]);
+    state.zoom.mode = 'historical';
+    state.tour.scenes = [{ kind: 'walkthrough' }];
+    emit({ type: 'showDirectoryDiff' });
+    assert.deepEqual(numbered(), [['a', 1], ['c', 2]]);
+    assert.deepEqual(state.comparisonDraftCommits, ['b'], 'Mode changes must not derive the checkbox draft from panels');
+
+    // Synthetic explanation stages must not be relabeled as actual commits.
+    state.zoom.mode = 'deconstructed';
+    state.directoryEvidence = {};
+    state.tour.scenes = [{ kind: 'deconstructed-diff', panels: [{ id: 'baseline' }, { id: 'stage' }] }];
+    emit({ type: 'showDirectoryDiff' });
+    assert.deepEqual(numbered(), []);
+    assert.deepEqual(state.comparisonDraftCommits, ['b']);
+}
+
 async function run() {
+    testPresentInitialCommitHighlights();
     await testPresentHistoryPanelWorkspace();
     await testPresentHistoryUsesStableCommitAxis();
     testTourLinearNavigationTraversesStepsAndScenes();

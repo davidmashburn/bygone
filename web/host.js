@@ -50,7 +50,6 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         comparisonFocus: null,
         comparisonCommits: [],
         comparisonDraftCommits: [],
-        comparisonDraftInitialized: false,
         activeSceneIndex: -1,
         activeStepIndex: 0,
         sceneIntroVisible: false,
@@ -93,7 +92,7 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
             message = { ...message, renderRequestId: ++renderRequestId };
             if (state.mode === 'tour') {
                 state.displayedPanels = message.type === 'showMultiDiff' ? message.panels
-                    : message.type === 'showDiff' ? twoWayCommitPanels() : [];
+                    : twoWayCommitPanels();
                 if (!message.history) message.history = sharedCommitHistory();
             }
             if (zoomRestore) zoomRestoreRequestId = message.renderRequestId;
@@ -252,19 +251,6 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         return normalizeTourComparisonSelection(selection, chronologicalComparisonCommits());
     }
 
-    function seedComparisonSelection(entries, commit) {
-        if (state.comparisonDraftCommits.length >= 2) {
-            state.comparisonDraftCommits = normalizeComparisonSelection({ commits: state.comparisonDraftCommits }).commits;
-            return;
-        }
-        const index = entries.findIndex((entry) => entry.commit === commit);
-        const adjacent = entries[index + 1] || entries[index - 1];
-        state.comparisonDraftCommits = [adjacent?.commit, commit].filter(Boolean);
-        if (state.comparisonDraftCommits.length >= 2) {
-            state.comparisonDraftCommits = normalizeComparisonSelection({ commits: state.comparisonDraftCommits }).commits;
-        }
-    }
-
     async function historyRequest(endpoint, body) {
         const response = await fetch(`/history/${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const result = await response.json();
@@ -362,10 +348,6 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
             const snapshot = await historyRequest('diff', { path, commit: older.commit, head: state.authoredTour.range.headOid });
             if (request !== evidenceRequest || state.zoom.mode !== 'history') return;
             state.historyPanels.unshift(panel(older.commit, snapshot.rightContent, `${older.shortCommit} ${older.summary}`));
-        }
-        if (!state.comparisonDraftInitialized) {
-            seedComparisonSelection(entries, commit);
-            state.comparisonDraftInitialized = true;
         }
         renderZoomHistoryPanels();
         document.getElementById('tour-mode-status').textContent = '';
@@ -712,7 +694,6 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
                 const commits = state.displayedPanels.map((panel) => panel.commit);
                 const entry = message.index < 0 ? { commit: commits[-message.index - 1] } : state.historyEntries[message.index];
                 if (!entry?.commit) return;
-                state.comparisonDraftInitialized = true;
                 const nextCommits = state.comparisonDraftCommits.includes(entry.commit)
                     ? state.comparisonDraftCommits.filter((commit) => commit !== entry.commit)
                     : [...state.comparisonDraftCommits, entry.commit];
@@ -802,7 +783,6 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         action('tour-compare-final', () => openComparison(finalComparison()));
         action('tour-compare-all', () => openComparison({ commits: state.compare.commits }));
         const updateDraft = (commits) => {
-            state.comparisonDraftInitialized = true;
             state.comparisonDraftCommits = commits.filter(Boolean);
             renderComparisonControls();
             emit({ type: 'updateHistorySelection', commits: state.comparisonDraftCommits });
