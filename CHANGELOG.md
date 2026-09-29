@@ -4,6 +4,8 @@
 
 ## 0.9.2
 
+- Documented the stable v3 tour contract, compatibility policy, and evidence-linked review notes
+- Updated Electron and vulnerable packaging dependencies within their existing major versions
 - Shared the expanded commit navigator across tours, History, and Compare, with explicit draft submission and loaded-panel badges
 - Kept History's commit axis and expanded panels stable across files, with markers for commits that changed the current file
 - Preserved navigator tabs and comparison drafts across mode switches
@@ -13,6 +15,9 @@
 - Made tours a continuous reading flow through title, chapters, scene overviews, and steps, with a collapsible outline and scene context above each step
 - Added shared workspace tour discovery, editable skill-based v3 authoring prompts, and same-repository transitions into History
 - Clarified tour mode restoration and directory overview scope while preserving first-visit History context
+
+macOS desktop downloads are unsigned and not notarized. If Gatekeeper reports
+the app as damaged, run `xattr -cr /Applications/Bygone.app`, then reopen it.
 
 ## 0.9.1
 

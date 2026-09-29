@@ -15,6 +15,50 @@ artifacts, without the mode switcher. Version 3 adds independent authored
 tours, scene directory overviews, and review notes; versions 1 and 2 remain
 accepted without those fields.
 
+## Version 3 stability and compatibility
+
+Format version **3 is the stable authoring contract for Bygone 0.9.2**. The
+application version (`0.9.2`) and document version (`version: 3`) are separate:
+UI fixes, navigation changes, and application patch releases do not require
+rewriting a tour or incrementing its format version.
+
+| Document version | Reader support in 0.9.2 | Contract |
+| --- | --- | --- |
+| 1 | Supported | Legacy source and portable compiled manifests |
+| 2 | Supported | Repository-bound manifests, real revision stacks, and endpoint walkthroughs |
+| 3 | Supported; use for new sources | Version 2 capabilities plus independent authored tours, scene directory overviews, and review notes |
+| Greater than 3 | Rejected with an upgrade message | Never interpreted as version 3 |
+
+The v3 field names, types, required fields, enum values, and meanings are fixed
+by the [source schema](../schemas/change-tour-source.schema.json) and the
+semantic rules in this document. Valid v3 sources and compiled manifests must
+remain readable by later compatible releases; required fields must not be
+added, existing fields removed, or evidence and mode semantics repurposed under
+the same format number. New syntax that existing v3 readers cannot accept
+requires a new document version, even when the new field is optional. Fixes
+that enforce the documented contract do not make malformed documents valid.
+
+The source is strict: unknown properties are errors, not an extension
+mechanism. JSON Schema covers document structure; `bygone tour validate`
+additionally checks IDs and references, Git objects, unique anchor matches,
+stage coverage, comparison endpoints, and review freshness. A schema-only pass
+does not prove that the source compiles. Validate against the intended local
+repository before sharing a tour.
+
+Keep authored YAML as the editable source. Compiled JSON is generated evidence,
+not a second authoring syntax; v2/v3 manifests retain repository identity and
+resolved Git objects. Stable format support does not make missing repositories
+or pruned objects available, and does not promise byte-identical generated
+timestamps or presentation layout. Pin full commit IDs in `range` when the
+underlying comparison must stay fixed.
+
+The compatibility checks cover v1/v2 acceptance, v3-only field gates,
+independent authored modes, overview evidence and fallback semantics, review
+freshness, and rejection of future versions. Run `npm test` before releasing a
+parser, compiler, or schema change; update those checks with any new contract.
+
+## Opening and compiling a source
+
 Packaged macOS builds register `.bygone` with Bygone, allowing a presentation
 inside its repository to open directly from Finder. Windows and Linux builds
 currently do not install an operating-system file association; open the source
@@ -161,10 +205,41 @@ including why the focused code matters and any rationale or tradeoff that the
 source supports. Keeping that explanation beside `focus` lets the reader assess
 the claim while the code is visible and avoids repeating it in scene framing.
 
-The current source schema has no separate `notes` field. Keep unresolved
-questions and review decisions in the review record that accompanies the tour;
-do not add an ad hoc notes key or present those decisions as settled step
-rationale.
+The source schema has no ad hoc `notes` field. In v3, use the top-level `review`
+block below for evidence-linked review observations and unresolved questions;
+do not present those questions as settled step rationale.
+
+## Review notes
+
+The optional v3 `review` block records authored interpretation separately from
+the narrative and deterministic evidence. It contains `baseOid`, `headOid`, and
+a nonempty `items` array. Both OIDs must be full 40- or 64-character hexadecimal
+Git IDs, matching the resolved **merge base** and head, respectively. A changed
+range makes the review stale and compilation fails rather than silently
+carrying the conclusions forward.
+
+Each item has a unique nonblank `id`, a `kind` (`concept`, `boundary`,
+`tradeoff`, or `question`), nonblank `title` and `body`, and an `evidence` array
+of `{ sceneId, stepId }` references to endpoint walkthrough steps in the root
+`chapters` (not scenes defined only inside an independent `tours` mode).
+Synthetic stage IDs and stacked-diff step IDs are not walkthrough evidence.
+Claims require at least one reference. Questions may use an empty evidence
+array but require a nonblank `nextCheck`; other items may also supply it.
+Validation confirms the references, not the truth of an author's claim or the
+state of an external deployment.
+
+For example, add this item to `review.items` alongside the structure above:
+
+```yaml
+- id: check-caller
+  kind: question
+  title: Is the caller compatible?
+  body: The source shows persistence, but the deployed caller has not been checked.
+  evidence:
+    - sceneId: decision-flow
+      stepId: persist-first
+  nextCheck: Verify the deployed caller contract against this exact head revision.
+```
 
 ## Requirements
 

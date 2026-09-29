@@ -164,7 +164,7 @@ async function publishHomebrewTap() {
 
     await run('brew', ['style', path.join(formulaDir, 'bygone.rb'), path.join(caskDir, 'bygone-desktop.rb')]);
     await run('git', ['-C', homebrewTapRoot, 'add', 'Formula/bygone.rb', 'Casks/bygone-desktop.rb']);
-    await run('git', ['-C', homebrewTapRoot, 'commit', '-m', `Update Bygone to ${version}`]);
+    await run('git', ['-C', homebrewTapRoot, 'commit', '-m', `chore(release): update Bygone to ${version}`]);
     await run('git', ['-C', homebrewTapRoot, 'push']);
 }
 
