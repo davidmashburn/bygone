@@ -36,10 +36,14 @@ one side is present. An empty **Present** view keeps the regular split layout.
 When the current step has an exact source target, **Show in code** refocuses the
 corresponding file and line.
 
-Expand **Files** at the bottom of the sidebar to browse all changed files.
-The Files rail is independent of the narrative. Browsing another file keeps
-the active tour anchor visible and offers **Return to Tour** to restore the
-scene's intended focus.
+Expand **Files** at the bottom of the sidebar to browse the change set.
+The Files rail is independent of the narrative. When reading a step, browsing
+another file keeps the active tour anchor visible; **Return to Tour** restores
+the scene's intended focus. While a directory **Overview**
+is active, files open in its comparison and files outside that comparison are
+disabled. Opening a file keeps the overview text and saved step. Select
+**Overview** above the diff to return to the tree, or **Resume step** to
+continue the tour.
 
 **Tour details** contains the source link, range, change counts, and authored
 diff-hunk coverage. Coverage describes how much code the author anchored; it
@@ -147,10 +151,12 @@ to inspect the same comparison while keeping the overview text, narration, and
 reading position. The **Overview** breadcrumb returns to its file tree; **Start steps**
 or **Resume step** follows the authored explanation.
 
-Historical and Deconstructed scenes use a stable comparison: by default, the
-first and last scene panels, or explicit endpoints chosen by the author. Moving
-between steps never changes this comparison. The column labels identify its endpoints. Walkthrough scenes use
-the review's base-to-head comparison. Authors can limit the overview to a
-subdirectory; unavailable file contents remain marked as omitted. While browsing
-a file, `Overview › file path` shows where you are, with a reminder that narration
-still describes the overview.
+Stacked and Deconstructed scenes use a stable comparison: by default, the first
+and last scene panels, or explicit endpoints chosen by the author. Moving between
+steps never changes this comparison. The column labels identify its endpoints.
+Their overviews include only files
+materialized in the scene panels. Walkthrough scenes use the review's base-to-head
+comparison and the tour files, retaining omitted-file entries. Any scene type
+can limit the overview to a subdirectory. While browsing a file, `Overview › file
+path` shows where you are, with a reminder that narration still describes the
+overview.

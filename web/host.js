@@ -98,10 +98,9 @@ import { TourZoomSession } from '../src/tourZoomSession.ts';
     let renderRequestId = 0;
     let zoomRestoreRequestId = null;
 
-    function markZoomNavigation() {
+    function cancelPendingModeRestore() {
         if (!state.zoomSwitching) {
             zoomRestore = null;
-            state.zoom?.navigate();
         }
     }
 
@@ -482,7 +481,7 @@ import { TourZoomSession } from '../src/tourZoomSession.ts';
         // Only user input counts. Renderer reveals, synchronized scrolling and restores do not.
         for (const type of ['wheel', 'pointerdown', 'keydown']) document.addEventListener(type, (event) => {
             if (!event.isTrusted || event.target?.closest?.('#tour-mode-controls')) return;
-            if (event.target?.closest?.('.monaco-editor, .diff-toolbar, #tour-narrative')) markZoomNavigation();
+            if (event.target?.closest?.('.monaco-editor, .diff-toolbar, #tour-narrative')) cancelPendingModeRestore();
         }, { capture: true, passive: true });
         const compareTestButton = document.getElementById('web-compare-test');
         const openDiffButton = document.getElementById('web-open-diff');
@@ -848,7 +847,7 @@ import { TourZoomSession } from '../src/tourZoomSession.ts';
         const match = currentTourSearchMatches[index];
         if (!match) return;
         if (match.kind === 'narrative') {
-            markZoomNavigation();
+            cancelPendingModeRestore();
             showTourScene(match.sceneIndex, match.stepIndex ?? 0, { showIntro: false });
             if (match.stepIndex === undefined) {
                 setSceneIntroVisible(true);
@@ -1295,7 +1294,7 @@ import { TourZoomSession } from '../src/tourZoomSession.ts';
         if (!tour || index < 0 || index >= tour.scenes.length) {
             return null;
         }
-        if (options.userNavigation) markZoomNavigation();
+        if (options.userNavigation) cancelPendingModeRestore();
         if (state.zoom?.mode === 'history' && !state.zoomSwitching) {
             const scene = tour.scenes[index];
             const path = scene.path || scene.steps?.[stepIndex]?.file || state.activeTourFilePath;
@@ -1405,7 +1404,7 @@ import { TourZoomSession } from '../src/tourZoomSession.ts';
             setDirectoryOverviewStatus(omitted ? `${path}: ${omitted.reason}` : 'This file has no change in the overview comparison.');
             return false;
         }
-        markZoomNavigation();
+        cancelPendingModeRestore();
         setDirectoryOverviewStatus('');
         emitDiffScene(file, [], `directory-${state.tour.scenes[state.activeSceneIndex].id}-${path}`);
         updateTourLocationUrl();
@@ -1655,7 +1654,7 @@ import { TourZoomSession } from '../src/tourZoomSession.ts';
     function showTourFileSelection(index) {
         const selected = state.tour?.files[index];
         if (!selected || selected.kind !== 'text-diff') return false;
-        markZoomNavigation();
+        cancelPendingModeRestore();
         if (state.zoom?.mode === 'history') {
             void showZoomHistory(selected.path, null).catch((error) => { document.getElementById('tour-mode-status').textContent = error.message; });
             return true;
@@ -1924,7 +1923,7 @@ import { TourZoomSession } from '../src/tourZoomSession.ts';
     function setNarrativeView(view) {
         const scene = state.tour?.scenes[state.activeSceneIndex];
         if (!scene) return;
-        markZoomNavigation();
+        cancelPendingModeRestore();
         if (view === 'tour' || view === 'chapter') {
             state.narrativeParent = view;
             renderNarrativeViewControls();

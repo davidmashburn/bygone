@@ -82,8 +82,10 @@ scene in the root tour and any authored mode or fallback that contains it; it
 does not create a separate scene kind.
 
 The comparison is stable regardless of the saved step. Stacked and deconstructed
-scenes default to their first and last panels; walkthroughs use the review's
-base-to-head comparison. For a narrower authored comparison, add:
+scenes default to their first and last panels and compare only files materialized
+in those scene panels; walkthroughs use the review's base-to-head comparison and
+its tour files, including omitted entries. Any of the three scene types can
+scope the overview to a subdirectory. For a narrower authored comparison, add:
 
 ```yaml
 comparison:
@@ -183,7 +185,7 @@ Steps without a requirement render unchanged. A `gap` status records a
 requirement the author judged unmet at the anchored code; it does not fail
 validation, since the judgment is narrative rather than mechanical.
 
-Only the active step's connection is shown. This keeps relationships useful without adding a permanent second layer of curves to Bygone's diff view. The Tour rail contains only authored scenes; the adjacent Files rail independently lists the complete change set. Browsing a file does not move the narrative, and “Return to tour” restores the file and annotation focused by the current scene.
+Only the active step's connection is shown. This keeps relationships useful without adding a permanent second layer of curves to Bygone's diff view. The Tour rail contains only authored scenes; the adjacent Files rail lists the complete change set. While a directory Overview is active, files in that comparison open there and files outside it are disabled. Browsing a file does not move the narrative, and “Return to tour” restores the file and annotation focused by the current scene.
 
 The presenter search (`Cmd/Ctrl+Shift+F`) can search narrative and code together
 or restrict either scope. Narrative results open the exact scene or step. Code
@@ -191,24 +193,25 @@ results search the compiled base and head snapshots, open the exact file and
 side, and preserve **Return to tour** so exploration does not lose authored
 context.
 
-Version 2 tours show one mode control for jumping directly among the authored
-explanation, real revisions, the final endpoint diff, and live Git history.
-Only modes at or above the tour's maximum authored depth appear. A two-panel
-stack therefore collapses into Final diff rather than creating a duplicate
-Revisions mode. Each mode retains its own location; switching back without
-navigating restores that location exactly.
+Version 2 presentations expose four possible modes: History, Compare,
+Historical, and Deconstructed. History browses live Git revisions; Compare
+shows a two-way diff, with Final diff as its base-to-head preset. Historical
+and Deconstructed appear only when the corresponding authored content is
+available. Each mode remembers its own position; returning restores that mode's
+saved position, or starts at the beginning if it has none. Switching modes does
+not infer a corresponding step in another narrative.
 
 Use a walkthrough by default. Use a [stacked-diff example](../examples/stacked-diff.bygone)
 only when every panel is a real selected Git revision. Use a
 [deconstructed-diff example](../examples/deconstructed-diff.bygone) when
 the teaching order is clearer than the real commit history; its cumulative
 panels are synthetic explanation stages and must never be described as
-commits. In version 2, every deconstructed scene must also provide the regular
-endpoint tour's `steps` and an explicit `stack` of the real revisions with the
-same base and final endpoints. Final diff presents those authored walkthrough
-steps, while Explanation stages presents the synthetic reconstruction. Bygone
-does not infer the stack from Git history. Every changed hunk must be assigned
-once or explicitly excluded.
+commits. In version 2, a `deconstructed-diff` scene in root `chapters` requires
+a real `stack` and nonempty walkthrough `steps` for compatibility. A scene authored inside
+`tours.deconstructed` may omit both because that tour is synthetic by design.
+Explicit `tours.historical` content supplies its own explanation of real
+revisions. Bygone does not infer a real stack from Git history. Every changed
+hunk must be assigned once or explicitly excluded.
 
 See [Bygone's self-referencing history tour](../examples/bygone-history.bygone) for a complete walkthrough that pins and explains the commit where branch review was introduced.
 

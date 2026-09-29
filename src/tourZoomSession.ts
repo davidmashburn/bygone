@@ -24,22 +24,14 @@ export class TourZoomSession {
 
     constructor(public mode: TourZoomMode) {}
 
-    /** Kept as a no-op for callers that mark navigation before capturing a cursor. */
-    navigate(): void {}
-
     /** Save the current mode's exact cursor, including its view and UI state. */
     depart(location: ZoomLocation): ZoomLocation {
         this.cursors.set(this.mode, location);
         return location;
     }
 
-    /**
-     * Enter a mode using only that mode's saved cursor.
-     *
-     * The optional second argument remains accepted for callers being migrated
-     * from the old cross-mode mapping API, but it is deliberately ignored.
-     */
-    enter(mode: TourZoomMode, _mapped?: ZoomLocation | null): { location: ZoomLocation; restore: boolean } {
+    /** Enter a mode using only that mode's saved cursor. */
+    enter(mode: TourZoomMode): { location: ZoomLocation; restore: boolean } {
         this.mode = mode;
         const saved = this.cursors.get(mode);
         return saved
