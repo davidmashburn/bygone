@@ -781,6 +781,7 @@ body.is-resizing-sidebar .history-rail-resizer {
 }
 
 .history-rail-selection {
+    align-self: center;
     width: 20px;
     min-width: 20px;
     height: 20px;
