@@ -11,7 +11,7 @@
     <aside id="tour-shell" class="tour-shell" hidden>
         <header class="tour-overview">
             <button id="tour-sidebar-hide" class="tour-sidebar-hide" type="button" title="Hide tour sidebar" aria-label="Hide tour sidebar">‹</button>
-            <h1 id="tour-title"></h1>
+            <h1><button id="tour-title" type="button" title="Back to the beginning of the tour"></button></h1>
             <div id="tour-mode-controls" class="tour-mode-controls" hidden>
                 <nav id="tour-mode-tabs" class="tour-mode-tabs" aria-label="Presentation mode"></nav>
                 <p id="tour-mode-description" class="tour-mode-description"></p>
@@ -99,13 +99,8 @@
     </section>
     <button id="tour-sidebar-show" class="tour-sidebar-show" type="button" title="Show tour sidebar" aria-label="Show tour sidebar" hidden>›</button>
     <section id="tour-narrative" class="tour-narrative" hidden>
-        <nav class="tour-narrative-nav" aria-label="Tour navigation">
-            <button id="tour-previous" type="button" title="Previous tour item (Left or Page Up)">← Prev</button>
-            <span id="tour-breadcrumb" class="tour-breadcrumb"></span>
-            <button id="tour-next" type="button" title="Next tour item (Right or Page Down)">Next →</button>
-        </nav>
         <div class="tour-narrative-toolbar" role="group" aria-label="Tour reading view">
-            <nav id="tour-reading-path" class="tour-reading-path" aria-label="Reading hierarchy"></nav>
+            <span id="tour-breadcrumb" class="tour-breadcrumb"></span>
             <div class="tour-narration-dock">
                 <div id="tour-audio-settings" class="tour-audio-settings" hidden>
                     <div id="tour-narration-controls" class="tour-narration-controls" role="group" aria-label="Tour narration">
@@ -140,33 +135,7 @@
                 <button id="tour-narration" type="button" title="Show narration controls" aria-label="Show narration controls" aria-controls="tour-audio-settings" aria-expanded="false">‹ Narration</button>
             </div>
         </div>
-        <div id="tour-narrative-content" class="tour-narrative-content">
-            <section id="tour-parent-view" class="tour-parent-view" hidden></section>
-            <div id="tour-step" class="tour-step" hidden>
-                <h2 id="tour-step-title" class="tour-step-title"></h2>
-                <p id="tour-step-body" class="tour-step-body"></p>
-                <div id="tour-step-code" class="tour-step-code" hidden>
-                    <span id="tour-step-code-location" class="tour-step-code-location"></span>
-                    <button id="tour-show-in-code" class="tour-show-in-code" type="button" title="Show this step in code">Show in code</button>
-                </div>
-                <div id="tour-step-requirement" class="tour-step-requirement" hidden></div>
-                <div id="tour-connection" class="tour-connection" hidden></div>
-            </div>
-            <details id="tour-context" class="tour-context">
-                <summary id="tour-context-label" hidden>Scene context</summary>
-                <div class="tour-narrative-layout">
-                    <div class="tour-narrative-prose">
-                        <div id="tour-narrative-chapter" class="tour-narrative-chapter"></div>
-                        <h2 id="tour-narrative-title"></h2>
-                        <p id="tour-narrative-summary" class="tour-narrative-summary"></p>
-                        <ul id="tour-narrative-bullets" class="tour-narrative-bullets"></ul>
-                        <div id="tour-narrative-tags" class="tour-narrative-tags"></div>
-                        <div id="tour-narrative-takeaway" class="tour-narrative-takeaway"></div>
-                        <div id="tour-scene-children" class="tour-child-items"></div>
-                    </div>
-                </div>
-            </details>
-        </div>
+        <div id="tour-narrative-content" class="tour-narrative-content" tabindex="0" role="region" aria-label="Tour reading flow"></div>
     </section>
     <div class="web-toolbar">
         <div class="web-toolbar-group">

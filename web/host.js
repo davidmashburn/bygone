@@ -9,6 +9,7 @@ import {
     resolveTourPosition
 } from '../src/tourNavigation.ts';
 import { buildTourNarrationUnit } from '../src/tourNarration.ts';
+import { buildTourReadingItems, getTourReadingTarget, resolveTourReadingItem } from '../src/tourReading.ts';
 import { TourNarrationController } from '../src/tourNarrationPlayback.ts';
 import { searchTour } from '../src/tourSearch.ts';
 import {
@@ -55,6 +56,7 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         activeStepIndex: 0,
         sceneIntroVisible: false,
         narrativeParent: null,
+        readingKey: 'title',
         directoryEvidence: null,
         activeTourFilePath: null,
         tourFocusFilePath: null,
@@ -70,6 +72,12 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
     };
     let workspaceControls = null;
     let workspaceControlsHost = null;
+    let readingTour = null;
+    let readingItems = [];
+    const readingElements = new Map();
+    const collapsedOutline = new Set();
+    let programmaticReadingScroll = null;
+    let readingScrollFrame = null;
     const embeddedWorkspaceMode = new URLSearchParams(window.location.search).get('workspaceEmbedded') === '1';
     let pendingEmbeddedWorkspaceMode = null;
     const narrationController = new TourNarrationController(createDeviceSpeechEngine(), {
@@ -163,6 +171,7 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
                     narrativeParent: state.narrativeParent,
                     sceneIntroVisible: state.sceneIntroVisible,
                     narrativeScroll: document.getElementById('tour-narrative-content')?.scrollTop || 0,
+                    readingKey: state.readingKey,
                     navigatorTab: state.tourNavigatorTab
                 });
             };
@@ -870,9 +879,9 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
                 await showComparison(comparison || state.compare || finalComparison(), selectedPath || landing.location.path || origin.path);
             } else {
                 showTourScene(Math.max(0, landing.location.sceneIndex), landing.location.stepIndex, {
-                    zoomLanding: true, showIntro: landing.restore ? landing.location.sceneIntroVisible : true
+                    zoomLanding: true, showIntro: landing.restore ? landing.location.sceneIntroVisible : true,
+                    readingKey: landing.restore ? landing.location.readingKey : 'title'
                 });
-                if (landing.restore && landing.location.narrativeParent) setNarrativeView(landing.location.narrativeParent);
                 if (landing.location.path && state.activeTourFilePath !== landing.location.path) {
                     const index = state.tour.files.findIndex((file) => file.path === landing.location.path);
                     if (index >= 0) showTourFileSelection(index);
@@ -896,8 +905,7 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
             renderTourSearchResults();
             if (origin && isNarrativeMode()) {
                 zoomRestore = origin;
-                showTourScene(origin.sceneIndex, origin.stepIndex, { zoomLanding: true, showIntro: origin.sceneIntroVisible });
-                if (origin.narrativeParent) setNarrativeView(origin.narrativeParent);
+                showTourScene(origin.sceneIndex, origin.stepIndex, { zoomLanding: true, showIntro: origin.sceneIntroVisible, readingKey: origin.readingKey });
                 if (origin.path && state.activeTourFilePath !== origin.path) {
                     showTourFileSelection(state.tour.files.findIndex((file) => file.path === origin.path));
                 }
@@ -926,7 +934,10 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
             zoomRestore = null;
             emit({ type: 'restoreNavigationState', navigation: location.navigation });
             const narrative = document.getElementById('tour-narrative-content');
-            if (narrative) narrative.scrollTop = location.narrativeScroll || 0;
+            if (narrative) {
+                narrative.scrollTop = location.narrativeScroll || 0;
+                programmaticReadingScroll = narrative.scrollTop;
+            }
             if (location.focusId) document.getElementById(location.focusId)?.focus({ preventScroll: true });
         }
 
@@ -1081,11 +1092,8 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         const openDiff3Button = document.getElementById('web-open-diff3');
         const diffInput = document.getElementById('web-diff-input');
         const diff3Input = document.getElementById('web-diff3-input');
-        const tourPrevious = document.getElementById('tour-previous');
-        const tourNext = document.getElementById('tour-next');
         const tourNarration = document.getElementById('tour-narration');
         const tourReturnFocus = document.getElementById('tour-return-focus');
-        const tourShowInCode = document.getElementById('tour-show-in-code');
         const tourSearchInput = document.getElementById('tour-search-input');
         const tourSearchScope = document.getElementById('tour-search-scope');
         const tourListen = document.getElementById('tour-listen');
@@ -1137,15 +1145,14 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
             await openMultiFileDiff(files);
         });
 
-        tourPrevious?.addEventListener('click', () => showTourLinear(-1));
-        tourNext?.addEventListener('click', () => showTourLinear(1));
+        document.getElementById('tour-title')?.addEventListener('click', () => setNarrativeView('tour'));
+        document.getElementById('tour-narrative-content')?.addEventListener('scroll', followReadingScroll, { passive: true });
         tourNarration?.addEventListener('click', () => toggleNarrationSettings());
         tourReturnFocus?.addEventListener('click', returnToTourFocus);
         document.getElementById('tour-directory-root')?.addEventListener('click', () => {
             setNarrativeView('scene');
             document.getElementById('tour-directory-root').focus({ preventScroll: true });
         });
-        tourShowInCode?.addEventListener('click', showActiveStepInCode);
         tourSearchInput?.addEventListener('input', renderTourSearchResults);
         tourSearchScope?.addEventListener('change', renderTourSearchResults);
         tourListen?.addEventListener('click', toggleNarrationFromHost);
@@ -1394,11 +1401,14 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         if (!element) return;
         element.classList.add('is-speaking');
         element.classList.toggle('is-paused', paused);
-        const context = element.closest('#tour-context');
-        if (context) {
+        // Exploring the document pauses narration; a paused segment must not
+        // pull the reader back to the introduction or move the code pane.
+        if (paused) return;
+        const passage = element.closest('[data-reading-kind]');
+        if (passage?.dataset.readingKind === 'scene') {
             const sceneField = ['chapter', 'scene-title', 'summary', 'bullet', 'takeaway'].includes(segment.source.field);
             setSceneIntroVisible(sceneField);
-        } else if (element.closest('#tour-step')) {
+        } else if (passage?.dataset.readingKind === 'step') {
             setSceneIntroVisible(false);
         }
         const narrative = document.getElementById('tour-narrative-content');
@@ -1407,6 +1417,7 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         const narrativeBounds = narrative.getBoundingClientRect();
         if (elementBounds.top < narrativeBounds.top || elementBounds.bottom > narrativeBounds.bottom) {
             element.scrollIntoView({ block: 'nearest' });
+            programmaticReadingScroll = narrative.scrollTop;
         }
     }
 
@@ -1448,11 +1459,7 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         if (!match) return;
         if (match.kind === 'narrative') {
             markZoomNavigation();
-            showTourScene(match.sceneIndex, match.stepIndex ?? 0, { showIntro: false });
-            if (match.stepIndex === undefined) {
-                setSceneIntroVisible(true);
-                document.getElementById('tour-context')?.scrollIntoView({ block: 'start' });
-            }
+            showTourScene(match.sceneIndex, match.stepIndex ?? 0, { showIntro: match.stepIndex === undefined });
             return;
         }
         if (!showTourFileAtIndex(match.fileIndex)) return;
@@ -1555,6 +1562,8 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         const updateHeight = () => {
             const height = narrative.hidden ? 0 : Math.ceil(narrative.getBoundingClientRect().height);
             document.documentElement.style.setProperty('--tour-narrative-height', `${height}px`);
+            const content = document.getElementById('tour-narrative-content');
+            content?.style.setProperty('--tour-reading-viewport', `${content.clientHeight}px`);
             window.dispatchEvent(new Event('resize'));
         };
         new ResizeObserver(updateHeight).observe(narrative);
@@ -1616,7 +1625,8 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
                 parameters.get('step')
             );
             showTourScene(requestedPosition.sceneIndex, requestedPosition.stepIndex, {
-                showIntro: parameters.get('view') === 'overview' || !parameters.get('step')
+                showIntro: parameters.get('view') === 'overview' || !parameters.get('step'),
+                readingKey: !parameters.get('scene') && !parameters.get('step') ? 'title' : undefined
             });
             if (['tour', 'chapter'].includes(parameters.get('view'))) setNarrativeView(parameters.get('view'));
             if (state.zoom) {
@@ -1648,7 +1658,10 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
                 } else if (requestedMode && requestedMode !== state.zoom.mode && availableModes().includes(requestedMode)) {
                     await switchZoomMode(requestedMode);
                     const position = resolveTourPosition(state.tour.scenes, parameters.get('scene'), parameters.get('step'));
-                    showTourScene(position.sceneIndex, position.stepIndex, { showIntro: parameters.get('view') === 'overview' || !parameters.get('step') });
+                    showTourScene(position.sceneIndex, position.stepIndex, {
+                        showIntro: parameters.get('view') === 'overview' || !parameters.get('step'),
+                        readingKey: !parameters.get('scene') && !parameters.get('step') ? 'title' : undefined
+                    });
                     if (['tour', 'chapter'].includes(parameters.get('view'))) setNarrativeView(parameters.get('view'));
                 }
                 const requestedEmbeddedMode = pendingEmbeddedWorkspaceMode;
@@ -1728,28 +1741,30 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         sceneCount.textContent = String(tour.scenes.length);
         fileCount.textContent = String(tour.files.length);
         scenes.replaceChildren();
+        if (isNarrativeMode()) buildReadingDocument();
         const sceneById = new Map(tour.scenes.map((scene) => [scene.id, scene]));
         for (const chapter of tour.chapters) {
-            const heading = document.createElement('h2');
-            heading.className = 'tour-chapter-title';
-            heading.textContent = chapter.title;
-            scenes.append(heading);
+            const chapterGroup = createOutlineGroup(`chapter:${chapter.id}`, chapter.title, 'tour-chapter-link', () => {
+                const item = readingItems.find((entry) => entry.kind === 'chapter' && entry.chapterId === chapter.id)
+                    || readingItems.find((entry) => entry.kind === 'scene' && chapter.sceneIds.includes(tour.scenes[entry.sceneIndex]?.id));
+                if (item) activateReadingItem(item);
+            });
+            const chapterContent = tour.chapters.length > 1 ? chapterGroup.children : scenes;
+            if (tour.chapters.length > 1) scenes.append(chapterGroup.group);
             for (const sceneId of chapter.sceneIds) {
                 const scene = sceneById.get(sceneId);
                 if (!scene) {
                     continue;
                 }
                 const index = tour.scenes.indexOf(scene);
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'tour-scene';
+                const group = createOutlineGroup(`scene:${scene.id}`, scene.title, 'tour-scene', () => showTourScene(index, 0, {
+                    userNavigation: true, showIntro: true
+                }));
+                const button = group.link;
+                button.replaceChildren();
                 button.dataset.sceneId = scene.id;
                 if (scene.kind === 'text-diff') button.dataset.filePath = scene.path;
-                button.title = `Open scene: ${scene.kind === 'text-diff' ? scene.path : scene.title}`;
-                button.addEventListener('click', () => showTourScene(index, 0, {
-                    userNavigation: true,
-                    showIntro: true
-                }));
+                group.link.title = `Open scene: ${scene.kind === 'text-diff' ? scene.path : scene.title}`;
                 const number = document.createElement('span');
                 number.className = 'tour-scene-number';
                 number.textContent = String(index + 1).padStart(2, '0');
@@ -1772,15 +1787,11 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
                     copy.append(line);
                 }
                 button.append(number, copy);
-                scenes.append(button);
+                chapterContent.append(group.group);
                 if (isSteppedTourScene(scene)) {
-                    const steps = document.createElement('div');
-                    steps.className = 'tour-outline-steps';
+                    const steps = group.children;
+                    steps.classList.add('tour-outline-steps');
                     steps.dataset.sceneId = scene.id;
-                    steps.hidden = true;
-                    steps.id = `tour-outline-${index}`;
-                    button.setAttribute('aria-controls', steps.id);
-                    button.setAttribute('aria-expanded', 'false');
                     scene.steps.forEach((step, stepIndex) => {
                         const stepButton = document.createElement('button');
                         stepButton.type = 'button';
@@ -1797,8 +1808,7 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
                         }));
                         steps.append(stepButton);
                     });
-                    scenes.append(steps);
-                }
+                } else group.toggle.hidden = true;
             }
         }
         files.replaceChildren(...tour.files.map((file, index) => {
@@ -1984,18 +1994,19 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
             void showZoomHistory(path, state.historyCommit).catch((error) => { document.getElementById('tour-mode-status').textContent = error.message; });
             return null;
         }
-        const scene = tour.scenes[index];
         state.directoryEvidence = null;
         renderDirectoryOverviewBreadcrumb();
-        const changedLocation = state.activeSceneIndex !== index || state.activeStepIndex !== stepIndex;
-        const changedScene = state.activeSceneIndex !== index;
-        if (options.showIntro !== undefined) {
-            state.sceneIntroVisible = Boolean(options.showIntro && isSteppedTourScene(scene));
-        } else if (changedScene) {
-            state.sceneIntroVisible = isSteppedTourScene(scene);
-        } else if (changedLocation) {
-            state.sceneIntroVisible = false;
+        buildReadingDocument();
+        const readingItem = readingItems.find((item) => item.key === options.readingKey)
+            || resolveTourReadingItem(readingItems, index, stepIndex, options.showIntro ? 'overview' : null);
+        if (readingItem) {
+            index = readingItem.sceneIndex;
+            stepIndex = readingItem.stepIndex;
         }
+        const scene = tour.scenes[index];
+        state.readingKey = readingItem?.key || 'title';
+        state.sceneIntroVisible = readingItem?.kind !== 'step';
+        state.narrativeParent = readingItem?.kind === 'title' ? 'tour' : readingItem?.kind === 'chapter' ? 'chapter' : null;
         state.activeSceneIndex = index;
         state.activeStepIndex = isSteppedTourScene(scene)
             ? Math.min(Math.max(stepIndex, 0), Math.max(scene.steps.length - 1, 0))
@@ -2008,25 +2019,11 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
                     ? scene.steps[state.activeStepIndex]?.file ?? null
                 : null;
         const location = getSceneLocation(tour, index);
-        document.querySelectorAll('.tour-scene').forEach((button) => {
-            const active = button.dataset.sceneId === scene.id;
-            button.classList.toggle('is-active', active);
-            if (button.hasAttribute('aria-expanded')) button.setAttribute('aria-expanded', String(active));
-            if (active && !isSteppedTourScene(scene)) button.setAttribute('aria-current', 'step');
-            else button.removeAttribute('aria-current');
-        });
-        document.querySelectorAll('.tour-outline-steps').forEach((steps) => { steps.hidden = steps.dataset.sceneId !== scene.id; });
-        document.querySelectorAll('.tour-outline-step').forEach((button) => {
-            const active = button.dataset.sceneId === scene.id && Number(button.dataset.stepIndex) === state.activeStepIndex;
-            button.classList.toggle('is-active', active);
-            if (active) button.setAttribute('aria-current', 'step');
-            else button.removeAttribute('aria-current');
-        });
-        document.querySelector('#tour-scenes [aria-current="step"]')?.scrollIntoView({ block: 'nearest' });
-        if (changedLocation || options.showIntro !== undefined) document.getElementById('tour-narrative-content').scrollTop = 0;
+        updateReadingSelection();
         const narrationUnit = buildActiveNarrationUnit(options.narrationEntry || 'playback-start');
         state.renderedNarrationUnit = narrationUnit;
         renderTourNarrative(scene, location, narrationUnit);
+        if (!options.fromReadingScroll) scrollToReadingItem(state.readingKey);
         if (narrationUnit && !options.zoomLanding && (!state.zoom || isNarrativeMode())) {
             if (options.narrationNavigation === 'linear') {
                 narrationController.followLinearNavigation(narrationUnit);
@@ -2035,6 +2032,7 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
             }
         }
         updateTourLocationUrl();
+        if (state.sceneIntroVisible && showTourDirectoryOverview()) return narrationUnit;
         if (scene.kind === 'discussion') {
             ++renderRequestId;
             state.displayedPanels = [];
@@ -2045,7 +2043,6 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
             return narrationUnit;
         }
         document.body.classList.remove('tour-discussion');
-        if (state.sceneIntroVisible && showTourDirectoryOverview()) return narrationUnit;
         if (scene.kind === 'walkthrough') {
             renderWalkthroughStep(scene);
             return narrationUnit;
@@ -2066,8 +2063,13 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
 
     function showTourDirectoryOverview() {
         const scene = state.tour?.scenes[state.activeSceneIndex];
-        if (!isNarrativeMode() || scene?.overview?.kind !== 'directory-diff') return false;
-        const evidence = buildTourDirectoryEvidence(state.tour, scene);
+        if (!isNarrativeMode() || !scene) return false;
+        if (!state.narrativeParent && scene.kind === 'text-diff') return false;
+        // The title describes the full tour; scene overviews retain their exact
+        // authored comparison (including synthetic intermediate snapshots).
+        const evidenceScene = state.narrativeParent === 'tour'
+            ? { ...scene, kind: 'discussion', overview: undefined } : scene;
+        const evidence = buildTourDirectoryEvidence(state.tour, evidenceScene);
         state.directoryEvidence = evidence;
         state.activeTourFilePath = null;
         updateTourFileSelection();
@@ -2249,43 +2251,11 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         });
     }
 
-    function getCurrentLinearTourTarget(direction) {
-        const tour = state.tour;
-        if (!tour || (direction !== -1 && direction !== 1)) {
-            return null;
-        }
-        return getLinearTourTarget(tour.scenes, {
-            sceneIndex: state.activeSceneIndex,
-            stepIndex: state.activeStepIndex
-        }, direction);
-    }
-
     function showTourLinear(direction) {
-        if (direction === 1 && state.narrativeParent) {
-            showTourScene(state.activeSceneIndex, state.activeStepIndex, { userNavigation: true, showIntro: false });
-            return true;
-        }
-        if (direction === 1 && state.sceneIntroVisible) {
-            const scene = state.tour?.scenes[state.activeSceneIndex];
-            if (scene && isSteppedTourScene(scene) && scene.steps[state.activeStepIndex]) {
-                showTourScene(state.activeSceneIndex, state.activeStepIndex, {
-                    userNavigation: true,
-                    showIntro: false
-                });
-                return true;
-            }
-        }
-        const target = getCurrentLinearTourTarget(direction);
-        if (!target) {
-            return false;
-        }
-        const enteringScene = target.sceneIndex !== state.activeSceneIndex;
-        showTourScene(target.sceneIndex, target.stepIndex, {
-            userNavigation: true,
-            narrationNavigation: 'linear',
-            narrationEntry: 'playback-start',
-            showIntro: enteringScene && target.stepIndex === 0 && !narrationController.engaged
-        });
+        if (!isNarrativeMode()) return false;
+        const target = getTourReadingTarget(readingItems, state.readingKey, direction);
+        if (!target) return false;
+        activateReadingItem(target);
         return true;
     }
 
@@ -2598,17 +2568,13 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
 
     function setSceneIntroVisible(visible) {
         const scene = state.tour?.scenes[state.activeSceneIndex];
-        const step = scene && isSteppedTourScene(scene)
-            ? scene.steps[state.activeStepIndex]
-            : null;
+        if (!scene) return;
         state.narrativeParent = null;
-        state.sceneIntroVisible = Boolean(visible && step);
-        const context = document.getElementById('tour-context');
-        if (context) context.open = !step || state.sceneIntroVisible;
-        const stepPanel = document.getElementById('tour-step');
-        if (stepPanel) stepPanel.hidden = !step || state.sceneIntroVisible;
+        state.sceneIntroVisible = visible;
+        const item = resolveTourReadingItem(readingItems, state.activeSceneIndex, state.activeStepIndex, visible ? 'overview' : null);
+        if (item) state.readingKey = item.key;
+        updateReadingSelection();
         renderNarrativeViewControls();
-        renderTourProgress();
         if (state.sceneIntroVisible && !state.directoryEvidence) {
             showTourDirectoryOverview();
         } else if (!state.sceneIntroVisible && state.directoryEvidence) {
@@ -2620,20 +2586,9 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
     }
 
     function setNarrativeView(view) {
-        const scene = state.tour?.scenes[state.activeSceneIndex];
-        if (!scene) return;
-        markZoomNavigation();
-        if (view === 'tour' || view === 'chapter') {
-            state.narrativeParent = view;
-            renderNarrativeViewControls();
-            renderTourProgress();
-            updateTourLocationUrl();
-        } else {
-            setSceneIntroVisible(view === 'scene');
-            if (view === 'scene') showTourDirectoryOverview();
-        }
-        document.getElementById('tour-narrative-content')?.scrollTo({ top: 0 });
-        document.querySelector(`#tour-reading-path [data-level="${view}"]`)?.focus({ preventScroll: true });
+        const item = resolveTourReadingItem(readingItems, state.activeSceneIndex, state.activeStepIndex,
+            view === 'scene' ? 'overview' : view === 'step' ? null : view);
+        if (item) activateReadingItem(item);
     }
 
     function readingButton(label, title, action) {
@@ -2645,67 +2600,35 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         return button;
     }
 
-    function renderReadingHierarchy(scene, hasStep) {
-        const tour = state.tour;
-        if (!tour || !scene) return;
-        const chapter = tour.chapters.find((item) => item.sceneIds.includes(scene.id));
-        const selected = state.narrativeParent || (hasStep && !state.sceneIntroVisible ? 'step' : 'scene');
-        const path = document.getElementById('tour-reading-path');
-        const levels = [];
-        // A single-child level adds no useful navigation choice.
-        if (tour.scenes.length > 1) levels.push(['tour', tour.title]);
-        if (tour.chapters.length > 1 && chapter && (chapter.sceneIds.length > 1 || state.narrativeParent === 'chapter')) levels.push(['chapter', chapter.title]);
-        levels.push(['scene', scene.title]);
-        if (hasStep) levels.push(['step', `Step ${state.activeStepIndex + 1}`]);
-        path.replaceChildren(...levels.map(([level, title]) => {
-            const tooltip = level === 'step' ? `${title}: ${scene.steps[state.activeStepIndex].title}` : `${level}: ${title}`;
-            const button = readingButton(title, tooltip, () => setNarrativeView(level));
-            button.dataset.level = level;
-            if (level === selected) button.setAttribute('aria-current', 'location');
-            return button;
-        }));
-        const parent = document.getElementById('tour-parent-view');
-        parent.hidden = !state.narrativeParent;
-        document.getElementById('tour-context').hidden = Boolean(state.narrativeParent);
-        document.getElementById('tour-step').hidden = Boolean(state.narrativeParent) || !hasStep || state.sceneIntroVisible;
-        const resume = () => showTourScene(state.activeSceneIndex, state.activeStepIndex, { userNavigation: true, showIntro: false });
-        const sceneLink = (child) => {
-            const index = tour.scenes.indexOf(child);
-            return readingButton(child.title, `Read scene: ${child.title}`, () => showTourScene(index,
-                index === state.activeSceneIndex ? state.activeStepIndex : 0,
-                { userNavigation: true, showIntro: true }));
+    function createOutlineGroup(key, title, className, navigate) {
+        const group = document.createElement('div');
+        group.className = 'tour-outline-group';
+        group.dataset.readingGroup = key;
+        const heading = document.createElement('div');
+        heading.className = 'tour-outline-heading';
+        const children = document.createElement('div');
+        children.className = 'tour-outline-children';
+        children.id = `outline-${encodeURIComponent(key)}`;
+        const collapseKey = `${state.zoom?.mode || 'tour'}:${key}`;
+        const toggle = readingButton('▾', `Expand or collapse ${title}`, () => {
+            if (collapsedOutline.has(collapseKey)) collapsedOutline.delete(collapseKey);
+            else collapsedOutline.add(collapseKey);
+            update();
+        });
+        toggle.className = 'tour-outline-toggle';
+        toggle.setAttribute('aria-controls', children.id);
+        const update = () => {
+            children.hidden = collapsedOutline.has(collapseKey);
+            toggle.setAttribute('aria-expanded', String(!children.hidden));
+            toggle.textContent = children.hidden ? '▸' : '▾';
         };
-        parent.replaceChildren();
-        if (state.narrativeParent) {
-            const heading = document.createElement('h2');
-            heading.textContent = state.narrativeParent === 'tour' ? tour.title : chapter?.title || tour.title;
-            parent.append(heading, readingButton(hasStep ? `Resume step ${state.activeStepIndex + 1}: ${scene.steps[state.activeStepIndex].title}` : `Resume: ${scene.title}`, 'Resume your reading position', resume));
-            const children = document.createElement('div');
-            children.className = 'tour-child-items';
-            if (state.narrativeParent === 'tour' && tour.chapters.length > 1) {
-                for (const item of tour.chapters) {
-                    const first = tour.scenes.findIndex((child) => child.id === item.sceneIds[0]);
-                    if (first < 0) continue;
-                    children.append(readingButton(item.title, `Read chapter: ${item.title}`, () => {
-                        if (!item.sceneIds.includes(scene.id)) showTourScene(first, 0, { userNavigation: true, showIntro: true });
-                        setNarrativeView(item.sceneIds.length > 1 ? 'chapter' : 'scene');
-                    }));
-                }
-            } else {
-                for (const child of tour.scenes.filter((item) => state.narrativeParent === 'tour' || chapter?.sceneIds.includes(item.id))) children.append(sceneLink(child));
-            }
-            parent.append(children);
-        }
-        const children = document.getElementById('tour-scene-children');
-        children.replaceChildren();
-        if (hasStep) {
-            children.append(readingButton(`Resume step ${state.activeStepIndex + 1}`, 'Resume your reading position', resume));
-            scene.steps.forEach((step, index) => {
-                const button = readingButton(`${index + 1}. ${step.title}`, `Read step: ${step.title}`, () => showTourScene(state.activeSceneIndex, index, { userNavigation: true, showIntro: false }));
-                if (index === state.activeStepIndex) button.setAttribute('aria-current', 'step');
-                children.append(button);
-            });
-        }
+        update();
+        const link = readingButton(title, `Read ${title}`, navigate);
+        link.className = className;
+        link.dataset.readingLink = key;
+        heading.append(toggle, link);
+        group.append(heading, children);
+        return { group, children, link, toggle };
     }
 
     function toggleNarrationSettings() {
@@ -2717,11 +2640,8 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
 
     function renderNarrativeViewControls() {
         renderDirectoryOverviewBreadcrumb();
-        const scene = state.tour?.scenes[state.activeSceneIndex];
-        const hasStep = Boolean(scene && isSteppedTourScene(scene) && scene.steps[state.activeStepIndex]);
         const narration = document.getElementById('tour-narration');
         const settings = document.getElementById('tour-audio-settings');
-        renderReadingHierarchy(scene, hasStep);
         if (narration) {
             const expanded = Boolean(settings && !settings.hidden);
             narration.setAttribute('aria-expanded', String(expanded));
@@ -2760,32 +2680,9 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
     }
 
-    function renderTourProgress() {
-        const previous = document.getElementById('tour-previous');
-        const next = document.getElementById('tour-next');
-        if (!previous || !next) return;
-        const scene = state.tour?.scenes[state.activeSceneIndex];
-        const step = scene && isSteppedTourScene(scene)
-            ? scene.steps[state.activeStepIndex]
-            : null;
-        const introVisible = Boolean(state.narrativeParent || (state.sceneIntroVisible && step));
-        const previousTarget = getCurrentLinearTourTarget(-1);
-        const nextTarget = getCurrentLinearTourTarget(1);
-        const startLabel = state.narrativeParent ? (step ? `Resume step ${state.activeStepIndex + 1}` : 'Resume scene') : state.activeStepIndex === 0 ? 'Start steps' : `Resume step ${state.activeStepIndex + 1}`;
-        previous.disabled = !previousTarget;
-        next.disabled = introVisible ? false : !nextTarget;
-        next.textContent = introVisible ? startLabel : nextTarget ? 'Next →' : 'End of tour';
-        next.title = introVisible
-            ? state.activeStepIndex === 0 ? 'Start the steps for this scene' : 'Return to the current step'
-            : nextTarget
-                ? 'Next tour item (Right or Page Down)'
-                : 'You have reached the end of the tour';
-        next.setAttribute('aria-label', introVisible ? startLabel : nextTarget ? 'Next tour item' : 'End of tour');
-    }
-
-    function getActiveStepCodeTarget(scene = state.tour?.scenes[state.activeSceneIndex]) {
+    function getActiveStepCodeTarget(scene = state.tour?.scenes[state.activeSceneIndex], stepIndex = state.activeStepIndex) {
         if (!scene || !isSteppedTourScene(scene)) return null;
-        const step = scene.steps[state.activeStepIndex];
+        const step = scene.steps[stepIndex];
         if (!step) return null;
         if (scene.kind === 'walkthrough') {
             const focus = step.focus;
@@ -2818,22 +2715,6 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         };
     }
 
-    function renderStepCodeTarget(container, location, button, scene) {
-        const target = getActiveStepCodeTarget(scene);
-        if (!target) {
-            container.hidden = true;
-            location.textContent = '';
-            button.hidden = true;
-            button.disabled = true;
-            return;
-        }
-        location.textContent = target.label;
-        location.title = `Focused source: ${target.label}`;
-        button.hidden = false;
-        button.disabled = false;
-        container.hidden = false;
-    }
-
     function showActiveStepInCode() {
         const target = getActiveStepCodeTarget();
         const scene = state.tour?.scenes[state.activeSceneIndex];
@@ -2860,89 +2741,171 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
     }
 
     function renderTourNarrative(scene, location, narrationUnit) {
-        const narrative = document.getElementById('tour-narrative');
-        const breadcrumb = document.getElementById('tour-breadcrumb');
-        const chapter = document.getElementById('tour-narrative-chapter');
-        const title = document.getElementById('tour-narrative-title');
-        const summary = document.getElementById('tour-narrative-summary');
-        const bullets = document.getElementById('tour-narrative-bullets');
-        const tags = document.getElementById('tour-narrative-tags');
-        const takeaway = document.getElementById('tour-narrative-takeaway');
-        const stepPanel = document.getElementById('tour-step');
-        const stepTitle = document.getElementById('tour-step-title');
-        const stepBody = document.getElementById('tour-step-body');
-        const stepRequirement = document.getElementById('tour-step-requirement');
-        const connection = document.getElementById('tour-connection');
-        const stepCode = document.getElementById('tour-step-code');
-        const stepCodeLocation = document.getElementById('tour-step-code-location');
-        const showInCode = document.getElementById('tour-show-in-code');
-        const previous = document.getElementById('tour-previous');
-        const next = document.getElementById('tour-next');
-        if (!narrative || !breadcrumb || !chapter || !title || !summary || !bullets || !tags || !takeaway || !stepPanel || !stepTitle || !stepBody || !stepRequirement || !connection || !stepCode || !stepCodeLocation || !showInCode || !previous || !next) {
-            throw new Error('Tour narrative UI is incomplete.');
-        }
-        narrative.hidden = false;
-        breadcrumb.textContent = formatTourBreadcrumb(location, scene, state.activeStepIndex);
-        const chapterText = location.chapter?.title || 'Change tour';
-        renderNarrationField(chapter, chapterText, { field: 'chapter' }, narrationUnit, {
-            suffix: scene.kind === 'deconstructed-diff' ? ` · ${scene.stageLabel}` : ''
-        });
-        renderNarrationField(title, scene.title, { field: 'scene-title' }, narrationUnit);
-        renderNarrationField(summary, scene.summary, { field: 'summary' }, narrationUnit);
-        bullets.replaceChildren(...scene.bullets.map((text, itemIndex) => {
-            const item = document.createElement('li');
-            renderNarrationField(item, text, { field: 'bullet', itemIndex }, narrationUnit);
-            return item;
-        }));
-        tags.replaceChildren(...scene.tags.map((text) => {
-            const tag = document.createElement('span');
-            tag.textContent = text;
-            return tag;
-        }));
-        renderNarrationField(takeaway, scene.takeaway, { field: 'takeaway' }, narrationUnit);
-        const step = isSteppedTourScene(scene)
-            ? scene.steps[state.activeStepIndex]
-            : null;
-        const showIntro = state.sceneIntroVisible && Boolean(step);
-        const context = document.getElementById('tour-context');
-        const contextLabel = document.getElementById('tour-context-label');
-        if (context.dataset.sceneId !== scene.id) {
-            context.open = !step;
-            context.dataset.sceneId = scene.id;
-        }
-        context.classList.toggle('is-primary', !step);
-        contextLabel.hidden = !step;
-        contextLabel.textContent = `Scene context · ${scene.title}`;
-        if (!step) context.open = true;
-        setSceneIntroVisible(showIntro);
-        stepPanel.hidden = !step || state.sceneIntroVisible;
-        if (step) {
-            renderNarrationField(stepTitle, step.title, { field: 'step-title' }, narrationUnit, {
-                prefix: scene.kind === 'deconstructed-diff'
-                    ? `Stage ${(step.stageIndex ?? step.pairIndex) + 1}: `
-                    : ''
+        buildReadingDocument();
+        document.getElementById('tour-narrative').hidden = false;
+        document.getElementById('tour-breadcrumb').textContent = state.narrativeParent === 'tour'
+            ? state.tour.title
+            : state.narrativeParent === 'chapter' ? location.chapter?.title || 'Chapter'
+                : state.sceneIntroVisible ? `Scene ${location.sceneNumber} of ${location.sceneCount} · Overview`
+                    : formatTourBreadcrumb(location, scene, state.activeStepIndex);
+        // Only refresh sentence spans, never replace the document or disclosures.
+        const sceneElement = readingElements.get(`scene:${scene.id}`);
+        const step = isSteppedTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
+        const stepElement = step && readingElements.get(`step:${scene.id}:${step.id}`);
+        for (const element of [sceneElement, stepElement].filter(Boolean)) {
+            element.querySelectorAll('[data-reading-field]').forEach((field) => {
+                renderNarrationField(field, field.dataset.readingText, {
+                    field: field.dataset.readingField,
+                    ...(field.dataset.itemIndex !== undefined ? { itemIndex: Number(field.dataset.itemIndex) } : {})
+                }, narrationUnit);
             });
-            renderNarrationField(stepBody, step.body, { field: 'step-body' }, narrationUnit);
-            renderStepRequirement(stepRequirement, 'requirement' in step ? step.requirement : null);
-            if ('connection' in step && step.connection) {
-                connection.hidden = false;
-                renderNarrationField(connection, step.connection.label, { field: 'connection' }, narrationUnit, {
-                    prefix: `${step.connection.from.path} → ${step.connection.to.path} · `
-                });
-            } else {
-                connection.hidden = true;
-                connection.textContent = '';
-            }
-            renderStepCodeTarget(stepCode, stepCodeLocation, showInCode, scene);
-        } else {
-            stepTitle.textContent = '';
-            stepBody.textContent = '';
-            renderStepRequirement(stepRequirement, null);
-            connection.hidden = true;
-            connection.textContent = '';
-            renderStepCodeTarget(stepCode, stepCodeLocation, showInCode, scene);
         }
-        renderTourProgress();
+        renderNarrativeViewControls();
+    }
+
+    function buildReadingDocument() {
+        if (readingTour === state.tour) return;
+        readingTour = state.tour;
+        readingItems = buildTourReadingItems(state.tour);
+        readingElements.clear();
+        const content = document.getElementById('tour-narrative-content');
+        const field = (parent, tag, className, text, source, itemIndex) => {
+            const element = document.createElement(tag);
+            element.className = className;
+            element.textContent = text || '';
+            if (source) {
+                element.dataset.readingField = source;
+                element.dataset.readingText = text || '';
+                if (itemIndex !== undefined) element.dataset.itemIndex = String(itemIndex);
+            }
+            parent.append(element);
+            return element;
+        };
+        const overview = (parent, scene, narrated) => {
+            field(parent, 'p', 'tour-narrative-summary', scene.summary, narrated ? 'summary' : null);
+            if (scene.bullets.length) {
+                const list = document.createElement('ul');
+                list.className = 'tour-narrative-bullets';
+                scene.bullets.forEach((text, index) => field(list, 'li', '', text, narrated ? 'bullet' : null, index));
+                parent.append(list);
+            }
+            if (scene.takeaway) field(parent, 'p', 'tour-narrative-takeaway', scene.takeaway, narrated ? 'takeaway' : null);
+        };
+        for (const item of readingItems) {
+            const element = document.createElement('section');
+            element.className = 'tour-reading-item';
+            element.dataset.readingKey = item.key;
+            element.dataset.readingKind = item.kind;
+            element.dataset.sceneIndex = String(item.sceneIndex);
+            element.dataset.stepIndex = String(item.stepIndex);
+            const scene = state.tour.scenes[item.sceneIndex];
+            if (item.kind === 'title') {
+                field(element, 'h1', 'tour-document-title', state.tour.title);
+                field(element, 'p', 'tour-document-meta', `${formatTourRef(state.tour.range.mergeBaseOid)} → ${formatTourRef(state.tour.range.headOid)}`);
+            } else if (item.kind === 'chapter') {
+                field(element, 'h2', 'tour-document-chapter', state.tour.chapters.find((chapter) => chapter.id === item.chapterId)?.title);
+            } else if (item.kind === 'scene') {
+                field(element, 'h2', 'tour-scene-heading', scene.title, 'scene-title');
+                overview(element, scene, true);
+                const tags = field(element, 'div', 'tour-narrative-tags', '');
+                scene.tags.forEach((tag) => field(tags, 'span', '', tag));
+            } else {
+                const step = scene.steps[item.stepIndex];
+                const context = document.createElement('details');
+                context.className = 'tour-step-context';
+                field(context, 'summary', '', `Scene context · ${scene.title}`);
+                const body = field(context, 'div', 'tour-step-context-body', '');
+                overview(body, scene, false);
+                element.append(context);
+                const stage = scene.kind === 'deconstructed-diff' ? `Stage ${(step.stageIndex ?? step.pairIndex) + 1} · ` : '';
+                if (stage) field(element, 'div', 'tour-narrative-chapter', stage);
+                field(element, 'h3', 'tour-step-title', step.title, 'step-title');
+                field(element, 'p', 'tour-step-body', step.body, 'step-body');
+                const requirement = field(element, 'div', 'tour-step-requirement', '');
+                renderStepRequirement(requirement, step.requirement);
+                if (step.connection) {
+                    field(element, 'p', 'tour-connection', `${step.connection.from.path} → ${step.connection.to.path}`);
+                    field(element, 'p', 'tour-connection', step.connection.label, 'connection');
+                }
+                const target = getActiveStepCodeTarget(scene, item.stepIndex);
+                if (target) {
+                    const code = field(element, 'div', 'tour-step-code', '');
+                    field(code, 'span', 'tour-step-code-location', target.label);
+                    const button = readingButton('Show in code', `Show ${target.label}`, () => {
+                        activateReadingItem(item);
+                        showActiveStepInCode();
+                    });
+                    button.className = 'tour-show-in-code';
+                    code.append(button);
+                }
+            }
+            readingElements.set(item.key, element);
+        }
+        content.replaceChildren(...readingElements.values());
+        programmaticReadingScroll = content.scrollTop;
+    }
+
+    function updateReadingSelection() {
+        for (const [key, element] of readingElements) element.classList.toggle('is-active', key === state.readingKey);
+        document.querySelectorAll('[data-reading-link], .tour-outline-step, #tour-title').forEach((button) => {
+            const scene = state.tour?.scenes[state.activeSceneIndex];
+            const step = scene && isSteppedTourScene(scene) ? scene.steps[Number(button.dataset.stepIndex)] : null;
+            const key = button.id === 'tour-title' ? 'title' : button.dataset.readingLink
+                || (step && button.dataset.sceneId === scene.id ? `step:${scene.id}:${step.id}` : null);
+            const active = key === state.readingKey;
+            button.classList.toggle('is-active', active);
+            if (active) button.setAttribute('aria-current', 'location');
+            else button.removeAttribute('aria-current');
+        });
+        document.querySelectorAll('.tour-outline-group').forEach((group) => {
+            group.classList.toggle('has-active', Boolean(group.querySelector('[aria-current="location"]')));
+        });
+        const outline = document.getElementById('tour-scenes');
+        let link = outline?.querySelector('[aria-current="location"]');
+        // Follow the passage without reopening groups the reader collapsed.
+        while (link && !link.getClientRects().length) {
+            const hiddenChildren = link.closest('.tour-outline-children[hidden]');
+            link = hiddenChildren?.parentElement.querySelector(':scope > .tour-outline-heading [data-reading-link]');
+        }
+        if (link && outline.clientHeight) {
+            const bounds = outline.getBoundingClientRect();
+            const target = link.getBoundingClientRect();
+            if (target.top < bounds.top) outline.scrollTop += target.top - bounds.top;
+            else if (target.bottom > bounds.bottom) outline.scrollTop += target.bottom - bounds.bottom;
+        }
+    }
+
+    function scrollToReadingItem(key) {
+        const content = document.getElementById('tour-narrative-content');
+        const element = readingElements.get(key);
+        if (!content || !element) return;
+        content.scrollTop += element.getBoundingClientRect().top - content.getBoundingClientRect().top;
+        programmaticReadingScroll = content.scrollTop;
+    }
+
+    function activateReadingItem(item, fromScroll = false) {
+        return showTourScene(item.sceneIndex, item.stepIndex, {
+            readingKey: item.key, showIntro: item.kind !== 'step',
+            userNavigation: true, fromReadingScroll: fromScroll
+        });
+    }
+
+    function followReadingScroll() {
+        if (readingScrollFrame !== null) return;
+        readingScrollFrame = window.requestAnimationFrame(() => {
+            readingScrollFrame = null;
+            if (!isNarrativeMode() || state.zoomSwitching) return;
+            const content = document.getElementById('tour-narrative-content');
+            if (programmaticReadingScroll !== null && Math.abs(content.scrollTop - programmaticReadingScroll) < 2) return;
+            programmaticReadingScroll = null;
+            const top = content.getBoundingClientRect().top + 24;
+            let active = readingItems[0];
+            for (const item of readingItems) {
+                if (readingElements.get(item.key).getBoundingClientRect().top > top) break;
+                active = item;
+            }
+            if (active && active.key !== state.readingKey) activateReadingItem(active, true);
+        });
     }
 
     function formatRequirementMeta(requirement) {

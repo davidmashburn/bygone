@@ -7,7 +7,7 @@
     --tour-faint: rgba(232, 235, 246, 0.72);
     --tour-body: #eef1fa;
     --tour-body-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --tour-narrative-height: 320px;
+    --tour-narrative-height: min(38vh, 360px);
 }
 
 .tour-mode-controls { display: grid; gap: 6px; margin: 12px 0; }
@@ -164,10 +164,6 @@ body.tour-mode #container {
     margin-top: var(--tour-narrative-height);
 }
 
-body.tour-mode.tour-discussion #container {
-    visibility: hidden;
-}
-
 .tour-overview {
     position: relative;
     padding: 24px 46px 18px 22px;
@@ -175,10 +171,40 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-overview h1 {
+    display: flex;
+    align-items: center;
+    min-width: 0;
     margin: 0 0 10px;
     font-size: 20px;
     line-height: 1.25;
     text-wrap: balance;
+}
+
+.tour-overview h1 > button#tour-title {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 0;
+    color: inherit;
+    border: 0;
+    border-left: 2px solid transparent;
+    background: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tour-overview h1 > button#tour-title:hover,
+.tour-overview h1 > button#tour-title:focus-visible {
+    color: #fff;
+}
+
+.tour-overview h1 > button#tour-title:focus-visible {
+    outline: 2px solid var(--tour-accent-bright);
+    outline-offset: 3px;
+}
+
+.tour-overview h1 > button#tour-title.is-active {
+    border-left-color: rgba(169, 159, 255, 0.72);
 }
 
 .tour-source {
@@ -347,7 +373,9 @@ body.tour-mode.tour-discussion #container {
     right: 0;
     left: var(--tour-rail-width);
     z-index: 90;
-    height: var(--tour-narrative-height);
+    height: min(38vh, 360px);
+    min-height: 0;
+    max-height: none;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -364,59 +392,16 @@ body.tour-mode.tour-discussion #container {
     display: none;
 }
 
-.tour-narrative-nav {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+.tour-narrative-toolbar {
+    display: flex;
+    min-width: 0;
     gap: 12px;
     align-items: center;
     flex-shrink: 0;
-    margin-bottom: 12px;
+    margin: 0 0 10px;
     padding: 0 0 8px;
     border-bottom: 1px solid var(--tour-border);
     background: rgba(255, 255, 255, 0.025);
-}
-
-.tour-narrative-nav button {
-    min-width: 72px;
-    padding: 7px 10px;
-    color: var(--tour-muted);
-    border: 1px solid transparent;
-    border-radius: 6px;
-    background: transparent;
-    cursor: pointer;
-    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
-}
-
-.tour-narrative-nav button:hover,
-.tour-narrative-nav button:focus-visible {
-    color: #fff;
-    border-color: var(--tour-border);
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.tour-narrative-nav button:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(128, 117, 255, 0.28);
-}
-
-.tour-narrative-nav button:last-child {
-    justify-self: end;
-}
-
-.tour-narrative-nav button:disabled {
-    opacity: 0.35;
-    cursor: default;
-}
-
-.tour-narrative-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-    flex-shrink: 0;
-    margin: -4px 0 8px;
-    padding: 0 0 8px;
-    border-bottom: 1px solid var(--tour-border);
 }
 
 .tour-narrative-toolbar button {
@@ -563,10 +548,11 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-breadcrumb {
+    flex: 1 1 auto;
     min-width: 0;
     color: var(--tour-muted);
     font-family: var(--vscode-editor-font-family, monospace);
-    text-align: center;
+    text-align: left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -682,16 +668,8 @@ body.tour-mode.tour-discussion #container {
 
 .tour-file.is-omitted .tour-file-meta { color: #d7aa7b; }
 
-.tour-chapter-title {
-    margin: 15px 10px 7px;
-    color: var(--tour-muted);
-    font-size: 12px;
-    font-weight: 750;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-}
-
 .tour-scene {
+    box-sizing: border-box;
     display: grid;
     width: 100%;
     grid-template-columns: 24px minmax(0, 1fr);
@@ -700,6 +678,7 @@ body.tour-mode.tour-discussion #container {
     padding: 9px 10px;
     color: #e5e7f0;
     border: 1px solid transparent;
+    border-left-width: 2px;
     border-radius: 7px;
     background: transparent;
     text-align: left;
@@ -708,11 +687,6 @@ body.tour-mode.tour-discussion #container {
 
 .tour-scene:hover {
     background: rgba(255, 255, 255, 0.045);
-}
-
-.tour-scene.is-active {
-    border-color: rgba(128, 117, 255, 0.44);
-    background: linear-gradient(90deg, rgba(101, 83, 255, 0.25), rgba(101, 83, 255, 0.07));
 }
 
 .tour-scene-number {
@@ -804,28 +778,57 @@ body.tour-mode.tour-discussion #container {
     line-height: 1.35;
 }
 
-.tour-narrative-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 18px 24px;
-}
-
-.tour-narrative-prose,
-.tour-narrative-side {
+.tour-reading-item {
+    box-sizing: border-box;
     min-width: 0;
+    padding: 9px 12px 11px 14px;
+    overflow-wrap: anywhere;
+    border-left: 2px solid transparent;
 }
 
-.tour-narrative-prose {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+.tour-reading-item + .tour-reading-item {
+    margin-top: 2px;
 }
 
-.tour-narrative-side {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    align-self: start;
+.tour-reading-item.is-active {
+    border-left-color: rgba(169, 159, 255, 0.72);
+}
+
+.tour-reading-item h1,
+.tour-reading-item h2,
+.tour-reading-item h3 {
+    margin: 0 0 8px;
+    line-height: 1.3;
+    text-wrap: balance;
+}
+
+.tour-reading-item[data-reading-kind="title"] h1 {
+    color: #fff;
+    font-size: 22px;
+    font-weight: 750;
+}
+
+.tour-reading-item[data-reading-kind="chapter"] h2 {
+    color: var(--tour-accent-bright);
+    font-size: 16px;
+    font-weight: 750;
+}
+
+.tour-reading-item[data-reading-kind="scene"] h2 {
+    color: #fff;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.tour-reading-item[data-reading-kind="step"] h3,
+.tour-reading-item .tour-step-title {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+#tour-narrative-content > .tour-reading-item:last-child {
+    min-height: max(0px, var(--tour-reading-viewport, 0px));
 }
 
 .tour-narrative-chapter {
@@ -838,7 +841,7 @@ body.tour-mode.tour-discussion #container {
 
 .tour-narrative h2 {
     margin: 0 0 7px;
-    font-size: 19px;
+    font-size: 20px;
     text-wrap: balance;
 }
 
@@ -880,21 +883,73 @@ body.tour-mode.tour-discussion #container {
     background: rgba(255, 255, 255, 0.015);
 }
 
-.tour-step {
-    box-sizing: border-box;
-    padding: 11px 13px 11px 15px;
-    border-left: 2px solid rgba(166, 140, 255, 0.46);
-    background: rgba(255, 255, 255, 0.02);
-}
-
-.tour-step[hidden],
 .tour-step-requirement[hidden],
 .tour-connection[hidden] {
     display: none;
 }
 
-.tour-step-title { color: #fff; font-size: 23px; font-weight: 700; }
 .tour-step-body { margin: 8px 0 0; max-width: 85ch; color: var(--tour-body); font-size: 15px; line-height: 1.6; }
+
+.tour-step-context {
+    margin: 0 0 9px;
+}
+
+.tour-step-context > summary {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 6px;
+    padding: 4px 0;
+    overflow-wrap: anywhere;
+    color: var(--tour-muted);
+    font-size: 13px;
+    line-height: 1.4;
+    cursor: pointer;
+    list-style: none;
+}
+
+.tour-step-context > summary::before {
+    color: var(--tour-faint);
+    content: "▸";
+}
+
+.tour-step-context[open] > summary::before {
+    content: "▾";
+}
+
+.tour-step-context > summary::-webkit-details-marker {
+    display: none;
+}
+
+.tour-step-context > summary::marker {
+    content: "";
+}
+
+.tour-step-context > summary:hover,
+.tour-step-context > summary:focus-visible {
+    color: #fff;
+}
+
+.tour-step-context > summary:focus-visible {
+    outline: 2px solid var(--tour-accent-bright);
+    outline-offset: 2px;
+}
+
+.tour-step-context-body {
+    margin: 2px 0 8px;
+    padding: 7px 0 3px 12px;
+    color: var(--tour-muted);
+    border-left: 1px solid rgba(169, 159, 255, 0.28);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.tour-step-context-body .tour-narrative-summary,
+.tour-step-context-body .tour-narrative-bullets,
+.tour-step-context-body .tour-narrative-tags,
+.tour-step-context-body .tour-narrative-takeaway {
+    color: inherit;
+}
 
 .tour-step-requirement {
     display: flex;
@@ -953,12 +1008,12 @@ body.tour-mode.tour-discussion #container {
 }
 
 .tour-step-code-location {
+    flex: 1 1 12rem;
     min-width: 0;
-    overflow: hidden;
+    overflow-wrap: anywhere;
     color: var(--tour-faint);
     font-family: var(--vscode-editor-font-family, monospace);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
 }
 
 .tour-show-in-code {
@@ -980,73 +1035,28 @@ body.tour-mode.tour-discussion #container {
     outline: none;
 }
 
-body.tour-discussion .tour-narrative {
-    display: flex;
-    bottom: 0;
-    height: auto;
-    padding: clamp(48px, 10vh, 100px) clamp(44px, 8vw, 120px);
-}
-
-body.tour-discussion .tour-narrative-nav {
-    margin-bottom: clamp(22px, 4vh, 36px);
-}
-
-body.tour-discussion .tour-narration-controls {
-    max-width: 1000px;
-    margin-bottom: clamp(18px, 3vh, 28px);
-}
-
-body.tour-discussion .tour-narrative-layout {
-    display: block;
-}
-
-body.tour-discussion .tour-narrative h2 {
-    max-width: 900px;
-    font-size: clamp(30px, 4vw, 56px);
-}
-
-body.tour-discussion .tour-narrative-summary {
-    max-width: 980px;
-    font-size: clamp(16px, 1.8vw, 24px);
-}
-
-body.tour-discussion .tour-narrative-bullets {
-    display: grid;
-    max-width: 1000px;
-    gap: 10px;
-    margin-top: 24px;
-    font-size: 15px;
-}
-
-body.tour-discussion .tour-narrative-takeaway {
-    max-width: 620px;
-    font-size: 14px;
-}
-
 .tour-commit-oid {
     margin-right: 6px;
     color: var(--tour-accent-bright);
     font-family: var(--vscode-editor-font-family, monospace);
 }
 
-/* Keep the active explanation visible while context and settings scroll. */
-.tour-narrative-content { flex: 1; min-height: 0; overflow: auto; padding-right: 8px; }
-.tour-narrative .tour-step { padding: 0; border: 0; background: none; }
-.tour-narrative .tour-step-title { font-size: 23px; }
-.tour-context { margin-top: 14px; }
-.tour-context > summary, .tour-audio-settings > summary, .tour-details > summary {
+/* Keep the complete reading order in one scrollable narrative viewport. */
+.tour-narrative-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.tour-audio-settings > summary, .tour-details > summary {
     cursor: pointer; color: var(--tour-muted); padding: 5px 0; line-height: 1.5;
 }
-.tour-context > summary:hover, .tour-audio-settings > summary:hover, .tour-details > summary:hover { color: #fff; }
-.tour-context > summary:focus-visible, .tour-audio-settings > summary:focus-visible,
+.tour-audio-settings > summary:hover, .tour-details > summary:hover { color: #fff; }
+.tour-audio-settings > summary:focus-visible,
 .tour-details > summary:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 2px; }
-.tour-context > summary[hidden], .tour-audio-settings > summary[hidden] { display: none; }
-.tour-context { margin-top: 0; }
-.tour-context[open] > .tour-narrative-layout { margin-top: 0; }
-.tour-context.is-primary { margin-top: 0; }
-.tour-context.is-primary > summary[hidden] { display: none; }
-.tour-context.is-primary > .tour-narrative-layout { margin-top: 0; }
-.tour-step + .tour-context { margin-top: 14px; }
+.tour-audio-settings > summary[hidden] { display: none; }
 .tour-narration-dock {
     display: flex;
     align-items: center;
@@ -1079,30 +1089,118 @@ body.tour-discussion .tour-narrative-takeaway {
 .tour-details { margin-top: 10px; font-size: 12px; }
 .tour-details .tour-source { display: inline-block; margin-top: 8px; }
 .tour-details .tour-source[hidden] { display: none; }
-.tour-files[hidden], .tour-outline-steps[hidden] { display: none; }
-.tour-outline-steps { display: grid; gap: 3px; margin: 6px 0 16px 19px; border-left: 1px solid var(--tour-border); padding-left: 10px; }
+.tour-files[hidden],
+.tour-outline-children[hidden] { display: none; }
+
+.tour-outline-group {
+    margin: 0 0 5px;
+    border-left: 2px solid transparent;
+}
+
+.tour-outline-group.has-active {
+    border-left-color: rgba(169, 159, 255, 0.58);
+}
+
+.tour-outline-heading {
+    display: flex;
+    min-width: 0;
+    align-items: stretch;
+}
+
+.tour-outline-toggle {
+    flex: 0 0 28px;
+    width: 28px;
+    padding: 0;
+    color: var(--tour-muted);
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.tour-outline-toggle:hover,
+.tour-outline-toggle:focus-visible {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.tour-outline-toggle:focus-visible {
+    outline: 2px solid var(--tour-accent-bright);
+    outline-offset: -2px;
+}
+
+.tour-outline-heading > .tour-scene,
+.tour-outline-heading > .tour-chapter-link {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tour-outline-children {
+    display: grid;
+    gap: 3px;
+    margin: 2px 0 10px 28px;
+    border-left: 1px solid var(--tour-border);
+    padding-left: 9px;
+}
+
 .tour-outline-step {
-    border: 1px solid transparent; border-radius: 5px; background: none;
-    color: var(--tour-muted); font: 12px/1.5 var(--tour-body-font); text-align: left;
-    padding: 8px 10px; cursor: pointer; overflow-wrap: anywhere;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    border-left: 2px solid transparent;
+    border-radius: 5px;
+    background: none;
+    color: var(--tour-muted);
+    font: 12px/1.5 var(--tour-body-font);
+    text-align: left;
+    padding: 8px 10px 8px 9px;
+    cursor: pointer;
+    overflow-wrap: anywhere;
 }
 .tour-outline-step:hover { background: rgba(255,255,255,.05); }
-.tour-outline-step.is-active { background: rgba(101,83,255,.16); color: #fff; border-color: rgba(169,159,255,.4); }
+.tour-outline-step.is-active { border-left-color: rgba(169,159,255,.72); }
 .tour-outline-step:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 1px; }
-.tour-scene.is-active { background: rgba(255,255,255,.025); border-color: transparent; }
-.tour-scene-note { display: none; }
+
+.tour-chapter-link {
+    display: block;
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 8px 10px;
+    overflow-wrap: anywhere;
+    color: var(--tour-muted);
+    border: 1px solid transparent;
+    border-left: 2px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+}
+
+.tour-chapter-link:hover {
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.tour-chapter-link.is-active,
+.tour-scene.is-active {
+    border-left-color: rgba(169, 159, 255, 0.72);
+}
+
+.tour-chapter-link:focus-visible {
+    outline: 2px solid var(--tour-accent-bright);
+    outline-offset: 1px;
+}
+
 #tour-listen { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 #tour-listen svg { width: 14px; height: 14px; fill: currentColor; }
 
 @media (max-width: 1100px) {
     :root {
         --tour-rail-width: 285px;
-        --tour-narrative-height: 320px;
+        --tour-narrative-height: min(38vh, 360px);
     }
 
-    .tour-narrative-layout {
-        grid-template-columns: minmax(0, 1fr);
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1110,18 +1208,6 @@ body.tour-discussion .tour-narrative-takeaway {
         transition: none;
     }
 }
-
-/* The reading path stays available alongside narration at every depth. */
-.tour-reading-path { display: flex; align-items: center; gap: 4px; min-width: 160px; flex: 1 1 160px; }
-.tour-reading-path button { min-width: 0; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tour-reading-path button + button::before { content: '›'; margin-right: 8px; color: var(--tour-muted); }
-.tour-reading-path button[aria-current], .tour-child-items button[aria-current] { color: #fff; border-color: var(--tour-accent-bright); background: rgba(169, 159, 255, 0.13); }
-.tour-parent-view[hidden], .tour-context[hidden] { display: none; }
-.tour-child-items { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 12px; }
-.tour-child-items button, .tour-parent-view > button { font: inherit; text-align: left; color: var(--tour-body); background: rgba(255, 255, 255, 0.035); border: 1px solid var(--tour-border); border-radius: 5px; padding: 6px 9px; cursor: pointer; }
-.tour-child-items button:focus-visible, .tour-parent-view > button:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 2px; }
-
-.tour-reading-path button[data-level="step"] { flex-shrink: 0; }
 
 /* Exploration shares the evidence viewer, while both authored tours keep narration. */
 .tour-mode-label { color: var(--tour-muted); font-size: 12px; }
@@ -1241,17 +1327,15 @@ body.tour-directory-file-open #file-info { display: none; }
 .present-navigation-rail .history-rail-tabs[hidden] { display: none; }
 .present-navigation-rail .history-rail-list { padding: 4px 8px 10px; }
 
-/* Narrative is a compact, content-sized context card above the evidence. */
+/* Narrative remains a stable viewport above the evidence. */
 .tour-narrative {
-    height: auto;
-    max-height: min(38vh, 360px);
+    height: min(38vh, 360px);
+    max-height: none;
     padding: 10px 18px 12px;
 }
 
-.tour-narrative-nav { margin-bottom: 6px; padding-bottom: 6px; }
 .tour-narrative-toolbar { margin-bottom: 6px; padding-bottom: 6px; }
-.tour-narrative-content { flex: 0 1 auto; }
-body.tour-discussion .tour-narrative { max-height: none; }
+.tour-narrative-content { flex: 1 1 auto; }
 
 @media (max-width: 720px) {
     :root { --tour-rail-width: 0px; }
@@ -1274,9 +1358,8 @@ body.tour-discussion .tour-narrative { max-height: none; }
     }
 
     .tour-sidebar-resizer { display: none; }
-    .tour-narrative { top: 0; left: 0; max-height: min(44vh, 340px); padding: 10px 14px 12px; }
-    .tour-narrative-nav { gap: 6px; }
-    .tour-narrative-nav button { min-width: 64px; padding-inline: 7px; }
+    .tour-narrative { top: 0; left: 0; height: min(38vh, 360px); padding: 10px 14px 12px; }
+    .tour-narrative-toolbar { gap: 6px; }
     .tour-narration-controls select { max-width: 150px; }
     .tour-narration-status { width: 100%; margin-left: 0; text-align: left; }
 
@@ -1286,8 +1369,6 @@ body.tour-discussion .tour-narrative { max-height: none; }
         margin-top: var(--tour-narrative-height);
         margin-left: 0;
     }
-
-    body.tour-discussion .tour-narrative { top: 0; }
 }
 .tour-commit-legend {
     padding: 6px 12px;

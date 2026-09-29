@@ -310,7 +310,7 @@ function testTourSearchFindsNarrativeStepsAndExactCodeLocations() {
     assert.match(markup, /id="tour-search-input"/);
     assert.match(markup, /Narrative \+ code/);
     assert.match(host, /type: 'revealSearchResult'/);
-    assert.match(host, /showTourScene\(match\.sceneIndex, match\.stepIndex \?\? 0, \{ showIntro: false \}\)/);
+    assert.match(host, /showTourScene\(match\.sceneIndex, match\.stepIndex \?\? 0, \{ showIntro: match\.stepIndex === undefined \}\)/);
 }
 
 function testDeconstructedTourNavigationTraversesExplanationStages() {
@@ -505,7 +505,7 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     }
     assert.match(webMarkup, /id="tour-commits-host"/);
     assert.match(webMarkup, /id="tour-files" class="tour-files" aria-label="Changed files"><\/nav>/);
-    assert.match(hostSource, /contextLabel\.hidden = !step/);
+    assert.match(hostSource, /context\.className = 'tour-step-context'/);
     assert.match(webMarkup, /id="tour-return-focus"/);
     assert.match(webMarkup, /id="tour-authoring-coverage"[^>]+aria-label="Tour authoring coverage"[^>]+hidden/);
     assert.match(hostSource, /renderAuthoringCoverage\(authoringCoverage, tour\.authoringCoverage\)/);
@@ -516,7 +516,8 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(presenterSource, /#history-rail\.present-navigation-rail/);
     assert.match(rendererSource, /tourHost = document\.getElementById\('tour-commits-host'\)/);
     assert.match(rendererSource, /rail\.classList\.toggle\('present-navigation-rail', presentOwned\)/);
-    assert.match(hostSource, /tourPrevious\?\.addEventListener\('click', \(\) => showTourLinear\(-1\)\)/);
+    assert.match(hostSource, /getTourReadingTarget\(readingItems, state\.readingKey, direction\)/);
+    assert.doesNotMatch(webMarkup, /id="tour-(?:previous|next|reading-path|parent-view)"/);
     for (const markup of [webMarkup, providerSource]) {
         assert.match(markup, /id="next-file" class="change-button icon-button"/);
         assert.doesNotMatch(markup, /id="next-file" class="[^"]*change-button-primary/);
@@ -662,7 +663,8 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
     assert.match(host, /window\.speechSynthesis\.getVoices\(\)/);
     assert.match(host, /TOUR_NARRATION_VOICE_STORAGE_KEY/);
     assert.match(host, /TOUR_NARRATION_RATE_STORAGE_KEY/);
-    assert.match(host, /renderNarrationField\(summary, scene\.summary/);
+    assert.match(host, /renderNarrationField\(field, field\.dataset\.readingText/);
+    assert.match(host, /narrated \? 'summary' : null/);
     assert.match(host, /data-narration-segment-id/);
     assert.match(host, /narrationController\.followLinearNavigation\(narrationUnit\)/);
     assert.match(host, /narrationController\.followDirectNavigation\(narrationUnit\)/);
@@ -1742,11 +1744,10 @@ function testTourStepRequirementsValidateAndRenderAsChips() {
         /requirement\.status must be fulfilled or gap\./
     );
 
-    const presenterMarkup = fs.readFileSync(path.join(__dirname, '..', 'web', 'index.html'), 'utf8');
     const presenterHost = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
     const presenterStyles = fs.readFileSync(path.join(__dirname, '..', 'web', 'presenter.css'), 'utf8');
-    assert.match(presenterMarkup, /id="tour-step-requirement"/);
-    assert.match(presenterHost, /renderStepRequirement\(stepRequirement, 'requirement' in step \? step\.requirement : null\)/);
+    assert.match(presenterHost, /field\(element, 'div', 'tour-step-requirement'/);
+    assert.match(presenterHost, /renderStepRequirement\(requirement, step\.requirement\)/);
     assert.match(presenterStyles, /\.tour-requirement-chip\[data-status="fulfilled"\]/);
 }
 

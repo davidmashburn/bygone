@@ -9,6 +9,7 @@ const historyLocation = {
     navigation: { scrollTop: 80 },
     focusId: 'tour-next',
     narrativeScroll: 120,
+    readingKey: 'step:scene-three:step-five',
     navigatorTab: 'commits',
     view: 'step',
     narrativeParent: null,

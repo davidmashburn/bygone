@@ -98,6 +98,17 @@ appear only when Electron is not packaged.
 Tour authoring remains file/CLI/agent driven. The desktop UI opens and presents
 tours but does not attempt to duplicate schema-aware authoring forms.
 
+Tour reading is one continuous document: title, chapter headings, scene
+overviews, and steps. Scrolling the narrative selects the active passage and
+its source evidence; scrolling code does not advance the narrative. The
+sidebar is a collapsible outline with separate disclosure and jump controls.
+Scene overviews are independent reading stops, and each step includes a
+collapsed scene-context disclosure above its text. Opening that disclosure
+does not navigate. Keyboard previous/next follows the same document order;
+History/Compare round-trips restore the passage and reading scroll position.
+There are no title-screen, start-steps, or resume gates. Verification:
+`test/tourReading.test.js` and `standalone/tourReadingSmoke.js`.
+
 ## VS Code companion
 
 | Command | Intended ownership | Current state | Editing contract | Follow-up |

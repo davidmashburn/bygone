@@ -5,11 +5,14 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { setTimeout, clearTimeout } = require('node:timers');
+const { runTourReadingSmoke } = require('./tourReadingSmoke.js');
 
 async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
     const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-workspace-smoke-')));
     const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
-    const evaluate = (code) => window().webContents.executeJavaScript(code, true);
+    const evaluate = (code) => window().webContents.executeJavaScript(code, true).catch((error) => {
+        throw new Error(`Workspace script failed: ${code}\n${error.message}`);
+    });
     const waitFor = (condition) => evaluate(`new Promise((resolve, reject) => {
         const start = Date.now();
         const check = () => { if (${condition}) resolve(true); else if (Date.now() - start > 15000) reject(new Error(${JSON.stringify(condition)})); else requestAnimationFrame(check); };
@@ -104,11 +107,23 @@ async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
         } finally { dialog.showMessageBox = dirtyConfirm; }
         const retainedOriginal = session();
         const tourPath = path.join(root, 'smoke.bygone');
-        fs.writeFileSync(tourPath, JSON.stringify({ version: 3, range: { base: revisions[0], head: revisions[3] },
+        fs.writeFileSync(tourPath, JSON.stringify({ version: 3, title: 'Continuous reading smoke tour',
+            range: { base: revisions[0], head: revisions[3] },
             anchors: { value: { file: 'one.txt', revision: 'head', contains: 'one' } }, connections: [],
-            chapters: [{ id: 'chapter', title: 'Change', scenes: [{ id: 'scene', kind: 'walkthrough', title: 'Read the change',
-                summary: 'The value changes.', bullets: [], tags: [], takeaway: 'Real committed values.',
-                steps: [{ id: 'step', title: 'Value', body: 'The committed value.', focus: 'value' }] }] }]
+            chapters: [
+                { id: 'chapter-one', title: 'Change setup', scenes: [{ id: 'scene-one', kind: 'walkthrough', title: 'Read the first change',
+                    summary: 'The first value changes.', bullets: [], tags: [], takeaway: 'The first committed value.',
+                    steps: [
+                        { id: 'step-one-a', title: 'First value', body: 'The first committed value.', focus: 'value' },
+                        { id: 'step-one-b', title: 'First follow-up', body: 'The first follow-up value.', focus: 'value' }
+                    ] }] },
+                { id: 'chapter-two', title: 'Change follow-up', scenes: [{ id: 'scene-two', kind: 'walkthrough', title: 'Read the second change',
+                    summary: 'The second value changes.', bullets: [], tags: [], takeaway: 'The second committed value.',
+                    steps: [
+                        { id: 'step-two-a', title: 'Second value', body: 'The second committed value.', focus: 'value' },
+                        { id: 'step-two-b', title: 'Second follow-up', body: 'The second follow-up value.', focus: 'value' }
+                    ] }] }
+            ]
         }));
         const pick = dialog.showOpenDialog;
         const confirm = dialog.showMessageBox;
@@ -133,7 +148,7 @@ async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
         assert.ok(tourFrame, 'Tour runs in a loopback subframe');
         await tourFrame.executeJavaScript(`new Promise((resolve, reject) => {
             const start = Date.now(); const check = () => {
-                if (document.querySelector('#tour-title')?.textContent && document.querySelectorAll('.monaco-editor').length) resolve(true);
+                if (document.querySelector('#tour-title')?.textContent && document.querySelector('.tour-reading-item.is-active')) resolve(true);
                 else if (Date.now() - start > 15000) reject(new Error('Tour did not render')); else requestAnimationFrame(check);
             }; check();
         })`);
@@ -152,6 +167,7 @@ async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
                     else if (Date.now() - start > 15000) reject(new Error('Browser controls did not load')); else requestAnimationFrame(check);
                 }; check();
             })`);
+            await runTourReadingSmoke({ browserContents, browserWindow });
             // The browser surface cannot supply local absolute paths. Its selected
             // Markdown remains an attachment, and user-edited drafts survive changes.
             await browserContents.executeJavaScript("document.querySelector('[data-workspace-mode=deconstructed]').click()");
