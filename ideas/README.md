@@ -23,6 +23,13 @@ clear enough to discuss as an actionable plan.
 
 ## Current ideas
 
+- [Tour presentation review](tour-presentation-review.md) preserves the initial
+  clipping and hierarchy investigation that preceded the reading UI changes.
+
+- [Tour types and navigation alternatives](tour-type-alternatives.md) preserves
+  the third-tour option, representation mapping, mode-collapse tradeoffs, and
+  step-relative directory views considered during the navigation redesign.
+
 - [macOS Cmd-W window close](macos-cmd-w-window-close.md) captures the missing
   platform-standard close-window shortcut and dirty-session lifecycle question.
 - [Wrapped diff marker layout artifacts](wrapped-diff-marker-layout.md) captures

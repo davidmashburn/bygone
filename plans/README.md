@@ -26,6 +26,10 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [Review comprehension](review-comprehension.md) — test paired code and prose
+  review, starting with the [tour navigation case study](review-comprehension-case-study.md).
+  The [implementation plan](paired-comprehension-implementation.md) scopes the
+  shared skill guidance and first repairs.
 - [Conversational voice and originating-agent routing](conversational-voice-and-agent-routing.md) —
   separately explore text-first, evidence-grounded questions and an ephemeral
   local route back to an authoring agent.

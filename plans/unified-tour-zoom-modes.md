@@ -8,6 +8,17 @@ repository-backed history. `fb1b21e` made Final diff its own authored regular
 tour, kept Return to Tour mode-specific, and completed two-endpoint collapse.
 Version 1 remains readable without the mode control.
 
+## Later navigation direction
+
+The subsequent `feat/tour-modes-and-directory-overviews` branch separates
+History and Compare from independently authored Historical and Deconstructed
+tours. [Tour types and navigation alternatives](../ideas/tour-type-alternatives.md)
+records what changed and preserves the alternatives below, including a third
+final-result narrative and automatic correspondence between representations.
+That branch was integrated into `main` by `e506b60`. Subsequent version 3
+authoring and shared workspace changes supersede the original mapping and
+depth-collapse design below; it is retained as historical rationale.
+
 ## Goal
 
 Let readers jump from an incremental explanation to the end result or Git

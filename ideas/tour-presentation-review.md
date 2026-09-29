@@ -1,6 +1,8 @@
 # Tour presentation review
 
-Status: Local UI investigation; proposed direction, not an implemented redesign.
+Status: Historical UI investigation at `8a13735`. Its observations and proposed
+experiment below are preserved as recorded. Later tour-reading and navigation
+changes are now on `main`; this is not a current defect inventory.
 
 ## Evidence
 

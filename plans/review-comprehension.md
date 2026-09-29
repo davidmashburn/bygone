@@ -2,6 +2,11 @@
 
 Status: Draft proposal. No runtime feature implemented.
 
+An initial [paired code and prose case study](review-comprehension-case-study.md)
+examines the tour navigation change at `2b5add9`. It records agent-checked
+findings and proposed improvements; the two-change human evaluation below
+remains outstanding.
+
 ## Problem and intended outcome
 
 A reviewer can navigate every changed file and still miss a new prerequisite,
@@ -89,4 +94,5 @@ open until the trial shows which information is useful.
 - Explicit accounting for omitted evidence, inference, and external unknowns.
 - A recorded decision to proceed, revise, or stop based on observed reader answers.
 
-This document defines the experiment; none of these evaluation steps has run.
+This document defines the experiment. The initial case study is preparatory;
+the comparative reader evaluation and acceptance criteria remain incomplete.
