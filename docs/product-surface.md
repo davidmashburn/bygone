@@ -54,6 +54,7 @@ appear only when Electron is not packaged.
 | Explain a real stack | `stacked-diff` scene | Exact real Git revisions per panel | Read-only | Advanced | `examples/stacked-diff.bygone` |
 | Explain a change in conceptual stages | `deconstructed-diff` scene | Explicitly labeled synthetic explanation stages backed by exact hunk IDs | Read-only | Advanced/experimental authoring | `examples/deconstructed-diff.bygone` |
 | Browse away from the narration | Files navigator, change navigation | Browsed file versus active tour focus remain distinct | Read-only; Return to Tour restores narrative focus | Core | tour focus and persistent-anchor tests |
+| Browse commits or build a comparison while reading | Shared Commits navigator in every mode; check revisions, then Compare selected | All commits reachable from the presentation head; separate file-change markers, tour membership, and numbered loaded panels | Read-only snapshots; checkbox draft does not navigate; History preserves revision columns across files | Core | tour-history backend, stable-axis workspace tests, and browser mode-transition checks |
 
 Tour authoring remains file/CLI/agent driven. The desktop UI opens and presents
 tours but does not attempt to duplicate schema-aware authoring forms.

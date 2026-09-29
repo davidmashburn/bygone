@@ -4384,6 +4384,7 @@ async function testPresentHistoryPanelWorkspace() {
     const source = fs.readFileSync(path.join(__dirname, '../web/host.js'), 'utf8');
     const implementation = source.slice(source.indexOf('    function historyNeighbor('), source.indexOf('    function navigateZoomHistory('));
     const state = {
+        authoredTour: { range: { headOid: 'c' }, commits: [] },
         zoom: { mode: 'history' }, historyPath: 'file.txt', historyCommit: 'c', historyDiff: {},
         historyEntries: ['c', 'a'].map((commit) => ({ commit, shortCommit: commit, summary: commit })),
         historyPanels: ['b', 'c'].map((commit) => ({ id: `history-${commit}`, commit, content: commit })),
@@ -4392,7 +4393,7 @@ async function testPresentHistoryPanelWorkspace() {
     let rendered;
     const history = () => ({ rail: { itemsByTab: { history: state.historyEntries.map((entry, index) => ({ index, label: entry.commit })) } } });
     const workspace = new Function('state', 'chronologicalComparisonCommits', 'historyRequest', 'buildZoomHistoryState', 'buildTwoWayDiffModel', 'updateTourFileSelection', 'emit',
-        `let evidenceRequest = 0; ${implementation}; return { historyNeighbor, panelHistoryState, changeHistoryPanels, renderZoomHistoryPanels };`
+        `let evidenceRequest = 0; const getCurrentTourFileTarget = () => null; ${implementation}; return { historyNeighbor, panelHistoryState, changeHistoryPanels, renderZoomHistoryPanels };`
     )(state, () => ['a', 'b', 'c'], async (_endpoint, input) => ({ rightContent: input.commit, path: 'file.txt' }), history, () => ({}), () => {}, (message) => { rendered = message; });
     workspace.renderZoomHistoryPanels();
     assert.equal(rendered.panels.length, 2);
@@ -4408,10 +4409,51 @@ async function testPresentHistoryPanelWorkspace() {
     await workspace.changeHistoryPanels({ type: 'multiRemovePanel', panelId: 'history-a' });
     await workspace.changeHistoryPanels({ type: 'multiRemovePanel', panelId: 'history-b' });
     assert.deepEqual(state.historyPanels.map((panel) => panel.commit), ['b', 'c']);
+    const synthetic = workspace.panelHistoryState(history(), [undefined, undefined], null);
+    assert.equal(synthetic.rail.itemsByTab.history.some((item) => item.panelNumber), false);
+}
+
+async function testPresentHistoryUsesStableCommitAxis() {
+    const source = fs.readFileSync(path.join(__dirname, '../web/host.js'), 'utf8');
+    const implementation = source.slice(source.indexOf('    async function showZoomHistory('), source.indexOf('    function buildZoomHistoryState('));
+    const state = {
+        authoredTour: { range: { headOid: 'd' } }, zoom: { mode: 'history' },
+        historyEntries: ['d', 'c', 'b', 'a'].map((commit) => ({ commit, shortCommit: commit, summary: commit })),
+        historyPanels: [], historyPath: null, historyCommit: null,
+        comparisonDraftInitialized: true, comparisonDraftCommits: ['a', 'd']
+    };
+    const requests = [];
+    const historyRequest = async (endpoint, input) => {
+        requests.push({ endpoint, ...input });
+        assert.equal(endpoint, 'diff', 'The commit axis must never be replaced with file-filtered history');
+        const parentCommit = { d: 'c', c: 'b', b: 'a', a: null }[input.commit];
+        return { parentCommit, path: input.path, leftContent: `${input.path}:same`, rightContent: `${input.path}:same` };
+    };
+    let renders = 0;
+    let urls = 0;
+    const show = new Function('state', 'historyRequest', 'renderZoomHistoryPanels', 'updateTourLocationUrl',
+        `let evidenceRequest = 0; const document = { getElementById: () => ({}) }; const renderComparisonControls = () => {}; const seedComparisonSelection = () => { throw new Error('Draft overwritten'); }; const historyNeighbor = () => null; ${implementation}; return showZoomHistory;`
+    )(state, historyRequest, () => { renders++; }, () => { urls++; });
+    await show('first.txt', 'c');
+    assert.deepEqual(state.historyPanels.map((panel) => panel.commit), ['b', 'c']);
+    assert.equal(state.historyCommit, 'c', 'An unchanged commit remains the active revision');
+    state.historyPanels.unshift({ id: 'history-a', commit: 'a', content: '', path: 'first.txt' });
+    state.historyFocus = 'history-b';
+    await show('second.txt', 'c');
+    assert.deepEqual(state.historyPanels.map((panel) => panel.commit), ['a', 'b', 'c']);
+    assert.equal(state.historyFocus, 'history-b');
+    assert.equal(state.historyPanels.every((panel) => panel.path === 'second.txt' && panel.content === 'second.txt:same'), true);
+    assert.deepEqual(state.comparisonDraftCommits, ['a', 'd']);
+    assert.equal(requests.every((request) => request.head === 'd'), true);
+    assert.equal(renders, 2);
+    assert.equal(urls, 2);
+    await show('second.txt', 'c');
+    assert.equal(requests.length, 5, 'Returning to History reuses its saved panels');
 }
 
 async function run() {
     await testPresentHistoryPanelWorkspace();
+    await testPresentHistoryUsesStableCommitAxis();
     testTourLinearNavigationTraversesStepsAndScenes();
     testTourNarrationBuildsSemanticSentenceSegments();
     testTourNarrationSplitsLongTextAndExcludesRawTechnicalTargets();

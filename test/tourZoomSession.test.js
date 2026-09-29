@@ -9,6 +9,7 @@ const historyLocation = {
     navigation: { scrollTop: 80 },
     focusId: 'tour-next',
     narrativeScroll: 120,
+    navigatorTab: 'commits',
     view: 'step',
     narrativeParent: null,
     sceneIntroVisible: false
@@ -18,6 +19,7 @@ const compareLocation = {
     stepIndex: 0,
     path: 'b.ts',
     line: 18,
+    navigatorTab: 'files',
     commit: 'abc123'
 };
 

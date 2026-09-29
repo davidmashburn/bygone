@@ -4,7 +4,6 @@ const { TextDecoder } = require('util');
 const path = require('path');
 const { parseNameStatusZ } = require('../out/gitComparison.js');
 
-const DEFAULT_HISTORY_MAX_COMMITS = 250;
 const DEFAULT_HISTORY_MAX_FILE_BYTES = 2 * 1024 * 1024;
 const DEFAULT_HISTORY_MAX_LINE_BYTES = 64 * 1024;
 const DEFAULT_GIT_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
@@ -50,7 +49,7 @@ function requireInput(input) {
 }
 
 function listCommitHistory(root, commit) {
-    const output = git(root, ['log', `--max-count=${DEFAULT_HISTORY_MAX_COMMITS}`, '--format=%x1e%H%x00%P%x00%s%x00%cI%x00', commit, '--']);
+    const output = git(root, ['log', '--topo-order', '--format=%x1e%H%x00%P%x00%s%x00%cI%x00', commit, '--']);
     const entries = [];
     for (const record of output.split('\x1e').slice(1)) {
         const fields = record.split('\0');
@@ -60,6 +59,7 @@ function listCommitHistory(root, commit) {
             commit: oid,
             oid,
             parentCommit: parents.split(' ')[0] || null,
+            parents: parents.split(' ').filter(Boolean),
             shortCommit: oid.slice(0, 7),
             summary,
             timestamp
@@ -341,7 +341,7 @@ function createTourHistory(manifest) {
             const commit = validateCommit(root, input.commit || manifest.range.headOid);
             // Follow the file backwards from the requested revision, including deleted
             // files and rename records; no working-tree file needs to exist.
-            const output = git(root, ['--literal-pathspecs', 'log', '--follow', '-M', '--max-count=250',
+            const output = git(root, ['--literal-pathspecs', 'log', '--topo-order', '--follow', '-M',
                 '--format=%x1e%H%x00%P%x00%s%x00%cI%x00', '--name-status', '-z', commit, '--', filePath]);
             const entries = [];
             let historicalPath = filePath;
@@ -374,8 +374,22 @@ function createTourHistory(manifest) {
         },
         diff(input) {
             input = requireInput(input);
-            const filePath = validatePath(input.path);
+            let filePath = validatePath(input.path);
             const commit = validateCommit(root, input.commit);
+            // Resolve the file's historical name without changing the commit axis.
+            // Only cross a rename when this revision is an ancestor of that rename.
+            if (input.head && !pathExistsAt(root, commit, filePath)) {
+                const head = validateCommit(root, input.head);
+                const lineage = this.list({ path: filePath, commit: head }).entries;
+                for (const entry of lineage) {
+                    if (!entry.previousPath) continue;
+                    try {
+                        git(root, ['merge-base', '--is-ancestor', commit, entry.parentCommit]);
+                        filePath = entry.previousPath;
+                    } catch { /* This rename is not ahead of the requested revision. */ }
+                    if (pathExistsAt(root, commit, filePath)) break;
+                }
+            }
             const parents = git(root, ['show', '-s', '--format=%P', commit]).trim();
             const parentCommit = parents.split(' ')[0] || null;
             const changes = parseNameStatusZ(git(root, ['--literal-pathspecs', 'diff-tree', '--root', '--no-commit-id', '-r', '-M', '--name-status', '-z',
@@ -384,10 +398,10 @@ function createTourHistory(manifest) {
             const rightPath = change?.path || filePath;
             const leftPath = change?.previousPath || filePath;
             function read(oid, name, absent) {
-                if (!oid || absent) return '';
-                const content = git(root, ['cat-file', 'blob', `${oid}:${name}`], { encoding: 'buffer', maxBuffer: DEFAULT_HISTORY_MAX_FILE_BYTES + 1 });
-                if (content.includes(0) || content.length > DEFAULT_HISTORY_MAX_FILE_BYTES) throw new Error('History file is binary or too large to display.');
-                return content.toString('utf8');
+                if (!oid || absent || !pathExistsAt(root, oid, name)) return '';
+                const content = readGitText(root, oid, name);
+                if (content.kind === 'omitted') throw new Error(content.reason);
+                return content.content;
             }
             return { commit, parentCommit, path: rightPath,
                 ...(change?.previousPath ? { previousPath: change.previousPath } : {}),

@@ -290,7 +290,23 @@ host.onMessage((message) => {
     }
 
     if (message.type === 'focusHistoryPanel') {
-        setActiveMultiPanel(message.panelId, true);
+        if (message.panelId === 'left' || message.panelId === 'right') {
+            const editor = message.panelId === 'left' ? leftEditor : rightEditor;
+            editor?.focus();
+        } else setActiveMultiPanel(message.panelId, true);
+        return;
+    }
+
+    if (message.type === 'updateCommitHistory') {
+        updateNavigationRail(message.history.rail, 'history');
+        return;
+    }
+
+    if (message.type === 'updateCommitMarkers') {
+        for (const items of Object.values(historyRailState?.itemsByTab || {})) {
+            for (const item of items) item.changesFile = message.changedCommits.includes(item.commit);
+        }
+        renderHistoryRail();
         return;
     }
 
@@ -2362,6 +2378,8 @@ function initializeHistoryRail() {
             if (item.kind === 'panel-revision' && item.panelNumber) {
                 const panel = multiPanels[item.panelNumber - 1];
                 if (panel) setActiveMultiPanel(panel.id, true);
+                else if (item.panelNumber === 1) leftEditor?.focus();
+                else if (item.panelNumber === 2) rightEditor?.focus();
                 return;
             }
 
@@ -4736,7 +4754,7 @@ function updateHistoryToolbar(history) {
     const stagedButton = getElement('history-toggle-staged');
     const skipUnchangedButton = getElement('history-toggle-skip-unchanged');
 
-    if (!history) {
+    if (!history || history.navigatorOnly) {
         toolbar.hidden = true;
         clearHistoryToolbar();
         stagedButton.setAttribute('aria-pressed', 'false');
@@ -4796,6 +4814,10 @@ function updateNavigationRail(historyRail, kind) {
 
 function renderHistoryRail() {
     const rail = getElement('history-rail');
+    const previousScroll = rail.querySelector('.history-rail-list')?.scrollTop || 0;
+    const focused = document.activeElement?.closest('[data-rail-select], [data-rail-item]');
+    const focusedIndex = focused?.getAttribute('data-rail-index');
+    const focusedKind = focused?.hasAttribute('data-rail-select') ? 'data-rail-select' : 'data-rail-item';
     const container = getElement('container');
     const showButton = getElement('show-navigation-sidebar');
     const tourHost = document.getElementById('tour-commits-host');
@@ -4835,7 +4857,7 @@ function renderHistoryRail() {
             '<button class="history-rail-collapse" type="button" title="Hide navigation sidebar" aria-label="Hide navigation sidebar" data-rail-collapse>‹</button>',
             '</div>'
         ]),
-        '<div class="history-rail-tabs">',
+        `<div class="history-rail-tabs"${presentOwned && tabs.length === 1 ? ' hidden' : ''}>`,
         ...tabs.map((tab) => {
             const isActive = tab.id === (activeTab?.id || null);
             return `<button class="history-rail-tab${isActive ? ' active' : ''}" type="button" title="Show ${escapeAttr(tab.label)}" data-rail-tab="${escapeAttr(tab.id)}">${escapeHtml(tab.label)}</button>`;
@@ -4850,6 +4872,8 @@ function renderHistoryRail() {
             `<div class="history-rail-resizer" role="separator" aria-label="Resize navigation sidebar" title="Resize navigation sidebar (Left/Right; Home/End)" aria-orientation="vertical" aria-valuemin="${NAVIGATION_SIDEBAR_MIN_WIDTH}" aria-valuemax="${maximumNavigationSidebarWidth()}" aria-valuenow="${navigationRailWidth}" tabindex="0" data-rail-resizer></div>`
         ])
     ].join('');
+    rail.querySelector('.history-rail-list').scrollTop = previousScroll;
+    if (focusedIndex !== undefined && focusedIndex !== null) rail.querySelector(`[${focusedKind}][data-rail-index="${focusedIndex}"]`)?.focus({ preventScroll: true });
 }
 
 function maximumNavigationSidebarWidth() {
@@ -4896,16 +4920,18 @@ function renderHistoryRailItem(item, tabId, index) {
         : '';
 
     const action = item.kind === 'directory-entry' ? 'Open file' : 'Preview history entry';
-    const selection = item.kind === 'history-entry' || (item.kind === 'panel-revision' && item.commit)
+    const selection = item.selectionEnabled !== false && (item.kind === 'history-entry' || (item.kind === 'panel-revision' && item.commit))
         ? `<button class="history-rail-selection${item.selected ? ' selected' : ''}" type="button" role="checkbox" aria-checked="${String(Boolean(item.selected))}" title="${item.selected ? 'Remove from' : 'Add to'} comparison" data-rail-select="true" data-rail-tab="${escapeAttr(tabId)}"${indexAttr}>${item.selected ? '✓' : ''}</button>`
         : `<span class="history-rail-marker">${escapeHtml(marker)}</span>`;
     const panelBadge = item.panelNumber
         ? `<span class="history-rail-panel-badge" title="Active comparison panel ${item.panelNumber}" aria-label="Active comparison panel ${item.panelNumber}">${item.panelNumber}</span>`
         : '';
+    const fileMarker = item.changesFile ? '<span class="history-file-change" title="Changed the current file" aria-label="Changed the current file">●</span>' : '';
+    const tourMarker = item.inTour ? '<span class="history-tour-marker">Tour</span>' : '';
     return `<div class="history-rail-item${activeClass}${panelClass}${statusClass}"${item.panelNumber ? ` data-rail-panel="${item.panelNumber}"` : ''}>`
         + selection
         + `<button class="history-rail-entry" type="button" title="${action}: ${escapeAttr(item.label)}" data-rail-item="true" data-rail-tab="${escapeAttr(tabId)}"${kindAttr}${indexAttr}${pathAttr}>`
-        + `<span class="history-rail-text"><span class="history-rail-label">${escapeHtml(item.label)}</span>${meta}</span>${panelBadge}`
+        + `<span class="history-rail-text"><span class="history-rail-label">${escapeHtml(item.label)}</span>${meta}</span>${fileMarker}${tourMarker}${panelBadge}`
         + `</button></div>`;
 }
 

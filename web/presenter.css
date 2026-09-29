@@ -1238,6 +1238,7 @@ body.tour-directory-file-open #file-info { display: none; }
 }
 
 .present-navigation-rail .history-rail-tabs { padding: 8px 8px 4px; }
+.present-navigation-rail .history-rail-tabs[hidden] { display: none; }
 .present-navigation-rail .history-rail-list { padding: 4px 8px 10px; }
 
 /* Narrative is a compact, content-sized context card above the evidence. */
@@ -1288,3 +1289,12 @@ body.tour-discussion .tour-narrative { max-height: none; }
 
     body.tour-discussion .tour-narrative { top: 0; }
 }
+.tour-commit-legend {
+    padding: 6px 12px;
+    margin: 0;
+    font-size: 12px;
+    opacity: .7;
+}
+
+.history-file-change { color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2b36b); }
+.history-tour-marker { font-size: 12px; opacity: .65; }

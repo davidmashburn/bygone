@@ -10,6 +10,7 @@ export interface ZoomLocation {
     navigation?: unknown;
     focusId?: string;
     narrativeScroll?: number;
+    navigatorTab?: string;
     view?: string;
     narrativeParent?: string | null;
     sceneIntroVisible?: boolean;

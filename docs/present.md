@@ -61,9 +61,11 @@ Version 2 and 3 presentations expose **History**, **Compare**, and the available
 authored tours as direct mode buttons.
 Independent Historical and Deconstructed tours require version 3:
 
-- **History** browses a file's actual Git revisions. Choose **Commits** in the
-  navigator, check two or more revisions, then choose **Compare selected**.
-  History starts with a commit and its parent. Panel `+` controls expand into
+- **History** uses all commits reachable from the presentation's head, in stable
+  topological order, including commits that did not change the current file.
+  Left/right moves through commits; up/down moves through the Files list without
+  changing the loaded revisions. History starts with a commit and the preceding
+  commit on this axis (or the empty tree). Panel `+` controls expand into
   older or newer revisions; `×` removes a panel, with a minimum of two. Returning
   from Compare restores the expanded History workspace. Activating a loaded
   revision focuses its panel; another revision moves the history window while
@@ -72,15 +74,22 @@ Independent Historical and Deconstructed tours require version 3:
 - **Compare** shows one panel per selected revision, oldest to newest, with a
   diff between each adjacent pair. The Commit navigator remains available for
   editing a draft selection; **Update comparison** applies it. Activating a loaded revision focuses its
-  panel. Comparisons opened from file history stay on that file; **Show all
-  changed files** expands the same range. **Final diff** selects the review base
+  panel. **Compare selected** includes all changed files. Parent/base shortcuts
+  stay on the current file; **Show all changed files** expands the same range.
+  **Final diff** selects the review base
   and head across all changed files.
 
-History and Compare share numbered panels and matching commit-list badges.
-Loaded revisions remain highlighted, with stronger emphasis on visible panels.
-Parent/base revisions absent from the file history appear as labeled extra rows.
+All modes share the expanded **Commits** navigator. Check two or more revisions,
+then choose **Compare selected** (or **Update comparison** in Compare).
+Checkboxes edit a shared draft without reloading panels or leaving the tour.
+Numbered badges and highlights identify loaded real revisions independently of
+that draft. A dot marks commits that changed the current file, following renames;
+the **Tour** tag identifies commits in the authored range. Synthetic explanation
+stages are not labeled as Git revisions. Parent/base revisions outside the
+commit list appear as labeled extra rows.
 **Clear selection** unchecks draft revisions without changing modes or panels;
-**Reset selection** selects the revisions currently loaded in the workspace.
+**Reset selection** selects the real revisions currently loaded in the workspace.
+
 - **Historical tour** explains actual revision states, including intermediate
   changes, updates, and reverts. It retains chapters, scenes, steps, and narration.
 - **Deconstructed tour** explains the change through authored, synthetic
@@ -93,7 +102,7 @@ endpoints.
 
 Only available authored tours appear. A real revision stack does not by itself
 create a Historical tour. Each mode remembers its own reading or browsing
-position during the session; entering a tour for the first time starts at its
+position and navigator tab during the session; entering a tour for the first time starts at its
 beginning. Entering History for the first time keeps the file currently being
 inspected; later returns restore History's own file and revision. Switching
 modes does not infer a corresponding step in another tour.
