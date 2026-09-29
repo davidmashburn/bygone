@@ -4456,6 +4456,7 @@ async function testPresentHistoryUsesStableCommitAxis() {
 function testCommitRowMarkersStayIndependent() {
     const styles = fs.readFileSync(path.join(__dirname, '../media/style.css'), 'utf8');
     assert.match(styles, /\.history-rail-selection\s*\{[^}]*align-self:\s*center;/);
+    assert.match(styles, /\.history-rail-selection\s*\{[^}]*margin-inline-start:\s*8px;/);
     const source = fs.readFileSync(path.join(__dirname, '../media/script.js'), 'utf8');
     const start = source.indexOf('function renderHistoryRailItem(');
     const end = source.indexOf('function getHistoryRailItems(', start);
