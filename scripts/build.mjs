@@ -9,6 +9,7 @@ const sharedOptions = {
 
 const browserOptions = {
     ...sharedOptions,
+    loader: { '.md': 'text' },
     minify: true,
     legalComments: 'none'
 };
@@ -240,6 +241,7 @@ await build({
     format: 'iife',
     target: 'es2020',
     loader: {
+        ...browserOptions.loader,
         '.ttf': 'dataurl'
     }
 });

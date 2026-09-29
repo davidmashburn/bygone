@@ -5,84 +5,125 @@ const { buildWorkspacePrompt } = require('../out/workspacePrompt.js');
 const BASE = 'a'.repeat(40);
 const HEAD = 'b'.repeat(40);
 
-test('exact two-revision context includes a safely quoted bounded command', () => {
+test('exact range produces a compact prompt with a local skill reference', () => {
     const prompt = buildWorkspacePrompt('historical', {
-        repository: "/tmp/repo with spaces/it's-a-repo",
+        repository: '/tmp/repo',
         paths: ['src/index.ts', 'docs/tour.md'],
         revisions: [BASE, HEAD],
         rangeStatus: 'exact'
-    });
+    }, { path: '/tmp/bygone-tour-skill.md' });
 
-    assert.match(prompt, /Repository: \/tmp\/repo with spaces\/it's-a-repo/);
-    assert.match(prompt, /Selected paths\/directories: src\/index\.ts, docs\/tour\.md/);
-    assert.match(prompt, /cd -- '\/tmp\/repo with spaces\/it'\\''s-a-repo'/);
-    assert.match(prompt, new RegExp(`bygone tour context ${HEAD} --base ${BASE}`));
-    assert.match(prompt, /known ancestor of head/);
-    assert.match(prompt, /has no path filter/);
-    assert.match(prompt, /bygone tour schema/);
-    assert.match(prompt, /bygone tour validate <file\.bygone> --json/);
+    assert.equal(prompt.split('\n').length, 7);
+    assert.match(prompt, /Read and follow the Bygone tour skill at "\/tmp\/bygone-tour-skill\.md"\./);
+    assert.match(prompt, /Create a v3 historical tour\./);
+    assert.match(prompt, /Repository: "\/tmp\/repo"/);
+    assert.match(prompt, /Selected paths: \["src\/index\.ts","docs\/tour\.md"\]/);
+    assert.match(prompt, new RegExp(`Base: "${BASE}"`));
+    assert.match(prompt, new RegExp(`Head: "${HEAD}"`));
+    assert.match(prompt, /Additional context: \(optional\)/);
+    assert.doesNotMatch(prompt, /bygone tour context|tour schema|tour validate|synthetic explanatory/);
 });
 
-test('exact status without a repository or full OIDs withholds context execution', () => {
+test('missing skill path uses the attached default or supplied filename', () => {
+    const defaultPrompt = buildWorkspacePrompt('deconstructed', {});
+    const namedPrompt = buildWorkspacePrompt('deconstructed', {}, { name: 'tour-skill.md' });
+
+    assert.match(defaultPrompt, /Read and follow the Bygone tour skill in attached "bygone-tour-skill\.md"\./);
+    assert.match(namedPrompt, /Read and follow the Bygone tour skill in attached "tour-skill\.md"\./);
+    assert.match(defaultPrompt, /Create a v3 deconstructed tour\./);
+});
+
+test('repository and scope paths are JSON-quoted without newline ambiguity', () => {
+    const repository = '/tmp/repo with "quotes"/line\nbreak ';
+    const paths = ['src/odd name.ts ', 'docs/line\nbreak.md'];
     const prompt = buildWorkspacePrompt('historical', {
-        revisions: ['short-base', HEAD],
+        repository,
+        paths,
+        revisions: [BASE, HEAD],
         rangeStatus: 'exact'
     });
 
-    assert.doesNotMatch(prompt, /bygone tour context .*--base/);
-    assert.match(prompt, /exactly two full OIDs and a repository/);
-    assert.match(prompt, /Choose revisions in Compare/);
+    assert.match(prompt, new RegExp(`Repository: ${escapeRegExp(JSON.stringify(repository))}`));
+    assert.match(prompt, new RegExp(`Selected paths: ${escapeRegExp(JSON.stringify(paths))}`));
+    assert.doesNotMatch(prompt, /Repository: .*line\nbreak/);
 });
 
-test('multiple revisions remain visible and require a deliberate Compare choice', () => {
-    const third = 'c'.repeat(40);
-    const prompt = buildWorkspacePrompt('deconstructed', {
-        repository: '/repo',
-        paths: ['src/feature.ts'],
-        revisions: [BASE, HEAD, third],
-        rangeStatus: 'multiple'
-    });
-
-    assert.match(prompt, new RegExp(`Reported revisions: ${BASE}, ${HEAD}, ${third}`));
-    assert.match(prompt, /do not silently drop intermediate or unrelated revisions/);
-    assert.match(prompt, /synthetic explanatory stages/);
-    assert.match(prompt, /Never present a synthetic stage as a commit/);
-    assert.doesNotMatch(prompt, /bygone tour context .*--base/);
-});
-
-test('an explicitly resolved repository with an empty path list names the repository root', () => {
-    const prompt = buildWorkspacePrompt('historical', {
+test('explicit repository root scope is distinct from unknown scope', () => {
+    const rootPrompt = buildWorkspacePrompt('historical', {
         repository: '/repo',
         paths: [],
         revisions: [BASE, HEAD],
         rangeStatus: 'exact'
     });
-
-    assert.match(prompt, /Selected paths\/directories: \. \(repository root; full requested scope\)/);
-});
-
-test('an empty path list without a repository stays unresolved', () => {
-    const prompt = buildWorkspacePrompt('historical', {
-        paths: [],
+    const unknownPrompt = buildWorkspacePrompt('historical', {
+        repository: '/repo',
         revisions: [BASE, HEAD],
         rangeStatus: 'exact'
     });
 
-    assert.match(prompt, /Selected paths\/directories: \(not supplied; keep the requested scope explicit\)/);
+    assert.match(rootPrompt, /Selected paths: \["\."\]/);
+    assert.match(unknownPrompt, /Selected paths: null/);
+    assert.notEqual(rootPrompt, unknownPrompt);
 });
 
-for (const rangeStatus of ['none', 'uncommitted', 'reversed', 'divergent', 'unavailable']) {
-    test(`missing range status ${rangeStatus} keeps placeholders and names Compare`, () => {
+for (const rangeStatus of ['none', 'multiple', 'uncommitted', 'reversed', 'divergent', 'unavailable']) {
+    test(`nonexact status ${rangeStatus} warns and reports all revisions`, () => {
+        const revisions = [BASE, HEAD, 'third-revision'];
         const prompt = buildWorkspacePrompt('historical', {
             repository: '/repo',
             paths: ['src/app.ts'],
-            revisions: [BASE, HEAD],
-            rangeStatus,
-            reason: 'host could not prove the requested range'
+            revisions,
+            rangeStatus
         });
 
-        assert.doesNotMatch(prompt, /bygone tour context .*--base/);
-        assert.match(prompt, /placeholders|committed boundaries|endpoints|WORKTREE|ancestor/);
-        assert.match(prompt, /Choose revisions in Compare/);
+        assert.equal(prompt.split('\n').length, 9);
+        assert.match(prompt, new RegExp(`Warning: range status "${rangeStatus}"`));
+        assert.match(prompt, /choose revisions in Compare/);
+        assert.match(prompt, /merge-base/);
+        assert.match(prompt, /swap endpoints/);
+        assert.match(prompt, /drop revisions/);
+        assert.match(prompt, new RegExp(`All revisions: ${escapeRegExp(JSON.stringify(revisions))}`));
+        assert.match(prompt, /Base: null/);
+        assert.match(prompt, /Head: null/);
     });
+}
+
+test('exact status is still nonexact when repository or full OIDs are missing', () => {
+    const cases = [
+        { repository: undefined, revisions: [BASE, HEAD] },
+        { repository: '/repo', revisions: ['short-base', HEAD] },
+        { repository: '/repo', revisions: [BASE, HEAD, 'extra'] }
+    ];
+
+    for (const { repository, revisions } of cases) {
+        const prompt = buildWorkspacePrompt('historical', {
+            repository,
+            revisions,
+            rangeStatus: 'exact'
+        });
+
+        assert.match(prompt, /Warning: range status "exact"/);
+        assert.match(prompt, /choose revisions in Compare/);
+        assert.match(prompt, /Base: null/);
+        assert.match(prompt, /Head: null/);
+        assert.match(prompt, new RegExp(`All revisions: ${escapeRegExp(JSON.stringify(revisions))}`));
+    }
+});
+
+test('missing range status also withholds guessed endpoints', () => {
+    const prompt = buildWorkspacePrompt('historical', {
+        repository: '/repo',
+        paths: ['src/app.ts'],
+        revisions: [BASE, HEAD]
+    });
+
+    assert.match(prompt, /Warning: range status "unavailable"/);
+    assert.match(prompt, /choose revisions in Compare/);
+    assert.match(prompt, /All revisions: \["[a-f]{40}","[b]{40}"\]/);
+    assert.match(prompt, /Base: null/);
+    assert.match(prompt, /Head: null/);
+});
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

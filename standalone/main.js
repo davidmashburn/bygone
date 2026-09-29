@@ -134,7 +134,36 @@ const workspace = createWorkspaceHost({
     hasUnsaved: () => hasUnsavedChanges(),
     render: () => sendCurrentSession(),
     restore: (navigation) => postToRenderer({ type: 'restoreNavigationState', navigation }),
-    openTour: (state, context, kind) => openWorkspaceTour(state, context, kind)
+    openTour: (state, context, kind) => openWorkspaceTour(state, context, kind),
+    defaultTourSkill: () => ({ path: path.join(app.isPackaged ? process.resourcesPath : packageRoot, 'skills', 'pr-tour-guide', 'SKILL.md') }),
+    chooseTourSkill: async () => {
+        const picked = await dialog.showOpenDialog(mainWindow, {
+            title: 'Use your tour instructions', properties: ['openFile'],
+            filters: [{ name: 'Markdown instructions', extensions: ['md'] }]
+        });
+        if (picked.canceled || !picked.filePaths[0]) return null;
+        const skillPath = picked.filePaths[0];
+        const stat = await fs.promises.stat(skillPath);
+        if (!stat.isFile() || stat.size > 1024 * 1024) throw new Error('Choose a Markdown file smaller than 1 MiB.');
+        const text = await fs.promises.readFile(skillPath, 'utf8');
+        if (!text.trim()) throw new Error('The instructions file is empty.');
+        return { path: skillPath, text };
+    },
+    saveTourSkill: async (skill) => {
+        const picked = await dialog.showSaveDialog(mainWindow, {
+            title: 'Save an editable copy of the tour instructions', defaultPath: 'bygone-tour-skill.md',
+            filters: [{ name: 'Markdown instructions', extensions: ['md'] }]
+        });
+        if (picked.canceled || !picked.filePath) return null;
+        const bundledPath = path.join(app.isPackaged ? process.resourcesPath : packageRoot, 'skills', 'pr-tour-guide', 'SKILL.md');
+        const destination = path.join(await fs.promises.realpath(path.dirname(picked.filePath)), path.basename(picked.filePath));
+        let existingPath;
+        try { existingPath = await fs.promises.realpath(destination); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+        if ((existingPath || destination) === await fs.promises.realpath(bundledPath)) throw new Error('Save a separate copy; the bundled instructions are read-only.');
+        const text = skill.text ?? await fs.promises.readFile(skill.path, 'utf8');
+        await fs.promises.writeFile(destination, text, 'utf8');
+        return { path: destination, text };
+    }
 }, { resolve: resolveWorkspaceGit, range: resolveWorkspaceRange, history: createWorkspaceHistory });
 
 if (!singleInstanceLock) {

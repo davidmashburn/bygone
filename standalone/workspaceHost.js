@@ -69,6 +69,8 @@ function createWorkspaceHost(host, git) {
         return {
             sessionId: current.id, mode: current.tourMode || current.mode, availableTours: current.tours,
             modeLabels: current.tour?.modeLabels,
+            nativeSkillFiles: typeof host.chooseTourSkill === 'function',
+            tourSkill: current.tourSkill || host.defaultTourSkill?.(),
             canReturn: Boolean(current.original && (current.tourMode || host.getSession() !== current.original)),
             history: { enabled: context.kind === 'ready' && !current.backendError, label: current.mode === 'history' ? 'History' : 'Open in History', reason: current.backendError || (context.kind === 'ready' ? context.notice || '' : context.reason) },
             promptContext: current.tourMode ? current.tour.promptContext : {
@@ -262,7 +264,16 @@ function createWorkspaceHost(host, git) {
         if (busy) return true;
         busy = true;
         try {
-            if (message.type === 'workspaceMode') await switchMode(message.mode);
+            if (message.type === 'workspaceSkillChoose' || message.type === 'workspaceSkillSave') {
+                const target = state;
+                const skill = message.type === 'workspaceSkillChoose'
+                    ? await host.chooseTourSkill?.()
+                    : await host.saveTourSkill?.(state.tourSkill || host.defaultTourSkill?.());
+                if (ensure() !== target) return true;
+                if (skill) state.tourSkill = skill;
+                state.status = skill ? 'Tour instructions selected. Edited prompt drafts are preserved; reset the prompt to use the new instructions.' : 'Instruction file selection canceled.';
+                update();
+            } else if (message.type === 'workspaceMode') await switchMode(message.mode);
             else if (message.type === 'workspaceBack') {
                 if (state.original && await leave()) await install(state.original, 'compare', state.originalNavigation);
             } else if (message.type === 'workspaceClear') { state.draft = []; update(); }

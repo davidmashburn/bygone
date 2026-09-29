@@ -25,10 +25,16 @@ renderer does not make every workflow appropriate in every host.
 
 Desktop Explore uses **History · Compare · Historical tour · Deconstructed
 tour** without requiring an authored document. Missing tour buttons open an
-editable, provider-neutral prompt with Copy, Reset sample, Open existing tour,
-and Close actions. Drafts stay in the current workspace; no model request or
-shell command runs automatically. Prompt ranges use exact committed identities
-or explicitly ask for a range choice.
+short, editable prompt referencing the bundled v3 tour skill and the workspace's
+repository, revisions, and selected paths. Read instructions exposes the Markdown;
+Save an editable copy and Use my copy support user-owned forks. Desktop prompts
+reference a real filesystem path outside the application archive. Browser prompts
+name a Markdown attachment to download and supply alongside the prompt; selecting
+a local file does not disclose its full path. Custom instructions and prompt drafts
+stay in the current workspace; edited prompts are preserved with a reset notice
+when the selected instructions change. No model request or shell command runs
+automatically. Prompt ranges use exact committed identities or explicitly ask for
+a range choice. Existing tour loading remains available.
 
 **Open in History** resolves the comparison's Git ownership and path scope.
 Its commit axis includes the selected revisions and their ancestry, including

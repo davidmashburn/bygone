@@ -98,6 +98,10 @@ Do not rebuild, commit, push, publish, or open a browser unless the user request
 
 Determine the intended head and base from the request and repository state. Prefer an explicit base; do not guess when different bases would materially change the explanation.
 
+Treat workspace paths named by the request as the explicit scope. The context
+does not provide a path filter, so do not silently narrow or broaden that scope
+based on which files seem easiest to explain; surface any scope ambiguity.
+
 For a hosted review, resolve both immutable endpoint OIDs from provider metadata. Never assume the current checkout is the requested review head. For GitHub:
 
 ```sh
@@ -109,9 +113,16 @@ test -n "$HEAD_OID" && test "$HEAD_OID" != null
 bygone tour context "$HEAD_OID" --base "$BASE_OID" --output /tmp/change-context.json
 ```
 
-Use the equivalent API or CLI fields for other providers. If you are not reviewing a hosted change, compute the merge-base against the intended integration branch and pass that exact base OID or ref. Keep the existing preference for explicit endpoints and do not guess.
+Use the equivalent API or CLI fields for other providers. If the requested
+endpoints are unresolved, reversed, divergent, or have multiple candidates,
+stop and report the ambiguity. Never silently invent an endpoint, choose among
+candidates, or substitute a merge-base. If you are not reviewing a hosted
+change, compute the merge-base only when the intended integration branch is
+explicit, and pass that exact base OID or ref.
 
-Use immutable commit IDs in the eventual tour. Dirty working-tree changes are reported but excluded from committed-range context.
+Use immutable commit IDs in the eventual tour. Dirty working-tree changes and
+unsaved buffers are reported separately but excluded from committed-range
+context, authored evidence, and compiled source.
 
 Inspect progressively instead of loading every patch immediately:
 
@@ -164,19 +175,52 @@ Retrieve the current contract:
 bygone tour schema > /tmp/change-tour-source.schema.json
 ```
 
-Write a version 2 `.bygone` file. The legacy `.bygone.yaml` spelling remains
-valid when generic YAML tooling requires it. Treat the authored source and its
-compiled `.tour.json` as Git-backed, non-portable artifacts: pin `range.base`
-and `range.head` to the exact OIDs from the context, and keep them with the
-corresponding repository so Bygone can resolve those objects and live history.
-For every deconstructed scene, author the underlying real `stack` explicitly;
-do not infer it from the synthetic explanation stages or Git history.
+Write a version 3 `.bygone` file for new tours. The legacy `.bygone.yaml`
+spelling remains valid when generic YAML tooling requires it. Treat the
+authored source and its compiled `.tour.json` as Git-backed, non-portable
+artifacts: pin `range.base` and `range.head` to the exact OIDs from the
+context, and keep them with the corresponding repository so Bygone can resolve
+those objects and live history. Versions 1 and 2 remain readable for legacy
+inputs; v3 is the format for independent authored modes, directory overviews,
+and review notes.
 
 Set optional `windowTitle` when the tour should appear in the native window
 title — for example a pull request number (`PR-1234`) so multiple open tours
 stay distinguishable. When omitted, the presenter falls back to `title`.
 
-For every step:
+### Choose the authored modes
+
+The root `chapters` is required and is the compatibility tour. It shares the
+top-level `range`, `anchors`, and `connections` with any independent modes.
+When the source supplies them, `tours.historical.chapters` and
+`tours.deconstructed.chapters` are separate authored tours; keep their chapter,
+scene, and step order independent rather than expecting Bygone to match content
+across modes.
+
+- **Historical** explains real revision states. Its scenes may be walkthroughs
+  or `stacked-diff` scenes, never `deconstructed-diff` scenes. Every stacked
+  panel must resolve to a real Git revision; an explicitly authored Historical
+  stack may contain two to six revisions, but its first and last panels must be
+  the resolved review base and head.
+- **Deconstructed** explains the change through synthetic cumulative stages. It
+  must contain at least one `deconstructed-diff` scene and may include
+  walkthrough scenes for context or proof. A mode-specific deconstructed scene
+  may omit `stack` and endpoint `steps`: its stages, not Git history, define the
+  explanation panels.
+- If a mode is omitted, v3 derives it from the root chapters by scene identity
+  and order. Root walkthroughs and real stacks supply Historical; root
+  deconstructed scenes supply Deconstructed. A root deconstructed scene enters
+  Historical only when it also has explicit endpoint walkthrough `steps`; a
+  real revision `stack` by itself is not that walkthrough. No cross-mode
+  correspondence is inferred from filenames or narrative text.
+
+For a root v3 `deconstructed-diff` scene, provide both an explicit real
+revision `stack` and regular endpoint `steps`. The stack is used for the real
+Historical/Final fallback and must have the same base and final endpoints as
+the source range; the synthetic stages remain separate. A
+mode-specific Deconstructed scene may omit those fields as described above.
+
+For every walkthrough step:
 
 - make one concise explanatory claim;
 - focus an anchor in `base` or `head` evidence;
@@ -185,12 +229,48 @@ For every step:
 - connect behavior to tests, error handling, or other concrete proof;
 - add a connection only when the relationship between two locations materially improves understanding.
 
+For every `stacked-diff` step, use a real changed file and a `pair` of adjacent
+stack entry IDs; use `side` or `lines` only to refine the focus. For every
+deconstructed stage, assign concrete change-unit (hunk) IDs through `changes`
+and build a cumulative teaching order. Assign each changed hunk exactly once,
+or exclude it explicitly with a reason; unsupported, binary, and rename-path
+changes generally need whole-file exclusions. Do not infer a real stack from
+the synthetic stages or describe an explanation panel as a commit.
+
 Keep deconstructed-tour coordinates distinct:
 
-- A **stage** is a conceptual phase or cumulative comparison state; a **tour step** is one navigable explanation item within that stage.
+- A **stage** is an authored synthetic phase and cumulative comparison state;
+  it is not a Git revision.
+- The presenter derives one or more navigable Deconstructed tour steps from a
+  stage's introduced changes. A root deconstructed scene's endpoint `steps`
+  are ordinary anchor-based walkthrough items for the real range, not those
+  synthetic stage steps.
 - Do not refer to either by an unqualified ordinal such as "Stage 2" or "Step 11" in authored titles, summaries, narration, or takeaways. Prefer the stable descriptive title so the reference survives edits.
 - When an ordinal is necessary, qualify the coordinate: "stage 2 of 4" versus "tour step 11 of 46."
 - Treat presenter-generated labels as UI context; do not repeat them in authored prose unless the distinction itself needs explanation.
+
+Version 3 scenes may include a directory Overview:
+
+```yaml
+overview:
+  kind: directory-diff
+  path: web
+```
+
+Keep `path` relative and POSIX-style; omit it or use `.` for the repository
+root. Stacked and Deconstructed scenes may set `overview.comparison` to two
+distinct stack-entry IDs or to `explanation-baseline` and
+`explanation-stage-<stage-id>`. Walkthrough overviews always use the review's
+base-to-head comparison and reject an explicit comparison.
+
+Use the optional v3 top-level `review` block for evidence-linked concepts,
+boundaries, tradeoffs, and unresolved questions instead of presenting open
+questions as settled scene narration. Pin `review.baseOid` and `review.headOid`
+to the resolved range. `concept`, `boundary`, and `tradeoff` items need at
+least one link to a root authored walkthrough scene and step; a `question` may
+have empty evidence but must provide `nextCheck`. Do not add an ad hoc `notes`
+key. See `examples/bygone-history.bygone` for review notes and
+`examples/navigation-lab.bygone.yaml` for independently authored v3 modes.
 
 Never emit generated line numbers or hunk indexes. Verify candidate snippets against the pinned object when uncertain:
 
@@ -220,7 +300,16 @@ Treat this as a required self-audit, not a claim the validator can prove. For ea
 - tests are connected to the behavior they prove;
 - connections express causal, contractual, data-flow, ordering, or proof relationships;
 - binary files and omitted patches are surfaced explicitly;
-- deconstructed tours contain no unqualified "Stage N" or "Step N" references, and comparison stages and navigable tour steps use distinct nouns;
+- every Historical tour excludes synthetic deconstructed scenes, and every
+  Deconstructed tour contains at least one deconstructed scene;
+- deconstructed stages cover every included change unit exactly once or record
+  an explicit exclusion, contain no unqualified "Stage N" or "Step N"
+  references, and keep comparison stages distinct from navigable tour steps;
+- root deconstructed scenes have the required real stack and endpoint
+  walkthrough evidence, while mode-specific synthetic scenes do not claim
+  that evidence exists;
+- v3 review-note OIDs match the resolved range and evidence links resolve to
+  authored root walkthrough steps;
 - the final step supplies proof or a clear reviewer conclusion.
 
 ## Always print the open command
@@ -268,7 +357,9 @@ Report:
 - the exact base and head OIDs;
 - the **open command** for the primary artifact (`bygone present --tour …`, `bygone review …`, `bygone --git-diff …`, etc.);
 - the source and compiled artifact paths;
-- authored chapter, scene, and step counts, plus compiled counts when the generated complete-change appendix changes them;
+- authored root and Historical/Deconstructed chapter, scene, step, and stage
+  counts, plus compiled counts when generated complete-change or per-mode
+  scenes change them;
 - omitted or unread evidence;
 - validation and visual verification performed;
 - whether generated files are temporary, uncommitted, committed, or pushed.

@@ -96,6 +96,39 @@ function showMessage() {
     return { type: 'showMultiDiff', panels: [] };
 }
 
+test('skill file selection is scoped to the workspace, preserves mode, and survives cancellation', async () => {
+    const fixture = makeHost(nativeSession());
+    fixture.host.defaultTourSkill = () => ({ path: '/app/resources/skills/SKILL.md' });
+    let chosen = { path: '/user/my-instructions.md', text: 'Custom instructions' };
+    fixture.host.chooseTourSkill = async () => chosen;
+    fixture.host.saveTourSkill = async (skill) => ({ ...skill, path: '/user/fork.md' });
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    assert.equal(workspace.uiState().tourSkill.path, '/app/resources/skills/SKILL.md');
+    await workspace.handle({ type: 'workspaceSkillChoose' });
+    assert.deepEqual(workspace.uiState().tourSkill, chosen);
+    assert.equal(workspace.uiState().mode, 'compare');
+    chosen = null;
+    await workspace.handle({ type: 'workspaceSkillChoose' });
+    assert.equal(workspace.uiState().tourSkill.path, '/user/my-instructions.md');
+    await workspace.handle({ type: 'workspaceSkillSave' });
+    assert.deepEqual(workspace.uiState().tourSkill, { path: '/user/fork.md', text: 'Custom instructions' });
+    assert.equal(fixture.confirms.length, 0, 'Instruction selection does not replace the editor session');
+    fixture.host.setSession(nativeSession(source({ refs: ['other'] })));
+    assert.equal(workspace.uiState().tourSkill.path, '/app/resources/skills/SKILL.md');
+});
+
+test('a pending instruction selection does not leak into a replacement workspace', async () => {
+    const fixture = makeHost(nativeSession());
+    let resolve;
+    fixture.host.chooseTourSkill = () => new Promise((done) => { resolve = done; });
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    const selection = workspace.handle({ type: 'workspaceSkillChoose' });
+    fixture.host.setSession(nativeSession(source({ refs: ['another'] })));
+    resolve({ path: '/old-workspace/instructions.md', text: 'Old context' });
+    await selection;
+    assert.equal(workspace.uiState().tourSkill, undefined);
+});
+
 async function enterHistory(workspace, fixture) {
     await workspace.handle({ type: 'workspaceMode', mode: 'history' });
     assert.equal(fixture.session.workspaceView.mode, 'history');

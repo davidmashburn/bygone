@@ -1,4 +1,4 @@
-/* global require, module, console */
+/* global require, module, console, __dirname, URL */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -31,6 +31,33 @@ async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
         await waitFor("document.querySelectorAll('[data-multi-select-panel]')[1].getAttribute('aria-pressed') === 'true'");
         await evaluate("document.querySelector('[data-workspace-mode=historical]').click()");
         await waitFor("document.querySelector('dialog[open] textarea')");
+        const initialPrompt = await evaluate("document.querySelector('dialog[open] textarea').value");
+        assert.match(initialPrompt, /SKILL\.md/);
+        assert.ok(initialPrompt.length < 1600, 'The handoff stays short');
+        const instructions = await evaluate("document.querySelector('[aria-label=\"Tour skill Markdown instructions\"]').value");
+        assert.match(instructions, /version 3/);
+        const saveDialog = dialog.showSaveDialog;
+        const chooseDialog = dialog.showOpenDialog;
+        const skillCopy = path.join(root, 'my-tour-instructions.md');
+        try {
+            dialog.showSaveDialog = async () => ({ canceled: false, filePath: skillCopy });
+            await evaluate("document.querySelector('[data-workspace-prompt-action=workspace-skill-save]').click()");
+            await waitFor(`document.querySelector('dialog[open] textarea').value.includes(${JSON.stringify(skillCopy)})`);
+            assert.equal(fs.readFileSync(skillCopy, 'utf8'), instructions);
+            fs.appendFileSync(skillCopy, '\nCustom context: explain the migration rationale.\n');
+            dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [skillCopy] });
+            await evaluate("document.querySelector('[data-workspace-prompt-action=workspace-skill-choose]').click()");
+            await waitFor("document.querySelector('[aria-label=\"Tour skill Markdown instructions\"]').value.includes('Custom context:')");
+            dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] });
+            await evaluate("document.querySelector('[data-workspace-prompt-action=workspace-skill-choose]').click()");
+            await waitFor("document.querySelector('.workspace-status').textContent.includes('canceled')");
+            assert.ok(await evaluate(`document.querySelector('dialog[open] textarea').value.includes(${JSON.stringify(skillCopy)})`));
+            const bundledPath = path.join(__dirname, '..', 'skills', 'pr-tour-guide', 'SKILL.md');
+            dialog.showSaveDialog = async () => ({ canceled: false, filePath: bundledPath });
+            await evaluate("document.querySelector('[data-workspace-prompt-action=workspace-skill-save]').click()");
+            await waitFor("document.querySelector('dialog[open] .workspace-prompt-status').textContent.includes('read-only')");
+            assert.equal(fs.readFileSync(bundledPath, 'utf8'), instructions, 'Saving a copy cannot overwrite the bundled skill');
+        } finally { dialog.showSaveDialog = saveDialog; dialog.showOpenDialog = chooseDialog; }
         await evaluate("document.querySelector('dialog[open] textarea').value = 'Keep this prompt'; document.querySelector('dialog[open] textarea').dispatchEvent(new Event('input')); document.querySelector('dialog[open]').dispatchEvent(new Event('cancel', {cancelable:true}))");
         await evaluate("document.querySelector('[data-workspace-mode=history]').click()");
         await waitFor("document.querySelector('[data-workspace-mode=history][aria-pressed=true]') && document.querySelectorAll('.multi-pane').length === 2");
@@ -112,6 +139,66 @@ async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
         })`);
         assert.notEqual(await tourFrame.executeJavaScript("window.__BYGONE_HOST__?.environment"), 'standalone');
         assert.equal(await tourFrame.executeJavaScript("typeof window.__BYGONE_HOST__?.getPathForFile"), 'undefined');
+        const { BrowserWindow } = require('electron');
+        const browserWindow = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
+        try {
+            const browserContents = browserWindow.webContents;
+            const browserUrl = new URL(tourFrame.url);
+            browserUrl.searchParams.delete('workspaceEmbedded');
+            await browserWindow.loadURL(browserUrl.toString());
+            await browserContents.executeJavaScript(`new Promise((resolve, reject) => {
+                const start = Date.now(); const check = () => {
+                    if (document.querySelector('[data-workspace-mode=deconstructed]')) resolve();
+                    else if (Date.now() - start > 15000) reject(new Error('Browser controls did not load')); else requestAnimationFrame(check);
+                }; check();
+            })`);
+            // The browser surface cannot supply local absolute paths. Its selected
+            // Markdown remains an attachment, and user-edited drafts survive changes.
+            await browserContents.executeJavaScript("document.querySelector('[data-workspace-mode=deconstructed]').click()");
+            const browserPrompt = await browserContents.executeJavaScript("document.querySelector('dialog[open] textarea').value");
+            assert.match(browserPrompt, /attached/);
+            await browserContents.executeJavaScript(`(async () => {
+                const input = document.querySelector('dialog[open] input[type=file]');
+                const transfer = new DataTransfer();
+                transfer.items.add(new File(['# My browser instructions\\nExplain the tradeoffs.'], 'my-browser-skill.md', {type:'text/markdown'}));
+                input.files = transfer.files;
+                input.dispatchEvent(new Event('change'));
+                await new Promise(resolve => setTimeout(resolve, 100));
+            })()`);
+            assert.match(await browserContents.executeJavaScript("document.querySelector('dialog[open] textarea').value"), /my-browser-skill\.md/);
+            assert.match(await browserContents.executeJavaScript("document.querySelector('[aria-label=\"Tour skill Markdown instructions\"]').value"), /Explain the tradeoffs/);
+            const downloadPath = path.join(root, 'browser-download.md');
+            const download = new Promise((resolve, reject) => {
+                const browserSession = browserContents.session;
+                const timeout = setTimeout(() => {
+                    browserSession.removeListener('will-download', onDownload);
+                    reject(new Error('Markdown download did not finish'));
+                }, 10000);
+                function onDownload(_event, item) {
+                    item.setSavePath(downloadPath);
+                    item.once('done', (_event, state) => {
+                        clearTimeout(timeout);
+                        if (state === 'completed') resolve(); else reject(new Error(`Markdown download ${state}`));
+                    });
+                }
+                browserSession.once('will-download', onDownload);
+            });
+            await Promise.all([download, browserContents.executeJavaScript("document.querySelector('[data-workspace-prompt-action=workspace-skill-save]').click()")]);
+            assert.equal(fs.readFileSync(downloadPath, 'utf8'), '# My browser instructions\nExplain the tradeoffs.');
+            await browserContents.executeJavaScript(`(async () => {
+                const draft = document.querySelector('dialog[open] textarea');
+                draft.value = 'My edited prompt'; draft.dispatchEvent(new Event('input'));
+                const input = document.querySelector('dialog[open] input[type=file]');
+                const transfer = new DataTransfer();
+                transfer.items.add(new File(['# Another skill'], 'another.md', {type:'text/markdown'}));
+                input.files = transfer.files; input.dispatchEvent(new Event('change'));
+                await new Promise(resolve => setTimeout(resolve, 100));
+            })()`);
+            assert.equal(await browserContents.executeJavaScript("document.querySelector('dialog[open] textarea').value"), 'My edited prompt');
+            assert.equal(await browserContents.executeJavaScript("document.querySelector('.workspace-prompt-draft-notice').hidden"), false);
+            await browserContents.executeJavaScript("document.querySelector('[data-workspace-prompt-action=workspace-prompt-reset]').click()");
+            assert.match(await browserContents.executeJavaScript("document.querySelector('dialog[open] textarea').value"), /another\.md/);
+        } finally { browserWindow.destroy(); }
         await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
         await waitFor("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && document.querySelector('#workspace-tour-frame').hidden");
         assert.equal(session(), retainedOriginal);
@@ -122,7 +209,7 @@ async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
         await evaluate("document.querySelector('[data-workspace-mode=history]').click()");
         await waitFor("document.querySelector('[data-workspace-mode=history][aria-pressed=true]')");
         assert.ok(session().multi.files.every((panel) => panel.editable === false));
-        console.log('Workspace smoke passed: native controls, prompt draft, History, all-commit rail, draft Clear, exact return, confirmed same-window tour, and read-only preservation.');
+        console.log('Workspace smoke passed: short prompts, native Markdown save/select, protected bundled skill, browser custom instructions/download, preserved drafts, History/Compare round trips, same-window tour, and read-only preservation.');
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }

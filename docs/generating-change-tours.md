@@ -71,23 +71,27 @@ Use `bygone tour schema` to print the current JSON Schema. The checked-in schema
 
 ## Suggested generation prompt
 
+The missing-tour buttons in History and Compare supply a short handoff like:
+
 ```text
-Create a Bygone change tour for the supplied Git range.
-
-First identify the central reviewer questions and the concrete code evidence for each answer.
-Then produce YAML conforming to the schema returned by `bygone tour schema`.
-
-Requirements:
-- pin the exact base and head commits;
-- organize the narrative by concepts, not filenames;
-- link every step to a unique source snippet;
-- connect code locations only when the relationship adds explanatory value;
-- include behavior and its proof;
-- put each evidence-grounded rationale or tradeoff beside its focused step;
-- leave secondary files to Bygone's complete Files rail;
-- for version 3, keep unresolved questions and review decisions in the top-level `review` block rather than adding an unsupported notes key;
-- run `bygone tour validate <file> --json` and repair all errors before finishing.
+Read and follow the Bygone tour skill at /path/to/SKILL.md.
+Create a v3 deconstructed tour for /path/to/repository, from <base OID> to <head OID>.
+Scope: <selected paths, or the whole repository>.
+Additional context: …
 ```
+
+The desktop supplies the actual installed Markdown path; the instructions are
+outside the application archive so local coding agents can read them. Use
+**Read instructions** to inspect the Markdown, **Save an editable copy** to fork
+it, and **Use my copy** after editing your file or adding project-specific context.
+Re-select a file after editing it to refresh the displayed instructions. Copies
+belong to you and are not overwritten by application updates.
+
+Browser prompts refer to an attachment instead of inventing a local filesystem
+path. Download the Markdown and attach it with the prompt. Do the same when using
+a desktop prompt with an agent that cannot access local files. The UI never
+invokes an agent automatically. Edited prompt drafts survive instruction changes;
+use **Reset prompt** to regenerate their file reference and workspace context.
 
 The generated prose remains a proposal. Validation proves that its evidence exists and is reproducible; a reviewer must still judge whether its interpretation is correct.
 

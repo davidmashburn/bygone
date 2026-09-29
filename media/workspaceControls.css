@@ -145,7 +145,7 @@
 
 .workspace-prompt-dialog textarea {
     width: 100%;
-    min-height: 300px;
+    min-height: 160px;
     box-sizing: border-box;
     resize: vertical;
     padding: 9px;

@@ -245,6 +245,10 @@
     ],
     "extraResources": [
       {
+        "from": "skills/pr-tour-guide/SKILL.md",
+        "to": "skills/pr-tour-guide/SKILL.md"
+      },
+      {
         "from": "completions",
         "to": "completions"
       },
