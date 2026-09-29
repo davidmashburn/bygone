@@ -1,0 +1,306 @@
+const assert = require('node:assert/strict');
+const { test } = require('node:test');
+const { createWorkspaceHost } = require('../standalone/workspaceHost.js');
+
+const A = 'a'.repeat(40);
+const B = 'b'.repeat(40);
+
+function source(overrides = {}) {
+    return {
+        kind: 'git-refs',
+        repoRoot: '/repo',
+        refs: ['HEAD'],
+        ...overrides
+    };
+}
+
+function nativeSession(sessionSource = source()) {
+    return {
+        source: sessionSource,
+        mode: 'multi-diff',
+        multi: {
+            files: [{ id: 'native-one', path: '/repo/one.txt', content: 'one', dirty: false }],
+            activePanelId: 'native-one'
+        },
+        left: {},
+        right: {}
+    };
+}
+
+function makeGit({ failHistory = false } = {}) {
+    const calls = { resolve: [], history: [], range: [] };
+    const context = {
+        kind: 'ready', repoRoot: '/repo', commonDir: '/repo/.git', worktreeRoot: '/repo',
+        paths: [{ path: 'one.txt', type: 'file' }, { path: 'two.txt', type: 'file' }],
+        revisions: [A, B], activeRevision: B, notice: ''
+    };
+    const entries = [
+        { commit: B, shortCommit: 'bbbbbbb', summary: 'second', timestamp: '2', parentCommit: A },
+        { commit: A, shortCommit: 'aaaaaaa', summary: 'first', timestamp: '1', parentCommit: null }
+    ];
+    const history = {
+        entries,
+        files: ['one.txt', 'two.txt'],
+        read(file, revision) {
+            return { exists: true, content: `${file}:${revision}`, reason: undefined };
+        },
+        changedCommits() { return [B, A]; }
+    };
+    return {
+        calls,
+        resolve(input, options) { calls.resolve.push({ input, options }); return context; },
+        range(repoRoot, revisions) {
+            calls.range.push({ repoRoot, revisions });
+            return { status: 'exact', from: revisions[0], to: revisions[1] };
+        },
+        history(_context, options) {
+            calls.history.push(options);
+            if (failHistory) throw new Error('history backend failed');
+            return history;
+        }
+    };
+}
+
+function makeHost(initial, { confirm = true, unsaved = false, capture = { active: 'one' }, tour } = {}) {
+    let session = initial;
+    const sent = [];
+    const assigned = [];
+    const restored = [];
+    const confirms = [];
+    let confirmValue = confirm;
+    let unsavedValue = unsaved;
+    const host = {
+        getSession: () => session,
+        setSession(next) { assigned.push(next); session = next; },
+        send(message) { sent.push(message); },
+        async capture() { return capture; },
+        async confirm(action) { confirms.push(action); return typeof confirmValue === 'function' ? confirmValue(action) : confirmValue; },
+        hasUnsaved: () => unsavedValue,
+        async render() {},
+        restore(navigation) { restored.push(navigation); },
+        async openTour() { return typeof tour === 'function' ? tour() : tour; }
+    };
+    return {
+        host,
+        sent,
+        assigned,
+        restored,
+        confirms,
+        get session() { return session; },
+        set confirm(value) { confirmValue = value; },
+        set unsaved(value) { unsavedValue = value; }
+    };
+}
+
+function showMessage() {
+    return { type: 'showMultiDiff', panels: [] };
+}
+
+async function enterHistory(workspace, fixture) {
+    await workspace.handle({ type: 'workspaceMode', mode: 'history' });
+    assert.equal(fixture.session.workspaceView.mode, 'history');
+}
+
+test('initial show augmentation creates workspace state without throwing', () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const workspace = createWorkspaceHost(fixture.host, git);
+
+    const message = workspace.augment(showMessage());
+
+    assert.equal(message.workspace.history.enabled, true);
+    assert.equal(message.history.fileName, 'one.txt');
+    assert.equal(message.workspace.mode, 'compare');
+    assert.ok(git.calls.resolve.length > 0);
+});
+
+test('history to compare and back preserves the original native session identity', async () => {
+    const original = nativeSession();
+    const fixture = makeHost(original);
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    workspace.augment(showMessage());
+
+    await enterHistory(workspace, fixture);
+    const historySession = fixture.session;
+    assert.notEqual(historySession, original);
+
+    await workspace.handle({ type: 'workspaceMode', mode: 'compare' });
+    assert.equal(fixture.session, original);
+    assert.equal(fixture.session.source, original.source);
+
+    await workspace.handle({ type: 'workspaceBack' });
+    assert.equal(fixture.session, original);
+    assert.equal(fixture.session.source, original.source);
+    assert.ok(historySession.workspaceView);
+});
+
+test('selection and Clear update the draft without leaving History mode', async () => {
+    const fixture = makeHost(nativeSession());
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    workspace.augment(showMessage());
+    await enterHistory(workspace, fixture);
+
+    await workspace.handle({ type: 'toggleHistorySelection', index: 0 });
+    assert.equal(workspace.uiState().mode, 'history');
+    assert.equal(workspace.uiState().selectionCount, 1);
+    const historySession = fixture.session;
+
+    await workspace.handle({ type: 'workspaceClear' });
+    assert.equal(fixture.session, historySession);
+    assert.equal(workspace.uiState().mode, 'history');
+    assert.equal(workspace.uiState().selectionCount, 0);
+});
+
+test('canceled dirty mode transition is atomic', async () => {
+    const original = nativeSession();
+    const fixture = makeHost(original, { confirm: false, unsaved: true });
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    workspace.augment(showMessage());
+
+    await workspace.handle({ type: 'workspaceMode', mode: 'history' });
+
+    assert.equal(fixture.session, original);
+    assert.equal(fixture.assigned.length, 0);
+    assert.equal(workspace.uiState().mode, 'compare');
+});
+
+test('canceling tour entry disposes the returned tour and leaves native state unchanged', async () => {
+    const original = nativeSession();
+    let disposed = 0;
+    const fixture = makeHost(original, {
+        confirm: false,
+        tour: { url: 'http://tour.test', kinds: ['historical'], promptContext: {} , dispose() { disposed += 1; } }
+    });
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    workspace.augment(showMessage());
+
+    await workspace.handle({ type: 'workspaceOpenTour', kind: 'historical' });
+
+    assert.equal(disposed, 1);
+    assert.equal(fixture.session, original);
+    assert.equal(fixture.sent.some((message) => message.type === 'workspaceTour'), false);
+    assert.equal(workspace.isTourActive(), false);
+});
+
+test('discarding edits before tour entry installs the clean retained session', async () => {
+    const original = nativeSession();
+    original.multi.files[0] = {
+        id: 'native-one', path: '/repo/one.txt', content: 'edited', savedContent: 'original', dirty: true
+    };
+    let disposed = 0;
+    const fixture = makeHost(original, {
+        unsaved: true,
+        tour: { url: 'http://tour.test', kinds: ['historical'], promptContext: {}, dispose() { disposed += 1; } }
+    });
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    workspace.augment(showMessage());
+
+    await workspace.handle({ type: 'workspaceOpenTour', kind: 'historical' });
+
+    assert.equal(workspace.isTourActive(), true);
+    assert.notEqual(fixture.session, original);
+    assert.equal(fixture.session.multi.files[0].dirty, false);
+    assert.equal(fixture.session.multi.files[0].content, 'original');
+    assert.equal(disposed, 0, 'Mode transitions retain the attached tour');
+    workspace.reset();
+    assert.equal(disposed, 1);
+    assert.equal(fixture.session.source, original.source);
+
+    await workspace.handle({ type: 'workspaceBack' });
+    assert.equal(workspace.isTourActive(), false);
+    assert.equal(fixture.session.multi.files[0].dirty, false);
+    assert.equal(fixture.session.multi.files[0].content, 'original');
+});
+
+test('a new native session with the same source resets workspace cursors', async () => {
+    const sessionSource = source();
+    const first = nativeSession(sessionSource);
+    const fixture = makeHost(first);
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    workspace.augment(showMessage());
+    await enterHistory(workspace, fixture);
+    const oldId = workspace.uiState().sessionId;
+
+    const reopened = nativeSession(sessionSource);
+    fixture.host.setSession(reopened);
+    const message = workspace.augment(showMessage());
+
+    assert.notEqual(message.workspace.sessionId, oldId);
+    assert.equal(message.workspace.mode, 'compare');
+    assert.equal(message.workspace.canReturn, false);
+});
+
+test('backend failure disables History and revision controls without throwing on update', () => {
+    const fixture = makeHost(nativeSession());
+    const workspace = createWorkspaceHost(fixture.host, makeGit({ failHistory: true }));
+
+    const message = workspace.augment(showMessage());
+    assert.equal(message.workspace.history.enabled, false);
+    assert.equal(message.workspace.canSelectRevisions, false);
+    assert.equal(message.history, undefined);
+    assert.doesNotThrow(() => workspace.update());
+});
+
+test('History retains its file, panel count, focus, and navigation across mode changes', async () => {
+    const fixture = makeHost(nativeSession());
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    await enterHistory(workspace, fixture);
+    await workspace.handle({ type: 'openDirectoryEntry', relativePath: 'two.txt' });
+    await workspace.handle({ type: 'multiRemovePanel', panelId: fixture.session.multi.files[0].id });
+    const history = fixture.session;
+    const focus = history.multi.activePanelId;
+    await workspace.handle({ type: 'workspaceMode', mode: 'compare' });
+    await workspace.handle({ type: 'workspaceMode', mode: 'history' });
+    assert.equal(fixture.session, history);
+    assert.equal(fixture.session.workspaceView.path, 'two.txt');
+    assert.equal(fixture.session.multi.files.length, 1);
+    assert.equal(fixture.session.multi.activePanelId, focus);
+    assert.deepEqual(fixture.restored.at(-1), { active: 'one' });
+});
+
+test('discarding new edits after a round trip also replaces the original return cursor', async () => {
+    const fixture = makeHost(nativeSession());
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    await enterHistory(workspace, fixture);
+    await workspace.handle({ type: 'workspaceBack' });
+    fixture.session.multi.files[0].savedContent = 'disk';
+    fixture.session.multi.files[0].content = 'discard me';
+    fixture.session.multi.files[0].dirty = true;
+    fixture.unsaved = true;
+    await workspace.handle({ type: 'workspaceMode', mode: 'history' });
+    fixture.unsaved = false;
+    await workspace.handle({ type: 'workspaceBack' });
+    assert.equal(fixture.session.multi.files[0].content, 'disk');
+    assert.equal(fixture.session.multi.files[0].dirty, false);
+});
+
+test('failed editor capture leaves the comparison intact and disposes a pending tour', async () => {
+    const original = nativeSession();
+    let disposed = 0;
+    const fixture = makeHost(original, { tour: { kinds: ['historical'], dispose() { disposed++; } } });
+    fixture.host.capture = async () => { throw new Error('Capture timed out'); };
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    await workspace.handle({ type: 'workspaceOpenTour', kind: 'historical' });
+    assert.equal(fixture.session, original);
+    assert.equal(workspace.isTourActive(), false);
+    assert.equal(disposed, 1);
+    assert.match(workspace.uiState().status, /Capture timed out/);
+});
+
+test('changing staged visibility rerenders clean panes after discarding edits', async () => {
+    const fixture = makeHost(nativeSession());
+    let renders = 0;
+    fixture.host.render = async () => { renders++; };
+    const git = makeGit();
+    const workspace = createWorkspaceHost(fixture.host, git);
+    await enterHistory(workspace, fixture);
+    const before = renders;
+    fixture.session.multi.files[0].content = 'discard me';
+    fixture.session.multi.files[0].dirty = true;
+    fixture.unsaved = true;
+    await workspace.handle({ type: 'historyToggleStaged', includeStaged: true });
+    assert.equal(renders, before + 1);
+    assert.ok(fixture.session.multi.files.every((panel) => !panel.dirty && panel.content !== 'discard me'));
+    assert.deepEqual(git.calls.history.at(-1), { includeStaged: true });
+    assert.deepEqual(fixture.restored.at(-1), { active: 'one' });
+});

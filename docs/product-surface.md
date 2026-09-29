@@ -21,6 +21,39 @@ or materially changed.
 The shared Monaco renderer supplies diff semantics and presentation. Sharing a
 renderer does not make every workflow appropriate in every host.
 
+## Shared workspace
+
+Desktop Explore uses **History · Compare · Historical tour · Deconstructed
+tour** without requiring an authored document. Missing tour buttons open an
+editable, provider-neutral prompt with Copy, Reset sample, Open existing tour,
+and Close actions. Drafts stay in the current workspace; no model request or
+shell command runs automatically. Prompt ranges use exact committed identities
+or explicitly ask for a range choice.
+
+**Open in History** resolves the comparison's Git ownership and path scope.
+Its commit axis includes the selected revisions and their ancestry, including
+commits that did not change the active file. File-change markers and numbered
+active panels are distinct from unapplied comparison checkboxes. Clear clears
+the draft without changing modes. History retains add/remove-panel controls.
+**Back to comparison** restores the originating ordered comparison and its
+navigation. Mode transitions use the native unsaved-edit guard; writable
+working files remain writable and explicit read-only launches stay read-only.
+
+Opening an authored document from this workspace keeps the same native window.
+A different repository, range, or scoped context requires confirmation; the
+tour is read-only and the original comparison remains available. Explicit
+Present launches may use their dedicated window. Browser tour uploads are
+validated within the presentation server's existing repository and do not
+acquire local-path or desktop-write capabilities. VS Code retains its desktop
+handoff boundary.
+
+Legacy v1 presentations retain their authored tour and missing-tour help;
+History and Compare explain that a v2-or-newer repository backend is required.
+
+Verification: `test/workspace*.test.js` and the native
+`--smoke-test-workspace` launch exercise ownership, range safety, restoration,
+prompt behavior, and the normal-mode controls.
+
 ## Standalone Explore
 
 | User question | Discovery and launch | Session/source | Mutability and lifecycle | Maturity | Verification |

@@ -21,7 +21,7 @@ const allowed = new Set([
 ]);
 const unexpected = files.filter((file) => !allowed.has(file));
 const missing = [...allowed].filter((file) => !files.includes(file));
-const maximumBytes = 5 * 1024 * 1024;
+const maximumBytes = 5.1 * 1024 * 1024;
 const totalBytes = files.reduce((total, file) => total + fs.statSync(path.join(process.cwd(), file)).size, 0);
 if (unexpected.length || missing.length) {
     throw new Error([

@@ -530,6 +530,116 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(presenterSource, /@media \(max-width: 720px\)[\s\S]+height: calc\(100vh - var\(--tour-narrative-height\)\)/);
 }
 
+async function testLegacyWebTourSkipsHistoryAndDisablesWorkspaceCapabilities() {
+    const hostSource = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
+    const controlsSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'workspaceControls.js'), 'utf8');
+
+    // Execute the same branch used by loadTour rather than merely checking that
+    // a v1 guard exists. A legacy manifest must not probe the v2 history API.
+    const historyStart = hostSource.indexOf(
+        '            const parsedHistoryEntries = supportsWorkspaceHistory(parsedTour)'
+    );
+    const historyEnd = hostSource.indexOf('            state.tour = parsedTour;', historyStart);
+    assert.ok(historyStart >= 0, 'loadTour should define parsed history entries');
+    assert.ok(historyEnd > historyStart, 'loadTour history branch should precede state mutation');
+    const historyBranch = hostSource.slice(historyStart, historyEnd);
+    const executeHistoryBranch = new Function(
+        'parsedTour',
+        'supportsWorkspaceHistory',
+        'historyRequest',
+        'nextHistoryPrefix',
+        `return (async () => { ${historyBranch}; return parsedHistoryEntries; })();`
+    );
+    const requests = [];
+    const historyRequest = async (...args) => {
+        requests.push(args);
+        return { entries: [{ id: 'head' }] };
+    };
+    const supportsWorkspaceHistory = (tour) => Number(tour?.version) >= 2;
+    const legacyTour = { version: 1, range: { headOid: 'legacy-head' } };
+    assert.deepEqual(
+        await executeHistoryBranch(legacyTour, supportsWorkspaceHistory, historyRequest, '/history/'),
+        [],
+        'v1 load should retain an empty history list'
+    );
+    assert.equal(requests.length, 0, 'v1 load must not request /history');
+
+    const versionTwoTour = { version: 2, range: { headOid: 'current-head' } };
+    assert.deepEqual(
+        await executeHistoryBranch(versionTwoTour, supportsWorkspaceHistory, historyRequest, '/history/'),
+        [{ id: 'head' }]
+    );
+    assert.equal(requests.length, 1, 'v2 load should still request history');
+    assert.deepEqual(requests[0], ['list', { commit: 'current-head' }, '/history/', versionTwoTour]);
+
+    // Execute the host's shared-control projection with a minimal DOM surface.
+    // This keeps the regression focused on the contract passed to the reusable
+    // strip, without needing a browser or a DOM dependency in this test runner.
+    const renderStart = hostSource.indexOf('    function renderWorkspaceControls()');
+    const renderEnd = hostSource.indexOf('    function workspaceSessionId()', renderStart);
+    assert.ok(renderStart >= 0 && renderEnd > renderStart, 'host should expose shared control rendering');
+    const renderWorkspaceControls = hostSource.slice(renderStart, renderEnd);
+    const nodes = {
+        'tour-mode-tabs': { dataset: {} },
+        'tour-mode-description': { textContent: '' }
+    };
+    const controls = {
+        updates: [],
+        update(value) {
+            this.updates.push(value);
+        }
+    };
+    const legacyRenderer = new Function(
+        'state',
+        'document',
+        'supportsWorkspaceHistory',
+        'ensureWorkspaceControls',
+        'workspaceSessionId',
+        'modeLabel',
+        'modeDescription',
+        'authoredTours',
+        'buildWorkspacePromptContext',
+        'workspaceHistoryUnavailableReason',
+        'workspaceCompareUnavailableReason',
+        'controls',
+        `const embeddedWorkspaceMode = false;
+         let workspaceControls = controls;
+         const workspaceControlsHost = { hidden: false };
+         ${renderWorkspaceControls}
+         return { renderWorkspaceControls, controls, workspaceControlsHost };`
+    )(
+        { zoom: { mode: 'historical' }, authoredTour: legacyTour },
+        { getElementById: (id) => nodes[id] },
+        () => false,
+        () => {},
+        () => 'legacy-session',
+        (mode) => mode === 'historical' ? 'Final tour' : mode,
+        () => 'Legacy walkthrough',
+        () => ({ historical: { scenes: [] } }),
+        () => ({ rangeStatus: 'unavailable' }),
+        () => 'History is unavailable for legacy v1 tours.',
+        () => 'Compare is unavailable for legacy v1 tours.',
+        controls
+    );
+    legacyRenderer.renderWorkspaceControls();
+    const update = controls.updates.at(-1);
+    assert.ok(update, 'legacy v1 should still render shared controls');
+    assert.deepEqual(update.availableTours, ['historical']);
+    assert.equal(update.modeLabels.historical, 'Final tour');
+    assert.equal(update.history.enabled, false);
+    assert.match(update.history.reason, /legacy v1/);
+    assert.equal(update.compare.enabled, false);
+    assert.match(update.compare.reason, /legacy v1/);
+    assert.equal(legacyRenderer.workspaceControlsHost.hidden, false);
+
+    // The reusable strip owns missing-tour help and must keep the two unavailable
+    // capabilities actionable-but-disabled with an explanatory reason.
+    assert.match(controlsSource, /availableTours/);
+    assert.match(controlsSource, /unavailableHistory/);
+    assert.match(controlsSource, /unavailableCompare/);
+    assert.match(controlsSource, /button\.disabled = unavailableHistory \|\| unavailableCompare/);
+}
+
 function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
     const markup = fs.readFileSync(path.join(__dirname, '..', 'web', 'index.html'), 'utf8');
     const host = fs.readFileSync(path.join(__dirname, '..', 'web', 'host.js'), 'utf8');
@@ -4514,7 +4624,7 @@ function testPresentInitialCommitHighlights() {
     };
     const messages = [];
     const emit = new Function('state', 'window', 'isMultiPanelTourScene', 'getMultiPanelDefinitions',
-        `let renderRequestId = 0; const zoomRestore = null; ${implementation}; return emit;`
+        `let renderRequestId = 0; const zoomRestore = null; const renderWorkspaceControls = () => {}; ${implementation}; return emit;`
     )(state, {
         CustomEvent: class { constructor(_type, options) { this.detail = options.detail; } },
         dispatchEvent: (event) => messages.push(event.detail)
@@ -4576,6 +4686,7 @@ async function run() {
     testMultiPanelComparisonStatesAndChangedFileNavigation();
     testTourFileNavigationFindsAnchorsAcrossStackedScenes();
     testWebTourHostSeparatesFileAndNarrativeNavigation();
+    await testLegacyWebTourSkipsHistoryAndDisablesWorkspaceCapabilities();
     testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls();
     testTourAnnotationPersistsAcrossChangeNavigation();
     testEditorScrollSyncIgnoresExtentOnlyChanges();

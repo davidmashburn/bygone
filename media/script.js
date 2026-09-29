@@ -15,8 +15,54 @@ import {
     selectMultiDiffPairsForRecompute
 } from './renderTransition';
 import { normalizeLanguageId } from '../src/languageSupport';
+import { createWorkspaceControls } from './workspaceControls';
+import './workspaceControls.css';
 
 const host = createHostBridge();
+let workspaceControls;
+let workspaceSelection;
+let workspaceTourFrame;
+let workspaceTourUrl;
+
+function updateWorkspaceControls(state) {
+    if (!workspaceControls) {
+        const container = document.createElement('div');
+        container.id = 'workspace-header';
+        document.getElementById('container').prepend(container);
+        workspaceControls = createWorkspaceControls({ container, send: (message) => host.postMessage(message) });
+        workspaceSelection = document.createElement('div');
+        workspaceSelection.className = 'workspace-selection-actions';
+        for (const [type, label] of [['workspaceApply', 'Compare selected'], ['workspaceClear', 'Clear'], ['workspaceReset', 'Select displayed revisions']]) {
+            const button = document.createElement('button');
+            button.type = 'button'; button.textContent = label; button.dataset.action = type;
+            button.addEventListener('click', () => host.postMessage({ type }));
+            workspaceSelection.appendChild(button);
+        }
+        container.appendChild(workspaceSelection);
+    }
+    workspaceControls.update(state);
+    workspaceSelection.hidden = !state.canSelectRevisions || ['historical', 'deconstructed'].includes(state.mode);
+    const apply = workspaceSelection.querySelector('[data-action="workspaceApply"]');
+    apply.textContent = `Compare selected (${state.selectionCount || 0})`;
+    apply.disabled = state.selectionCount < 2;
+}
+
+function showWorkspaceTour(message) {
+    if (!workspaceTourFrame || workspaceTourUrl !== message.url) {
+        workspaceTourFrame?.remove();
+        workspaceTourFrame = document.createElement('iframe');
+        workspaceTourFrame.id = 'workspace-tour-frame';
+        workspaceTourFrame.title = 'Read-only authored tour';
+        workspaceTourFrame.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+        workspaceTourFrame.src = message.url;
+        workspaceTourUrl = message.url;
+        document.getElementById('container').appendChild(workspaceTourFrame);
+    }
+    workspaceTourFrame.hidden = false;
+    document.getElementById('header').hidden = true;
+    document.getElementById('diff-workspace').hidden = true;
+    workspaceTourFrame.contentWindow?.postMessage({ type: 'bygoneWorkspaceTourMode', mode: message.mode }, new URL(message.url).origin);
+}
 const {
     VIEW_IDS,
     getElement,
@@ -155,6 +201,14 @@ host.onMessage((message) => {
     if (!message || typeof message !== 'object') {
         return;
     }
+    if (message.workspace) updateWorkspaceControls(message.workspace);
+    if (message.type === 'workspaceState') return;
+    if (message.type === 'workspaceTour') { showWorkspaceTour(message); return; }
+    if (message.type === 'workspaceHideTour' || message.type.startsWith('show')) {
+        if (workspaceTourFrame) workspaceTourFrame.hidden = true;
+        document.getElementById('header').hidden = false;
+        document.getElementById('diff-workspace').hidden = false;
+    }
 
     if (message.refreshState) {
         updateRefreshSessionState(message.refreshState);
@@ -165,10 +219,14 @@ host.onMessage((message) => {
     }
 
     if (message.type === 'captureNavigationState' && Number.isInteger(message.requestId)) {
+        const buffers = message.flushEditors ? currentMode === MODE_TWO_WAY
+            ? [{ id: 'left', content: leftEditor?.getValue() }, { id: 'right', content: rightEditor?.getValue() }]
+            : currentMode === MODE_MULTI_WAY ? multiEditors.map((editor, index) => ({ id: multiPanels[index]?.id, content: editor.getValue() })) : [] : [];
+        if (message.flushEditors) clearTimeout(recomputeTimer);
         host.postMessage({
             type: 'navigationState',
             requestId: message.requestId,
-            navigation: captureNavigationState()
+            navigation: captureNavigationState(), buffers
         });
         return;
     }

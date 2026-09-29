@@ -20,6 +20,7 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
 import { buildTourDirectoryEvidence } from '../src/tourDirectoryEvidence.ts';
 import { TourZoomSession } from '../src/tourZoomSession.ts';
 import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
+import { createWorkspaceControls } from '../media/workspaceControls.js';
 
 (function initializeWebHost() {
     const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
@@ -63,8 +64,14 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         narrationVoiceURI: window.localStorage.getItem(TOUR_NARRATION_VOICE_STORAGE_KEY) || '',
         narrationRate: readStoredNarrationRate(),
         narrationVoices: [],
-        renderedNarrationUnit: null
+        renderedNarrationUnit: null,
+        workspacePromptStatus: '',
+        historyPrefix: '/history/'
     };
+    let workspaceControls = null;
+    let workspaceControlsHost = null;
+    const embeddedWorkspaceMode = new URLSearchParams(window.location.search).get('workspaceEmbedded') === '1';
+    let pendingEmbeddedWorkspaceMode = null;
     const narrationController = new TourNarrationController(createDeviceSpeechEngine(), {
         claimAudio: claimNarrationAudio,
         onStateChange: renderNarrationPlaybackState,
@@ -82,8 +89,28 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         }
     };
 
+    // Native workspace controls may embed this presenter as a read-only tour.
+    // Keep this bridge deliberately narrow: a file-origin parent can select an
+    // authored mode, but it cannot issue presenter commands or acquire a host
+    // bridge through postMessage.
+    window.addEventListener('message', (event) => {
+        if (!embeddedWorkspaceMode || event.source !== window.parent || event.origin !== 'null') return;
+        const message = event.data;
+        if (!message || typeof message !== 'object' || message.type !== 'bygoneWorkspaceTourMode') return;
+        if (message.mode !== 'historical' && message.mode !== 'deconstructed') return;
+        pendingEmbeddedWorkspaceMode = message.mode;
+        if (!state.zoom || state.zoom.mode === message.mode || !availableModes().includes(message.mode)) return;
+        void switchZoomMode(message.mode).catch(reportModeError);
+    });
+
     window.addEventListener('DOMContentLoaded', () => {
         bindControls();
+        if (embeddedWorkspaceMode) {
+            const tabs = document.getElementById('tour-mode-tabs');
+            const description = document.getElementById('tour-mode-description');
+            if (tabs) tabs.hidden = true;
+            if (description) description.hidden = true;
+        }
         setStatus('Browser host ready.');
     });
 
@@ -94,6 +121,7 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
                 state.displayedPanels = message.type === 'showMultiDiff' ? message.panels
                     : twoWayCommitPanels();
                 if (!message.history) message.history = sharedCommitHistory();
+                renderWorkspaceControls();
             }
             if (zoomRestore) zoomRestoreRequestId = message.renderRequestId;
         }
@@ -144,6 +172,16 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         });
     }
 
+    let evidenceRequest = 0;
+
+    function legacyFinalTour(tour = state.authoredTour) {
+        if (tour.tours || !tour.scenes.some((scene) => scene.kind === 'deconstructed-diff')) return null;
+        const final = tour.zoom?.final;
+        return final?.scenes.some((scene) => scene.kind === 'walkthrough') ? final : null;
+    }
+
+    // Keep the legacy labels available for older host markup and diagnostics;
+    // the shared strip owns the visible labels and missing-tour affordance.
     const modeLabels = {
         history: 'History', compare: 'Compare', historical: 'Historical tour', deconstructed: 'Deconstructed tour'
     };
@@ -153,12 +191,15 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         historical: 'Actual revisions, with explanations of updates, reversals, and decisions.',
         deconstructed: 'The change broken into constructed stages for explanation.'
     };
-    let evidenceRequest = 0;
 
-    function legacyFinalTour(tour = state.authoredTour) {
-        if (tour.tours || !tour.scenes.some((scene) => scene.kind === 'deconstructed-diff')) return null;
-        const final = tour.zoom?.final;
-        return final?.scenes.some((scene) => scene.kind === 'walkthrough') ? final : null;
+    function modeLabel(mode) {
+        return mode === 'historical' && legacyFinalTour() ? 'Final tour' : modeLabels[mode];
+    }
+
+    function modeDescription(mode) {
+        return mode === 'historical' && legacyFinalTour()
+            ? 'The authored walkthrough of the completed endpoint diff.'
+            : modeDescriptions[mode];
     }
 
     function authoredTours(tour = state.authoredTour) {
@@ -174,18 +215,257 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         };
     }
 
-    function modeLabel(mode) {
-        return mode === 'historical' && legacyFinalTour() ? 'Final tour' : modeLabels[mode];
-    }
-
-    function modeDescription(mode) {
-        return mode === 'historical' && legacyFinalTour()
-            ? 'The authored walkthrough of the completed endpoint diff.'
-            : modeDescriptions[mode];
-    }
-
     function availableModes() {
-        return ['history', 'compare', ...Object.keys(authoredTours()).filter((mode) => authoredTours()[mode])];
+        return [
+            ...(supportsWorkspaceHistory() ? ['history', 'compare'] : []),
+            ...Object.keys(authoredTours()).filter((mode) => authoredTours()[mode])
+        ];
+    }
+
+    function supportsWorkspaceHistory(tour = state.authoredTour) {
+        return Number(tour?.version) >= 2;
+    }
+
+    function workspaceHistoryUnavailableReason() {
+        return 'History is unavailable for legacy v1 tours; open a version 2 tour to browse commit history.';
+    }
+
+    function workspaceCompareUnavailableReason() {
+        return 'Compare is unavailable for legacy v1 tours because this tour has no history backend.';
+    }
+
+    function ensureWorkspaceControls() {
+        if (workspaceControls) return;
+        const controls = document.getElementById('tour-mode-controls');
+        if (!controls) return;
+        const legacyTabs = document.getElementById('tour-mode-tabs');
+        const legacyDescription = document.getElementById('tour-mode-description');
+        const legacyStatus = document.getElementById('tour-mode-status');
+        // Keep the legacy nodes for host status and old markup compatibility,
+        // but let the shared control own the mode strip and missing-tour help.
+        if (legacyTabs) legacyTabs.hidden = true;
+        if (legacyDescription) legacyDescription.hidden = true;
+        if (legacyStatus) legacyStatus.hidden = true;
+        workspaceControlsHost = document.createElement('div');
+        workspaceControlsHost.id = 'workspace-mode-controls';
+        controls.prepend(workspaceControlsHost);
+        workspaceControls = createWorkspaceControls({
+            container: workspaceControlsHost,
+            send: handleWorkspaceControlMessage
+        });
+    }
+
+    function handleWorkspaceControlMessage(message) {
+        if (!message || typeof message !== 'object') return;
+        if (message.type === 'workspaceMode'
+            && ['history', 'compare', 'historical', 'deconstructed'].includes(message.mode)) {
+            void switchZoomMode(message.mode).catch(reportModeError);
+            return;
+        }
+        if (message.type === 'workspaceOpenTour'
+            && (message.kind === 'historical' || message.kind === 'deconstructed')) {
+            openExistingTourUpload();
+        }
+    }
+
+    function renderWorkspaceControls() {
+        if (!state.zoom) return;
+        ensureWorkspaceControls();
+        if (!workspaceControls) return;
+        workspaceControlsHost.hidden = embeddedWorkspaceMode;
+        const legacyTabs = document.getElementById('tour-mode-tabs');
+        const legacyDescription = document.getElementById('tour-mode-description');
+        if (legacyTabs) legacyTabs.dataset.workspaceModeLabel = modeLabel(state.zoom.mode);
+        if (legacyDescription) legacyDescription.textContent = modeDescription(state.zoom.mode);
+        const historyAvailable = supportsWorkspaceHistory();
+        workspaceControls.update({
+            sessionId: workspaceSessionId(),
+            mode: state.zoom.mode,
+            modeLabels: { historical: modeLabel('historical') },
+            history: {
+                enabled: historyAvailable,
+                label: 'History',
+                ...(historyAvailable ? {} : { reason: workspaceHistoryUnavailableReason() })
+            },
+            compare: {
+                enabled: historyAvailable,
+                label: 'Compare',
+                ...(historyAvailable ? {} : { reason: workspaceCompareUnavailableReason() })
+            },
+            availableTours: Object.keys(authoredTours()).filter((mode) => mode === 'historical' || mode === 'deconstructed'),
+            promptContext: buildWorkspacePromptContext(),
+            status: state.workspacePromptStatus
+        });
+    }
+
+    function workspaceSessionId() {
+        const tour = state.authoredTour;
+        return [
+            tour?.repository?.root || '',
+            tour?.range?.mergeBaseOid || '',
+            tour?.range?.headOid || ''
+        ].join('\u0000') || 'browser-workspace';
+    }
+
+    function buildWorkspacePromptContext() {
+        const tour = state.authoredTour;
+        const range = tour?.range;
+        const panels = Array.isArray(state.displayedPanels) ? state.displayedPanels : [];
+        const panelRevisions = uniqueStrings(panels.map((panel) => panel?.commit));
+        const revisions = panels.length > 0
+            ? panelRevisions
+            : uniqueStrings([range?.mergeBaseOid, range?.headOid]);
+        const panelPaths = uniqueStrings(panels.map((panel) => panel?.path));
+        const paths = panelPaths.length > 0
+            ? panelPaths
+            : uniqueStrings(state.tour?.files?.map((file) => file?.path));
+        const rangeStatus = classifyWorkspaceRange(revisions, tour);
+        return {
+            ...(typeof tour?.repository?.root === 'string' ? { repository: tour.repository.root } : {}),
+            ...(paths.length > 0 ? { paths } : {}),
+            ...(revisions.length > 0 ? { revisions } : {}),
+            rangeStatus: rangeStatus.status,
+            ...(rangeStatus.reason ? { reason: rangeStatus.reason } : {})
+        };
+    }
+
+    function classifyWorkspaceRange(revisions, tour) {
+        if (revisions.length === 0) return { status: 'none', reason: 'The browser view has no selected committed revisions.' };
+        if (revisions.length > 2) {
+            return { status: 'multiple', reason: 'The displayed comparison contains more than two revision panels.' };
+        }
+        if (revisions.length !== 2) {
+            return { status: 'unavailable', reason: 'The browser view could not resolve both comparison boundaries.' };
+        }
+        if (revisions.some((revision) => /^(WORKTREE|INDEX)$/i.test(revision))) {
+            return { status: 'uncommitted', reason: 'The browser comparison includes a live working or staged state.' };
+        }
+        if (!revisions.every((revision) => /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(revision))) {
+            return { status: 'unavailable', reason: 'The browser comparison does not expose two full revision identifiers.' };
+        }
+        const manifestBase = tour?.range?.mergeBaseOid;
+        const manifestHead = tour?.range?.headOid;
+        if (revisions[0] === manifestBase && revisions[1] === manifestHead) {
+            return { status: 'exact', reason: 'The manifest validates its merge-base/head range.' };
+        }
+        if (revisions[0] === manifestHead && revisions[1] === manifestBase) {
+            return { status: 'reversed', reason: 'The selected revisions reverse the manifest merge-base/head range.' };
+        }
+        return {
+            status: 'unavailable',
+            reason: 'The browser manifest validates only its merge-base/head pair; this displayed pair needs deliberate Compare selection or backend Git validation.'
+        };
+    }
+
+    function uniqueStrings(values) {
+        return [...new Set(values.filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()))];
+    }
+
+    function setWorkspacePromptStatus(message) {
+        state.workspacePromptStatus = message;
+        renderWorkspaceControls();
+    }
+
+    function historyPrefixForManifest(manifestUrl) {
+        try {
+            const path = new URL(manifestUrl, window.location.href).pathname;
+            const suffix = '/tour.json';
+            if (path.endsWith(suffix)) {
+                const directory = path.slice(0, -suffix.length);
+                return `${directory || ''}/history/`;
+            }
+        } catch {
+            // The manifest fetch reports the useful error for an invalid URL.
+        }
+        return '/history/';
+    }
+
+    function chooseWorkspaceTourFile() {
+        return new Promise((resolve) => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.bygone,.yaml,.yml,application/yaml,text/yaml';
+            input.hidden = true;
+            document.body.appendChild(input);
+            const finish = (file) => {
+                input.remove();
+                resolve(file || null);
+            };
+            input.addEventListener('change', () => finish(input.files?.[0]));
+            input.addEventListener('cancel', () => finish(null));
+            input.click();
+        });
+    }
+
+    function uploadedTourDiffers(result) {
+        const current = state.authoredTour;
+        if (!current) return false;
+        const currentRepository = current.repository?.root;
+        const currentBase = current.range?.mergeBaseOid;
+        const currentHead = current.range?.headOid;
+        const nextRepository = typeof result.repository === 'string' ? result.repository : '';
+        const nextBase = typeof result.range?.mergeBaseOid === 'string' ? result.range.mergeBaseOid : '';
+        const nextHead = typeof result.range?.headOid === 'string' ? result.range.headOid : '';
+        return Boolean(
+            (currentRepository && nextRepository && currentRepository !== nextRepository)
+            || (currentBase && nextBase && currentBase !== nextBase)
+            || (currentHead && nextHead && currentHead !== nextHead)
+        );
+    }
+
+    function uploadedTourConfirmation(result) {
+        const repository = typeof result.repository === 'string' && result.repository ? result.repository : '(server-selected repository)';
+        const base = typeof result.range?.mergeBaseOid === 'string' && result.range.mergeBaseOid
+            ? result.range.mergeBaseOid : '(unknown base)';
+        const head = typeof result.range?.headOid === 'string' && result.range.headOid
+            ? result.range.headOid : '(unknown head)';
+        const currentRepository = state.authoredTour?.repository?.root || '(current repository unavailable)';
+        const currentBase = state.authoredTour?.range?.mergeBaseOid || '(unknown base)';
+        const currentHead = state.authoredTour?.range?.headOid || '(unknown head)';
+        return [
+            'Open this authored tour from the server?',
+            `Repository: ${repository}`,
+            `Range: ${base} → ${head}`,
+            `Current browser range: ${currentRepository}, ${currentBase} → ${currentHead}`,
+            'This loads the server-validated tour and does not change a local repository.'
+        ].join('\n');
+    }
+
+    async function openExistingTourUpload() {
+        try {
+            const file = await chooseWorkspaceTourFile();
+            if (!file) return;
+            if (file.size > 1024 * 1024) {
+                throw new Error('Choose an authored .bygone or .yaml file no larger than 1 MiB.');
+            }
+            const fileName = typeof file.name === 'string' ? file.name.toLowerCase() : '';
+            if (!/\.(?:bygone|ya?ml)$/.test(fileName)) {
+                throw new Error('Choose an authored .bygone or .yaml file.');
+            }
+            const source = await file.text();
+            const response = await fetch('/tour/open', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.error || `Tour upload failed (${response.status}).`);
+            if (!result || typeof result.manifestUrl !== 'string' || !result.manifestUrl) {
+                throw new Error('Tour upload did not return a manifest URL.');
+            }
+            if (uploadedTourDiffers(result) && !window.confirm(uploadedTourConfirmation(result))) {
+                setWorkspacePromptStatus('Kept the current tour.');
+                return;
+            }
+            const loaded = await loadTour(result.manifestUrl);
+            if (!loaded) {
+                setWorkspacePromptStatus('Could not load the uploaded tour.');
+                return;
+            }
+            setWorkspacePromptStatus('');
+        } catch (error) {
+            setWorkspacePromptStatus(`Could not open existing tour: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     function isNarrativeMode() {
@@ -200,23 +480,17 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
 
     function renderZoomControl() {
         const controls = document.getElementById('tour-mode-controls');
-        controls.hidden = !state.zoom;
+        controls.hidden = !state.zoom || embeddedWorkspaceMode;
         if (!state.zoom) return;
+        renderWorkspaceControls();
         const tabs = document.getElementById('tour-mode-tabs');
-        tabs.replaceChildren(...availableModes().map((mode) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.dataset.mode = mode;
-            button.textContent = modeLabel(mode);
-            button.title = `Switch to ${modeLabel(mode)}`;
-            button.setAttribute('aria-pressed', String(mode === state.zoom.mode));
-            if (mode === state.zoom.mode) button.classList.add('is-active');
-            return button;
-        }));
-        document.getElementById('tour-mode-description').textContent = modeDescription(state.zoom.mode);
+        const description = document.getElementById('tour-mode-description');
+        if (tabs) tabs.hidden = true;
+        if (description) description.hidden = true;
         const history = state.zoom.mode === 'history';
-        document.getElementById('tour-history-controls').hidden = state.zoom.mode === 'compare';
-        document.getElementById('tour-compare-controls').hidden = state.zoom.mode !== 'compare';
+        const historyAvailable = supportsWorkspaceHistory();
+        document.getElementById('tour-history-controls').hidden = !historyAvailable || state.zoom.mode === 'compare';
+        document.getElementById('tour-compare-controls').hidden = !historyAvailable || state.zoom.mode !== 'compare';
         document.body.classList.toggle('tour-derived-mode', !isNarrativeMode());
         if (!isNarrativeMode()) {
             document.body.classList.remove('tour-discussion');
@@ -229,13 +503,15 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         const count = state.comparisonDraftCommits.length;
         const compareButton = document.getElementById('tour-history-compare');
         compareButton.textContent = `Compare selected (${count})`;
-        compareButton.disabled = count < 2;
+        compareButton.disabled = count < 2 || !supportsWorkspaceHistory();
         const updateButton = document.getElementById('tour-compare-apply');
         updateButton.textContent = `Update comparison (${count})`;
-        updateButton.disabled = count < 2;
+        updateButton.disabled = count < 2 || !supportsWorkspaceHistory();
         document.getElementById('tour-compare-scope').textContent = state.compare?.path ? `File: ${state.compare.path}` : 'All changed files';
         document.getElementById('tour-compare-all').hidden = !state.compare?.path;
-        for (const id of ['tour-history-parent', 'tour-history-base']) document.getElementById(id).disabled = !state.historyCommit;
+        for (const id of ['tour-history-parent', 'tour-history-base']) {
+            document.getElementById(id).disabled = !supportsWorkspaceHistory() || !state.historyCommit;
+        }
     }
 
     function chronologicalComparisonCommits() {
@@ -251,15 +527,19 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
         return normalizeTourComparisonSelection(selection, chronologicalComparisonCommits());
     }
 
-    async function historyRequest(endpoint, body) {
-        const response = await fetch(`/history/${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    async function historyRequest(endpoint, body, prefix = state.historyPrefix, tour = state.authoredTour) {
+        if (!supportsWorkspaceHistory(tour)) throw new Error(workspaceHistoryUnavailableReason());
+        const response = await fetch(`${prefix || '/history/'}${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || `History request failed (${response.status}).`);
         return result;
     }
 
     function reportModeError(error) {
-        document.getElementById('tour-mode-status').textContent = error instanceof Error ? error.message : String(error);
+        const message = error instanceof Error ? error.message : String(error);
+        const legacyStatus = document.getElementById('tour-mode-status');
+        if (legacyStatus) legacyStatus.textContent = message;
+        if (workspaceControls) setWorkspacePromptStatus(message);
     }
 
     function displayedCommits() {
@@ -287,7 +567,7 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
     }
 
     async function fileHistory(path) {
-        if (!path || !state.zoom) return [];
+        if (!path || !state.zoom || !supportsWorkspaceHistory()) return [];
         if (!state.fileHistoryCache.has(path)) {
             const pending = historyRequest('list', { path, commit: state.authoredTour.range.headOid }).then((result) => result.entries);
             state.fileHistoryCache.set(path, pending);
@@ -542,6 +822,10 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
     }
 
     async function openComparison(selection) {
+        if (!supportsWorkspaceHistory()) {
+            setWorkspacePromptStatus(workspaceCompareUnavailableReason());
+            return;
+        }
         if (state.zoomSwitching) return;
         if (state.zoom.mode !== 'compare') await switchZoomMode('compare', selection);
         else await showComparison(selection, state.activeTourFilePath);
@@ -763,10 +1047,6 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
                 event.preventDefault();
                 setReviewNotesOpen(false);
             }
-        });
-        document.getElementById('tour-mode-tabs')?.addEventListener('click', (event) => {
-            const button = event.target instanceof Element ? event.target.closest('[data-mode]') : null;
-            if (button?.dataset.mode) void switchZoomMode(button.dataset.mode);
         });
         const action = (id, handler) => document.getElementById(id)?.addEventListener('click', () => {
             Promise.resolve().then(handler).catch(reportModeError);
@@ -1283,20 +1563,46 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
 
     async function loadTour(manifestUrl) {
         setStatus('Loading change tour…');
+        const nextHistoryPrefix = historyPrefixForManifest(manifestUrl);
+        const previousState = {
+            ...state,
+            historyEntries: [...state.historyEntries],
+            fileHistoryCache: new Map(state.fileHistoryCache),
+            displayedPanels: [...state.displayedPanels],
+            historyPanels: [...state.historyPanels],
+            comparisonCommits: [...state.comparisonCommits],
+            comparisonDraftCommits: [...state.comparisonDraftCommits]
+        };
+        const previousBodyClassName = document.body.className;
+        const previousTourShellHidden = document.getElementById('tour-shell')?.hidden;
+        const previousNarrativeHidden = document.getElementById('tour-narrative')?.hidden;
+        const previousModeControlsHidden = document.getElementById('tour-mode-controls')?.hidden;
+        const previousRenderRequestId = renderRequestId;
+        const previousZoomRestore = zoomRestore;
+        const previousZoomRestoreRequestId = zoomRestoreRequestId;
+        const previousEvidenceRequest = evidenceRequest;
         try {
             narrationController.stop();
             const response = await fetch(manifestUrl, { cache: 'no-store' });
             if (!response.ok) {
                 throw new Error(`Manifest request failed (${response.status}).`);
             }
-            state.tour = parseChangeTourManifest(await response.json());
-            state.authoredTour = state.tour;
-            const tours = authoredTours();
+            const parsedTour = parseChangeTourManifest(await response.json());
+            const tours = authoredTours(parsedTour);
             const initialMode = tours.deconstructed ? 'deconstructed' : 'historical';
-            state.zoom = state.tour.version >= 2 ? new TourZoomSession(initialMode) : null;
-            state.historyEntries = state.zoom
-                ? (await historyRequest('list', { commit: state.authoredTour.range.headOid })).entries
-                : [...state.authoredTour.commits].reverse().map((commit) => ({ commit: commit.oid, shortCommit: commit.shortOid, summary: commit.summary, timestamp: '' }));
+            const parsedHistoryEntries = supportsWorkspaceHistory(parsedTour)
+                ? (await historyRequest(
+                    'list',
+                    { commit: parsedTour.range.headOid },
+                    nextHistoryPrefix,
+                    parsedTour
+                )).entries
+                : [];
+            state.tour = parsedTour;
+            state.authoredTour = parsedTour;
+            state.historyPrefix = nextHistoryPrefix;
+            state.zoom = new TourZoomSession(initialMode);
+            state.historyEntries = parsedHistoryEntries;
             if (state.zoom) state.tour = zoomTour(initialMode);
             state.mode = 'tour';
             document.body.classList.add('tour-mode');
@@ -1320,7 +1626,7 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
                     final: legacyFinalTour() ? 'historical' : 'compare'
                 };
                 const requestedMode = aliases[parameters.get('mode')] || parameters.get('mode');
-                if (requestedMode === 'history') {
+                if (requestedMode === 'history' && availableModes().includes('history')) {
                     state.historyPath = parameters.get('file');
                     state.tourNavigatorTab = 'commits';
                     state.zoom.enter('history');
@@ -1328,7 +1634,7 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
                     renderTourShell();
                     renderZoomControl();
                     await showZoomHistory(state.historyPath || state.tour.files.find((file) => file.kind === 'text-diff')?.path, parameters.get('commit'));
-                } else if (requestedMode === 'compare') {
+                } else if (requestedMode === 'compare' && availableModes().includes('compare')) {
                     const encodedCommits = parameters.get('commits')?.split(',').filter(Boolean);
                     await switchZoomMode('compare', {
                         commits: encodedCommits?.length
@@ -1345,12 +1651,41 @@ import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
                     showTourScene(position.sceneIndex, position.stepIndex, { showIntro: parameters.get('view') === 'overview' || !parameters.get('step') });
                     if (['tour', 'chapter'].includes(parameters.get('view'))) setNarrativeView(parameters.get('view'));
                 }
+                const requestedEmbeddedMode = pendingEmbeddedWorkspaceMode;
+                pendingEmbeddedWorkspaceMode = null;
+                if (embeddedWorkspaceMode && requestedEmbeddedMode
+                    && requestedEmbeddedMode !== state.zoom.mode
+                    && availableModes().includes(requestedEmbeddedMode)) {
+                    await switchZoomMode(requestedEmbeddedMode);
+                }
             }
             if (state.directoryEvidence && parameters.get('file')) openTourDirectoryFile(parameters.get('file'));
             renderNarrationPlaybackState(narrationController.state);
+            state.workspacePromptStatus = '';
+            renderWorkspaceControls();
             setStatus('');
+            return true;
         } catch (error) {
+            Object.assign(state, previousState);
+            renderRequestId = previousRenderRequestId;
+            zoomRestore = previousZoomRestore;
+            zoomRestoreRequestId = previousZoomRestoreRequestId;
+            evidenceRequest = previousEvidenceRequest;
+            document.body.className = previousBodyClassName;
+            const tourShell = document.getElementById('tour-shell');
+            if (tourShell && previousTourShellHidden !== undefined) tourShell.hidden = previousTourShellHidden;
+            const narrative = document.getElementById('tour-narrative');
+            if (narrative && previousNarrativeHidden !== undefined) narrative.hidden = previousNarrativeHidden;
+            const modeControls = document.getElementById('tour-mode-controls');
+            if (modeControls && previousModeControlsHidden !== undefined) modeControls.hidden = previousModeControlsHidden;
+            if (state.mode === 'tour' && state.tour) {
+                renderTourShell();
+                renderZoomControl();
+                renderTourSearchResults();
+                renderWorkspaceControls();
+            }
             setStatus(`Could not load change tour: ${error instanceof Error ? error.message : String(error)}`);
+            return false;
         }
     }
 

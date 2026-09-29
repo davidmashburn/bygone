@@ -39,6 +39,15 @@ function normalizeWindowState(value) {
     }
 
     const mainSource = value.main === null ? null : normalizeSessionSource(value.main?.source);
+    if (mainSource && value.main.source.readOnly === true) mainSource.readOnly = true;
+    const pins = value.main?.source?.resolvedRevisions;
+    if (pins !== undefined && (!Array.isArray(pins) || !pins.length
+        || !pins.every((revision) => typeof revision === 'string' && /^(?:[a-f0-9]{40}|[a-f0-9]{64}|WORKTREE|INDEX)$/.test(revision))
+        || (mainSource?.kind === 'git-refs' && pins.length !== mainSource.refs.length)
+        || (mainSource?.kind === 'branch-review' && pins.length !== 2))) return null;
+    if (mainSource && pins) {
+        mainSource.resolvedRevisions = [...pins];
+    }
     if (value.main !== null && !mainSource) {
         return null;
     }

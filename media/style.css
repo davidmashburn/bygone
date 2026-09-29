@@ -1919,3 +1919,9 @@ button.file-header {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
+#workspace-header { flex: 0 0 auto; }
+.workspace-selection-actions { display: flex; gap: 6px; padding: 4px 10px; }
+.workspace-selection-actions[hidden], #workspace-tour-frame[hidden], #diff-workspace[hidden] { display: none; }
+.workspace-selection-actions button { font: inherit; color: inherit; background: var(--vscode-button-secondaryBackground, #313131); border: 1px solid var(--vscode-panel-border, #3c3c3c); border-radius: 4px; padding: 4px 8px; }
+.workspace-selection-actions button:disabled { opacity: .5; }
+#workspace-tour-frame { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: var(--vscode-editor-background, #1e1e1e); }

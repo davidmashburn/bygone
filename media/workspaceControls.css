@@ -1,0 +1,206 @@
+.workspace-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+    background: var(--vscode-sideBar-background, #252526);
+    color: var(--vscode-foreground, #d4d4d4);
+}
+
+.workspace-mode-strip {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-width: 0;
+    overflow: visible;
+    white-space: normal;
+}
+
+.workspace-mode-button,
+.workspace-back-button,
+.workspace-prompt-actions button {
+    min-height: 28px;
+    padding: 5px 9px;
+    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border, #3c3c3c));
+    border-radius: 4px;
+    background: var(--vscode-button-secondaryBackground, #313131);
+    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground, #d4d4d4));
+    font: inherit;
+    cursor: pointer;
+}
+
+.workspace-mode-button {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+}
+
+.workspace-mode-button:hover,
+.workspace-back-button:hover,
+.workspace-prompt-actions button:hover {
+    filter: brightness(1.1);
+}
+
+.workspace-mode-button:focus-visible,
+.workspace-back-button:focus-visible,
+.workspace-prompt-actions button:focus-visible,
+.workspace-prompt-dialog textarea:focus-visible {
+    outline: 2px solid var(--vscode-focusBorder, #007fd4);
+    outline-offset: 2px;
+}
+
+.workspace-mode-button.is-active {
+    border-color: var(--vscode-focusBorder, #007fd4);
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #fff);
+}
+
+.workspace-mode-button.is-missing {
+    border-style: dashed;
+    color: var(--vscode-descriptionForeground, #9da1a6);
+    opacity: .78;
+}
+
+.workspace-mode-button.is-missing:hover,
+.workspace-mode-button.is-missing:focus-visible {
+    opacity: 1;
+}
+
+.workspace-mode-button.is-unavailable,
+.workspace-mode-button:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+}
+
+.workspace-back-button {
+    flex: 0 0 auto;
+}
+
+.workspace-status {
+    flex: 0 1 30ch;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--vscode-descriptionForeground, #9da1a6);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workspace-status[hidden],
+.workspace-mode-descriptions[aria-hidden="true"] {
+    display: none;
+}
+
+.workspace-prompt-dialog {
+    width: min(760px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 32px);
+    padding: 18px;
+    border: 1px solid var(--vscode-panel-border, #3c3c3c);
+    border-radius: 6px;
+    background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #1e1e1e));
+    color: var(--vscode-foreground, #d4d4d4);
+    box-shadow: 0 12px 36px rgb(0 0 0 / 38%);
+}
+
+.workspace-prompt-dialog::backdrop {
+    background: rgb(0 0 0 / 45%);
+}
+
+.workspace-prompt-dialog h2 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.workspace-prompt-description,
+.workspace-prompt-context,
+.workspace-prompt-draft-notice,
+.workspace-prompt-status {
+    margin: 7px 0;
+    color: var(--vscode-descriptionForeground, #9da1a6);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.workspace-prompt-context {
+    overflow-wrap: anywhere;
+}
+
+.workspace-prompt-draft-notice {
+    padding: 7px 9px;
+    border-left: 3px solid var(--vscode-editorWarning-foreground, #cca700);
+    background: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 10%, transparent);
+}
+
+.workspace-prompt-label {
+    display: grid;
+    gap: 5px;
+    margin-top: 12px;
+    font-size: 12px;
+}
+
+.workspace-prompt-dialog textarea {
+    width: 100%;
+    min-height: 300px;
+    box-sizing: border-box;
+    resize: vertical;
+    padding: 9px;
+    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border, #3c3c3c));
+    border-radius: 4px;
+    background: var(--vscode-input-background, #3c3c3c);
+    color: var(--vscode-input-foreground, var(--vscode-foreground, #d4d4d4));
+    font: 12px/1.45 var(--vscode-editor-font-family, monospace);
+}
+
+.workspace-prompt-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.workspace-prompt-actions button:first-child {
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #fff);
+}
+
+.workspace-prompt-actions button:last-child {
+    margin-left: 4px;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (max-width: 620px) {
+    .workspace-controls {
+        align-items: stretch;
+        flex-wrap: wrap;
+    }
+
+    .workspace-mode-strip {
+        order: 1;
+        flex-basis: 100%;
+    }
+
+    .workspace-back-button,
+    .workspace-status {
+        order: 2;
+    }
+
+    .workspace-status {
+        flex: 1 1 20ch;
+    }
+}

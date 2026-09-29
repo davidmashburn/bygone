@@ -36,6 +36,9 @@ const { startPresentation } = require('../cli/present.js');
 const { resolveWorkingDirectory } = require('../cli/workingDirectory.js');
 const { extractReadOnlyLaunchOption, getCliArgsFromArgv, getForwardedLaunchArgs } = require('./launchArgs.js');
 const { readWindowState, writeWindowState } = require('./windowState.js');
+const { createWorkspaceHost } = require('./workspaceHost.js');
+const { resolveWorkspaceGit, resolveWorkspaceRange } = require('../src/workspaceGit.ts');
+const { createWorkspaceHistory } = require('../src/workspaceHistory.ts');
 const {
     buildHistoryTitle,
     buildStandaloneSessionTitle,
@@ -64,6 +67,7 @@ const commandLineToolPath = process.platform === 'win32'
 const gitHistoryService = new GitHistoryService();
 const initialCliArgs = getCliArgs();
 const launchArguments = parseLaunchArgs(initialCliArgs);
+const workspaceSmokeMode = launchArguments.kind === 'smoke-workspace';
 const smokeTestMode = launchArguments.kind === 'smoke'
     || launchArguments.kind === 'smoke-multi'
     || launchArguments.kind === 'smoke-directory'
@@ -117,6 +121,21 @@ let pendingLaunchPrompt = null;
 let nextLaunchPromptId = 1;
 let appIsQuitting = false;
 let restoringWindowState = false;
+const workspace = createWorkspaceHost({
+    getSession: () => session,
+    setSession: (next) => { session = next; updateWatchers(); },
+    send: (message) => postOrQueue(message),
+    capture: async () => {
+        const snapshot = await requestRendererNavigationState();
+        if (!snapshot) throw new Error('The editor did not finish capturing its state. Please try again; no workspace change was made.');
+        return snapshot;
+    },
+    confirm: (action) => confirmSessionReplacement(action),
+    hasUnsaved: () => hasUnsavedChanges(),
+    render: () => sendCurrentSession(),
+    restore: (navigation) => postToRenderer({ type: 'restoreNavigationState', navigation }),
+    openTour: (state, context, kind) => openWorkspaceTour(state, context, kind)
+}, { resolve: resolveWorkspaceGit, range: resolveWorkspaceRange, history: createWorkspaceHistory });
 
 if (!singleInstanceLock) {
     app.quit();
@@ -204,7 +223,52 @@ function isTrustedRendererEvent(event) {
         && event.senderFrame.url === expectedUrl;
 }
 
-function createMainWindow({ show = !smokeTestMode } = {}) {
+async function openWorkspaceTour(uiState, context, kind) {
+    const picked = await dialog.showOpenDialog(mainWindow, {
+        title: 'Open an authored tour in this workspace', properties: ['openFile'],
+        filters: [{ name: 'Bygone tour', extensions: ['bygone', 'yaml'] }]
+    });
+    if (picked.canceled || !picked.filePaths[0]) return null;
+    workspace.setStatus('Loading authored tour…');
+    let presentation;
+    try {
+        const document = discoverAuthoredTourDocument(picked.filePaths[0]);
+        presentation = await startPresentation(['--tour', document.documentPath], document.repoRoot, packageRoot, { announce: false, open: false, ignoreEnvironment: true });
+        const manifest = presentation.manifest;
+        const revisions = [manifest.range.mergeBaseOid, manifest.range.headOid];
+        const tourContext = resolveWorkspaceGit({ kind: 'git-refs', repoRoot: document.repoRoot, refs: revisions });
+        if (tourContext.kind !== 'ready') throw new Error(tourContext.reason);
+        const exact = uiState.promptContext.rangeStatus === 'exact';
+        const matching = context.kind === 'ready' && context.commonDir === tourContext.commonDir && exact
+            && uiState.promptContext.revisions.every((revision, index) => revision === revisions[index]);
+        const scoped = context.kind === 'ready' && context.paths.some((item) => item.path && item.path !== '.');
+        if (!matching || scoped) {
+            const answer = await dialog.showMessageBox(mainWindow, {
+                type: 'question', buttons: ['Switch tour context', 'Cancel'], defaultId: 1, cancelId: 1,
+                message: 'This authored tour has its own repository, range, and path scope.',
+                detail: `${document.repoRoot}\n${revisions.join(' → ')}\nTour paths: ${(manifest.files || []).map((file) => file.path || file.newPath || file.oldPath).filter(Boolean).join(', ') || 'Authored document scope'}\n\nYour comparison and its selected paths will be retained. History, Compare, and Back return to that workspace; they do not reinterpret it as this tour’s range.`
+            });
+            if (answer.response !== 0) { presentation.server.close(); workspace.setStatus('Tour context switch canceled.'); return null; }
+        }
+        const deconstructed = manifest.scenes.some((scene) => scene.kind === 'deconstructed-diff');
+        const kinds = manifest.tours ? Object.keys(manifest.tours).filter((name) => ['historical', 'deconstructed'].includes(name))
+            : deconstructed ? [...(manifest.zoom?.final?.scenes.some((scene) => scene.kind === 'walkthrough') ? ['historical'] : []), 'deconstructed'] : ['historical'];
+        if (!kinds.length) throw new Error('This document does not contain an authored Historical or Deconstructed tour.');
+        const url = new URL(presentation.url);
+        url.searchParams.set('workspaceEmbedded', '1');
+        url.searchParams.set('mode', kinds.includes(kind) ? kind : kinds[0]);
+        activeTourServers.add(presentation.server);
+        return { url: url.toString(), kinds, dispose: () => closeTourServer(presentation.server),
+            modeLabels: !manifest.tours && deconstructed && kinds.includes('historical') ? { historical: 'Final tour' } : undefined,
+            promptContext: { repository: document.repoRoot, paths: (manifest.files || []).map((file) => file.path).filter(Boolean), revisions, rangeStatus: 'exact' },
+            notice: matching && !scoped ? '' : 'Tour context differs; History and Compare return to your retained comparison.' };
+    } catch (error) {
+        presentation?.server.close();
+        throw new Error(`Invalid or unavailable authored tour: ${getErrorMessage(error)}`, { cause: error });
+    }
+}
+
+function createMainWindow({ show = !smokeTestMode && !workspaceSmokeMode } = {}) {
     mainWindow = new BrowserWindow({
         width: launchWindowWidth,
         height: launchWindowHeight,
@@ -228,6 +292,16 @@ function createMainWindow({ show = !smokeTestMode } = {}) {
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
         if (navigationUrl !== expectedUrl) {
+            event.preventDefault();
+        }
+    });
+    mainWindow.webContents.on('will-frame-navigate', (event) => {
+        if (event.isMainFrame) return;
+        try {
+            const candidate = new URL(event.url);
+            if (candidate.hostname !== '127.0.0.1' || candidate.protocol !== 'http:'
+                || ![...activeTourServers].some((server) => String(server.address()?.port) === candidate.port)) event.preventDefault();
+        } catch {
             event.preventDefault();
         }
     });
@@ -302,6 +376,7 @@ function createMainWindow({ show = !smokeTestMode } = {}) {
     });
 
     mainWindow.on('closed', () => {
+        workspace.reset();
         clearWatchers();
         for (const pending of pendingNavigationRequests.values()) {
             clearTimeout(pending.timeout);
@@ -1203,6 +1278,10 @@ async function restoreMainSession(source) {
         return;
     }
 
+    if (source.kind === 'file-history' || source.kind === 'directory-history') {
+        await workspace.openHistory(source);
+        return;
+    }
     session = buildSessionFromSource(source);
     historyIncludeStagedPreference = Boolean(source.includeStaged ?? historyIncludeStagedPreference);
     historySkipUnchangedPreference = Boolean(source.skipUnchanged ?? historySkipUnchangedPreference);
@@ -1212,7 +1291,7 @@ async function restoreMainSession(source) {
 }
 
 function persistOpenWindowState() {
-    if (restoringWindowState || !app.isReady()) return;
+    if (restoringWindowState || smokeTestMode || workspaceSmokeMode || !app.isReady()) return;
     const hasMainWindow = Boolean(mainWindow && !mainWindow.isDestroyed());
     const mainSource = hasMainWindow && (isRefreshableSource(session.source) || session.source?.kind === 'blank')
         ? cloneSessionSource(session.source)
@@ -1239,6 +1318,18 @@ function getWindowStatePath() {
 }
 
 async function routeLaunchTarget(launchTarget) {
+    if (launchTarget.kind === 'smoke-workspace') {
+        ensureMainWindow();
+        const timeout = setTimeout(() => app.exit(1), 60000);
+        try {
+            await require('./workspaceSmoke.js').runWorkspaceSmoke({
+                open: openDiff, window: () => mainWindow, session: () => session, dialog,
+                openTour: () => workspace.handle({ type: 'workspaceOpenTour', kind: 'historical' })
+            });
+            clearTimeout(timeout); app.exit(0);
+        } catch (error) { console.error(error); clearTimeout(timeout); app.exit(1); }
+        return;
+    }
     if (launchTarget.kind === 'unsupported-launch-intent') {
         ensureMainWindow();
         await showError(`This version of Bygone does not support desktop launch intent version ${launchTarget.version}.`);
@@ -1491,6 +1582,7 @@ function parseLaunchArgsCore(args) {
     if (filteredArgs[0] === '--smoke-test') {
         return { kind: 'smoke', capturePath, windowWidth, windowHeight };
     }
+    if (filteredArgs[0] === '--smoke-test-workspace') return { kind: 'smoke-workspace' };
 
     if (filteredArgs[0] === '--smoke-test-multi') {
         return { kind: 'smoke-multi', capturePath, windowWidth, windowHeight };
@@ -1599,6 +1691,8 @@ async function handleRendererMessage(message) {
     if (!message || typeof message !== 'object') {
         return;
     }
+    if (typeof message.type !== 'string') return;
+    if (await workspace.handle(message)) return;
 
     if (message.type === 'ready') {
         hostReady = true;
@@ -1725,6 +1819,17 @@ async function handleRendererMessage(message) {
         if (pending) {
             pendingNavigationRequests.delete(message.requestId);
             clearTimeout(pending.timeout);
+            if (!session.source?.readOnly && Array.isArray(message.buffers)) {
+                for (const buffer of message.buffers) {
+                    const panel = session.mode === 'multi-diff'
+                        ? session.multi?.files.find((item) => item.id === buffer.id)
+                        : session.mode === 'diff' && ['left', 'right'].includes(buffer.id) ? session[buffer.id] : null;
+                    if (panel && panel.editable !== false && typeof buffer.content === 'string') {
+                        panel.content = buffer.content;
+                        panel.dirty = panel.content !== panel.savedContent;
+                    }
+                }
+            }
             pending.resolve(message.navigation || null);
         }
         return;
@@ -1827,7 +1932,7 @@ async function handleRendererMessage(message) {
         && session.mode === 'multi-diff'
         && session.multi) {
         const panel = session.multi.files.find((entry) => entry.id === message.panelId);
-        if (!session.source?.readOnly && panel?.editable !== false) {
+        if (panel && !session.source?.readOnly && panel.editable !== false) {
             panel.content = message.content;
             panel.dirty = panel.content !== panel.savedContent;
             refreshSessionWindowTitle();
@@ -2384,7 +2489,8 @@ async function openGitRefs(cwd, refs, options = {}) {
         columns,
         tempRoots,
         skipConfirm: Boolean(options.skipConfirm),
-        source: options.source || createGitRefsSource(repoRoot, refs)
+        source: { ...(options.source || createGitRefsSource(repoRoot, refs)),
+            resolvedRevisions: resolved.map((revision) => revision.sha || (revision.kind === 'worktree' ? 'WORKTREE' : 'INDEX')) }
     });
 }
 
@@ -2417,6 +2523,11 @@ async function openGitBranchReview(cwd, branch, mainRef, options = {}) {
         return;
     }
 
+    const source = {
+        ...(options.source || createBranchReviewSource(review.repoRoot || cwd, branch, mainRef)),
+        resolvedRevisions: [review.mergeBaseOid, review.headOid]
+    };
+
     await openDirectories([leftRoot, rightRoot], {
         labels: [
             `${review.baseRef} @ ${review.mergeBaseOid.slice(0, 7)}`,
@@ -2424,7 +2535,7 @@ async function openGitBranchReview(cwd, branch, mainRef, options = {}) {
         ],
         tempRoots: [leftRoot, rightRoot],
         skipConfirm: Boolean(options.skipConfirm),
-        source: options.source || createBranchReviewSource(review.repoRoot || cwd, branch, mainRef),
+        source,
         review: {
             ...review,
             attention,
@@ -2461,6 +2572,10 @@ function buildReviewAttention(review) {
 }
 
 async function openDirectoryHistory(dirPath, includeStaged = historyIncludeStagedPreference, options = {}) {
+    if (!smokeTestMode) {
+        await workspace.openHistory(options.source || createDirectoryHistorySource(dirPath, includeStaged, false));
+        return;
+    }
     const resolvedDir = path.resolve(dirPath);
     if (getPathKind(resolvedDir) !== 'directory') {
         await showInfo('Directory history requires a directory.');
@@ -3150,6 +3265,10 @@ async function openDiff(leftPath, rightPath, options = {}) {
 }
 
 async function openHistory(filePath, includeStaged = historyIncludeStagedPreference, options = {}) {
+    if (!smokeTestMode) {
+        await workspace.openHistory(options.source || createFileHistorySource(filePath, includeStaged, false));
+        return;
+    }
     if (!options.skipConfirm && !await confirmSessionReplacement('open file history')) {
         return;
     }
@@ -3370,6 +3489,8 @@ function setActiveMultiPair(pairIndex) {
 }
 
 async function addMultiPanel(anchorPanelId, side) {
+    if (workspace.isTourActive()) return;
+    if (session.workspaceView) { await workspace.handle({ type: 'multiAddPanel', anchorPanelId, side }); return; }
     if (session.mode === 'directory-history' && session.dirHistory?.viewRelativePath) {
         await addDirectoryColumn(side);
         return;
@@ -3445,6 +3566,8 @@ async function addHistoryPanelToMulti(side) {
 }
 
 async function removeMultiPanel(panelId) {
+    if (workspace.isTourActive()) return;
+    if (session.workspaceView) { await workspace.handle({ type: 'multiRemovePanel', panelId }); return; }
     if (session.mode === 'directory-history' && session.dirHistory?.viewRelativePath) {
         const match = panelId.match(/^dir-hist-col-(\d+)$/);
         if (match) {
@@ -4140,6 +4263,8 @@ function buildDirectoryHistoryFileNavigationState(dirHistory, entry) {
 }
 
 async function navigateSiblingFile(direction) {
+    if (workspace.isTourActive()) return;
+    if (session.workspaceView) { await workspace.handle({ type: 'navigateFile', direction }); return; }
     if ((session.mode === 'diff' || session.mode === 'multi-diff') && session.returnDirectory?.relativePath) {
         const entries = buildReturnDirectoryEntries(session.returnDirectory);
         const currentIndex = entries.findIndex((entry) => entry.relativePath === session.returnDirectory.relativePath);
@@ -4213,6 +4338,7 @@ async function sendCurrentMultiDiff() {
     if (session.mode !== 'multi-diff' || !session.multi) {
         return;
     }
+    if (await workspace.render()) { refreshSessionWindowTitle(); return; }
 
     const sourceKind = session.multi.sourceKind;
     const fileCount = session.multi.files.length;
@@ -4694,6 +4820,8 @@ async function updateEditableDirectoryHistoryDiff(_leftContent, rightContent) {
 }
 
 async function navigateHistory(direction) {
+    if (workspace.isTourActive()) return;
+    if (session.workspaceView) { await workspace.handle({ type: direction === 'back' ? 'historyBack' : 'historyForward' }); return; }
     if (session.mode === 'directory-history' && session.dirHistory) {
         const visibleIndices = getVisibleDirectoryHistoryIndices(session.dirHistory);
         const currentVisiblePosition = visibleIndices.indexOf(session.dirHistory.index);
@@ -4833,6 +4961,7 @@ async function selectHistoryEntry(index) {
 }
 
 async function saveSide(side) {
+    if (workspace.isTourActive()) return false;
     if (session.mode === 'history') {
         return saveHistorySide(side);
     }
@@ -5001,6 +5130,7 @@ async function saveDirtyMultiPanels() {
 }
 
 async function saveMultiPanel(panel, { dialogTitle, refreshView }) {
+    if (workspace.isTourActive()) return false;
     if (session.source?.readOnly || panel.editable === false) {
         return false;
     }
@@ -5080,6 +5210,7 @@ async function saveDirtyDirectoryHistoryEntries() {
 }
 
 async function reloadSide(side) {
+    if (workspace.isTourActive()) return;
     if (session.mode === 'multi-diff') {
         return reloadActiveMultiPanel();
     }
@@ -5101,6 +5232,7 @@ async function reloadSide(side) {
 }
 
 async function reloadActiveMultiPanel() {
+    if (workspace.isTourActive()) return;
     if (session.mode !== 'multi-diff' || !session.multi?.activePanelId) {
         return;
     }
@@ -5430,7 +5562,7 @@ function requestRendererNavigationState() {
             resolve(null);
         }, 750);
         pendingNavigationRequests.set(requestId, { resolve, timeout });
-        postToRenderer({ type: 'captureNavigationState', requestId });
+        postToRenderer({ type: 'captureNavigationState', requestId, flushEditors: true });
     });
 }
 
@@ -5578,7 +5710,16 @@ function buildSessionFromSource(source) {
     }
 
     if (source.kind === 'git-refs') {
-        const resolved = source.refs.map((ref) => resolveGitRefForDiff(source.repoRoot, ref));
+        const refs = Array.isArray(source.resolvedRevisions) && source.resolvedRevisions.length > 0
+            ? source.resolvedRevisions
+            : source.refs;
+        const resolved = refs.map((ref) => resolveGitRefForDiff(source.repoRoot, ref));
+        const materializedSource = {
+            ...source,
+            resolvedRevisions: resolved.map((revision) => (
+                revision.sha || (revision.kind === 'worktree' ? 'WORKTREE' : 'INDEX')
+            ))
+        };
         const tempRoots = [];
         try {
             const columns = resolved.map((resolvedSource) => {
@@ -5600,7 +5741,7 @@ function buildSessionFromSource(source) {
             return createDirectorySession(
                 dirs,
                 resolved.map((resolvedSource) => getGitDiffSourceLabel(resolvedSource)),
-                source,
+                materializedSource,
                 { tempRoots, columns }
             );
         } catch (error) {
@@ -5610,7 +5751,19 @@ function buildSessionFromSource(source) {
     }
 
     if (source.kind === 'branch-review') {
-        const review = resolveBranchReviewRange(source.repoRoot, source.headRef, source.baseRef);
+        const pinned = Array.isArray(source.resolvedRevisions) && source.resolvedRevisions.length > 0
+            ? source.resolvedRevisions
+            : null;
+        if (pinned && pinned.length !== 2) {
+            throw new Error('Branch-review source pins must contain exactly two revisions.');
+        }
+        const review = pinned
+            ? resolveBranchReviewRange(source.repoRoot, pinned[1], pinned[0])
+            : resolveBranchReviewRange(source.repoRoot, source.headRef, source.baseRef);
+        if (pinned) {
+            review.baseRef = source.baseRef || review.baseRef;
+            review.headRef = source.headRef || review.headRef;
+        }
         if (review.changedPaths.length === 0) {
             throw new Error(`${review.headRef} has no changes relative to ${review.baseRef}.`);
         }
@@ -5622,13 +5775,17 @@ function buildSessionFromSource(source) {
             tempRoots.push(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-review-head-')));
             trackedGitDiffTempRoots.add(tempRoots[1]);
             materializeBranchReviewTrees(review, tempRoots[0], tempRoots[1]);
+            const materializedSource = {
+                ...source,
+                resolvedRevisions: [review.mergeBaseOid, review.headOid]
+            };
             return createDirectorySession(
                 tempRoots,
                 [
                     `${review.baseRef} @ ${review.mergeBaseOid.slice(0, 7)}`,
                     `${review.headRef} @ ${review.headOid.slice(0, 7)}`
                 ],
-                source,
+                materializedSource,
                 {
                     tempRoots,
                     review: { ...review, attention, attentionSummary, viewedPaths: new Set() }
@@ -5728,6 +5885,8 @@ async function restoreSessionNavigation(snapshot) {
 }
 
 async function refreshSession(options = {}) {
+    if (workspace.isTourActive()) return;
+    if (session.workspaceView) { await workspace.handle({ type: 'refreshSession' }); return; }
     if (refreshInProgress || !isRefreshableSource(session.source)) {
         return;
     }
@@ -5740,6 +5899,11 @@ async function refreshSession(options = {}) {
     }
 
     const source = cloneSessionSource(session.source);
+    if (source.kind === 'git-refs' || source.kind === 'branch-review') {
+        // A deliberate refresh re-materializes the symbolic source at its
+        // current refs; buildSessionFromSource records the new OIDs below.
+        delete source.resolvedRevisions;
+    }
     const previousTempRoots = [...getSessionTempRoots(previousSession)];
     const navigation = await captureSessionNavigation(previousSession);
     if (session !== previousSession) {
@@ -5791,6 +5955,7 @@ async function refreshSession(options = {}) {
 }
 
 function postOrQueue(message) {
+    message = workspace.augment(message);
     installApplicationMenu();
     if (message && typeof message === 'object' && typeof message.type === 'string' && message.type.startsWith('show')) {
         persistOpenWindowState();

@@ -6,7 +6,7 @@ const { buildChangeTourManifest, parseChangeTourStory } = require('../out/change
 const { buildTourAuthoringCoverage, buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { buildTourWindowTitle } = require('../out/windowTitle.js');
 const { tokenMatches } = require('./commandSpec.js');
-const { loadTourSource } = require('./tourFile.js');
+const { loadTourSource, parseTourSourceText, buildManifestForTourSource } = require('./tourFile.js');
 const { createTourHistory } = require('./tourHistory.js');
 
 const MIME_TYPES = new Map([
@@ -21,15 +21,15 @@ const MIME_TYPES = new Map([
 
 async function startPresentation(args, cwd, packageRoot, options = {}) {
     const { headRef, baseRef, tourPath, explicitHeadRef } = parsePresentArgs(args);
-    const story = process.env.BYGONE_TOUR_STORY
+    const story = !options.ignoreEnvironment && process.env.BYGONE_TOUR_STORY
         ? parseChangeTourStory(JSON.parse(readFileSync(path.resolve(cwd, process.env.BYGONE_TOUR_STORY), 'utf8')))
         : undefined;
     const source = tourPath ? loadTourSource(cwd, tourPath).source : undefined;
     const builtManifest = buildChangeTourManifest(cwd, {
         headRef: explicitHeadRef || source?.range?.head || headRef,
         baseRef: baseRef || source?.range?.base,
-        title: process.env.BYGONE_TOUR_TITLE,
-        sourceUrl: process.env.BYGONE_TOUR_SOURCE_URL,
+        title: options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_TITLE,
+        sourceUrl: options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_SOURCE_URL,
         story,
         source
     });
@@ -38,7 +38,7 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         : builtManifest;
     const history = createTourHistory(manifest);
     const serializedManifest = `${JSON.stringify(manifest, null, 2)}\n`;
-    const outputPath = process.env.BYGONE_TOUR_OUTPUT;
+    const outputPath = options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_OUTPUT;
     if (outputPath) {
         const resolvedOutput = path.resolve(cwd, outputPath);
         mkdirSync(path.dirname(resolvedOutput), { recursive: true });
@@ -49,15 +49,46 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
     const tourWindowTitle = buildTourWindowTitle(manifest, 'Bygone');
     const presenterIndexPath = path.join(packageRoot, 'web', 'index.html');
     let presenterIndexTemplate;
+    // Uploaded documents remain immutable, scoped to this existing repository,
+    // and addressed independently so opening one cannot mutate another tab.
+    const uploadedTours = new Map();
 
     const server = createServer((request, response) => {
         const requestUrl = new URL(request.url || '/', 'http://127.0.0.1');
+        if (requestUrl.pathname === '/tour/open') {
+            if (request.method !== 'POST') return respondJson(response, 405, { error: 'Method not allowed' });
+            if (!isSameOriginLoopbackRequest(request)) return respondJson(response, 403, { error: 'Forbidden' });
+            if (uploadedTours.size >= 16) return respondJson(response, 409, { error: 'This presentation has reached its open-document limit. Start a new presentation to open more documents.' });
+            let body = '';
+            request.setEncoding('utf8');
+            request.on('data', (chunk) => {
+                body += chunk;
+                if (Buffer.byteLength(body, 'utf8') > 2 * 1024 * 1024) { respondJson(response, 413, { error: 'Request too large' }); request.destroy(); }
+            });
+            request.on('end', () => {
+                if (response.writableEnded) return;
+                try {
+                    const uploadedSource = parseTourSourceText(JSON.parse(body).source);
+                    const loaded = buildManifestForTourSource(cwd, uploadedSource);
+                    const id = String(uploadedTours.size + 1);
+                    uploadedTours.set(id, { manifest: loaded, history: createTourHistory(loaded) });
+                    respondJson(response, 200, { manifestUrl: `/loaded/${id}/tour.json`, repository: loaded.repository?.root || cwd, range: loaded.range });
+                } catch (error) { respondJson(response, 400, { error: `Invalid tour for this repository: ${error.message}` }); }
+            });
+            return;
+        }
+        const loadedMatch = requestUrl.pathname.match(/^\/loaded\/(\d+)\/(tour\.json|history\/(?:list|diff|compare|compare-many|revisions))$/);
+        const loadedTour = loadedMatch ? uploadedTours.get(loadedMatch[1]) : null;
+        if (loadedMatch && !loadedTour) return respondJson(response, 404, { error: 'Loaded document not found' });
+        if (loadedTour && loadedMatch[2] === 'tour.json') return respondJson(response, 200, loadedTour.manifest);
+        const requestHistory = loadedTour ? loadedTour.history : history;
+        if (loadedMatch) requestUrl.pathname = `/${loadedMatch[2]}`;
         if (requestUrl.pathname === '/history/list' || requestUrl.pathname === '/history/diff'
             || requestUrl.pathname === '/history/compare' || requestUrl.pathname === '/history/compare-many'
             || requestUrl.pathname === '/history/revisions') {
             if (request.method !== 'POST') return respondJson(response, 405, { error: 'Method not allowed' });
             if (!isSameOriginLoopbackRequest(request)) return respondJson(response, 403, { error: 'Forbidden' });
-            if (!history) return respondJson(response, 404, { error: 'History requires a version 2 tour.' });
+            if (!requestHistory) return respondJson(response, 404, { error: 'History requires a version 2 tour.' });
             let body = '';
             request.setEncoding('utf8');
             request.on('data', chunk => {
@@ -72,14 +103,14 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
                 try {
                     const input = JSON.parse(body);
                     const result = requestUrl.pathname === '/history/list'
-                        ? history.list(input)
+                        ? requestHistory.list(input)
                         : requestUrl.pathname === '/history/diff'
-                            ? history.diff(input)
+                            ? requestHistory.diff(input)
                             : requestUrl.pathname === '/history/compare'
-                                ? history.compare(input)
+                                ? requestHistory.compare(input)
                                 : requestUrl.pathname === '/history/compare-many'
-                                    ? history.compareMany(input)
-                                    : history.revisions(input);
+                                    ? requestHistory.compareMany(input)
+                                    : requestHistory.revisions(input);
                     respondJson(response, 200, result);
                 } catch {
                     respondJson(response, 400, { error: 'Could not load history for this file and revision.' });
@@ -135,7 +166,7 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         });
         createReadStream(targetPath).on('error', () => respond(response, 500, 'Read failed')).pipe(response);
     });
-    const requestedPort = readPort(process.env.BYGONE_TOUR_PORT);
+    const requestedPort = readPort(options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_PORT);
     await new Promise((resolve, reject) => {
         server.once('error', reject);
         server.listen(requestedPort, '127.0.0.1', resolve);

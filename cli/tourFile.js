@@ -48,6 +48,14 @@ function readTourSourceDocument(sourcePath, options = {}) {
         throw new Error(`Could not decode Bygone source ${sourceLabel} as UTF-8: ${errorMessage(error)}`, { cause: error });
     }
 
+    return parseTourSourceText(text, sourceLabel, { maxBytes });
+}
+
+function parseTourSourceText(text, sourceLabel = 'uploaded tour', options = {}) {
+    const maxBytes = options.maxBytes ?? DEFAULT_MAX_TOUR_SOURCE_BYTES;
+    if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > maxBytes || text.includes('\0')) {
+        throw new Error('Invalid tour text or source size limit exceeded.');
+    }
     let documents;
     try {
         documents = loadYamlDocuments(text);
@@ -84,5 +92,6 @@ module.exports = {
     DEFAULT_MAX_TOUR_SOURCE_BYTES,
     buildManifestForTourSource,
     loadTourSource,
+    parseTourSourceText,
     readTourSourceDocument
 };
