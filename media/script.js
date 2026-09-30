@@ -1702,7 +1702,7 @@ function initializeFilePathContextMenu() {
 
     document.addEventListener('contextmenu', (event) => {
         const target = event.target instanceof Element ? event.target : null;
-        if (!target || target.closest('.monaco-editor')) return;
+        if (!target || target.closest('.monaco-editor, [data-commit-row]')) return;
         const paths = getCopyableFilePaths(target.closest('[data-file-path], [data-file-paths]'));
         if (paths.length === 0) return;
 
@@ -1811,6 +1811,7 @@ function initializeNonEditorTextTooltips() {
 }
 
 function findTruncatedTextElement(start) {
+    if (start.closest('[data-commit-row]')) return null;
     for (let element = start; element && element !== document.body; element = element.parentElement) {
         if (isTextTooltipCandidate(element)
             && getElementFullText(element)
@@ -2389,6 +2390,7 @@ function initializeDirectoryTreeToolbar() {
 function initializeHistoryRail() {
     const rail = getElement('history-rail');
     const showButton = getElement('show-navigation-sidebar');
+    dismissHistoryRailOverlays = initializeCommitRailActions(rail);
 
     applyNavigationSidebarWidth();
     window.addEventListener('bygone:present-navigator-change', renderHistoryRail);
@@ -2401,6 +2403,7 @@ function initializeHistoryRail() {
     });
 
     rail.addEventListener('click', (event) => {
+        if (event.target instanceof Element && event.target.closest('[data-rail-menu]')) return;
         const target = event.target instanceof Element ? event.target.closest('[data-rail-tab], [data-rail-item], [data-rail-select], [data-rail-collapse]') : null;
         if (!target) {
             return;
@@ -2418,7 +2421,8 @@ function initializeHistoryRail() {
             if (Number.isInteger(itemIndex)) {
                 const item = getHistoryRailItems(target.getAttribute('data-rail-tab') || activeHistoryRailTabId)
                     .find((candidate) => candidate.index === itemIndex);
-                if (item) item.selected = !item.selected;
+                if (!item || item.selectionEnabled === false) return;
+                item.selected = !item.selected;
                 renderHistoryRail();
                 host.postMessage({ type: 'toggleHistorySelection', index: itemIndex });
             }
@@ -2497,6 +2501,155 @@ function initializeHistoryRail() {
         setNavigationSidebarWidth(nextWidth);
         storeSidebarWidth(NAVIGATION_SIDEBAR_STORAGE_KEY, navigationRailWidth);
     });
+}
+
+let dismissHistoryRailOverlays = () => {};
+
+function commitRailDetails(item) {
+    return [
+        item.message || item.summary || item.label,
+        item.author ? `Author: ${item.author}${item.authorEmail ? ` <${item.authorEmail}>` : ''}` : '',
+        item.timestamp || item.meta ? `Date: ${item.timestamp || item.meta}` : '',
+        item.commit ? `Revision: ${item.commit}` : '',
+        item.parents?.length ? `Parents: ${item.parents.join(', ')}` : ''
+    ].filter(Boolean).join('\n\n');
+}
+
+function initializeCommitRailActions(rail) {
+    const menu = document.createElement('div');
+    menu.className = 'file-path-context-menu commit-context-menu';
+    menu.setAttribute('role', 'menu');
+    menu.hidden = true;
+    const details = document.createElement('div');
+    details.className = 'commit-hover-details';
+    details.id = 'commit-hover-details';
+    details.setAttribute('role', 'tooltip');
+    details.hidden = true;
+    document.body.append(menu, details);
+    let timer;
+    let origin;
+    let pinned = false;
+    let restoringFocus = false;
+    const rowFor = (target) => target instanceof Element ? target.closest('[data-commit-row]') : null;
+    const itemFor = (row) => row && getHistoryRailItems(row.dataset.railTab).find((item) => item.index === Number(row.dataset.railIndex));
+    const close = (restoreFocus = false) => {
+        clearTimeout(timer);
+        menu.hidden = true;
+        details.hidden = true;
+        pinned = false;
+        origin?.removeAttribute('aria-describedby');
+        if (origin?.hasAttribute('data-rail-menu')) origin.setAttribute('aria-expanded', 'false');
+        if (restoreFocus && origin?.isConnected) {
+            restoringFocus = true;
+            origin.focus({ preventScroll: true });
+            restoringFocus = false;
+        }
+    };
+    const position = (element, x, y) => {
+        element.hidden = false;
+        const bounds = element.getBoundingClientRect();
+        element.style.left = `${Math.max(4, Math.min(x, window.innerWidth - bounds.width - 4))}px`;
+        element.style.top = `${Math.max(4, Math.min(y, window.innerHeight - bounds.height - 4))}px`;
+    };
+    const showDetails = (row, persist = false) => {
+        const item = itemFor(row);
+        if (!item) return;
+        close();
+        origin = row.querySelector('[data-rail-item], [data-rail-select]');
+        pinned = persist;
+        details.textContent = commitRailDetails(item);
+        origin?.setAttribute('aria-describedby', details.id);
+        const bounds = row.getBoundingClientRect();
+        position(details, bounds.right + 8, bounds.top);
+    };
+    const showMenu = (row, x, y) => {
+        const item = itemFor(row);
+        if (!item) return;
+        close();
+        origin = row.querySelector('[data-rail-menu]');
+        origin?.setAttribute('aria-expanded', 'true');
+        menu.replaceChildren();
+        const actions = [
+            { label: 'Jump to this commit', run: () => {
+                if (item.kind === 'panel-revision' && item.panelNumber) {
+                    const panel = multiPanels[item.panelNumber - 1];
+                    if (panel) setActiveMultiPanel(panel.id, true);
+                    else if (item.panelNumber === 1) leftEditor?.focus();
+                    else if (item.panelNumber === 2) rightEditor?.focus();
+                } else host.postMessage({ type: 'selectHistoryEntry', index: item.index });
+            } },
+            { label: 'View commit details', run: () => showDetails(row, true) },
+            ...(item.selectionEnabled !== false && item.parents?.length ? [{ label: 'Compare with parent', run: () => host.postMessage({ type: 'compareHistoryEntry', index: item.index }) }] : []),
+            ...(item.commit ? [{ label: ['WORKTREE', 'INDEX', 'EMPTY'].includes(item.commit) ? 'Copy revision' : 'Copy SHA', run: () => { void copyTextToClipboard(item.commit); } }] : [])
+        ];
+        actions.forEach((action) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.setAttribute('role', 'menuitem');
+            button.textContent = action.label;
+            button.addEventListener('click', () => { close(true); action.run(); });
+            menu.appendChild(button);
+        });
+        position(menu, x, y);
+        menu.querySelector('button')?.focus();
+    };
+    rail.addEventListener('click', (event) => {
+        const button = event.target instanceof Element ? event.target.closest('[data-rail-menu]') : null;
+        if (!button) return;
+        const bounds = button.getBoundingClientRect();
+        showMenu(rowFor(button), bounds.left, bounds.bottom + 4);
+    });
+    rail.addEventListener('contextmenu', (event) => {
+        const row = rowFor(event.target);
+        if (!row) return;
+        event.preventDefault();
+        event.stopPropagation();
+        showMenu(row, event.clientX, event.clientY);
+    });
+    rail.addEventListener('keydown', (event) => {
+        if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) return;
+        const row = rowFor(event.target);
+        if (!row) return;
+        event.preventDefault();
+        const bounds = row.getBoundingClientRect();
+        showMenu(row, bounds.left, bounds.bottom);
+    });
+    const scheduleDetails = (event) => {
+        const row = rowFor(event.target);
+        if (!row || restoringFocus || pinned || !menu.hidden || row.contains(event.relatedTarget)) return;
+        clearTimeout(timer);
+        timer = setTimeout(() => showDetails(row), 450);
+    };
+    rail.addEventListener('mouseover', scheduleDetails);
+    rail.addEventListener('focusin', scheduleDetails);
+    const hideDetails = (event) => {
+        const row = rowFor(event.target);
+        if (!row || row.contains(event.relatedTarget) || pinned || !menu.hidden) return;
+        clearTimeout(timer);
+        timer = setTimeout(() => close(), 150);
+    };
+    rail.addEventListener('mouseout', hideDetails);
+    rail.addEventListener('focusout', hideDetails);
+    details.addEventListener('mouseenter', () => clearTimeout(timer));
+    details.addEventListener('mouseleave', () => { if (!pinned) close(); });
+    rail.addEventListener('scroll', () => close(), true);
+    document.addEventListener('pointerdown', (event) => {
+        if (!menu.contains(event.target) && !details.contains(event.target)) close();
+    }, true);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && (!menu.hidden || !details.hidden)) { event.preventDefault(); close(true); }
+        if (menu.hidden) return;
+        const buttons = [...menu.querySelectorAll('button')];
+        const index = buttons.indexOf(document.activeElement);
+        if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+            event.preventDefault();
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+            buttons[next]?.focus();
+        } else if (event.key === 'Tab') close();
+    });
+    window.addEventListener('blur', () => close());
+    window.addEventListener('resize', () => close());
+    return close;
 }
 
 function initializeDirectoryReturnToolbar() {
@@ -4871,6 +5024,7 @@ function updateNavigationRail(historyRail, kind) {
 }
 
 function renderHistoryRail() {
+    dismissHistoryRailOverlays();
     const rail = getElement('history-rail');
     const previousScroll = rail.querySelector('.history-rail-list')?.scrollTop || 0;
     const focused = document.activeElement?.closest('[data-rail-select], [data-rail-item]');
@@ -4931,7 +5085,7 @@ function renderHistoryRail() {
         ])
     ].join('');
     rail.querySelector('.history-rail-list').scrollTop = previousScroll;
-    if (focusedIndex !== undefined && focusedIndex !== null) rail.querySelector(`[${focusedKind}][data-rail-index="${focusedIndex}"]`)?.focus({ preventScroll: true });
+    if (focusedIndex !== undefined && focusedIndex !== null) rail.querySelector(`button[${focusedKind}][data-rail-index="${focusedIndex}"]`)?.focus({ preventScroll: true });
 }
 
 function maximumNavigationSidebarWidth() {
@@ -4977,21 +5131,27 @@ function renderHistoryRailItem(item, tabId, index) {
         ? ` data-rail-path="${escapeAttr(item.relativePath)}" data-file-path="${escapeAttr(item.relativePath)}"`
         : '';
 
-    const action = item.kind === 'directory-entry' ? 'Open file' : 'Preview history entry';
-    const selection = item.selectionEnabled !== false && (item.kind === 'history-entry' || (item.kind === 'panel-revision' && item.commit))
-        ? `<button class="history-rail-selection${item.selected ? ' selected' : ''}" type="button" role="checkbox" aria-checked="${String(Boolean(item.selected))}" title="${item.selected ? 'Remove from' : 'Add to'} comparison" data-rail-select="true" data-rail-tab="${escapeAttr(tabId)}"${indexAttr}>${item.selected ? '✓' : ''}</button>`
-        : `<span class="history-rail-marker">${escapeHtml(marker)}</span>`;
+    const selectable = item.selectionEnabled !== false && (item.kind === 'history-entry' || (item.kind === 'panel-revision' && item.commit));
+    const isCommit = item.kind === 'history-entry' || item.kind === 'panel-revision';
+    const action = selectable ? `${item.selected ? 'Remove from' : 'Add to'} comparison` : item.kind === 'directory-entry' ? 'Open file' : 'Jump to this commit';
+    const rowAttrs = `data-rail-tab="${escapeAttr(tabId)}"${indexAttr}`;
+    const selectionAttrs = selectable ? ` data-rail-select="true"` : '';
+    const selection = selectable
+        ? `<span class="history-rail-selection-indicator" aria-hidden="true">${item.selected ? '✓' : ''}</span>`
+        : '';
     const panelBadge = item.panelNumber
         ? `<span class="history-rail-panel-badge" title="Active comparison panel ${item.panelNumber}" aria-label="Active comparison panel ${item.panelNumber}">${item.panelNumber}</span>`
         : '';
     const fileMarker = item.changesFile ? '<span class="history-file-change" title="Changed the current file" aria-label="Changed the current file">●</span>' : '';
     const tourMarker = item.inTour ? '<span class="history-tour-marker" role="img" title="In tour range" aria-label="In tour range"></span>' : '';
     const metadata = meta || fileMarker ? `<span class="history-rail-metadata">${fileMarker}${meta}</span>` : '';
-    return `<div class="history-rail-item${activeClass}${panelClass}${statusClass}"${item.panelNumber ? ` data-rail-panel="${item.panelNumber}"` : ''}>`
-        + tourMarker + selection
-        + `<button class="history-rail-entry" type="button" title="${action}: ${escapeAttr(item.label)}" data-rail-item="true" data-rail-tab="${escapeAttr(tabId)}"${kindAttr}${indexAttr}${pathAttr}>`
-        + `<span class="history-rail-text"><span class="history-rail-label">${escapeHtml(item.label)}</span>${metadata}</span>${panelBadge}`
-        + `</button></div>`;
+    return `<div class="history-rail-item${activeClass}${panelClass}${statusClass}${selectable && item.selected ? ' selected' : ''}" ${rowAttrs}${selectionAttrs}${isCommit ? ' data-commit-row' : ''}${item.panelNumber ? ` data-rail-panel="${item.panelNumber}"` : ''}>`
+        + tourMarker + (isCommit ? '' : `<span class="history-rail-marker">${escapeHtml(marker)}</span>`)
+        + `<button class="history-rail-entry" type="button" ${selectable ? `role="checkbox" aria-checked="${String(Boolean(item.selected))}"` : ''} aria-label="${action}: ${escapeAttr(item.label)}"${isCommit ? '' : ` title="${action}: ${escapeAttr(item.label)}"`} data-rail-item="true"${selectionAttrs} ${rowAttrs}${kindAttr}${pathAttr}>`
+        + `<span class="history-rail-text"><span class="history-rail-label">${escapeHtml(item.label)}</span>${metadata}</span>${panelBadge}${selection}`
+        + `</button>`
+        + (isCommit ? `<button class="history-rail-menu" type="button" title="Commit actions" aria-label="Actions for ${escapeAttr(item.label)}" aria-haspopup="menu" aria-expanded="false" data-rail-menu ${rowAttrs}>⋯</button>` : '')
+        + `</div>`;
 }
 
 function getHistoryRailItems(tabId) {

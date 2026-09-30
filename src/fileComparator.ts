@@ -664,6 +664,10 @@ export class FileComparator implements vscode.Disposable {
         const items: HistoryRailItem[] = this.fileHistoryEntries.map((historyEntry, index) => ({
             label: `${historyEntry.shortCommit} ${historyEntry.summary}`.trim() || historyEntry.shortCommit,
             meta: historyEntry.timestamp,
+            commit: historyEntry.commit, summary: historyEntry.summary, timestamp: historyEntry.timestamp,
+            parents: historyEntry.parents || (historyEntry.parentCommit ? [historyEntry.parentCommit] : []),
+            author: historyEntry.author, authorEmail: historyEntry.authorEmail, message: historyEntry.message,
+            selectionEnabled: false,
             active: index === this.fileHistoryIndex,
             kind: 'history-entry',
             index

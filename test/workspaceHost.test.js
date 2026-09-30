@@ -197,6 +197,34 @@ test('canceled dirty mode transition is atomic', async () => {
     assert.equal(workspace.uiState().mode, 'compare');
 });
 
+test('explicit commit actions preserve the comparison draft', async () => {
+    const fixture = makeHost(nativeSession());
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    workspace.augment(showMessage());
+    await workspace.handle({ type: 'toggleHistorySelection', index: 1 });
+    const draft = workspace.uiState().selectionCount;
+    await workspace.handle({ type: 'selectHistoryEntry', index: 0 });
+    assert.equal(workspace.uiState().mode, 'history');
+    assert.ok(fixture.session.workspaceView.revisions.includes(B));
+    assert.equal(workspace.uiState().selectionCount, draft);
+    await workspace.handle({ type: 'compareHistoryEntry', index: 0 });
+    assert.equal(workspace.uiState().mode, 'compare');
+    assert.deepEqual(fixture.session.workspaceView.revisions, [A, B]);
+    assert.equal(workspace.uiState().selectionCount, draft);
+});
+
+test('canceling a commit jump preserves the current session and draft', async () => {
+    const original = nativeSession();
+    const fixture = makeHost(original, { confirm: false, unsaved: true });
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    workspace.augment(showMessage());
+    await workspace.handle({ type: 'toggleHistorySelection', index: 1 });
+    await workspace.handle({ type: 'selectHistoryEntry', index: 0 });
+    assert.equal(fixture.session, original);
+    assert.equal(workspace.uiState().selectionCount, 1);
+    assert.equal(workspace.uiState().mode, 'compare');
+});
+
 test('canceling tour entry disposes the returned tour and leaves native state unchanged', async () => {
     const original = nativeSession();
     let disposed = 0;

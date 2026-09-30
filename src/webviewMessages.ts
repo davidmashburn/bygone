@@ -29,6 +29,14 @@ export interface FileNavigationState {
 
 export interface HistoryRailItem {
     label: string;
+    commit?: string;
+    summary?: string;
+    timestamp?: string;
+    author?: string;
+    authorEmail?: string;
+    message?: string;
+    parents?: string[];
+    selectionEnabled?: boolean;
     meta?: string;
     active?: boolean;
     selected?: boolean;

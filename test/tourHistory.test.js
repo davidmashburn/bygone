@@ -15,7 +15,7 @@ test('v2 history follows renames, renders creation/deletion, and lands before an
         git('config', 'user.name', 'Test');
         fs.writeFileSync(path.join(root, 'before.txt'), 'original\n');
         git('add', '.');
-        git('commit', '-m', 'Create file');
+        git('commit', '-m', 'Create file', '-m', 'Full message body\nwith a second line\tand a tab.');
         const first = git('rev-parse', 'HEAD');
         git('mv', 'before.txt', 'after.txt');
         git('commit', '-m', 'Rename file');
@@ -38,6 +38,10 @@ test('v2 history follows renames, renders creation/deletion, and lands before an
         assert.deepEqual(all.entries.map(entry => entry.commit), [deletion, unrelated, rename, first]);
         assert.deepEqual(all.entries[0].parents, [unrelated]);
         assert.deepEqual(all.entries.at(-1).parents, []);
+        assert.equal(all.entries.at(-1).author, 'Test');
+        assert.equal(all.entries.at(-1).authorEmail, 'test@example.com');
+        assert.equal(all.entries.at(-1).message, 'Create file\n\nFull message body\nwith a second line\tand a tab.');
+        assert.equal(list.entries.at(-1).message, all.entries.at(-1).message);
         const unchanged = history.diff({ path: 'after.txt', commit: unrelated, head: deletion });
         assert.equal(unchanged.rightContent, 'original\n');
         assert.equal(unchanged.leftContent, unchanged.rightContent);

@@ -109,6 +109,9 @@ function createWorkspaceHost(host, git) {
                     history: entries.map((entry, index) => ({
                         kind: index < history.entries.length ? 'history-entry' : 'panel-revision', index, commit: entry.commit,
                         label: `${entry.shortCommit} ${entry.summary}`.trim(), meta: entry.timestamp,
+                        summary: entry.summary, timestamp: entry.timestamp, author: entry.author,
+                        authorEmail: entry.authorEmail, message: entry.message,
+                        parents: entry.parents || (entry.parentCommit ? [entry.parentCommit] : []),
                         selectionEnabled: index < history.entries.length, selected: current.draft.includes(entry.commit),
                         active: active === entry.commit, changesFile: changes.has(entry.commit),
                         panelNumber: hasRevisionPanels ? revisions.indexOf(entry.commit) + 1 || undefined : undefined
@@ -257,7 +260,7 @@ function createWorkspaceHost(host, git) {
         const workspaceAction = message.type.startsWith('workspace');
         const current = host.getSession();
         const derived = Boolean(current.workspaceView);
-        const sharedAction = message.type === 'toggleHistorySelection' || message.type === 'selectHistoryEntry';
+        const sharedAction = ['toggleHistorySelection', 'selectHistoryEntry', 'compareHistoryEntry'].includes(message.type);
         const derivedAction = derived && ['refreshSession', 'selectHistoryEntry', 'historyBack', 'historyForward', 'openDirectoryEntry', 'navigateFile', 'multiAddPanel', 'multiRemovePanel', 'historyToggleStaged', 'historyToggleSkipUnchanged'].includes(message.type);
         if (!workspaceAction && !sharedAction && !derivedAction) return false;
         ensure();
@@ -308,11 +311,20 @@ function createWorkspaceHost(host, git) {
                         host.send({ type: 'workspaceTour', url: tour.url, mode: state.tourMode, workspace: uiState() });
                     }
                 } finally { if (!accepted) tour?.dispose?.(); }
+            } else if (message.type === 'compareHistoryEntry') {
+                const entry = backend().entries[message.index];
+                if (entry?.parentCommit) {
+                    const next = makeSession('compare', [entry.parentCommit, entry.commit], activePath());
+                    if (await leave()) await install(makeSession('compare', next.workspaceView.revisions, next.workspaceView.path), 'compare');
+                }
             } else if (message.type === 'selectHistoryEntry' && state.mode === 'compare') {
                 const revision = backend().entries[message.index]?.commit;
                 const panel = current.multi?.files.find((item) => item.revision === revision);
                 if (panel) { current.multi.activePanelId = panel.id; host.send({ type: 'focusHistoryPanel', panelId: panel.id }); }
-                else { state.status = 'Select commits with the checkboxes, then choose Compare selected.'; update(); }
+                else if (revision) {
+                    const next = makeSession('history', windowAround(backend().entries, message.index, Math.max(2, current.multi?.files.length || 2)), activePath());
+                    if (await leave()) await install(makeSession('history', next.workspaceView.revisions, next.workspaceView.path), 'history');
+                }
             } else if (derivedAction) {
                 if (message.type === 'refreshSession') {
                     if (!await leave()) return true;

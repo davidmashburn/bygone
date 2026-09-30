@@ -32,6 +32,10 @@ export interface WorkspaceHistoryEntry {
     shortCommit: string;
     summary: string;
     timestamp: string;
+    author?: string;
+    authorEmail?: string;
+    message?: string;
+    parents?: string[];
 }
 
 export interface WorkspaceHistoryReadResult {
@@ -65,6 +69,10 @@ interface CommitMetadata {
     timestamp: string;
     summary: string;
     parentCommit: string | null;
+    author: string;
+    authorEmail: string;
+    message: string;
+    parents: string[];
 }
 
 interface SafeWorkingTreePath {
@@ -126,7 +134,11 @@ export function createWorkspaceHistory(
             parentCommit: entry.parentCommit,
             shortCommit: entry.shortCommit,
             summary: entry.summary,
-            timestamp: entry.timestamp
+            timestamp: entry.timestamp,
+            author: entry.author,
+            authorEmail: entry.authorEmail,
+            message: entry.message,
+            parents: entry.parents
         }))
     ];
     const changedCommitsCache = new Map<string, string[]>();
@@ -438,7 +450,7 @@ function readCommitMetadataBatch(
         'log',
         '--topo-order',
         '--reverse',
-        '--format=%H%x00%h%x00%cI%x00%s%x00%P%x1e',
+        '--format=%H%x00%h%x00%cI%x00%s%x00%P%x00%an%x00%ae%x00%B%x1e',
         ...selectedRoots.slice().sort()
     ], repoRoot, MAX_GIT_METADATA_BYTES);
     const axisSet = new Set(axis);
@@ -448,7 +460,7 @@ function readCommitMetadataBatch(
         if (!record) {
             continue;
         }
-        const [commit = '', shortCommit = '', timestamp = '', summary = '', parentField = ''] = record.split('\0');
+        const [commit = '', shortCommit = '', timestamp = '', summary = '', parentField = '', author = '', authorEmail = '', message = ''] = record.split('\0');
         if (!axisSet.has(commit)) {
             continue;
         }
@@ -457,6 +469,10 @@ function readCommitMetadataBatch(
             shortCommit: shortCommit || commit.slice(0, 7),
             timestamp,
             summary,
+            author,
+            authorEmail,
+            message: message.trimEnd(),
+            parents: parentField.split(' ').filter(Boolean),
             parentCommit: parentField.split(' ').find(Boolean) ?? null
         });
     }

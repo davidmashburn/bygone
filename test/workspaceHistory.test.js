@@ -81,6 +81,11 @@ test('builds a deterministic all-commit axis and historical path union', (t) => 
     assert.ok(commits.indexOf(fixture.main) < commits.indexOf(fixture.base));
     assert.ok(commits.indexOf(fixture.side) < commits.indexOf(fixture.base));
     assert.equal(history.entries.find((entry) => entry.commit === fixture.main).summary, 'unrelated main change');
+    const mainEntry = history.entries.find((entry) => entry.commit === fixture.main);
+    assert.equal(mainEntry.author, 'Workspace History');
+    assert.equal(mainEntry.authorEmail, 'workspace-history@example.test');
+    assert.equal(mainEntry.message, 'unrelated main change');
+    assert.deepEqual(mainEntry.parents, [fixture.base]);
     assert.equal(history.entries.find((entry) => entry.commit === fixture.base).parentCommit, null);
 
     assert.deepEqual(history.files, ['new.txt', 'old.txt', 'other.txt', 'side.txt', 'tracked.txt']);

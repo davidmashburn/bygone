@@ -511,7 +511,12 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /renderAuthoringCoverage\(authoringCoverage, tour\.authoringCoverage\)/);
     assert.match(hostSource, /label: 'Anchored diff hunks'/);
     assert.match(hostSource, /metric: 'assignment'/);
+    assert.match(hostSource, /item\.dataset\.tooltip = row\.description/);
+    assert.match(hostSource, /item\.tabIndex = 0/);
+    assert.match(hostSource, /item\.setAttribute\('aria-description', row\.description\)/);
     assert.match(presenterSource, /\.tour-coverage-item\[data-metric="assignment"\]/);
+    assert.match(presenterSource, /\.tour-coverage-item\[data-tooltip\]::after/);
+    assert.match(presenterSource, /\.tour-coverage-item\[data-tooltip\]:focus-visible::after/);
     assert.match(presenterSource, /\.tour-navigator-tabs[\s\S]{0,140}grid-template-columns: repeat\(3/);
     assert.match(presenterSource, /#history-rail\.present-navigation-rail/);
     assert.match(rendererSource, /tourHost = document\.getElementById\('tour-commits-host'\)/);
@@ -3762,12 +3767,16 @@ function testHistoryOmitsCleanWorkingTree() {
     runGit(repo, ['add', 'example.txt']);
     runGit(repo, ['commit', '-m', 'initial']);
     fs.writeFileSync(filePath, 'two\n', 'utf8');
-    runGit(repo, ['commit', '-am', 'second']);
+    runGit(repo, ['commit', '-am', 'second', '-m', 'Full body\nwith another line\tand a tab.']);
 
     const history = new GitHistoryService().buildFileHistory(filePath);
 
     assert.equal(history[0].shortCommit, shortCommit(repo, 'HEAD'));
     assert.notEqual(history[0].commit, 'WORKTREE');
+    assert.equal(history[0].message, 'second\n\nFull body\nwith another line\tand a tab.');
+    assert.ok(history[0].author);
+    assert.ok(history[0].authorEmail);
+    assert.deepEqual(history[0].parents, [runGit(repo, ['rev-parse', 'HEAD^']).trim()]);
 }
 
 function testHistoryPrependsDirtyWorkingTree() {
@@ -4566,8 +4575,8 @@ async function testPresentHistoryUsesStableCommitAxis() {
 
 function testCommitRowMarkersStayIndependent() {
     const styles = fs.readFileSync(path.join(__dirname, '../media/style.css'), 'utf8');
-    assert.match(styles, /\.history-rail-selection\s*\{[^}]*align-self:\s*center;/);
-    assert.match(styles, /\.history-rail-selection\s*\{[^}]*margin-inline-start:\s*8px;/);
+    assert.match(styles, /\.history-rail-selection-indicator\s*\{[^}]*align-self:\s*center;/);
+    assert.match(styles, /\.history-rail-item\.selected\s*\{[^}]*box-shadow:/);
     const source = fs.readFileSync(path.join(__dirname, '../media/script.js'), 'utf8');
     const start = source.indexOf('function renderHistoryRailItem(');
     const end = source.indexOf('function getHistoryRailItems(', start);
@@ -4586,9 +4595,12 @@ function testCommitRowMarkersStayIndependent() {
         assert.equal(html.includes('class="history-rail-panel-badge"'), Boolean(item.panelNumber));
         assert.equal(html.includes(' panel-active'), Boolean(item.panelNumber));
         assert.equal(html.includes('aria-checked="true"'), item.selected);
-        assert.doesNotMatch(html, />Tour<|history-rail-item[^"\n]*selected/);
+        assert.doesNotMatch(html, />Tour</);
+        assert.equal(/history-rail-item[^"\n]*selected/.test(html), item.selected);
+        assert.match(html, /data-rail-menu/);
+        assert.doesNotMatch(html, /<button class="history-rail-selection/);
         if (item.inTour) {
-            assert.ok(html.indexOf('history-tour-marker') < html.indexOf('history-rail-selection'), 'Tour stripe sits outside the checkbox');
+            assert.ok(html.indexOf('history-tour-marker') < html.indexOf('history-rail-entry'), 'Tour stripe stays independent of selection');
         }
         if (item.changesFile) {
             assert.match(html, /history-rail-metadata"><span class="history-file-change"[^>]*>●<\/span><span class="history-rail-meta">/);
@@ -4597,6 +4609,19 @@ function testCommitRowMarkersStayIndependent() {
             assert.match(html, /<\/span><\/span><span class="history-rail-panel-badge"/);
         }
     }
+    const legacy = render({ kind: 'history-entry', label: 'Legacy history', selectionEnabled: false }, 'history', 0);
+    assert.doesNotMatch(legacy, /data-rail-select|role="checkbox"/);
+    const directory = render({ kind: 'directory-entry', label: 'file.txt', relativePath: 'file.txt' }, 'files', 0);
+    assert.doesNotMatch(directory, /data-commit-row|data-rail-menu|data-rail-select/);
+    const detailStart = source.indexOf('function commitRailDetails(');
+    const detailEnd = source.indexOf('function initializeCommitRailActions(', detailStart);
+    const details = new Function(`${source.slice(detailStart, detailEnd)}; return commitRailDetails;`)();
+    const detailText = details({ message: 'Title\n\nFull body\twith tabs', author: 'Test', authorEmail: 'test@example.com', timestamp: '2026-09-30', commit: 'abcdef', parents: ['parent1', 'parent2'] });
+    assert.match(detailText, /Title\n\nFull body\twith tabs/);
+    assert.match(detailText, /Author: Test <test@example.com>/);
+    assert.match(detailText, /Date: 2026-09-30/);
+    assert.match(detailText, /Revision: abcdef/);
+    assert.match(detailText, /Parents: parent1, parent2/);
     const markup = fs.readFileSync(path.join(__dirname, '../web/index.html'), 'utf8');
     assert.match(markup, /class="tour-range-swatch" aria-hidden="true"><\/span>Tour range/);
     assert.doesNotMatch(markup, /Tour =/);

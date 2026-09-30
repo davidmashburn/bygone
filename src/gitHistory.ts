@@ -15,6 +15,10 @@ export interface FileHistoryEntry {
     shortCommit: string;
     summary: string;
     timestamp: string;
+    author?: string;
+    authorEmail?: string;
+    message?: string;
+    parents?: string[];
     parentSummary: string;
     parentTimestamp: string;
     leftLabel: string;
@@ -29,6 +33,10 @@ export interface FileHistoryEntryDescriptor {
     shortCommit: string;
     summary: string;
     timestamp: string;
+    author?: string;
+    authorEmail?: string;
+    message?: string;
+    parents?: string[];
     parentSummary: string;
     parentTimestamp: string;
     leftLabel: string;
@@ -47,6 +55,10 @@ interface HistoryCommitRecord {
     timestamp: string;
     summary: string;
     parentCommit?: string;
+    author?: string;
+    authorEmail?: string;
+    message?: string;
+    parents?: string[];
 }
 
 interface CommitMetadata {
@@ -215,6 +227,10 @@ export class GitHistoryService {
             shortCommit: commit.shortCommit,
             summary: commit.summary,
             timestamp: commit.timestamp,
+            author: commit.author,
+            authorEmail: commit.authorEmail,
+            message: commit.message,
+            parents: commit.parents,
             parentSummary: parentMetadata.summary,
             parentTimestamp: parentMetadata.timestamp,
             leftLabel: `${fileName} @ ${parentCommit.slice(0, 7)}`,
@@ -232,6 +248,10 @@ export class GitHistoryService {
             shortCommit: entry.shortCommit,
             summary: entry.summary,
             timestamp: entry.timestamp,
+            author: entry.author,
+            authorEmail: entry.authorEmail,
+            message: entry.message,
+            parents: entry.parents,
             parentSummary: entry.parentSummary,
             parentTimestamp: entry.parentTimestamp,
             leftLabel: entry.leftLabel,
@@ -256,7 +276,7 @@ export class GitHistoryService {
                 '--max-count',
                 String(maxCommits),
                 '--follow',
-                '--format=%H%x09%h%x09%cI%x09%s%x09%P',
+                '--format=%H%x00%h%x00%cI%x00%s%x00%P%x00%an%x00%ae%x00%B%x1e',
                 '--',
                 relativePath
             ], {
@@ -337,24 +357,15 @@ export class GitHistoryService {
 
     private parseHistoryCommitRecords(logOutput: string): HistoryCommitRecord[] {
         return logOutput
-            .split('\n')
-            .map((line) => line.trim())
-            .filter((line) => line.length > 0)
-            .map((line) => {
-                const parts = line.split('\t');
-                const commit = parts[0];
-                const shortCommit = parts[1];
-                const timestamp = parts[2];
-                const hasParentField = parts.length >= 5;
-                const parentField = hasParentField ? (parts[parts.length - 1] || '') : '';
-                const summaryParts = hasParentField ? parts.slice(3, -1) : parts.slice(3);
-                const firstParentCommit = parentField.split(' ').find((candidate) => candidate.length > 0);
+            .split('\x1e')
+            .map((record) => record.replace(/^\n+|\n+$/g, ''))
+            .filter(Boolean)
+            .map((record) => {
+                const [commit, shortCommit, timestamp, summary, parentField, author, authorEmail, message] = record.split('\0');
+                const parents = parentField.split(' ').filter(Boolean);
                 return {
-                    commit,
-                    shortCommit,
-                    timestamp,
-                    summary: summaryParts.join('\t'),
-                    parentCommit: firstParentCommit
+                    commit, shortCommit, timestamp, summary, author, authorEmail,
+                    message: message.trimEnd(), parents, parentCommit: parents[0]
                 };
             });
     }

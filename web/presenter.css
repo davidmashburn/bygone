@@ -253,10 +253,42 @@ body.tour-mode #container {
 }
 
 .tour-coverage-item {
+    position: relative;
     display: grid;
     gap: 5px;
     padding-left: 8px;
     border-left: 2px solid var(--tour-accent-bright);
+}
+
+.tour-coverage-item[data-tooltip]::after {
+    position: absolute;
+    z-index: 4;
+    top: calc(100% + 6px);
+    left: 0;
+    width: max-content;
+    max-width: min(250px, calc(var(--tour-rail-width) - 40px));
+    box-sizing: border-box;
+    padding: 6px 8px;
+    content: attr(data-tooltip);
+    color: var(--tour-body);
+    border: 1px solid var(--tour-border);
+    border-radius: 4px;
+    background: #242733;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.38);
+    line-height: 1.4;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 80ms ease-out;
+}
+
+.tour-coverage-item[data-tooltip]:hover::after,
+.tour-coverage-item[data-tooltip]:focus-visible::after {
+    opacity: 1;
+}
+
+.tour-coverage-item:focus-visible {
+    outline: 2px solid var(--tour-accent-bright);
+    outline-offset: 3px;
 }
 
 .tour-coverage-item[data-metric="assignment"] {

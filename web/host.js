@@ -663,6 +663,9 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
                     history: entries.map((item, itemIndex) => ({
                         label: `${item.shortCommit} ${item.summary}`.trim(),
                         meta: item.timestamp,
+                        commit: item.commit, summary: item.summary, timestamp: item.timestamp,
+                        author: item.author, authorEmail: item.authorEmail, message: item.message,
+                        parents: item.parents,
                         active: itemIndex === index,
                         selected: state.comparisonDraftCommits.includes(item.commit),
                         kind: 'history-entry',
@@ -997,6 +1000,11 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
                 renderComparisonControls();
                 return;
             }
+            if (message.type === 'compareHistoryEntry' && Number.isInteger(message.index)) {
+                const entry = state.historyEntries[message.index];
+                if (entry?.parentCommit) void openComparison({ commits: [entry.parentCommit, entry.commit], path: state.activeTourFilePath }).catch(reportModeError);
+                return;
+            }
             if (message.type === 'selectHistoryEntry' && Number.isInteger(message.index)) {
                 const entry = state.historyEntries[message.index];
                 if (entry && state.zoom?.mode === 'history') {
@@ -1007,7 +1015,11 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
                 if (entry && state.zoom?.mode !== 'history') {
                     const panel = state.displayedPanels.find((item) => item.commit === entry.commit);
                     if (panel) emit({ type: 'focusHistoryPanel', panelId: panel.id });
-                    else document.getElementById('tour-mode-status').textContent = `${entry.shortCommit} ${entry.summary} · ${entry.timestamp}${entry.parents?.length ? ` · Parents: ${entry.parents.map((parent) => parent.slice(0, 7)).join(', ')}` : ''}. Select its checkbox to include it in a comparison.`;
+                    else {
+                        state.historyCommit = entry.commit;
+                        state.historyPath = state.activeTourFilePath || state.historyPath;
+                        void switchZoomMode('history').catch(reportModeError);
+                    }
                 }
                 return;
             }
@@ -1958,7 +1970,10 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
             const item = document.createElement('div');
             item.className = 'tour-coverage-item';
             item.dataset.metric = row.metric;
+            item.dataset.tooltip = row.description;
+            item.tabIndex = 0;
             item.title = row.description;
+            item.setAttribute('aria-description', row.description);
             const heading = document.createElement('div');
             heading.className = 'tour-coverage-heading';
             const label = document.createElement('span');

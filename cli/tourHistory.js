@@ -49,11 +49,11 @@ function requireInput(input) {
 }
 
 function listCommitHistory(root, commit) {
-    const output = git(root, ['log', '--topo-order', '--format=%x1e%H%x00%P%x00%s%x00%cI%x00', commit, '--']);
+    const output = git(root, ['log', '--topo-order', '--format=%x1e%H%x00%P%x00%s%x00%cI%x00%an%x00%ae%x00%B%x00', commit, '--']);
     const entries = [];
     for (const record of output.split('\x1e').slice(1)) {
         const fields = record.split('\0');
-        const [oid, parents, summary, timestamp] = fields;
+        const [oid, parents, summary, timestamp, author, authorEmail, message] = fields;
         if (!oid) continue;
         entries.push({
             commit: oid,
@@ -62,7 +62,7 @@ function listCommitHistory(root, commit) {
             parents: parents.split(' ').filter(Boolean),
             shortCommit: oid.slice(0, 7),
             summary,
-            timestamp
+            timestamp, author, authorEmail, message: message.trimEnd()
         });
     }
     return entries;
@@ -342,17 +342,18 @@ function createTourHistory(manifest) {
             // Follow the file backwards from the requested revision, including deleted
             // files and rename records; no working-tree file needs to exist.
             const output = git(root, ['--literal-pathspecs', 'log', '--topo-order', '--follow', '-M',
-                '--format=%x1e%H%x00%P%x00%s%x00%cI%x00', '--name-status', '-z', commit, '--', filePath]);
+                '--format=%x1e%H%x00%P%x00%s%x00%cI%x00%an%x00%ae%x00%B%x00', '--name-status', '-z', commit, '--', filePath]);
             const entries = [];
             let historicalPath = filePath;
             for (const record of output.split('\x1e').slice(1)) {
                 const fields = record.split('\0');
-                const [oid, parents, summary, timestamp] = fields;
-                const changes = parseNameStatusZ(fields.slice(4).join('\0').replace(/^\0?\n/, ''));
+                const [oid, parents, summary, timestamp, author, authorEmail, message] = fields;
+                const changes = parseNameStatusZ(fields.slice(7).join('\0').replace(/^\0?\n/, ''));
                 const change = changes.find(item => item.path === historicalPath || item.previousPath === historicalPath) || changes[0];
                 if (!change) continue;
                 entries.push({ commit: oid, oid, parentCommit: parents.split(' ')[0] || null,
-                    shortCommit: oid.slice(0, 7), summary, timestamp, path: change.path,
+                    shortCommit: oid.slice(0, 7), summary, timestamp, author, authorEmail, message: message.trimEnd(),
+                    parents: parents.split(' ').filter(Boolean), path: change.path,
                     ...(change.previousPath ? { previousPath: change.previousPath } : {}) });
                 historicalPath = change.previousPath || change.path;
             }
