@@ -1,4 +1,5 @@
 :root {
+    --bygone-tooltip-delay: 500ms;
     --vscode-foreground: #d4d4d4;
     --vscode-editor-background: #1e1e1e;
     --vscode-font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", Menlo, monospace;
@@ -151,8 +152,9 @@ body.web-host {
     padding: 4px;
     border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
     border-radius: 5px;
-    background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
-    color: var(--vscode-menu-foreground, var(--vscode-editorWidget-foreground));
+    background: var(--vscode-menu-background, var(--vscode-editorWidget-background, var(--vscode-sideBar-background, #252526)));
+    color: var(--vscode-menu-foreground, var(--vscode-editorWidget-foreground, var(--vscode-foreground)));
+    font: 13px/1.4 var(--tour-body-font, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
     box-shadow: 0 6px 20px rgb(0 0 0 / 30%);
 }
 
@@ -177,8 +179,8 @@ body.web-host {
 .file-path-context-menu button:hover,
 .file-path-context-menu button:focus-visible {
     outline: none;
-    background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground));
-    color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground));
+    background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground, var(--vscode-button-background)));
+    color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground, var(--vscode-button-foreground)));
 }
 
 .header-align-diff {
@@ -393,37 +395,30 @@ body.web-host {
     stroke-linejoin: round;
 }
 
-.change-button[data-tooltip],
-.history-button[data-tooltip] {
-    position: relative;
-}
-
-.change-button[data-tooltip]::after,
-.history-button[data-tooltip]::after {
-    position: absolute;
-    z-index: 20;
-    top: calc(100% + 6px);
-    left: 50%;
+.bygone-ui-tooltip {
+    position: fixed;
+    z-index: 10001;
     width: max-content;
-    max-width: 180px;
-    padding: 4px 7px;
-    transform: translateX(-50%);
-    content: attr(data-tooltip);
-    color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
-    border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+    max-width: min(320px, calc(100vw - 16px));
+    max-height: calc(100vh - 16px);
+    overflow: hidden;
+    padding: 6px 8px;
+    box-sizing: border-box;
+    font: 12px/1.4 var(--tour-body-font, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground, #d4d4d4));
+    border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border, #454545));
     border-radius: 3px;
-    background: var(--vscode-editorHoverWidget-background, var(--vscode-editor-background));
+    background: var(--vscode-editorHoverWidget-background, var(--vscode-sideBar-background, #252526));
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
-    opacity: 0;
     pointer-events: none;
-    white-space: nowrap;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
 }
 
-.change-button[data-tooltip]:hover::after,
-.change-button[data-tooltip]:focus-visible::after,
-.history-button[data-tooltip]:hover::after,
-.history-button[data-tooltip]:focus-visible::after {
-    opacity: 1;
+.bygone-ui-tooltip[hidden] {
+    display: none;
 }
 
 .change-button-primary {
@@ -831,11 +826,10 @@ body.is-resizing-sidebar .history-rail-resizer {
     box-sizing: border-box;
     border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
     border-radius: 6px;
-    background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
+    background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background, var(--vscode-sideBar-background, #252526)));
     color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
     box-shadow: 0 6px 20px rgb(0 0 0 / 30%);
-    font-size: 12px;
-    line-height: 1.5;
+    font: 12px/1.5 var(--tour-body-font, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }

@@ -515,8 +515,8 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /item\.tabIndex = 0/);
     assert.match(hostSource, /item\.setAttribute\('aria-description', row\.description\)/);
     assert.match(presenterSource, /\.tour-coverage-item\[data-metric="assignment"\]/);
-    assert.match(presenterSource, /\.tour-coverage-item\[data-tooltip\]::after/);
-    assert.match(presenterSource, /\.tour-coverage-item\[data-tooltip\]:focus-visible::after/);
+    assert.doesNotMatch(presenterSource, /\.tour-coverage-item\[data-tooltip\]::after/);
+    assert.match(rendererSource, /target\.closest\('\[data-tooltip\]'\)/);
     assert.match(presenterSource, /\.tour-navigator-tabs[\s\S]{0,140}grid-template-columns: repeat\(3/);
     assert.match(presenterSource, /#history-rail\.present-navigation-rail/);
     assert.match(rendererSource, /tourHost = document\.getElementById\('tour-commits-host'\)/);
@@ -2704,9 +2704,10 @@ function testWordWrapUsesSharedRendererAndStandaloneMenu() {
     assert.match(standaloneMarkup, /class="word-wrap-icon-off"[\s\S]{0,300}M5 4l14 16/);
     assert.match(standaloneMarkup, /class="word-wrap-icon-on"/);
     assert.match(standaloneMarkup, /id="previous-file"[^>]+data-tooltip="Open previous file"/);
-    assert.match(standaloneMarkup, /id="history-forward"[^>]+data-tooltip="Open newer commit"/);
+    assert.match(standaloneMarkup, /id="history-forward"[^>]+data-tooltip="Open newer commit \(Alt\+Right\)"/);
     assert.match(rendererStyles, /#toggle-word-wrap\.is-active \.word-wrap-icon-on/);
-    assert.match(rendererStyles, /\.change-button\[data-tooltip\]::after/);
+    assert.match(rendererStyles, /\.bygone-ui-tooltip/);
+    assert.doesNotMatch(rendererStyles, /\.change-button\[data-tooltip\]::after/);
 }
 
 function testWrappedDiffMarkersUseViewAwareGeometry() {
@@ -3321,7 +3322,8 @@ function testStaticButtonsHaveTooltips() {
         assert.ok(buttons.length > 0, `${relativePath} should contain buttons`);
         buttons.forEach((button) => {
             const openingTag = button.match(/<button\b[^>]*>/)?.[0] || '';
-            assert.match(openingTag, /\btitle="[^"]+"/, `${relativePath} has a button without a tooltip: ${openingTag}`);
+            assert.match(openingTag, /\b(?:title|data-tooltip)="[^"]+"/, `${relativePath} has a button without a tooltip: ${openingTag}`);
+            if (openingTag.includes('data-tooltip=')) assert.doesNotMatch(openingTag, /\stitle=/, 'Custom tooltips must not also have native titles');
         });
     }
 
@@ -3497,7 +3499,26 @@ function testFilePathsCopyFromRenderedSurfacesAndClippedTextShowsInFull() {
     assert.match(styleSource, /\.file-path-context-menu/);
 
     assert.match(rendererSource, /initializeNonEditorTextTooltips\(\)/);
-    assert.match(rendererSource, /target\.closest\('\.monaco-editor'\)/);
+    assert.match(rendererSource, /element\.closest\('\.monaco-editor'\)/);
+    assert.match(rendererSource, /element\.removeAttribute\('title'\)/);
+    for (const selector of ['file-path-context-menu', 'commit-hover-details', 'bygone-ui-tooltip']) {
+        const rule = styleSource.match(new RegExp(`\\.${selector} \\{([^}]+)\\}`))[1];
+        assert.match(rule, /background:[^;]*#252526/);
+        assert.match(rule, /font:[^;]*system-ui/);
+    }
+    assert.match(styleSource, /--bygone-tooltip-delay: 500ms/);
+    assert.match(rendererSource, /getPropertyValue\('--bygone-tooltip-delay'\)/);
+    const delayStart = rendererSource.indexOf('function readTooltipDelay()');
+    const delayEnd = rendererSource.indexOf('\nfunction initializeNonEditorTextTooltips', delayStart);
+    const readDelay = new Function('getComputedStyle', 'document', `${rendererSource.slice(delayStart, delayEnd)}; return readTooltipDelay();`);
+    for (const value of ['500ms', '.5s', '0.5s', '']) {
+        assert.equal(readDelay(() => ({ getPropertyValue: () => value }), { documentElement: {} }), 500,
+            'CSS minification can convert milliseconds to seconds');
+    }
+    assert.match(rendererSource, /setTimeout\(\(\) => showDetails\(row\), readTooltipDelay\(\)\)/);
+    assert.match(rendererSource, /setTimeout\(show, readTooltipDelay\(\)\)/);
+    assert.match(rendererSource, /entry\.contains\(event\.relatedTarget\)/);
+    assert.match(styleSource, /\.bygone-ui-tooltip \{\s*position: fixed/);
     assert.match(rendererSource, /function isTextTooltipCandidate[\s\S]{0,500}node\.nodeType === Node\.TEXT_NODE/);
     assert.match(rendererSource, /element\.scrollWidth > element\.clientWidth \+ 1/);
     assert.match(rendererSource, /element\.scrollHeight > element\.clientHeight \+ 1/);

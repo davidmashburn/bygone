@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 0.9.4
+
+- Unified non-editor tooltips with a consistent 500 ms hover delay, opaque backgrounds, and normal UI typography
+- Restored tooltips for folder controls and fixed placement and duplicate tooltips on previous/next file buttons
+- Stabilized tooltip behavior across icon children, keyboard focus, dynamic labels, and modal dialogs
+- Fixed commit-detail hover transitions and Escape dismissal, and normalized commit action menu styling
+
+macOS desktop downloads are unsigned and not notarized. If Gatekeeper reports
+the app as damaged, run `xattr -cr /Applications/Bygone.app`, then reopen it.
+
+## 0.9.3
+
+- Made commit rows toggle comparison selection, with jump and detail actions available from the context menu
+- Added fuller commit details on hover, including the commit message, author, date, revision, and parents
+- Added tooltip coverage across toolbar controls and tour coverage indicators
+
 ## 0.9.2
 
 - Documented the stable v3 tour contract, compatibility policy, and evidence-linked review notes

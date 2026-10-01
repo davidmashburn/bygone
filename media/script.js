@@ -1784,30 +1784,104 @@ async function copyTextToClipboard(text) {
     }
 }
 
-function initializeNonEditorTextTooltips() {
-    document.addEventListener('mouseover', (event) => {
-        const target = event.target instanceof Element ? event.target : null;
-        if (!target || target.closest('.monaco-editor')) return;
-        const element = findTruncatedTextElement(target);
-        if (!element || element.dataset.bygoneFullTextTitle) return;
-        const fullText = getElementFullText(element);
-        if (!fullText) return;
-        element.dataset.bygoneFullTextTitle = 'true';
-        element.dataset.bygoneOriginalTitle = element.getAttribute('title') || '';
-        element.title = fullText;
-    }, true);
+function readTooltipDelay() {
+    const value = getComputedStyle(document.documentElement).getPropertyValue('--bygone-tooltip-delay').trim();
+    const delay = Number.parseFloat(value) * (value.endsWith('ms') ? 1 : 1000);
+    return Number.isFinite(delay) && delay >= 0 ? delay : 500;
+}
 
-    document.addEventListener('mouseout', (event) => {
-        const element = event.target instanceof Element
-            ? event.target.closest('[data-bygone-full-text-title]')
-            : null;
-        if (!element || (event.relatedTarget instanceof Node && element.contains(event.relatedTarget))) return;
-        const originalTitle = element.dataset.bygoneOriginalTitle || '';
-        if (originalTitle) element.title = originalTitle;
-        else element.removeAttribute('title');
-        delete element.dataset.bygoneFullTextTitle;
-        delete element.dataset.bygoneOriginalTitle;
-    }, true);
+function initializeNonEditorTextTooltips() {
+    const tooltip = document.createElement('div');
+    tooltip.id = 'bygone-ui-tooltip';
+    tooltip.className = 'bygone-ui-tooltip';
+    tooltip.setAttribute('role', 'tooltip');
+    tooltip.hidden = true;
+    document.body.appendChild(tooltip);
+    let owner;
+    let timer;
+
+    // Convert existing and dynamically updated titles, leaving Monaco's own hovers alone.
+    const convertTitle = (element) => {
+        if (!element.hasAttribute('title') || element.matches('iframe') || element.closest('.monaco-editor')) return;
+        if (!element.closest('[data-commit-row]') || element.closest('[data-rail-menu]')) {
+            element.dataset.tooltip = element.getAttribute('title');
+        }
+        element.removeAttribute('title');
+    };
+    const convertTree = (root) => {
+        if (!(root instanceof Element)) return;
+        convertTitle(root);
+        root.querySelectorAll('[title]').forEach(convertTitle);
+    };
+    convertTree(document.body);
+
+    const close = () => {
+        clearTimeout(timer);
+        tooltip.hidden = true;
+        if (tooltip.parentElement !== document.body) document.body.appendChild(tooltip);
+        if (owner) {
+            const ids = (owner.getAttribute('aria-describedby') || '').split(/\s+/).filter(id => id && id !== tooltip.id);
+            if (ids.length) owner.setAttribute('aria-describedby', ids.join(' '));
+            else owner.removeAttribute('aria-describedby');
+        }
+        owner = null;
+    };
+    const textFor = (element) => {
+        const description = element.dataset.tooltip;
+        const fullText = getElementFullText(element);
+        const clipped = element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
+        return description && fullText && !description.includes(fullText) && clipped && isTextTooltipCandidate(element)
+            ? `${description}\n${fullText}` : description || fullText;
+    };
+    const show = () => {
+        if (!owner?.isConnected || !owner.getClientRects().length || owner.closest('[hidden], .hidden')) return close();
+        tooltip.textContent = textFor(owner);
+        // An open modal is in the top layer; its tooltip must be there too.
+        (owner.closest('dialog[open]') || document.body).appendChild(tooltip);
+        tooltip.hidden = false;
+        const anchor = owner.getBoundingClientRect();
+        const bounds = tooltip.getBoundingClientRect();
+        const left = Math.max(8, Math.min(anchor.left + (anchor.width - bounds.width) / 2, window.innerWidth - bounds.width - 8));
+        const top = anchor.bottom + bounds.height + 8 <= window.innerHeight - 8
+            ? anchor.bottom + 8 : Math.max(8, anchor.top - bounds.height - 8);
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+        const ids = new Set((owner.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
+        ids.add(tooltip.id);
+        owner.setAttribute('aria-describedby', [...ids].join(' '));
+    };
+    const schedule = (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || target.closest('.monaco-editor, .commit-hover-details')) return;
+        if (event.type === 'focusin' && !target.matches(':focus-visible')) return;
+        convertTree(target);
+        const element = target.closest('[data-tooltip]') || findTruncatedTextElement(target);
+        if (!element || element === owner || !textFor(element)) return;
+        close();
+        owner = element;
+        timer = setTimeout(show, readTooltipDelay());
+    };
+    const leave = (event) => {
+        if (owner && event.target instanceof Node && owner.contains(event.target)
+            && !(event.relatedTarget instanceof Node && owner.contains(event.relatedTarget))) close();
+    };
+    document.addEventListener('mouseover', schedule, true);
+    document.addEventListener('mouseout', leave, true);
+    document.addEventListener('focusin', schedule, true);
+    document.addEventListener('focusout', leave, true);
+    document.addEventListener('pointerdown', close, true);
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') close(); }, true);
+    document.addEventListener('scroll', close, true);
+    window.addEventListener('blur', close);
+    window.addEventListener('resize', close);
+    new MutationObserver((records) => {
+        records.forEach(record => {
+            if (record.type === 'childList') record.addedNodes.forEach(convertTree);
+            else convertTitle(record.target);
+        });
+        if (owner && (!owner.isConnected || !owner.getClientRects().length || owner.closest('[hidden], .hidden'))) close();
+        else if (owner && !tooltip.hidden && tooltip.textContent !== textFor(owner)) tooltip.textContent = textFor(owner);
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['title', 'data-tooltip', 'hidden', 'class', 'open'] });
 }
 
 function findTruncatedTextElement(start) {
@@ -2616,15 +2690,18 @@ function initializeCommitRailActions(rail) {
     });
     const scheduleDetails = (event) => {
         const row = rowFor(event.target);
-        if (!row || restoringFocus || pinned || !menu.hidden || row.contains(event.relatedTarget)) return;
-        clearTimeout(timer);
-        timer = setTimeout(() => showDetails(row), 450);
+        const entry = event.target instanceof Element ? event.target.closest('[data-rail-item]') : null;
+        if (!row || !entry || restoringFocus || pinned || !menu.hidden || entry.contains(event.relatedTarget)) return;
+        if (event.type === 'focusin' && !event.target.matches(':focus-visible')) return;
+        close();
+        timer = setTimeout(() => showDetails(row), readTooltipDelay());
     };
     rail.addEventListener('mouseover', scheduleDetails);
     rail.addEventListener('focusin', scheduleDetails);
     const hideDetails = (event) => {
         const row = rowFor(event.target);
-        if (!row || row.contains(event.relatedTarget) || pinned || !menu.hidden) return;
+        const entry = event.target instanceof Element ? event.target.closest('[data-rail-item]') : null;
+        if (!row || !entry || entry.contains(event.relatedTarget) || pinned || !menu.hidden) return;
         clearTimeout(timer);
         timer = setTimeout(() => close(), 150);
     };
@@ -2637,7 +2714,11 @@ function initializeCommitRailActions(rail) {
         if (!menu.contains(event.target) && !details.contains(event.target)) close();
     }, true);
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && (!menu.hidden || !details.hidden)) { event.preventDefault(); close(true); }
+        if (event.key === 'Escape') {
+            const wasOpen = !menu.hidden || !details.hidden;
+            if (wasOpen) event.preventDefault();
+            close(wasOpen);
+        }
         if (menu.hidden) return;
         const buttons = [...menu.querySelectorAll('button')];
         const index = buttons.indexOf(document.activeElement);

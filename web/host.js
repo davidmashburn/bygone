@@ -1972,7 +1972,6 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
             item.dataset.metric = row.metric;
             item.dataset.tooltip = row.description;
             item.tabIndex = 0;
-            item.title = row.description;
             item.setAttribute('aria-description', row.description);
             const heading = document.createElement('div');
             heading.className = 'tour-coverage-heading';

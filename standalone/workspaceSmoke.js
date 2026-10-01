@@ -68,6 +68,139 @@ async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
         assert.equal(session().multi.files.at(-1).editable, true);
         const checkboxes = await evaluate("document.querySelectorAll('#history-rail [role=checkbox]').length");
         assert.ok(checkboxes >= 4, `Expected all commits, got ${checkboxes}`);
+        const hoverElapsed = await evaluate(`new Promise((resolve, reject) => {
+            document.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+            const details = document.querySelector('.commit-hover-details');
+            const started = performance.now();
+            const timeout = setTimeout(() => { observer.disconnect(); reject(new Error('Commit hover did not open')); }, 5000);
+            const observer = new MutationObserver(() => {
+                if (details.hidden) return;
+                observer.disconnect(); clearTimeout(timeout); resolve(performance.now() - started);
+            });
+            observer.observe(details, { attributes: true, attributeFilter: ['hidden'] });
+            document.querySelector('[data-commit-row] .history-rail-entry').dispatchEvent(
+                new MouseEvent('mouseover', { bubbles: true, relatedTarget: document.querySelector('[data-commit-row] [data-rail-menu]') }));
+        })`);
+        assert.ok(hoverElapsed >= 480, `Commit details wait for the shared 500ms hover delay (got ${hoverElapsed}ms)`);
+        const overlays = await evaluate(`(async () => {
+            const row = document.querySelector('[data-commit-row]');
+            const details = document.querySelector('.commit-hover-details');
+            const selected = document.querySelectorAll('[aria-checked=true]').length;
+            const detailStyle = getComputedStyle(details);
+            const hover = { visible: !details.hidden, background: detailStyle.backgroundColor, font: detailStyle.fontFamily };
+            row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 200 }));
+            const menu = document.querySelector('.commit-context-menu');
+            const menuStyle = getComputedStyle(menu);
+            const buttonStyle = getComputedStyle(menu.querySelector('button'));
+            const result = { hover, menuVisible: !menu.hidden, background: menuStyle.backgroundColor,
+                font: menuStyle.fontFamily, buttonFont: buttonStyle.fontFamily,
+                singleNavigationTooltip: ['previous-file', 'next-file'].every(id => {
+                    const button = document.getElementById(id);
+                    return button.hasAttribute('data-tooltip') && !button.hasAttribute('title');
+                }),
+                selectionUnchanged: selected === document.querySelectorAll('[aria-checked=true]').length };
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            await new Promise(resolve => setTimeout(resolve, 700));
+            result.dismissed = menu.hidden && details.hidden;
+            return result;
+        })()`);
+        assert.equal(overlays.hover.visible, true);
+        assert.equal(overlays.menuVisible, true);
+        assert.equal(overlays.selectionUnchanged, true);
+        assert.equal(overlays.singleNavigationTooltip, true, 'File navigation must not show both managed and native tooltips');
+        assert.equal(overlays.dismissed, true, 'Escape must not reopen the tooltip through focus restoration');
+        for (const [surface, background] of Object.entries({ details: overlays.hover.background, menu: overlays.background })) {
+            assert.match(background, /^rgb\(/, `${surface} must be opaque: ${JSON.stringify(overlays)}`);
+        }
+        assert.match(overlays.hover.font, /system-ui/);
+        assert.match(overlays.font, /system-ui/);
+        assert.equal(overlays.buttonFont, overlays.font);
+        const canceledCommitHover = await evaluate(`(async () => {
+            const entry = document.querySelector('[data-commit-row] .history-rail-entry');
+            entry.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: document.body }));
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            await new Promise(resolve => setTimeout(resolve, 700));
+            return document.querySelector('.commit-hover-details').hidden;
+        })()`);
+        assert.equal(canceledCommitHover, true, 'Escape cancels pending commit hovers as well as visible ones');
+        const tooltipChecks = await evaluate(`(async () => {
+            const tooltip = document.getElementById('bygone-ui-tooltip');
+            const toolbar = document.getElementById('directory-tree-toolbar');
+            const originallyHidden = toolbar.hidden;
+            toolbar.hidden = false;
+            const hover = async (button, dismiss = true) => {
+                document.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+                const started = performance.now();
+                const elapsed = await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => { observer.disconnect(); reject(new Error('Tooltip did not open for ' + button.id)); }, 5000);
+                    const observer = new MutationObserver(() => {
+                        if (tooltip.hidden) return;
+                        observer.disconnect(); clearTimeout(timeout); resolve(performance.now() - started);
+                    });
+                    observer.observe(tooltip, { attributes: true, attributeFilter: ['hidden'] });
+                    const svg = button.querySelector('svg') || button;
+                    svg.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: document.body }));
+                    // Moving across the icon must not restart or cancel the timer.
+                    (svg.querySelector('path') || svg).dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: svg }));
+                });
+                const style = getComputedStyle(tooltip);
+                const anchor = button.getBoundingClientRect();
+                const bounds = tooltip.getBoundingClientRect();
+                const result = { id: button.id, elapsed, text: tooltip.textContent, nativeTitle: button.hasAttribute('title'),
+                    opacity: style.opacity, background: style.backgroundColor, font: style.fontFamily,
+                    placedBelow: Math.abs(bounds.top - anchor.bottom - 8) < 1,
+                    inViewport: bounds.left >= 8 && bounds.right <= innerWidth - 8,
+                    pseudoContent: getComputedStyle(button, '::after').content };
+                if (dismiss) button.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
+                result.dismissed = tooltip.hidden;
+                return result;
+            };
+            const checks = [];
+            for (const id of ['directory-expand-all', 'directory-collapse-all', 'directory-collapse-unchanged', 'previous-file', 'next-file']) {
+                const button = document.getElementById(id);
+                const originallyHidden = button.hidden;
+                button.hidden = false;
+                checks.push(await hover(button));
+                button.hidden = originallyHidden;
+            }
+            const button = document.getElementById('directory-expand-all');
+            const oldText = button.dataset.tooltip;
+            button.title = 'Updated tooltip';
+            await Promise.resolve();
+            checks.push({ updatedTitle: button.dataset.tooltip === 'Updated tooltip' && !button.hasAttribute('title') });
+            button.title = oldText;
+            document.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+            const modal = document.createElement('dialog');
+            const action = document.createElement('button');
+            action.id = 'modal-tooltip-smoke';
+            action.title = 'Tooltip inside modal';
+            action.textContent = 'Action';
+            modal.appendChild(action);
+            document.body.appendChild(modal);
+            modal.showModal();
+            const modalCheck = await hover(action, false);
+            modalCheck.parentIsModal = tooltip.parentElement === modal;
+            modal.close();
+            await Promise.resolve();
+            modalCheck.modalDismissed = tooltip.hidden && tooltip.parentElement === document.body;
+            modal.remove();
+            checks.push(modalCheck);
+            toolbar.hidden = originallyHidden;
+            return checks;
+        })()`);
+        const modalCheck = tooltipChecks.pop();
+        assert.ok(modalCheck.text === 'Tooltip inside modal' && modalCheck.parentIsModal && modalCheck.modalDismissed,
+            'Modal tooltips render in the top layer and close with their dialog');
+        assert.equal(tooltipChecks.pop().updatedTitle, true, 'Dynamic title updates use the managed tooltip');
+        for (const check of tooltipChecks) {
+            assert.ok(check.elapsed >= 480, `${check.id} must wait 500ms: ${JSON.stringify(check)}`);
+            assert.ok(check.text && !check.nativeTitle && check.dismissed, JSON.stringify(check));
+            assert.equal(check.opacity, '1', 'Tooltip opacity is independent of disabled buttons');
+            assert.match(check.background, /^rgb\(/);
+            assert.match(check.font, /system-ui/);
+            assert.equal(check.pseudoContent, 'none', 'No CSS bubble can appear instantly');
+            assert.ok(check.placedBelow && check.inViewport, JSON.stringify(check));
+        }
         await evaluate("document.querySelectorAll('#history-rail [role=checkbox]')[1].click()");
         await waitFor("document.querySelector('[data-action=workspaceApply]').textContent.includes('(1)')");
         await evaluate("document.querySelectorAll('#history-rail [role=checkbox]')[2].click()");
