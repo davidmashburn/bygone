@@ -23,12 +23,6 @@ clear enough to discuss as an actionable plan.
 
 ## Current ideas
 
-- [Meld feature gaps](meld-feature-gaps.md) **needs evaluation; do not implement
-  unqualified**. Four features are selected for qualified design: filename/folder
-  filters, explicit errors and symlink identity, basic whitespace options, and
-  file-state filters. Two features are deferred and four are cut; Meld's designs
-  are not adopted wholesale.
-
 - [Tour presentation review](tour-presentation-review.md) preserves the initial
   clipping and hierarchy investigation that preceded the reading UI changes.
 

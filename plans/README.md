@@ -26,6 +26,9 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [Comparison controls and file states](comparison-controls-and-file-states.md) —
+  filename/folder filters, explicit errors and symlink identity, basic whitespace
+  options, and file-state filters.
 - [Review comprehension](review-comprehension.md) — test paired code and prose
   review, starting with the [tour navigation case study](review-comprehension-case-study.md).
   The [implementation plan](paired-comprehension-implementation.md) scopes the
@@ -37,6 +40,11 @@ grew out of an earlier concept.
   add Windows and Linux native associations when packaging support is ready.
 - [Focused multi-panel strip](focused-multi-panel-strip.md) — profile unusually
   large stacks and retain the interaction QA matrix for future renderer work.
+
+## Deferred plans
+
+- [Deferred directory workflows](deferred-directory-workflows.md) — directory
+  copy/delete and lightweight pairing of differently named files.
 
 ## Completed plans and design references
 
