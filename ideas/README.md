@@ -23,6 +23,10 @@ clear enough to discuss as an actionable plan.
 
 ## Current ideas
 
+- [Meld feature gaps](meld-feature-gaps.md) **needs evaluation; do not implement
+  unqualified**. It preserves candidates for individual adopt/adapt/reject/defer
+  decisions, not an approved backlog or a mandate to copy Meld's designs.
+
 - [Tour presentation review](tour-presentation-review.md) preserves the initial
   clipping and hierarchy investigation that preceded the reading UI changes.
 
