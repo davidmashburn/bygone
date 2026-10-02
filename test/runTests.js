@@ -4666,7 +4666,12 @@ function testPresentInitialCommitHighlights() {
     const state = {
         mode: 'tour', zoom: { mode: 'historical' }, tour: { scenes: [scene] }, activeSceneIndex: 0,
         authoredTour: { range: { mergeBaseOid: 'a', headOid: 'c' }, commits: [{ oid: 'b' }, { oid: 'c' }] },
-        historyEntries: ['c', 'b'].map((commit) => ({ commit, shortCommit: commit, summary: commit, timestamp: '' })),
+        historyEntries: ['c', 'b'].map((commit) => ({
+            commit, shortCommit: commit, summary: `Title ${commit}`, timestamp: '2026-09-30T12:34:56-04:00',
+            author: 'Test Author', authorEmail: 'author@example.com',
+            message: `Title ${commit}\n\nFull body\nwith a second line\tand a tab.`,
+            parents: commit === 'c' ? ['b', 'merge-parent'] : ['a']
+        })),
         displayedPanels: [], comparisonDraftCommits: [], directoryEvidence: {}
     };
     const messages = [];
@@ -4678,9 +4683,27 @@ function testPresentInitialCommitHighlights() {
     }, (item) => ['stacked-diff', 'deconstructed-diff'].includes(item?.kind), (item) => item.stack || item.panels);
     const rows = () => messages.at(-1).history.rail.itemsByTab.history;
     const numbered = () => rows().filter((item) => item.panelNumber).map((item) => [item.commit, item.panelNumber]).sort();
+    const renderer = fs.readFileSync(path.join(__dirname, '../media/script.js'), 'utf8');
+    const details = new Function(`${renderer.slice(renderer.indexOf('function commitRailDetails('), renderer.indexOf('function initializeCommitRailActions('))}; return commitRailDetails;`)();
+    const assertCommitDetails = () => {
+        for (const entry of state.historyEntries) {
+            const row = rows().find((item) => item.commit === entry.commit);
+            assert.ok(row, `Missing commit ${entry.commit}`);
+            for (const field of ['summary', 'timestamp', 'author', 'authorEmail', 'message', 'parents']) {
+                assert.deepEqual(row[field], entry[field], `Commit details must preserve ${field}`);
+            }
+            const text = details(row);
+            assert.ok(text.includes(entry.message), 'Commit details must display the entire multiline message');
+            assert.ok(text.includes('Author: Test Author <author@example.com>'));
+            assert.ok(text.includes(`Date: ${entry.timestamp}`));
+            assert.ok(text.includes(`Revision: ${entry.commit}`));
+            assert.ok(text.includes(`Parents: ${entry.parents.join(', ')}`));
+        }
+    };
 
     // First render is commonly the directory overview, before any History visit.
     emit({ type: 'showDirectoryDiff' });
+    assertCommitDetails();
     assert.deepEqual(numbered(), [['a', 1], ['c', 2]]);
     assert.equal(rows().find((item) => item.commit === 'a').kind, 'panel-revision');
     assert.equal(rows().some((item) => item.selected), false);
@@ -4690,17 +4713,20 @@ function testPresentInitialCommitHighlights() {
     emit({ type: 'showDirectoryDiff' });
     assert.deepEqual(numbered(), [['b', 2], ['c', 1]]);
     emit({ type: 'showDiff' });
+    assertCommitDetails();
     assert.deepEqual(numbered(), [['b', 2], ['c', 1]], 'Drill-down preserves the overview revision mapping');
 
     state.directoryEvidence = null;
     state.comparisonDraftCommits = ['b'];
     emit({ type: 'showMultiDiff', panels: scene.stack.map((panel) => ({ id: panel.id, commit: panel.oid })) });
+    assertCommitDetails();
     assert.deepEqual(numbered(), [['a', 1], ['b', 2], ['c', 3]]);
     assert.deepEqual(rows().filter((item) => item.selected).map((item) => item.commit), ['b']);
 
     state.zoom.mode = 'compare';
     state.comparisonCommits = ['a', 'b'];
     emit({ type: 'showDiff' });
+    assertCommitDetails();
     assert.deepEqual(numbered(), [['a', 1], ['b', 2]]);
     state.zoom.mode = 'historical';
     state.tour.scenes = [{ kind: 'walkthrough' }];
@@ -4713,6 +4739,7 @@ function testPresentInitialCommitHighlights() {
     state.directoryEvidence = {};
     state.tour.scenes = [{ kind: 'deconstructed-diff', panels: [{ id: 'baseline' }, { id: 'stage' }] }];
     emit({ type: 'showDirectoryDiff' });
+    assertCommitDetails();
     assert.deepEqual(numbered(), []);
     assert.deepEqual(state.comparisonDraftCommits, ['b']);
 }

@@ -762,6 +762,9 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
                     history: state.historyEntries.map((item, index) => ({
                         label: `${item.shortCommit} ${item.summary}`.trim(),
                         meta: item.timestamp,
+                        commit: item.commit, summary: item.summary, timestamp: item.timestamp,
+                        author: item.author, authorEmail: item.authorEmail, message: item.message,
+                        parents: item.parents,
                         active: item.commit === focusCommit,
                         selected: state.comparisonDraftCommits.includes(item.commit),
                         panelNumber: selection.commits.indexOf(item.commit) + 1 || null,

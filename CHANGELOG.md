@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.9.5
+
+- Restored the full commit message, author and email, date, full SHA, and parents in tour and comparison commit details
+
 ## 0.9.4
 
 - Updated transitive brace-expansion dependencies within their existing major versions to address high-severity denial-of-service advisories
