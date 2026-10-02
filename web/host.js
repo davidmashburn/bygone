@@ -27,6 +27,9 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
     const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
     const TOUR_SIDEBAR_MIN_WIDTH = 240;
     const TOUR_SIDEBAR_MAX_WIDTH = 600;
+    const TOUR_NARRATIVE_STORAGE_KEY = 'bygone.tourNarrativeHeight';
+    const TOUR_NARRATIVE_MIN_HEIGHT = 180;
+    const TOUR_DIFF_MIN_HEIGHT = 180;
     const TOUR_NARRATION_VOICE_STORAGE_KEY = 'bygone.tourNarrationVoice';
     const TOUR_NARRATION_RATE_STORAGE_KEY = 'bygone.tourNarrationRate';
     const NARRATION_RATES = new Set([0.75, 1, 1.25, 1.5]);
@@ -62,6 +65,7 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         tourFocusFilePath: null,
         tourSidebarWidth: readStoredTourSidebarWidth(),
         tourSidebarHidden: false,
+        tourNarrativeHeight: readStoredTourNarrativeHeight(),
         tourNavigatorTab: 'tour',
         narrationVoiceURI: window.localStorage.getItem(TOUR_NARRATION_VOICE_STORAGE_KEY) || '',
         narrationRate: readStoredNarrationRate(),
@@ -1118,6 +1122,7 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         const tourRate = document.getElementById('tour-narration-rate');
 
         initializeTourSidebar();
+        initializeTourNarrativeResizer();
         initializeTourNarrativeLayout();
         initializeNarrationVoices();
         document.getElementById('tour-navigator-tabs')?.addEventListener('click', (event) => {
@@ -1568,6 +1573,73 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
             showButton.hidden = !hidden;
         }
         window.dispatchEvent(new Event('resize'));
+    }
+
+    function initializeTourNarrativeResizer() {
+        const resizer = document.getElementById('tour-narrative-resizer');
+        if (!resizer) return;
+
+        applyTourNarrativeHeight();
+        resizer.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            document.body.classList.add('is-resizing-tour-narrative');
+            resizer.setPointerCapture?.(event.pointerId);
+            window.dispatchEvent(new CustomEvent('bygone:workspace-resize-start'));
+
+            const narrativeTop = document.getElementById('tour-narrative').getBoundingClientRect().top;
+            const move = (moveEvent) => setTourNarrativeHeight(moveEvent.clientY - narrativeTop);
+            const finish = () => {
+                document.body.classList.remove('is-resizing-tour-narrative');
+                window.removeEventListener('pointermove', move);
+                window.removeEventListener('pointerup', finish);
+                window.removeEventListener('pointercancel', finish);
+                window.dispatchEvent(new CustomEvent('bygone:workspace-resize-end'));
+                window.localStorage.setItem(TOUR_NARRATIVE_STORAGE_KEY, String(state.tourNarrativeHeight));
+            };
+            window.addEventListener('pointermove', move);
+            window.addEventListener('pointerup', finish);
+            window.addEventListener('pointercancel', finish);
+        });
+
+        resizer.addEventListener('keydown', (event) => {
+            if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const nextHeight = event.key === 'Home'
+                ? TOUR_NARRATIVE_MIN_HEIGHT
+                : event.key === 'End'
+                    ? maximumTourNarrativeHeight()
+                    : state.tourNarrativeHeight + (event.key === 'ArrowUp' ? -16 : 16);
+            setTourNarrativeHeight(nextHeight);
+            window.localStorage.setItem(TOUR_NARRATIVE_STORAGE_KEY, String(state.tourNarrativeHeight));
+        });
+
+        window.addEventListener('resize', applyTourNarrativeHeight);
+    }
+
+    function readStoredTourNarrativeHeight() {
+        const stored = Number.parseInt(window.localStorage.getItem(TOUR_NARRATIVE_STORAGE_KEY) || '', 10);
+        return Number.isFinite(stored) ? stored : Math.min(window.innerHeight * 0.38, 360);
+    }
+
+    function maximumTourNarrativeHeight() {
+        return Math.max(TOUR_NARRATIVE_MIN_HEIGHT, window.innerHeight - TOUR_DIFF_MIN_HEIGHT);
+    }
+
+    function setTourNarrativeHeight(height) {
+        state.tourNarrativeHeight = height;
+        applyTourNarrativeHeight();
+    }
+
+    function applyTourNarrativeHeight() {
+        state.tourNarrativeHeight = Math.min(
+            maximumTourNarrativeHeight(),
+            Math.max(TOUR_NARRATIVE_MIN_HEIGHT, Math.round(state.tourNarrativeHeight))
+        );
+        document.getElementById('tour-narrative').style.height = `${state.tourNarrativeHeight}px`;
+        const resizer = document.getElementById('tour-narrative-resizer');
+        resizer?.setAttribute('aria-valuemax', String(maximumTourNarrativeHeight()));
+        resizer?.setAttribute('aria-valuenow', String(state.tourNarrativeHeight));
     }
 
     function initializeTourNarrativeLayout() {

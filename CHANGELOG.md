@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.9.6
+
+- Restored dragging and keyboard resizing between tour text and code, with a saved height preference
+- Added ticket, project, PR authorship, and review context guidance to the bundled tour skill
+
 ## 0.9.5
 
 - Restored the full commit message, author and email, date, full SHA, and parents in tour and comparison commit details

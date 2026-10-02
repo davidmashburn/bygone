@@ -128,6 +128,70 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
         assert.ok(['auto', 'scroll'].includes(initial.content.overflowY), 'The narrative content uses scrolling');
         assert.equal(initial.activeKeys.length, 1, 'Exactly one reading item is active initially');
         assert.equal(initial.activeKeys[0], 'title', 'The title starts as the active reading item');
+
+        const originalHeight = await evaluate("document.querySelector('#tour-narrative').getBoundingClientRect().height");
+        const originalPreference = await evaluate("localStorage.getItem('bygone.tourNarrativeHeight')");
+        const resizeKey = async (key) => {
+            await evaluate(`document.querySelector('#tour-narrative-resizer').dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: ${JSON.stringify(key)} }))`);
+            await waitForRaf();
+        };
+        const readSplit = () => evaluate(`(() => {
+            const narrative = document.querySelector('#tour-narrative').getBoundingClientRect();
+            const code = document.querySelector('#container').getBoundingClientRect();
+            const resizer = document.querySelector('#tour-narrative-resizer');
+            const handle = resizer.getBoundingClientRect();
+            return { height: narrative.height, codeTop: code.top, codeHeight: code.height,
+                handleY: handle.top + handle.height / 2, handleX: handle.left + handle.width / 2,
+                value: Number(resizer.getAttribute('aria-valuenow')),
+                max: Number(resizer.getAttribute('aria-valuemax')),
+                stored: Number(localStorage.getItem('bygone.tourNarrativeHeight')),
+                cursor: getComputedStyle(resizer).cursor };
+        })()`);
+        const assertSplit = (split) => {
+            assert.ok(Math.abs(split.codeTop - split.height) <= 1, 'Code starts at the narrative boundary');
+            assert.ok(Math.abs(split.handleY - split.height) <= 1, 'The divider tracks the narrative boundary');
+            assert.equal(split.value, split.height, 'The separator exposes its current height');
+            assert.ok(split.codeHeight >= 180, 'Resizing preserves room for code');
+        };
+        const dragSplit = async (height) => {
+            const split = await readSplit();
+            const x = Math.round(split.handleX);
+            const y = Math.round(split.handleY);
+            browserContents.sendInputEvent({ type: 'mouseMove', x, y });
+            browserContents.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, x, y });
+            browserContents.sendInputEvent({ type: 'mouseMove', x, y: height });
+            await waitFor(`Number(document.querySelector('#tour-narrative-resizer').getAttribute('aria-valuenow')) === ${height}`, 'dragged narrative boundary');
+            browserContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, x, y: height });
+            await waitFor("!document.body.classList.contains('is-resizing-tour-narrative')", 'narrative drag completion');
+            await waitForRaf();
+        };
+        try {
+            assert.equal((await readSplit()).cursor, 'row-resize', 'The narrative divider is draggable');
+            await resizeKey('Home');
+            let split = await readSplit();
+            assert.equal(split.height, 180, 'Home sets the minimum narrative height');
+            assertSplit(split);
+            await resizeKey('End');
+            split = await readSplit();
+            assert.equal(split.height, split.max, 'End sets the maximum narrative height');
+            assertSplit(split);
+            await resizeKey('ArrowUp');
+            assert.equal((await readSplit()).height, split.max - 16, 'ArrowUp reduces the narrative height');
+            await resizeKey('ArrowDown');
+            assert.equal((await readSplit()).height, split.max, 'ArrowDown increases the narrative height');
+            const target = Math.round((180 + split.max) / 2);
+            await dragSplit(target);
+            split = await readSplit();
+            assertSplit(split);
+            assert.equal(split.stored, target, 'Dragging saves the narrative height');
+            assert.deepEqual((await read()).activeKeys, initial.activeKeys, 'Resizing preserves the selected passage');
+            assert.deepEqual((await read()).url, initial.url, 'Resizing preserves the reading URL');
+        } finally {
+            await dragSplit(Math.round(originalHeight));
+            await evaluate(originalPreference === null
+                ? "localStorage.removeItem('bygone.tourNarrativeHeight')"
+                : `localStorage.setItem('bygone.tourNarrativeHeight', ${JSON.stringify(originalPreference)})`);
+        }
         assert.equal(initial.items.filter((item) => item.kind === 'title').length, 1, 'The title item is unique');
         assert.equal(initial.items.filter((item) => item.kind === 'chapter').length, 2, 'Each chapter has a reading item');
         assert.equal(initial.items.filter((item) => item.kind === 'scene').length, 2, 'Each scene has a reading item');

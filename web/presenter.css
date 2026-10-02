@@ -398,6 +398,29 @@ body.tour-mode #container {
     display: none;
 }
 
+.tour-narrative-resizer {
+    position: fixed;
+    z-index: 120;
+    top: calc(var(--tour-narrative-height) - 4px);
+    right: 0;
+    left: var(--tour-rail-width);
+    height: 8px;
+    cursor: row-resize;
+    touch-action: none;
+}
+
+.tour-narrative-resizer:hover,
+.tour-narrative-resizer:focus-visible,
+body.is-resizing-tour-narrative .tour-narrative-resizer {
+    background: rgba(169, 159, 255, 0.75);
+    outline: none;
+}
+
+body:not(.tour-mode) .tour-narrative-resizer,
+body.tour-derived-mode .tour-narrative-resizer {
+    display: none;
+}
+
 .tour-narrative-toolbar {
     display: flex;
     min-width: 0;
@@ -1364,6 +1387,7 @@ body.tour-directory-file-open #file-info { display: none; }
     }
 
     .tour-sidebar-resizer { display: none; }
+    .tour-narrative-resizer { left: 0; }
     .tour-narrative { top: 0; left: 0; height: min(38vh, 360px); padding: 10px 14px 12px; }
     .tour-narrative-toolbar { gap: 6px; }
     .tour-narration-controls select { max-width: 150px; }
