@@ -4,6 +4,7 @@
 
 ## 0.9.4
 
+- Updated transitive brace-expansion dependencies within their existing major versions to address high-severity denial-of-service advisories
 - Unified non-editor tooltips with a consistent 500 ms hover delay, opaque backgrounds, and normal UI typography
 - Restored tooltips for folder controls and fixed placement and duplicate tooltips on previous/next file buttons
 - Stabilized tooltip behavior across icon children, keyboard focus, dynamic labels, and modal dialogs
