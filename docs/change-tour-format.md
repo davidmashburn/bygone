@@ -205,6 +205,8 @@ including why the focused code matters and any rationale or tradeoff that the
 source supports. Keeping that explanation beside `focus` lets the reader assess
 the claim while the code is visible and avoids repeating it in scene framing.
 
+Narrative text supports inline Markdown links such as `[ticket](https://example.com/ticket)`. HTTP and HTTPS destinations open outside the tour; link labels remain visible and clickable during narration highlighting. Authored HTML, other URL schemes, and local-file destinations are treated as plain text. This is link support, not a general Markdown renderer.
+
 The source schema has no ad hoc `notes` field. In v3, use the top-level `review`
 block below for evidence-linked review observations and unresolved questions;
 do not present those questions as settled step rationale.
