@@ -22,6 +22,7 @@ import { buildTourDirectoryEvidence } from '../src/tourDirectoryEvidence.ts';
 import { TourZoomSession } from '../src/tourZoomSession.ts';
 import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
 import { createWorkspaceControls } from '../media/workspaceControls.js';
+import { renderTourProse } from '../media/tourProse.js';
 
 (function initializeWebHost() {
     const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
@@ -1415,11 +1416,14 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
             element.classList.remove('is-speaking', 'is-paused');
         });
         if (!segment) return;
-        const element = [...document.querySelectorAll('[data-narration-segment-id]')]
-            .find((candidate) => candidate.dataset.narrationSegmentId === segment.id);
+        const elements = [...document.querySelectorAll('[data-narration-segment-id]')]
+            .filter((candidate) => candidate.dataset.narrationSegmentId === segment.id);
+        const element = elements[0];
         if (!element) return;
-        element.classList.add('is-speaking');
-        element.classList.toggle('is-paused', paused);
+        elements.forEach((piece) => {
+            piece.classList.add('is-speaking');
+            piece.classList.toggle('is-paused', paused);
+        });
         // Exploring the document pauses narration; a paused segment must not
         // pull the reader back to the introduction or move the code pane.
         if (paused) return;
@@ -2860,7 +2864,7 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
         const field = (parent, tag, className, text, source, itemIndex) => {
             const element = document.createElement(tag);
             element.className = className;
-            element.textContent = text || '';
+            element.replaceChildren(...renderTourProse(document, text || ''));
             if (source) {
                 element.dataset.readingField = source;
                 element.dataset.readingText = text || '';
@@ -3037,25 +3041,9 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
             segment.source.field === source.field
             && segment.source.itemIndex === source.itemIndex
         )) || [];
-        if (matchingSegments.length === 0) {
-            element.textContent = `${affixes.prefix || ''}${text}${affixes.suffix || ''}`;
-            return;
-        }
         const children = [];
         if (affixes.prefix) children.push(document.createTextNode(affixes.prefix));
-        let offset = 0;
-        for (const segment of matchingSegments) {
-            if (segment.startOffset > offset) {
-                children.push(document.createTextNode(text.slice(offset, segment.startOffset)));
-            }
-            const span = document.createElement('span');
-            span.className = 'tour-narration-segment';
-            span.dataset.narrationSegmentId = segment.id;
-            span.textContent = text.slice(segment.startOffset, segment.endOffset);
-            children.push(span);
-            offset = segment.endOffset;
-        }
-        if (offset < text.length) children.push(document.createTextNode(text.slice(offset)));
+        children.push(...renderTourProse(document, text, matchingSegments));
         if (affixes.suffix) children.push(document.createTextNode(affixes.suffix));
         element.replaceChildren(...children);
     }
