@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.9.7
+
+- Published the tour text/code resizing fix and expanded ticket, project, and PR context guidance introduced in 0.9.6
+
 ## 0.9.6
 
 - Restored dragging and keyboard resizing between tour text and code, with a saved height preference

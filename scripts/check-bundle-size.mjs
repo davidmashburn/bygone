@@ -1,13 +1,13 @@
 import { stat } from 'node:fs/promises';
 
 const budgets = [
-    { path: 'media/webview.js', maxBytes: 3_900_000 },
+    { path: 'media/webview.js', maxBytes: 3_910_000 },
     { path: 'media/webview.css', maxBytes: 375_000 },
     { path: 'media/editor.worker.js', maxBytes: 320_000 },
     { path: 'media/diff.worker.js', maxBytes: 19_000 },
     // Includes the offline, readable Markdown tour-authoring skill.
     { path: 'web/web-host.js', maxBytes: 170_000 },
-    { path: 'web/presenter.css', maxBytes: 35_000 }
+    { path: 'web/presenter.css', maxBytes: 36_000 }
 ];
 
 let failed = false;

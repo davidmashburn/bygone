@@ -2658,7 +2658,7 @@ function testSidebarsExposeResizeCollapseAndRestoreControls() {
     assert.match(presenterMarkup, /id="tour-sidebar-show"/);
     assert.match(presenterMarkup, /id="tour-sidebar-resizer"[^>]+role="separator"/);
     assert.match(presenterHost, /TOUR_SIDEBAR_STORAGE_KEY/);
-    assert.doesNotMatch(presenterMarkup, /id="tour-narrative-resizer"/);
+    assert.match(presenterMarkup, /id="tour-narrative-resizer"[^>]+role="separator"[^>]+aria-orientation="horizontal"/);
     assert.match(presenterHost, /function initializeTourNarrativeLayout/);
     assert.match(presenterHost, /new ResizeObserver\(updateHeight\)/);
     assert.match(rendererSource, /captureWorkspaceResizeScrollSnapshot/);
