@@ -4,18 +4,40 @@
 
 **Needs evaluation — DO NOT IMPLEMENT UNQUALIFIED.**
 
-Every candidate and suggested behavior below requires evaluation for Bygone.
+The four selected features below require qualified designs before implementation.
 Meld is a reference for possible user needs, not an approved design or a parity
-target. This document does not authorize implementation or wholesale adoption
-of Meld's decisions, including its filtering defaults and matching semantics.
+target. Feature selection does not authorize wholesale adoption of Meld's
+decisions, including its filtering defaults and matching semantics. Deferred
+features are outside the current scope; cut features are rejected from this work.
 
 Assessed against Bygone `main` at `e53862f` (version 0.9.5) and Meld's official
 help on 2026-10-02. The assessment uses source inspection and documentation;
 neither application was exercised specifically for this comparison.
 
+## Feature decisions
+
+The user selected the following scope on 2026-10-02. These decisions supersede
+the initial recommendations and apply to the remaining evaluation work.
+
+| Feature | Decision | Qualification or reason |
+| --- | --- | --- |
+| Filename/folder filters | Selected | Active exclusions stay visible and easily reversible. |
+| Explicit errors and symlink identity | Selected | Unreadable directories must not appear empty. |
+| Basic whitespace options | Selected | Explicit opt-in, original content preserved, obvious return to raw comparison. |
+| File-state filters | Selected | Show modified, identical, or one-sided files. |
+| Directory copy/delete | Deferred | Overwrite, dirty-buffer, recovery, and filesystem lifecycle overhead. |
+| Differently named file pairing | Deferred | Potential lightweight shortcut; not part of the selected scope. |
+| Manual alignment points | Cut | Edit persistence and multi-panel coordination add complexity. |
+| Regex text filters | Cut | Ordering, line mapping, performance, and filtered-equality semantics add complexity. |
+| Supported merge resolution | Cut | Substantial new product scope and write lifecycle. |
+| Case-insensitive filename matching | Cut | Limited demonstrated benefit and ambiguous name collisions. |
+
+Deferred work requires a separate decision to resume. Cut features are not later
+phases of the selected work; reopening one requires an explicit scope decision.
+
 ## Evaluation gate
 
-Before promoting any candidate to an implementation plan:
+Before promoting a selected feature to an implementation plan:
 
 - Demonstrate the user problem with representative Bygone workflows.
 - Evaluate Meld's behavior against alternatives, including keeping Bygone's
@@ -25,30 +47,28 @@ Before promoting any candidate to an implementation plan:
 - Record an explicit decision to adopt, adapt, reject, or defer each proposed
   behavior, with rationale and a qualified scope.
 
-Only behaviors selected through that evaluation belong in an implementation
-plan. The list below is neither an approved backlog nor acceptance criteria.
+Only behaviors qualified through that evaluation belong in an implementation
+plan. The feature decisions above select the problems to pursue; they do not
+approve every possible behavior or establish complete acceptance criteria.
 
 ## Suggested evaluation order
 
-Evaluate **comparison filename filters and ignored-text rules** first. They
-appear relevant to everyday comparison noise, but the appropriate Bygone
-design remains open. Consider state filters, explicit folder error/symlink
-representation, and manual alignment points against demonstrated needs next.
-
-Folder mutations and a supported merge tool are larger product decisions.
-Keep them separate from filtering: they introduce new write workflows, while
-the current product explicitly presents directory rows as read-only and keeps
-merge tooling outside its supported surface.
+Evaluate filename and file-state filtering together, then explicit folder
+errors/symlink identity and basic whitespace options. The appropriate Bygone
+design remains open within the selected scope. This evaluation must not grow
+into regex filtering, manual alignment, merge tooling, case-insensitive matching,
+directory mutation, or differently named file pairing.
 
 Confidence is **high** for the documented comparison-filter gap and current
-directory/merge boundaries. Confidence is **medium** for the relative priority
-of the remaining candidates; representative user sessions would change that
-ordering. A supported command or UI path absent from the inspected sources
-would change the gap assessment.
+directory/merge boundaries. Confidence is **medium** for the suggested evaluation
+order; representative user sessions would change that ordering. A supported
+command or UI path absent from the inspected sources would change the gap
+assessment. The user's feature selection is a scope decision, not evidence that
+any particular design is correct.
 
-## Candidates
+## Selected features requiring qualified design
 
-### 1. Filename and folder filters — evaluate first
+### Filename and folder filters
 
 [Meld filename filters](https://help.gnome.org/meld/file-filters.html) use globs,
 can exclude an entire subtree, and have defaults plus per-comparison toggles.
@@ -75,18 +95,18 @@ Possible behaviors to evaluate, not approved requirements:
 Reuse the vocabulary in [multi-scale search](../plans/multi-scale-search.md),
 but keep search scope and comparison visibility distinct.
 
-### 2. Ignored text and whitespace differences — evaluate first
+### Basic whitespace options
 
-[Meld text filters](https://help.gnome.org/meld/text-filters.html) ignore regex
-matches for comparison while retaining the original visible text, also affect
-folder equality, and offer special handling for blank-line-only changes.
+[Meld text filtering](https://help.gnome.org/meld/text-filters.html) includes
+blank-line handling and broader regex-based rules. Only basic whitespace
+options are selected for Bygone; regex text filtering is cut.
 
 Bygone's matcher uses normalized content internally to score likely line
 counterparts. That is not a user-selected rule for suppressing differences;
 the comparison model has no exposed text-filter policy.
 
-Start with explicit whitespace and blank-line options; consider ordered regex
-presets only after the mapping contract is clear. Preserve original contents,
+Evaluate explicit whitespace options, including whether blank-line handling
+belongs in the basic scope. Preserve original contents,
 line coordinates, selection, copy-across, edits, and saved bytes. Distinguish
 “identical” from “equivalent under active filters” in file and folder views,
 and allow a quick raw comparison. Define behavior consistently across adjacent
@@ -96,7 +116,7 @@ This extends [diff matching](../plans/diff-matching-between-panels.md) and
 [conservative replacement blocks](../plans/conservative-replacement-blocks.md)
 without treating weak automatic matches as evidence that text is ignorable.
 
-### 3. File-state filters — useful companion to filename filters
+### File-state filters
 
 Meld can show selected file states such as modified, new, or same in its
 [folder comparison](https://help.gnome.org/meld/file-filters.html).
@@ -105,28 +125,14 @@ Bygone already has change navigation and “Collapse unchanged folders.”
 Collapsing a subtree does not hide identical files in mixed folders or select
 only modified / left-only / right-only / partial entries.
 
-Add state toggles to ordinary directory comparison. Keep parent paths useful
+Evaluate state toggles for ordinary directory comparison. Keep parent paths useful
 when their children are filtered, make empty results explainable, and retain
-the complete inventory. A flat filtered-path view is a possible later
-extension, not a prerequisite. Branch review already has a changed-file
+the complete inventory. A new flat-path view is outside the selected scope.
+Branch review already has a changed-file
 inventory and [file-change overview](../plans/file-change-overview.md); avoid
 building that again.
 
-### 4. Manual alignment points — useful for difficult comparisons
-
-[Meld synchronization points](https://help.gnome.org/meld/syncpoints.html) let
-users match lines explicitly and partition the comparison around those points.
-
-Bygone's current alignment is automatic. Repeated boilerplate and large
-replacements can remain ambiguous despite matcher improvements. Let a reader
-mark corresponding lines, remove a matched pair, and clear all anchors.
-Require monotonic anchors; define how edits, refresh, and revision changes
-invalidate them. Begin with two panes before choosing an N-panel contract.
-
-This is an escape hatch for demonstrated ambiguous cases, not a substitute
-for the existing matcher corpus and quality gates.
-
-### 5. Explicit folder errors and symlinks — correctness before convenience
+### Explicit folder errors and symlink identity
 
 [Meld folder states](https://help.gnome.org/meld/folder-mode.html) include errors
 and symlink indicators.
@@ -142,45 +148,68 @@ link's target text or its referent. Cover dangling links, file-versus-folder
 mismatches, and cycles before offering recursive link traversal. No filesystem
 mutation is required for this improvement.
 
-### 6. Pair differently named files and choose filename-case semantics
+## Deferred features
+
+### Differently named file pairing
 
 Meld supports marked comparisons of differently named files in its
-[folder view](https://help.gnome.org/meld/folder-mode.html), and an optional
-[case-insensitive filename policy](https://help.gnome.org/meld/file-filters.html).
+[folder view](https://help.gnome.org/meld/folder-mode.html).
 
 Bygone can already compare arbitrary file paths, and Git review pairs detected
 renames. The remaining convenience is selecting two unrelated tree entries
 for a comparison without leaving the directory session. Ordinary directory
 pairing currently keys exact entry names.
 
-Treat manual pairing as a focused directory-navigation feature. Consider case
-folding only with collision handling; `README` and `readme` can both exist on
-some filesystems. Do not silently turn ambiguous names into one row.
+Deferred. If separately resumed, keep it a lightweight directory-navigation
+shortcut. Case-insensitive filename matching is a distinct, cut feature.
 
-### 7. Directory copy/delete — defer pending a write-workflow decision
+### Directory copy/delete
 
 Meld can copy or delete files from its
 [folder comparison](https://help.gnome.org/meld/folder-mode.html). Bygone's
 directory rows are intentionally read-only, although eligible file drill-down
 panes are editable.
 
-If this becomes a product goal, scope it to writable local filesystem roots,
+Deferred. If separately resumed, scope it to writable local filesystem roots,
 with an inspectable destination/overwrite preview, dirty-buffer handling,
 recoverable deletion, and refreshed comparison state. Historical snapshots and
 explicit read-only launches remain incapable of mutation. Directory operations
 deserve their own plan rather than inheriting file-edit permissions implicitly.
 
-### 8. Supported three-way conflict resolution — separate product decision
+## Cut features
+
+### Manual alignment points
+
+[Meld synchronization points](https://help.gnome.org/meld/syncpoints.html) let
+users match lines explicitly and partition the comparison. Cut because anchors
+add edit/refresh persistence rules and multi-panel coordination. Keep the
+existing automatic matcher and its quality gates; no manual-anchor phase is
+planned here.
+
+### Regex text filters
+
+Cut. Ordered regex rules add line-mapping, performance, and filtered-equality
+semantics beyond the selected basic whitespace options. They are not a later
+phase of whitespace support.
+
+### Supported merge resolution
 
 Meld is a supported [Git merge helper](https://help.gnome.org/meld/resolving-conflicts.html).
 Bygone has an experimental merge algorithm and result renderer, but its README
 explicitly excludes merge tooling from the supported product surface.
 
-The gap is a complete workflow: base/local/remote/result provenance, per-conflict
+Cut. The gap is a complete workflow: base/local/remote/result provenance, per-conflict
 choices and editing, remaining-conflict navigation, result saving, cancellation,
 and a `git mergetool` invocation whose exit status reflects completion. Multiple
-diff panes alone do not provide this contract. Decide whether merge resolution
-belongs in Bygone before promoting the experimental code.
+diff panes alone do not provide this contract. Do not promote the experimental
+code as part of the selected comparison improvements.
+
+### Case-insensitive filename matching
+
+Meld offers a [filename-case policy](https://help.gnome.org/meld/file-filters.html).
+Cut because benefit is not demonstrated and `README` and `readme` can coexist
+on some filesystems, creating ambiguous collisions. Exact-name directory
+pairing remains the baseline for this work.
 
 ## Already covered or not a current recommendation
 
@@ -209,7 +238,7 @@ Bygone evidence is pinned to the inspected development snapshot:
 
 Evaluate filename/state filtering using one generated tree, one Git review
 with tracked generated files, and one hidden-file example. Collect
-representative whitespace and ambiguous-alignment fixtures to test whether
-those needs warrant new behavior. Validate the gaps in both installed
+representative whitespace, unreadable-directory, and symlink fixtures for the
+other selected features. Validate the gaps in both installed
 applications, compare alternative designs, and record the decisions required
 by the evaluation gate before promoting any selected scope into a plan.
