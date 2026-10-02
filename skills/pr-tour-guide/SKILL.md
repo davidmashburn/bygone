@@ -134,7 +134,49 @@ Then read patches only for likely narrative-bearing files. Account explicitly fo
 
 Compiled tours and context dossiers are large because they embed source snapshots. Inspect them progressively and do not load every patch unless the narrative really needs it.
 
+## Gather ticket and PR framing
+
+When available, read the ticket and PR context supplied by the user or directly
+linked from the change, using accessible read-only sources. Follow relevant
+parent-project or review links when they explain the change; keep discovery
+bounded to this work. Missing metadata should not block a useful code tour.
+
+Capture the facts that help a reader understand the change:
+
+- **Ticket:** identifier, title, problem and requested outcome, relevant details
+  or acceptance criteria, creator/requester and assignee as distinct roles,
+  creation date or relevant timeline, and its place in a parent project, epic,
+  or larger initiative.
+- **PR:** number, title, URL, author, relevant creation/merge dates, associated
+  ticket, and actual review history: who reviewed, when, their recorded outcome,
+  and consequential feedback or resulting changes.
+
+Be explicit about whose ticket it was, who authored the PR, and who reviewed
+it when the sources establish those roles. Credit implementation contributors
+when known; PR authorship alone does not establish sole implementation credit.
+A requested reviewer is not an actual reviewer; a comment is not an approval. Do not assume an earlier review
+covers the current head or an entire multi-PR range. For stacked work, keep
+ticket, author, timing, and review provenance attached to the correct PR.
+
+Link the supporting ticket, PR, and review sources in the tour's narrative.
+Distinguish the ticket's requested outcome and the author's stated intent from
+behavior established by code and tests. Do not invent ownership, dates, project
+relationships, ticket associations, review status, or approval. Briefly disclose
+material gaps or conflicting context where they affect the explanation; omit
+irrelevant unavailable fields rather than filling the tour with placeholders.
+
 ## Plan the explanation
+
+Begin with an opening slide that summarizes the high-level context before the
+implementation: the problem, its place in the larger project, the ticket and
+PR relationship, and what this change contributes. Include relevant people,
+timing, and review status concisely; put detailed provenance beside the later
+claims it explains. If separate authored modes have independent entry points,
+give each enough opening context to stand on its own.
+
+Use the first scene's summary/bullets or equivalent supported narrative fields
+for this opening; do not invent a slide kind or metadata keys. Keep source
+anchors for code claims and source links for external context distinct.
 
 Identify the smallest set of reviewer questions that makes the change understandable. Organize by conceptual dependency rather than filename order. Usually move through:
 
@@ -294,7 +336,10 @@ After structural validation, check that:
 
 Treat this as a required self-audit, not a claim the validator can prove. For each item, cite concrete evidence you actually opened or mark it not applicable; the hand-off must distinguish verified findings from interpretation.
 
-- the first step establishes enough context for later steps;
+- the opening slide establishes the problem, project context, and available
+  ticket/PR provenance before the first implementation step;
+- ticket ownership, dates, and actual review claims are traceable to opened
+  sources and scoped to the PR/revision they describe;
 - chapter boundaries follow conceptual transitions rather than a fixed count or one-scene-per-chapter pattern;
 - important production behavior is not hidden in the complete Files rail;
 - tests are connected to the behavior they prove;
@@ -361,6 +406,7 @@ Report:
   counts, plus compiled counts when generated complete-change or per-mode
   scenes change them;
 - omitted or unread evidence;
+- ticket/PR context sources used and material unavailable or conflicting context;
 - validation and visual verification performed;
 - whether generated files are temporary, uncommitted, committed, or pushed.
 
