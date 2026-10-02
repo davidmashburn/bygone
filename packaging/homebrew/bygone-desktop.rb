@@ -10,7 +10,7 @@ cask "bygone-desktop" do
   desc "Visual diff and file history desktop app"
   homepage "https://github.com/davidmashburn/bygone"
 
-  depends_on macos: :big_sur
+  depends_on :macos
 
   app "Bygone.app"
   binary "#{appdir}/Bygone.app/Contents/Resources/bygone-launcher.sh", target: "bygone"
