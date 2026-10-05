@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.9.8
+
+- Rendered Markdown links as clickable links in tour narrative prose
+- Kept Scene context visible at the top of the reading pane while scrolling through each step
+
+macOS desktop downloads are unsigned and not notarized. If Gatekeeper reports
+the app as damaged, run `xattr -cr /Applications/Bygone.app`, then reopen it.
+
 ## 0.9.7
 
 - Published the tour text/code resizing fix and expanded ticket, project, and PR context guidance introduced in 0.9.6
