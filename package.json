@@ -310,7 +310,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "16.x",
     "@types/vscode": "1.74.0",
-    "@vscode/vsce": "^3.9.2",
+    "@vscode/vsce": "^4.0.0",
     "electron": "^43.7.6",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
