@@ -6,6 +6,7 @@
 
 - Rendered Markdown links as clickable links in tour narrative prose
 - Kept Scene context visible at the top of the reading pane while scrolling through each step
+- Updated extension packaging tooling and cache dependencies to resolve high-severity advisories
 
 macOS desktop downloads are unsigned and not notarized. If Gatekeeper reports
 the app as damaged, run `xattr -cr /Applications/Bygone.app`, then reopen it.
