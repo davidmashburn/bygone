@@ -1,8 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.9.9
 
-- Bumped the tour authoring and compiled format to v4 and removed Review Notes; v3 sources must remove `review`, set `version: 4`, and recompile
+- Improved long-line and rewrapped YAML matching, with independent field-prefix scoring and ambiguity checks
+- Merged touching blue change regions while preserving scroll anchors, and clipped gutter connectors to editor bounds
+- Added desktop section links for tours saved outside their repository
+- Replaced repeated Scene context with clickable sticky scene headings and expandable overviews
+- Made History file navigation skip unchanged files; unified workspace controls, Files/Commits navigation, and disabled Tour tabs outside tours
+- Added saved 2/3/4/Fit panel density, uncapped Fit, stable visible groups, broader Find, and preserved edits and scroll positions
+- Unified window typography, surfaces, and control colors across tours, History, and Compare
+- Added automatic `+dev.N` versions for uncommitted local rebuilds without consuming release patch numbers
+- Bumped the tour authoring and compiled format to v4 and removed Review Notes; legacy sources offer conversion with review notes preserved in the tour flow
 
 ## 0.9.8
 

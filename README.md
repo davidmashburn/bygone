@@ -81,6 +81,19 @@ For a one-command local sync that builds the repo, installs the global CLI, pack
 npm run dev:sync
 ```
 
+A clean checkout installs the committed version. Rebuilding with uncommitted
+changes automatically increments a local iteration: `0.9.9+dev.1`,
+`0.9.9+dev.2`, and so on. The CLI, Desktop About dialog, and artifact names
+include that label. This is SemVer build metadata, not a new release patch;
+it does not change version precedence. `npm run reinstall` reuses the current
+artifacts without incrementing the iteration.
+
+For a real release, set the intended plain version with
+`npm version 0.9.10 --no-git-tag-version`, consolidate the changelog, and commit
+before `npm run dev:sync`. Local dev versions must not be published;
+`release:build` and `release:publish` reject them. Keep dev iterations out of
+committed release history.
+
 CLI defaults:
 - In a Git repo, `bygone` opens directory history for the current directory.
 - Outside a Git repo, `bygone` opens a blank editable diff.

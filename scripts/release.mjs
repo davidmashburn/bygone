@@ -2,12 +2,14 @@ import { createHash } from 'crypto';
 import { mkdir, readFile, readdir, rm, symlink, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
+import { assertReleaseVersion } from './dev-version.mjs';
 import { spawn } from 'child_process';
 import { fileURLToPath, pathToFileURL } from 'url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(path.join(repoRoot, 'package.json'), 'utf8'));
 const version = packageJson.version;
+assertReleaseVersion(version);
 const args = new Set(process.argv.slice(2));
 const shouldPublish = args.has('--publish');
 const skipDmg = args.has('--skip-dmg');

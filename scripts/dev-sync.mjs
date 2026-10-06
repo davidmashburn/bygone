@@ -2,12 +2,13 @@ import { constants as fsConstants, existsSync } from 'fs';
 import { access, chmod, cp, mkdir, readFile, readdir, rm, stat } from 'fs/promises';
 import { spawn } from 'child_process';
 import os from 'os';
+import { prepareDevVersion } from './dev-version.mjs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(path.join(repoRoot, 'package.json'), 'utf8'));
-const version = packageJson.version;
+let version = packageJson.version;
 const args = new Set(process.argv.slice(2));
 const installOnly = args.has('--install-only');
 const platform = process.platform;
@@ -17,7 +18,7 @@ const vsceBin = platform === 'win32' ? path.join(binDir, 'vsce.cmd') : path.join
 const electronBuilderBin = platform === 'win32'
     ? path.join(binDir, 'electron-builder.cmd')
     : path.join(binDir, 'electron-builder');
-const vsixPath = path.join(repoRoot, `bygone-${version}.vsix`);
+
 const macDesktopAppId = 'com.davidmashburn.bygone';
 
 if (args.has('--help') || args.has('-h')) {
@@ -50,6 +51,12 @@ Notes:
 }
 
 if (!installOnly) {
+    version = await prepareDevVersion(repoRoot);
+    console.log(`Building Bygone ${version}`);
+}
+const vsixPath = path.join(repoRoot, `bygone-${version}.vsix`);
+
+if (!installOnly) {
     await run(npmCmd, ['install']);
     await rm(path.join(repoRoot, 'dist'), { recursive: true, force: true });
     await run(npmCmd, ['run', 'compile']);
@@ -58,7 +65,9 @@ await run(npmCmd, ['install', '-g', '.']);
 await installShellCompletions();
 if (!installOnly) {
     await run(vsceBin, ['package']);
-    await run(electronBuilderBin, desktopPackageArgs());
+    // electron-builder normalizes package metadata through semver.clean(), which
+    // drops +dev.N. extraMetadata is applied afterward and preserves the label.
+    await run(electronBuilderBin, [...desktopPackageArgs(), `--config.extraMetadata.version=${version}`]);
 } else {
     console.log(`Using existing ${version} VSIX and desktop artifacts.`);
 }
