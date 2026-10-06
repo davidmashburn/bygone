@@ -4,9 +4,30 @@ const { buildChangeTourContext } = require('../out/changeTour.js');
 const { buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { buildManifestForTourSource, loadTourSource } = require('./tourFile.js');
 
-const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'compile', 'schema']);
+const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'compile', 'export', 'schema']);
 
 function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
+    if (args[0] === 'export') {
+        const { exportTour } = require('./tourExport');
+        let sourcePath, outputPath;
+        const options = {};
+        for (let i = 1; i < args.length; i++) {
+            const arg = args[i];
+            if (arg === '--overwrite') { options.overwrite = true; continue; }
+            if (['--output', '-o', '--profile', '--runtime', '--format', '--runtime-base'].includes(arg)) {
+                const value = args[++i];
+                if (!value || value.startsWith('--')) throw new Error(`${arg} requires a value.`);
+                if (arg === '--output' || arg === '-o') outputPath = value;
+                else if (arg === '--format') { if (value !== 'html') throw new Error('Only HTML export is supported.'); }
+                else options[arg === '--runtime-base' ? 'runtimeBase' : arg.slice(2)] = value;
+            } else if (arg.startsWith('-') || sourcePath) throw new Error(`Unexpected export argument: ${arg}`);
+            else sourcePath = arg;
+        }
+        if (!sourcePath || !outputPath) throw new Error('Usage: bygone tour export file.bygone --output tour.html [--profile minimal|full] [--runtime embedded|cdn]');
+        const result = exportTour(path.resolve(cwd, sourcePath), path.resolve(cwd, outputPath), packageRoot, options);
+        output.write(`Wrote ${result.profile} HTML tour to ${result.outputPath} (${result.bytes} bytes). ${result.summary}\n`);
+        return result;
+    }
     const options = parseTourArgs(args);
     if (options.action === 'schema') {
         output.write(readFileSync(path.join(packageRoot, 'schemas', 'change-tour-source.schema.json'), 'utf8'));

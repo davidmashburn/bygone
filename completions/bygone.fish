@@ -18,7 +18,7 @@ complete -c bygone -n '__fish_use_subcommand' -s C -r -d 'Run as if Bygone start
 complete -c bygone -n '__fish_use_subcommand' -s h -l help -d 'Show command help'
 complete -c bygone -n '__fish_use_subcommand' -s v -l version -d 'Show the installed version'
 complete -c bygone -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish' -d 'Shell'
-complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'context coverage validate compile schema' -d 'Tour action'
+complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'context coverage validate compile export schema' -d 'Tour action'
 complete -c bygone -n 'string match -q "*tour context*" -- (commandline -opc)' -l base -r -a '(__bygone_git_refs)' -d 'Set the change-context base ref'
 complete -c bygone -n 'string match -q "*tour context*" -- (commandline -opc)' -l output -s o -r -d 'Write the change context'
 complete -c bygone -n 'string match -q "*tour context*" -- (commandline -opc)' -l max-patch-bytes -r -d 'Maximum included patch size per file'

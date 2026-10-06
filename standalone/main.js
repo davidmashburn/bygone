@@ -6,6 +6,7 @@ const { execFileSync } = require('child_process');
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell, clipboard } = require('electron');
 const { resolveLocalDeepLink } = require('../src/deepLinkResolver.ts');
 const { serializeDeepLink } = require('../src/deepLink.ts');
+const { exportTour } = require('../cli/tourExport.js');
 const { installLinkPreviewHost, openPreviewExternal } = require('./linkPreview.js');
 const { buildTwoWayDiffModel } = require('../src/diffEngine.ts');
 const { buildChangeAttention } = require('../src/changeAttention.ts');
@@ -747,6 +748,10 @@ function installApplicationMenu() {
                         const source = session.source;
                         clipboard.writeText(serializeDeepLink({ kind: 'compare', repo: pathToFileURL(source.repoRoot).href, revisions: source.resolvedRevisions }));
                     })
+                },
+                {
+                    label: 'Export Tour as HTML…',
+                    click: () => runMenuAction('export a tour', exportTourDialog)
                 },
                 { type: 'separator' },
                 {
@@ -6416,4 +6421,19 @@ async function openDeepLink(value) {
     }
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show(); mainWindow.focus();
+}
+
+async function exportTourDialog() {
+    const owner = BrowserWindow.getFocusedWindow() || mainWindow;
+    const selected = await dialog.showOpenDialog(owner, { title: 'Export saved tour as HTML', properties: ['openFile'], filters: [{ name: 'Bygone tour', extensions: ['bygone', 'yaml', 'yml'] }] });
+    if (selected.canceled || !selected.filePaths[0]) return;
+    const choice = await dialog.showMessageBox(owner, { type: 'question', title: 'Export tour',
+        message: 'Choose the evidence to include',
+        detail: 'Minimal includes authored modes and the fixed endpoint comparison. Full adds bounded history. Both include full file contents, potentially including deleted code, and an embedded viewer for offline reading. This exports saved disk state.',
+        buttons: ['Minimal', 'Full', 'Cancel'], defaultId: 0, cancelId: 2 });
+    if (choice.response === 2) return;
+    const destination = await dialog.showSaveDialog(owner, { title: 'Save HTML tour', defaultPath: `${path.basename(selected.filePaths[0])}.html`, filters: [{ name: 'HTML tour', extensions: ['html'] }] });
+    if (destination.canceled || !destination.filePath) return;
+    const result = exportTour(selected.filePaths[0], destination.filePath, packageRoot, { profile: choice.response === 1 ? 'full' : 'minimal', runtime: 'embedded', overwrite: true });
+    await dialog.showMessageBox(owner, { type: 'info', message: 'Tour exported', detail: `${result.outputPath}\n${result.summary}` });
 }

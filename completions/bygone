@@ -23,7 +23,7 @@ _bygone() {
             ;;
         tour)
             if (( COMP_CWORD == 2 )); then
-                COMPREPLY=( $(compgen -W 'context coverage validate compile schema' -- "$cur") )
+                COMPREPLY=( $(compgen -W 'context coverage validate compile export schema' -- "$cur") )
             elif [[ "${COMP_WORDS[2]}" == "context" ]]; then
                 refs="$(_bygone_git_refs)"
                 if [[ "$prev" =~ ^(--base|-m|--main)$ ]]; then

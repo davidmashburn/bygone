@@ -166,7 +166,8 @@ let currentTwoWayFileExists = { left: true, right: true };
 let suppressDirectoryScrollSync = false;
 let refreshSessionState = { enabled: false, status: 'disabled', message: null };
 let pendingNavigationRestore = null;
-let wordWrapEnabled = readWordWrapPreference(window.localStorage);
+let wordWrapEnabled = readWordWrapPreference(safePreferenceStorage());
+function safePreferenceStorage() { try { return window.localStorage; } catch { return null; } }
 let lastPostedWordWrapState = null;
 let workspaceResizeScrollSnapshot = null;
 let changeSetSearchRequestId = 0;
@@ -440,7 +441,7 @@ host.onMessage((message) => {
     }
 });
 
-window.addEventListener('load', async () => {
+async function initializeRenderer() {
     connectorController.initializeCanvas();
     initializeHistoryRail();
     initializeHistoryToolbar();
@@ -503,7 +504,9 @@ window.addEventListener('load', async () => {
         );
         pendingMultiPayload = undefined;
     }
-});
+}
+if (document.readyState === 'complete') void initializeRenderer();
+else window.addEventListener('load', initializeRenderer, { once: true });
 
 window.addEventListener('resize', () => {
     applyFocusedStripLayout(false);
@@ -1842,6 +1845,7 @@ function initializeNonEditorTextTooltips() {
     preview.textContent = 'Preview';
     preview.className = 'bygone-link-preview-button';
     const previewUrl = (element) => {
+        if (host.linkPreviews === false) return null;
         if (!(element instanceof Element) || !element.matches('a[href]') || element.closest('.bygone-link-preview')) return null;
         const href = element.getAttribute('href');
         return /^https?:\/\//i.test(href) ? element.href : null;
@@ -4122,7 +4126,7 @@ function postWordWrapState() {
 
 function setWordWrapEnabled(enabled) {
     wordWrapEnabled = Boolean(enabled);
-    writeWordWrapPreference(window.localStorage, wordWrapEnabled);
+    writeWordWrapPreference(safePreferenceStorage(), wordWrapEnabled);
     applyWordWrap(getTextEditors(), wordWrapEnabled);
     updateWordWrapControl();
     postWordWrapState();
