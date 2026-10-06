@@ -26,6 +26,12 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [HTML tour exports](self-contained-html-tours.md) — Minimal/Full snapshots,
+  bounded Git history, and pinned CDN or embedded offline viewers.
+- [Deep links to Bygone views](deep-linking.md) — versioned source/view/focus
+  addresses, local desktop opening first, then portable pinned tour resolution.
+- [Reader-controlled visible panel count](visible-panel-count.md) — show three
+  or four revisions with an explicit density choice and a stable visible group.
 - [Comparison controls and file states](comparison-controls-and-file-states.md) —
   filename/folder filters, explicit errors and symlink identity, basic whitespace
   options, and file-state filters.
