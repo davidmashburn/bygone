@@ -7,6 +7,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, shell, clipboard } = require(
 const { resolveLocalDeepLink } = require('../src/deepLinkResolver.ts');
 const { serializeDeepLink } = require('../src/deepLink.ts');
 const { exportTour } = require('../cli/tourExport.js');
+const { loadTourWithConversion } = require('./tourConversion.js');
 const { installLinkPreviewHost, openPreviewExternal } = require('./linkPreview.js');
 const { buildTwoWayDiffModel } = require('../src/diffEngine.ts');
 const { buildChangeAttention } = require('../src/changeAttention.ts');
@@ -281,7 +282,8 @@ async function openWorkspaceTour(uiState, context, kind) {
     let presentation;
     try {
         const document = discoverAuthoredTourDocument(picked.filePaths[0]);
-        presentation = await startPresentation(['--tour', document.documentPath], document.repoRoot, packageRoot, { announce: false, open: false, ignoreEnvironment: true });
+        presentation = await startPresentation(['--tour', document.documentPath], document.repoRoot, packageRoot, { announce: false, open: false, ignoreEnvironment: true, loadTourSource: loadDesktopTourSource });
+        if (!presentation) { workspace.setStatus('Tour conversion canceled.'); return null; }
         const manifest = presentation.manifest;
         const revisions = [manifest.range.mergeBaseOid, manifest.range.headOid];
         const tourContext = resolveWorkspaceGit({ kind: 'git-refs', repoRoot: document.repoRoot, refs: revisions });
@@ -456,19 +458,25 @@ function ensureMainWindow() {
     }
 }
 
+function loadDesktopTourSource(cwd, sourcePath) {
+    return loadTourWithConversion(cwd, sourcePath, dialog, BrowserWindow.getFocusedWindow() || mainWindow);
+}
+
 async function openTourPresentation(args, cwd, location) {
     let ownerWindow = null;
     const presentation = await startPresentation(args, cwd, packageRoot, {
         announce: false,
         open: false,
         location,
+        loadTourSource: loadDesktopTourSource,
         onNarrationClaim: () => claimTourNarration(ownerWindow)
     });
+    if (!presentation) return;
     activeTourServers.add(presentation.server);
 
     try {
         ownerWindow = await showTourWindow(presentation.url, presentation.server, presentation.manifest, {
-            args: [...args],
+            args: args.map((arg, index) => index > 0 && tokenMatches('tour', args[index - 1]) ? presentation.sourcePath : arg),
             cwd: path.resolve(cwd)
         });
     } catch (error) {
@@ -6427,6 +6435,8 @@ async function exportTourDialog() {
     const owner = BrowserWindow.getFocusedWindow() || mainWindow;
     const selected = await dialog.showOpenDialog(owner, { title: 'Export saved tour as HTML', properties: ['openFile'], filters: [{ name: 'Bygone tour', extensions: ['bygone', 'yaml', 'yml'] }] });
     if (selected.canceled || !selected.filePaths[0]) return;
+    const source = await loadDesktopTourSource(process.cwd(), selected.filePaths[0]);
+    if (!source) return;
     const choice = await dialog.showMessageBox(owner, { type: 'question', title: 'Export tour',
         message: 'Choose the evidence to include',
         detail: 'Minimal includes authored modes and the fixed endpoint comparison. Full adds bounded history. Both include full file contents, potentially including deleted code, and an embedded viewer for offline reading. This exports saved disk state.',
@@ -6434,6 +6444,6 @@ async function exportTourDialog() {
     if (choice.response === 2) return;
     const destination = await dialog.showSaveDialog(owner, { title: 'Save HTML tour', defaultPath: `${path.basename(selected.filePaths[0])}.html`, filters: [{ name: 'HTML tour', extensions: ['html'] }] });
     if (destination.canceled || !destination.filePath) return;
-    const result = exportTour(selected.filePaths[0], destination.filePath, packageRoot, { profile: choice.response === 1 ? 'full' : 'minimal', runtime: 'embedded', overwrite: true });
+    const result = exportTour(source.resolvedPath, destination.filePath, packageRoot, { profile: choice.response === 1 ? 'full' : 'minimal', runtime: 'embedded', overwrite: true });
     await dialog.showMessageBox(owner, { type: 'info', message: 'Tour exported', detail: `${result.outputPath}\n${result.summary}` });
 }

@@ -479,12 +479,21 @@ import { renderTourProse } from '../media/tourProse.js';
                 throw new Error('Choose an authored .bygone or .yaml file.');
             }
             const source = await file.text();
-            const response = await fetch('/tour/open', {
+            const upload = (convertToV4 = false) => fetch('/tour/open', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source })
+                body: JSON.stringify({ source, convertToV4 })
             });
-            const result = await response.json().catch(() => ({}));
+            let response = await upload();
+            let result = await response.json().catch(() => ({}));
+            if (response.status === 409 && result.conversion) {
+                if (!window.confirm(`${result.conversion.message}\n\n${result.conversion.detail}\n\nThe converted copy will be downloaded after opening.`)) {
+                    setWorkspacePromptStatus('Tour conversion canceled.');
+                    return;
+                }
+                response = await upload(true);
+                result = await response.json().catch(() => ({}));
+            }
             if (!response.ok) throw new Error(result.error || `Tour upload failed (${response.status}).`);
             if (!result || typeof result.manifestUrl !== 'string' || !result.manifestUrl) {
                 throw new Error('Tour upload did not return a manifest URL.');
@@ -497,6 +506,16 @@ import { renderTourProse } from '../media/tourProse.js';
             if (!loaded) {
                 setWorkspacePromptStatus('Could not load the uploaded tour.');
                 return;
+            }
+            if (typeof result.convertedSource === 'string') {
+                const url = URL.createObjectURL(new Blob([result.convertedSource], { type: 'application/yaml' }));
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${file.name.replace(/(?:\.bygone)?\.ya?ml$|\.bygone$/i, '')}.v4.bygone`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
             }
             setWorkspacePromptStatus('');
         } catch (error) {

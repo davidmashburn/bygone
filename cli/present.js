@@ -6,7 +6,7 @@ const { buildChangeTourManifest, parseChangeTourStory } = require('../out/change
 const { buildTourAuthoringCoverage, buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { buildTourWindowTitle } = require('../out/windowTitle.js');
 const { tokenMatches } = require('./commandSpec.js');
-const { loadTourSource, parseTourSourceText, buildManifestForTourSource } = require('./tourFile.js');
+const { loadTourSource, parseTourSourceText, inspectTourConversion, convertTourSourceText, buildManifestForTourSource } = require('./tourFile.js');
 const { createTourHistory } = require('./tourHistory.js');
 const { pathToFileURL } = require('url');
 const { resolveDocumentFocus, serializeDocumentFragment } = require('../out/deepLink.js');
@@ -26,7 +26,9 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
     const story = !options.ignoreEnvironment && process.env.BYGONE_TOUR_STORY
         ? parseChangeTourStory(JSON.parse(readFileSync(path.resolve(cwd, process.env.BYGONE_TOUR_STORY), 'utf8')))
         : undefined;
-    const source = tourPath ? loadTourSource(cwd, tourPath).source : undefined;
+    const loadedSource = tourPath ? await (options.loadTourSource || loadTourSource)(cwd, tourPath) : undefined;
+    if (tourPath && !loadedSource) return null;
+    const source = loadedSource?.source;
     const builtManifest = buildChangeTourManifest(cwd, {
         headRef: explicitHeadRef || source?.range?.head || headRef,
         baseRef: baseRef || source?.range?.base,
@@ -41,7 +43,7 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
     if (options.location) resolveDocumentFocus(manifest, options.location.mode, options.location.focus);
     if (tourPath) {
         const root = builtManifest.repository?.root || cwd;
-        const relative = path.relative(root, path.resolve(cwd, tourPath)).split(path.sep).join('/');
+        const relative = path.relative(root, loadedSource.resolvedPath).split(path.sep).join('/');
         if (relative && !relative.startsWith('../') && !path.isAbsolute(relative)) manifest.localSource = { repo: pathToFileURL(root).href, tour: relative };
     }
     const history = createTourHistory(manifest);
@@ -76,11 +78,15 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
             request.on('end', () => {
                 if (response.writableEnded) return;
                 try {
-                    const uploadedSource = parseTourSourceText(JSON.parse(body).source);
+                    const input = JSON.parse(body);
+                    const conversion = inspectTourConversion(input.source);
+                    if (conversion && input.convertToV4 !== true) return respondJson(response, 409, { conversion });
+                    const converted = conversion ? convertTourSourceText(input.source) : null;
+                    const uploadedSource = converted?.source || parseTourSourceText(input.source);
                     const loaded = buildManifestForTourSource(cwd, uploadedSource);
                     const id = String(uploadedTours.size + 1);
                     uploadedTours.set(id, { manifest: loaded, history: createTourHistory(loaded) });
-                    respondJson(response, 200, { manifestUrl: `/loaded/${id}/tour.json`, repository: loaded.repository?.root || cwd, range: loaded.range });
+                    respondJson(response, 200, { manifestUrl: `/loaded/${id}/tour.json`, repository: loaded.repository?.root || cwd, range: loaded.range, convertedSource: converted?.text });
                 } catch (error) { respondJson(response, 400, { error: `Invalid tour for this repository: ${error.message}` }); }
             });
             return;
@@ -198,7 +204,7 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
             throw error;
         }
     }
-    return { manifest, server, url };
+    return { manifest, server, url, sourcePath: loadedSource?.resolvedPath };
 }
 
 function parsePresentArgs(args) {

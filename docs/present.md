@@ -62,6 +62,25 @@ authored first scene and order.
 For desktop section links and portable Minimal/Full HTML snapshots, see
 [Links and portable HTML tours](sharing-tours.md).
 
+Opening a version 1, 2, or 3 authored tour in Desktop offers **Convert and open
+copy** by default. This saves a v4 copy beside the original (for example,
+`demo.v4.bygone`) without overwriting either the original or an existing copy.
+Cancel leaves the current view unchanged. The same offer appears when selecting
+a tour for HTML export; browser uploads ask before converting and download a copy
+after opening it.
+
+Conversion preserves authored IDs and revision references, so section links keep
+their targets. Review notes become a **Legacy review notes** appendix in the last
+authored step or stage of each available tour. The appendix includes readable notes,
+recorded revision IDs, evidence references, and next checks. Unrecognized review
+fields are retained verbatim in the flow. Resolvable walkthrough references link back to their steps. The notes
+are labeled as imported, not revalidated against potentially moving branches.
+YAML comments and formatting are not copied. Conversion
+stops with a specific validation error if the tour needs manual changes, such as
+a v1 synthetic-only root scene without the real revision evidence required in v4.
+Noninteractive CLI validation and compilation continue to require a supported
+source; open retired v3 sources in Desktop to convert them first.
+
 ## Explore and follow tours
 
 Version 2 and 4 presentations expose **History**, **Compare**, and the available
