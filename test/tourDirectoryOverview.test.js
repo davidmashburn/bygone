@@ -104,7 +104,7 @@ function makeSource(inventory) {
         }]
     };
     return {
-        version: 3,
+        version: 4,
         range: { base: 'main', head: 'feature' },
         anchors: {
             'changed-line': { file: 'app.txt', revision: 'head', contains: 'BETA' }
@@ -160,7 +160,7 @@ test('explicit authored modes preserve directory overviews through compilation',
         const source = makeSource(inventory);
         const v2WithOverview = clone(source);
         v2WithOverview.version = 2;
-        assert.throws(() => parseChangeTourSource(v2WithOverview), /overview requires version 3/);
+        assert.throws(() => parseChangeTourSource(v2WithOverview), /overview requires version 4/);
         const [walkthrough, stacked, deconstructed] = source.chapters[0].scenes;
         const modeSource = {
             ...source,
@@ -200,7 +200,7 @@ test('directory overview paths reject unsafe values and legacy scenes remain unc
         const v2ManifestWithOverview = clone(manifest);
         v2ManifestWithOverview.version = 2;
         delete v2ManifestWithOverview.tours;
-        assert.throws(() => parseChangeTourManifest(v2ManifestWithOverview), /overview requires manifest version 3/);
+        assert.throws(() => parseChangeTourManifest(v2ManifestWithOverview), /overview requires manifest version 4/);
         const invalidManifest = clone(manifest);
         invalidManifest.scenes[0].overview.path = '../outside';
         assert.throws(() => parseChangeTourManifest(invalidManifest), /relative|traversal/);

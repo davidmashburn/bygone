@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Bumped the tour authoring and compiled format to v4 and removed Review Notes; v3 sources must remove `review`, set `version: 4`, and recompile
+
 ## 0.9.8
 
 - Rendered Markdown links as clickable links in tour narrative prose

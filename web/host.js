@@ -1068,16 +1068,6 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     function bindControls() {
-        document.getElementById('tour-review-toggle')?.addEventListener('click', () => {
-            setReviewNotesOpen(document.getElementById('tour-review').hidden);
-        });
-        document.getElementById('tour-review-close')?.addEventListener('click', () => setReviewNotesOpen(false));
-        document.getElementById('tour-review')?.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                setReviewNotesOpen(false);
-            }
-        });
         const action = (id, handler) => document.getElementById(id)?.addEventListener('click', () => {
             Promise.resolve().then(handler).catch(reportModeError);
         });
@@ -1209,7 +1199,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 tourSearchInput?.select();
                 return;
             }
-            if (state.mode !== 'tour' || event.metaKey || event.ctrlKey || event.altKey || isInteractiveKeyTarget(event.target) || event.target.closest?.('#tour-review')) {
+            if (state.mode !== 'tour' || event.metaKey || event.ctrlKey || event.altKey || isInteractiveKeyTarget(event.target)) {
                 return;
             }
             if (event.key === 'PageUp' || event.key === 'ArrowLeft') {
@@ -1827,7 +1817,6 @@ import { renderTourProse } from '../media/tourProse.js';
         range.textContent = `${baseLabel} → ${headLabel}${headLabel === resolvedHead ? '' : ` · ${resolvedHead}`}`;
         stats.textContent = `${formatCount(tour.summary.changedFiles, 'file')} · +${tour.summary.additions} −${tour.summary.deletions} · ${formatCount(tour.summary.commitCount, 'commit')}`;
         renderAuthoringCoverage(authoringCoverage, tour.authoringCoverage);
-        renderReviewNotes();
         sceneCount.textContent = String(tour.scenes.length);
         fileCount.textContent = String(tour.files.length);
         scenes.replaceChildren();
@@ -1931,97 +1920,6 @@ import { renderTourProse } from '../media/tourProse.js';
             return button;
         }));
         setTourNavigatorTab(state.tourNavigatorTab);
-    }
-
-    function setReviewNotesOpen(open) {
-        document.getElementById('tour-review').hidden = !open;
-        const toggle = document.getElementById('tour-review-toggle');
-        toggle.setAttribute('aria-expanded', String(open));
-        (open ? document.getElementById('tour-review-close') : toggle).focus();
-    }
-
-    function renderReviewNotes() {
-        const tour = state.authoredTour;
-        const review = tour?.review;
-        const toggle = document.getElementById('tour-review-toggle');
-        const content = document.getElementById('tour-review-content');
-        toggle.hidden = !review;
-        content.replaceChildren();
-        if (!review) {
-            document.getElementById('tour-review').hidden = true;
-            toggle.setAttribute('aria-expanded', 'false');
-            return;
-        }
-        toggle.textContent = `Review notes (${review.items.length})`;
-        const provenance = document.createElement('p');
-        provenance.className = 'tour-review-provenance';
-        provenance.textContent = 'Authored interpretations. Linked evidence is checked; conclusions and external checks are not verified.';
-        const range = document.createElement('p');
-        range.className = 'tour-review-range';
-        range.textContent = `Reviewed snapshot: ${review.baseOid.slice(0, 7)} → ${review.headOid.slice(0, 7)}. Evidence opens this range’s final diff.`;
-        range.title = `${review.baseOid} → ${review.headOid}`;
-        content.append(provenance, range);
-        const scenes = tour.zoom?.final.scenes || tour.scenes;
-        for (const [kind, label] of [
-            ['concept', 'Concepts and invariants'],
-            ['boundary', 'Boundaries and prerequisites'],
-            ['tradeoff', 'Complexity tradeoffs'],
-            ['question', 'Open questions']
-        ]) {
-            const items = review.items.filter((item) => item.kind === kind);
-            if (!items.length) continue;
-            const heading = document.createElement('h3');
-            heading.textContent = label;
-            content.append(heading);
-            for (const item of items) {
-                const card = document.createElement('article');
-                card.className = 'tour-review-item';
-                const title = document.createElement('h4');
-                title.textContent = item.title;
-                const body = document.createElement('p');
-                body.textContent = item.body;
-                card.append(title, body);
-                for (const evidence of item.evidence) {
-                    const scene = scenes.find((candidate) => candidate.id === evidence.sceneId);
-                    const step = scene.steps.find((candidate) => candidate.id === evidence.stepId);
-                    const button = document.createElement('button');
-                    button.type = 'button';
-                    button.className = 'tour-review-evidence';
-                    button.textContent = `${step.title} · ${step.focus.path}:${step.focus.startLine} (${step.focus.revision})`;
-                    button.title = `Open evidence in the reviewed snapshot: ${step.title}`;
-                    button.addEventListener('click', () => void showReviewEvidence(evidence));
-                    card.append(button);
-                }
-                if (item.nextCheck) {
-                    const next = document.createElement('p');
-                    next.className = 'tour-review-next';
-                    next.textContent = `Next check: ${item.nextCheck}`;
-                    card.append(next);
-                }
-                content.append(card);
-            }
-        }
-    }
-
-    async function showReviewEvidence(evidence) {
-        const status = document.getElementById('tour-review-status');
-        status.textContent = '';
-        if (state.zoomSwitching) {
-            status.textContent = 'Wait for the current mode change, then open the evidence again.';
-            return;
-        }
-        if (state.zoom && state.zoom.mode !== 'final') await switchZoomMode('final');
-        const index = state.tour.scenes.findIndex((scene) => scene.id === evidence.sceneId);
-        const scene = state.tour.scenes[index];
-        const stepIndex = scene?.kind === 'walkthrough' ? scene.steps.findIndex((step) => step.id === evidence.stepId) : -1;
-        if ((state.zoom && state.zoom.mode !== 'final') || stepIndex < 0) {
-            status.textContent = 'Could not open the reviewed snapshot. Try switching to Final diff first.';
-            return;
-        }
-        // A restored zoom location must not overwrite this explicit evidence jump.
-        zoomRestore = null;
-        showTourScene(index, stepIndex, { userNavigation: true });
-        setReviewNotesOpen(false);
     }
 
     function renderAuthoringCoverage(container, coverage) {

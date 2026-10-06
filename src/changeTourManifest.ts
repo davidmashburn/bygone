@@ -1,13 +1,11 @@
 import type { BranchCommit, GitChangeKind } from './gitComparison';
 import {
-    validateChangeTourReview,
     validateSceneOverview,
     validateStepRequirement,
-    type ChangeTourReview,
     type ChangeTourStepRequirement
 } from './changeTourSource';
 
-export const CHANGE_TOUR_MANIFEST_VERSION = 3 as const;
+export const CHANGE_TOUR_MANIFEST_VERSION = 4 as const;
 
 export type ChangeTourMode = 'explanation' | 'revisions' | 'final' | 'history';
 
@@ -277,7 +275,6 @@ export interface ChangeTourManifest {
     scenes: ChangeTourScene[];
     /** Independently authored mode tours. The legacy root tour remains authoritative when absent. */
     tours?: ChangeTourTours;
-    review?: ChangeTourReview;
     /** Optional authoring diagnostics supplied by the local presentation host. */
     authoringCoverage?: ChangeTourAuthoringCoverage;
 }
@@ -288,9 +285,13 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
             `This tour uses manifest format version ${value.version}, but this version of Bygone supports up to version ${CHANGE_TOUR_MANIFEST_VERSION}. Upgrade Bygone to open it.`
         );
     }
+    if (isRecord(value) && value.version === 3) {
+        throw new Error('Tour manifest format version 3 is retired. Remove the review block, set source version to 4, and recompile the tour.');
+    }
     if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
         throw new Error(`Unsupported or missing change-tour manifest version.`);
     }
+    if ('review' in value) throw new Error('Change-tour manifests do not support the review field. Put observations in scene and step narrative.');
     requireString(value.title, 'title');
     requireString(value.generatedAt, 'generatedAt');
     if (value.windowTitle !== undefined) {
@@ -359,47 +360,16 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
     }
 
     if (value.tours !== undefined) {
-        if (value.version !== 3) throw new Error('Independent tours require manifest version 3.');
+        if (value.version !== 4) throw new Error('Independent tours require manifest version 4.');
         validateModeTours(value.tours, value.version);
     }
 
     if (value.version !== 1) validateZoom(value, value.version);
 
-    if (value.review !== undefined) {
-        if (value.version !== 3) throw new Error('Review notes require manifest version 3.');
-        const evidenceScenes = value.version >= 2 && isRecord(value.zoom) && isRecord(value.zoom.final)
-            ? value.zoom.final.scenes
-            : value.scenes;
-        validateChangeTourReview(value.review, {
-            expectedRange: {
-                baseOid: String(value.range.mergeBaseOid),
-                headOid: String(value.range.headOid)
-            },
-            authoredWalkthroughSteps: collectAuthoredWalkthroughStepIds(evidenceScenes)
-        });
-    }
-
     return { ...value, files } as unknown as ChangeTourManifest;
 }
 
-function collectAuthoredWalkthroughStepIds(value: unknown): ReadonlyMap<string, ReadonlySet<string>> {
-    const scenes = new Map<string, ReadonlySet<string>>();
-    if (!Array.isArray(value)) return scenes;
-    for (const scene of value) {
-        if (!isRecord(scene) || scene.kind !== 'walkthrough' || !Array.isArray(scene.steps)
-            || typeof scene.id !== 'string') {
-            continue;
-        }
-        const stepIds = new Set<string>();
-        for (const step of scene.steps) {
-            if (isRecord(step) && typeof step.id === 'string') stepIds.add(step.id);
-        }
-        scenes.set(scene.id, stepIds);
-    }
-    return scenes;
-}
-
-function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 3): asserts value is ChangeTourAuthoringCoverage {
+function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 4): asserts value is ChangeTourAuthoringCoverage {
     if (!isRecord(value) || !isRecord(value.walkthrough) || !Array.isArray(value.explanationAssignments)) {
         throw new Error('authoringCoverage must contain walkthrough and explanationAssignments.');
     }
@@ -429,7 +399,7 @@ function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 3): asserts 
     }
 }
 
-function validateModeTours(value: unknown, version: 3): asserts value is ChangeTourTours {
+function validateModeTours(value: unknown, version: 4): asserts value is ChangeTourTours {
     if (!isRecord(value)) throw new Error('Change-tour manifest tours must be an object.');
     if (value.historical === undefined && value.deconstructed === undefined) {
         throw new Error('Change-tour manifest tours must contain a historical or deconstructed tour.');
@@ -505,7 +475,7 @@ export function parseChangeTourStory(value: unknown): ChangeTourStory {
     return value as unknown as ChangeTourStory;
 }
 
-function validateZoom(value: Record<string, unknown>, version: 2 | 3): void {
+function validateZoom(value: Record<string, unknown>, version: 2 | 4): void {
     if (!isRecord(value.repository) || typeof value.repository.root !== 'string' || !value.repository.root) {
         throw new Error('A v2 tour requires its originating repository.root.');
     }
@@ -567,15 +537,15 @@ function validateZoom(value: Record<string, unknown>, version: 2 | 3): void {
     }
 }
 
-function validateScene(value: unknown, index: number, version: 1 | 2 | 3): asserts value is ChangeTourScene {
+function validateScene(value: unknown, index: number, version: 1 | 2 | 4): asserts value is ChangeTourScene {
     if (!isRecord(value) || !['text-diff', 'discussion', 'walkthrough', 'stacked-diff', 'deconstructed-diff'].includes(String(value.kind))) {
         throw new Error(`scenes[${index}] must be a text-diff, discussion, walkthrough, stacked-diff, or deconstructed-diff scene.`);
     }
     for (const key of ['id', 'title']) {
         requireString(value[key], `scenes[${index}].${key}`);
     }
-    if (value.overview !== undefined && version !== 3) {
-        throw new Error(`scenes[${index}].overview requires manifest version 3.`);
+    if (value.overview !== undefined && version !== 4) {
+        throw new Error(`scenes[${index}].overview requires manifest version 4.`);
     }
     validateNarrative(value, `scenes[${index}]`);
     if (value.kind === 'discussion') {

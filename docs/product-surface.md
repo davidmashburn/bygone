@@ -25,7 +25,7 @@ renderer does not make every workflow appropriate in every host.
 
 Desktop Explore uses **History · Compare · Historical tour · Deconstructed
 tour** without requiring an authored document. Missing tour buttons open an
-short, editable prompt referencing the bundled v3 tour skill and the workspace's
+short, editable prompt referencing the bundled v4 tour skill and the workspace's
 repository, revisions, and selected paths. Read instructions exposes the Markdown;
 Save an editable copy and Use my copy support user-owned forks. Desktop prompts
 reference a real filesystem path outside the application archive. Browser prompts
@@ -87,8 +87,7 @@ appear only when Electron is not packaged.
 | --- | --- | --- | --- | --- | --- |
 | Explain a branch automatically | Present → Present Current Branch or Present Branch or Ref; `bygone present` | Committed merge-base-to-tip range with a deterministic overview first scene and complete Files navigator | Read-only; authored tours retain their authored order | Core | attention-model, presentation launch, generated-tour, and desktop menu tests |
 | Open an authored walkthrough | Present → Open Authored Tour; `bygone present --tour`; VS Code hand-off | Manifest range, scene, step, exact source anchor | Read-only | Core | reproducible example and tour validation tests |
-| Read optional authored review notes | Browser or desktop Present shows an opt-in **Review notes** button when a v3 manifest includes `review` | `baseOid`/`headOid` pins and evidence links into the Final walkthrough | Immutable range; read-only panel; no scores or persisted reviewer state | Local prototype | `examples/bygone-history.bygone`, `test/reviewNotes.test.js`, and manual browser navigation check |
-| Assess authored tour coverage | Coverage indicators in the Present sidebar | Distinct hunks referenced by authored walkthrough anchors; v2/v3 Final walkthrough coverage remains separate from deconstructed Explanation assignment completeness | Read-only authoring diagnostics; generated tours have no authored coverage metric | Advanced authoring | v1/v2/v3 coverage and presenter-host tests |
+| Assess authored tour coverage | Coverage indicators in the Present sidebar | Distinct hunks referenced by authored walkthrough anchors; v2/v4 Final walkthrough coverage remains separate from deconstructed Explanation assignment completeness | Read-only authoring diagnostics; generated tours have no authored coverage metric | Advanced authoring | v1/v2/v4 coverage and presenter-host tests |
 | Listen to a generated or authored tour | Narrative Listen controls; Present → Listen to Tour | Existing manifest narrative segmented locally by scene/step and visible sentence | Read-only device TTS; voice/rate preferences remain local; continuous playback follows tour navigation and direct exploration pauses it | Core | narration model/controller and presenter-host tests |
 | Explain a real stack | `stacked-diff` scene | Exact real Git revisions per panel | Read-only | Advanced | `examples/stacked-diff.bygone` |
 | Explain a change in conceptual stages | `deconstructed-diff` scene | Explicitly labeled synthetic explanation stages backed by exact hunk IDs | Read-only | Advanced/experimental authoring | `examples/deconstructed-diff.bygone` |

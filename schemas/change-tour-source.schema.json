@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["version", "anchors", "connections", "chapters"],
   "properties": {
-    "version": { "enum": [1, 2, 3] },
+    "version": { "enum": [1, 2, 4] },
     "title": { "$ref": "#/$defs/nonEmptyString" },
     "windowTitle": {
       "$ref": "#/$defs/nonEmptyString",
@@ -34,7 +34,6 @@
         }
       }
     },
-    "review": { "$ref": "#/$defs/review" },
     "anchors": {
       "type": "object",
       "propertyNames": { "minLength": 1 },
@@ -72,7 +71,7 @@
     {
       "if": { "properties": { "version": { "enum": [1, 2] } }, "required": ["version"] },
       "then": {
-        "not": { "anyOf": [{ "required": ["tours"] }, { "required": ["review"] }] },
+        "not": { "required": ["tours"] },
         "properties": {
           "chapters": {
             "items": {
@@ -106,7 +105,7 @@
       }
     },
     {
-      "if": { "properties": { "version": { "enum": [2, 3] } }, "required": ["version"] },
+      "if": { "properties": { "version": { "enum": [2, 4] } }, "required": ["version"] },
       "then": {
         "properties": {
           "chapters": {
@@ -127,7 +126,6 @@
   ],
   "$defs": {
     "nonEmptyString": { "type": "string", "minLength": 1 },
-    "reviewString": { "type": "string", "minLength": 1, "pattern": "\\S" },
     "stringArray": {
       "type": "array",
       "items": { "type": "string" }
@@ -206,63 +204,6 @@
         "status": { "enum": ["fulfilled", "gap"] },
         "source": { "$ref": "#/$defs/nonEmptyString" },
         "confidence": { "enum": ["high", "medium", "low"] }
-      }
-    },
-    "review": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["baseOid", "headOid", "items"],
-      "properties": {
-        "baseOid": { "$ref": "#/$defs/fullGitOid" },
-        "headOid": { "$ref": "#/$defs/fullGitOid" },
-        "items": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "$ref": "#/$defs/reviewItem" }
-        }
-      }
-    },
-    "fullGitOid": {
-      "type": "string",
-      "pattern": "^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$"
-    },
-    "reviewItem": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "kind", "title", "body", "evidence"],
-      "properties": {
-        "id": { "$ref": "#/$defs/reviewString" },
-        "kind": { "enum": ["concept", "boundary", "tradeoff", "question"] },
-        "title": { "$ref": "#/$defs/reviewString" },
-        "body": { "$ref": "#/$defs/reviewString" },
-        "evidence": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/reviewEvidence" }
-        },
-        "nextCheck": { "$ref": "#/$defs/reviewString" }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": { "kind": { "const": "question" } },
-            "required": ["kind"]
-          },
-          "then": { "required": ["nextCheck"] },
-          "else": {
-            "properties": {
-              "evidence": { "minItems": 1 }
-            }
-          }
-        }
-      ]
-    },
-    "reviewEvidence": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["sceneId", "stepId"],
-      "properties": {
-        "sceneId": { "$ref": "#/$defs/reviewString" },
-        "stepId": { "$ref": "#/$defs/reviewString" }
       }
     },
     "step": {

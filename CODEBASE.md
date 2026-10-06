@@ -14,11 +14,11 @@ The hosts share the browser renderer in [`media/`](./media). Control and domain 
 ## Product and Host Map
 
 - **Explore (standalone):** Blank, file, directory, file-history, directory-history, Git revision, branch-review, search, and multi-panel sessions. Live working-tree content can be edited; committed revisions and read-only sessions are presented as snapshots.
-- **Present (standalone or browser):** Generated branch tours and authored `.bygone` tours. Historical tours use real revisions, including real stacked-diff scenes with two or more panels. Deconstructed tours use synthetic explanation stages. Version 3 authored sources can provide independent Historical and Deconstructed modes plus review notes.
+- **Present (standalone or browser):** Generated branch tours and authored `.bygone` tours. Historical tours use real revisions, including real stacked-diff scenes with two or more panels. Deconstructed tours use synthetic explanation stages. Version 4 authored sources can provide independent Historical and Deconstructed modes and scene directory overviews.
 - **VS Code companion:** Contextual file comparison and history, with desktop handoffs for directories, three or more files, branch review, and the `Open Authored Tour in Desktop` command.
 - **CLI and agent tools:** Launch paths, history and Git-diff modes, `review` and `present`, tour context/validation/compilation/coverage/schema, and shell completions.
 
-Version 2 and version 3 tour sources and compiled manifests are repository-bound: source validation and compilation resolve anchors and Git objects from the originating repository, and the resulting artifacts are not portable. Version 1 manifests remain readable as the legacy portable format. Authored tours are opened from the standalone **Open Authored Tour…** menu or through the CLI and are presented in the repository context that validates them.
+Version 2 and version 4 tour sources and compiled manifests are repository-bound: source validation and compilation resolve anchors and Git objects from the originating repository, and the resulting artifacts are not portable. Version 1 manifests remain readable as the legacy portable format. Authored tours are opened from the standalone **Open Authored Tour…** menu or through the CLI and are presented in the repository context that validates them.
 
 ## Top-Level Layout
 
@@ -251,9 +251,9 @@ The renderer talks to a generic `window.__BYGONE_HOST__` bridge when present, an
 
 ### 6. Tour Compilation and Presenters
 
-Tour source is read from a `.bygone` document (with legacy `.bygone.yaml` support) and compiled by [`changeTour.ts`](./src/changeTour.ts) into the manifest consumed by the presenters. Version 3 supports independent authored Historical and Deconstructed tours, scene directory overviews, real stacked revisions with two or more panels, synthetic deconstructed stages, and review notes.
+Tour source is read from a `.bygone` document (with legacy `.bygone.yaml` support) and compiled by [`changeTour.ts`](./src/changeTour.ts) into the manifest consumed by the presenters. Version 4 supports independent authored Historical and Deconstructed tours, scene directory overviews, real stacked revisions with two or more panels, and synthetic deconstructed stages.
 
-The CLI and standalone host use the same compilation path. [`present.js`](./cli/present.js) starts a loopback server for the compiled tour and opens the browser presenter. [`web/host.js`](./web/host.js) supplies that browser-side host bridge; the standalone Electron window embeds the presenter through [`workspaceHost.js`](./standalone/workspaceHost.js). Version 2 and version 3 manifests include repository identity and Git-backed evidence, so presentation stays bound to the repository that validates the source. Version 1 remains the legacy portable format.
+The CLI and standalone host use the same compilation path. [`present.js`](./cli/present.js) starts a loopback server for the compiled tour and opens the browser presenter. [`web/host.js`](./web/host.js) supplies that browser-side host bridge; the standalone Electron window embeds the presenter through [`workspaceHost.js`](./standalone/workspaceHost.js). Version 2 and version 4 manifests include repository identity and Git-backed evidence, so presentation stays bound to the repository that validates the source. Version 1 remains the legacy portable format.
 
 ### 7. Connector Rendering
 
@@ -338,7 +338,7 @@ The standalone package includes the Electron host, browser presenter, and runtim
 
 ## Test Strategy
 
-[`runTests.js`](./test/runTests.js) runs the core diff checks plus contract checks for Git comparison/history, workspace state, tour reading and compilation, authored modes, coverage, navigation, review notes, packaging, and release/privacy surfaces. The focused tests under [`test/`](./test/) exercise workspace hosts, tour presentation, directory evidence, and repository context. Smoke scripts cover selected standalone and tour-reading startup paths; native Electron, VS Code, and browser lifecycle behavior still requires host-level testing.
+[`runTests.js`](./test/runTests.js) runs the core diff checks plus contract checks for Git comparison/history, workspace state, tour reading and compilation, authored modes, coverage, navigation, packaging, and release/privacy surfaces. The focused tests under [`test/`](./test/) exercise workspace hosts, tour presentation, directory evidence, and repository context. Smoke scripts cover selected standalone and tour-reading startup paths; native Electron, VS Code, and browser lifecycle behavior still requires host-level testing.
 
 ## Important Design Decisions
 
@@ -373,7 +373,7 @@ The webview was moved away from Monaco’s shipped AMD runtime tree and into bun
 
 ### Repository-Bound Tour Artifacts
 
-Version 2 and version 3 authored sources and manifests keep repository identity and exact Git evidence in the validation path. This preserves trustworthy anchors and zoom targets while making those artifacts dependent on the repository that contains the referenced objects. Version 1 remains readable for legacy portable artifacts.
+Version 2 and version 4 authored sources and manifests keep repository identity and exact Git evidence in the validation path. This preserves trustworthy anchors and zoom targets while making those artifacts dependent on the repository that contains the referenced objects. Version 1 remains readable for legacy portable artifacts.
 
 ## Maintenance Guidance
 

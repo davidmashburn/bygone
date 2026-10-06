@@ -41,7 +41,7 @@ async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, ope
         assert.match(initialPrompt, /SKILL\.md/);
         assert.ok(initialPrompt.length < 1600, 'The handoff stays short');
         const instructions = await evaluate("document.querySelector('[aria-label=\"Tour skill Markdown instructions\"]').value");
-        assert.match(instructions, /version 3/);
+        assert.match(instructions, /version 4/);
         const saveDialog = dialog.showSaveDialog;
         const chooseDialog = dialog.showOpenDialog;
         const skillCopy = path.join(root, 'my-tour-instructions.md');
@@ -314,7 +314,7 @@ async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, ope
         } finally { dialog.showMessageBox = dirtyConfirm; }
         const retainedOriginal = session();
         const tourPath = path.join(root, 'smoke.bygone');
-        fs.writeFileSync(tourPath, JSON.stringify({ version: 3, title: 'Continuous reading smoke tour',
+        fs.writeFileSync(tourPath, JSON.stringify({ version: 4, title: 'Continuous reading smoke tour',
             range: { base: revisions[0], head: revisions[3] },
             anchors: { value: { file: 'one.txt', revision: 'head', contains: 'one' } }, connections: [],
             chapters: [

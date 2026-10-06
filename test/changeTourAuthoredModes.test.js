@@ -72,7 +72,7 @@ function makeSource(inventory) {
         }]
     };
     return {
-        version: 3,
+        version: 4,
         range: { base: 'main', head: 'feature' },
         anchors: {
             root: { file: 'app.txt', revision: 'head', contains: 'alpha' },
@@ -131,6 +131,7 @@ test('independent authored tours compile and coverage uses each mode explicitly'
         const source = makeSource(inventory);
         const manifest = buildChangeTourManifest(root, { source });
 
+        assert.equal(manifest.version, 4);
         assert.equal(manifest.scenes[0].kind, 'walkthrough');
         assert.deepEqual(Object.keys(manifest.tours), ['historical', 'deconstructed']);
         assert.deepEqual(manifest.tours.historical.scenes.map((scene) => scene.kind), ['stacked-diff', 'walkthrough']);
@@ -150,7 +151,7 @@ test('independent authored tours compile and coverage uses each mode explicitly'
     }
 });
 
-test('v3 root deconstruction falls back to exact authored mode tours', () => {
+test('v4 root deconstruction falls back to exact authored mode tours', () => {
     const { root } = makeRepository();
     try {
         const inventory = buildChangeInventory(root, { baseRef: 'main', headRef: 'feature' });
@@ -209,12 +210,12 @@ test('mode source validation preserves v1 root deconstruction and rejects invali
         }]
     };
     assert.doesNotThrow(() => parseChangeTourSource(source));
-    assert.throws(() => parseChangeTourSource({ ...source, tours: { deconstructed: { chapters: source.chapters } } }), /require version 3/);
+    assert.throws(() => parseChangeTourSource({ ...source, tours: { deconstructed: { chapters: source.chapters } } }), /require version 4/);
     const syntheticChapters = source.chapters;
     source.version = 2;
     source.chapters = [{ id: 'root', title: 'Root', scenes: [{ id: 'root', kind: 'walkthrough', title: 'Root', ...narrative('Root.'), steps: [{ id: 'step', title: 'Step', body: 'Body', focus: 'root' }] }] }];
-    assert.throws(() => parseChangeTourSource({ ...source, tours: { deconstructed: { chapters: syntheticChapters } } }), /require version 3/);
-    source.version = 3;
+    assert.throws(() => parseChangeTourSource({ ...source, tours: { deconstructed: { chapters: syntheticChapters } } }), /require version 4/);
+    source.version = 4;
     assert.throws(() => parseChangeTourSource({ ...source, tours: {} }), /tours must contain/);
     assert.throws(() => parseChangeTourSource({
         ...source,
@@ -240,4 +241,28 @@ test('mode source validation preserves v1 root deconstruction and rejects invali
             }
         }
     }), /at least one deconstructed-diff/);
+});
+
+test('v4 retires v3 and rejects Review Notes in sources and compiled manifests', () => {
+    const { root } = makeRepository();
+    try {
+        const inventory = buildChangeInventory(root, { baseRef: 'main', headRef: 'feature' });
+        const source = makeSource(inventory);
+        const manifest = buildChangeTourManifest(root, { source });
+        const retiredVersion = /version 3 is retired.*Remove the review block.*version to 4.*recompile/;
+
+        assert.equal(parseChangeTourSource(source).version, 4);
+        assert.equal(parseChangeTourManifest(manifest).version, 4);
+        assert.equal(Object.hasOwn(manifest, 'review'), false);
+        assert.throws(() => parseChangeTourSource({ ...source, version: 3 }), retiredVersion);
+        assert.throws(() => parseChangeTourManifest({ ...manifest, version: 3 }), retiredVersion);
+
+        for (const review of [{ items: [] }, undefined]) {
+            assert.throws(() => parseChangeTourSource({ ...source, review }), /unknown.*review/i);
+            assert.throws(() => buildChangeTourManifest(root, { source: { ...source, review } }), /unknown.*review/i);
+            assert.throws(() => parseChangeTourManifest({ ...manifest, review }), /do not support the review field/);
+        }
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
 });
