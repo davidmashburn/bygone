@@ -59,6 +59,9 @@ It never hides files and does not invent an entry point for a test-only,
 lockfile-only, binary, or generated-only change. Authored tours keep their
 authored first scene and order.
 
+For desktop section links and portable Minimal/Full HTML snapshots, see
+[Links and portable HTML tours](sharing-tours.md).
+
 ## Explore and follow tours
 
 Version 2 and 4 presentations expose **History**, **Compare**, and the available
