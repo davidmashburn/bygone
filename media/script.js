@@ -1,4 +1,5 @@
 import { dedupeDecorations } from './decorationUtils';
+import { mapLinePosition, mapMultiPanelLinePositions, scrollTopToModelLinePosition, modelLinePositionToScrollTop } from './scrollMapping';
 import {
     buildBlockChanges,
     findChangeIndexAtLine,
@@ -127,8 +128,6 @@ let multiDiffEpoch = 0;
 let pendingDiffJobs = 0;
 let pendingTwoWayPayload;
 let pendingMultiPayload;
-let currentDiffRows = [];
-let scrollMaps = null;
 let historyMode = false;
 let hostEditableSides = { left: true, right: true };
 let hostReadOnlyLabel = 'Read-only snapshot';
@@ -781,8 +780,6 @@ function showBinaryDiff(message) {
     currentDiffModel = null;
     activeDiffIndex = -1;
     diffBlocks = [];
-    currentDiffRows = [];
-    scrollMaps = null;
     directoryEntries = [];
     hostEditableSides = { left: false, right: false };
     currentTwoWayFileExists = { left: true, right: true };
@@ -879,8 +876,6 @@ function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canM
     currentDiffModel = null;
     activeDiffIndex = -1;
     diffBlocks = [];
-    currentDiffRows = [];
-    scrollMaps = null;
     directoryEntries = entries || [];
     activeDirectoryEntryPath = review?.attention?.entryPath
         || review?.attention?.fallbackPath
@@ -1070,8 +1065,6 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     currentDiffModel = null;
     activeDiffIndex = -1;
     diffBlocks = [];
-    currentDiffRows = [];
-    scrollMaps = null;
     directoryEntries = [];
     clearTimeout(multiRecomputeTimer);
     multiRecomputeTimer = null;
@@ -2417,13 +2410,6 @@ function hasHostEditableSide() {
 function setCurrentDiffModel(diffModel) {
     currentDiffModel = diffModel;
     diffBlocks = diffModel?.blocks || [];
-    currentDiffRows = diffModel?.rows || [];
-    scrollMaps = currentDiffRows.length === 0
-        ? null
-        : {
-            left: buildScrollMaps(currentDiffRows, 'left'),
-            right: buildScrollMaps(currentDiffRows, 'right')
-        };
 }
 
 function applyDiffDecorations(diffModel, tourAnnotations = []) {
@@ -2550,9 +2536,7 @@ function addLineDecorations(target, start, end, className) {
         options: {
             isWholeLine: true,
             wholeLineClassName: `${className}-whole`,
-            className,
-            linesDecorationsClassName: `${className}-gutter`,
-            marginClassName: `${className}-gutter`
+            className
         }
     });
 }
@@ -2660,15 +2644,19 @@ function synchronizeMultiScroll(sourceEditor) {
     }
 
     const horizontalRatio = getScrollRatio(sourceEditor.getScrollLeft(), sourceEditor.getScrollWidth() - sourceEditor.getLayoutInfo().contentWidth);
-    const verticalRatio = getScrollRatio(sourceEditor.getScrollTop(), sourceEditor.getScrollHeight() - sourceEditor.getLayoutInfo().height);
+    const positions = mapMultiPanelLinePositions(
+        scrollTopToModelLinePosition(sourceEditor, sourceEditor.getScrollTop()),
+        multiEditors.indexOf(sourceEditor), multiEditors.length, multiDiffPairs
+    );
 
     suppressEditorEvents = true;
-    for (const editor of multiEditors) {
+    for (const [index, editor] of multiEditors.entries()) {
         if (editor === sourceEditor) {
             continue;
         }
 
-        editor.setScrollTop(verticalRatio * Math.max(0, editor.getScrollHeight() - editor.getLayoutInfo().height));
+        editor.setScrollTop(clamp(modelLinePositionToScrollTop(editor, positions[index]),
+            0, Math.max(0, editor.getScrollHeight() - editor.getLayoutInfo().height)));
         editor.setScrollLeft(horizontalRatio * Math.max(0, editor.getScrollWidth() - editor.getLayoutInfo().contentWidth));
     }
     suppressEditorEvents = false;
@@ -4868,17 +4856,26 @@ function revealBlockSide(editor, start, end, smooth) {
             ? monacoInstance.editor.ScrollType.Smooth
             : monacoInstance.editor.ScrollType.Immediate
     );
+    // Unfold also reveals the selection after its asynchronous initialization.
+    // Skip it for visible lines so that late work cannot reset user scrolling.
+    if (editor.getLineHeightForPosition({ lineNumber, column: 1 }) > 0) {
+        reveal();
+        return;
+    }
     const unfold = editor.getAction('editor.unfold');
     if (!unfold?.isSupported()) {
         reveal();
         return;
     }
+    const scrollTop = editor.getScrollTop();
     void Promise.resolve(unfold.run({
         selectionLines: [lineNumber - 1],
         levels: Number.MAX_SAFE_INTEGER,
         direction: 'up'
     })).finally(() => {
-        reveal();
+        // Folding may initialize asynchronously. A late reveal must not undo
+        // scrolling or jump into a different comparison in the meantime.
+        if (editor.getModel() === model && editor.getScrollTop() === scrollTop) reveal();
         connectorController.scheduleDrawConnections();
     });
 }
@@ -5505,128 +5502,12 @@ function historyRailStatusGlyph(status) {
     return '•';
 }
 
-function scrollTopToModelLinePosition(editor, scrollTop) {
-    const model = editor.getModel();
-    if (!model) {
-        return 0;
-    }
-
-    const lineCount = model.getLineCount();
-    const lineHeight = editor.getOption(monacoInstance.editor.EditorOption.lineHeight);
-
-    // Binary search: find the highest model line whose visual top <= scrollTop.
-    // getTopForLineNumber is view-aware and accounts for folded regions.
-    let lo = 1;
-    let hi = lineCount;
-
-    while (lo < hi) {
-        const mid = Math.ceil((lo + hi) / 2);
-        if (editor.getTopForLineNumber(mid) <= scrollTop) {
-            lo = mid;
-        } else {
-            hi = mid - 1;
-        }
-    }
-
-    const lineTop = editor.getTopForLineNumber(lo);
-    const fraction = Math.max(0, scrollTop - lineTop) / lineHeight;
-    return lo - 1 + fraction; // 0-based fractional position
-}
-
-function modelLinePositionToScrollTop(editor, linePosition) {
-    const model = editor.getModel();
-    if (!model) {
-        return 0;
-    }
-
-    const lineCount = model.getLineCount();
-    const lineHeight = editor.getOption(monacoInstance.editor.EditorOption.lineHeight);
-    const lineIndex = Math.floor(linePosition);
-    const fraction = linePosition - lineIndex;
-    const lineNumber = clamp(lineIndex + 1, 1, lineCount);
-
-    return editor.getTopForLineNumber(lineNumber) + fraction * lineHeight;
-}
-
 function mapScrollTopBetweenEditors(sourceEditor, targetEditor) {
     const sourceSide = sourceEditor === leftEditor ? 'left' : 'right';
-    const targetSide = sourceSide === 'left' ? 'right' : 'left';
-    const sourceLineCount = sourceEditor.getModel()?.getLineCount() ?? 0;
-    const targetLineCount = targetEditor.getModel()?.getLineCount() ?? 0;
-
-    if (sourceLineCount === 0 || targetLineCount === 0 || currentDiffRows.length === 0 || !scrollMaps) {
-        return getScrollRatio(sourceEditor.getScrollTop(), sourceEditor.getScrollHeight() - sourceEditor.getLayoutInfo().height)
-            * Math.max(0, targetEditor.getScrollHeight() - targetEditor.getLayoutInfo().height);
-    }
-
-    const sourceMaps = scrollMaps[sourceSide];
-    const targetMaps = scrollMaps[targetSide];
-    const sourceLinePosition = clamp(
-        scrollTopToModelLinePosition(sourceEditor, sourceEditor.getScrollTop()),
-        0,
-        sourceLineCount
-    );
-    const alignedRowPosition = linePositionToRowPosition(sourceLinePosition, sourceMaps, currentDiffRows.length);
-    const targetLinePosition = rowPositionToLinePosition(alignedRowPosition, targetMaps, currentDiffRows.length);
-    const maxTargetScrollTop = Math.max(0, targetEditor.getScrollHeight() - targetEditor.getLayoutInfo().height);
-
-    return clamp(modelLinePositionToScrollTop(targetEditor, targetLinePosition), 0, maxTargetScrollTop);
-}
-
-function buildScrollMaps(rows, side) {
-    const lineToRow = [];
-    const boundaryCounts = new Array(rows.length + 1).fill(0);
-    let seenLines = 0;
-
-    rows.forEach((row, index) => {
-        const cell = row[side];
-        boundaryCounts[index] = seenLines;
-
-        if (cell.kind !== 'placeholder' && cell.lineNumber !== null) {
-            lineToRow[cell.lineNumber - 1] = index;
-            seenLines++;
-        }
-    });
-
-    boundaryCounts[rows.length] = seenLines;
-
-    return {
-        lineToRow,
-        boundaryCounts
-    };
-}
-
-function linePositionToRowPosition(linePosition, maps, rowCount) {
-    const lineIndex = Math.floor(linePosition);
-    const fraction = linePosition - lineIndex;
-
-    if (lineIndex >= maps.lineToRow.length) {
-        return rowCount;
-    }
-
-    const rowIndex = maps.lineToRow[lineIndex];
-    if (rowIndex === undefined) {
-        return rowCount;
-    }
-
-    return clamp(rowIndex + fraction, 0, rowCount);
-}
-
-function rowPositionToLinePosition(rowPosition, maps, rowCount) {
-    if (rowPosition >= rowCount) {
-        return maps.boundaryCounts[rowCount];
-    }
-
-    const rowIndex = Math.floor(rowPosition);
-    const fraction = rowPosition - rowIndex;
-    const currentCount = maps.boundaryCounts[rowIndex];
-    const nextCount = maps.boundaryCounts[rowIndex + 1];
-
-    if (nextCount === currentCount) {
-        return currentCount;
-    }
-
-    return currentCount + fraction;
+    const position = scrollTopToModelLinePosition(sourceEditor, sourceEditor.getScrollTop());
+    const targetPosition = mapLinePosition(position, sourceSide, currentDiffModel);
+    return clamp(modelLinePositionToScrollTop(targetEditor, targetPosition), 0,
+        Math.max(0, targetEditor.getScrollHeight() - targetEditor.getLayoutInfo().height));
 }
 
 function scheduleRecompute() {

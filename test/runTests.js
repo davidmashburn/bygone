@@ -3190,6 +3190,47 @@ function testReplacementMatchingFallsBackConservativelyWhenAnchorBudgetIsExceede
     assert.equal(aligned.length, left.length + right.length);
 }
 
+function testReplacementMatchingPairsLargeReindentedYaml() {
+    const left = Array.from({ length: 60 }, (_value, index) => [
+        `  - id: step-${index}`,
+        '    body: |',
+        `      Explain step ${index} and its evidence. ${'This paragraph provides supporting detail. '.repeat(5)}`,
+        '    layout: comparison'
+    ]).flat();
+    const right = left.map((line) => `  ${line}`);
+    right.splice(120, 0, '    # Newly added explanation');
+    assert.ok(left.join('').length * right.join('').length > 50_000_000);
+
+    for (const [before, after] of [[left, right], [right, left]]) {
+        const model = buildTwoWayDiffModel(before.join('\n'), after.join('\n'));
+        const pairs = model.rows.filter((row) => row.left.kind === 'removed' && row.right.kind === 'added');
+        assert.equal(model.quality, 'exact');
+        assert.equal(model.hasChanges, true, 'YAML indentation remains a change');
+        assert.equal(pairs.length, left.length);
+        assert.ok(pairs.every((row) => row.left.content.trim() === row.right.content.trim()));
+        assert.ok(model.blocks.some((block) => block.kind === 'replace'), 'Paired changes get blue blocks');
+        assert.deepEqual(model.leftLines.map((line) => line.content), before);
+        assert.deepEqual(model.rightLines.map((line) => line.content), after);
+        assert.deepEqual(model.leftLines.map((line) => line.lineNumber), before.map((_line, index) => index + 1));
+        assert.deepEqual(model.rightLines.map((line) => line.lineNumber), after.map((_line, index) => index + 1));
+        assert.ok(pairs.every((row) => [model.leftLines[row.left.lineNumber - 1], model.rightLines[row.right.lineNumber - 1]]
+            .some((line) => line.segments?.some((segment) => segment.emphasis && /^\s+$/.test(segment.text)))));
+        const added = model.rows.find((row) => row.left.content.includes('# Newly') || row.right.content.includes('# Newly'));
+        assert.ok(added.left.kind === 'placeholder' || added.right.kind === 'placeholder');
+    }
+}
+
+function testReplacementMatchingHandlesLongWhitespaceMatchesWithoutFuzzyScoring() {
+    const content = `body: ${'long narrative text '.repeat(500)}`;
+    assert.ok(content.length ** 2 > 50_000_000);
+    assert.deepEqual(alignReplacementLines([content], [`  ${content}`]), [{ left: content, right: `  ${content}` }]);
+    assert.equal(scoreReplacementLinePair(content, `  ${content}`).eligible, true);
+
+    const unrelated = `value: ${'unrelated material '.repeat(500)}`;
+    assert.deepEqual(alignReplacementLines([content], [unrelated]), [{ left: content }, { right: unrelated }]);
+    assert.equal(scoreReplacementLinePair(content, unrelated).eligible, false);
+}
+
 function testReplacementMatchingStaysConsistentAcrossThreePanels() {
     const first = ['const account = loadLegacyAccount();', 'return account;'];
     const middle = ['const account = loadAccount();', 'validate(account);', 'return account;'];
@@ -3240,8 +3281,8 @@ function testInlineHighlightsPunctuationChange() {
 function testInlineHighlightsWhitespaceSensitiveChange() {
     const model = buildTwoWayDiffModel('return foo + bar;\n', 'return foo+bar;\n');
 
-    assert.equal(model.leftLines[0].segments, undefined);
-    assert.equal(model.rightLines[0].segments, undefined);
+    assert.deepEqual(model.leftLines[0].segments.filter(segment => segment.emphasis).map(segment => segment.text), [' ', ' ']);
+    assert.ok(model.rightLines[0].segments.every(segment => !segment.emphasis));
 }
 
 function testInlineHighlightsEveryChangedReplaceLine() {
@@ -4840,6 +4881,8 @@ async function run() {
     testReplacementMatchingUsesConsecutiveWeakContextAfterInsertion();
     testReplacementMatchingKeepsUnsupportedWeakOverlapUnpaired();
     testReplacementMatchingUsesBoundedLargeHunkAlignment();
+    testReplacementMatchingPairsLargeReindentedYaml();
+    testReplacementMatchingHandlesLongWhitespaceMatchesWithoutFuzzyScoring();
     testReplacementMatchingFallsBackConservativelyWhenAnchorBudgetIsExceeded();
     testReplacementMatchingStaysConsistentAcrossThreePanels();
     testInlineHighlightsSingleWordReplacement();

@@ -1661,16 +1661,6 @@ button.file-header {
     background: rgba(79, 124, 255, 0.14);
 }
 
-.monaco-editor .margin .bygone-one-sided-line-gutter,
-.monaco-editor .lines-decoration .bygone-one-sided-line-gutter {
-    background: rgba(73, 190, 119, 0.22);
-}
-
-.monaco-editor .margin .bygone-paired-line-gutter,
-.monaco-editor .lines-decoration .bygone-paired-line-gutter {
-    background: rgba(79, 124, 255, 0.22);
-}
-
 .monaco-editor .bygone-inline-blue {
     background: rgba(79, 124, 255, 0.34);
     border-radius: 2px;
