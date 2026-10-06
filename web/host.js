@@ -1,4 +1,5 @@
 import { parseDocumentFragment, resolveDocumentFocus, serializeDocumentFragment, serializeDeepLink } from '../src/deepLink.ts';
+import { createExportHistory } from './exportHistory.js';
 import { buildTwoWayDiffModel } from '../src/diffEngine.ts';
 import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
@@ -26,6 +27,13 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
 import { renderTourProse } from '../media/tourProse.js';
 
 (function initializeWebHost() {
+    const exportData = window.__BYGONE_EXPORT__;
+    const exportHistory = exportData ? createExportHistory(exportData) : null;
+    const preferences = {
+        getItem(key) { try { return window.localStorage.getItem(key); } catch { return null; } },
+        setItem(key, value) { try { window.localStorage.setItem(key, value); } catch { /* Optional preference. */ } },
+        removeItem(key) { try { window.localStorage.removeItem(key); } catch { /* Optional preference. */ } }
+    };
     let applyingDocumentLocation = false;
     let documentLocationReady = false;
     let documentNavigationId = 0;
@@ -74,7 +82,7 @@ import { renderTourProse } from '../media/tourProse.js';
         tourSidebarHidden: false,
         tourNarrativeHeight: readStoredTourNarrativeHeight(),
         tourNavigatorTab: 'tour',
-        narrationVoiceURI: window.localStorage.getItem(TOUR_NARRATION_VOICE_STORAGE_KEY) || '',
+        narrationVoiceURI: preferences.getItem(TOUR_NARRATION_VOICE_STORAGE_KEY) || '',
         narrationRate: readStoredNarrationRate(),
         narrationVoices: [],
         renderedNarrationUnit: null,
@@ -101,8 +109,9 @@ import { renderTourProse } from '../media/tourProse.js';
 
     window.__BYGONE_HOST__ = {
         environment: 'web',
-        editorWorkerUrl: '/media/editor.worker.js',
-        diffWorkerUrl: '/media/diff.worker.js',
+        linkPreviews: !exportData,
+        editorWorkerUrl: exportData?.workers.editor || '/media/editor.worker.js',
+        diffWorkerUrl: exportData?.workers.diff || '/media/diff.worker.js',
         postMessage(message) {
             void handleRendererMessage(message);
         }
@@ -122,7 +131,7 @@ import { renderTourProse } from '../media/tourProse.js';
         void switchZoomMode(message.mode).catch(reportModeError);
     });
 
-    window.addEventListener('DOMContentLoaded', () => {
+    function initializeControls() {
         bindControls();
         if (embeddedWorkspaceMode) {
             const tabs = document.getElementById('tour-mode-tabs');
@@ -131,7 +140,9 @@ import { renderTourProse } from '../media/tourProse.js';
             if (description) description.hidden = true;
         }
         setStatus('Browser host ready.');
-    });
+    }
+    if (document.readyState !== 'loading') queueMicrotask(initializeControls);
+    else window.addEventListener('DOMContentLoaded', initializeControls, { once: true });
 
     function emit(message) {
         if (message.type === 'showDiff' || message.type === 'showMultiDiff' || message.type === 'showDirectoryDiff') {
@@ -236,16 +247,18 @@ import { renderTourProse } from '../media/tourProse.js';
 
     function availableModes() {
         return [
-            ...(supportsWorkspaceHistory() ? ['history', 'compare'] : []),
+            ...(supportsWorkspaceHistory() ? ['history'] : []),
+            ...(exportData || supportsWorkspaceHistory() ? ['compare'] : []),
             ...Object.keys(authoredTours()).filter((mode) => authoredTours()[mode])
         ];
     }
 
     function supportsWorkspaceHistory(tour = state.authoredTour) {
-        return Number(tour?.version) >= 2;
+        return exportData ? exportData.profile === 'full' : Number(tour?.version) >= 2;
     }
 
     function workspaceHistoryUnavailableReason() {
+        if (exportData) return 'Git history is not included in this Minimal export.';
         return 'History is unavailable for legacy v1 tours; open a version 2 tour to browse commit history.';
     }
 
@@ -307,7 +320,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 ...(historyAvailable ? {} : { reason: workspaceHistoryUnavailableReason() })
             },
             compare: {
-                enabled: historyAvailable,
+                enabled: Boolean(exportData) || historyAvailable,
                 label: 'Compare',
                 ...(historyAvailable ? {} : { reason: workspaceCompareUnavailableReason() })
             },
@@ -315,6 +328,9 @@ import { renderTourProse } from '../media/tourProse.js';
             promptContext: buildWorkspacePromptContext(),
             status: state.workspacePromptStatus
         });
+        if (exportData) for (const button of workspaceControlsHost.querySelectorAll('[data-workspace-mode]')) {
+            if (!availableModes().includes(button.dataset.workspaceMode)) { button.disabled = true; button.title = 'This mode is not included in the export.'; }
+        }
     }
 
     function workspaceSessionId() {
@@ -451,6 +467,7 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     async function openExistingTourUpload() {
+        if (exportData) { setStatus('This export contains a fixed snapshot. Open other tours in Bygone.'); return; }
         try {
             const file = await chooseWorkspaceTourFile();
             if (!file) return;
@@ -547,6 +564,7 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     async function historyRequest(endpoint, body, prefix = state.historyPrefix, tour = state.authoredTour) {
+        if (exportHistory) return exportHistory(endpoint, body);
         if (!supportsWorkspaceHistory(tour)) throw new Error(workspaceHistoryUnavailableReason());
         const response = await fetch(`${prefix || '/history/'}${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const result = await response.json();
@@ -972,7 +990,7 @@ import { renderTourProse } from '../media/tourProse.js';
         if (message.type === 'ready') {
             const parameters = new URLSearchParams(window.location.search);
             const manifestUrl = parameters.get('manifest');
-            if (manifestUrl) {
+            if (manifestUrl || exportData) {
                 void loadTour(manifestUrl);
             } else if (parameters.get('demo') === '1') {
                 compareTestFiles();
@@ -1189,7 +1207,7 @@ import { renderTourProse } from '../media/tourProse.js';
         tourNarrationSkipAhead?.addEventListener('click', () => narrationController.skipSegment(1));
         tourVoice?.addEventListener('change', () => {
             state.narrationVoiceURI = tourVoice.value;
-            window.localStorage.setItem(TOUR_NARRATION_VOICE_STORAGE_KEY, state.narrationVoiceURI);
+            preferences.setItem(TOUR_NARRATION_VOICE_STORAGE_KEY, state.narrationVoiceURI);
         });
         if (tourRate) {
             tourRate.value = String(state.narrationRate);
@@ -1197,7 +1215,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 const nextRate = Number(tourRate.value);
                 state.narrationRate = NARRATION_RATES.has(nextRate) ? nextRate : 1;
                 tourRate.value = String(state.narrationRate);
-                window.localStorage.setItem(TOUR_NARRATION_RATE_STORAGE_KEY, String(state.narrationRate));
+                preferences.setItem(TOUR_NARRATION_RATE_STORAGE_KEY, String(state.narrationRate));
             });
         }
         document.getElementById('tour-search-results')?.addEventListener('click', (event) => {
@@ -1255,6 +1273,7 @@ import { renderTourProse } from '../media/tourProse.js';
         }
         const refresh = () => {
             state.narrationVoices = window.speechSynthesis.getVoices()
+                .filter(voice => !exportData || voice.localService)
                 .slice()
                 .sort((left, right) => Number(right.default) - Number(left.default)
                     || left.lang.localeCompare(right.lang)
@@ -1263,7 +1282,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 && state.narrationVoices.length > 0
                 && !state.narrationVoices.some((voice) => voice.voiceURI === state.narrationVoiceURI)) {
                 state.narrationVoiceURI = '';
-                window.localStorage.removeItem(TOUR_NARRATION_VOICE_STORAGE_KEY);
+                preferences.removeItem(TOUR_NARRATION_VOICE_STORAGE_KEY);
             }
             if (voiceSelect) {
                 const defaultOption = document.createElement('option');
@@ -1284,7 +1303,7 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     function readStoredNarrationRate() {
-        const stored = Number(window.localStorage.getItem(TOUR_NARRATION_RATE_STORAGE_KEY));
+        const stored = Number(preferences.getItem(TOUR_NARRATION_RATE_STORAGE_KEY));
         return NARRATION_RATES.has(stored) ? stored : 1;
     }
 
@@ -1297,7 +1316,8 @@ import { renderTourProse } from '../media/tourProse.js';
                     return;
                 }
                 const utterance = new window.SpeechSynthesisUtterance(segment.speechText);
-                const selectedVoice = state.narrationVoices.find((voice) => voice.voiceURI === state.narrationVoiceURI);
+                const selectedVoice = state.narrationVoices.find((voice) => voice.voiceURI === state.narrationVoiceURI) || (exportData ? state.narrationVoices[0] : null);
+                if (exportData && !selectedVoice) { callbacks.onError('No local narration voice is available.'); return; }
                 if (selectedVoice) utterance.voice = selectedVoice;
                 utterance.rate = state.narrationRate;
                 utterance.onend = () => {
@@ -1375,6 +1395,7 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     function claimNarrationAudio() {
+        if (exportData) return;
         void fetch('/narration/claim', { method: 'POST', cache: 'no-store' }).catch(() => {});
     }
 
@@ -1528,7 +1549,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 window.removeEventListener('pointermove', move);
                 window.removeEventListener('pointerup', finish);
                 window.removeEventListener('pointercancel', finish);
-                window.localStorage.setItem(TOUR_SIDEBAR_STORAGE_KEY, String(state.tourSidebarWidth));
+                preferences.setItem(TOUR_SIDEBAR_STORAGE_KEY, String(state.tourSidebarWidth));
             };
             window.addEventListener('pointermove', move);
             window.addEventListener('pointerup', finish);
@@ -1549,12 +1570,12 @@ import { renderTourProse } from '../media/tourProse.js';
                 nextWidth += event.key === 'ArrowLeft' ? -16 : 16;
             }
             setTourSidebarWidth(nextWidth);
-            window.localStorage.setItem(TOUR_SIDEBAR_STORAGE_KEY, String(state.tourSidebarWidth));
+            preferences.setItem(TOUR_SIDEBAR_STORAGE_KEY, String(state.tourSidebarWidth));
         });
     }
 
     function readStoredTourSidebarWidth() {
-        const stored = Number.parseInt(window.localStorage.getItem(TOUR_SIDEBAR_STORAGE_KEY) || '', 10);
+        const stored = Number.parseInt(preferences.getItem(TOUR_SIDEBAR_STORAGE_KEY) || '', 10);
         return Number.isFinite(stored)
             ? Math.min(TOUR_SIDEBAR_MAX_WIDTH, Math.max(TOUR_SIDEBAR_MIN_WIDTH, stored))
             : 300;
@@ -1607,7 +1628,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 window.removeEventListener('pointerup', finish);
                 window.removeEventListener('pointercancel', finish);
                 window.dispatchEvent(new CustomEvent('bygone:workspace-resize-end'));
-                window.localStorage.setItem(TOUR_NARRATIVE_STORAGE_KEY, String(state.tourNarrativeHeight));
+                preferences.setItem(TOUR_NARRATIVE_STORAGE_KEY, String(state.tourNarrativeHeight));
             };
             window.addEventListener('pointermove', move);
             window.addEventListener('pointerup', finish);
@@ -1623,14 +1644,14 @@ import { renderTourProse } from '../media/tourProse.js';
                     ? maximumTourNarrativeHeight()
                     : state.tourNarrativeHeight + (event.key === 'ArrowUp' ? -16 : 16);
             setTourNarrativeHeight(nextHeight);
-            window.localStorage.setItem(TOUR_NARRATIVE_STORAGE_KEY, String(state.tourNarrativeHeight));
+            preferences.setItem(TOUR_NARRATIVE_STORAGE_KEY, String(state.tourNarrativeHeight));
         });
 
         window.addEventListener('resize', applyTourNarrativeHeight);
     }
 
     function readStoredTourNarrativeHeight() {
-        const stored = Number.parseInt(window.localStorage.getItem(TOUR_NARRATIVE_STORAGE_KEY) || '', 10);
+        const stored = Number.parseInt(preferences.getItem(TOUR_NARRATIVE_STORAGE_KEY) || '', 10);
         return Number.isFinite(stored) ? stored : Math.min(window.innerHeight * 0.38, 360);
     }
 
@@ -1690,11 +1711,13 @@ import { renderTourProse } from '../media/tourProse.js';
         const previousEvidenceRequest = evidenceRequest;
         try {
             narrationController.stop();
-            const response = await fetch(manifestUrl, { cache: 'no-store' });
-            if (!response.ok) {
-                throw new Error(`Manifest request failed (${response.status}).`);
+            let payload = exportData?.manifest;
+            if (!exportData) {
+                const response = await fetch(manifestUrl, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`Manifest request failed (${response.status}).`);
+                payload = await response.json();
             }
-            const parsedTour = parseChangeTourManifest(await response.json());
+            const parsedTour = parseChangeTourManifest(payload, { exported: Boolean(exportData) });
             const requestedDocumentLocation = parseDocumentFragment(window.location.hash);
             if (requestedDocumentLocation) resolveDocumentFocus(parsedTour, requestedDocumentLocation.mode, requestedDocumentLocation.focus);
             const tours = authoredTours(parsedTour);
@@ -1780,9 +1803,13 @@ import { renderTourProse } from '../media/tourProse.js';
             if (requestedDocumentLocation) await openDocumentLocation(requestedDocumentLocation);
             else if (isNarrativeMode()) window.history.replaceState(null, '', serializeDocumentFragment(state.zoom.mode,
                 focusForReadingItem(readingItems.find(item => item.key === state.readingKey))));
+            document.getElementById('export-loading')?.remove();
+            window.__BYGONE_EXPORT_READY__ = Boolean(exportData);
             documentLocationReady = true;
             return true;
         } catch (error) {
+            const loading = document.getElementById('export-loading');
+            if (loading) loading.textContent = `Could not open export: ${error.message}`;
             Object.assign(state, previousState);
             renderRequestId = previousRenderRequestId;
             zoomRestore = previousZoomRestore;
@@ -2679,12 +2706,13 @@ import { renderTourProse } from '../media/tourProse.js';
         button.type = 'button';
         button.className = 'tour-copy-location';
         button.textContent = 'Copy link';
-        button.title = state.authoredTour?.localSource ? 'Copy local link to the saved current document; evidence may change'
+        button.title = exportData ? 'Copy location within this export; share the HTML file separately'
+            : state.authoredTour?.localSource ? 'Copy local link to the saved current document; evidence may change'
             : 'Copy browser location (requires this presentation server)';
         button.addEventListener('click', async () => {
             const mode = isNarrativeMode() ? state.zoom.mode : Object.keys(authoredTours())[0];
             const source = state.authoredTour.localSource;
-            const value = source ? serializeDeepLink({ kind: 'tour', ...source, mode, focus })
+            const value = source && !exportData ? serializeDeepLink({ kind: 'tour', ...source, mode, focus })
                 : new URL(serializeDocumentFragment(mode, focus), window.location.href).href;
             try { await navigator.clipboard.writeText(value); button.textContent = 'Copied'; }
             catch {
@@ -2734,6 +2762,7 @@ import { renderTourProse } from '../media/tourProse.js';
     });
 
     function updateTourLocationUrl() {
+        if (exportData) return;
         const scene = state.tour?.scenes[state.activeSceneIndex];
         const parameters = new URLSearchParams(window.location.search);
         for (const key of ['from', 'to', 'commits', 'scope', 'commit', 'file']) parameters.delete(key);

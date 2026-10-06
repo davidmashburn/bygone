@@ -81,9 +81,14 @@ export function buildChangeTourManifest(
     startPath: string,
     options: BuildChangeTourOptions = {}
 ): ChangeTourManifest {
-    const source = options.source ? parseChangeTourSource(options.source) : undefined;
+    let source = options.source ? parseChangeTourSource(options.source) : undefined;
     const range = resolveBranchReviewRange(startPath, options.headRef ?? source?.range?.head,
         options.baseRef ?? source?.range?.base);
+    // Freeze every authored ref before reading any evidence. The same ref must
+    // mean the same commit in root chapters and independently authored modes.
+    if (source) source = pinTourSource(source, range.repoRoot, new Map([
+        [range.headRef, range.headOid], [range.baseRef, range.baseOid]
+    ]), range.baseOid, range.headOid);
     const maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_TOUR_FILE_BYTES;
     const maxLineBytes = options.maxLineBytes ?? DEFAULT_MAX_TOUR_LINE_BYTES;
     const omittedFiles: string[] = [];
@@ -1051,4 +1056,32 @@ function readGitLineStats(
         deletions: Number.parseInt(deletionsText, 10) || 0,
         binary: additionsText === '-' || deletionsText === '-'
     };
+}
+
+export function pinTourSource(
+    source: ChangeTourSource, repoRoot: string, resolved: Map<string, string>,
+    baseOid: string, headOid: string
+): ChangeTourSource {
+    const copy: ChangeTourSource = JSON.parse(JSON.stringify(source));
+    const pin = (ref: string): string => {
+        let oid = resolved.get(ref);
+        if (!oid) {
+            oid = runGitText(repoRoot, ['rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`]);
+            resolved.set(ref, oid);
+        }
+        return oid;
+    };
+    copy.range = { base: baseOid, head: headOid };
+    const chapters = [...copy.chapters, ...Object.values(copy.tours || {}).flatMap(tour => tour?.chapters || [])];
+    for (const chapter of chapters) for (const scene of chapter.scenes) {
+        if (scene.kind === 'stacked-diff') for (const entry of scene.stack) {
+            entry.label ||= entry.ref;
+            entry.ref = pin(entry.ref);
+        }
+        if (scene.kind === 'deconstructed-diff') {
+            scene.base = scene.base ? pin(scene.base) : baseOid;
+            scene.target = scene.target ? pin(scene.target) : headOid;
+        }
+    }
+    return copy;
 }

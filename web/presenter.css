@@ -1380,3 +1380,12 @@ body.tour-directory-file-open #file-info { display: none; }
 
 .tour-copy-location { font-size: 12px; opacity: .75; margin-top: 8px; }
 .tour-link-target { outline: 2px solid var(--vscode-focusBorder, #68a9ef); outline-offset: -2px; }
+.export-notice { padding: 10px; font-size: 12px; }
+
+.export-host #refresh-session,
+.export-host #copy-left-to-right,
+.export-host #copy-right-to-left,
+.export-host [data-dir-add-side],
+.export-host [data-dir-remove-side] { display: none !important; }
+
+.export-host .multi-pane-actions { display: none !important; }

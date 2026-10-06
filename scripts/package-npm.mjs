@@ -68,11 +68,15 @@ await copyFile('out/changeTour.js');
 await copyFile('out/gitComparison.js');
 await copyFile('out/tourCoverage.js');
 await copyFile('out/windowTitle.js');
+await copyFile('out/tourDocument.js');
 await copyFile('out/deepLink.js');
 await copyFile('standalone/index.html');
 await copyFile('web/index.html');
 await copyFile('web/presenter.css');
 await copyFile('web/web-host.js');
+await copyFile('web/export-runtime.json');
+await copyFile('web/export-licenses.txt');
+await copyFile('web/export-bootstrap.js');
 await copyMediaRuntime();
 await writeFile(
     path.join(packageRoot, 'package.json'),

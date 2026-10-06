@@ -279,7 +279,7 @@ export interface ChangeTourManifest {
     authoringCoverage?: ChangeTourAuthoringCoverage;
 }
 
-export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
+export function parseChangeTourManifest(value: unknown, options: { exported?: boolean } = {}): ChangeTourManifest {
     if (isRecord(value) && Number.isInteger(value.version) && Number(value.version) > CHANGE_TOUR_MANIFEST_VERSION) {
         throw new Error(
             `This tour uses manifest format version ${value.version}, but this version of Bygone supports up to version ${CHANGE_TOUR_MANIFEST_VERSION}. Upgrade Bygone to open it.`
@@ -364,7 +364,7 @@ export function parseChangeTourManifest(value: unknown): ChangeTourManifest {
         validateModeTours(value.tours, value.version);
     }
 
-    if (value.version !== 1) validateZoom(value, value.version);
+    if (value.version !== 1) validateZoom(value, value.version, Boolean(options.exported));
 
     return { ...value, files } as unknown as ChangeTourManifest;
 }
@@ -475,8 +475,8 @@ export function parseChangeTourStory(value: unknown): ChangeTourStory {
     return value as unknown as ChangeTourStory;
 }
 
-function validateZoom(value: Record<string, unknown>, version: 2 | 4): void {
-    if (!isRecord(value.repository) || typeof value.repository.root !== 'string' || !value.repository.root) {
+function validateZoom(value: Record<string, unknown>, version: 2 | 4, exported: boolean): void {
+    if (!exported && (!isRecord(value.repository) || typeof value.repository.root !== 'string' || !value.repository.root)) {
         throw new Error('A v2 tour requires its originating repository.root.');
     }
     if (!isRecord(value.zoom) || !Array.isArray(value.zoom.revisions) || !isRecord(value.zoom.final)) {

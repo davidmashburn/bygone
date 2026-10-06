@@ -24,3 +24,6 @@ media/*.worker.js
 media/*.worker.js.map
 web/web-host.js
 web/web-host.js.map
+
+web/export-runtime.json
+web/export-licenses.txt

@@ -608,7 +608,7 @@ async function testLegacyWebTourSkipsHistoryAndDisablesWorkspaceCapabilities() {
         'workspaceHistoryUnavailableReason',
         'workspaceCompareUnavailableReason',
         'controls',
-        `const embeddedWorkspaceMode = false;
+        `const embeddedWorkspaceMode = false; const exportData = undefined;
          let workspaceControls = controls;
          const workspaceControlsHost = { hidden: false };
          ${renderWorkspaceControls}
@@ -3310,7 +3310,7 @@ function testDiffWorkerUsesHostResolvedUrlAcrossSurfaces() {
     assert.match(rendererSource, /new Worker\(host\.diffWorkerUrl\)/);
     assert.doesNotMatch(rendererSource, /new Worker\('diff\.worker\.js'\)/);
     assert.match(preloadSource, /new URL\('\.\.\/media\/diff\.worker\.js', window\.location\.href\)/);
-    assert.match(webHostSource, /diffWorkerUrl: '\/media\/diff\.worker\.js'/);
+    assert.match(webHostSource, /diffWorkerUrl: exportData\?\.workers\.diff \|\| '\/media\/diff\.worker\.js'/);
     assert.match(providerSource, /diffWorkerUri = webview\.asWebviewUri\(vscode\.Uri\.joinPath\(this\.extensionUri, 'media', 'diff\.worker\.js'\)\)/);
     assert.match(providerSource, /diffWorkerUrl: \$\{JSON\.stringify\(diffWorkerUri\.toString\(\)\)\}/);
 }

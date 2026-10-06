@@ -75,7 +75,7 @@ ${legacyOptions}
 ${historyOptions}
     )
     shells=('zsh:Z shell' 'bash:Bash' 'fish:Fish shell')
-    tour_actions=('context:Build structured change evidence' 'coverage:Measure authored tour coverage' 'validate:Validate source and anchors' 'compile:Compile a repository-bound manifest' 'schema:Print the source schema')
+    tour_actions=('context:Build structured change evidence' 'coverage:Measure authored tour coverage' 'validate:Validate source and anchors' 'compile:Compile a repository-bound manifest' 'export:Export a portable HTML tour' 'schema:Print the source schema')
 
     if (( CURRENT == 2 )); then
         _describe 'bygone command' root_items
@@ -183,7 +183,7 @@ _bygone() {
             ;;
         tour)
             if (( COMP_CWORD == 2 )); then
-                COMPREPLY=( $(compgen -W 'context coverage validate compile schema' -- "$cur") )
+                COMPREPLY=( $(compgen -W 'context coverage validate compile export schema' -- "$cur") )
             elif [[ "\${COMP_WORDS[2]}" == "context" ]]; then
                 refs="$(_bygone_git_refs)"
                 if [[ "$prev" =~ ^(${baseTokens})$ ]]; then
@@ -262,7 +262,7 @@ function generateFishCompletion() {
 
     lines.push(
         "complete -c bygone -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish' -d 'Shell'",
-        "complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'context coverage validate compile schema' -d 'Tour action'",
+        "complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'context coverage validate compile export schema' -d 'Tour action'",
         "complete -c bygone -n 'string match -q \"*tour context*\" -- (commandline -opc)' -l base -r -a '(__bygone_git_refs)' -d 'Set the change-context base ref'",
         "complete -c bygone -n 'string match -q \"*tour context*\" -- (commandline -opc)' -l output -s o -r -d 'Write the change context'",
         "complete -c bygone -n 'string match -q \"*tour context*\" -- (commandline -opc)' -l max-patch-bytes -r -d 'Maximum included patch size per file'",

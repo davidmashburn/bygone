@@ -1,4 +1,5 @@
-import { rm } from 'fs/promises';
+import { rm, readFile, writeFile } from 'fs/promises';
+import { createHash } from 'crypto';
 import { build } from 'esbuild';
 
 const sharedOptions = {
@@ -292,3 +293,15 @@ await build({
     target: 'node18',
     external: ['electron']
 });
+
+// The hashes are shipped with the exporter, independently of CDN responses.
+const runtimeAssets = ['web/presenter.css', 'media/webview.css', 'web/web-host.js', 'media/webview.js', 'media/editor.worker.js', 'media/diff.worker.js'];
+const runtimeVersion = JSON.parse(await readFile('package.json', 'utf8')).version;
+const assetHashes = {};
+for (const name of runtimeAssets) assetHashes[name] = `sha256-${createHash('sha256').update(await readFile(name)).digest('base64')}`;
+await writeFile('web/export-runtime.json', JSON.stringify({ schema: 1, version: runtimeVersion, assets: assetHashes }, null, 2) + '\n');
+const licenses = [];
+for (const name of ['LICENSE.txt', 'node_modules/monaco-editor/LICENSE', 'node_modules/diff/LICENSE']) {
+    licenses.push(`${name}\n${await readFile(name, 'utf8')}`);
+}
+await writeFile('web/export-licenses.txt', licenses.join('\n\n'));
