@@ -6,8 +6,10 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { setTimeout, clearTimeout } = require('node:timers');
 const { runTourReadingSmoke } = require('./tourReadingSmoke.js');
+const { runLinkPreviewSmoke } = require('./linkPreviewSmoke.js');
+const { runPanelSwitchSmoke } = require('./panelSwitchSmoke.js');
 
-async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
+async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, openTour, openTourWindow }) {
     const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-workspace-smoke-')));
     const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
     const evaluate = (code) => window().webContents.executeJavaScript(code, true).catch((error) => {
@@ -27,6 +29,7 @@ async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
             git('add', '.'); git('commit', '-m', `Revision ${i}`);
             revisions.push(git('rev-parse', 'HEAD').toString().trim());
         }
+        await runPanelSwitchSmoke({ browserContents: window().webContents, openMulti });
         await open(path.join(root, 'one.txt'), path.join(root, 'two.txt'));
         await waitFor("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && document.querySelectorAll('.monaco-editor').length >= 2");
         const original = session();
@@ -201,6 +204,77 @@ async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
             assert.equal(check.pseudoContent, 'none', 'No CSS bubble can appear instantly');
             assert.ok(check.placedBelow && check.inViewport, JSON.stringify(check));
         }
+        const linkChecks = await evaluate(`(async () => {
+            const link = document.createElement('a');
+            link.href = 'https://example.invalid/review?mode=preview#evidence';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            const label = document.createElement('span');
+            label.textContent = 'Review evidence';
+            link.appendChild(label);
+            link.style.cssText = 'position:fixed;top:20px;left:20px;z-index:10000';
+            document.body.appendChild(link);
+            const tooltip = document.getElementById('bygone-ui-tooltip');
+            const menu = document.querySelector('.bygone-link-context-menu');
+            const pause = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+            label.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+            await pause(650);
+            const checks = { hover: !tooltip.hidden && tooltip.querySelector('#bygone-link-url').textContent === link.href,
+                lazy: !document.querySelector('.bygone-link-preview'),
+                normalLink: link.target === '_blank' && link.rel === 'noopener noreferrer' };
+            label.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
+            await pause(50);
+            const preview = tooltip.querySelector('button');
+            preview.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: link }));
+            await pause(250);
+            checks.reachable = !tooltip.hidden;
+            preview.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+            preview.click();
+            let modal = document.querySelector('.bygone-link-preview[open]');
+            checks.hoverPreview = Boolean(modal) && modal.querySelector('webview').src === link.href;
+            checks.sandbox = modal.querySelector('webview').getAttribute('partition') === 'bygone-link-preview';
+            checks.fallback = modal.querySelector('p a').href === link.href;
+            const frame = modal.querySelector('webview');
+            modal.querySelector('button').click();
+            await pause(650);
+            checks.closed = !modal.isConnected && !frame.isConnected
+                && document.activeElement === link && tooltip.hidden;
+            label.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: innerWidth - 1, clientY: innerHeight - 1 }));
+            const bounds = menu.getBoundingClientRect();
+            checks.context = !menu.hidden && menu.querySelector('button').textContent === 'Preview link'
+                && bounds.right <= innerWidth && bounds.bottom <= innerHeight;
+            menu.querySelector('button').click();
+            modal = document.querySelector('.bygone-link-preview[open]');
+            checks.contextPreview = Boolean(modal) && menu.hidden;
+            modal.close();
+            await pause(50);
+            link.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true, cancelable: true }));
+            checks.keyboardMenu = !menu.hidden && document.activeElement.textContent === 'Preview link';
+            document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+            checks.keyboardNavigation = document.activeElement.textContent === 'Open link in browser';
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            checks.menuDismissed = menu.hidden && document.activeElement === link;
+            label.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+            link.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+            checks.keyboardPreview = !tooltip.hidden && document.activeElement === preview;
+            document.activeElement.click();
+            modal = document.querySelector('.bygone-link-preview[open]');
+            checks.keyboardOpened = Boolean(modal);
+            modal.close();
+            await pause(50);
+            link.href = 'javascript:alert(1)';
+            const unsafe = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+            link.dispatchEvent(unsafe);
+            checks.unsafe = menu.hidden && !unsafe.defaultPrevented;
+            link.href = 'https://example.invalid/updated';
+            label.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+            link.remove();
+            await pause(650);
+            checks.removed = tooltip.hidden && menu.hidden;
+            return checks;
+        })()`);
+        for (const [check, passed] of Object.entries(linkChecks)) assert.equal(passed, true, `Link preview: ${check}`);
+        await runLinkPreviewSmoke(window().webContents);
         await evaluate("document.querySelectorAll('#history-rail [role=checkbox]')[1].click()");
         await waitFor("document.querySelector('[data-action=workspaceApply]').textContent.includes('(1)')");
         await evaluate("document.querySelectorAll('#history-rail [role=checkbox]')[2].click()");
@@ -285,8 +359,21 @@ async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
                 else if (Date.now() - start > 15000) reject(new Error('Tour did not render')); else requestAnimationFrame(check);
             }; check();
         })`);
+        await runLinkPreviewSmoke(tourFrame, { previewRenderer: window().webContents });
         assert.notEqual(await tourFrame.executeJavaScript("window.__BYGONE_HOST__?.environment"), 'standalone');
         assert.equal(await tourFrame.executeJavaScript("typeof window.__BYGONE_HOST__?.getPathForFile"), 'undefined');
+        const nativeTourWindow = await openTourWindow(tourPath);
+        try {
+            await nativeTourWindow.webContents.executeJavaScript(`new Promise((resolve, reject) => {
+                const deadline = Date.now() + 10000;
+                const check = () => {
+                    if (document.querySelector('.tour-reading-item.is-active')) resolve();
+                    else if (Date.now() > deadline) reject(new Error('Native tour did not render'));
+                    else requestAnimationFrame(check);
+                }; check();
+            })`);
+            await runLinkPreviewSmoke(nativeTourWindow.webContents);
+        } finally { nativeTourWindow.destroy(); }
         const { BrowserWindow } = require('electron');
         const browserWindow = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
         try {
@@ -300,7 +387,14 @@ async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
                     else if (Date.now() - start > 15000) reject(new Error('Browser controls did not load')); else requestAnimationFrame(check);
                 }; check();
             })`);
-            await runTourReadingSmoke({ browserContents, browserWindow });
+            // Electron requires a focused window for native mouse input.
+            browserWindow.show();
+            browserWindow.focus();
+            const originalZoom = browserContents.getZoomFactor();
+            browserContents.setZoomFactor(1);
+            try { await runTourReadingSmoke({ browserContents, browserWindow }); }
+            finally { browserContents.setZoomFactor(originalZoom); }
+            await runLinkPreviewSmoke(browserContents, { native: false });
             // The browser surface cannot supply local absolute paths. Its selected
             // Markdown remains an attachment, and user-edited drafts survive changes.
             await browserContents.executeJavaScript("document.querySelector('[data-workspace-mode=deconstructed]').click()");
@@ -358,7 +452,7 @@ async function runWorkspaceSmoke({ open, window, session, dialog, openTour }) {
         await evaluate("document.querySelector('[data-workspace-mode=history]').click()");
         await waitFor("document.querySelector('[data-workspace-mode=history][aria-pressed=true]')");
         assert.ok(session().multi.files.every((panel) => panel.editable === false));
-        console.log('Workspace smoke passed: short prompts, native Markdown save/select, protected bundled skill, browser custom instructions/download, preserved drafts, History/Compare round trips, same-window tour, and read-only preservation.');
+        console.log('Workspace smoke passed: link URL tooltips, hover/context/keyboard previews, blocked-header native previews in workspace/embedded/native tours, native editing context menus with system-action frames, navigation and cleanup, short prompts, native Markdown save/select, protected bundled skill, browser custom instructions/download, preserved drafts, History/Compare round trips, same-window tour, and read-only preservation.');
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }
