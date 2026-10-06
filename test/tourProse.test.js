@@ -48,7 +48,7 @@ test('supports multiple links and treats unsafe targets and HTML as text', async
 
 test('the initial reading view and highlighted view share the renderer', () => {
     const host = readFileSync(resolve(__dirname, '../web/host.js'), 'utf8');
-    assert.ok(host.includes("element.replaceChildren(...renderTourProse(document, text || ''))"));
+    assert.ok(host.includes("readingField.replaceChildren(...renderTourProse(document, text || ''))"));
     assert.ok(host.includes('renderTourProse(document, text, matchingSegments)'));
 });
 

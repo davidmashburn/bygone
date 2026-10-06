@@ -45,6 +45,35 @@ async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, ope
         await runPanelSwitchSmoke({ browserContents: window().webContents, openMulti });
         await open(path.join(root, 'one.txt'), path.join(root, 'two.txt'));
         await waitFor("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && document.querySelectorAll('.monaco-editor').length >= 2");
+        assert.equal(await evaluate(`(() => {
+            const controls = document.querySelector('#workspace-header').getBoundingClientRect();
+            const rail = document.querySelector('#history-rail').getBoundingClientRect();
+            const header = document.querySelector('#header').getBoundingClientRect();
+            return Math.abs(controls.left - rail.left) < 1 && Math.abs(controls.width - rail.width) < 1
+                && controls.bottom <= rail.top && header.left >= controls.right
+                && [...document.querySelectorAll('.history-rail-tab')].some(tab => tab.textContent === 'Files');
+        })()`), true, 'Compare keeps workspace controls above the left navigator with Files next to Commits');
+        const readWindowTheme = `(() => {
+            const style = selector => getComputedStyle(document.querySelector(selector));
+            const controls = style('.workspace-controls');
+            const active = style('.workspace-mode-button.is-active');
+            return { font: controls.fontFamily, size: controls.fontSize, lineHeight: controls.lineHeight,
+                surface: controls.backgroundColor, text: controls.color, border: controls.borderBottomColor,
+                activeBackground: active.backgroundColor, activeText: active.color,
+                bodyFont: style('body').fontFamily };
+        })()`;
+        const compareTheme = await evaluate(readWindowTheme);
+        assert.match(compareTheme.font, /system-ui/);
+        assert.equal(compareTheme.font, compareTheme.bodyFont, 'Window controls and body share UI typography');
+        assert.equal(await evaluate(`(() => {
+            document.body.style.setProperty('--vscode-font-family', 'serif');
+            document.body.style.setProperty('--vscode-sideBar-background', '#abcdef');
+            const style = getComputedStyle(document.querySelector('.workspace-controls'));
+            const followsHost = style.fontFamily === 'serif' && style.backgroundColor === 'rgb(171, 205, 239)';
+            document.body.style.removeProperty('--vscode-font-family');
+            document.body.style.removeProperty('--vscode-sideBar-background');
+            return followsHost;
+        })()`), true, 'Shared chrome honors host-provided theme and font overrides');
         const original = session();
         await evaluate("document.querySelectorAll('[data-multi-select-panel]')[1].click()");
         await waitFor("document.querySelectorAll('[data-multi-select-panel]')[1].getAttribute('aria-pressed') === 'true'");
@@ -81,6 +110,7 @@ async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, ope
         await evaluate("document.querySelector('[data-workspace-mode=history]').click()");
         await waitFor("document.querySelector('[data-workspace-mode=history][aria-pressed=true]') && document.querySelectorAll('.multi-pane').length === 2");
         assert.equal(session().workspaceView.path, 'two.txt');
+        assert.deepEqual(await evaluate(readWindowTheme), compareTheme, 'History uses the same window theme as Compare');
         assert.equal(session().multi.files.at(-1).editable, true);
         const checkboxes = await evaluate("document.querySelectorAll('#history-rail [role=checkbox]').length");
         assert.ok(checkboxes >= 4, `Expected all commits, got ${checkboxes}`);
@@ -295,7 +325,7 @@ async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, ope
         await evaluate("document.querySelector('[data-action=workspaceClear]').click()");
         await waitFor("document.querySelector('[data-action=workspaceApply]').textContent.includes('(0)')");
         assert.equal(session().workspaceView.mode, 'history');
-        await evaluate("document.querySelector('[data-workspace-back]').click()");
+        await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
         await waitFor("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && document.querySelectorAll('.multi-pane').length === 2");
         assert.equal(session(), original);
         await evaluate("document.querySelector('[data-workspace-mode=historical]').click()");
@@ -320,7 +350,7 @@ async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, ope
             confirmResponse = 1;
             await evaluate("document.querySelector('[data-workspace-mode=history]').click()");
             await waitFor("document.querySelector('[data-workspace-mode=history][aria-pressed=true]')");
-            await evaluate("document.querySelector('[data-workspace-back]').click()");
+            await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
             await waitFor("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]')");
             assert.equal(session().multi.files[1].content, 'two 3\n', 'Discarded edits cannot return in the retained comparison');
             assert.ok(session().multi.files.every((panel) => !panel.dirty));
@@ -384,6 +414,15 @@ async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, ope
                 else if (Date.now() - start > 15000) reject(new Error('Tour did not render')); else requestAnimationFrame(check);
             }; check();
         })`);
+        assert.deepEqual(await tourFrame.executeJavaScript(readWindowTheme), compareTheme,
+            'Embedded tours share typography, surfaces, and selected controls with History/Compare');
+        assert.equal(await tourFrame.executeJavaScript(`(() => {
+            const shell = getComputedStyle(document.querySelector('.tour-shell'));
+            const body = getComputedStyle(document.body);
+            return shell.fontFamily === body.fontFamily && shell.fontSize === body.fontSize
+                && shell.backgroundColor === getComputedStyle(document.querySelector('.workspace-controls')).backgroundColor;
+        })()`), true, 'Tour navigator uses the common window font and surface');
+
         await runLinkPreviewSmoke(tourFrame, { previewRenderer: window().webContents });
         assert.notEqual(await tourFrame.executeJavaScript("window.__BYGONE_HOST__?.environment"), 'standalone');
         assert.equal(await tourFrame.executeJavaScript("typeof window.__BYGONE_HOST__?.getPathForFile"), 'undefined');

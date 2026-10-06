@@ -93,7 +93,7 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
             });
             return;
         }
-        const loadedMatch = requestUrl.pathname.match(/^\/loaded\/(\d+)\/(tour\.json|history\/(?:list|diff|compare|compare-many|revisions))$/);
+        const loadedMatch = requestUrl.pathname.match(/^\/loaded\/(\d+)\/(tour\.json|history\/(?:list|diff|compare|compare-many|changed-files|revisions))$/);
         const loadedTour = loadedMatch ? uploadedTours.get(loadedMatch[1]) : null;
         if (loadedMatch && !loadedTour) return respondJson(response, 404, { error: 'Loaded document not found' });
         if (loadedTour && loadedMatch[2] === 'tour.json') return respondJson(response, 200, loadedTour.manifest);
@@ -101,7 +101,7 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         if (loadedMatch) requestUrl.pathname = `/${loadedMatch[2]}`;
         if (requestUrl.pathname === '/history/list' || requestUrl.pathname === '/history/diff'
             || requestUrl.pathname === '/history/compare' || requestUrl.pathname === '/history/compare-many'
-            || requestUrl.pathname === '/history/revisions') {
+            || requestUrl.pathname === '/history/changed-files' || requestUrl.pathname === '/history/revisions') {
             if (request.method !== 'POST') return respondJson(response, 405, { error: 'Method not allowed' });
             if (!isSameOriginLoopbackRequest(request)) return respondJson(response, 403, { error: 'Forbidden' });
             if (!requestHistory) return respondJson(response, 404, { error: 'History requires a version 2 tour.' });
@@ -126,7 +126,9 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
                                 ? requestHistory.compare(input)
                                 : requestUrl.pathname === '/history/compare-many'
                                     ? requestHistory.compareMany(input)
-                                    : requestHistory.revisions(input);
+                                    : requestUrl.pathname === '/history/changed-files'
+                                        ? requestHistory.changedFiles(input)
+                                        : requestHistory.revisions(input);
                     respondJson(response, 200, result);
                 } catch {
                     respondJson(response, 400, { error: 'Could not load history for this file and revision.' });

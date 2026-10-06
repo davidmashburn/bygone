@@ -75,15 +75,6 @@ function createWorkspaceControls({ container, send } = {}) {
         strip.appendChild(button);
     }
 
-    const backButton = document.createElement('button');
-    backButton.type = 'button';
-    backButton.className = 'workspace-back-button';
-    backButton.textContent = 'Back to comparison';
-    backButton.title = 'Return to the comparison that opened this workspace';
-    backButton.setAttribute('aria-label', 'Back to comparison');
-    backButton.setAttribute('data-workspace-back', 'true');
-    root.appendChild(backButton);
-
     const statusElement = document.createElement('div');
     statusElement.className = 'workspace-status';
     statusElement.setAttribute('role', 'status');
@@ -115,10 +106,6 @@ function createWorkspaceControls({ container, send } = {}) {
             emit({ type: 'workspaceMode', mode });
         });
     }
-
-    backButton.addEventListener('click', () => {
-        if (!destroyed && !backButton.disabled) emit({ type: 'workspaceBack' });
-    });
 
     dialogParts.textarea.addEventListener('input', () => {
         if (!activeKind) return;
@@ -274,9 +261,6 @@ function createWorkspaceControls({ container, send } = {}) {
             if (missingTour) button.removeAttribute('aria-pressed');
             else button.setAttribute('aria-pressed', String(active));
         }
-
-        backButton.hidden = currentState.canReturn !== true;
-        backButton.disabled = currentState.canReturn !== true;
     }
 
     function renderStatus() {
@@ -567,7 +551,6 @@ function normalizeState(input = {}) {
         tourSkill: input?.tourSkill && typeof input.tourSkill.path === 'string'
             ? { path: input.tourSkill.path, text: typeof input.tourSkill.text === 'string' ? input.tourSkill.text : bundledTourSkill } : null,
         promptContext: normalizePromptContext(input?.promptContext),
-        canReturn: input?.canReturn === true,
         status: stringOr(input?.status, '')
     };
 }

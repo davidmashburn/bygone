@@ -32,6 +32,16 @@ export function createExportHistory(data) {
         return stats;
     }, { additions: 0, deletions: 0 });
     return async (endpoint, input) => {
+        if (endpoint === 'changed-files') {
+            if (!graph) throw new Error('Git history is not included in this Minimal export.');
+            const commits = input.commits;
+            if (!Array.isArray(commits)) throw new Error('Expected displayed revisions.');
+            commits.filter(oid => oid !== null).forEach(entry);
+            return { paths: graph.paths.filter(path => {
+                const records = commits.map(oid => oid === null ? undefined : graph.snapshots[oid][path]);
+                return records.some(record => JSON.stringify(record) !== JSON.stringify(records[0]));
+            }) };
+        }
         if (endpoint === 'compare-many') {
             const commits = input.commits;
             if (!Array.isArray(commits) || commits.length < 2 || new Set(commits).size !== commits.length) throw new Error('Select at least two different included revisions.');

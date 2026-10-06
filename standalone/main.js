@@ -6346,8 +6346,7 @@ function finalizeSmokeTest(snapshot) {
             snapshot.directoryRailVisible === true
             && snapshot.directoryRailItemCount === 2
             && snapshot.directoryReturnVisible === true
-            && snapshot.directorySidebarToggleVisible === true
-            && snapshot.directorySidebarToggleWorked === true
+            && snapshot.directorySidebarToggleVisible === false
             && snapshot.nextFileEnabled === true
         )
         || (

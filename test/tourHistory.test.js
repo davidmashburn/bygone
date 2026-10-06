@@ -28,6 +28,11 @@ test('v2 history follows renames, renders creation/deletion, and lands before an
         git('commit', '-m', 'Delete file');
         const deletion = git('rev-parse', 'HEAD');
         const history = createTourHistory({ version: 2, repository: { root }, range: { headOid: deletion, mergeBaseOid: first } });
+        assert.deepEqual(history.changedFiles({ commits: [rename, unrelated] }).paths, ['unrelated.txt']);
+        assert.deepEqual(history.changedFiles({ commits: [unrelated, deletion] }).paths, ['after.txt']);
+        assert.deepEqual(history.changedFiles({ commits: [null, first] }).paths, ['before.txt']);
+        assert.deepEqual(history.changedFiles({ commits: [first, rename] }).paths, ['after.txt', 'before.txt']);
+        assert.deepEqual(history.changedFiles({ commits: [first, first] }).paths, []);
         const list = history.list({ path: 'after.txt', commit: unrelated });
         assert.equal(list.selectedCommit, rename);
         assert.match(list.fallback, /preceding/);

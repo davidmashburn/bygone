@@ -49,6 +49,7 @@ export interface WorkspaceHistory {
     files: string[];
     read(relativePath: string, revision: string): WorkspaceHistoryReadResult;
     changedCommits(relativePath: string): string[];
+    changedFiles(revisions: readonly string[]): string[];
 }
 
 interface NormalizedScope {
@@ -142,10 +143,49 @@ export function createWorkspaceHistory(
         }))
     ];
     const changedCommitsCache = new Map<string, string[]>();
+    const changedFilesCache = new Map<string, string[]>();
+    let emptyTree: string;
 
     return {
         entries,
         files,
+        changedFiles: (revisions: readonly string[]): string[] => {
+            for (const revision of revisions) {
+                if (revision !== 'EMPTY' && !allowedCommits.has(revision)
+                    && !localStates.has(revision as 'WORKTREE' | 'INDEX')) {
+                    throw new Error(`Unknown history revision: ${revision}`);
+                }
+            }
+            const live = revisions.includes('WORKTREE') || revisions.includes('INDEX');
+            const key = JSON.stringify(revisions);
+            const cached = !live && changedFilesCache.get(key);
+            if (cached) return cached.slice();
+            const tree = (revision: string): string => {
+                if (revision !== 'EMPTY') return revision;
+                // Hash without writing an object; works for SHA-1 and SHA-256 repos.
+                emptyTree ||= execFileSync('git', ['hash-object', '-t', 'tree', '--stdin'], {
+                    cwd: repoRoot, input: '', encoding: 'utf8'
+                }).trim();
+                return emptyTree;
+            };
+            const changed = new Set<string>();
+            for (let index = 1; index < revisions.length; index++) {
+                const pair = [revisions[index - 1], revisions[index]];
+                if (pair[0] === pair[1]) continue;
+                const committed = pair.filter(revision => revision !== 'WORKTREE' && revision !== 'INDEX').map(tree);
+                const args = ['diff', '--name-only', '--no-renames', '--no-ext-diff', '-z'];
+                if (pair.includes('INDEX') && !pair.includes('WORKTREE')) args.push('--cached');
+                const output = runGitText([...args, ...committed, '--', ...pathspecsForScopes(scopes)], repoRoot, MAX_GIT_LIST_BYTES);
+                output.split('\0').filter(Boolean).forEach(file => changed.add(file));
+                if (pair.includes('WORKTREE')) {
+                    const untracked = runGitText(['ls-files', '--others', '--exclude-standard', '-z', '--', ...pathspecsForScopes(scopes)], repoRoot, MAX_GIT_LIST_BYTES);
+                    untracked.split('\0').filter(Boolean).forEach(file => changed.add(file));
+                }
+            }
+            const result = files.filter(file => changed.has(file));
+            if (!live) changedFilesCache.set(key, result);
+            return result.slice();
+        },
         read: (relativePath: string, revision: string): WorkspaceHistoryReadResult => {
             const normalizedPath = validateScopedPath(relativePath, scopes);
             if (revision === 'EMPTY') {
