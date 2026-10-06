@@ -7,9 +7,9 @@ const budgets = [
     { path: 'media/editor.worker.js', maxBytes: 320_000 },
     // Includes whitespace ranges, edited paragraph alignment, and separate scroll anchors.
     { path: 'media/diff.worker.js', maxBytes: 22_000 },
-    // Includes the offline skill, sticky scene overview, and changed-file navigation in live/exported history.
-    { path: 'web/web-host.js', maxBytes: 184_000 },
-    { path: 'web/presenter.css', maxBytes: 37_000 }
+    // Includes embedded screenshot evidence and its expandable viewer.
+    { path: 'web/web-host.js', maxBytes: 186_000 },
+    { path: 'web/presenter.css', maxBytes: 39_000 }
 ];
 
 let failed = false;

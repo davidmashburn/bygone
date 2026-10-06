@@ -1426,3 +1426,41 @@ body.tour-directory-file-open #file-info { display: none; }
 .export-host [data-dir-remove-side] { display: none !important; }
 
 .export-host .multi-pane-actions { display: none !important; }
+
+/* Image steps replace the evidence workspace; the reading document stays live. */
+body.tour-image-active #container > #header,
+body.tour-image-active #container > #diff-workspace { display: none; }
+.tour-image-evidence {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 12px;
+    gap: 10px;
+    overflow: hidden;
+}
+.tour-image-evidence figcaption { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tour-image-evidence img { display: block; min-height: 0; width: 100%; flex: 1; object-fit: contain; }
+.tour-image-evidence button, .tour-image-dialog button {
+    flex: none;
+    padding: 6px 12px;
+    color: var(--tour-body);
+    background: var(--bygone-hover);
+    border: 1px solid var(--tour-border);
+    border-radius: 4px;
+    font: inherit;
+    cursor: pointer;
+}
+.tour-image-dialog {
+    max-width: 96vw;
+    max-height: 96vh;
+    padding: 12px;
+    color: var(--tour-body);
+    background: var(--tour-surface);
+    border: 1px solid var(--tour-border);
+}
+.tour-image-dialog::backdrop { background: rgba(0, 0, 0, .8); }
+.tour-image-dialog button { display: block; margin: 0 0 10px auto; }
+.tour-image-dialog img { display: block; max-width: 90vw; max-height: 84vh; object-fit: contain; }

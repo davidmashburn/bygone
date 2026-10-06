@@ -1,3 +1,4 @@
+import { validateTourImage, type TourImage } from './tourImage';
 import type { BranchCommit, GitChangeKind } from './gitComparison';
 import {
     validateSceneOverview,
@@ -99,6 +100,7 @@ export interface ChangeTourWalkthroughStep {
     title: string;
     body: string;
     focus: ChangeTourResolvedAnchor;
+    image?: TourImage;
     connection?: ChangeTourResolvedConnection;
     diff: ChangeTourDiffScene;
     depth?: 'mentioned' | 'explained' | 'contextualized';
@@ -567,6 +569,7 @@ function validateScene(value: unknown, index: number, version: 1 | 2 | 4): asser
                 throw new Error(`${path}.depth must be mentioned, explained, or contextualized.`);
             }
             validateStepRequirement(step.requirement, `${path}.requirement`);
+            validateTourImage(step.image, `${path}.image`);
             validateResolvedAnchor(step.focus, `${path}.focus`);
             validateScene(step.diff, index, version);
             if (step.diff.kind !== 'text-diff') throw new Error(`${path}.diff must be a text-diff scene.`);

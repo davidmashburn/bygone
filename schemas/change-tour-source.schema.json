@@ -215,6 +215,15 @@
         "title": { "$ref": "#/$defs/nonEmptyString" },
         "body": { "$ref": "#/$defs/nonEmptyString" },
         "focus": { "$ref": "#/$defs/nonEmptyString" },
+        "image": {
+          "type": "object", "additionalProperties": false,
+          "required": ["file", "revision", "alt"],
+          "properties": {
+            "file": { "$ref": "#/$defs/nonEmptyString" },
+            "revision": { "enum": ["base", "head"] },
+            "alt": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        },
         "connection": { "$ref": "#/$defs/nonEmptyString" },
         "depth": { "enum": ["mentioned", "explained", "contextualized"] },
         "requirement": { "$ref": "#/$defs/requirement" }
