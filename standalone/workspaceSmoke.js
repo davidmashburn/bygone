@@ -345,15 +345,27 @@ async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, ope
                     ] }] }
             ]
         }));
+        const legacyTourPath = path.join(root, 'legacy.bygone');
+        const legacyTourText = JSON.stringify({ ...JSON.parse(fs.readFileSync(tourPath, 'utf8')), version: 3, review: { title: 'Keep original review notes' } });
+        fs.writeFileSync(legacyTourPath, legacyTourText);
         const pick = dialog.showOpenDialog;
         const confirm = dialog.showMessageBox;
         let confirmations = 0;
         try {
-            dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [tourPath] });
+            dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [legacyTourPath] });
+            dialog.showMessageBox = async (_owner, options) => {
+                assert.equal(options.title, 'Convert older tour');
+                return { response: 1 };
+            };
+            await openTour();
+            assert.equal(session(), retainedOriginal, 'Cancel conversion retains the comparison');
+            assert.equal(fs.existsSync(path.join(root, 'legacy.v4.bygone')), false);
             dialog.showMessageBox = async () => { confirmations++; return { response: 0 }; };
             await openTour();
+            assert.equal(fs.readFileSync(legacyTourPath, 'utf8'), legacyTourText);
+            assert.equal(require('../cli/tourFile.js').readTourSourceDocument(path.join(root, 'legacy.v4.bygone')).version, 4);
         } finally { dialog.showOpenDialog = pick; dialog.showMessageBox = confirm; }
-        assert.equal(confirmations, 1, 'A scoped local comparison requires an explicit tour-context choice');
+        assert.equal(confirmations, 2, 'An older tour requires conversion and a scoped comparison requires a tour-context choice');
         await waitFor("document.querySelector('[data-workspace-mode=historical][aria-pressed=true]') && document.querySelector('#workspace-tour-frame:not([hidden])')");
         const tourFrame = await new Promise((resolve, reject) => {
             const contents = window().webContents;
