@@ -6,6 +6,7 @@ export type DocumentFocus =
     | { part: 'scene'; scene: string }
     | { part: 'step'; scene: string; step: string };
 export type TourLink = {
+    // tour is a repository-relative path or a local file URL.
     kind: 'tour'; repo: string; tour: string;
     mode: 'historical' | 'deconstructed'; focus: DocumentFocus;
 };
@@ -35,6 +36,12 @@ function validateFields(params: URLSearchParams, allowed: string[], repeated: st
         if (!repeated.includes(key) && params.getAll(key).length !== 1) throw new Error(`Duplicate link field: ${key}.`);
     }
 }
+function validateLocalFileUrl(value: string): string {
+    const local = new URL(value);
+    if (local.protocol !== 'file:' || local.hostname || local.search || local.hash || local.username || local.password
+        || !local.pathname.startsWith('/')) throw new Error('Links require a local file URL.');
+    return value;
+}
 export function parseDocumentFocus(params: URLSearchParams): DocumentFocus {
     const part = required(params, 'part');
     const fields = part === 'title' ? [] : part === 'chapter' ? ['chapter']
@@ -52,15 +59,15 @@ export function parseDeepLink(value: string): DeepLink {
         || url.username || url.password || url.port || url.hash) throw new Error('Unsupported Bygone link address or version.');
     const p = url.searchParams;
     const kind = required(p, 'kind');
-    const repo = required(p, 'repo');
-    const local = new URL(repo);
-    if (local.protocol !== 'file:' || local.hostname || local.search || local.hash || local.username || local.password
-        || !local.pathname.startsWith('/')) throw new Error('Links require a local repository file URL.');
+    const repo = validateLocalFileUrl(required(p, 'repo'));
     if (kind === 'tour') {
         validateFields(p, ['kind', 'repo', 'tour', 'mode', ...focusFields]);
         const mode = required(p, 'mode');
         if (mode !== 'historical' && mode !== 'deconstructed') throw new Error('Unsupported authored tour mode.');
-        return { kind, repo, tour: validateRelativePath(required(p, 'tour')), mode, focus: parseDocumentFocus(p) };
+        const tour = required(p, 'tour');
+        if (/^[a-z][a-z\d+.-]*:/i.test(tour)) validateLocalFileUrl(tour);
+        else validateRelativePath(tour);
+        return { kind, repo, tour, mode, focus: parseDocumentFocus(p) };
     }
     if (kind !== 'compare') throw new Error('Unsupported Bygone link kind.');
     validateFields(p, ['kind', 'repo', 'rev', 'file', 'revision', 'line'], ['rev']);

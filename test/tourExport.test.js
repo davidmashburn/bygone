@@ -37,6 +37,11 @@ test('Minimal captures all authored modes, Full retains bounded history includin
         await assert.rejects(history('diff', { commit: f.head, path: 'large.txt' }), /2 MiB/);
         await assert.rejects(history('compare-many', { commits: [f.base, f.outside] }), /outside/);
         const comparison = await history('compare-many', { commits: [f.base, f.middle, f.head] });
+        const changed = await history('changed-files', { commits: [f.base, f.middle, f.head] });
+        assert.deepEqual(changed.paths, comparison.files.map(file => file.path));
+        assert.deepEqual((await history('changed-files', { commits: [f.head, f.head] })).paths, []);
+        assert.ok(!(await history('changed-files', { commits: [f.base, f.head] })).paths.includes('transient.txt'));
+        await assert.rejects(history('changed-files', { commits: [f.base, f.outside] }), /outside/);
         assert.deepEqual(comparison.files.find(file => file.path === 'transient.txt').comparisonPanels.map(panel => panel.content), ['', 'only in history\n', '']);
         assert.equal(comparison.files.find(file => file.path === 'old.txt').changeKind, 'deleted');
         assert.equal(comparison.files.find(file => file.path === 'new.txt').changeKind, 'added');
