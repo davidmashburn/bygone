@@ -2,7 +2,8 @@
 
 ## Local desktop links
 
-Each title, chapter, scene, and step has a **Copy link** button. In a saved local
+Each title, chapter, scene, and step has a chain icon beside its heading, shown
+on hover or keyboard focus (always visible on touch screens). In a saved local
 tour it copies a `bygone://open/v1` link to that document, authored mode, and
 section ID. Open it with the installed desktop app, or choose **File → Open
 Bygone Link from Clipboard**. Links require the repository at the same local

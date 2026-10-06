@@ -1378,7 +1378,32 @@ body.tour-directory-file-open #file-info { display: none; }
     background: var(--bygone-tour-range-color, #a99bf5);
 }
 
-.tour-copy-location { font-size: 12px; opacity: .75; margin-top: 8px; }
+.tour-copy-location {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-inline-start: 6px;
+    padding: 3px;
+    vertical-align: middle;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    opacity: 0;
+    pointer-events: none;
+    cursor: pointer;
+}
+.tour-reading-item :is(h1, h2, h3):is(:hover, :focus-within) .tour-copy-location,
+.tour-copy-location.is-copied { opacity: .75; pointer-events: auto; }
+.tour-copy-location:hover,
+.tour-copy-location:focus-visible { opacity: 1; background: var(--tour-surface); }
+.tour-copy-location:focus-visible { outline: 2px solid var(--vscode-focusBorder, #68a9ef); }
+.tour-copy-location svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tour-link-check, .tour-copy-location.is-copied .tour-link-chain { display: none; }
+.tour-copy-location.is-copied .tour-link-check { display: block; }
+@media (hover: none) { .tour-copy-location { opacity: .75; pointer-events: auto; } }
 .tour-link-target { outline: 2px solid var(--vscode-focusBorder, #68a9ef); outline-offset: -2px; }
 .export-notice { padding: 10px; font-size: 12px; }
 
