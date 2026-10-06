@@ -24,8 +24,7 @@ import {
     ChangeTourSourceChapter,
     ChangeTourSourceSceneOverview,
     ChangeTourSourceStep,
-    parseChangeTourSource,
-    validateChangeTourReview
+    parseChangeTourSource
 } from './changeTourSource';
 import { buildDeconstructedScene } from './deconstructedChange';
 import { buildTwoWayDiffModel } from './diffEngine';
@@ -85,14 +84,6 @@ export function buildChangeTourManifest(
     const source = options.source ? parseChangeTourSource(options.source) : undefined;
     const range = resolveBranchReviewRange(startPath, options.headRef ?? source?.range?.head,
         options.baseRef ?? source?.range?.base);
-    if (source?.review) {
-        validateChangeTourReview(source.review, {
-            expectedRange: {
-                baseOid: range.mergeBaseOid,
-                headOid: range.headOid
-            }
-        });
-    }
     const maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_TOUR_FILE_BYTES;
     const maxLineBytes = options.maxLineBytes ?? DEFAULT_MAX_TOUR_LINE_BYTES;
     const omittedFiles: string[] = [];
@@ -232,10 +223,9 @@ export function buildChangeTourManifest(
         commits: range.commits,
         files,
         chapters,
-        scenes,
-        ...(source?.review ? { review: source.review } : {})
+        scenes
     };
-    const authoredModeTours = source?.version === 3
+    const authoredModeTours = source?.version === 4
         ? buildAuthoredModeTours(
             source,
             authored as CompiledSourceTour,
@@ -393,7 +383,7 @@ function applySourceChapters(
 /**
  * Compile independently authored mode chapters without borrowing generated
  * scenes from the root tour.  The root chapters remain the compatibility tour;
- * mode tours are emitted only for v3, when the source supplies one or contains
+ * mode tours are emitted only for v4, when the source supplies one or contains
  * enough authored material for an exact legacy fallback.
  */
 function buildAuthoredModeTours(
@@ -410,7 +400,7 @@ function buildAuthoredModeTours(
         const compiled = applySourceChapters(source, source.tours.historical.chapters, defaultScenes, repoRoot);
         validateHistoricalStackEndpoints(compiled.scenes, mergeBaseOid, headOid);
         tours.historical = { chapters: compiled.chapters, scenes: compiled.scenes };
-    } else if (source.version === 3) {
+    } else if (source.version === 4) {
         const fallback = buildHistoricalFallback(source.chapters, root);
         if (fallback) tours.historical = fallback;
     }
@@ -418,7 +408,7 @@ function buildAuthoredModeTours(
     if (source.tours?.deconstructed) {
         const compiled = applySourceChapters(source, source.tours.deconstructed.chapters, defaultScenes, repoRoot);
         tours.deconstructed = { chapters: compiled.chapters, scenes: compiled.scenes };
-    } else if (source.version === 3 && source.chapters.some((chapter) => (
+    } else if (source.version === 4 && source.chapters.some((chapter) => (
         chapter.scenes.some((scene) => scene.kind === 'deconstructed-diff')
     ))) {
         // Preserve the existing repository-bound authored result exactly. This fallback is

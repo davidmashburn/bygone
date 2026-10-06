@@ -37,53 +37,6 @@ body.tour-derived-mode #tour-narrative { display: none; }
     display: none;
 }
 
-.tour-review-toggle,
-.tour-review button {
-    border: 1px solid var(--tour-border);
-    border-radius: 6px;
-    padding: 7px 10px;
-    color: var(--tour-body);
-    background: rgba(255, 255, 255, 0.06);
-    font: inherit;
-    cursor: pointer;
-}
-
-.tour-review-toggle { margin-top: 12px; }
-.tour-review-toggle:hover, .tour-review button:hover { border-color: var(--tour-accent-bright); }
-.tour-review-toggle:focus-visible, .tour-review button:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 2px; }
-.tour-review[hidden], .tour-review-toggle[hidden] { display: none; }
-
-.tour-review {
-    position: fixed;
-    top: 16px;
-    right: 16px;
-    z-index: 160;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    width: min(480px, calc(100vw - var(--tour-rail-width) - 32px));
-    max-height: calc(100vh - 32px);
-    border: 1px solid var(--tour-border);
-    border-radius: 10px;
-    background: var(--tour-surface);
-    color: var(--tour-body);
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
-    font: 13px/1.5 var(--tour-body-font);
-}
-
-.tour-review-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-bottom: 1px solid var(--tour-border); }
-.tour-review-heading h2 { margin: 0; font-size: 18px; }
-.tour-review-content { overflow-y: auto; padding: 0 18px 18px; min-height: 0; overflow-wrap: anywhere; }
-.tour-review-content h3 { color: var(--tour-accent-bright); font-size: 13px; margin: 22px 0 10px; }
-.tour-review-item { border-top: 1px solid var(--tour-border); padding: 12px 0; }
-.tour-review-item h4 { font-size: 14px; margin: 0 0 6px; }
-.tour-review-item p { margin: 6px 0 10px; white-space: pre-wrap; }
-.tour-review-provenance, .tour-review-range, .tour-review-next { color: var(--tour-muted); }
-.tour-review-range { font-size: 12px; }
-.tour-review-evidence { display: block; width: 100%; text-align: left; margin: 6px 0; overflow-wrap: anywhere; }
-#tour-review-status:empty { display: none; }
-#tour-review-status { margin: 0; padding: 12px 18px; border-top: 1px solid var(--tour-border); }
-
 .tour-sidebar-hide,
 .tour-sidebar-show {
     border: 1px solid var(--tour-border);
@@ -1300,7 +1253,6 @@ body.tour-directory-file-open #file-info { display: none; }
 
 .tour-overview h1 { margin-bottom: 6px; font-size: 18px; }
 .tour-mode-controls { margin: 8px 0 0; }
-.tour-review-toggle { margin-top: 8px; }
 .tour-details { margin-top: 8px; }
 
 .tour-navigator-tabs {

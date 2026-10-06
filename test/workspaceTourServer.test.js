@@ -18,7 +18,7 @@ test('uploaded tours are validated in the existing repository and retain indepen
             fs.writeFileSync(path.join(root, 'file.txt'), `value ${index}\n`);
             git('add', '.'); git('commit', '-m', `Change ${index}`); commits.push(git('rev-parse', 'HEAD'));
         }
-        const source = (head) => ({ version: 3, range: { base: commits[0], head }, anchors: {
+        const source = (head) => ({ version: 4, range: { base: commits[0], head }, anchors: {
             line: { file: 'file.txt', revision: 'head', contains: 'value' }
         }, connections: [], chapters: [{ id: 'chapter', title: 'Change', scenes: [{
             id: 'scene', kind: 'walkthrough', title: 'Read the change', summary: 'The value changes.', bullets: [], tags: [], takeaway: 'Read the real value.',

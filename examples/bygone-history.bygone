@@ -1,51 +1,9 @@
-version: 3
+version: 4
 title: How Bygone learned to review a branch
 sourceUrl: https://github.com/davidmashburn/bygone/commit/75b6d7c0303124ec314aa790d6b808c4a9d9ea0e
 range:
   base: 292fe9248c5c49f762489dc688296fc100d120bc
   head: 75b6d7c0303124ec314aa790d6b808c4a9d9ea0e
-
-review:
-  baseOid: 292fe9248c5c49f762489dc688296fc100d120bc
-  headOid: 75b6d7c0303124ec314aa790d6b808c4a9d9ea0e
-  items:
-    - id: merge-base-contract
-      kind: concept
-      title: Merge-base defines the reviewed history
-      body: "resolveBranchReviewRange selects one merge base, then derives changed paths and commits from that boundary. The review is the merge-base-to-head story."
-      evidence:
-        - sceneId: review-pipeline
-          stepId: establish-boundary
-        - sceneId: review-pipeline
-          stepId: lock-the-semantics
-    - id: git-directory-boundary
-      kind: boundary
-      title: Git-specific work ends at two trees
-      body: "The Git layer discovers the range and materializes snapshots; FileComparator then hands those temporary roots to the ordinary directory comparison. A reader needs the range model before the reusable directory surface is meaningful."
-      evidence:
-        - sceneId: review-pipeline
-          stepId: make-range-portable
-        - sceneId: review-pipeline
-          stepId: turn-history-into-files
-        - sceneId: review-pipeline
-          stepId: reuse-the-diff-surface
-    - id: setup-owns-complexity
-      kind: tradeoff
-      title: Review support moves complexity into range and snapshot setup
-      body: "Reusing directory comparison avoids a branch-only renderer, while range resolution and temporary snapshot creation add complexity before that renderer."
-      evidence:
-        - sceneId: review-pipeline
-          stepId: establish-boundary
-        - sceneId: review-pipeline
-          stepId: turn-history-into-files
-        - sceneId: review-pipeline
-          stepId: reuse-the-diff-surface
-    - id: partial-materialization-cleanup
-      kind: question
-      title: Does a failed materialization clean up both temporary roots?
-      body: "The focused walkthrough follows the successful handoff, but it does not prove cleanup when git show fails after one root has been partially populated."
-      evidence: []
-      nextCheck: "Inspect the preparation-error path and add a fault-injection fixture only if a failed materialization leaves either temporary root behind."
 
 anchors:
   choose-merge-base:

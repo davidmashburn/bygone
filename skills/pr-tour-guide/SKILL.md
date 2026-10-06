@@ -217,14 +217,14 @@ Retrieve the current contract:
 bygone tour schema > /tmp/change-tour-source.schema.json
 ```
 
-Write a version 3 `.bygone` file for new tours. The legacy `.bygone.yaml`
+Write a version 4 `.bygone` file for new tours. The legacy `.bygone.yaml`
 spelling remains valid when generic YAML tooling requires it. Treat the
 authored source and its compiled `.tour.json` as Git-backed, non-portable
 artifacts: pin `range.base` and `range.head` to the exact OIDs from the
 context, and keep them with the corresponding repository so Bygone can resolve
 those objects and live history. Versions 1 and 2 remain readable for legacy
-inputs; v3 is the format for independent authored modes, directory overviews,
-and review notes.
+inputs; v4 is the format for independent authored modes and directory overviews.
+Version 3 is retired. The source has no `review` or ad hoc `notes` field.
 
 Set optional `windowTitle` when the tour should appear in the native window
 title — for example a pull request number (`PR-1234`) so multiple open tours
@@ -249,14 +249,14 @@ across modes.
   walkthrough scenes for context or proof. A mode-specific deconstructed scene
   may omit `stack` and endpoint `steps`: its stages, not Git history, define the
   explanation panels.
-- If a mode is omitted, v3 derives it from the root chapters by scene identity
+- If a mode is omitted, v4 derives it from the root chapters by scene identity
   and order. Root walkthroughs and real stacks supply Historical; root
   deconstructed scenes supply Deconstructed. A root deconstructed scene enters
   Historical only when it also has explicit endpoint walkthrough `steps`; a
   real revision `stack` by itself is not that walkthrough. No cross-mode
   correspondence is inferred from filenames or narrative text.
 
-For a root v3 `deconstructed-diff` scene, provide both an explicit real
+For a root v4 `deconstructed-diff` scene, provide both an explicit real
 revision `stack` and regular endpoint `steps`. The stack is used for the real
 Historical/Final fallback and must have the same base and final endpoints as
 the source range; the synthetic stages remain separate. A
@@ -291,7 +291,7 @@ Keep deconstructed-tour coordinates distinct:
 - When an ordinal is necessary, qualify the coordinate: "stage 2 of 4" versus "tour step 11 of 46."
 - Treat presenter-generated labels as UI context; do not repeat them in authored prose unless the distinction itself needs explanation.
 
-Version 3 scenes may include a directory Overview:
+Version 4 scenes may include a directory Overview:
 
 ```yaml
 overview:
@@ -305,14 +305,11 @@ distinct stack-entry IDs or to `explanation-baseline` and
 `explanation-stage-<stage-id>`. Walkthrough overviews always use the review's
 base-to-head comparison and reject an explicit comparison.
 
-Use the optional v3 top-level `review` block for evidence-linked concepts,
-boundaries, tradeoffs, and unresolved questions instead of presenting open
-questions as settled scene narration. Pin `review.baseOid` and `review.headOid`
-to the resolved range. `concept`, `boundary`, and `tradeoff` items need at
-least one link to a root authored walkthrough scene and step; a `question` may
-have empty evidence but must provide `nextCheck`. Do not add an ad hoc `notes`
-key. See `examples/bygone-history.bygone` for review notes and
-`examples/navigation-lab.bygone.yaml` for independently authored v3 modes.
+Put concepts, boundaries, and tradeoffs beside their code evidence in scene or
+step narrative. Label unresolved questions explicitly and state the next check
+that would resolve them. Never present an unknown as a settled conclusion.
+Do not add a `review` block or an ad hoc `notes` key. See
+`examples/navigation-lab.bygone.yaml` for independently authored modes.
 
 Never emit generated line numbers or hunk indexes. Verify candidate snippets against the pinned object when uncertain:
 
@@ -353,8 +350,6 @@ Treat this as a required self-audit, not a claim the validator can prove. For ea
 - root deconstructed scenes have the required real stack and endpoint
   walkthrough evidence, while mode-specific synthetic scenes do not claim
   that evidence exists;
-- v3 review-note OIDs match the resolved range and evidence links resolve to
-  authored root walkthrough steps;
 - the final step supplies proof or a clear reviewer conclusion.
 
 ## Always print the open command

@@ -8,54 +8,57 @@ suffix, and explicitly supplied files are validated by content rather than
 rejected by extension.
 
 An authored source is Git-backed, not portable: resolving refs and anchors
-requires the corresponding local repository and Git objects. Version 2 and 3
+requires the corresponding local repository and Git objects. Version 2 and version 4
 compiled manifests remain bound to that repository so the presenter can load
 live file history. Version 1 manifests remain readable as legacy portable
-artifacts, without the mode switcher. Version 3 adds independent authored
-tours, scene directory overviews, and review notes; versions 1 and 2 remain
-accepted without those fields.
+artifacts, without the mode switcher. Version 4 supports independent authored
+tours and scene directory overviews; versions 1 and 2 remain accepted without
+those fields.
 
-## Version 3 stability and compatibility
+## Version 4 stability and compatibility
 
-Format version **3 is the stable authoring contract for Bygone 0.9.2**. The
-application version (`0.9.2`) and document version (`version: 3`) are separate:
-UI fixes, navigation changes, and application patch releases do not require
-rewriting a tour or incrementing its format version.
+Format version **4** is the current authoring contract. Application and document
+versions are separate; UI fixes do not require rewriting a tour.
 
-| Document version | Reader support in 0.9.2 | Contract |
+| Document version | Reader support | Contract |
 | --- | --- | --- |
 | 1 | Supported | Legacy source and portable compiled manifests |
 | 2 | Supported | Repository-bound manifests, real revision stacks, and endpoint walkthroughs |
-| 3 | Supported; use for new sources | Version 2 capabilities plus independent authored tours, scene directory overviews, and review notes |
-| Greater than 3 | Rejected with an upgrade message | Never interpreted as version 3 |
+| 3 | Retired | Remove the top-level `review` block, set source `version: 4`, and recompile |
+| 4 | Supported; use for new sources | Independent authored tours and scene directory overviews; no Review Notes |
+| Greater than 4 | Rejected with an upgrade message | Never interpreted as version 4 |
 
-The v3 field names, types, required fields, enum values, and meanings are fixed
+Version 4 removes the `review` field and the separate Review Notes panel.
+Concepts, boundaries, tradeoffs, and unresolved questions belong in scene or
+step narrative. Clearly distinguish an unknown from a supported conclusion and
+state the next check that would resolve it. Neither source nor compiled manifests
+accept a `review` field; existing v3 documents receive a migration error.
+
+The v4 field names, types, required fields, enum values, and meanings are fixed
 by the [source schema](../schemas/change-tour-source.schema.json) and the
-semantic rules in this document. Valid v3 sources and compiled manifests must
-remain readable by later compatible releases; required fields must not be
-added, existing fields removed, or evidence and mode semantics repurposed under
-the same format number. New syntax that existing v3 readers cannot accept
-requires a new document version, even when the new field is optional. Fixes
-that enforce the documented contract do not make malformed documents valid.
+semantic rules in this document. Breaking syntax or semantic changes require
+a new document version. Fixes enforcing the documented contract do not make
+malformed documents valid.
 
 The source is strict: unknown properties are errors, not an extension
 mechanism. JSON Schema covers document structure; `bygone tour validate`
 additionally checks IDs and references, Git objects, unique anchor matches,
-stage coverage, comparison endpoints, and review freshness. A schema-only pass
+stage coverage, and comparison endpoints. A schema-only pass
 does not prove that the source compiles. Validate against the intended local
 repository before sharing a tour.
 
 Keep authored YAML as the editable source. Compiled JSON is generated evidence,
-not a second authoring syntax; v2/v3 manifests retain repository identity and
+not a second authoring syntax; v2/v4 manifests retain repository identity and
 resolved Git objects. Stable format support does not make missing repositories
 or pruned objects available, and does not promise byte-identical generated
 timestamps or presentation layout. Pin full commit IDs in `range` when the
 underlying comparison must stay fixed.
 
-The compatibility checks cover v1/v2 acceptance, v3-only field gates,
-independent authored modes, overview evidence and fallback semantics, review
-freshness, and rejection of future versions. Run `npm test` before releasing a
-parser, compiler, or schema change; update those checks with any new contract.
+The compatibility checks cover v1/v2 acceptance, v4-only field gates,
+independent authored modes, overview evidence and fallback semantics, retired
+v3 rejection, removed-field rejection, and rejection of future versions. Run
+`npm test` before releasing a parser, compiler, or schema change; update those
+checks with any new contract.
 
 ## Opening and compiling a source
 
@@ -88,7 +91,7 @@ once. When omitted, the presenter falls back to `title`, then a generic tour lab
 
 ## Independent authored tours
 
-Version 3 can supply `tours.historical.chapters` and
+Version 4 can supply `tours.historical.chapters` and
 `tours.deconstructed.chapters`. Each uses the chapter and scene structure below,
 with the document's shared range, anchors, and connections. This lets one file
 explain actual revisions and also teach the change through synthetic stages.
@@ -112,7 +115,7 @@ Compare.
 
 ## Scene directory overviews
 
-In version 3, an authored walkthrough, stacked-diff, or deconstructed-diff scene may carry a
+In version 4, an authored walkthrough, stacked-diff, or deconstructed-diff scene may carry a
 directory overview for the presenter to render alongside the current scene:
 
 ```yaml
@@ -150,7 +153,7 @@ Use an explicit authored Historical scene to choose a narrower real comparison.
 ## Structure
 
 ```yaml
-version: 3
+version: 4
 title: A reviewer-facing title
 windowTitle: PR-1234
 sourceUrl: https://example.test/pull/123
@@ -207,42 +210,6 @@ the claim while the code is visible and avoids repeating it in scene framing.
 
 Narrative text supports inline Markdown links such as `[ticket](https://example.com/ticket)`. HTTP and HTTPS destinations open outside the tour; link labels remain visible and clickable during narration highlighting. Authored HTML, other URL schemes, and local-file destinations are treated as plain text. This is link support, not a general Markdown renderer.
 
-The source schema has no ad hoc `notes` field. In v3, use the top-level `review`
-block below for evidence-linked review observations and unresolved questions;
-do not present those questions as settled step rationale.
-
-## Review notes
-
-The optional v3 `review` block records authored interpretation separately from
-the narrative and deterministic evidence. It contains `baseOid`, `headOid`, and
-a nonempty `items` array. Both OIDs must be full 40- or 64-character hexadecimal
-Git IDs, matching the resolved **merge base** and head, respectively. A changed
-range makes the review stale and compilation fails rather than silently
-carrying the conclusions forward.
-
-Each item has a unique nonblank `id`, a `kind` (`concept`, `boundary`,
-`tradeoff`, or `question`), nonblank `title` and `body`, and an `evidence` array
-of `{ sceneId, stepId }` references to endpoint walkthrough steps in the root
-`chapters` (not scenes defined only inside an independent `tours` mode).
-Synthetic stage IDs and stacked-diff step IDs are not walkthrough evidence.
-Claims require at least one reference. Questions may use an empty evidence
-array but require a nonblank `nextCheck`; other items may also supply it.
-Validation confirms the references, not the truth of an author's claim or the
-state of an external deployment.
-
-For example, add this item to `review.items` alongside the structure above:
-
-```yaml
-- id: check-caller
-  kind: question
-  title: Is the caller compatible?
-  body: The source shows persistence, but the deployed caller has not been checked.
-  evidence:
-    - sceneId: decision-flow
-      stepId: persist-first
-  nextCheck: Verify the deployed caller contract against this exact head revision.
-```
-
 ## Requirements
 
 A walkthrough step may carry an optional `requirement` that names the stated
@@ -272,7 +239,7 @@ results search the compiled base and head snapshots, open the exact file and
 side, and preserve **Return to tour** so exploration does not lose authored
 context.
 
-Version 2 and 3 tours show one mode control for moving among live Git History,
+Version 2 and 4 tours show one mode control for moving among live Git History,
 arbitrary Compare ranges, and the authored tours available in that manifest.
 Previously compiled version 2 deconstructed tours retain their authored final
 endpoint walkthrough as **Final tour** beside **Deconstructed tour**. Other
@@ -285,9 +252,9 @@ only when every panel is a real selected Git revision. Use a
 [deconstructed-diff example](../examples/deconstructed-diff.bygone) when
 the teaching order is clearer than the real commit history; its cumulative
 panels are synthetic explanation stages and must never be described as
-commits. In versions 2 and 3, a `deconstructed-diff` scene in root `chapters`
+commits. In versions 2 and 4, a `deconstructed-diff` scene in root `chapters`
 requires a real `stack` with the same base and final endpoints and nonempty
-walkthrough `steps` for compatibility. In version 3, a scene authored inside
+walkthrough `steps` for compatibility. In version 4, a scene authored inside
 `tours.deconstructed` may omit both because that tour is synthetic by design.
 Explicit `tours.historical` content supplies its own explanation of real
 revisions. Bygone does not infer a real stack from Git history. Every changed

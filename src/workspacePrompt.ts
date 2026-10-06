@@ -47,7 +47,7 @@ export function buildWorkspacePrompt(
 
     const lines = [
         buildSkillInstruction(skill),
-        `Create a v3 ${normalizedKind} tour.`,
+        `Create a v4 ${normalizedKind} tour.`,
         `Repository: ${JSON.stringify(repository ?? null)}`,
         `Selected paths: ${JSON.stringify(scope)}`,
         `Base: ${JSON.stringify(exactRange ? revisions[0] : null)}`,
