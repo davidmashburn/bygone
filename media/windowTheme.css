@@ -1,0 +1,58 @@
+/* Shared window chrome for Desktop, tours, exports, and the VS Code webview.
+ * Keep application typography separate from the editor font. */
+:root {
+    --bygone-tooltip-delay: 500ms;
+    --vscode-foreground: #eef1fa;
+    --vscode-editor-background: #1e1e1e;
+    --vscode-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --vscode-font-size: 13px;
+    --vscode-sideBar-background: #11131a;
+    --vscode-panel-border: #30333d;
+    --vscode-descriptionForeground: #b9bdca;
+    --vscode-editorWarning-foreground: #cca700;
+    --vscode-button-border: #30333d;
+    --vscode-button-secondaryBackground: #20232d;
+    --vscode-button-background: #534985;
+    --vscode-button-secondaryForeground: #cccccc;
+    --vscode-button-foreground: #ffffff;
+    --vscode-panel-background: #151821;
+    --vscode-editor-font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", Menlo, monospace;
+    --vscode-editor-font-size: 13px;
+    --vscode-editorLineNumber-foreground: #858585;
+    --vscode-focusBorder: #a99fff;
+}
+
+html,
+body.vscode-dark,
+body.vscode-high-contrast {
+    color-scheme: dark;
+}
+
+body.vscode-light,
+body.vscode-high-contrast-light {
+    color-scheme: light;
+}
+
+body {
+    --bygone-ui-font: var(--vscode-font-family);
+    --bygone-ui-font-size: var(--vscode-font-size);
+    --bygone-surface: var(--vscode-sideBar-background);
+    --bygone-surface-raised: var(--vscode-panel-background);
+    --bygone-border: var(--vscode-panel-border);
+    --bygone-text: var(--vscode-foreground);
+    --bygone-muted: var(--vscode-descriptionForeground);
+    --bygone-accent: var(--vscode-focusBorder);
+    --bygone-accent-strong: color-mix(in srgb, var(--bygone-accent) 72%, transparent);
+    --bygone-accent-subtle: color-mix(in srgb, var(--bygone-accent) 28%, transparent);
+    --bygone-hover: color-mix(in srgb, var(--bygone-text) 6%, transparent);
+    --bygone-selection: color-mix(in srgb, var(--bygone-accent) 13%, transparent);
+
+    margin: 0;
+    padding: 0;
+    color: var(--vscode-foreground);
+    background: var(--vscode-editor-background);
+    font-family: var(--bygone-ui-font);
+    font-size: var(--bygone-ui-font-size);
+}
+
+button, input, select, textarea { font-family: inherit; }

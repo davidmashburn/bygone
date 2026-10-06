@@ -44,7 +44,8 @@ function makeGit({ failHistory = false } = {}) {
         read(file, revision) {
             return { exists: true, content: `${file}:${revision}`, reason: undefined };
         },
-        changedCommits() { return [B, A]; }
+        changedCommits() { return [B, A]; },
+        changedFiles() { return this.files; }
     };
     return {
         calls,
@@ -134,6 +135,37 @@ async function enterHistory(workspace, fixture) {
     assert.equal(fixture.session.workspaceView.mode, 'history');
 }
 
+test('file arrows skip unchanged files in both directions and retain loaded revisions', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const history = git.history();
+    history.files = ['one.txt', 'same.txt', 'two.txt', 'unchanged.txt'];
+    history.changedFiles = revisions => {
+        assert.deepEqual(revisions, ['EMPTY', A]);
+        return ['one.txt', 'two.txt'];
+    };
+    const workspace = createWorkspaceHost(fixture.host, git);
+    await enterHistory(workspace, fixture);
+    await workspace.render();
+    assert.deepEqual(fixture.sent.at(-1).fileNavigation, { canGoPrevious: false, canGoNext: true });
+    await workspace.handle({ type: 'navigateFile', direction: 'next' });
+    assert.equal(fixture.session.workspaceView.path, 'two.txt');
+    assert.deepEqual(fixture.session.workspaceView.revisions, ['EMPTY', A]);
+    await workspace.render();
+    assert.deepEqual(fixture.sent.at(-1).fileNavigation, { canGoPrevious: true, canGoNext: false });
+    await workspace.handle({ type: 'navigateFile', direction: 'next' });
+    assert.equal(fixture.session.workspaceView.path, 'two.txt');
+    await workspace.handle({ type: 'navigateFile', direction: 'previous' });
+    assert.equal(fixture.session.workspaceView.path, 'one.txt');
+    await workspace.handle({ type: 'openDirectoryEntry', relativePath: 'same.txt' });
+    assert.equal(fixture.session.workspaceView.path, 'same.txt', 'Unchanged files remain directly selectable');
+    await workspace.handle({ type: 'navigateFile', direction: 'next' });
+    assert.equal(fixture.session.workspaceView.path, 'two.txt');
+    history.changedFiles = () => [];
+    await workspace.render();
+    assert.deepEqual(fixture.sent.at(-1).fileNavigation, { canGoPrevious: false, canGoNext: false });
+});
+
 test('initial show augmentation creates workspace state without throwing', () => {
     const fixture = makeHost(nativeSession());
     const git = makeGit();
@@ -145,6 +177,18 @@ test('initial show augmentation creates workspace state without throwing', () =>
     assert.equal(message.history.fileName, 'one.txt');
     assert.equal(message.workspace.mode, 'compare');
     assert.ok(git.calls.resolve.length > 0);
+    assert.deepEqual(message.history.rail.tabs.map(tab => tab.label), ['Commits', 'Files']);
+});
+
+test('Compare Files tab opens a scoped file while retaining the comparison revisions', async () => {
+    const fixture = makeHost(nativeSession());
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    workspace.augment(showMessage());
+    await workspace.handle({ type: 'workspaceOpenFile', relativePath: 'two.txt' });
+    assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: 'two.txt', revisions: [A, B] });
+    const retained = fixture.session;
+    await workspace.handle({ type: 'workspaceOpenFile', relativePath: '../outside' });
+    assert.equal(fixture.session, retained);
 });
 
 test('history to compare and back preserves the original native session identity', async () => {

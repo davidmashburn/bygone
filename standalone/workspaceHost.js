@@ -72,7 +72,7 @@ function createWorkspaceHost(host, git) {
             nativeSkillFiles: typeof host.chooseTourSkill === 'function',
             tourSkill: current.tourSkill || host.defaultTourSkill?.(),
             canReturn: Boolean(current.original && (current.tourMode || host.getSession() !== current.original)),
-            history: { enabled: context.kind === 'ready' && !current.backendError, label: current.mode === 'history' ? 'History' : 'Open in History', reason: current.backendError || (context.kind === 'ready' ? context.notice || '' : context.reason) },
+            history: { enabled: context.kind === 'ready' && !current.backendError, label: 'History', reason: current.backendError || (context.kind === 'ready' ? context.notice || '' : context.reason) },
             promptContext: current.tourMode ? current.tour.promptContext : {
                 repository: context.kind === 'ready' ? context.repoRoot : undefined,
                 paths: context.kind === 'ready' ? context.paths.map((item) => item.path || '.') : [],
@@ -97,14 +97,13 @@ function createWorkspaceHost(host, git) {
         const session = host.getSession();
         const active = session.multi?.files.find((panel) => panel.id === session.multi.activePanelId)?.revision;
         const hasRevisionPanels = Boolean(session.workspaceView || current.source.resolvedRevisions);
-        const hasFiles = Boolean(session.workspaceView);
         return {
             fileName: selectedPath || 'Repository', navigatorOnly: current.mode !== 'history', workingTreeControls: current.mode === 'history',
             includeStaged: current.includeStaged, skipUnchanged: current.skipUnchanged,
             canGoBack: current.mode === 'history', canGoForward: current.mode === 'history',
             positionLabel: current.mode === 'history' ? 'History' : 'Comparison',
             rail: {
-                activeTabId: 'history', tabs: [{ id: 'history', label: 'Commits' }, ...(hasFiles ? [{ id: 'workspace-files', label: 'Files' }] : [])],
+                activeTabId: 'history', tabs: [{ id: 'history', label: 'Commits' }, { id: 'workspace-files', label: 'Files' }],
                 itemsByTab: {
                     history: entries.map((entry, index) => ({
                         kind: index < history.entries.length ? 'history-entry' : 'panel-revision', index, commit: entry.commit,
@@ -116,7 +115,7 @@ function createWorkspaceHost(host, git) {
                         active: active === entry.commit, changesFile: changes.has(entry.commit),
                         panelNumber: hasRevisionPanels ? revisions.indexOf(entry.commit) + 1 || undefined : undefined
                     })),
-                    'workspace-files': history.files.map((file) => ({ kind: 'directory-entry', relativePath: file, label: file, active: file === selectedPath }))
+                    'workspace-files': history.files.map((file) => ({ kind: 'directory-entry', workspaceFile: true, relativePath: file, label: file, active: file === selectedPath }))
                 }
             }
         };
@@ -236,12 +235,21 @@ function createWorkspaceHost(host, git) {
         await install(next, mode, state.navigation.get(mode));
     }
 
+    function fileTarget(current, direction, changedFiles) {
+        const data = backend();
+        const changed = new Set(changedFiles || data.changedFiles(current.workspaceView.revisions));
+        for (let index = data.files.indexOf(current.workspaceView.path) + direction;
+            index >= 0 && index < data.files.length; index += direction) {
+            if (changed.has(data.files[index])) return data.files[index];
+        }
+        return null;
+    }
+
     async function render() {
         const current = host.getSession();
         if (!current.workspaceView) return false;
-        const { revisions, path: file } = current.workspaceView;
-        const data = backend();
-        const index = data.files.indexOf(file);
+        const { revisions } = current.workspaceView;
+        const changedFiles = backend().changedFiles(revisions);
         host.send({
             type: 'showMultiDiff', panels: current.multi.files.map((panel, i) => ({
                 ...panel, addLeftEnabled: state.mode === 'history' && i === 0,
@@ -250,7 +258,7 @@ function createWorkspaceHost(host, git) {
             })),
             pairs: revisions.slice(0, -1).map((_, i) => ({ leftIndex: i, rightIndex: i + 1 })),
             activePanelId: current.multi.activePanelId, activePairIndex: current.multi.activePairIndex,
-            fileNavigation: { canGoPrevious: index > 0, canGoNext: index < data.files.length - 1 },
+            fileNavigation: { canGoPrevious: Boolean(fileTarget(current, -1, changedFiles)), canGoNext: Boolean(fileTarget(current, 1, changedFiles)) },
             mutationEnabled: state.mode === 'history'
         });
         return true;
@@ -295,6 +303,12 @@ function createWorkspaceHost(host, git) {
                     state.draft.sort((a, b) => entries.findIndex((item) => item.commit === b) - entries.findIndex((item) => item.commit === a));
                     update();
                 }
+            } else if (message.type === 'workspaceOpenFile') {
+                if (!backend().files.includes(message.relativePath)) return true;
+                const revisions = selectedRevisions();
+                if (!revisions.length) return true;
+                const next = makeSession(state.mode, revisions, message.relativePath);
+                if (await leave()) await install(makeSession(state.mode, next.workspaceView.revisions, next.workspaceView.path), state.mode);
             } else if (message.type === 'workspaceOpenTour') {
                 const tour = await host.openTour(uiState(), state.context, message.kind);
                 let accepted = false;
@@ -381,7 +395,7 @@ function createWorkspaceHost(host, git) {
                     if (!data.files.includes(message.relativePath)) return true;
                     file = message.relativePath;
                 } else if (message.type === 'navigateFile') {
-                    file = data.files[data.files.indexOf(file) + (message.direction === 'previous' ? -1 : 1)];
+                    file = fileTarget(current, message.direction === 'previous' ? -1 : 1);
                     if (!file) return true;
                 } else return true;
                 const next = makeSession(state.mode, revisions, file);

@@ -1,44 +1,3 @@
-:root {
-    --bygone-tooltip-delay: 500ms;
-    --vscode-foreground: #d4d4d4;
-    --vscode-editor-background: #1e1e1e;
-    --vscode-font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", Menlo, monospace;
-    --vscode-font-size: 13px;
-    --vscode-sideBar-background: #252526;
-    --vscode-panel-border: #3c3c3c;
-    --vscode-descriptionForeground: #9da1a6;
-    --vscode-editorWarning-foreground: #cca700;
-    --vscode-button-border: #3c3c3c;
-    --vscode-button-secondaryBackground: #313131;
-    --vscode-button-background: #0e639c;
-    --vscode-button-secondaryForeground: #cccccc;
-    --vscode-button-foreground: #ffffff;
-    --vscode-panel-background: #2d2d2d;
-    --vscode-editor-font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", Menlo, monospace;
-    --vscode-editor-font-size: 13px;
-    --vscode-editorLineNumber-foreground: #858585;
-    --vscode-focusBorder: #007fd4;
-}
-
-html,
-body.vscode-dark,
-body.vscode-high-contrast {
-    color-scheme: dark;
-}
-
-body.vscode-light,
-body.vscode-high-contrast-light {
-    color-scheme: light;
-}
-
-body {
-    margin: 0;
-    padding: 0;
-    color: var(--vscode-foreground);
-    background: var(--vscode-editor-background);
-    font-family: var(--vscode-font-family);
-    font-size: var(--vscode-font-size);
-}
 
 button {
     touch-action: manipulation;
@@ -154,7 +113,7 @@ body.web-host {
     border-radius: 5px;
     background: var(--vscode-menu-background, var(--vscode-editorWidget-background, var(--vscode-sideBar-background, #252526)));
     color: var(--vscode-menu-foreground, var(--vscode-editorWidget-foreground, var(--vscode-foreground)));
-    font: 13px/1.4 var(--tour-body-font, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+    font: 13px/1.4 var(--bygone-ui-font);
     box-shadow: 0 6px 20px rgb(0 0 0 / 30%);
 }
 
@@ -404,7 +363,7 @@ body.web-host {
     overflow: hidden;
     padding: 6px 8px;
     box-sizing: border-box;
-    font: 12px/1.4 var(--tour-body-font, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+    font: 12px/1.4 var(--bygone-ui-font);
     letter-spacing: normal;
     text-transform: none;
     color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground, #d4d4d4));
@@ -454,7 +413,7 @@ body.web-host {
     background: var(--vscode-editor-background, #1e1e1e);
     border: 1px solid var(--vscode-panel-border, #454545);
     border-radius: 6px;
-    font: 13px/1.4 var(--tour-body-font, system-ui, sans-serif);
+    font: 13px/1.4 var(--bygone-ui-font);
 }
 
 .bygone-link-preview[open] { display: flex; flex-direction: column; gap: 12px; }
@@ -696,7 +655,7 @@ button.file-header:hover {
 }
 
 .history-rail-tab.active {
-    border-color: rgba(79, 124, 255, 0.7);
+    border-color: var(--bygone-accent);
     background: color-mix(in srgb, var(--vscode-button-background) 34%, var(--vscode-button-secondaryBackground));
 }
 
@@ -798,7 +757,7 @@ body.is-resizing-sidebar .history-rail-resizer {
 }
 
 .history-rail-item.active {
-    border-color: rgba(79, 124, 255, 0.52);
+    border-color: color-mix(in srgb, var(--bygone-accent) 52%, transparent);
     background: color-mix(in srgb, var(--vscode-button-background) 18%, transparent);
 }
 
@@ -876,7 +835,7 @@ body.is-resizing-sidebar .history-rail-resizer {
     background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background, var(--vscode-sideBar-background, #252526)));
     color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
     box-shadow: 0 6px 20px rgb(0 0 0 / 30%);
-    font: 12px/1.5 var(--tour-body-font, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+    font: 12px/1.5 var(--bygone-ui-font);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
@@ -1011,7 +970,21 @@ body.is-resizing-sidebar .history-rail-resizer {
     justify-content: center;
     gap: 10px;
     min-height: 30px;
+    flex-wrap: wrap;
 }
+
+.multi-strip-density { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
+.multi-strip-density select {
+    font: inherit;
+    color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+    background: var(--vscode-dropdown-background, var(--vscode-editor-background));
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 4px;
+    padding: 3px 5px;
+}
+.multi-strip-comparison, .multi-strip-fit { font-size: 11px; color: var(--vscode-descriptionForeground); }
+.multi-strip-density[hidden], .multi-strip-fit[hidden] { display: none; }
+.history-rail-item.is-visible-panel .history-rail-panel-badge { box-shadow: 0 0 0 1px var(--vscode-focusBorder, #4f7cff); }
 
 .multi-strip-button {
     width: 30px;
@@ -1986,7 +1959,30 @@ button.file-header {
     }
 }
 #workspace-header { flex: 0 0 auto; }
-.workspace-selection-actions { display: flex; gap: 6px; padding: 4px 10px; }
+#container.history-rail-visible:has(> #workspace-header):not(:has(> #workspace-tour-frame:not([hidden]))) {
+    display: grid;
+    grid-template-columns: var(--history-rail-width) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+}
+#container.history-rail-visible:has(> #workspace-header):not(:has(> #workspace-tour-frame:not([hidden]))) > #workspace-header {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    background: var(--vscode-sideBar-background);
+    border-right: 1px solid var(--vscode-panel-border);
+}
+#container.history-rail-visible:has(> #workspace-header):not(:has(> #workspace-tour-frame:not([hidden]))) > #header {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    --history-rail-offset: 0px;
+}
+#container.history-rail-visible:has(> #workspace-header):not(:has(> #workspace-tour-frame:not([hidden]))) > #diff-workspace {
+    grid-column: 1 / -1;
+    grid-row: 2;
+}
+#workspace-header .workspace-controls { flex-wrap: wrap; }
+.workspace-selection-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 10px; }
 .workspace-selection-actions[hidden], #workspace-tour-frame[hidden], #diff-workspace[hidden] { display: none; }
 .workspace-selection-actions button { font: inherit; color: inherit; background: var(--vscode-button-secondaryBackground, #313131); border: 1px solid var(--vscode-panel-border, #3c3c3c); border-radius: 4px; padding: 4px 8px; }
 .workspace-selection-actions button:disabled { opacity: .5; }

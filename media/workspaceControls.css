@@ -2,6 +2,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    font: 12px/1.4 var(--bygone-ui-font);
     min-width: 0;
     padding: 6px 10px;
     border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
@@ -20,7 +21,6 @@
 }
 
 .workspace-mode-button,
-.workspace-back-button,
 .workspace-prompt-actions button {
     min-height: 28px;
     padding: 5px 9px;
@@ -39,13 +39,11 @@
 }
 
 .workspace-mode-button:hover,
-.workspace-back-button:hover,
 .workspace-prompt-actions button:hover {
     filter: brightness(1.1);
 }
 
 .workspace-mode-button:focus-visible,
-.workspace-back-button:focus-visible,
 .workspace-prompt-actions button:focus-visible,
 .workspace-prompt-dialog textarea:focus-visible {
     outline: 2px solid var(--vscode-focusBorder, #007fd4);
@@ -54,8 +52,8 @@
 
 .workspace-mode-button.is-active {
     border-color: var(--vscode-focusBorder, #007fd4);
-    background: var(--vscode-button-background, #0e639c);
-    color: var(--vscode-button-foreground, #fff);
+    background: var(--bygone-selection);
+    color: var(--bygone-text);
 }
 
 .workspace-mode-button.is-missing {
@@ -73,10 +71,6 @@
 .workspace-mode-button:disabled {
     cursor: not-allowed;
     opacity: .55;
-}
-
-.workspace-back-button {
-    flex: 0 0 auto;
 }
 
 .workspace-status {
@@ -165,8 +159,8 @@
 }
 
 .workspace-prompt-actions button:first-child {
-    background: var(--vscode-button-background, #0e639c);
-    color: var(--vscode-button-foreground, #fff);
+    background: var(--bygone-selection);
+    color: var(--bygone-text);
 }
 
 .workspace-prompt-actions button:last-child {
@@ -195,7 +189,6 @@
         flex-basis: 100%;
     }
 
-    .workspace-back-button,
     .workspace-status {
         order: 2;
     }

@@ -64,6 +64,30 @@ function rootContext(fixture, revisions, activeRevision, paths = []) {
     };
 }
 
+test('changed files follow displayed snapshots, including empty, local, deleted, and intermediate states', t => {
+    const f = makeBranchFixture(t);
+    const history = createWorkspaceHistory(rootContext(f, [f.rename, 'WORKTREE', 'INDEX'], 'WORKTREE'), { includeStaged: true });
+    assert.deepEqual(history.changedFiles([f.base, f.main]), ['other.txt']);
+    assert.deepEqual(history.changedFiles([f.main, f.rename]), ['new.txt', 'old.txt']);
+    assert.deepEqual(history.changedFiles([f.rename, f.main]), ['new.txt', 'old.txt']);
+    assert.deepEqual(history.changedFiles([f.rename, f.main, f.rename]), ['new.txt', 'old.txt']);
+    assert.deepEqual(history.changedFiles(['EMPTY', f.base]), ['old.txt', 'tracked.txt']);
+    assert.deepEqual(history.changedFiles([f.rename, 'WORKTREE']), []);
+    write(f.repoRoot, 'tracked.txt', 'staged\n');
+    git(f.repoRoot, ['add', 'tracked.txt']);
+    assert.deepEqual(history.changedFiles([f.rename, 'INDEX']), ['tracked.txt']);
+    assert.deepEqual(history.changedFiles(['INDEX', 'WORKTREE']), []);
+    write(f.repoRoot, 'tracked.txt', 'working\n');
+    assert.deepEqual(history.changedFiles(['INDEX', 'WORKTREE']), ['tracked.txt']);
+    write(f.repoRoot, 'tracked.txt', 'staged\n');
+    assert.deepEqual(history.changedFiles(['INDEX', 'WORKTREE']), [], 'Live states must not use stale cached results');
+    fs.unlinkSync(path.join(f.repoRoot, 'new.txt'));
+    assert.deepEqual(history.changedFiles(['INDEX', 'WORKTREE']), ['new.txt']);
+    assert.throws(() => history.changedFiles(['--all', f.base]), /Unknown history revision/);
+    const scoped = createWorkspaceHistory(rootContext(f, [f.rename], f.rename, [{ path: 'tracked.txt', type: 'file' }]));
+    assert.deepEqual(scoped.changedFiles([f.base, f.rename]), []);
+});
+
 test('builds a deterministic all-commit axis and historical path union', (t) => {
     const fixture = makeBranchFixture(t);
     const context = rootContext(
@@ -108,7 +132,7 @@ test('keeps explicit file scopes, absent paths, and a read-only public surface',
     assert.throws(() => focused.read('old.txt', fixture.rename), /outside.*scope/i);
     assert.deepEqual(focused.read('new.txt', 'EMPTY'), { content: '', exists: false });
     assert.throws(() => focused.read('new.txt', 'not-a-revision'), /unknown history revision/i);
-    assert.deepEqual(Object.keys(focused).sort(), ['changedCommits', 'entries', 'files', 'read']);
+    assert.deepEqual(Object.keys(focused).sort(), ['changedCommits', 'changedFiles', 'entries', 'files', 'read']);
     assert.equal(typeof focused.write, 'undefined');
 
     const missingFile = createWorkspaceHistory({

@@ -219,7 +219,7 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
             element.dataset.sceneId, element.querySelector('.tour-scene-title')?.textContent.trim() || ''
         ]))`);
         const contextDetails = await evaluate(`([...document.querySelectorAll(${JSON.stringify(`${READING_SELECTOR}[data-reading-kind="step"]`)})]).map((element) => {
-            const context = element.querySelector('details.tour-step-context');
+            const context = element.closest('.tour-scene-group')?.querySelector('details.tour-scene-context');
             const heading = element.querySelector('h3, .tour-step-title');
             const body = element.querySelector('.tour-step-body');
             const duplicateNavigation = context && context.querySelector(
@@ -229,7 +229,8 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
                 key: element.dataset.readingKey,
                 sceneId: element.dataset.readingKey.split(':')[1],
                 open: context?.open ?? null,
-                summary: context?.querySelector('summary')?.textContent.trim() || null,
+                summary: context?.querySelector('summary')?.getAttribute('aria-label') || null,
+                repeatedContext: Boolean(element.querySelector('.tour-step-context')),
                 beforeHeading: Boolean(context && heading
                     && (context.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING)),
                 beforeBody: Boolean(context && body
@@ -238,10 +239,11 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
                 code: element.querySelector('.tour-step-code-location, .tour-step-code')?.textContent.trim() || ''
             };
         })`);
-        assert.equal(contextDetails.length, 4, 'Every step has a context disclosure');
+        assert.equal(contextDetails.length, 4, 'Every step belongs to a scene with an overview disclosure');
         for (const detail of contextDetails) {
             assert.equal(detail.open, false, `${detail.key} starts collapsed`);
-            assert.equal(detail.summary, `Scene context · ${sceneTitles[detail.sceneId]}`, `${detail.key} labels its scene context`);
+            assert.equal(detail.repeatedContext, false, `${detail.key} does not repeat the scene overview`);
+            assert.equal(detail.summary, `Scene overview: ${sceneTitles[detail.sceneId]}`, `${detail.key} labels its scene context`);
             assert.equal(detail.beforeHeading, true, `${detail.key} context precedes its heading`);
             assert.equal(detail.beforeBody, true, `${detail.key} context precedes its body`);
             assert.equal(detail.duplicateNavigation, false, `${detail.key} context contains no duplicate navigation`);
@@ -311,7 +313,7 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
         const contextBefore = await evaluate(`(() => {
             const element = [...document.querySelectorAll(${JSON.stringify(READING_SELECTOR)})]
                 .find((candidate) => candidate.dataset.readingKey === ${JSON.stringify(secondStep.key)});
-            const details = element?.querySelector('details.tour-step-context');
+            const details = element?.closest('.tour-scene-group')?.querySelector('details.tour-scene-context');
             return {
                 open: details?.open ?? null,
                 active: document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey || null,
@@ -322,18 +324,18 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
         const contextClick = await evaluate(`(() => {
             const details = [...document.querySelectorAll(${JSON.stringify(READING_SELECTOR)})]
                 .find((element) => element.dataset.readingKey === ${JSON.stringify(secondStep.key)})
-                ?.querySelector('details.tour-step-context');
-            details?.querySelector('summary')?.click();
+                ?.closest('.tour-scene-group')?.querySelector('details.tour-scene-context');
+            details?.closest('.tour-scene-header')?.querySelector('.tour-scene-title-toggle')?.click();
             return { open: details?.open, html: details?.outerHTML };
         })()`);
         assert.equal(contextClick.open, true, `Context opens on click: ${JSON.stringify(contextClick)}`);
         await waitFor(`[...document.querySelectorAll(${JSON.stringify(READING_SELECTOR)})]
             .find((element) => element.dataset.readingKey === ${JSON.stringify(secondStep.key)})
-            ?.querySelector('details.tour-step-context')?.open === true`, 'step context expansion');
+            ?.closest('.tour-scene-group')?.querySelector('details.tour-scene-context')?.open === true`, 'step context expansion');
         const contextAfter = await evaluate(`(() => {
             const element = [...document.querySelectorAll(${JSON.stringify(READING_SELECTOR)})]
                 .find((candidate) => candidate.dataset.readingKey === ${JSON.stringify(secondStep.key)});
-            const details = element?.querySelector('details.tour-step-context');
+            const details = element?.closest('.tour-scene-group')?.querySelector('details.tour-scene-context');
             return {
                 active: document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey || null,
                 code: element?.querySelector('.tour-step-code-location, .tour-step-code')?.textContent.trim() || '',
@@ -347,10 +349,10 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
             'Expanding context does not emit a code transition');
         await evaluate(`([...document.querySelectorAll(${JSON.stringify(READING_SELECTOR)})]
             .find((element) => element.dataset.readingKey === ${JSON.stringify(secondStep.key)})
-            ?.querySelector('details.tour-step-context summary')?.click())`);
+            ?.closest('.tour-scene-group')?.querySelector('details.tour-scene-context summary')?.click())`);
         await waitFor(`[...document.querySelectorAll(${JSON.stringify(READING_SELECTOR)})]
             .find((element) => element.dataset.readingKey === ${JSON.stringify(secondStep.key)})
-            ?.querySelector('details.tour-step-context')?.open === false`, 'step context collapse');
+            ?.closest('.tour-scene-group')?.querySelector('details.tour-scene-context')?.open === false`, 'step context collapse');
 
         await scrollToKey(secondStep.key);
         const beforeCodeScroll = await read();

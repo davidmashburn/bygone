@@ -505,7 +505,7 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     }
     assert.match(webMarkup, /id="tour-commits-host"/);
     assert.match(webMarkup, /id="tour-files" class="tour-files" aria-label="Changed files"><\/nav>/);
-    assert.match(hostSource, /context\.className = 'tour-step-context'/);
+    // Sticky scene overview behavior is exercised in standalone/exportSmoke.js.
     assert.match(webMarkup, /id="tour-return-focus"/);
     assert.match(webMarkup, /id="tour-authoring-coverage"[^>]+aria-label="Tour authoring coverage"[^>]+hidden/);
     assert.match(hostSource, /renderAuthoringCoverage\(authoringCoverage, tour\.authoringCoverage\)/);
@@ -3442,7 +3442,7 @@ function testDynamicButtonsHaveTooltips() {
         });
     }
     const createdTourButtons = tourSource.match(/document\.createElement\('button'\)/g) || [];
-    const titledTourButtons = tourSource.match(/\b(?:button|stepButton)\.title\s*=/g) || [];
+    const titledTourButtons = tourSource.match(/\b(?:button|stepButton|titleToggle)\.title\s*=/g) || [];
     assert.equal(titledTourButtons.length, createdTourButtons.length, 'every dynamically-created tour button should receive a tooltip');
     assert.match(rendererSource, /Run search \(Enter\)/);
     assert.match(rendererSource, /Close Search in Files \(Esc\)/);
@@ -3515,7 +3515,8 @@ function testMultiDiffShellUsesFocusedStripNavigation() {
     assert.match(rendererSource, /revealFirstChangeInEachPanel[\s\S]{0,200}revealFirstMultiPanelChanges\(\)/);
     assert.match(rendererSource, /computeMissingPairDiffsAsync\(revealFirstChangeInEachPanel\)/);
     assert.match(rendererSource, /function computeMissingPairDiffsAsync\(revealFirstChangeInEachPanel = false\)[\s\S]{0,1800}revealFirstMultiPanelChanges\(\)/);
-    assert.match(rendererSource, /function applyFocusedStripLayout[\s\S]{0,1800}requestAnimationFrame\(\(\) => \{[\s\S]{0,200}layoutEditors\(\)/);
+    const layoutSource = rendererSource.split('function applyFocusedStripLayout')[1].split('function initializeFilePathContextMenu')[0];
+    assert.match(layoutSource, /requestAnimationFrame\(\(\) => \{[\s\S]*layoutEditors\(\)/);
     assert.match(rendererSource, /function navigateDiff\(direction\) \{[\s\S]{0,300}diffBlocks\.length[\s\S]{0,300}setActiveDiffIndex\(nextIndex, true\)/);
     assert.match(rendererSource, /function getMultiPanelCopyCapability/);
     assert.match(rendererSource, /!multiPanelMutationEnabled \|\| targetPanel\.editable === false/);
@@ -3545,9 +3546,9 @@ function testFilePathsCopyFromRenderedSurfacesAndClippedTextShowsInFull() {
     for (const selector of ['file-path-context-menu', 'commit-hover-details', 'bygone-ui-tooltip']) {
         const rule = styleSource.match(new RegExp(`\\.${selector} \\{([^}]+)\\}`))[1];
         assert.match(rule, /background:[^;]*#252526/);
-        assert.match(rule, /font:[^;]*system-ui/);
+        assert.match(rule, /font:[^;]*var\(--bygone-ui-font\)/);
     }
-    assert.match(styleSource, /--bygone-tooltip-delay: 500ms/);
+    assert.match(fs.readFileSync(path.join(__dirname, '..', 'media', 'windowTheme.css'), 'utf8'), /--bygone-tooltip-delay: 500ms/);
     assert.match(rendererSource, /getPropertyValue\('--bygone-tooltip-delay'\)/);
     const delayStart = rendererSource.indexOf('function readTooltipDelay()');
     const delayEnd = rendererSource.indexOf('\nfunction initializeNonEditorTextTooltips', delayStart);
@@ -4567,6 +4568,7 @@ async function testPresentHistoryPanelWorkspace() {
     const implementation = source.slice(source.indexOf('    function historyNeighbor('), source.indexOf('    function navigateZoomHistory('));
     const state = {
         authoredTour: { range: { headOid: 'c' }, commits: [] },
+        tour: { scenes: [], files: ['file.txt', 'unchanged.txt', 'z.txt'].map(path => ({ path, kind: 'text-diff' })) },
         zoom: { mode: 'history' }, historyPath: 'file.txt', historyCommit: 'c', historyDiff: {},
         historyEntries: ['c', 'a'].map((commit) => ({ commit, shortCommit: commit, summary: commit })),
         historyPanels: ['b', 'c'].map((commit) => ({ id: `history-${commit}`, commit, content: commit })),
@@ -4574,10 +4576,16 @@ async function testPresentHistoryPanelWorkspace() {
     };
     let rendered;
     const history = () => ({ rail: { itemsByTab: { history: state.historyEntries.map((entry, index) => ({ index, label: entry.commit })) } } });
+    const targetImplementation = source.slice(source.indexOf('    function getCurrentTourFileTarget('), source.indexOf('    function ', source.indexOf('    function getCurrentTourFileTarget(') + 20));
     const workspace = new Function('state', 'chronologicalComparisonCommits', 'historyRequest', 'buildZoomHistoryState', 'buildTwoWayDiffModel', 'updateTourFileSelection', 'emit',
-        `let evidenceRequest = 0; const getCurrentTourFileTarget = () => null; ${implementation}; return { historyNeighbor, panelHistoryState, changeHistoryPanels, renderZoomHistoryPanels };`
-    )(state, () => ['a', 'b', 'c'], async (_endpoint, input) => ({ rightContent: input.commit, path: 'file.txt' }), history, () => ({}), () => {}, (message) => { rendered = message; });
-    workspace.renderZoomHistoryPanels();
+        `let evidenceRequest = 0; ${targetImplementation}; ${implementation}; return { historyNeighbor, panelHistoryState, changeHistoryPanels, renderZoomHistoryPanels, getCurrentTourFileTarget };`
+    )(state, () => ['a', 'b', 'c'], async (endpoint, input) => endpoint === 'changed-files' ? { paths: ['file.txt', 'z.txt'] } : ({ rightContent: input.commit, path: 'file.txt' }), history, () => ({}), () => {}, (message) => { rendered = message; });
+    await workspace.renderZoomHistoryPanels();
+    assert.deepEqual(rendered.fileNavigation, { canGoPrevious: false, canGoNext: true });
+    assert.equal(workspace.getCurrentTourFileTarget(1).path, 'z.txt', 'History arrows skip unchanged tour files');
+    state.activeTourFilePath = 'z.txt';
+    assert.equal(workspace.getCurrentTourFileTarget(-1).path, 'file.txt');
+    assert.equal(workspace.getCurrentTourFileTarget(1), null);
     assert.equal(rendered.panels.length, 2);
     assert.equal(rendered.panels[0].removeEnabled, false);
     const parent = rendered.history.rail.itemsByTab.history.find((item) => item.commit === 'b');
@@ -4700,7 +4708,7 @@ function testPresentInitialCommitHighlights() {
     const implementation = [
         section('    function emit(', '    let navigationRequestId'),
         section('    function displayedCommits(', '    async function fileHistory('),
-        section('    function panelHistoryState(', '    function renderZoomHistoryPanels('),
+        section('    function panelHistoryState(', '    async function renderZoomHistoryPanels('),
         section('    function buildComparisonHistoryState(', '    function showComparisonFile(')
     ].join('\n');
     const scene = { kind: 'stacked-diff', stack: [{ id: 'base', oid: 'a' }, { id: 'middle', oid: 'b' }, { id: 'head', oid: 'c' }] };

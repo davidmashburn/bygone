@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { buildTwoWayDiffModel } = require('../out/diffEngine');
+const { runPanelDensitySmoke } = require('./panelDensitySmoke');
 const { yamlDiffFixture } = require('../test/yamlDiffFixture');
 
 app.whenReady().then(async () => {
@@ -133,6 +134,7 @@ app.whenReady().then(async () => {
             return decorations.some(d => d.options.className === 'bygone-paired-line')
                 && !decorations.some(d => d.options.className === 'bygone-one-sided-line');
         })`), true, 'Worker-computed renamed title fields render blue on both sides');
+        await runPanelDensitySmoke({ window, show });
         assert.deepEqual(errors, []);
         console.log('Diff renderer regression smoke passed: whitespace paint/ranges, long YAML, two/three panels, both scroll directions, wrap on/off, unchanged prefix/suffix, reflow boundaries, panel switching, connector clipping, renamed title pairing.');
         clearTimeout(timeout); app.exit(0);

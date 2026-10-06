@@ -412,6 +412,21 @@ function createTourHistory(manifest) {
                 rightLabel: `${rightPath} @ ${commit.slice(0, 7)}` };
         },
         compare,
+        changedFiles(input) {
+            input = requireInput(input);
+            if (!Array.isArray(input.commits) || input.commits.length > 32) throw new Error('Expected displayed revisions.');
+            const commits = input.commits.map(commit => commit === null ? null : validateCommit(root, commit));
+            const paths = new Set();
+            for (let index = 1; index < commits.length; index++) {
+                const pair = [commits[index - 1], commits[index]];
+                if (pair[0] === pair[1]) continue;
+                const output = pair.includes(null)
+                    ? git(root, ['ls-tree', '-r', '--name-only', '-z', pair.find(Boolean)])
+                    : git(root, ['diff', '--name-only', '--no-renames', '--no-ext-diff', '-z', ...pair, '--']);
+                output.split('\0').filter(Boolean).forEach(file => paths.add(file));
+            }
+            return { paths: [...paths].sort() };
+        },
         compareMany(input) {
             input = requireInput(input);
             if (!Array.isArray(input.commits) || input.commits.length < 2) throw new Error('Comparison requires at least two commits.');

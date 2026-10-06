@@ -23,6 +23,12 @@ renderer does not make every workflow appropriate in every host.
 
 ## Shared workspace
 
+Window typography and chrome colors live in `media/windowTheme.css`, bundled
+into the shared renderer for Desktop, browser tours, HTML exports, and VS Code.
+Tour presentation styles consume those tokens rather than owning a separate
+palette. UI text uses the system sans-serif font; source code keeps its editor
+font. VS Code supplies its host theme and font through the existing variables.
+
 Desktop Explore uses **History · Compare · Historical tour · Deconstructed
 tour** without requiring an authored document. Missing tour buttons open an
 short, editable prompt referencing the bundled v4 tour skill and the workspace's
@@ -36,14 +42,14 @@ when the selected instructions change. No model request or shell command runs
 automatically. Prompt ranges use exact committed identities or explicitly ask for
 a range choice. Existing tour loading remains available.
 
-**Open in History** resolves the comparison's Git ownership and path scope.
+**History** resolves the comparison's Git ownership and path scope.
 Its commit axis includes the selected revisions and their ancestry, including
 commits that did not change the active file. File-change markers and numbered
 active panels are distinct from unapplied comparison checkboxes. Clear clears
 the draft without changing modes. History retains add/remove-panel controls.
-**Back to comparison** restores the originating ordered comparison and its
-navigation. Mode transitions use the native unsaved-edit guard; writable
-working files remain writable and explicit read-only launches stay read-only.
+**Compare** restores the retained comparison and its navigation. Mode transitions
+use the native unsaved-edit guard; writable working files remain writable and
+explicit read-only launches stay read-only.
 
 Opening an authored document from this workspace keeps the same native window.
 A different repository, range, or scoped context requires confirmation; the
@@ -72,6 +78,7 @@ prompt behavior, and the normal-mode controls.
 | Explore a branch change | Git → Review Branch Change; `bygone review` | Deterministic start-here overview plus the complete merge-base-to-tip inventory | Read-only review snapshots; attention is a reading-order hint, viewed state remains session-local, and dirty state is reported rather than included | Core | attention-model, branch comparison, review-path, and desktop menu tests |
 | Search comparison code | Edit → Find or Search Comparison | Active, visible, all loaded panels, unopened changed text snapshots, or one file's Git history | Search is read-only; history distinguishes content occurrence from introduction/removal; Replace requires the active writable model | Core | find, comparison-search, change-set-search, and history-search tests |
 | Search or safely replace in a filesystem tree | Edit → Search in Files; explicit directory root | System ripgrep 14+ with include/exclude, hidden, ignore, and result-limit controls | Search is read-only and cancellable; completed case-sensitive literal searches can build an exclusion-aware, revalidated, atomic replacement preview with guarded undo | Optional system capability | repository search/replace contracts, benchmark, and host-protocol tests |
+| Choose visible panel count | Visible panels: 2 / 3 / 4 / Fit | Equal-width textual revision panels; one active adjacent comparison | Saved locally; Fit has no count cap beyond available panels and readable width; narrower windows show fewer panels without overwriting the choice; visible Find searches the whole group | Core | focused-strip layout and native density smoke tests |
 | Move through a multi-panel comparison | Strip buttons, panel headers, gutters, wheel, or `Alt+Arrow` | Active panel and adjacent pair | Does not change source identity | Core | focused-strip controller and standalone smoke tests |
 | Search an authored tour | Presenter search or `Cmd/Ctrl+Shift+F` | Authored narrative plus compiled base/head code snapshots | Read-only; narrative hits navigate scenes/steps and code hits preserve Return to tour | Core | tour-search and presenter-host tests |
 

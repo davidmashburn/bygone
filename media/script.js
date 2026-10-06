@@ -8,7 +8,7 @@ import {
 } from './navigationUtils';
 import { dispatchFindCommand, runFindCommand } from './findController';
 import { applyWordWrap, readWordWrapPreference, writeWordWrapPreference } from './wrapController';
-import { computeFocusedStripLayout } from './focusedStripController';
+import { computeFocusedStripLayout, readVisiblePanelPreference, writeVisiblePanelPreference } from './focusedStripController';
 import { findVisibleMatches } from './visibleSearchController';
 import {
     applyCompletedMultiDiffResults,
@@ -143,6 +143,8 @@ let activeMultiPairIndex = null;
 let multiPanelChangeIndices = new Map();
 let multiPanelMutationEnabled = false;
 let focusedStripLayout = null;
+let pendingMultiLayoutAnchors = null;
+let requestedVisiblePanelCount = readVisiblePanelPreference(safePreferenceStorage());
 let focusedStripWheelDelta = 0;
 let historyRailState = null;
 let activeHistoryRailTabId = null;
@@ -191,6 +193,7 @@ const connectorController = window.BygoneConnectors.createConnectorController({
         editors: multiEditors,
         pairs: multiDiffPairs,
         activePairIndex: activeMultiPairIndex,
+        visiblePairIndexes: focusedStripLayout?.visiblePairIndexes,
         activeDiffIndex
     }),
     getMonaco: () => monacoInstance
@@ -1071,6 +1074,9 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     multiRecomputePendingPanelIds.clear();
     multiDiffRecomputePending = false;
     disposeTwoWayEditors();
+    const previousFirstPanel = multiPanels[focusedStripLayout?.visibleStart]?.id;
+    const previousStart = panels.findIndex(panel => panel.id === previousFirstPanel);
+    if (focusedStripLayout) focusedStripLayout = previousStart >= 0 ? { ...focusedStripLayout, visibleStart: previousStart } : null;
     disposeMultiEditors(false);
     multiPanels = panels;
     multiDiffPairs = pairs || [];
@@ -1465,6 +1471,7 @@ function disposeTwoWayEditors() {
 }
 
 function disposeMultiEditors(resetState = true) {
+    pendingMultiLayoutAnchors = null;
     multiEditors.forEach(disposeEditorAndModel);
     multiEditors = [];
     multiDecorationIds = [];
@@ -1535,6 +1542,9 @@ function renderMultiDiffShell(panels) {
         '<button class="multi-strip-button" type="button" data-multi-strip-direction="previous" aria-label="Previous panel or comparison" title="Previous panel or comparison">‹</button>',
         '<span class="multi-strip-position" aria-live="polite" data-multi-strip-position></span>',
         '<button class="multi-strip-button" type="button" data-multi-strip-direction="next" aria-label="Next panel or comparison" title="Next panel or comparison">›</button>',
+        '<span class="multi-strip-comparison" data-multi-strip-comparison></span>',
+        '<label class="multi-strip-density">Visible panels <select data-multi-visible-count title="Number of panels to display; Fit adapts to available width"><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="fit">Fit</option></select></label>',
+        '<span class="multi-strip-fit" aria-live="polite" data-multi-strip-fit></span>',
         '</div>',
         `<div class="multi-view-track" style="grid-template-columns:${columns.join(' ')};">${children.join('')}</div>`
     ].join('');
@@ -1670,14 +1680,22 @@ function applyFocusedStripLayout(animate = true) {
     const track = container.querySelector('.multi-view-track');
     if (!track) return;
     const activePanelIndex = Math.max(0, multiPanels.findIndex((panel) => panel.id === activeMultiPanelId));
+    const previousLayout = focusedStripLayout;
     focusedStripLayout = computeFocusedStripLayout({
         panelCount: multiPanels.length,
         activePanelIndex,
         activePairIndex: activeMultiPairIndex,
         viewportWidth: Math.max(1, container.clientWidth - 24),
         minimumPaneWidth: MULTI_PANE_MIN_WIDTH,
-        gutterWidth: MULTI_GUTTER_WIDTH
+        gutterWidth: MULTI_GUTTER_WIDTH,
+        requestedVisibleCount: requestedVisiblePanelCount,
+        previousVisibleStart: previousLayout?.visibleStart
     });
+    const layout = focusedStripLayout;
+    if (!pendingMultiLayoutAnchors && previousLayout && previousLayout.paneWidth !== layout.paneWidth) {
+        pendingMultiLayoutAnchors = multiEditors.map(editor => ({ editor, model: editor.getModel(),
+            line: scrollTopToModelLinePosition(editor, editor.getScrollTop()), left: editor.getScrollLeft() }));
+    }
     const columns = [];
     multiPanels.forEach((_panel, index) => {
         columns.push(`${focusedStripLayout.paneWidth}px`);
@@ -1689,11 +1707,29 @@ function applyFocusedStripLayout(animate = true) {
     track.style.transform = `translate3d(${-focusedStripLayout.offset}px, 0, 0)`;
     container.classList.toggle('multi-strip-panel-mode', focusedStripLayout.mode === 'panel');
     container.classList.toggle('multi-strip-pair-mode', focusedStripLayout.mode === 'pair');
+    container.querySelectorAll('.multi-pane').forEach((pane, index) => {
+        pane.inert = !layout.visiblePanelIndexes.includes(index);
+    });
+    container.querySelectorAll('.multi-gutter').forEach((gutter, index) => {
+        gutter.inert = !layout.visiblePairIndexes.includes(index);
+    });
     updateFocusedStripControls();
     updateVisiblePaneSearch();
     requestAnimationFrame(() => {
-        if (currentMode !== MODE_MULTI_WAY || !track.isConnected) return;
-        layoutEditors();
+        if (currentMode !== MODE_MULTI_WAY || !track.isConnected || focusedStripLayout !== layout) return;
+        const previousSuppression = suppressEditorEvents;
+        suppressEditorEvents = true;
+        try {
+            layoutEditors();
+            const anchors = pendingMultiLayoutAnchors || [];
+            pendingMultiLayoutAnchors = null;
+            anchors.forEach(({ editor, model, line, left }) => {
+                if (multiEditors.includes(editor) && editor.getModel() === model) {
+                    editor.setScrollTop(modelLinePositionToScrollTop(editor, line), monacoInstance.editor.ScrollType.Immediate);
+                    editor.setScrollLeft(left, monacoInstance.editor.ScrollType.Immediate);
+                }
+            });
+        } finally { suppressEditorEvents = previousSuppression; }
         connectorController.resizeCanvas();
         connectorController.scheduleDrawConnections();
     });
@@ -2171,25 +2207,34 @@ function updateFocusedStripControls() {
     const pairMode = focusedStripLayout.mode === 'pair';
     const current = pairMode ? focusedStripLayout.pairIndex : focusedStripLayout.panelIndex;
     const total = pairMode ? Math.max(1, multiPanels.length - 1) : multiPanels.length;
+    const visible = focusedStripLayout.visiblePanelIndexes;
     position.textContent = pairMode
-        ? `Panels ${current + 1}–${current + 2} of ${multiPanels.length}`
-        : `Panel ${current + 1} of ${multiPanels.length}`;
+        ? `Panels ${visible[0] + 1}–${visible.at(-1) + 1} of ${multiPanels.length}`
+        : `Panel ${visible[0] + 1} of ${multiPanels.length}`;
+    container.querySelector('[data-multi-strip-comparison]').textContent = pairMode
+        ? `Comparing ${focusedStripLayout.pairIndex + 1} ↔ ${focusedStripLayout.pairIndex + 2}` : '';
+    container.querySelector('[data-multi-visible-count]').value = String(requestedVisiblePanelCount);
+    container.querySelector('.multi-strip-density').hidden = multiPanels.length <= 2;
+    const fit = container.querySelector('[data-multi-strip-fit]');
+    fit.textContent = focusedStripLayout.limitedByWidth && requestedVisiblePanelCount !== 'fit'
+        ? `${requestedVisiblePanelCount} selected · ${focusedStripLayout.effectiveCount} fit` : '';
+    fit.hidden = multiPanels.length <= 2 || !fit.textContent;
     previous.disabled = current <= 0;
     next.disabled = current >= total - 1;
     previous.hidden = total <= 1;
     next.hidden = total <= 1;
     for (const items of Object.values(historyRailState?.itemsByTab || {})) {
         for (const item of items) {
-            if (item.panelNumber) item.active = pairMode
-                ? item.panelNumber === current + 1 || item.panelNumber === current + 2
-                : item.panelNumber === current + 1;
+            if (item.panelNumber) {
+                item.active = item.panelNumber === focusedStripLayout.panelIndex + 1;
+                item.visible = visible.includes(item.panelNumber - 1);
+            }
         }
     }
     getElement('history-rail').querySelectorAll('[data-rail-panel]').forEach((row) => {
         const number = Number(row.getAttribute('data-rail-panel'));
-        row.classList.toggle('active', pairMode
-            ? number === current + 1 || number === current + 2
-            : number === current + 1);
+        row.classList.toggle('active', number === focusedStripLayout.panelIndex + 1);
+        row.classList.toggle('is-visible-panel', visible.includes(number - 1));
     });
 }
 
@@ -2763,7 +2808,7 @@ function initializeHistoryRail() {
             }
 
             if (item.kind === 'directory-entry' && typeof item.relativePath === 'string') {
-                host.postMessage({ type: 'openDirectoryEntry', relativePath: item.relativePath });
+                host.postMessage({ type: item.workspaceFile ? 'workspaceOpenFile' : 'openDirectoryEntry', relativePath: item.relativePath });
             }
             return;
         }
@@ -2992,7 +3037,15 @@ function initializeDirectoryReturnToolbar() {
 function initializeMultiDiffInteractions() {
     const container = getElement(VIEW_IDS.multiWay);
 
+    container.addEventListener('change', event => {
+        if (!(event.target instanceof HTMLSelectElement) || !event.target.matches('[data-multi-visible-count]')) return;
+        requestedVisiblePanelCount = event.target.value === 'fit' ? 'fit' : Number(event.target.value);
+        writeVisiblePanelPreference(safePreferenceStorage(), requestedVisiblePanelCount);
+        applyFocusedStripLayout(false);
+    });
+
     container.addEventListener('wheel', (event) => {
+        if (event.target instanceof Element && event.target.closest('select')) return;
         if (currentMode !== MODE_MULTI_WAY) {
             return;
         }
@@ -3147,7 +3200,11 @@ function setActiveMultiPanel(panelId, notifyHost) {
         const pairStillFits = currentPair
             && (currentPair.leftIndex === panelIndex || currentPair.rightIndex === panelIndex);
         if (!pairStillFits) {
-            const preferredPairIndex = panelIndex === 0 ? 0 : Math.min(panelIndex - 1, multiDiffPairs.length - 1);
+            const visiblePairIndex = focusedStripLayout?.visiblePairIndexes.find(index => {
+                const pair = multiDiffPairs[index];
+                return pair && (pair.leftIndex === panelIndex || pair.rightIndex === panelIndex);
+            });
+            const preferredPairIndex = visiblePairIndex ?? Math.max(0, Math.min(panelIndex - 1, multiDiffPairs.length - 1));
             activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, preferredPairIndex, activeMultiPanelId, multiPanels);
         }
     } else {
@@ -3775,9 +3832,7 @@ function getVisibleSearchTargets() {
         ];
     }
     if (currentMode !== MODE_MULTI_WAY || !focusedStripLayout) return [];
-    const indices = focusedStripLayout.mode === 'pair'
-        ? [focusedStripLayout.pairIndex, focusedStripLayout.pairIndex + 1]
-        : [focusedStripLayout.panelIndex];
+    const indices = focusedStripLayout.visiblePanelIndexes;
     return indices.map((index) => ({
         id: multiPanels[index]?.id,
         label: multiPanels[index]?.label || `Panel ${index + 1}`,
@@ -4332,7 +4387,7 @@ function returnToDirectory() {
 
 function updateDirectoryReturnToolbar(canReturnToDirectory) {
     getElement('directory-return-toolbar').hidden = !canReturnToDirectory;
-    getElement('toggle-directory-sidebar').hidden = !hasDirectoryNavigation;
+    getElement('toggle-directory-sidebar').hidden = true;
     updateDirectorySidebarToggle();
 }
 
@@ -5413,6 +5468,7 @@ function renderHistoryRail() {
         ])
     ].join('');
     rail.querySelector('.history-rail-list').scrollTop = previousScroll;
+    if (currentMode === MODE_MULTI_WAY) updateFocusedStripControls();
     if (focusedIndex !== undefined && focusedIndex !== null) rail.querySelector(`button[${focusedKind}][data-rail-index="${focusedIndex}"]`)?.focus({ preventScroll: true });
 }
 

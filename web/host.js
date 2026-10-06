@@ -66,6 +66,7 @@ import { renderTourProse } from '../media/tourProse.js';
         historyPanels: [],
         historyFocus: null,
         historyDiff: null,
+        historyChangedFiles: new Set(),
         compare: null,
         comparisonFocus: null,
         comparisonCommits: [],
@@ -647,7 +648,7 @@ import { renderTourProse } from '../media/tourProse.js';
         if (!path) throw new Error('Choose a text file to explore its revisions.');
         const entry = entries.find((item) => item.commit === commit);
         if (state.historyPath === path && state.historyCommit === commit && state.historyPanels.length) {
-            renderZoomHistoryPanels();
+            await renderZoomHistoryPanels();
             return;
         }
         const diff = await historyRequest('diff', { path, commit, head: state.authoredTour.range.headOid });
@@ -661,7 +662,7 @@ import { renderTourProse } from '../media/tourProse.js';
             state.historyPanels = panels;
             state.historyPath = path;
             state.historyDiff = diff;
-            renderZoomHistoryPanels();
+            await renderZoomHistoryPanels();
             updateTourLocationUrl();
             return;
         }
@@ -685,7 +686,7 @@ import { renderTourProse } from '../media/tourProse.js';
             if (request !== evidenceRequest || state.zoom.mode !== 'history') return;
             state.historyPanels.unshift(panel(older.commit, snapshot.rightContent, `${older.shortCommit} ${older.summary}`));
         }
-        renderZoomHistoryPanels();
+        await renderZoomHistoryPanels();
         document.getElementById('tour-mode-status').textContent = '';
         renderComparisonControls();
         updateTourLocationUrl();
@@ -753,7 +754,13 @@ import { renderTourProse } from '../media/tourProse.js';
         return history;
     }
 
-    function renderZoomHistoryPanels() {
+    async function renderZoomHistoryPanels() {
+        const currentPanels = state.historyPanels;
+        const tour = state.authoredTour;
+        const request = evidenceRequest;
+        const result = await historyRequest('changed-files', { commits: currentPanels.map(panel => panel.commit || null) });
+        if (request !== evidenceRequest || currentPanels !== state.historyPanels || tour !== state.authoredTour || state.zoom.mode !== 'history') return;
+        state.historyChangedFiles = new Set(result.paths);
         const panels = state.historyPanels.map((panel) => ({ ...panel, addLeftEnabled: Boolean(historyNeighbor(panel, 'left')), addRightEnabled: Boolean(historyNeighbor(panel, 'right')), removeEnabled: state.historyPanels.length > 2 }));
         const focus = panels.find((panel) => panel.id === state.historyFocus)?.commit;
         state.activeTourFilePath = state.historyPath;
@@ -783,7 +790,7 @@ import { renderTourProse } from '../media/tourProse.js';
             state.historyPanels.sort((a, b) => order.indexOf(a.commit) - order.indexOf(b.commit));
             state.historyFocus = panel.id;
         }
-        renderZoomHistoryPanels();
+        await renderZoomHistoryPanels();
     }
 
     function navigateZoomHistory(direction) {
@@ -1486,7 +1493,7 @@ import { renderTourProse } from '../media/tourProse.js';
         if (!narrative) return;
         const elementBounds = element.getBoundingClientRect();
         const narrativeBounds = narrative.getBoundingClientRect();
-        if (elementBounds.top < narrativeBounds.top || elementBounds.bottom > narrativeBounds.bottom) {
+        if (elementBounds.top < narrativeBounds.top + updateStickySceneHeaders() || elementBounds.bottom > narrativeBounds.bottom) {
             element.scrollIntoView({ block: 'nearest' });
             programmaticReadingScroll = narrative.scrollTop;
         }
@@ -1702,6 +1709,7 @@ import { renderTourProse } from '../media/tourProse.js';
             document.documentElement.style.setProperty('--tour-narrative-height', `${height}px`);
             const content = document.getElementById('tour-narrative-content');
             content?.style.setProperty('--tour-reading-viewport', `${content.clientHeight}px`);
+            updateStickySceneHeaders();
             window.dispatchEvent(new Event('resize'));
         };
         new ResizeObserver(updateHeight).observe(narrative);
@@ -1887,7 +1895,7 @@ import { renderTourProse } from '../media/tourProse.js';
         range.textContent = `${baseLabel} → ${headLabel}${headLabel === resolvedHead ? '' : ` · ${resolvedHead}`}`;
         stats.textContent = `${formatCount(tour.summary.changedFiles, 'file')} · +${tour.summary.additions} −${tour.summary.deletions} · ${formatCount(tour.summary.commitCount, 'commit')}`;
         renderAuthoringCoverage(authoringCoverage, tour.authoringCoverage);
-        sceneCount.textContent = String(tour.scenes.length);
+        sceneCount.textContent = isNarrativeMode() && tour.scenes.length ? String(tour.scenes.length) : '';
         fileCount.textContent = String(tour.files.length);
         scenes.replaceChildren();
         if (isNarrativeMode()) buildReadingDocument();
@@ -2325,6 +2333,14 @@ import { renderTourProse } from '../media/tourProse.js';
             return null;
         }
         const scene = tour.scenes[state.activeSceneIndex];
+        if (state.zoom?.mode === 'history') {
+            const index = tour.files.findIndex(file => file.path === state.activeTourFilePath);
+            for (let fileIndex = index + direction; fileIndex >= 0 && fileIndex < tour.files.length; fileIndex += direction) {
+                const file = tour.files[fileIndex];
+                if (file.kind === 'text-diff' && state.historyChangedFiles.has(file.path)) return { fileIndex, path: file.path };
+            }
+            return null;
+        }
         if (state.directoryEvidence) {
             const files = state.directoryEvidence.files;
             const index = files.findIndex((file) => file.path === state.activeTourFilePath);
@@ -2435,9 +2451,12 @@ import { renderTourProse } from '../media/tourProse.js';
 
     function setTourNavigatorTab(tab) {
         if (!['tour', 'files', 'commits'].includes(tab)) return;
+        const tourAvailable = isNarrativeMode() && Boolean(state.tour?.scenes.length);
+        if (tab === 'tour' && !tourAvailable) tab = 'commits';
         state.tourNavigatorTab = tab;
         document.querySelectorAll('[data-tour-navigator]').forEach((button) => {
             const active = button.dataset.tourNavigator === tab;
+            button.disabled = button.dataset.tourNavigator === 'tour' && !tourAvailable;
             button.classList.toggle('is-active', active);
             button.setAttribute('aria-selected', String(active));
             button.tabIndex = active ? 0 : -1;
@@ -2780,7 +2799,7 @@ import { renderTourProse } from '../media/tourProse.js';
             if (!element) throw new Error('The requested document section could not be rendered.');
             element.tabIndex = -1;
             element.focus({ preventScroll: true });
-            element.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+            scrollToReadingItem(target.key);
             element.classList.add('tour-link-target');
             window.setTimeout(() => element.classList.remove('tour-link-target'), 1800);
         } finally { applyingDocumentLocation = false; }
@@ -2894,6 +2913,7 @@ import { renderTourProse } from '../media/tourProse.js';
         const stepElement = step && readingElements.get(`step:${scene.id}:${step.id}`);
         for (const element of [sceneElement, stepElement].filter(Boolean)) {
             element.querySelectorAll('[data-reading-field]').forEach((field) => {
+                if (field.closest('[data-reading-key]') !== element) return;
                 renderNarrationField(field, field.dataset.readingText, {
                     field: field.dataset.readingField,
                     ...(field.dataset.itemIndex !== undefined ? { itemIndex: Number(field.dataset.itemIndex) } : {})
@@ -2909,6 +2929,8 @@ import { renderTourProse } from '../media/tourProse.js';
         readingItems = buildTourReadingItems(state.tour, true);
         readingElements.clear();
         const content = document.getElementById('tour-narrative-content');
+        const roots = [];
+        let sceneGroup;
         const field = (parent, tag, className, text, source, itemIndex) => {
             const element = document.createElement(tag);
             element.className = className;
@@ -2949,18 +2971,43 @@ import { renderTourProse } from '../media/tourProse.js';
             } else if (item.kind === 'chapter') {
                 field(element, 'h2', 'tour-document-chapter', state.tour.chapters.find((chapter) => chapter.id === item.chapterId)?.title);
             } else if (item.kind === 'scene') {
-                field(element, 'h2', 'tour-scene-heading', scene.title, 'scene-title');
-                overview(element, scene, true);
-                const tags = field(element, 'div', 'tour-narrative-tags', '');
+                element.classList.add('tour-scene-group');
+                const header = field(element, 'div', 'tour-scene-header', '');
+                const heading = field(header, 'h2', 'tour-scene-heading', scene.title, 'scene-title');
+                const titleToggle = document.createElement('button');
+                titleToggle.className = 'tour-scene-title-toggle';
+                titleToggle.type = 'button';
+                titleToggle.title = 'Expand or collapse scene overview';
+                titleToggle.disabled = true;
+                titleToggle.append(...heading.childNodes);
+                heading.append(titleToggle);
+                const context = document.createElement('details');
+                context.className = 'tour-scene-context';
+                const toggle = field(context, 'summary', '', '');
+                toggle.setAttribute('aria-label', `Scene overview: ${scene.title}`);
+                toggle.dataset.tooltip = 'Expand or collapse scene overview';
+                const body = field(context, 'div', 'tour-scene-context-body', '');
+                body.id = `scene-overview-${item.sceneIndex}`;
+                titleToggle.setAttribute('aria-controls', body.id);
+                titleToggle.setAttribute('aria-expanded', 'false');
+                titleToggle.addEventListener('click', event => {
+                    if (!event.target.closest('a')) context.open = !context.open;
+                });
+                context.addEventListener('toggle', () => titleToggle.setAttribute('aria-expanded', String(context.open)));
+                overview(body, scene, false);
+                header.addEventListener('keydown', event => {
+                    if (event.key === 'Escape' && context.open) {
+                        event.preventDefault(); event.stopPropagation();
+                        context.open = false; toggle.focus({ preventScroll: true });
+                    }
+                });
+                header.append(context);
+                const intro = field(element, 'div', 'tour-scene-overview', '');
+                overview(intro, scene, true);
+                const tags = field(intro, 'div', 'tour-narrative-tags', '');
                 scene.tags.forEach((tag) => field(tags, 'span', '', tag));
             } else {
                 const step = scene.steps[item.stepIndex];
-                const context = document.createElement('details');
-                context.className = 'tour-step-context';
-                field(context, 'summary', '', `Scene context · ${scene.title}`);
-                const body = field(context, 'div', 'tour-step-context-body', '');
-                overview(body, scene, false);
-                element.append(context);
                 const stage = scene.kind === 'deconstructed-diff' ? `Stage ${(step.stageIndex ?? step.pairIndex) + 1} · ` : '';
                 if (stage) field(element, 'div', 'tour-narrative-chapter', stage);
                 field(element, 'h3', 'tour-step-title', step.title, 'step-title');
@@ -2985,8 +3032,13 @@ import { renderTourProse } from '../media/tourProse.js';
             }
             element.querySelector('h1, h2, h3').append(makeCopyLocationButton(focusForReadingItem(item)));
             readingElements.set(item.key, element);
+            if (item.kind === 'step') sceneGroup.append(element);
+            else {
+                roots.push(element);
+                sceneGroup = item.kind === 'scene' ? element : null;
+            }
         }
-        content.replaceChildren(...readingElements.values());
+        content.replaceChildren(...roots);
         programmaticReadingScroll = content.scrollTop;
     }
 
@@ -3024,8 +3076,28 @@ import { renderTourProse } from '../media/tourProse.js';
         const content = document.getElementById('tour-narrative-content');
         const element = readingElements.get(key);
         if (!content || !element) return;
-        content.scrollTop += element.getBoundingClientRect().top - content.getBoundingClientRect().top;
+        const header = element.dataset.readingKind === 'step'
+            ? element.closest('.tour-scene-group')?.querySelector('.tour-scene-header') : null;
+        content.scrollTop += element.getBoundingClientRect().top - content.getBoundingClientRect().top
+            - (header?.getBoundingClientRect().height || 0);
         programmaticReadingScroll = content.scrollTop;
+        updateStickySceneHeaders();
+    }
+
+    function updateStickySceneHeaders() {
+        const content = document.getElementById('tour-narrative-content');
+        const top = content.getBoundingClientRect().top;
+        let height = 0;
+        content.querySelectorAll('.tour-scene-header').forEach(header => {
+            const bounds = header.parentElement.getBoundingClientRect();
+            const stuck = bounds.top < top - 1 && bounds.bottom > top;
+            header.classList.toggle('is-stuck', stuck);
+            header.querySelector('.tour-scene-title-toggle').disabled = !stuck;
+            if (!stuck) header.querySelector('details').open = false;
+            else height = Math.max(height, header.getBoundingClientRect().bottom - top);
+        });
+        content.style.scrollPaddingTop = `${height}px`;
+        return height;
     }
 
     function activateReadingItem(item, fromScroll = false) {
@@ -3044,9 +3116,10 @@ import { renderTourProse } from '../media/tourProse.js';
             readingScrollFrame = null;
             if (!isNarrativeMode() || state.zoomSwitching) return;
             const content = document.getElementById('tour-narrative-content');
+            const headerHeight = updateStickySceneHeaders();
             if (programmaticReadingScroll !== null && Math.abs(content.scrollTop - programmaticReadingScroll) < 2) return;
             programmaticReadingScroll = null;
-            const top = content.getBoundingClientRect().top + 24;
+            const top = content.getBoundingClientRect().top + headerHeight + 24;
             let active = readingItems[0];
             for (const item of readingItems) {
                 if (readingElements.get(item.key).getBoundingClientRect().top > top) break;
