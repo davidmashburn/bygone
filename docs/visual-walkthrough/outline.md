@@ -7,7 +7,7 @@ not a review of the implementation commits.
 
 ## 1. Compare what is in front of you
 
-1. Two files: read paired changes, additions, whitespace, and connector ribbons.
+1. Two files: read paired changes, additions, and connector ribbons.
 2. More than two versions: use the active pair and Visible panels together.
 3. Directories: start with the inventory, then drill into a changed file.
 4. Find: search the comparison without losing the current evidence.
