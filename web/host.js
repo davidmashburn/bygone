@@ -2724,16 +2724,26 @@ import { renderTourProse } from '../media/tourProse.js';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'tour-copy-location';
-        button.textContent = 'Copy link';
+        button.setAttribute('aria-label', 'Copy link to this section');
+        button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="tour-link-chain" d="M10 13a5 5 0 0 0 7 .1l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7-.1l-3 3a5 5 0 0 0 7 7l2-2"/><path class="tour-link-check" d="m5 12 4 4L19 6"/></svg>';
         button.title = exportData ? 'Copy location within this export; share the HTML file separately'
             : state.authoredTour?.localSource ? 'Copy local link to the saved current document; evidence may change'
             : 'Copy browser location (requires this presentation server)';
-        button.addEventListener('click', async () => {
+        button.addEventListener('click', async (event) => {
+            event.stopPropagation();
             const mode = isNarrativeMode() ? state.zoom.mode : Object.keys(authoredTours())[0];
             const source = state.authoredTour.localSource;
             const value = source && !exportData ? serializeDeepLink({ kind: 'tour', ...source, mode, focus })
                 : new URL(serializeDocumentFragment(mode, focus), window.location.href).href;
-            try { await navigator.clipboard.writeText(value); button.textContent = 'Copied'; }
+            try {
+                await navigator.clipboard.writeText(value);
+                button.classList.add('is-copied');
+                button.setAttribute('aria-label', 'Link copied');
+                setTimeout(() => {
+                    button.classList.remove('is-copied');
+                    button.setAttribute('aria-label', 'Copy link to this section');
+                }, 1800);
+            }
             catch {
                 const dialog = document.createElement('dialog');
                 const label = document.createElement('p'); label.textContent = 'Copy this link:';
@@ -2902,11 +2912,15 @@ import { renderTourProse } from '../media/tourProse.js';
         const field = (parent, tag, className, text, source, itemIndex) => {
             const element = document.createElement(tag);
             element.className = className;
-            element.replaceChildren(...renderTourProse(document, text || ''));
+            // Narration replaces a reading field's contents as it highlights
+            // words. Keep heading actions outside that replaceable text.
+            const readingField = source && /^h[1-6]$/.test(tag) ? document.createElement('span') : element;
+            if (readingField !== element) element.append(readingField);
+            readingField.replaceChildren(...renderTourProse(document, text || ''));
             if (source) {
-                element.dataset.readingField = source;
-                element.dataset.readingText = text || '';
-                if (itemIndex !== undefined) element.dataset.itemIndex = String(itemIndex);
+                readingField.dataset.readingField = source;
+                readingField.dataset.readingText = text || '';
+                if (itemIndex !== undefined) readingField.dataset.itemIndex = String(itemIndex);
             }
             parent.append(element);
             return element;
@@ -2969,7 +2983,7 @@ import { renderTourProse } from '../media/tourProse.js';
                     code.append(button);
                 }
             }
-            element.append(makeCopyLocationButton(focusForReadingItem(item)));
+            element.querySelector('h1, h2, h3').append(makeCopyLocationButton(focusForReadingItem(item)));
             readingElements.set(item.key, element);
         }
         content.replaceChildren(...readingElements.values());

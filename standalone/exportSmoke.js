@@ -49,6 +49,7 @@ app.whenReady().then(async () => {
             const { window, evaluate, wait } = await open(fileUrl + hash);
             await wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:scene:step'");
             await wait("document.querySelectorAll('.monaco-editor').length >= 2");
+            assert.equal(await evaluate("[...document.querySelectorAll('.tour-reading-item')].every(item => item.querySelector('h1 .tour-copy-location, h2 .tour-copy-location, h3 .tour-copy-location'))"), true, 'Every heading keeps its link action after narration renders');
             assert.equal(await evaluate("document.activeElement.dataset.readingKey"), 'step:scene:step');
             assert.equal(await evaluate("document.querySelector('[data-workspace-mode=history]').disabled"), profile === 'minimal');
             assert.equal(await evaluate("getComputedStyle(document.querySelector('#refresh-session')).display"), 'none');
