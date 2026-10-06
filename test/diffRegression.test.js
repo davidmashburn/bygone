@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { buildTwoWayDiffModel } = require('../out/diffEngine');
+const { buildTwoWayDiffModel, scoreReplacementLinePair, alignReplacementLines } = require('../out/diffEngine');
 const { yamlDiffFixture } = require('./yamlDiffFixture');
 const { mapLinePosition, mapMultiPanelLinePositions, scrollTopToModelLinePosition, modelLinePositionToScrollTop } = require('../media/scrollMapping');
 
@@ -67,7 +67,7 @@ for (const reverse of [false, true]) {
             ...block, leftStart: block.rightStart, leftEnd: block.rightEnd,
             rightStart: block.leftStart, rightEnd: block.leftEnd
         } : block);
-        assert.deepEqual(model.blocks.filter(block => block.reflow), expected);
+        assert.deepEqual(model.reflows, expected);
         for (const block of expected) {
             assert.ok(['left', 'right'].some(side => model[`${side}Lines`].slice(block[`${side}Start`], block[`${side}End`]).some(line => line.segments?.some(segment => segment.emphasis))));
             for (const side of ['left', 'right']) {
@@ -91,9 +91,10 @@ for (const reverse of [false, true]) {
     });
 }
 
-test('reflow detection never hides substantive changes', () => {
+test('edited reflow retains substantive inline highlights', () => {
     const model = buildTwoWayDiffModel('body: alpha beta gamma delta', 'body: alpha beta\n  CHANGED delta');
-    assert.equal(model.blocks.some(block => block.reflow), false);
+    assert.equal(model.blocks[0].kind, 'replace');
+    assert.ok(model.rightLines.some(line => line.segments?.some(segment => segment.emphasis && segment.text.includes('CHANGED'))));
     assertPreserved(model, ['body: alpha beta gamma delta'], ['body: alpha beta', '  CHANGED delta']);
 });
 
@@ -124,11 +125,12 @@ test('wrapped and folded visual lines map within the actual model line height', 
 });
 
 for (const [name, newline, trailing] of [['LF', '\n', false], ['CRLF', '\r\n', false], ['LF with final newline', '\n', true]]) {
-    test(`consecutive reflows retain separate boundaries (${name})`, () => {
+    test(`touching blue regions merge while retaining separate scroll anchors (${name})`, () => {
         const left = ['body: alpha beta gamma delta', 'body: one two three four five six', 'end: unchanged'];
         const right = ['  body: alpha beta', '    gamma delta', '  body: one two', '    three four', '    five six', 'end: unchanged'];
         const model = buildTwoWayDiffModel(left.join(newline) + (trailing ? newline : ''), right.join(newline) + (trailing ? newline : ''));
-        assert.deepEqual(model.blocks, [
+        assert.deepEqual(model.blocks, [{kind: 'replace', leftStart: 0, leftEnd: 2, rightStart: 0, rightEnd: 5}]);
+        assert.deepEqual(model.reflows, [
             {kind: 'replace', leftStart: 0, leftEnd: 1, rightStart: 0, rightEnd: 2, reflow: true},
             {kind: 'replace', leftStart: 1, leftEnd: 2, rightStart: 2, rightEnd: 5, reflow: true}
         ]);
@@ -150,4 +152,118 @@ test('timeout fallback preserves unchanged scroll anchors and remains monotonic'
     assert.equal(mapLinePosition(rightMid, 'right', model), leftMid);
     const positions = Array.from({length: fixture.before.length}, (_, index) => mapLinePosition(index, 'left', model));
     assert.ok(positions.every((position, index) => index === 0 || position >= positions[index - 1]));
+});
+
+for (const reverse of [false, true]) {
+    test(`edited YAML paragraphs pair across physical wrapping without absorbing new items (${reverse})`, () => {
+        const prose = Array.from({length: 45}, (_, i) => `The sensor ${i} records temperature and humidity before sending its readings to the station.`).join(' ');
+        const edited = prose.replace('sensor 22', 'instrument 22');
+        const wrap = text => text.match(/.{1,75}(?:\s|$)/g).map(line => `      ${line.trim()}`);
+        const before = ['anchor', `  summary: ${prose}`, `  - Existing measurement description with stable context and original details.`, 'end'];
+        const after = ['anchor', `    summary: ${wrap(edited).shift().trim()}`, ...wrap(edited).slice(1),
+            '    - Brand new unrelated appendix.', '      Extra instructions for the appendix.',
+            '    - Existing measurement description with stable context', '      and revised details.', 'end'];
+        const [left, right] = reverse ? [after, before] : [before, after];
+        const model = buildTwoWayDiffModel(left.join('\n'), right.join('\n'));
+        assertPreserved(model, left, right);
+        assert.deepEqual(model.blocks.map(block => block.kind), ['replace', reverse ? 'delete' : 'insert', 'replace']);
+        const side = reverse ? 'left' : 'right';
+        const summary = model.reflows[0];
+        assert.equal(summary[`${side}Start`], 1);
+        assert.equal(summary[`${side}End`], 1 + wrap(edited).length);
+        assert.equal(mapLinePosition(1.5, reverse ? 'right' : 'left', model), (summary[`${side}Start`] + summary[`${side}End`]) / 2);
+        assert.ok(model[`${side}Lines`].some(line => line.segments?.some(segment => segment.emphasis && segment.text.includes('instrument'))));
+    });
+}
+
+for (const length of [2001, 9000]) {
+    test(`long edited lines remain paired at ${length} characters`, () => {
+        const before = 'Recorded measurements include temperature, humidity, and pressure. '.repeat(Math.ceil(length / 65)).slice(0, length);
+        const after = before.replace('temperature', 'wind speed');
+        const model = buildTwoWayDiffModel(before, after);
+        assert.deepEqual(model.blocks.map(block => block.kind), ['replace']);
+        assertPreserved(model, [before], [after]);
+        const unrelated = buildTwoWayDiffModel('abcdefghij '.repeat(length / 10), '9876543210 '.repeat(length / 10));
+        assert.deepEqual(unrelated.blocks.map(block => block.kind), ['delete', 'insert']);
+    });
+}
+
+test('matching paragraph does not absorb removed block-scalar notes or following fields', () => {
+    const before = ['anchor', '  summary: Existing overview of temperature measurements and station readings.',
+        '  body: |-', '    Retired appendix.', '', '    ## Archived notes', '    Removed historical context.', '  status: pending', 'end'];
+    const after = ['anchor', '    summary: Existing overview of temperature measurements', '      and updated station readings.', '    status: pending', 'end'];
+    const model = buildTwoWayDiffModel(before.join('\n'), after.join('\n'));
+    assertPreserved(model, before, after);
+    assert.deepEqual(model.blocks.map(block => block.kind), ['replace', 'delete', 'replace']);
+    assert.deepEqual(model.blocks[1], {kind: 'delete', leftStart: 2, leftEnd: 7, rightStart: 3, rightEnd: 3});
+});
+
+test('unchanged context keeps blue regions separate', () => {
+    const model = buildTwoWayDiffModel('  first: old\nanchor\n  second: old', 'first: revised\nanchor\nsecond: revised');
+    assert.equal(model.blocks.length, 2);
+    assert.deepEqual(model.blocks.map(block => [block.leftStart, block.leftEnd]), [[0, 1], [2, 3]]);
+});
+
+const oldHeading = 'title: Find the right depth without expanding the README';
+const newHeading = 'title: Organize the engineering and agent reference';
+function titlePairs(model) {
+    return model.rows.filter(row => row.left.content.trim() === oldHeading && row.right.content.trim() === newHeading);
+}
+
+for (const reverse of [false, true]) {
+    test(`field prefixes pair renamed titles in large repeated YAML (${reverse})`, () => {
+        const before = [], after = [];
+        for (let section = 0; section < 30; section++) {
+            before.push(`      - id: section-${section}`, '        kind: walkthrough', `        ${oldHeading}`,
+                `        summary: Retained description for section ${section}.`, '        depth: contextualized');
+            after.push(`  - id: section-${section}`, '    kind: walkthrough', `    ${newHeading}`,
+                `    summary: Retained description for section ${section}.`, '    depth: contextualized');
+        }
+        const [left, right] = reverse ? [after, before] : [before, after];
+        const model = buildTwoWayDiffModel(left.join('\n'), right.join('\n'), {timeoutMs: 3000});
+        assertPreserved(model, left, right);
+        const pairs = model.rows.filter(row => row.left.content.includes(reverse ? newHeading : oldHeading));
+        assert.equal(pairs.length, 30);
+        for (const row of pairs) {
+            assert.equal(row.right.content.trim(), reverse ? oldHeading : newHeading);
+            assert.equal(row.left.lineNumber, row.right.lineNumber, 'Repeated title fields stay within their own scene');
+        }
+        assert.deepEqual(model.blocks.map(block => block.kind), ['replace']);
+    });
+}
+
+for (const [name, leftGap, rightGap] of [
+    ['repeated labels', [oldHeading, oldHeading], [newHeading, newHeading]],
+    ['generic language prefix', ['return first;', 'return second;'], ['return other;', 'return final;']]
+]) {
+    test(`prefix bonus does not override ${name}`, () => {
+        const left = ['    anchor: stable start', ...leftGap.map(line => `    ${line}`), '    end: stable finish'];
+        const right = ['  anchor: stable start', ...rightGap.map(line => `  ${line}`), '  end: stable finish'];
+        const model = buildTwoWayDiffModel(left.join('\n'), right.join('\n'));
+        assertPreserved(model, left, right);
+        assert.equal(titlePairs(model).length, 0);
+        if (name === 'generic language prefix') {
+            assert.equal(model.rows.filter(row => row.left.content.startsWith('    return') && row.right.lineNumber !== null).length, 0);
+        }
+    });
+}
+
+test('meaningful prefix evidence works independently of neighboring matches', () => {
+    const score = scoreReplacementLinePair(oldHeading, newHeading);
+    assert.equal(score.eligible, true);
+    assert.ok(score.score > 0.52);
+    assert.deepEqual(alignReplacementLines([oldHeading], [newHeading]), [{left: oldHeading, right: newHeading}]);
+    const model = buildTwoWayDiffModel(`    anchor: stable\n    ${oldHeading}\n    Removed footer`, `  anchor: stable\n  ${newHeading}\n  Added epilogue`);
+    assert.equal(titlePairs(model).length, 1);
+});
+
+test('different field names do not earn a prefix bonus', () => {
+    assert.equal(scoreReplacementLinePair(oldHeading, newHeading.replace('title:', 'caption:')).eligible, false);
+});
+
+test('a shared field prefix cannot outweigh unrelated long content', () => {
+    const left = 'body: ' + 'abcdefghij '.repeat(300);
+    const right = 'body: ' + '9876543210 '.repeat(300);
+    assert.equal(scoreReplacementLinePair(left, right).eligible, false);
+    assert.deepEqual(buildTwoWayDiffModel(left, right).blocks.map(block => block.kind), ['delete', 'insert']);
 });

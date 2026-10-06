@@ -40,6 +40,7 @@ export interface TwoWayDiffModel {
     leftLines: DiffLine[];
     rightLines: DiffLine[];
     blocks: DiffBlock[];
+    reflows?: DiffBlock[];
     hasChanges: boolean;
     quality: 'exact' | 'fallback';
 }
@@ -176,10 +177,27 @@ export function buildTwoWayDiffModel(
         rows,
         leftLines: renderedLeftLines,
         rightLines: renderedRightLines,
-        blocks,
+        blocks: mergeTouchingBlocks(blocks),
+        reflows: blocks.filter(block => block.reflow),
         hasChanges,
         quality: 'exact'
     };
+}
+
+// Visual/navigation regions can merge without losing paragraph scroll anchors.
+function mergeTouchingBlocks(blocks: DiffBlock[]): DiffBlock[] {
+    const merged: DiffBlock[] = [];
+    for (const original of blocks) {
+        const block = {...original};
+        delete block.reflow;
+        const previous = merged[merged.length - 1];
+        if (previous?.kind === block.kind && previous.leftEnd === block.leftStart
+            && previous.rightEnd === block.rightStart) {
+            previous.leftEnd = block.leftEnd;
+            previous.rightEnd = block.rightEnd;
+        } else merged.push(block);
+    }
+    return merged;
 }
 
 function internDiffLines(leftLines: string[], rightLines: string[]): {
@@ -419,7 +437,10 @@ function appendReplacementCandidate(
         && row.right !== undefined
         && hasCredibleLineCorrespondence(row.left, row.right)
     )).length;
-    const coherentBlock = hasCoherentBlockCorrespondence(leftLines, rightLines, crediblePairs);
+    // Paragraph units already establish their own correspondence; unmatched
+    // neighboring items must remain additions/deletions even in a mostly paired hunk.
+    const coherentBlock = !aligned.some(row => row.reflow)
+        && hasCoherentBlockCorrespondence(leftLines, rightLines, crediblePairs);
     const normalized = aligned.flatMap((row) => {
         if (row.reflow || row.left === undefined || row.right === undefined
             || hasCredibleLineCorrespondence(row.left, row.right)) {
@@ -558,7 +579,60 @@ const MAX_RARE_TOKEN_OCCURRENCES = 4;
 const MAX_CONTEXTUAL_HUNK_LINES = 8;
 const MAX_CONTEXTUAL_LENGTH_DELTA = 4;
 
+// Treat indented scalar/list continuations as a unit when physical wrapping
+// changes. Blank lines, new keys/items, and block scalar headers are boundaries.
+function wrappedTextUnits(lines: string[]): string[] {
+    const units: string[] = [];
+    for (let index = 0; index < lines.length; index++) {
+        const first = lines[index];
+        const paragraph = [first];
+        const start = first.match(/^(\s*)(?:[\w-]+:\s+|[-*+]\s+)(\S.*)$/);
+        if (start && !/^[|>\[{]/.test(start[2])) {
+            while (index + 1 < lines.length) {
+                const next = lines[index + 1];
+                if (!next.trim() || next.length - next.trimStart().length <= start[1].length
+                    || /^\s*(?:[\w-]+:|[-*+]\s|\d+[.)]\s|#)/.test(next)) break;
+                paragraph.push(next);
+                index++;
+            }
+        }
+        units.push(paragraph.join('\n'));
+    }
+    return units;
+}
+
 export function alignReplacementLines(leftLines: string[], rightLines: string[]): AlignedReplacementLine[] {
+    // Joined units must not be regrouped by recursive alignment of bounded gaps.
+    if ([...leftLines, ...rightLines].some(line => line.includes('\n'))) {
+        return alignPhysicalReplacementLines(leftLines, rightLines);
+    }
+    const leftUnits = wrappedTextUnits(leftLines);
+    const rightUnits = wrappedTextUnits(rightLines);
+    if (leftUnits.length === leftLines.length && rightUnits.length === rightLines.length) {
+        return alignPhysicalReplacementLines(leftLines, rightLines);
+    }
+    return alignPhysicalReplacementLines(leftUnits, rightUnits).flatMap(row => {
+        const left = row.left?.split('\n') || [];
+        const right = row.right?.split('\n') || [];
+        if (!left.length || !right.length) {
+            return [...left.map(left => ({left})), ...right.map(right => ({right}))];
+        }
+        if (left.length === 1 && right.length === 1) return [row];
+        const whitespace = buildWhitespaceOnlySegments(row.left!, row.right!);
+        // Bound the word diff for substantive edits; whitespace-only reflows
+        // remain linear even for very large paragraphs.
+        const segments = whitespace || (row.left!.length + row.right!.length <= 20_000
+            ? buildInlineSegments(row.left!, row.right!) : undefined);
+        const leftSegments = segments && splitSegmentsIntoLines(segments.leftSegments);
+        const rightSegments = segments && splitSegmentsIntoLines(segments.rightSegments);
+        return Array.from({length: Math.max(left.length, right.length)}, (_, index) => ({
+            left: left[index], right: right[index],
+            reflow: {start: index === 0, leftSegments: leftSegments?.[index], rightSegments: rightSegments?.[index]}
+        }));
+    });
+}
+
+function alignPhysicalReplacementLines(leftLines: string[], rightLines: string[]): AlignedReplacementLine[] {
     if (leftLines.length === 0) {
         return rightLines.map((right) => ({ right }));
     }
@@ -589,7 +663,8 @@ export function alignReplacementLines(leftLines: string[], rightLines: string[])
             rightText += ' ' + rightLines[rightEnd++].trim().replace(/\s+/g, ' ');
         } else break;
     }
-    if (leftText === rightText && (leftEnd > 1 || rightEnd > 1)) {
+    if (leftText === rightText && (leftEnd > 1 || rightEnd > 1)
+        && ![...leftLines, ...rightLines].some(line => line.includes('\n'))) {
         const reflow = buildWhitespaceOnlySegments(leftLines.slice(0, leftEnd).join('\n'), rightLines.slice(0, rightEnd).join('\n'));
         if (reflow) {
             const leftSegments = splitSegmentsIntoLines(reflow.leftSegments);
@@ -604,8 +679,8 @@ export function alignReplacementLines(leftLines: string[], rightLines: string[])
             ];
         }
     }
-    const leftCharacterCount = leftLines.reduce((total, line) => total + line.length, 0);
-    const rightCharacterCount = rightLines.reduce((total, line) => total + line.length, 0);
+    const leftCharacterCount = leftLines.reduce((total, line) => total + Math.min(line.length, MAX_SCORING_LINE_LENGTH), 0);
+    const rightCharacterCount = rightLines.reduce((total, line) => total + Math.min(line.length, MAX_SCORING_LINE_LENGTH), 0);
     if (leftCharacterCount * rightCharacterCount > MAX_ALIGNMENT_CHARACTER_CELLS) {
         // Reindentation can make a large hunk without requiring fuzzy scoring.
         // Split at cheap normalized matches, then score only bounded gaps.
@@ -700,9 +775,7 @@ export function scoreReplacementLinePair(left: string, right: string): Replaceme
         };
     }
 
-    if (!leftInformative || !rightInformative
-        || normalizedLeft.length > MAX_SCORING_LINE_LENGTH
-        || normalizedRight.length > MAX_SCORING_LINE_LENGTH) {
+    if (!leftInformative || !rightInformative) {
         return {
             score: 0,
             eligible: false,
@@ -714,16 +787,26 @@ export function scoreReplacementLinePair(left: string, right: string): Replaceme
 
     const leftTokens = tokenizeMatchingContent(normalizedLeft);
     const rightTokens = tokenizeMatchingContent(normalizedRight);
-    const characterSimilarity = lineSimilarity(normalizedLeft, normalizedRight);
+    // Sample across long lines to bound character diff cost; token evidence still
+    // covers the entire line, so a shared prefix alone cannot force a match.
+    const sample = (text: string): string => text.length <= MAX_SCORING_LINE_LENGTH ? text
+        : [0, Math.floor(text.length / 2) - 300, text.length - 600].map(start => text.slice(start, start + 600)).join(' ');
+    const characterSimilarity = lineSimilarity(sample(normalizedLeft), sample(normalizedRight));
     const tokenSimilarity = multisetDiceSimilarity(leftTokens, rightTokens);
     const lengthSimilarity = Math.min(normalizedLeft.length, normalizedRight.length)
         / Math.max(normalizedLeft.length, normalizedRight.length);
     const boundarySimilarity = tokenBoundarySimilarity(leftTokens, rightTokens);
-    const score = (characterSimilarity * 0.52)
+    // A complete field/assignment name is useful evidence independently of
+    // neighboring matches. Keywords and punctuation alone earn no bonus.
+    const prefix = (text: string): string | undefined => text
+        .match(/^(?:(?:const|let|var)\s+)?([\p{L}_$][\p{L}\p{N}_$.-]*\s*(?::|=(?!=)))\s*/u)?.[1].replace(/\s+/g, '');
+    const leftPrefix = prefix(normalizedLeft);
+    const prefixBonus = leftPrefix && leftPrefix === prefix(normalizedRight) ? 0.12 : 0;
+    const score = Math.min(1, (characterSimilarity * 0.52)
         + (tokenSimilarity * 0.32)
         + (lengthSimilarity * 0.10)
-        + (boundarySimilarity * 0.06);
-    const hasContentEvidence = characterSimilarity >= 0.52
+        + (boundarySimilarity * 0.06) + prefixBonus);
+    const hasContentEvidence = prefixBonus > 0 || characterSimilarity >= 0.52
         || tokenSimilarity >= 0.45
         || (characterSimilarity >= 0.48 && tokenSimilarity >= 0.28);
 
