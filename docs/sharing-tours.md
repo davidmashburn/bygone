@@ -8,6 +8,9 @@ tour it copies a `bygone://open/v1` link to that document, authored mode, and
 section ID. Open it with the installed desktop app, or choose **File → Open
 Bygone Link from Clipboard**. Links require the repository at the same local
 path; they do not clone repositories or find another checkout automatically.
+Tours saved outside the repository are supported: their links include the
+tour's local file URL separately from the repository. The tour must remain at
+that path, but the original presentation server does not need to be running.
 
 These document links open the **current saved document**. A branch named in the
 document may have moved since the link was copied. Use an HTML export when the
@@ -24,7 +27,7 @@ before replacing the current comparison. Links open comparisons read-only.
 The versioned URL fields are:
 
 - Common: `kind=tour|compare`, `repo=<local file URL>`.
-- Tour: `tour=<relative document path>`, `mode=historical|deconstructed`,
+- Tour: `tour=<repository-relative document path or local file URL>`, `mode=historical|deconstructed`,
   `part=title|chapter|scene|step`, and the matching `chapter`, `scene`, or
   `scene` plus `step` IDs.
 - Comparison: two ordered `rev=<full commit ID>` fields, with optional `file`,

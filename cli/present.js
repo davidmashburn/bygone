@@ -1,4 +1,4 @@
-const { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } = require('fs');
+const { createReadStream, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } = require('fs');
 const { createServer } = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -42,9 +42,11 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         : builtManifest;
     if (options.location) resolveDocumentFocus(manifest, options.location.mode, options.location.focus);
     if (tourPath) {
-        const root = builtManifest.repository?.root || cwd;
-        const relative = path.relative(root, loadedSource.resolvedPath).split(path.sep).join('/');
-        if (relative && !relative.startsWith('../') && !path.isAbsolute(relative)) manifest.localSource = { repo: pathToFileURL(root).href, tour: relative };
+        const root = realpathSync(builtManifest.repository?.root || cwd);
+        const documentPath = realpathSync(loadedSource.resolvedPath);
+        const relative = path.relative(root, documentPath).split(path.sep).join('/');
+        const contained = relative && relative !== '..' && !relative.startsWith('../') && !path.isAbsolute(relative);
+        manifest.localSource = { repo: pathToFileURL(root).href, tour: contained ? relative : pathToFileURL(documentPath).href };
     }
     const history = createTourHistory(manifest);
     const serializedManifest = `${JSON.stringify(manifest, null, 2)}\n`;

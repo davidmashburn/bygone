@@ -12,9 +12,10 @@ export function resolveLocalDeepLink(value: string): { link: DeepLink; repoRoot:
     const git = (args: string[]): string => execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
     if (fs.realpathSync(git(['rev-parse', '--show-toplevel']).trim()) !== repoRoot) throw new Error('The link must identify the exact repository worktree root.');
     if (link.kind === 'tour') {
-        const documentPath = fs.realpathSync(path.join(repoRoot, link.tour));
+        const absolute = /^file:/i.test(link.tour);
+        const documentPath = fs.realpathSync(absolute ? fileURLToPath(link.tour) : path.join(repoRoot, link.tour));
         const relative = path.relative(repoRoot, documentPath);
-        if (!relative || relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative)) throw new Error('The linked tour resolves outside its repository.');
+        if (!absolute && (!relative || relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative))) throw new Error('The linked tour resolves outside its repository.');
         if (!fs.statSync(documentPath).isFile()) throw new Error('The linked tour is not a file.');
         return { link, repoRoot, documentPath };
     }
