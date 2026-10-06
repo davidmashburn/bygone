@@ -221,3 +221,28 @@ Walkthrough scenes use the review's base-to-head comparison and the tour files,
 retaining omitted-file entries. Any scene type can limit the overview to a
 subdirectory. While browsing a file, `Overview › file path` shows where you are,
 with a reminder that narration still describes the overview.
+
+## Screenshot evidence
+
+A walkthrough step can display a committed PNG in place of its code comparison:
+
+```yaml
+- id: compare-window
+  title: Read the comparison
+  body: Blue regions pair corresponding changes across the gutter.
+  focus: guide-paragraph
+  image:
+    file: docs/images/comparison.png
+    revision: head
+    alt: Two code panes with blue paired changes and green additions.
+```
+
+The required `focus` still anchors the explanation to text in the tour's Git
+range. `image.revision` selects the comparison's merge base (`base`) or head
+(`head`). Compilation reads that Git blob, ignoring working-tree edits, and
+embeds its bytes in the manifest and HTML exports. Use repository-relative paths
+and meaningful alt text. PNGs are limited to 8 MiB, 16,384 pixels per dimension,
+and 64 megapixels. **Expand image** opens an enlarged view; Escape closes it.
+Returning to a code step, file, or comparison restores the regular workspace.
+
+See the [visual walkthrough](visual-walkthrough/README.md) for a complete example.

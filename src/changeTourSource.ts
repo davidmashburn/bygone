@@ -1,3 +1,4 @@
+import { validateTourImageSource, type TourImageSource } from './tourImage';
 import type { ChangeTourNarrative } from './changeTourManifest';
 
 export const CHANGE_TOUR_SOURCE_VERSION = 4 as const;
@@ -29,6 +30,7 @@ export interface ChangeTourSourceStep {
     title: string;
     body: string;
     focus: string;
+    image?: TourImageSource;
     connection?: string;
     depth?: 'mentioned' | 'explained' | 'contextualized';
     requirement?: ChangeTourStepRequirement;
@@ -430,11 +432,12 @@ function validateWalkthroughSteps(
         requireString(step.title, `${stepPath}.title`);
         requireString(step.body, `${stepPath}.body`);
         requireString(step.focus, `${stepPath}.focus`);
-        requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth', 'requirement'], stepPath);
+        requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth', 'requirement', 'image'], stepPath);
         if (step.depth !== undefined && !['mentioned', 'explained', 'contextualized'].includes(String(step.depth))) {
             throw new Error(`${stepPath}.depth must be mentioned, explained, or contextualized.`);
         }
         validateStepRequirement(step.requirement, `${stepPath}.requirement`);
+        validateTourImageSource(step.image, `${stepPath}.image`);
         if (stepIds.has(step.id)) throw new Error(`Duplicate step id in scene ${scene.id}: ${step.id}`);
         stepIds.add(step.id);
         if (!anchors[step.focus]) throw new Error(`${stepPath} references unknown anchor ${step.focus}.`);

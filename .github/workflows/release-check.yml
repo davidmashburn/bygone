@@ -47,6 +47,9 @@ jobs:
       - name: Run standalone smoke check
         run: npm run standalone:smoke
 
+      - name: Check portable tours and image evidence
+        run: npm run test:export-smoke
+
   desktop-package:
     name: Desktop Package (${{ matrix.name }})
     strategy:

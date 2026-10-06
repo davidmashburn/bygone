@@ -123,3 +123,68 @@ test('Full export retains both merge parents and compares the first-parent snaps
         assert.ok((await history('list', {})).entries.some(commit => commit.oid === side));
     } finally { f.dispose(); }
 });
+
+test('image steps embed pinned Git PNGs in both export profiles and ignore dirty files', () => {
+    const f = exportFixture();
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII=', 'base64');
+    try {
+        fs.writeFileSync(path.join(f.root, 'screen.png'), png);
+        f.git('add', 'screen.png'); f.git('commit', '-m', 'Add screenshot');
+        const imageHead = f.git('rev-parse', 'HEAD');
+        const source = JSON.parse(JSON.stringify(f.source));
+        source.range.head = imageHead;
+        delete source.tours;
+        source.chapters[0].scenes[0].steps[0].image = { file: 'screen.png', revision: 'head', alt: 'A one pixel test screenshot' };
+        fs.writeFileSync(f.sourcePath, JSON.stringify(source));
+        fs.writeFileSync(path.join(f.root, 'screen.png'), 'dirty non-image');
+        for (const profile of ['minimal', 'full']) {
+            const data = hydrate(materializeTour(f.sourcePath, profile));
+            const image = data.manifest.scenes[0].steps[0].image;
+            assert.equal(image.revision, imageHead);
+            assert.equal(image.dataUrl, `data:image/png;base64,${png.toString('base64')}`);
+            assert.deepEqual(data.manifest.tours.historical.scenes[0].steps[0].image, image);
+        }
+        const step = source.chapters[0].scenes[0].steps[0];
+        for (const file of ['../screen.png', '/screen.png', 'C:\\screen.png', 'https://example.test/screen.png']) {
+            step.image.file = file;
+            fs.writeFileSync(f.sourcePath, JSON.stringify(source));
+            assert.throws(() => materializeTour(f.sourcePath, 'minimal'), /repository-relative/);
+        }
+        step.image.file = 'screen.png'; step.image.revision = 'base';
+        fs.writeFileSync(f.sourcePath, JSON.stringify(source));
+        assert.throws(() => materializeTour(f.sourcePath, 'minimal'), /screen.png/);
+        source.range.base = imageHead;
+        fs.writeFileSync(path.join(f.root, 'app.txt'), 'alpha\nNEW\n');
+        fs.writeFileSync(path.join(f.root, 'screen.png'), 'x'.repeat(100));
+        f.git('add', 'app.txt', 'screen.png'); f.git('commit', '-m', 'Change screenshot and prose');
+        source.range.head = f.git('rev-parse', 'HEAD');
+        source.anchors.changed.contains = 'NEW';
+        fs.writeFileSync(f.sourcePath, JSON.stringify(source));
+        assert.equal(hydrate(materializeTour(f.sourcePath, 'minimal')).manifest.scenes[0].steps[0].image.revision, imageHead);
+        step.image.revision = 'head';
+        fs.writeFileSync(f.sourcePath, JSON.stringify(source));
+        assert.throws(() => materializeTour(f.sourcePath, 'minimal'), /PNG/);
+        fs.writeFileSync(path.join(f.root, 'screen.png'), Buffer.alloc(8 * 1024 * 1024 + 1));
+        f.git('add', 'screen.png'); f.git('commit', '-m', 'Oversized screenshot');
+        source.range.head = f.git('rev-parse', 'HEAD');
+        fs.writeFileSync(f.sourcePath, JSON.stringify(source));
+        assert.throws(() => materializeTour(f.sourcePath, 'minimal'), /8 MiB/);
+    } finally { f.dispose(); }
+});
+
+test('compiled image evidence rejects remote URLs, non-PNG data and excessive dimensions', () => {
+    const { buildChangeTourManifest, parseChangeTourManifest } = require('../out/changeTour');
+    const f = exportFixture();
+    try {
+        const manifest = buildChangeTourManifest(f.root, { source: f.source });
+        const step = manifest.scenes[0].steps[0];
+        step.image = { path: 'screen.png', revision: f.head, alt: 'Screenshot', dataUrl: 'https://example.test/image.png' };
+        assert.throws(() => parseChangeTourManifest(manifest), /embedded PNG/);
+        step.image.dataUrl = 'data:image/png;base64,' + Buffer.alloc(36).toString('base64');
+        assert.throws(() => parseChangeTourManifest(manifest), /IHDR/);
+        const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII=', 'base64');
+        png.writeUInt32BE(16385, 16);
+        step.image.dataUrl = 'data:image/png;base64,' + png.toString('base64');
+        assert.throws(() => parseChangeTourManifest(manifest), /dimension/);
+    } finally { f.dispose(); }
+});

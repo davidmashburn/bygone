@@ -1,3 +1,4 @@
+import { createTourImageViewer } from './tourImage.js';
 import { parseDocumentFragment, resolveDocumentFocus, serializeDocumentFragment, serializeDeepLink } from '../src/deepLink.ts';
 import { createExportHistory } from './exportHistory.js';
 import { buildTwoWayDiffModel } from '../src/diffEngine.ts';
@@ -27,6 +28,7 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
 import { renderTourProse } from '../media/tourProse.js';
 
 (function initializeWebHost() {
+    const imageViewer = createTourImageViewer();
     const exportData = window.__BYGONE_EXPORT__;
     const exportHistory = exportData ? createExportHistory(exportData) : null;
     const preferences = {
@@ -147,6 +149,7 @@ import { renderTourProse } from '../media/tourProse.js';
 
     function emit(message) {
         if (message.type === 'showDiff' || message.type === 'showMultiDiff' || message.type === 'showDirectoryDiff') {
+            imageViewer.clear();
             message = { ...message, renderRequestId: ++renderRequestId };
             if (state.mode === 'tour') {
                 state.displayedPanels = message.type === 'showMultiDiff' ? message.panels
@@ -1934,7 +1937,7 @@ import { renderTourProse } from '../media/tourProse.js';
                         : scene.kind === 'deconstructed-diff'
                             ? `${formatCount(scene.panels.length - 1, 'comparison stage')} · ${formatCount(scene.steps.length, 'tour slide')}`
                             : isSteppedTourScene(scene)
-                                ? formatCount(scene.steps.length, 'code step')
+                                ? formatCount(scene.steps.length, scene.steps.every(step => step.image) ? 'image' : 'step')
                                 : 'Discussion'],
                     ['tour-scene-note', scene.takeaway]
                 ]) {
@@ -2055,6 +2058,7 @@ import { renderTourProse } from '../media/tourProse.js';
         if (!tour || index < 0 || index >= tour.scenes.length) {
             return null;
         }
+        imageViewer.clear();
         if (options.userNavigation) cancelPendingModeRestore();
         if (state.zoom?.mode === 'history' && !state.zoomSwitching) {
             const scene = tour.scenes[index];
@@ -2204,6 +2208,7 @@ import { renderTourProse } from '../media/tourProse.js';
     function emitDiffScene(scene, annotations = [], comparisonId = getTourFileComparisonId(scene.path), history = null) {
         const tour = state.tour;
         if (!tour) return;
+        imageViewer.clear();
         state.activeTourFilePath = state.zoom?.mode === 'history'
             ? state.historyPath || scene.path
             : scene.path;
@@ -2255,6 +2260,14 @@ import { renderTourProse } from '../media/tourProse.js';
     function renderWalkthroughStep(scene) {
         const step = scene.steps[state.activeStepIndex];
         if (!step) return;
+        if (step.image) {
+            ++renderRequestId;
+            state.displayedPanels = [];
+            state.activeTourFilePath = step.diff.path;
+            imageViewer.show(step.image, step.title);
+            updateTourFileSelection();
+            return;
+        }
         emitDiffScene(
             step.diff,
             buildTourAnnotationsForFile(step.diff.path),
@@ -2547,8 +2560,9 @@ import { renderTourProse } from '../media/tourProse.js';
         const returnButton = document.getElementById('tour-return-focus');
         if (returnButton) {
             const inTourMode = isNarrativeMode();
+            const imageStep = scene?.kind === 'walkthrough' && scene.steps[state.activeStepIndex]?.image;
             returnButton.hidden = !inTourMode || Boolean(state.directoryEvidence)
-                || !state.tourFocusFilePath || state.activeTourFilePath === state.tourFocusFilePath;
+                || !state.tourFocusFilePath || (imageStep ? imageViewer.isVisible() : state.activeTourFilePath === state.tourFocusFilePath);
         }
     }
 
@@ -2844,6 +2858,7 @@ import { renderTourProse } from '../media/tourProse.js';
         const step = scene.steps[stepIndex];
         if (!step) return null;
         if (scene.kind === 'walkthrough') {
+            if (step.image) return null;
             const focus = step.focus;
             if (!focus?.path || !Number.isInteger(focus.startLine)) return null;
             return {

@@ -1,3 +1,4 @@
+import { MAX_TOUR_IMAGE_BYTES, validatePngHeader, type TourImageSource, type TourImage } from './tourImage';
 import { execFileSync } from 'child_process';
 import { GitChangedPath, parseNameStatusZ, resolveBranchReviewRange, resolveReviewPathPair } from './gitComparison';
 import {
@@ -184,7 +185,7 @@ export function buildChangeTourManifest(
         ));
     }
     const authored = source
-        ? applySource(source, defaultScenes, range.repoRoot)
+        ? applySourceChapters(source, source.chapters, defaultScenes, range.repoRoot, { base: range.mergeBaseOid, head: range.headOid })
         : options.story
         ? applyStory(options.story, defaultScenes)
         : buildGeneratedTourLanding(
@@ -294,19 +295,12 @@ interface CompiledSourceTour {
     finalChapters: ChangeTourChapter[];
 }
 
-function applySource(
-    source: ChangeTourSource,
-    defaultScenes: ChangeTourDiffScene[],
-    repoRoot: string
-): CompiledSourceTour {
-    return applySourceChapters(source, source.chapters, defaultScenes, repoRoot);
-}
-
 function applySourceChapters(
     source: ChangeTourSource,
     chaptersToCompile: ChangeTourSourceChapter[],
     defaultScenes: ChangeTourDiffScene[],
-    repoRoot: string
+    repoRoot: string,
+    imageRevisions: { base: string; head: string }
 ): CompiledSourceTour {
     const available = new Map(defaultScenes.map((scene) => [scene.path, scene]));
     const resolvedAnchors = new Map<string, ChangeTourResolvedAnchor>();
@@ -348,7 +342,8 @@ function applySourceChapters(
                         { ...authoredScene, steps: authoredScene.steps },
                         available,
                         resolvedAnchors,
-                        connections
+                        connections,
+                        image => compileTourImage(repoRoot, image, imageRevisions[image.revision])
                     );
                     finalScenes.push(finalScene);
                     finalSceneIds.push(finalScene.id);
@@ -372,7 +367,8 @@ function applySourceChapters(
                 }
                 continue;
             }
-            const scene = buildWalkthroughManifestScene(authoredScene, available, resolvedAnchors, connections);
+            const scene = buildWalkthroughManifestScene(authoredScene, available, resolvedAnchors, connections,
+                image => compileTourImage(repoRoot, image, imageRevisions[image.revision]));
             scenes.push(scene);
             sceneIds.push(scene.id);
             finalScenes.push(scene);
@@ -402,7 +398,7 @@ function buildAuthoredModeTours(
     const tours: ChangeTourTours = {};
 
     if (source.tours?.historical) {
-        const compiled = applySourceChapters(source, source.tours.historical.chapters, defaultScenes, repoRoot);
+        const compiled = applySourceChapters(source, source.tours.historical.chapters, defaultScenes, repoRoot, { base: mergeBaseOid, head: headOid });
         validateHistoricalStackEndpoints(compiled.scenes, mergeBaseOid, headOid);
         tours.historical = { chapters: compiled.chapters, scenes: compiled.scenes };
     } else if (source.version === 4) {
@@ -411,7 +407,7 @@ function buildAuthoredModeTours(
     }
 
     if (source.tours?.deconstructed) {
-        const compiled = applySourceChapters(source, source.tours.deconstructed.chapters, defaultScenes, repoRoot);
+        const compiled = applySourceChapters(source, source.tours.deconstructed.chapters, defaultScenes, repoRoot, { base: mergeBaseOid, head: headOid });
         tours.deconstructed = { chapters: compiled.chapters, scenes: compiled.scenes };
     } else if (source.version === 4 && source.chapters.some((chapter) => (
         chapter.scenes.some((scene) => scene.kind === 'deconstructed-diff')
@@ -485,7 +481,8 @@ function buildWalkthroughManifestScene(
     },
     available: ReadonlyMap<string, ChangeTourDiffScene>,
     resolvedAnchors: ReadonlyMap<string, ChangeTourResolvedAnchor>,
-    connections: ReadonlyMap<string, NonNullable<ChangeTourWalkthroughScene['steps'][number]['connection']>>
+    connections: ReadonlyMap<string, NonNullable<ChangeTourWalkthroughScene['steps'][number]['connection']>>,
+    resolveImage: (source: TourImageSource) => TourImage
 ): ChangeTourWalkthroughScene {
     const overview = compileSceneOverview(authoredScene.overview, false);
     return {
@@ -507,6 +504,7 @@ function buildWalkthroughManifestScene(
                 body: step.body,
                 depth: step.depth,
                 requirement: step.requirement,
+                ...(step.image ? { image: resolveImage(step.image) } : {}),
                 focus,
                 connection: step.connection ? connections.get(step.connection) : undefined,
                 diff: { ...diff, id: `${authoredScene.id}-${step.id}` }
@@ -1008,6 +1006,8 @@ function readGitText(
     if (!relativePath) {
         return { kind: 'text', content: '' };
     }
+    const size = Number(execFileSync('git', ['cat-file', '-s', `${oid}:${relativePath}`], { cwd: repoRoot, encoding: 'utf8' }).trim());
+    if (size > maxBytes) return { kind: 'binary-or-large', content: '' };
     const content = execFileSync('git', ['show', `${oid}:${relativePath}`], {
         cwd: repoRoot,
         encoding: 'buffer',
@@ -1084,4 +1084,22 @@ export function pinTourSource(
         }
     }
     return copy;
+}
+
+function compileTourImage(repoRoot: string, source: TourImageSource, revision: string): TourImage {
+    const object = `${revision}:${source.file}`;
+    let size: number;
+    try {
+        size = Number(execFileSync('git', ['cat-file', '-s', object], {
+            cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
+        }).trim());
+    } catch {
+        throw new Error(`Image ${source.file} is unavailable at pinned revision ${revision}.`);
+    }
+    if (!Number.isSafeInteger(size) || size < 33 || size > MAX_TOUR_IMAGE_BYTES) {
+        throw new Error(`Image ${source.file} must be a PNG of at most 8 MiB.`);
+    }
+    const bytes = execFileSync('git', ['cat-file', 'blob', object], { cwd: repoRoot, maxBuffer: MAX_TOUR_IMAGE_BYTES });
+    validatePngHeader(bytes, source.file);
+    return { path: source.file, revision, alt: source.alt, dataUrl: `data:image/png;base64,${bytes.toString('base64')}` };
 }

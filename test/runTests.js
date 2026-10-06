@@ -4725,7 +4725,7 @@ function testPresentInitialCommitHighlights() {
     };
     const messages = [];
     const emit = new Function('state', 'window', 'isMultiPanelTourScene', 'getMultiPanelDefinitions',
-        `let renderRequestId = 0; const zoomRestore = null; const renderWorkspaceControls = () => {}; ${implementation}; return emit;`
+        `let renderRequestId = 0; const zoomRestore = null; const imageViewer = { clear() {} }; const renderWorkspaceControls = () => {}; ${implementation}; return emit;`
     )(state, {
         CustomEvent: class { constructor(_type, options) { this.detail = options.detail; } },
         dispatchEvent: (event) => messages.push(event.detail)
