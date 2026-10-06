@@ -18,6 +18,7 @@ const CLI_SPEC = Object.freeze({
         'bygone tour compile <file.bygone> [--output <tour.json>]',
         'bygone tour context [<head>] [--base <base>] [--output <context.json>]',
         'bygone tour coverage <file.bygone> [--json] [--minimum-coverage <0-100>]',
+        'bygone <bygone://open/v1?...>',
         'bygone tour schema',
         'bygone --branch-diff [-b BRANCH] [-m MAIN]',
         'bygone completion <zsh|bash|fish>',

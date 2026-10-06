@@ -13,7 +13,8 @@ export type TourReadingItem =
  * the first scene they contain; they do not become a second ordering axis.
  */
 export function buildTourReadingItems(
-    tour: Pick<ChangeTourManifest, 'scenes' | 'chapters'>
+    tour: Pick<ChangeTourManifest, 'scenes' | 'chapters'>,
+    includeSingleChapter = false
 ): TourReadingItem[] {
     const items: TourReadingItem[] = [
         { kind: 'title', key: 'title', sceneIndex: 0, stepIndex: 0 }
@@ -28,7 +29,7 @@ export function buildTourReadingItems(
     const emittedChapterIds = new Set<string>();
     tour.scenes.forEach((scene, sceneIndex) => {
         const chapterId = chapterBySceneId.get(scene.id);
-        if (tour.chapters.length > 1 && chapterId && !emittedChapterIds.has(chapterId)) {
+        if ((includeSingleChapter || tour.chapters.length > 1) && chapterId && !emittedChapterIds.has(chapterId)) {
             items.push({
                 kind: 'chapter',
                 key: `chapter:${chapterId}`,

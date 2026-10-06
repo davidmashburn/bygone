@@ -68,6 +68,7 @@ await copyFile('out/changeTour.js');
 await copyFile('out/gitComparison.js');
 await copyFile('out/tourCoverage.js');
 await copyFile('out/windowTitle.js');
+await copyFile('out/deepLink.js');
 await copyFile('standalone/index.html');
 await copyFile('web/index.html');
 await copyFile('web/presenter.css');

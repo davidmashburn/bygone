@@ -1,15 +1,18 @@
 // Render the supported inline Markdown without accepting authored HTML.
 // Source offsets stay in the original prose so narration highlighting can
 // coexist with links whose URL and Markdown punctuation are not displayed.
+import { parseDeepLink } from '../src/deepLink.ts';
+
 export function renderTourProse(document, text, segments = []) {
     const children = [];
-    const pattern = /\[([^\]\n]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/gu;
+    const pattern = /\[([^\]\n]+)\]\(((?:https?:\/\/|bygone:\/\/)(?:[^\s()]|\([^\s()]*\))+)\)/gu;
     let offset = 0;
     for (const match of text.matchAll(pattern)) {
         if (match.index > 0 && text[match.index - 1] === '!') continue;
         let url;
         try { url = new URL(match[2]); } catch { continue; }
-        if (url.protocol !== 'https:' && url.protocol !== 'http:') continue;
+        if (url.protocol === 'bygone:') { try { parseDeepLink(url.href); } catch { continue; } }
+        else if (url.protocol !== 'https:' && url.protocol !== 'http:') continue;
         children.push(...renderRange(document, text, offset, match.index, segments));
         const link = document.createElement('a');
         link.href = url.href;

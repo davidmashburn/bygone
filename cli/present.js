@@ -8,6 +8,8 @@ const { buildTourWindowTitle } = require('../out/windowTitle.js');
 const { tokenMatches } = require('./commandSpec.js');
 const { loadTourSource, parseTourSourceText, buildManifestForTourSource } = require('./tourFile.js');
 const { createTourHistory } = require('./tourHistory.js');
+const { pathToFileURL } = require('url');
+const { resolveDocumentFocus, serializeDocumentFragment } = require('../out/deepLink.js');
 
 const MIME_TYPES = new Map([
     ['.css', 'text/css; charset=utf-8'],
@@ -36,6 +38,12 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
     const manifest = source
         ? { ...builtManifest, authoringCoverage: buildTourAuthoringCoverage(buildTourCoverageReport(cwd, source)) }
         : builtManifest;
+    if (options.location) resolveDocumentFocus(manifest, options.location.mode, options.location.focus);
+    if (tourPath) {
+        const root = builtManifest.repository?.root || cwd;
+        const relative = path.relative(root, path.resolve(cwd, tourPath)).split(path.sep).join('/');
+        if (relative && !relative.startsWith('../') && !path.isAbsolute(relative)) manifest.localSource = { repo: pathToFileURL(root).href, tour: relative };
+    }
     const history = createTourHistory(manifest);
     const serializedManifest = `${JSON.stringify(manifest, null, 2)}\n`;
     const outputPath = options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_OUTPUT;
@@ -176,7 +184,7 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         server.close();
         throw new Error('Could not determine the presentation server address.');
     }
-    const url = `http://127.0.0.1:${address.port}/?manifest=/tour.json`;
+    const url = `http://127.0.0.1:${address.port}/?manifest=/tour.json${options.location ? serializeDocumentFragment(options.location.mode, options.location.focus) : ''}`;
     if (options.announce !== false) {
         process.stdout.write(`Bygone change tour running at ${url}\n`);
         process.stdout.write('Press Ctrl+C to stop.\n');
