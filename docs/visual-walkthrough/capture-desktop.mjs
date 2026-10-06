@@ -18,3 +18,4 @@ for (const [name, action, ...args] of captures) {
   const result = spawnSync('node', ['scripts/run-electron.mjs', 'docs/visual-walkthrough/capture-desktop.cjs', `${output}/${name}.png`, action, ...args], { stdio: 'inherit' });
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
+/* global process */
