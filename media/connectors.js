@@ -81,6 +81,12 @@
 
             if (options.getMode() === 'multi-way') {
                 drawMultiWayConnections();
+                // CSS transforms move the panels without a Monaco layout event.
+                // Follow the strip through its final frame, including reversals.
+                const track = options.getElement('multi-way-diff').querySelector('.multi-view-track');
+                if (track?.getAnimations().some((animation) => animation.playState === 'running' || animation.pending)) {
+                    scheduleDrawConnections();
+                }
                 return;
             }
 

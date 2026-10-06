@@ -4,6 +4,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { execFileSync } = require('child_process');
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
+const { installLinkPreviewHost, openPreviewExternal } = require('./linkPreview.js');
 const { buildTwoWayDiffModel } = require('../src/diffEngine.ts');
 const { buildChangeAttention } = require('../src/changeAttention.ts');
 const { buildChangeTourContext } = require('../src/changeTourContext.ts');
@@ -310,6 +311,7 @@ function createMainWindow({ show = !smokeTestMode && !workspaceSmokeMode } = {})
             contextIsolation: true,
             nodeIntegration: false,
             webSecurity: true,
+            webviewTag: true,
             backgroundThrottling: false,
             preload: path.join(__dirname, 'standalone-preload.js')
         }
@@ -318,7 +320,8 @@ function createMainWindow({ show = !smokeTestMode && !workspaceSmokeMode } = {})
     hostReady = false;
     pendingMessage = undefined;
     const expectedUrl = pathToFileURL(path.join(__dirname, '..', 'standalone', 'index.html')).toString();
-    mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    installLinkPreviewHost(mainWindow.webContents);
+    mainWindow.webContents.setWindowOpenHandler(openPreviewExternal);
     mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
         if (navigationUrl !== expectedUrl) {
             event.preventDefault();
@@ -475,6 +478,7 @@ async function showTourWindow(url, server, manifest, launch) {
             contextIsolation: true,
             nodeIntegration: false,
             webSecurity: true,
+            webviewTag: true,
             backgroundThrottling: false
         }
     });
@@ -482,12 +486,8 @@ async function showTourWindow(url, server, manifest, launch) {
     tourPresentations.set(tourWindow, { server, origin: tourOrigin, launch });
     installApplicationMenu();
 
-    tourWindow.webContents.setWindowOpenHandler(({ url: externalUrl }) => {
-        if (/^https?:\/\//i.test(externalUrl)) {
-            void shell.openExternal(externalUrl);
-        }
-        return { action: 'deny' };
-    });
+    installLinkPreviewHost(tourWindow.webContents);
+    tourWindow.webContents.setWindowOpenHandler(openPreviewExternal);
     tourWindow.webContents.on('will-navigate', (event, navigationUrl) => {
         let navigationOrigin;
         try {
@@ -1352,8 +1352,9 @@ async function routeLaunchTarget(launchTarget) {
         const timeout = setTimeout(() => app.exit(1), 60000);
         try {
             await require('./workspaceSmoke.js').runWorkspaceSmoke({
-                open: openDiff, window: () => mainWindow, session: () => session, dialog,
-                openTour: () => workspace.handle({ type: 'workspaceOpenTour', kind: 'historical' })
+                open: openDiff, openMulti: openMultiDiff, window: () => mainWindow, session: () => session, dialog,
+                openTour: () => workspace.handle({ type: 'workspaceOpenTour', kind: 'historical' }),
+                openTourWindow: async (tourPath) => { await openAuthoredTourDocument(tourPath); return latestTourWindow; }
             });
             clearTimeout(timeout); app.exit(0);
         } catch (error) { console.error(error); clearTimeout(timeout); app.exit(1); }

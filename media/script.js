@@ -24,6 +24,22 @@ let workspaceSelection;
 let workspaceTourFrame;
 let workspaceTourUrl;
 
+// Embedded tours keep their read-only host boundary. Relay only a web URL from
+// the currently displayed, known tour frame; the native preview lives above it.
+window.addEventListener('message', (event) => {
+    if (host.environment !== 'standalone' || !workspaceTourFrame || workspaceTourFrame.hidden
+        || event.source !== workspaceTourFrame.contentWindow || event.origin !== new URL(workspaceTourUrl).origin
+        || event.data?.type !== 'bygonePreviewLink' || typeof event.data.url !== 'string'
+        || !/^https?:\/\//i.test(event.data.url)) return;
+    const source = workspaceTourFrame;
+    const origin = event.origin;
+    showLinkPreview(event.data.url, () => {
+        if (!source.isConnected) return;
+        source.focus();
+        source.contentWindow?.postMessage({ type: 'bygoneLinkPreviewClosed' }, origin);
+    });
+});
+
 function updateWorkspaceControls(state) {
     if (!workspaceControls) {
         const container = document.createElement('div');
@@ -1799,6 +1815,43 @@ function initializeNonEditorTextTooltips() {
     document.body.appendChild(tooltip);
     let owner;
     let timer;
+    let leaveTimer;
+    let restoringFocus = false;
+    const restoreFocus = (link) => {
+        close();
+        restoringFocus = true;
+        if (link?.isConnected) link.focus({ preventScroll: true });
+        restoringFocus = false;
+    };
+    const menu = document.createElement('div');
+    menu.className = 'file-path-context-menu bygone-link-context-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Link actions');
+    menu.hidden = true;
+    document.body.appendChild(menu);
+    let menuOwner;
+    const closeMenu = (restore = false) => {
+        menu.hidden = true;
+        if (restore) restoreFocus(menuOwner);
+        menuOwner = null;
+    };
+    const description = document.createElement('div');
+    description.id = 'bygone-link-url';
+    const preview = document.createElement('button');
+    preview.type = 'button';
+    preview.textContent = 'Preview';
+    preview.className = 'bygone-link-preview-button';
+    const previewUrl = (element) => {
+        if (!(element instanceof Element) || !element.matches('a[href]') || element.closest('.bygone-link-preview')) return null;
+        const href = element.getAttribute('href');
+        return /^https?:\/\//i.test(href) ? element.href : null;
+    };
+    preview.addEventListener('click', () => {
+        const link = owner;
+        const url = previewUrl(link);
+        close();
+        if (url) showLinkPreview(url, () => restoreFocus(link));
+    });
 
     // Convert existing and dynamically updated titles, leaving Monaco's own hovers alone.
     const convertTitle = (element) => {
@@ -1817,6 +1870,7 @@ function initializeNonEditorTextTooltips() {
 
     const close = () => {
         clearTimeout(timer);
+        clearTimeout(leaveTimer);
         tooltip.hidden = true;
         if (tooltip.parentElement !== document.body) document.body.appendChild(tooltip);
         if (owner) {
@@ -1827,6 +1881,7 @@ function initializeNonEditorTextTooltips() {
         owner = null;
     };
     const textFor = (element) => {
+        if (element.matches('a[href]')) return element.href;
         const description = element.dataset.tooltip;
         const fullText = getElementFullText(element);
         const clipped = element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
@@ -1835,7 +1890,13 @@ function initializeNonEditorTextTooltips() {
     };
     const show = () => {
         if (!owner?.isConnected || !owner.getClientRects().length || owner.closest('[hidden], .hidden')) return close();
-        tooltip.textContent = textFor(owner);
+        const canPreview = Boolean(previewUrl(owner));
+        tooltip.classList.toggle('bygone-link-tooltip', canPreview);
+        tooltip.setAttribute('role', canPreview ? 'dialog' : 'tooltip');
+        if (canPreview) tooltip.setAttribute('aria-label', 'Link options');
+        else tooltip.removeAttribute('aria-label');
+        description.textContent = textFor(owner);
+        tooltip.replaceChildren(description, ...(canPreview ? [preview] : []));
         // An open modal is in the top layer; its tooltip must be there too.
         (owner.closest('dialog[open]') || document.body).appendChild(tooltip);
         tooltip.hidden = false;
@@ -1852,36 +1913,221 @@ function initializeNonEditorTextTooltips() {
     };
     const schedule = (event) => {
         const target = event.target instanceof Element ? event.target : null;
-        if (!target || target.closest('.monaco-editor, .commit-hover-details')) return;
+        if (!target || restoringFocus || !menu.hidden || target.closest('.monaco-editor, .commit-hover-details')) return;
+        if (tooltip.contains(target)) { clearTimeout(leaveTimer); return; }
+        if (owner?.contains(target)) clearTimeout(leaveTimer);
         if (event.type === 'focusin' && !target.matches(':focus-visible')) return;
         convertTree(target);
-        const element = target.closest('[data-tooltip]') || findTruncatedTextElement(target);
+        const element = target.closest('a[href]') || target.closest('[data-tooltip]') || findTruncatedTextElement(target);
         if (!element || element === owner || !textFor(element)) return;
         close();
         owner = element;
         timer = setTimeout(show, readTooltipDelay());
     };
     const leave = (event) => {
-        if (owner && event.target instanceof Node && owner.contains(event.target)
-            && !(event.relatedTarget instanceof Node && owner.contains(event.relatedTarget))) close();
+        if (!owner || !(event.target instanceof Node)) return;
+        const within = (node) => node instanceof Node && (owner.contains(node) || tooltip.contains(node));
+        if (!within(event.target) || within(event.relatedTarget)) return;
+        // Keep the link card reachable across the small gap below its anchor.
+        if (previewUrl(owner) && !tooltip.hidden && event.type === 'mouseout') {
+            clearTimeout(leaveTimer);
+            leaveTimer = setTimeout(close, 200);
+        } else close();
     };
+    const openMenu = (link, x, y) => {
+        const url = previewUrl(link);
+        if (!url) return;
+        close();
+        menuOwner = link;
+        const actions = [
+            { label: 'Preview link', run: () => showLinkPreview(url, () => restoreFocus(link)) },
+            { label: 'Open link in browser', run: () => link.click() },
+            { label: 'Copy link URL', run: () => { void copyTextToClipboard(url); } }
+        ];
+        menu.replaceChildren(...actions.map((action) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.setAttribute('role', 'menuitem');
+            button.textContent = action.label;
+            button.addEventListener('click', () => { closeMenu(true); action.run(); });
+            return button;
+        }));
+        (link.closest('dialog[open]') || document.body).appendChild(menu);
+        menu.hidden = false;
+        const bounds = menu.getBoundingClientRect();
+        menu.style.left = `${Math.max(4, Math.min(x, window.innerWidth - bounds.width - 4))}px`;
+        menu.style.top = `${Math.max(4, Math.min(y, window.innerHeight - bounds.height - 4))}px`;
+        menu.querySelector('button').focus();
+    };
+    document.addEventListener('contextmenu', (event) => {
+        const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+        if (!previewUrl(link) || link.closest('.monaco-editor')) return;
+        event.preventDefault();
+        event.stopPropagation();
+        openMenu(link, event.clientX, event.clientY);
+    }, true);
     document.addEventListener('mouseover', schedule, true);
     document.addEventListener('mouseout', leave, true);
     document.addEventListener('focusin', schedule, true);
     document.addEventListener('focusout', leave, true);
-    document.addEventListener('pointerdown', close, true);
-    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') close(); }, true);
-    document.addEventListener('scroll', close, true);
-    window.addEventListener('blur', close);
-    window.addEventListener('resize', close);
+    document.addEventListener('pointerdown', (event) => {
+        if (!(event.target instanceof Node) || !tooltip.contains(event.target)) close();
+        if (!(event.target instanceof Node) || !menu.contains(event.target)) closeMenu();
+    }, true);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            const link = owner;
+            close();
+            closeMenu(true);
+            if (event.target === preview) restoreFocus(link);
+        }
+        else if (!menu.hidden && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+            event.preventDefault();
+            const buttons = [...menu.querySelectorAll('button')];
+            const current = buttons.indexOf(document.activeElement);
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
+                : (current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+            buttons[next].focus();
+        } else if (!menu.hidden && event.key === 'Tab') closeMenu(true);
+        else if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && previewUrl(event.target)) {
+            event.preventDefault();
+            const bounds = event.target.getBoundingClientRect();
+            openMenu(event.target, bounds.left, bounds.bottom);
+        } else if (event.key === 'Tab' && !event.shiftKey && previewUrl(owner) && event.target === owner) {
+            event.preventDefault();
+            clearTimeout(timer);
+            show();
+            preview.focus();
+        } else if (event.key === 'Tab' && event.shiftKey && event.target === preview && owner) {
+            event.preventDefault();
+            owner.focus();
+        } else if (event.key === 'Tab' && event.target === preview) {
+            const link = owner;
+            close();
+            restoreFocus(link);
+        }
+    }, true);
+    const dismiss = () => { close(); closeMenu(); };
+    document.addEventListener('scroll', dismiss, true);
+    window.addEventListener('blur', dismiss);
+    window.addEventListener('resize', dismiss);
     new MutationObserver((records) => {
         records.forEach(record => {
             if (record.type === 'childList') record.addedNodes.forEach(convertTree);
             else convertTitle(record.target);
         });
+        if (menuOwner && (!menuOwner.isConnected || !menuOwner.getClientRects().length || menuOwner.closest('[hidden], .hidden'))) closeMenu();
         if (owner && (!owner.isConnected || !owner.getClientRects().length || owner.closest('[hidden], .hidden'))) close();
-        else if (owner && !tooltip.hidden && tooltip.textContent !== textFor(owner)) tooltip.textContent = textFor(owner);
-    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['title', 'data-tooltip', 'hidden', 'class', 'open'] });
+        else if (owner && !tooltip.hidden && description.textContent !== textFor(owner)) show();
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['title', 'data-tooltip', 'href', 'hidden', 'class', 'open'] });
+}
+
+function showLinkPreview(url, restoreFocus) {
+    if (window.parent !== window && new URLSearchParams(location.search).get('workspaceEmbedded') === '1') {
+        const onClose = (event) => {
+            if (event.source !== window.parent || event.origin !== 'null' || event.data?.type !== 'bygoneLinkPreviewClosed') return;
+            window.removeEventListener('message', onClose);
+            restoreFocus();
+        };
+        window.addEventListener('message', onClose);
+        window.parent.postMessage({ type: 'bygonePreviewLink', url }, '*');
+        return;
+    }
+    const guest = document.createElement('webview');
+    const nativePreview = host.environment !== 'vscode' && typeof guest.getWebContentsId === 'function';
+    const dialog = document.createElement('dialog');
+    dialog.className = 'bygone-link-preview';
+    dialog.setAttribute('aria-label', 'Link preview');
+    const header = document.createElement('div');
+    header.className = 'bygone-link-preview-header';
+    const address = document.createElement('a');
+    address.href = url;
+    address.target = '_blank';
+    address.rel = 'noopener noreferrer';
+    address.textContent = url;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = 'Close';
+    close.addEventListener('click', () => dialog.close());
+    header.append(address, close);
+    const notice = document.createElement('p');
+    const open = document.createElement('a');
+    open.href = url;
+    open.target = '_blank';
+    open.rel = 'noopener noreferrer';
+    open.textContent = 'Open link in browser';
+    notice.replaceChildren(document.createTextNode(nativePreview ? '' : 'Some sites block embedded previews. Bygone Desktop supports those previews. '), open);
+    const frame = nativePreview ? guest : document.createElement('iframe');
+    frame.title = `Preview of ${url}`;
+    frame.setAttribute('aria-label', frame.title);
+    if (nativePreview) {
+        // Like T3 Code, use a browser guest with top-level navigation rather than
+        // an iframe. The main process pins its isolation and strips preloads.
+        frame.setAttribute('partition', 'bygone-link-preview');
+        frame.setAttribute('webpreferences', 'sandbox=true,contextIsolation=true,nodeIntegration=false');
+        frame.setAttribute('allowpopups', '');
+        const controls = document.createElement('div');
+        controls.className = 'bygone-link-preview-controls';
+        const control = (label, action) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = label;
+            button.disabled = true;
+            button.addEventListener('click', action);
+            controls.appendChild(button);
+            return button;
+        };
+        const back = control('Back', () => frame.goBack());
+        const forward = control('Forward', () => frame.goForward());
+        const reload = control('Reload', () => frame.reload());
+        const status = document.createElement('span');
+        status.setAttribute('role', 'status');
+        controls.appendChild(status);
+        const updateNavigation = () => {
+            const currentUrl = frame.getURL();
+            if (/^https?:\/\//i.test(currentUrl)) {
+                address.href = open.href = currentUrl;
+                address.textContent = currentUrl;
+            }
+            back.disabled = !frame.canGoBack();
+            forward.disabled = !frame.canGoForward();
+            reload.disabled = false;
+        };
+        frame.addEventListener('dom-ready', updateNavigation);
+        frame.addEventListener('did-navigate', updateNavigation);
+        frame.addEventListener('did-navigate-in-page', updateNavigation);
+        frame.addEventListener('did-start-loading', () => { status.textContent = 'Loading…'; });
+        frame.addEventListener('did-stop-loading', () => {
+            updateNavigation();
+            if (status.textContent === 'Loading…') status.textContent = '';
+        });
+        frame.addEventListener('did-fail-load', (event) => {
+            if (event.isMainFrame && event.errorCode !== -3) status.textContent = 'Could not load this page. Try opening it in your browser.';
+        });
+        frame.addEventListener('render-process-gone', () => { status.textContent = 'Preview stopped. Close and reopen it to try again.'; });
+        dialog.append(header, controls, notice, frame);
+    } else {
+        // External pages never receive the host bridge or same-origin privileges.
+        frame.setAttribute('sandbox', 'allow-scripts allow-forms');
+        frame.referrerPolicy = 'no-referrer';
+        dialog.append(header, notice, frame);
+    }
+    frame.src = url;
+    dialog.addEventListener('close', () => {
+        // Explicitly stop the page, including audio and any pending requests.
+        if (!nativePreview) frame.src = 'about:blank';
+        // Removing a webview destroys its guest WebContents and stops requests/audio.
+        dialog.remove();
+        restoreFocus();
+    }, { once: true });
+    dialog.addEventListener('click', (event) => {
+        const bounds = dialog.getBoundingClientRect();
+        if (event.target === dialog && (event.clientX < bounds.left || event.clientX > bounds.right
+            || event.clientY < bounds.top || event.clientY > bounds.bottom)) dialog.close();
+    });
+    document.body.appendChild(dialog);
+    dialog.showModal();
+    close.focus();
 }
 
 function findTruncatedTextElement(start) {
