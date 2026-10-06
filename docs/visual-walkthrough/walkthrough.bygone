@@ -1,0 +1,340 @@
+{
+  "version": 4,
+  "title": "Bygone, one screen at a time",
+  "range": {
+    "base": "e431a208f5ad24e3fae1a22300a14fc7d041375f",
+    "head": "32bf8166cf6ae852fa801a540fe722b4070d5f4f"
+  },
+  "anchors": {
+    "two-files": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Two files, one visual comparison"
+    },
+    "many-panels": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Keep more versions in view"
+    },
+    "directories": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Start with the directory"
+    },
+    "search": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Find without abandoning the comparison"
+    },
+    "repository-history": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Begin with repository history"
+    },
+    "file-history": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Follow a file through real revisions"
+    },
+    "branch-review": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Review the shape of a branch"
+    },
+    "tour-reader": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Read the tour as a document"
+    },
+    "focused-step": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Keep the explanation beside its evidence"
+    },
+    "deconstructed": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Separate explanation stages from commits"
+    },
+    "exploration": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Explore, then return to the story"
+    },
+    "authoring": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Write the tour with explicit evidence"
+    },
+    "export": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Share a particular place or a portable view"
+    },
+    "vscode": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Stay near the editor in VS Code"
+    },
+    "cli": {
+      "file": "docs/visual-walkthrough/narrative.md",
+      "revision": "head",
+      "contains": "### Choose the launch that matches the question"
+    }
+  },
+  "connections": [],
+  "chapters": [
+    {
+      "id": "chapter-1",
+      "title": "Compare what is in front of you",
+      "scenes": [
+        {
+          "id": "arc-1",
+          "title": "Compare what is in front of you",
+          "summary": "Start with concrete files. The same visual language scales from two versions to directories and search.",
+          "bullets": [],
+          "tags": [
+            "visual-guide"
+          ],
+          "takeaway": "Start with concrete files. The same visual language scales from two versions to directories and search.",
+          "steps": [
+            {
+              "id": "two-files",
+              "title": "Two files, one visual comparison",
+              "body": "Start with two files when you already know what belongs on each side. Blue regions connect corresponding changed text; green regions mark content present on only one side. The ribbons show where the regions meet across the gutter. Read the pane labels before interpreting the colors: a local file can be editable, while a historical snapshot is read-only. Change navigation moves between the interesting regions without requiring you to scan every line.",
+              "focus": "two-files",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/01-two-files.png",
+                "revision": "head",
+                "alt": "Two JavaScript files with paired blue changes, green additions, and gutter ribbons connecting the regions."
+              }
+            },
+            {
+              "id": "many-panels",
+              "title": "Keep more versions in view",
+              "body": "A comparison can contain more than two panels. Visible panels controls how many fit in the window, while the active adjacent pair determines the current diff. Choose a fixed density or Fit; a narrower window may show fewer panels. The numbered headers keep the sequence legible. Use this when two endpoints hide an intermediate version that matters to the explanation.",
+              "focus": "many-panels",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/02-many-panels.png",
+                "revision": "head",
+                "alt": "Three of five JavaScript versions are visible, with Fit selected and the first adjacent pair active."
+              }
+            },
+            {
+              "id": "directories",
+              "title": "Start with the directory",
+              "body": "When you know the area but not the file, compare directories first. The inventory puts additions, deletions, and changed files together. Open a file to inspect its contents, then return to the directory. This keeps the question “which file matters?” separate from the closer reading of its lines.",
+              "focus": "directories",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/03-directories.png",
+                "revision": "head",
+                "alt": "The before and after directory trees align three modified files and one added changelog."
+              }
+            },
+            {
+              "id": "search",
+              "title": "Find without abandoning the comparison",
+              "body": "Search helps when you know a name or phrase but not its location. Choose the scope before interpreting the results: visible panes, all comparison panels, the current change set, and Git history answer different questions. A result takes you back to the matching evidence. Replacement is a separate operation and depends on whether the target is writable.",
+              "focus": "search",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/04-search.png",
+                "revision": "head",
+                "alt": "A search for publish finds one result in each of the two visible comparison panes."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chapter-2",
+      "title": "Ask how it got here",
+      "scenes": [
+        {
+          "id": "arc-2",
+          "title": "Ask how it got here",
+          "summary": "Add time to the comparison. Follow a path through commits or begin with the shape of a whole branch.",
+          "bullets": [],
+          "tags": [
+            "visual-guide"
+          ],
+          "takeaway": "Add time to the comparison. Follow a path through commits or begin with the shape of a whole branch.",
+          "steps": [
+            {
+              "id": "repository-history",
+              "title": "Begin with repository history",
+              "body": "Repository history combines file navigation with the commit axis. Here, the latest commit adds CHANGELOG.md: the earlier pane is explicitly absent. Files and Commits are two ways to choose your next question. Revision labels identify the snapshots being compared; commit-list selections are a draft until you apply them. The numbered badges show which revisions occupy the comparison panels.",
+              "focus": "repository-history",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/05-repository-history.png",
+                "revision": "head",
+                "alt": "The commit navigator marks two loaded revisions; the comparison shows CHANGELOG.md added in the newest commit."
+              }
+            },
+            {
+              "id": "file-history",
+              "title": "Follow a file through real revisions",
+              "body": "File history brings that same timeline to one path. The panels show exact historical contents, making a changed line something you can place in time. History and Compare share the window controls. Use the file navigation to visit files changed by the selected comparison, and the change controls to move within the open file.",
+              "focus": "file-history",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/06-file-history.png",
+                "revision": "head",
+                "alt": "Two pinned release.js revisions show a new channel field and sorted return value beside the commit navigator."
+              }
+            },
+            {
+              "id": "branch-review",
+              "title": "Review the shape of a branch",
+              "body": "A branch review starts with an overview of the committed range. Its suggested reading order helps you choose an entry point; the complete file list remains available. The range labels matter: this is a comparison of committed evidence, not an implicit inclusion of every local edit. Start broad, then drill into the files that explain the change.",
+              "focus": "branch-review",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/07-branch-review.png",
+                "revision": "head",
+                "alt": "The branch overview recommends starting with release.yaml, paying attention to release.js, and shows four changed files."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chapter-3",
+      "title": "Turn exploration into an explanation",
+      "scenes": [
+        {
+          "id": "arc-3",
+          "title": "Turn exploration into an explanation",
+          "summary": "A tour turns findings into a reading path while leaving room for exploration.",
+          "bullets": [],
+          "tags": [
+            "visual-guide"
+          ],
+          "takeaway": "A tour turns findings into a reading path while leaving room for exploration.",
+          "steps": [
+            {
+              "id": "tour-reader",
+              "title": "Read the tour as a document",
+              "body": "A tour adds a written argument to the evidence. The outline groups chapters, scenes, and steps; the continuous narrative establishes the question before pointing at source. Scrolling the narrative advances the reading position. Scrolling the code lets you inspect the evidence without advancing the story. The Narration controls provide another way to follow the same explanation.",
+              "focus": "tour-reader",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/08-tour-reader.png",
+                "revision": "head",
+                "alt": "A tour outline and continuous narrative introduce a safer release plan above its changed-file overview."
+              }
+            },
+            {
+              "id": "focused-step",
+              "title": "Keep the explanation beside its evidence",
+              "body": "A step brings a precise passage into focus. Its body should explain why those lines matter, rather than repeat their syntax. As you read farther into a scene, the scene heading can stay at the top; expand it to recover the overview. The narrative and evidence remain independently navigable.",
+              "focus": "focused-step",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/09-focused-step.png",
+                "revision": "head",
+                "alt": "The Preview by default step sits under a sticky scene heading and highlights the dry-run code evidence below."
+              }
+            },
+            {
+              "id": "deconstructed",
+              "title": "Separate explanation stages from commits",
+              "body": "Deconstructed tours group changes into conceptual stages. These are explicitly labeled explanation stages, so they should not be read as a claim about the actual commit sequence. Historical tours and real revision stacks answer the chronological question. Choose the mode that matches the explanation you want to give, and keep its provenance visible.",
+              "focus": "deconstructed",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/10-deconstructed.png",
+                "revision": "head",
+                "alt": "Deconstructed tour stages show an explanation baseline beside the Carry every anchor stage, with focused TypeScript changes."
+              }
+            },
+            {
+              "id": "exploration",
+              "title": "Explore, then return to the story",
+              "body": "A tour is a route through the material, not a fence around it. Files opens the broader inventory; Commits exposes the available revisions. History and Compare let you investigate a question that the author did not anticipate. Return to tour restores the authored passage after that detour.",
+              "focus": "exploration",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/11-exploration.png",
+                "revision": "head",
+                "alt": "The Files navigator selects release.yaml while the authored narrative remains above; Return to tour is visible."
+              }
+            },
+            {
+              "id": "authoring",
+              "title": "Write the tour with explicit evidence",
+              "body": "The missing-tour handoff supplies an editable prompt and authoring instructions. It does not call an AI service on your behalf. The authoring workflow remains file based: write a .bygone source, validate the anchors against the intended Git range, then compile or present it. Keeping the evidence explicit makes the tour inspectable and repeatable.",
+              "focus": "authoring",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/12-authoring.png",
+                "revision": "head",
+                "alt": "An authoring dialog contains an editable prompt, pinned review range, and a Read instructions button."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chapter-4",
+      "title": "Take the work with you",
+      "scenes": [
+        {
+          "id": "arc-4",
+          "title": "Take the work with you",
+          "summary": "Choose a sharing format and a host that fit the next reader’s question.",
+          "bullets": [],
+          "tags": [
+            "visual-guide"
+          ],
+          "takeaway": "Choose a sharing format and a host that fit the next reader’s question.",
+          "steps": [
+            {
+              "id": "export",
+              "title": "Share a particular place or a portable view",
+              "body": "Heading links identify a particular place in the tour. This screenshot shows the other sharing route: an exported HTML document with Tour details expanded. Local desktop links still depend on the referenced repository and tour being available. An HTML export is the portable reading option: minimal exports keep the tour evidence, while full exports also include bounded history. The notice here identifies a minimal snapshot and an embedded viewer requiring no internet. Choose based on how much independent exploration the recipient needs; CDN-backed exports instead require internet for their pinned viewer.",
+              "focus": "export",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/13-export.png",
+                "revision": "head",
+                "alt": "An exported tour has Tour details expanded: minimal snapshot, no browsable history, embedded viewer, no internet required."
+              }
+            },
+            {
+              "id": "vscode",
+              "title": "Stay near the editor in VS Code",
+              "body": "The VS Code companion handles contextual file comparison and file history near the editor. Larger repository, directory, multi-panel, and authored-tour work can open in Desktop. This is a division of workflows across hosts, with the same visual diff language carrying between them.",
+              "focus": "vscode",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/14-vscode.png",
+                "revision": "head",
+                "alt": "VS Code hosts a read-only Bygone file history comparison next to the Explorer and source tabs."
+              }
+            },
+            {
+              "id": "cli",
+              "title": "Choose the launch that matches the question",
+              "body": "The CLI provides direct entry points: two paths for a comparison, --history for a file or directory, --git-diff for revisions, review for a branch, and present --tour for an authored document. The tour subcommands provide schema, validation, compilation, and export. Start with the smallest question you can name, then use the shared window to expand the investigation.",
+              "focus": "cli",
+              "depth": "explained",
+              "image": {
+                "file": "docs/visual-walkthrough/images/15-cli.png",
+                "revision": "head",
+                "alt": "A VS Code terminal displays the CLI usage forms for comparison, history, review, presentation, validation, compilation, and export."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

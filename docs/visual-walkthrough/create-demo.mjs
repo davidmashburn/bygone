@@ -54,3 +54,4 @@ writeFileSync(path.join(root, 'release.bygone'), JSON.stringify(source, null, 2)
 writeFileSync(path.join(repo, 'release.bygone'), JSON.stringify(source, null, 2) + '\n');
 writeFileSync(path.join(root, 'fixture.json'), JSON.stringify({ root, repo, revisions }, null, 2));
 console.log(root);
+/* global process, console */
