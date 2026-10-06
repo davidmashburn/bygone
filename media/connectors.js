@@ -104,6 +104,7 @@
             const leftRect = leftEditor.getDomNode().getBoundingClientRect();
             const rightRect = rightEditor.getDomNode().getBoundingClientRect();
 
+            clipEditorViewport(leftRect, rightRect, containerRect, containerRect);
             diffBlocks.forEach((block) => {
                 drawBlockRegion(
                     block,
@@ -114,6 +115,19 @@
                     containerRect
                 );
             });
+            canvasContext.restore();
+        }
+
+        function clipEditorViewport(leftRect, rightRect, containerRect, viewportRect) {
+            const left = Math.max(leftRect.left, viewportRect.left);
+            const right = Math.min(rightRect.right, viewportRect.right);
+            const top = Math.max(leftRect.top, rightRect.top, viewportRect.top);
+            const bottom = Math.min(leftRect.bottom, rightRect.bottom, viewportRect.bottom);
+            canvasContext.save();
+            canvasContext.beginPath();
+            canvasContext.rect(left - containerRect.left, top - containerRect.top,
+                Math.max(0, right - left), Math.max(0, bottom - top));
+            canvasContext.clip();
         }
 
         function drawMultiWayConnections() {
@@ -129,6 +143,7 @@
                 ? state.pairs[state.activePairIndex]
                 : null;
             if (!activePair) return;
+            if (state.visiblePairIndexes && !state.visiblePairIndexes.includes(state.activePairIndex)) return;
 
             [activePair].forEach((pair) => {
                 const leftEditor = state.editors[pair.leftIndex];
@@ -145,6 +160,7 @@
                     return;
                 }
 
+                clipEditorViewport(leftRect, rightRect, containerRect, viewportRect);
                 (pair.diffModel?.blocks || []).forEach((block) => {
                     drawBlockRegion(
                         block,
@@ -155,6 +171,7 @@
                         containerRect
                     );
                 });
+                canvasContext.restore();
             });
         }
 

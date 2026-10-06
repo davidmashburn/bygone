@@ -53,6 +53,28 @@ app.whenReady().then(async () => {
             assert.deepEqual(ranges, [[1, 3]], 'Extra indentation is highlighted at the start of the line');
             assert.equal(await evaluate(`Boolean(${editors}[${side}].getDomNode().querySelector('.margin [class*=bygone-paired-line]'))`), false, 'Diff shading must not blend into leading whitespace from the gutter');
         }
+        async function assertConnectorClip() {
+            const pixels = await evaluate(`{
+                const canvas = document.getElementById('connection-canvas');
+                const bounds = canvas.getBoundingClientRect();
+                const panes = ${editors}.slice(0, 2).map(e => e.getDomNode().getBoundingClientRect());
+                const top = Math.ceil(Math.max(...panes.map(p => p.top)) - bounds.top);
+                const bottom = Math.floor(Math.min(...panes.map(p => p.bottom)) - bounds.top);
+                const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+                let outside = 0, inside = 0;
+                for (let y = 0; y < canvas.height; y++) {
+                    for (let x = 0; x < canvas.width; x++) {
+                        if (data[(y * canvas.width + x) * 4 + 3]) {
+                            if (y < top - 1 || y > bottom) outside++;
+                            else inside++;
+                        }
+                    }
+                }
+                ({outside, inside, top, bottom});
+            }`);
+            assert.equal(pixels.outside, 0, `Connectors must not paint over panel controls: ${JSON.stringify(pixels)}`);
+            assert.ok(pixels.inside > 0, 'Clipping must retain visible connectors');
+        }
         async function scroll(sourceIndex, sourceLine, targets, fraction = 0.25) {
             await evaluate(`${editors}[${sourceIndex}].revealLineInCenter(${sourceLine}, 1)`);
             await frames();
@@ -97,13 +119,22 @@ app.whenReady().then(async () => {
                 const middle = [block.leftStart + 1, (block.rightStart + block.rightEnd + 1) / 2, block.leftStart + 1].slice(0, count);
                 await scroll(0, middle[0], middle, 0.5);
                 await scroll(1, middle[1], middle, 0.5);
+                await assertConnectorClip();
             }
             await assertWhitespacePaint(1);
         }
         await show({ type: 'showDiff', file1: 'after.yaml', file2: 'before.yaml', leftContent: rightContent, rightContent: leftContent });
         await assertWhitespacePaint(0);
+        await show({type: 'showDiff', file1: 'title-before.yaml', file2: 'title-after.yaml',
+            leftContent: 'title: Find the right depth without expanding the README',
+            rightContent: 'title: Organize the engineering and agent reference'});
+        assert.equal(await evaluate(`${editors}.every(e => {
+            const decorations = e.getModel().getAllDecorations();
+            return decorations.some(d => d.options.className === 'bygone-paired-line')
+                && !decorations.some(d => d.options.className === 'bygone-one-sided-line');
+        })`), true, 'Worker-computed renamed title fields render blue on both sides');
         assert.deepEqual(errors, []);
-        console.log('Diff renderer regression smoke passed: whitespace paint/ranges, long YAML, two/three panels, both scroll directions, wrap on/off, unchanged prefix/suffix, reflow boundaries, panel switching.');
+        console.log('Diff renderer regression smoke passed: whitespace paint/ranges, long YAML, two/three panels, both scroll directions, wrap on/off, unchanged prefix/suffix, reflow boundaries, panel switching, connector clipping, renamed title pairing.');
         clearTimeout(timeout); app.exit(0);
     } catch (error) {
         console.error(error, errors); clearTimeout(timeout); app.exit(1);

@@ -40,7 +40,7 @@ function mapLinePosition(position, sourceSide, model) {
         return edges.prefix + (position - edges.prefix) / (edges[sourceSide] - edges.prefix)
             * (edges[targetSide] - edges.prefix);
     }
-    for (const block of model.blocks || []) {
+    for (const block of model.reflows || model.blocks || []) {
         if (!block.reflow) continue;
         const start = block[`${sourceSide}Start`];
         const end = block[`${sourceSide}End`];
