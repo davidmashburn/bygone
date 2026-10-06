@@ -32,6 +32,7 @@ export interface DiffBlock {
     leftEnd: number;
     rightStart: number;
     rightEnd: number;
+    reflow?: boolean;
 }
 
 export interface TwoWayDiffModel {
@@ -399,6 +400,7 @@ function normalizeLines(content: string): string[] {
 export interface AlignedReplacementLine {
     left?: string;
     right?: string;
+    reflow?: { start: boolean; leftSegments?: DiffSegment[]; rightSegments?: DiffSegment[] };
 }
 
 function appendReplacementCandidate(
@@ -419,7 +421,7 @@ function appendReplacementCandidate(
     )).length;
     const coherentBlock = hasCoherentBlockCorrespondence(leftLines, rightLines, crediblePairs);
     const normalized = aligned.flatMap((row) => {
-        if (row.left === undefined || row.right === undefined
+        if (row.reflow || row.left === undefined || row.right === undefined
             || hasCredibleLineCorrespondence(row.left, row.right)) {
             return [row];
         }
@@ -428,28 +430,32 @@ function appendReplacementCandidate(
     let leftLineNumber = initialLeftLineNumber;
     let rightLineNumber = initialRightLineNumber;
     let blockKind: DiffBlock['kind'] | undefined;
+    let blockReflow = false;
     let blockLeftStart = renderedLeftLines.length;
     let blockRightStart = renderedRightLines.length;
     const flushBlock = (): void => {
         if (!blockKind) return;
-        blocks.push(makeDiffBlock(
+        const block = makeDiffBlock(
             blockKind,
             blockLeftStart,
             renderedLeftLines.length,
             blockRightStart,
             renderedRightLines.length
-        ));
+        );
+        if (blockReflow) block.reflow = true;
+        blocks.push(block);
     };
 
-    for (const { left, right } of normalized) {
-        const nextKind: DiffBlock['kind'] = coherentBlock
+    for (const { left, right, reflow } of normalized) {
+        const nextKind: DiffBlock['kind'] = coherentBlock || reflow
             ? 'replace'
             : left !== undefined && right !== undefined
                 ? 'replace'
                 : left !== undefined ? 'delete' : 'insert';
-        if (blockKind !== nextKind) {
+        if (blockKind !== nextKind || blockReflow !== Boolean(reflow) || reflow?.start) {
             flushBlock();
             blockKind = nextKind;
+            blockReflow = Boolean(reflow);
             blockLeftStart = renderedLeftLines.length;
             blockRightStart = renderedRightLines.length;
         }
@@ -464,7 +470,10 @@ function appendReplacementCandidate(
             renderedRightLine = makeDiffLine('added', right, rightLineNumber);
             renderedRightLines.push(renderedRightLine);
         }
-        if (renderedLeftLine && renderedRightLine) {
+        if (reflow) {
+            if (renderedLeftLine) renderedLeftLine.segments = reflow.leftSegments;
+            if (renderedRightLine) renderedRightLine.segments = reflow.rightSegments;
+        } else if (renderedLeftLine && renderedRightLine) {
             applyInlineHighlightPair(renderedLeftLine, renderedRightLine);
         } else if (coherentBlock) {
             if (renderedLeftLine) applyFullLineHighlight(renderedLeftLine);
@@ -484,6 +493,7 @@ function appendReplacementCandidate(
 }
 
 function hasCredibleLineCorrespondence(left: string, right: string): boolean {
+    if (!left.trim() && !right.trim()) return true;
     const score = scoreReplacementLinePair(left, right);
     if (score.eligible) return true;
     const leftAnchor = declarationAnchorKey(left);
@@ -555,21 +565,59 @@ export function alignReplacementLines(leftLines: string[], rightLines: string[])
     if (rightLines.length === 0) {
         return leftLines.map((left) => ({ left }));
     }
+    // Keep matching boundary lines outside a reflow so scroll correspondence
+    // changes only where physical line breaks actually changed.
+    let prefix = 0;
+    while (prefix < Math.min(leftLines.length, rightLines.length)
+        && leftLines[prefix].trim() === rightLines[prefix].trim()) prefix++;
+    if (prefix) {
+        return [
+            ...leftLines.slice(0, prefix).map((left, index) => ({ left, right: rightLines[index] })),
+            ...alignReplacementLines(leftLines.slice(prefix), rightLines.slice(prefix))
+        ];
+    }
+    // Recognize the smallest whitespace-equivalent prefix, even when followed
+    // by substantive edits, without character similarity on long prose.
+    let leftEnd = 1;
+    let rightEnd = 1;
+    let leftText = leftLines[0].trim().replace(/\s+/g, ' ');
+    let rightText = rightLines[0].trim().replace(/\s+/g, ' ');
+    while (leftText && rightText && leftText !== rightText) {
+        if (rightText.startsWith(leftText + ' ') && leftEnd < leftLines.length) {
+            leftText += ' ' + leftLines[leftEnd++].trim().replace(/\s+/g, ' ');
+        } else if (leftText.startsWith(rightText + ' ') && rightEnd < rightLines.length) {
+            rightText += ' ' + rightLines[rightEnd++].trim().replace(/\s+/g, ' ');
+        } else break;
+    }
+    if (leftText === rightText && (leftEnd > 1 || rightEnd > 1)) {
+        const reflow = buildWhitespaceOnlySegments(leftLines.slice(0, leftEnd).join('\n'), rightLines.slice(0, rightEnd).join('\n'));
+        if (reflow) {
+            const leftSegments = splitSegmentsIntoLines(reflow.leftSegments);
+            const rightSegments = splitSegmentsIntoLines(reflow.rightSegments);
+            return [
+                ...Array.from({ length: Math.max(leftEnd, rightEnd) }, (_, index) => ({
+                    left: index < leftEnd ? leftLines[index] : undefined,
+                    right: index < rightEnd ? rightLines[index] : undefined,
+                    reflow: { start: index === 0, leftSegments: leftSegments[index], rightSegments: rightSegments[index] }
+                })),
+                ...alignReplacementLines(leftLines.slice(leftEnd), rightLines.slice(rightEnd))
+            ];
+        }
+    }
     const leftCharacterCount = leftLines.reduce((total, line) => total + line.length, 0);
     const rightCharacterCount = rightLines.reduce((total, line) => total + line.length, 0);
     if (leftCharacterCount * rightCharacterCount > MAX_ALIGNMENT_CHARACTER_CELLS) {
-        return [
-            ...leftLines.map((left) => ({ left })),
-            ...rightLines.map((right) => ({ right }))
-        ];
+        // Reindentation can make a large hunk without requiring fuzzy scoring.
+        // Split at cheap normalized matches, then score only bounded gaps.
+        return alignLargeReplacementLines(leftLines, rightLines, true);
     }
     if (leftLines.length === 1 && rightLines.length === 1) {
         const singletonScore = scoreReplacementLinePair(leftLines[0], rightLines[0]);
-        if ((singletonScore.eligible || singletonScore.score >= MINIMUM_SINGLE_PAIR_SCORE)
+        if ((!leftLines[0].trim() && !rightLines[0].trim()) || ((singletonScore.eligible || singletonScore.score >= MINIMUM_SINGLE_PAIR_SCORE)
             && hasCredibleLineCorrespondence(leftLines[0], rightLines[0])
             && haveCompatibleLineRoles(leftLines[0], rightLines[0])
             && isInformativeLine(normalizeMatchingContent(leftLines[0]))
-            && isInformativeLine(normalizeMatchingContent(rightLines[0]))) {
+            && isInformativeLine(normalizeMatchingContent(rightLines[0])))) {
             return [{ left: leftLines[0], right: rightLines[0] }];
         }
         return [{ left: leftLines[0] }, { right: rightLines[0] }];
@@ -642,6 +690,16 @@ export function scoreReplacementLinePair(left: string, right: string): Replaceme
     const leftInformative = isInformativeLine(normalizedLeft);
     const rightInformative = isInformativeLine(normalizedRight);
 
+    if (leftInformative && rightInformative && normalizedLeft === normalizedRight) {
+        return {
+            score: 1,
+            eligible: true,
+            characterSimilarity: 1,
+            tokenSimilarity: 1,
+            lengthSimilarity: 1
+        };
+    }
+
     if (!leftInformative || !rightInformative
         || normalizedLeft.length > MAX_SCORING_LINE_LENGTH
         || normalizedRight.length > MAX_SCORING_LINE_LENGTH) {
@@ -651,16 +709,6 @@ export function scoreReplacementLinePair(left: string, right: string): Replaceme
             characterSimilarity: 0,
             tokenSimilarity: 0,
             lengthSimilarity: 0
-        };
-    }
-
-    if (normalizedLeft === normalizedRight) {
-        return {
-            score: 1,
-            eligible: true,
-            characterSimilarity: 1,
-            tokenSimilarity: 1,
-            lengthSimilarity: 1
         };
     }
 
@@ -903,8 +951,15 @@ function rankEligibleScores(scores: ReplacementLineScore[]): { best: number; sec
     return { best, second };
 }
 
-function alignLargeReplacementLines(leftLines: string[], rightLines: string[]): AlignedReplacementLine[] {
-    const anchors = collectLargeHunkAnchors(leftLines, rightLines);
+function alignLargeReplacementLines(
+    leftLines: string[],
+    rightLines: string[],
+    exactOnly = false
+): AlignedReplacementLine[] {
+    const anchors = collectLargeHunkAnchors(leftLines, rightLines, exactOnly);
+    if (anchors.length === 0) {
+        return [...leftLines.map((left) => ({ left })), ...rightLines.map((right) => ({ right }))];
+    }
     const aligned: AlignedReplacementLine[] = [];
     let leftStart = 0;
     let rightStart = 0;
@@ -925,9 +980,10 @@ function alignLargeReplacementLines(leftLines: string[], rightLines: string[]): 
 
 function collectLargeHunkAnchors(
     leftLines: string[],
-    rightLines: string[]
+    rightLines: string[],
+    exactOnly: boolean
 ): Array<{ leftIndex: number; rightIndex: number }> {
-    const candidatePairs = collectRareTokenCandidatePairs(leftLines, rightLines);
+    const candidatePairs = collectRareTokenCandidatePairs(leftLines, rightLines, exactOnly);
     if (candidatePairs === null) {
         return [];
     }
@@ -974,7 +1030,8 @@ interface ReplacementAnchorCandidate {
 
 function collectRareTokenCandidatePairs(
     leftLines: string[],
-    rightLines: string[]
+    rightLines: string[],
+    exactOnly: boolean
 ): Array<{ leftIndex: number; rightIndex: number; exact: boolean }> | null {
     const leftExact = buildLinePostings(leftLines, normalizeMatchingContent);
     const rightExact = buildLinePostings(rightLines, normalizeMatchingContent);
@@ -991,6 +1048,10 @@ function collectRareTokenCandidatePairs(
         if (pairs.size > MAX_BOUNDED_CANDIDATES) {
             return null;
         }
+    }
+
+    if (exactOnly) {
+        return [...pairs.values()];
     }
 
     const leftTokens = buildTokenPostings(leftLines);
@@ -1256,6 +1317,15 @@ function lineSimilarity(left: string, right: string): number {
 }
 
 function applyInlineHighlightPair(leftLine: DiffLine, rightLine: DiffLine): void {
+    // Whitespace-only changes need no quadratic diff, even on very long lines.
+    const whitespace = buildWhitespaceOnlySegments(leftLine.content, rightLine.content);
+    if (whitespace) {
+        if (leftLine.content !== rightLine.content) {
+            leftLine.segments = whitespace.leftSegments;
+            rightLine.segments = whitespace.rightSegments;
+        }
+        return;
+    }
     if (leftLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH
         || rightLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH) {
         return;
@@ -1301,7 +1371,7 @@ function buildInlineSegments(
             continue;
         }
 
-        const emphasis = /[^\s]/.test(value);
+        const emphasis = value.length > 0;
         hasInlineChanges = hasInlineChanges || emphasis;
 
         if (change.removed) {
@@ -1326,6 +1396,56 @@ function buildInlineSegments(
         rightSegments,
         hasInlineChanges
     };
+}
+
+function buildWhitespaceOnlySegments(left: string, right: string): {
+    leftSegments: DiffSegment[]; rightSegments: DiffSegment[];
+} | undefined {
+    const leftParts = left.split(/(\S+)/);
+    const rightParts = right.split(/(\S+)/);
+    if (leftParts.length !== rightParts.length
+        || leftParts.some((part, index) => index % 2 === 1 && part !== rightParts[index])) return undefined;
+    const leftSegments: DiffSegment[] = [];
+    const rightSegments: DiffSegment[] = [];
+    const append = (segments: DiffSegment[], kind: DiffSegment['kind'], text: string): void => {
+        if (!text) return;
+        const previous = segments[segments.length - 1];
+        if (previous?.kind === kind) previous.text += text;
+        else segments.push({ kind, text, emphasis: kind !== 'context' });
+    };
+    leftParts.forEach((part, index) => {
+        const other = rightParts[index];
+        let prefix = 0;
+        // Anchor indentation to the first token: added/removed leading spaces
+        // belong at the start of the line, not beside the first character.
+        if (index > 0) {
+            while (prefix < Math.min(part.length, other.length) && part[prefix] === other[prefix]) prefix++;
+        }
+        let suffix = 0;
+        while (suffix < Math.min(part.length, other.length) - prefix
+            && part[part.length - suffix - 1] === other[other.length - suffix - 1]) suffix++;
+        if (index === 0) {
+            while (prefix < Math.min(part.length, other.length) - suffix && part[prefix] === other[prefix]) prefix++;
+        }
+        append(leftSegments, 'context', part.slice(0, prefix));
+        append(rightSegments, 'context', other.slice(0, prefix));
+        append(leftSegments, 'removed', part.slice(prefix, part.length - suffix));
+        append(rightSegments, 'added', other.slice(prefix, other.length - suffix));
+        append(leftSegments, 'context', part.slice(part.length - suffix));
+        append(rightSegments, 'context', other.slice(other.length - suffix));
+    });
+    return { leftSegments, rightSegments };
+}
+
+function splitSegmentsIntoLines(segments: DiffSegment[]): DiffSegment[][] {
+    const lines: DiffSegment[][] = [[]];
+    for (const segment of segments) {
+        segment.text.split('\n').forEach((text, index) => {
+            if (index > 0) lines.push([]);
+            if (text) lines[lines.length - 1].push({ ...segment, text });
+        });
+    }
+    return lines;
 }
 
 function makePlaceholder(): DiffCell {

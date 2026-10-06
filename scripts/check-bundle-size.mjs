@@ -4,7 +4,8 @@ const budgets = [
     { path: 'media/webview.js', maxBytes: 3_910_000 },
     { path: 'media/webview.css', maxBytes: 375_000 },
     { path: 'media/editor.worker.js', maxBytes: 320_000 },
-    { path: 'media/diff.worker.js', maxBytes: 19_000 },
+    // Includes whitespace range highlighting and paragraph reflow matching.
+    { path: 'media/diff.worker.js', maxBytes: 20_500 },
     // Includes the offline authoring skill, semantic links, and portable history adapter.
     { path: 'web/web-host.js', maxBytes: 180_000 },
     { path: 'web/presenter.css', maxBytes: 36_000 }

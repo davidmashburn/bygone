@@ -192,7 +192,7 @@
     "icons:generate": "node ./scripts/generate-icons.mjs",
     "package:vsix": "node ./scripts/check-vsix-contents.mjs && vsce package",
     "standalone:start": "npm run compile && node ./scripts/run-electron.mjs ./out/standalone-main.js",
-    "standalone:smoke": "npm run compile && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-multi && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-directory && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-directory-history && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-workspace",
+    "standalone:smoke": "npm run compile && node scripts/run-electron.mjs standalone/diffRegressionSmoke.js && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-multi && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-directory && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-directory-history && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-workspace",
     "walkthrough:refresh": "node ./scripts/refresh-walkthrough-screenshots.mjs",
     "web:start": "npm run compile && node ./scripts/web-server.mjs",
     "package:desktop": "npm run package:desktop:mac",
@@ -221,7 +221,8 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "watch": "tsc -watch -p ./",
-    "test": "npm run compile && node ./test/runTests.js && node --test ./test/deepLink.test.js ./test/tourExport.test.js ./test/tourProse.test.js ./test/tourReading.test.js ./test/tourZoomSession.test.js ./test/tourComparison.test.js ./test/tourHistory.test.js ./test/changeTourAuthoredModes.test.js ./test/renderCompleteToken.test.js ./test/tourDirectoryOverview.test.js ./test/tourDirectoryEvidence.test.js ./test/workspace*.test.js",
+    "test": "npm run compile && node ./test/runTests.js && node --test ./test/diffRegression.test.js ./test/deepLink.test.js ./test/tourExport.test.js ./test/tourProse.test.js ./test/tourReading.test.js ./test/tourZoomSession.test.js ./test/tourComparison.test.js ./test/tourHistory.test.js ./test/changeTourAuthoredModes.test.js ./test/renderCompleteToken.test.js ./test/tourDirectoryOverview.test.js ./test/tourDirectoryEvidence.test.js ./test/workspace*.test.js",
+    "test:diff-renderer": "npm run compile && node scripts/run-electron.mjs standalone/diffRegressionSmoke.js",
     "test:export-smoke": "npm run compile && node scripts/run-electron.mjs standalone/exportSmoke.js"
   },
   "build": {
