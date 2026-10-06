@@ -8,8 +8,10 @@ const { setTimeout, clearTimeout } = require('node:timers');
 const { runTourReadingSmoke } = require('./tourReadingSmoke.js');
 const { runLinkPreviewSmoke } = require('./linkPreviewSmoke.js');
 const { runPanelSwitchSmoke } = require('./panelSwitchSmoke.js');
+const { serializeDeepLink } = require('../out/deepLink');
+const { pathToFileURL } = require('node:url');
 
-async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, openTour, openTourWindow }) {
+async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, openTour, openTourWindow, openLink, latestTourWindow, navigation }) {
     const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-workspace-smoke-')));
     const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
     const evaluate = (code) => window().webContents.executeJavaScript(code, true).catch((error) => {
@@ -29,6 +31,17 @@ async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, ope
             git('add', '.'); git('commit', '-m', `Revision ${i}`);
             revisions.push(git('rev-parse', 'HEAD').toString().trim());
         }
+        const comparisonLink = { kind: 'compare', repo: pathToFileURL(root).href,
+            revisions: [revisions[0], revisions[3]], file: 'one.txt', revision: revisions[3], line: 2 };
+        await openLink(serializeDeepLink(comparisonLink));
+        await waitFor("document.querySelectorAll('.monaco-editor').length >= 2");
+        assert.equal(session().source.kind, 'git-refs');
+        assert.equal(session().source.readOnly, true);
+        assert.deepEqual(session().source.resolvedRevisions, comparisonLink.revisions);
+        assert.equal((await navigation()).editorStates.right.selection.startLineNumber, 2, 'Cold link reveals the exact requested line');
+        const linkedSession = session();
+        await assert.rejects(openLink(serializeDeepLink({ ...comparisonLink, line: 1000 })), /outside/);
+        assert.equal(session(), linkedSession, 'Invalid targets preserve the current comparison');
         await runPanelSwitchSmoke({ browserContents: window().webContents, openMulti });
         await open(path.join(root, 'one.txt'), path.join(root, 'two.txt'));
         await waitFor("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && document.querySelectorAll('.monaco-editor').length >= 2");
@@ -452,7 +465,25 @@ async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, ope
         await evaluate("document.querySelector('[data-workspace-mode=history]').click()");
         await waitFor("document.querySelector('[data-workspace-mode=history][aria-pressed=true]')");
         assert.ok(session().multi.files.every((panel) => panel.editable === false));
-        console.log('Workspace smoke passed: link URL tooltips, hover/context/keyboard previews, blocked-header native previews in workspace/embedded/native tours, native editing context menus with system-action frames, navigation and cleanup, short prompts, native Markdown save/select, protected bundled skill, browser custom instructions/download, preserved drafts, History/Compare round trips, same-window tour, and read-only preservation.');
+        await openLink(serializeDeepLink({ ...comparisonLink, revision: revisions[0], line: 1 }));
+        await waitFor("document.querySelectorAll('.monaco-editor').length >= 2");
+        assert.equal((await navigation()).editorStates.left.selection.startLineNumber, 1);
+        const tourLink = { kind: 'tour', repo: pathToFileURL(root).href, tour: 'smoke.bygone', mode: 'historical',
+            focus: { part: 'step', scene: 'scene-two', step: 'step-two-b' } };
+        await openLink(serializeDeepLink(tourLink));
+        const linkedTour = latestTourWindow();
+        try {
+            await linkedTour.webContents.executeJavaScript(`new Promise((resolve, reject) => {
+                const started = Date.now(); const check = () => {
+                    if (document.activeElement.dataset.readingKey === 'step:scene-two:step-two-b') resolve();
+                    else if (Date.now() - started > 10000) reject(new Error('Linked tour target did not render'));
+                    else requestAnimationFrame(check);
+                }; check();
+            })`);
+            await assert.rejects(openLink(serializeDeepLink({ ...tourLink, focus: { ...tourLink.focus, step: 'missing' } })), /unavailable/);
+            assert.equal(latestTourWindow(), linkedTour, 'Missing sections do not open another window');
+        } finally { linkedTour.destroy(); }
+        console.log('Workspace smoke passed: cold/warm comparison links, exact line focus, semantic tour links and fail-closed recovery; link URL tooltips, hover/context/keyboard previews, blocked-header native previews in workspace/embedded/native tours, native editing context menus with system-action frames, navigation and cleanup, short prompts, native Markdown save/select, protected bundled skill, browser custom instructions/download, preserved drafts, History/Compare round trips, same-window tour, and read-only preservation.');
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }

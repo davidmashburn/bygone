@@ -1377,3 +1377,6 @@ body.tour-directory-file-open #file-info { display: none; }
     border-radius: 2px;
     background: var(--bygone-tour-range-color, #a99bf5);
 }
+
+.tour-copy-location { font-size: 12px; opacity: .75; margin-top: 8px; }
+.tour-link-target { outline: 2px solid var(--vscode-focusBorder, #68a9ef); outline-offset: -2px; }

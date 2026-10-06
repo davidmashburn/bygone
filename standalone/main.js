@@ -3,7 +3,9 @@ const os = require('os');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { execFileSync } = require('child_process');
-const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell, clipboard } = require('electron');
+const { resolveLocalDeepLink } = require('../src/deepLinkResolver.ts');
+const { serializeDeepLink } = require('../src/deepLink.ts');
 const { installLinkPreviewHost, openPreviewExternal } = require('./linkPreview.js');
 const { buildTwoWayDiffModel } = require('../src/diffEngine.ts');
 const { buildChangeAttention } = require('../src/changeAttention.ts');
@@ -95,6 +97,7 @@ const tourPresentations = new Map();
 const activeTourServers = new Set();
 let hostReady = false;
 let pendingMessage;
+let pendingLinkFocus;
 let closingForSave = false;
 let fileWatchers = [];
 let session = createEmptySession();
@@ -171,10 +174,24 @@ if (!singleInstanceLock) {
     app.quit();
 }
 
+const pendingDeepLinks = [];
+let deepLinkQueue = Promise.resolve();
+function enqueueDeepLink(value) {
+    deepLinkQueue = deepLinkQueue.then(() => openDeepLink(value)).catch(error => showError(`Could not open Bygone link: ${getErrorMessage(error)}\n\nRestore the required repository or revision, or open the current saved tour manually from File → Open Authored Tour. No replacement evidence was selected.`));
+    return deepLinkQueue;
+}
+app.on('open-url', (event, value) => {
+    event.preventDefault();
+    if (!app.isReady()) pendingDeepLinks.push(value);
+    else void enqueueDeepLink(value);
+});
+
 app.whenReady().then(async () => {
     installApplicationMenu();
     initializeAutoUpdates();
-    await openInitialLaunchTarget();
+    if (app.isPackaged) app.setAsDefaultProtocolClient('bygone');
+    if (pendingDeepLinks.length) for (const value of pendingDeepLinks.splice(0)) await enqueueDeepLink(value);
+    else await openInitialLaunchTarget();
 }).catch(async (error) => {
     ensureMainWindow();
     await showError(`Could not open Bygone: ${getErrorMessage(error)}`);
@@ -321,7 +338,10 @@ function createMainWindow({ show = !smokeTestMode && !workspaceSmokeMode } = {})
     pendingMessage = undefined;
     const expectedUrl = pathToFileURL(path.join(__dirname, '..', 'standalone', 'index.html')).toString();
     installLinkPreviewHost(mainWindow.webContents);
-    mainWindow.webContents.setWindowOpenHandler(openPreviewExternal);
+    mainWindow.webContents.setWindowOpenHandler(details => {
+        if (/^bygone:/i.test(details.url)) { void enqueueDeepLink(details.url); return { action: 'deny' }; }
+        return openPreviewExternal(details);
+    });
     mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
         if (navigationUrl !== expectedUrl) {
             event.preventDefault();
@@ -435,11 +455,12 @@ function ensureMainWindow() {
     }
 }
 
-async function openTourPresentation(args, cwd) {
+async function openTourPresentation(args, cwd, location) {
     let ownerWindow = null;
     const presentation = await startPresentation(args, cwd, packageRoot, {
         announce: false,
         open: false,
+        location,
         onNarrationClaim: () => claimTourNarration(ownerWindow)
     });
     activeTourServers.add(presentation.server);
@@ -487,7 +508,10 @@ async function showTourWindow(url, server, manifest, launch) {
     installApplicationMenu();
 
     installLinkPreviewHost(tourWindow.webContents);
-    tourWindow.webContents.setWindowOpenHandler(openPreviewExternal);
+    tourWindow.webContents.setWindowOpenHandler(details => {
+        if (/^bygone:/i.test(details.url)) { void enqueueDeepLink(details.url); return { action: 'deny' }; }
+        return openPreviewExternal(details);
+    });
     tourWindow.webContents.on('will-navigate', (event, navigationUrl) => {
         let navigationOrigin;
         try {
@@ -497,6 +521,7 @@ async function showTourWindow(url, server, manifest, launch) {
         }
         if (navigationOrigin !== tourOrigin) {
             event.preventDefault();
+            if (/^bygone:/i.test(navigationUrl)) void enqueueDeepLink(navigationUrl);
             if (/^https?:\/\//i.test(navigationUrl)) {
                 void shell.openExternal(navigationUrl);
             }
@@ -573,6 +598,7 @@ function closeTourServer(server) {
 }
 
 function focusLaunchTarget(launchTarget) {
+    if (launchTarget.kind === 'deep-link') return; // The resolved destination already received focus.
     const targetWindow = launchTarget.kind === 'tour' || launchTarget.kind === 'tour-document'
         ? latestTourWindow
         : mainWindow;
@@ -707,6 +733,20 @@ function installApplicationMenu() {
                 {
                     label: 'Open Authored Tour…',
                     click: () => runMenuAction('open an authored tour', openAuthoredTourDialog)
+                },
+                {
+                    label: 'Open Bygone Link from Clipboard',
+                    click: () => runMenuAction('open a link', () => enqueueDeepLink(clipboard.readText().trim()))
+                },
+                {
+                    label: 'Copy Local Comparison Link',
+                    enabled: session.source?.kind === 'git-refs' && session.source.resolvedRevisions?.length === 2
+                        && new Set(session.source.resolvedRevisions).size === 2
+                        && session.source.resolvedRevisions.every(oid => /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(oid)),
+                    click: () => runMenuAction('copy comparison link', async () => {
+                        const source = session.source;
+                        clipboard.writeText(serializeDeepLink({ kind: 'compare', repo: pathToFileURL(source.repoRoot).href, revisions: source.resolvedRevisions }));
+                    })
                 },
                 { type: 'separator' },
                 {
@@ -1347,6 +1387,7 @@ function getWindowStatePath() {
 }
 
 async function routeLaunchTarget(launchTarget) {
+    if (launchTarget.kind === 'deep-link') { await enqueueDeepLink(launchTarget.url); return; }
     if (launchTarget.kind === 'smoke-workspace') {
         ensureMainWindow();
         const timeout = setTimeout(() => app.exit(1), 60000);
@@ -1354,6 +1395,7 @@ async function routeLaunchTarget(launchTarget) {
             await require('./workspaceSmoke.js').runWorkspaceSmoke({
                 open: openDiff, openMulti: openMultiDiff, window: () => mainWindow, session: () => session, dialog,
                 openTour: () => workspace.handle({ type: 'workspaceOpenTour', kind: 'historical' }),
+                openLink: openDeepLink, latestTourWindow: () => latestTourWindow, navigation: requestRendererNavigationState,
                 openTourWindow: async (tourPath) => { await openAuthoredTourDocument(tourPath); return latestTourWindow; }
             });
             clearTimeout(timeout); app.exit(0);
@@ -1507,6 +1549,7 @@ function parseLaunchArgs(args) {
 
 function parseLaunchArgsCore(args) {
     const { cwd, launchArgs } = normalizeLaunchArgs(args);
+    if (launchArgs.length === 1 && /^bygone:/i.test(launchArgs[0])) return { kind: 'deep-link', url: launchArgs[0] };
     const includeStaged = launchArgs.some((arg) => tokenMatches('includeStaged', arg));
     let capturePath = null;
     let windowWidth = null;
@@ -1733,6 +1776,7 @@ async function handleRendererMessage(message) {
         } else {
             await sendCurrentSession();
         }
+        if (pendingLinkFocus) { postToRenderer(pendingLinkFocus); pendingLinkFocus = undefined; }
         return;
     }
 
@@ -6351,4 +6395,25 @@ function scheduleCaptureIfNeeded() {
     };
 
     setTimeout(attemptCapture, 700);
+}
+
+async function openDeepLink(value) {
+    pendingLinkFocus = undefined;
+    const { link, repoRoot, documentPath } = resolveLocalDeepLink(value);
+    if (link.kind === 'tour') {
+        await openTourPresentation(['--tour', documentPath], repoRoot, { mode: link.mode, focus: link.focus });
+        return;
+    }
+    ensureMainWindow();
+    const source = createGitRefsSource(repoRoot, link.revisions, true);
+    await openGitRefs(repoRoot, link.revisions, { source });
+    if (session.source?.kind !== 'git-refs' || session.source.repoRoot !== repoRoot
+        || JSON.stringify(session.source.refs) !== JSON.stringify(link.revisions)) return;
+    if (link.file) await openDirectoryEntry(link.file);
+    if (link.line) {
+        const focus = { type: 'revealSearchResult', sideIndex: link.revisions.indexOf(link.revision), lineNumber: link.line };
+        if (hostReady) postToRenderer(focus); else pendingLinkFocus = focus;
+    }
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show(); mainWindow.focus();
 }

@@ -1,3 +1,4 @@
+import { parseDocumentFragment, resolveDocumentFocus, serializeDocumentFragment, serializeDeepLink } from '../src/deepLink.ts';
 import { buildTwoWayDiffModel } from '../src/diffEngine.ts';
 import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
@@ -25,6 +26,11 @@ import { createWorkspaceControls } from '../media/workspaceControls.js';
 import { renderTourProse } from '../media/tourProse.js';
 
 (function initializeWebHost() {
+    let applyingDocumentLocation = false;
+    let documentLocationReady = false;
+    let documentNavigationId = 0;
+    let documentNavigationQueue = Promise.resolve();
+    let zoomSwitchQueue = Promise.resolve();
     const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
     const TOUR_SIDEBAR_MIN_WIDTH = 240;
     const TOUR_SIDEBAR_MAX_WIDTH = 600;
@@ -859,7 +865,13 @@ import { renderTourProse } from '../media/tourProse.js';
         return state.historyEntries.find((entry) => entry.commit === state.historyCommit)?.path || state.historyPath;
     }
 
-    async function switchZoomMode(mode, comparison, selectedPath) {
+    function switchZoomMode(mode, comparison, selectedPath) {
+        const pending = zoomSwitchQueue.then(() => performZoomSwitch(mode, comparison, selectedPath));
+        zoomSwitchQueue = pending.catch(() => {});
+        return pending;
+    }
+
+    async function performZoomSwitch(mode, comparison, selectedPath) {
         if (!state.zoom || state.zoomSwitching || mode === state.zoom.mode || !availableModes().includes(mode)) return;
         state.zoomSwitching = true;
         ++evidenceRequest;
@@ -898,6 +910,12 @@ import { renderTourProse } from '../media/tourProse.js';
                 }
             }
             updateTourLocationUrl();
+            if (documentLocationReady && !applyingDocumentLocation) {
+                const url = new URL(window.location.href);
+                url.hash = isNarrativeMode() ? serializeDocumentFragment(state.zoom.mode,
+                    focusForReadingItem(readingItems.find(item => item.key === state.readingKey))) : '';
+                window.history.replaceState(null, '', url);
+            }
         } catch (error) {
             zoomRestore = null;
             state.zoom.enter(previousMode);
@@ -1677,6 +1695,8 @@ import { renderTourProse } from '../media/tourProse.js';
                 throw new Error(`Manifest request failed (${response.status}).`);
             }
             const parsedTour = parseChangeTourManifest(await response.json());
+            const requestedDocumentLocation = parseDocumentFragment(window.location.hash);
+            if (requestedDocumentLocation) resolveDocumentFocus(parsedTour, requestedDocumentLocation.mode, requestedDocumentLocation.focus);
             const tours = authoredTours(parsedTour);
             const initialMode = tours.deconstructed ? 'deconstructed' : 'historical';
             const parsedHistoryEntries = supportsWorkspaceHistory(parsedTour)
@@ -1757,6 +1777,10 @@ import { renderTourProse } from '../media/tourProse.js';
             state.workspacePromptStatus = '';
             renderWorkspaceControls();
             setStatus('');
+            if (requestedDocumentLocation) await openDocumentLocation(requestedDocumentLocation);
+            else if (isNarrativeMode()) window.history.replaceState(null, '', serializeDocumentFragment(state.zoom.mode,
+                focusForReadingItem(readingItems.find(item => item.key === state.readingKey))));
+            documentLocationReady = true;
             return true;
         } catch (error) {
             Object.assign(state, previousState);
@@ -2641,6 +2665,74 @@ import { renderTourProse } from '../media/tourProse.js';
         }
     }
 
+
+    function focusForReadingItem(item) {
+        if (!item || item.kind === 'title') return { part: 'title' };
+        if (item.kind === 'chapter') return { part: 'chapter', chapter: item.chapterId };
+        const scene = state.tour.scenes[item.sceneIndex];
+        return item.kind === 'scene' ? { part: 'scene', scene: scene.id }
+            : { part: 'step', scene: scene.id, step: scene.steps[item.stepIndex].id };
+    }
+
+    function makeCopyLocationButton(focus) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'tour-copy-location';
+        button.textContent = 'Copy link';
+        button.title = state.authoredTour?.localSource ? 'Copy local link to the saved current document; evidence may change'
+            : 'Copy browser location (requires this presentation server)';
+        button.addEventListener('click', async () => {
+            const mode = isNarrativeMode() ? state.zoom.mode : Object.keys(authoredTours())[0];
+            const source = state.authoredTour.localSource;
+            const value = source ? serializeDeepLink({ kind: 'tour', ...source, mode, focus })
+                : new URL(serializeDocumentFragment(mode, focus), window.location.href).href;
+            try { await navigator.clipboard.writeText(value); button.textContent = 'Copied'; }
+            catch {
+                const dialog = document.createElement('dialog');
+                const label = document.createElement('p'); label.textContent = 'Copy this link:';
+                const field = document.createElement('textarea'); field.value = value; field.readOnly = true; field.setAttribute('aria-label', 'Link to this tour location');
+                const close = document.createElement('button'); close.textContent = 'Close'; close.addEventListener('click', () => dialog.close());
+                dialog.append(label, field, close); document.body.append(dialog);
+                dialog.addEventListener('close', () => dialog.remove(), { once: true }); dialog.showModal(); field.select();
+            }
+        });
+        return button;
+    }
+
+    function openDocumentLocation(location) {
+        const request = ++documentNavigationId;
+        const pending = documentNavigationQueue.then(() => applyDocumentLocation(location, request));
+        documentNavigationQueue = pending.catch(() => {});
+        return pending;
+    }
+
+    async function applyDocumentLocation(location, request) {
+        if (!location || !state.authoredTour) return;
+        const target = resolveDocumentFocus(state.authoredTour, location.mode, location.focus);
+        if (request !== documentNavigationId) return;
+        applyingDocumentLocation = true;
+        try {
+            if (state.zoom.mode !== location.mode) await switchZoomMode(location.mode);
+            if (request !== documentNavigationId) return;
+            if (state.zoom.mode !== location.mode) throw new Error('The requested tour mode could not be opened.');
+            zoomRestore = null;
+            showTourScene(target.sceneIndex, target.stepIndex, { readingKey: target.key, showIntro: location.focus.part !== 'step' });
+            await new Promise(resolve => window.requestAnimationFrame(resolve));
+            if (request !== documentNavigationId) return;
+            const element = readingElements.get(target.key);
+            if (!element) throw new Error('The requested document section could not be rendered.');
+            element.tabIndex = -1;
+            element.focus({ preventScroll: true });
+            element.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+            element.classList.add('tour-link-target');
+            window.setTimeout(() => element.classList.remove('tour-link-target'), 1800);
+        } finally { applyingDocumentLocation = false; }
+    }
+    window.addEventListener('hashchange', () => {
+        try { void openDocumentLocation(parseDocumentFragment(window.location.hash)).catch(reportModeError); }
+        catch (error) { reportModeError(error); }
+    });
+
     function updateTourLocationUrl() {
         const scene = state.tour?.scenes[state.activeSceneIndex];
         const parameters = new URLSearchParams(window.location.search);
@@ -2654,7 +2746,7 @@ import { renderTourProse } from '../media/tourProse.js';
             }
             if (state.zoom.mode === 'history' && state.historyCommit) parameters.set('commit', state.historyCommit);
             if (state.activeTourFilePath) parameters.set('file', state.zoom.mode === 'history' ? state.historyPath : state.activeTourFilePath);
-            window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
+            window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}${window.location.hash}`);
             return;
         }
         if (!scene) return;
@@ -2667,7 +2759,7 @@ import { renderTourProse } from '../media/tourProse.js';
         if (state.narrativeParent) parameters.set('view', state.narrativeParent);
         else if (step && state.sceneIntroVisible) parameters.set('view', 'overview');
         else parameters.delete('view');
-        window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}`);
+        window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}${window.location.hash}`);
     }
 
     function getActiveStepCodeTarget(scene = state.tour?.scenes[state.activeSceneIndex], stepIndex = state.activeStepIndex) {
@@ -2756,7 +2848,7 @@ import { renderTourProse } from '../media/tourProse.js';
     function buildReadingDocument() {
         if (readingTour === state.tour) return;
         readingTour = state.tour;
-        readingItems = buildTourReadingItems(state.tour);
+        readingItems = buildTourReadingItems(state.tour, true);
         readingElements.clear();
         const content = document.getElementById('tour-narrative-content');
         const field = (parent, tag, className, text, source, itemIndex) => {
@@ -2829,6 +2921,7 @@ import { renderTourProse } from '../media/tourProse.js';
                     code.append(button);
                 }
             }
+            element.append(makeCopyLocationButton(focusForReadingItem(item)));
             readingElements.set(item.key, element);
         }
         content.replaceChildren(...readingElements.values());
@@ -2874,6 +2967,9 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     function activateReadingItem(item, fromScroll = false) {
+        if (!fromScroll && !applyingDocumentLocation && isNarrativeMode()) {
+            window.history.pushState(null, '', serializeDocumentFragment(state.zoom.mode, focusForReadingItem(item)));
+        }
         return showTourScene(item.sceneIndex, item.stepIndex, {
             readingKey: item.key, showIntro: item.kind !== 'step',
             userNavigation: true, fromReadingScroll: fromScroll

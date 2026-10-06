@@ -1,10 +1,11 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
+const { buildSync } = require('esbuild');
 const { readFileSync } = require('node:fs');
 const { resolve } = require('node:path');
 // The browser module is ESM; a data URL keeps this CommonJS test independent
 // of build output and the package's module mode.
-const modulePromise = import('data:text/javascript;base64,' + Buffer.from(readFileSync(resolve(__dirname, '../media/tourProse.js'))).toString('base64'));
+const modulePromise = import('data:text/javascript;base64,' + Buffer.from(buildSync({ entryPoints: [resolve(__dirname, '../media/tourProse.js')], bundle: true, write: false, format: 'esm' }).outputFiles[0].contents).toString('base64'));
 const document = {
     createTextNode(text) { return { textContent: text }; },
     createElement(tag) {
@@ -56,4 +57,13 @@ test('retains URL parentheses instead of silently truncating the destination', a
     const nodes = renderTourProse(document, '[reference](https://example.com/topic_(detail))');
     assert.equal(visibleText(nodes), 'reference');
     assert.equal(nodes[0].href, 'https://example.com/topic_(detail)');
+});
+
+
+test('renders validated Bygone links and leaves unsupported link payloads as text', async () => {
+    const { renderTourProse } = await modulePromise;
+    const { serializeDeepLink } = require('../out/deepLink');
+    const link = serializeDeepLink({ kind: 'tour', repo: 'file:///tmp/repo', tour: 'tour.bygone', mode: 'historical', focus: { part: 'title' } });
+    assert.equal(renderTourProse(document, `[Open tour](${link})`)[0].href, link);
+    assert.equal(renderTourProse(document, '[Invalid](bygone://unknown/v9)')[0].tag, undefined);
 });
