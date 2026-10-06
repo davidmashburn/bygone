@@ -35,8 +35,8 @@ inspect its contents, then return to the directory. This keeps the question
 ### Find without abandoning the comparison
 
 Search helps when you know a name or phrase but not its location. Choose the
-scope before interpreting the results: an active pane, visible panes, and the
-whole comparison answer different questions. A result takes you back to the
+scope before interpreting the results: visible panes, all comparison panels, the
+current change set, and Git history answer different questions. A result takes you back to the
 matching evidence. Replacement is a separate operation and depends on whether
 the target is writable.
 
@@ -44,11 +44,11 @@ the target is writable.
 
 ### Begin with repository history
 
-Directory history combines the file inventory with the commit axis. Files and
-Commits are two ways to choose your next question. Revision labels identify the
+Repository history combines file navigation with the commit axis. Here, the
+latest commit adds CHANGELOG.md: the earlier pane is explicitly absent. Files
+and Commits are two ways to choose your next question. Revision labels identify the
 snapshots being compared; commit-list selections are a draft until you apply
-them. You can stay at repository level until a particular file deserves a
-closer look.
+them. The numbered badges show which revisions occupy the comparison panels.
 
 ### Follow a file through real revisions
 
@@ -74,7 +74,7 @@ A tour adds a written argument to the evidence. The outline groups chapters,
 scenes, and steps; the continuous narrative establishes the question before
 pointing at source. Scrolling the narrative advances the reading position.
 Scrolling the code lets you inspect the evidence without advancing the story.
-The Listen controls provide another way to follow the same explanation.
+The Narration controls provide another way to follow the same explanation.
 
 ### Keep the explanation beside its evidence
 
@@ -110,11 +110,13 @@ tour inspectable and repeatable.
 
 ### Share a particular place or a portable view
 
-The small link beside a document heading identifies a particular place in the
-tour. Local desktop links still depend on the referenced repository and tour
+Heading links identify a particular place in the tour. This screenshot shows
+the other sharing route: an exported HTML document with Tour details expanded. Local desktop links still depend on the referenced repository and tour
 being available. An HTML export is the portable reading option: minimal exports
 keep the tour evidence, while full exports also include bounded history.
-Choose based on how much independent exploration the recipient needs.
+The notice here identifies a minimal snapshot and an embedded viewer requiring
+no internet. Choose based on how much independent exploration the recipient
+needs; CDN-backed exports instead require internet for their pinned viewer.
 
 ### Stay near the editor in VS Code
 
