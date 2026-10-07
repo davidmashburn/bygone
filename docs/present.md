@@ -245,4 +245,10 @@ and meaningful alt text. PNGs are limited to 8 MiB, 16,384 pixels per dimension,
 and 64 megapixels. **Expand image** opens an enlarged view; Escape closes it.
 Returning to a code step, file, or comparison restores the regular workspace.
 
+Tours made entirely of image steps start on their first image. Their title,
+chapter, and scene headings remain in the reading document, but Next/Previous
+visits only image steps. Selecting a heading displays its first image instead
+of an automatic directory overview. Mixed code/image tours retain the usual
+overview navigation.
+
 See the [visual walkthrough](visual-walkthrough/README.md) for a complete example.

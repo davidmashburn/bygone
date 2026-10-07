@@ -66,12 +66,22 @@ export function buildTourReadingItems(
 export function getTourReadingTarget(
     items: readonly TourReadingItem[],
     key: string,
-    direction: -1 | 1
+    direction: -1 | 1,
+    stepsOnly = false
 ): TourReadingItem | null {
     if (direction !== -1 && direction !== 1) return null;
     const index = items.findIndex((item) => item.key === key);
     if (index < 0) return null;
-    return items[index + direction] ?? null;
+    for (let next = index + direction; next >= 0 && next < items.length; next += direction) {
+        if (!stepsOnly || items[next].kind === 'step') return items[next];
+    }
+    return null;
+}
+
+/** A screenshot guide has structural headings, but only its images are stops. */
+export function isImageOnlyTour(tour: Pick<ChangeTourManifest, 'scenes'>): boolean {
+    return tour.scenes.length > 0 && tour.scenes.every(scene => scene.kind === 'walkthrough'
+        && scene.steps.length > 0 && scene.steps.every(step => Boolean(step.image)));
 }
 
 /**

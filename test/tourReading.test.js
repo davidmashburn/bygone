@@ -3,8 +3,29 @@ const { test } = require('node:test');
 const {
     buildTourReadingItems,
     getTourReadingTarget,
+    isImageOnlyTour,
     resolveTourReadingItem
 } = require('../out/tourReading.js');
+
+test('image-only guides skip structural stops in both directions without changing code tours', () => {
+    const tour = {
+        chapters: [{ id: 'one', sceneIds: ['a'] }, { id: 'two', sceneIds: ['b'] }],
+        scenes: [scene('a', 'walkthrough', [{ id: 'a1', image: {} }, { id: 'a2', image: {} }]),
+            scene('b', 'walkthrough', [{ id: 'b1', image: {} }])]
+    };
+    assert.equal(isImageOnlyTour(tour), true);
+    const items = buildTourReadingItems(tour);
+    assert.equal(getTourReadingTarget(items, 'title', 1, true).key, 'step:a:a1');
+    assert.equal(getTourReadingTarget(items, 'step:a:a2', 1, true).key, 'step:b:b1');
+    assert.equal(getTourReadingTarget(items, 'step:b:b1', -1, true).key, 'step:a:a2');
+    assert.equal(getTourReadingTarget(items, 'step:a:a1', -1, true), null);
+    assert.equal(getTourReadingTarget(items, 'step:b:b1', 1, true), null);
+    assert.equal(getTourReadingTarget(items, 'step:a:a2', 1).kind, 'chapter');
+    delete tour.scenes[1].steps[0].image;
+    assert.equal(isImageOnlyTour(tour), false);
+    assert.equal(isImageOnlyTour({ scenes: [] }), false);
+    assert.equal(isImageOnlyTour({ scenes: [scene('empty', 'walkthrough', [])] }), false);
+});
 
 function scene(id, kind, steps = undefined) {
     return steps === undefined ? { id, kind } : { id, kind, steps };
