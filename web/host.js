@@ -12,7 +12,7 @@ import {
     resolveTourPosition
 } from '../src/tourNavigation.ts';
 import { buildTourNarrationUnit } from '../src/tourNarration.ts';
-import { buildTourReadingItems, getTourReadingTarget, resolveTourReadingItem } from '../src/tourReading.ts';
+import { buildTourReadingItems, getTourReadingTarget, isImageOnlyTour, resolveTourReadingItem } from '../src/tourReading.ts';
 import { TourNarrationController } from '../src/tourNarrationPlayback.ts';
 import { searchTour } from '../src/tourSearch.ts';
 import {
@@ -2069,8 +2069,11 @@ import { renderTourProse } from '../media/tourProse.js';
         state.directoryEvidence = null;
         renderDirectoryOverviewBreadcrumb();
         buildReadingDocument();
-        const readingItem = readingItems.find((item) => item.key === options.readingKey)
+        let readingItem = readingItems.find((item) => item.key === options.readingKey)
             || resolveTourReadingItem(readingItems, index, stepIndex, options.showIntro ? 'overview' : null);
+        if (readingItem && readingItem.kind !== 'step' && isImageOnlyTour(tour)) {
+            readingItem = resolveTourReadingItem(readingItems, readingItem.sceneIndex, 0);
+        }
         if (readingItem) {
             index = readingItem.sceneIndex;
             stepIndex = readingItem.stepIndex;
@@ -2136,6 +2139,7 @@ import { renderTourProse } from '../media/tourProse.js';
     function showTourDirectoryOverview() {
         const scene = state.tour?.scenes[state.activeSceneIndex];
         if (!isNarrativeMode() || !scene) return false;
+        if (isImageOnlyTour(state.tour)) return false;
         if (!state.narrativeParent && scene.kind === 'text-diff') return false;
         // The title describes the full tour; scene overviews retain their exact
         // authored comparison (including synthetic intermediate snapshots).
@@ -2334,7 +2338,7 @@ import { renderTourProse } from '../media/tourProse.js';
 
     function showTourLinear(direction) {
         if (!isNarrativeMode()) return false;
-        const target = getTourReadingTarget(readingItems, state.readingKey, direction);
+        const target = getTourReadingTarget(readingItems, state.readingKey, direction, isImageOnlyTour(state.tour));
         if (!target) return false;
         activateReadingItem(target);
         return true;

@@ -14,9 +14,11 @@ npm run compile
 BYGONE_FORCE_BUNDLED=1 node bin/bygone.js present --tour docs/visual-walkthrough/walkthrough.bygone
 ```
 
-The command opens a local browser presentation. Select **Two files, one visual
-comparison** in the outline to begin. Read down the narrative or select each
-step in the outline; each step replaces the evidence area with its screenshot.
+The command opens a local browser presentation on **Two files, one visual
+comparison**. Read down the narrative or select each step in the outline;
+each step replaces the evidence area with its screenshot. Next/Previous moves
+through the 15 images, skipping the structural headings as separate stops.
+Chapter and scene links open their first image, without a file inventory.
 **Expand image** makes the screenshot larger; Escape closes it. The controls
 inside a screenshot are illustrative, not interactive.
 
