@@ -26,6 +26,9 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [Text-block move tracking](text-block-move-tracking.md) — scope moves, copies,
+  edited blocks, ambiguity, accounting, and presentation, with
+  [open-source and academic research](text-block-move-tracking-research.md).
 - [HTML tour exports](self-contained-html-tours.md) — Minimal/Full snapshots,
   bounded Git history, and pinned CDN or embedded offline viewers.
 - [Deep links to Bygone views](deep-linking.md) — versioned source/view/focus
