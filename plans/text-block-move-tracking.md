@@ -2,7 +2,10 @@
 
 ## Status
 
-Draft scope, researched 2026-10-07. No implementation or dependency selection.
+Draft scope, researched 2026-10-07. Slice 0's exact-only analyzer, corpus,
+and Git baseline report exist on the uncommitted development branch
+`feat/move-tracking-slice0`; see [slice 0 findings](#slice-0-findings-2026-10-08).
+No UI or dependency selection.
 The [research notes](text-block-move-tracking-research.md) compare open-source
 implementations and academic work, with primary-source links and limitations.
 
@@ -81,6 +84,12 @@ new occurrence, cardinality establishes a disappearance but often not which
 occurrence survived. For one disappearing occurrence and two new copies,
 report ambiguous fan-out unless context establishes a continuation. Never
 resolve these by an arbitrary source-order tie-break disguised as confidence.
+
+Convention, confirmed in slice 0: when two backbones are equally long, the
+current Myers engine keeps the block that appears first in the left snapshot,
+and the later block is reported as moved. Slice 1 adds no content-based
+tie-break; a symmetric "reordered with" label for gate-passing ties is a
+deferred presentation option.
 
 ## Scope and delivery slices
 
@@ -378,11 +387,59 @@ Acceptance gates:
    worker bundle checks, diff/scroll/copy regressions, performance corpus, and
    host interaction smoke checks. No such checks were run for this plan.
 
+## Slice 0 findings (2026-10-08)
+
+Evidence: the exact analyzer on the last 400 non-merge commits of Bygone,
+marimo, and Hamilton (1,143 commits; about 7,100 modified-file pairs). Exact
+matching only; boundary measurements skipped 289 pairs over 3,000 lines,
+including Bygone's largest files. A handful of cases were reviewed manually.
+
+- **Volume.** With size gates disabled, 440 exact moves; 77 pass the default
+  gates. Reportable exact moves are uncommon, roughly one per 15 commits.
+- **Backbone ties are not a slice 1 problem.** 53 moves (12%) sit on an equally
+  long alternative backbone, but 52 are one- or two-line swaps that neither
+  side's gate would report. One gate-passing tie occurred (Bygone `2b5add94`:
+  an inline return type extracted into an interface); both sides were equally
+  distinctive, so a "prefer the distinctive block" rule could not resolve it.
+  No tie hid a distinctive block while reporting filler.
+- **Boundary truncation is mostly a diff-quality issue, not a tie.** 103 moves
+  keep an identical boundary line in the backbone; 72% of those lines are
+  blank or punctuation-only. An equally long alignment could release the line
+  in 31% of cases; the rest would cost a matched line, because Myers reuses a
+  deleted block's closing lines for an unrelated block added at the same site.
+  Equal-cost release would make about five more moves reportable in the
+  sample. A prototype that swapped single identical pairings changed 15 file
+  pairs and made no new move reportable, so it was discarded.
+  Three original fixtures record the pattern for a function, TOML array, and
+  YAML property; Git's default `--color-moved` truncates them identically.
+- **Git baseline.** Git does not report copies, misses moved non-Latin prose
+  under its ASCII-oriented size gate, treats CRLF and LF lines as different,
+  and colors ambiguous fan-out and competing origins as moves.
+- **Copies dominate, and are mostly idiom.** At default gates the sample has
+  91 exact moves in 39 commits but 531 exact copies in 186 commits, plus 280
+  unresolved groups. In about 25 sampled copies, roughly six looked like
+  deliberate duplication of a whole unit (a class body, method signature, or
+  fixture); the rest were recurring fragments such as keyword-argument lists,
+  CSS declarations, test assertions, and builder chains. These are textually
+  exact, but "Copied from" overstates provenance for them. Before any UI, decide
+  whether copies need a stricter structural gate, a weaker label such as "also
+  appears at", or removal from the first release.
+- **Gate observation.** Short configuration blocks, such as a four-line TOML
+  array, can fall below the 40-character gate. Include them in the threshold
+  sweep rather than lowering the gate from one example.
+
+Decisions: keep the base diff unchanged for slice 1, document the tie
+convention, and accept boundary truncation as a known limitation. If brace and
+blank-line reuse is worth fixing, scope it as a separate diff-quality proposal
+judged by the existing diff regression fixtures, since it changes every
+ordinary diff.
+
 ## Next step and decisions to resolve with evidence
 
-Implement slice 0 on a development branch based on `main`: fixture corpus,
-diagnostic relation output, accounting invariants, and a small UI prototype.
-Keep this orphan planning branch out of implementation history.
+Slice 0's analyzer, corpus, invariants, and Git baseline exist. Its remaining
+work is the small UI prototype, latency/memory measurement with stress cases,
+and the threshold sweep. Keep this orphan planning branch out of
+implementation history.
 
 Use that spike to decide the single-line exception, minimum distinctive block
 size, exact score/margin defaults, latency/work limits, and whether edited
