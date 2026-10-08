@@ -51,3 +51,24 @@ revisions, including empty trees, renames, deletions, and staged/working copies.
 Unchanged files remain selectable from Files. The native workspace smoke checks
 Files beside Commits, controls above the left navigator, and scene-title
 expansion without changing the active passage or code evidence.
+
+# Move tracking coverage
+
+`moveTrackingCorpus.js` is the slice 0 corpus for exact text-block move
+tracking: moves, copies from retained text, swaps, shifted-but-unmoved blocks,
+duplicate and fan-out ambiguity, boilerplate gates, a long distinctive single
+line, non-Latin prose, CRLF, and edited/reindented/reflowed moves whose
+eventual `target` needs a later slice. The base diff's retained backbone
+decides what can move, so each fixture has a unique longest backbone; a tie
+legitimately lets unrelated filler lines be reported as the moved block.
+Expectations are authored from the plan's meanings and allow alternatives only
+where several alignments are valid.
+Three known-limitation cases (a function, a TOML array, and a YAML property)
+record the base diff reusing a moved block's closing lines for a new neighbor;
+their `target` is the whole-block move a diff-quality change would need.
+
+`moveTracking.test.js` asserts those expectations plus accounting conservation,
+single incoming ownership of destinations, one continuation per removed source,
+direction symmetry, and explicit `unavailable` results for fallback diffs and
+exhausted work budgets. `npm run diagnose:moves` prints Bygone's relations
+beside Git's `--color-moved=blocks` baseline for each case.
