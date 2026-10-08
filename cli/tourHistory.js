@@ -2,6 +2,7 @@ const { execFileSync } = require('child_process');
 const { realpathSync } = require('fs');
 const { TextDecoder } = require('util');
 const path = require('path');
+const { buildHistoryDirectoryEntries } = require('../out/historyDirectory.js');
 const { parseNameStatusZ } = require('../out/gitComparison.js');
 
 const DEFAULT_HISTORY_MAX_FILE_BYTES = 2 * 1024 * 1024;
@@ -425,7 +426,11 @@ function createTourHistory(manifest) {
                     : git(root, ['diff', '--name-only', '--no-renames', '--no-ext-diff', '-z', ...pair, '--']);
                 output.split('\0').filter(Boolean).forEach(file => paths.add(file));
             }
-            return { paths: [...paths].sort() };
+            const changed = [...paths].sort();
+            return { paths: changed, ...(input.includeEntries ? {
+                entries: buildHistoryDirectoryEntries(changed, commits.map(commit => new Set(commit
+                    ? git(root, ['ls-tree', '-r', '--name-only', '-z', commit]).split('\0').filter(Boolean) : [])))
+            } : {}) };
         },
         compareMany(input) {
             input = requireInput(input);

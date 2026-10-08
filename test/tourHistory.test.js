@@ -33,6 +33,11 @@ test('v2 history follows renames, renders creation/deletion, and lands before an
         assert.deepEqual(history.changedFiles({ commits: [null, first] }).paths, ['before.txt']);
         assert.deepEqual(history.changedFiles({ commits: [first, rename] }).paths, ['after.txt', 'before.txt']);
         assert.deepEqual(history.changedFiles({ commits: [first, first] }).paths, []);
+        assert.deepEqual(history.changedFiles({ commits: [first, rename], includeEntries: true }).entries.map(({ relativePath, sides }) => ({ relativePath, sides })), [
+            { relativePath: 'after.txt', sides: [false, true] },
+            { relativePath: 'before.txt', sides: [true, false] }
+        ]);
+        assert.ok(history.changedFiles({ commits: [null, first], includeEntries: true }).entries.every(entry => entry.status === 'right-only'));
         const list = history.list({ path: 'after.txt', commit: unrelated });
         assert.equal(list.selectedCommit, rename);
         assert.match(list.fallback, /preceding/);
@@ -207,4 +212,17 @@ test('commit comparisons cover whole trees, scoped unchanged files, reverse endp
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }
+});
+
+test('history overview keeps nested directories together and distinguishes existing parents from added files', () => {
+    const { buildHistoryDirectoryEntries } = require('../out/historyDirectory');
+    const entries = buildHistoryDirectoryEntries(['z.txt', 'nested/added.txt', 'nested/deep/gone.txt'], [
+        new Set(['nested/keep.txt', 'nested/deep/gone.txt', 'z.txt']),
+        new Set(['nested/keep.txt', 'nested/added.txt', 'z.txt'])
+    ]);
+    assert.deepEqual(entries.map(entry => entry.relativePath), ['nested', 'nested/deep', 'nested/deep/gone.txt', 'nested/added.txt', 'z.txt']);
+    assert.deepEqual(entries[0].sides, [true, true]);
+    assert.equal(entries[2].status, 'left-only');
+    assert.equal(entries[3].status, 'right-only');
+    assert.deepEqual(buildHistoryDirectoryEntries([], [new Set(), new Set()]), []);
 });

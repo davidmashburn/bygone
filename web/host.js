@@ -153,7 +153,7 @@ import { renderTourProse } from '../media/tourProse.js';
             message = { ...message, renderRequestId: ++renderRequestId };
             if (state.mode === 'tour') {
                 state.displayedPanels = message.type === 'showMultiDiff' ? message.panels
-                    : twoWayCommitPanels();
+                    : state.zoom?.mode === 'history' ? state.historyPanels : twoWayCommitPanels();
                 if (!message.history) message.history = sharedCommitHistory();
                 renderWorkspaceControls();
             }
@@ -645,10 +645,10 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     async function showZoomHistory(path, commit, reload = true) {
+        commit = commit || state.historyCommit || state.authoredTour.range.headOid;
+        if (!path) return showZoomHistoryOverview(commit, reload);
         const request = ++evidenceRequest;
         const entries = state.historyEntries;
-        commit = commit || state.historyCommit || state.authoredTour.range.headOid;
-        if (!path) throw new Error('Choose a text file to explore its revisions.');
         const entry = entries.find((item) => item.commit === commit);
         if (state.historyPath === path && state.historyCommit === commit && state.historyPanels.length) {
             await renderZoomHistoryPanels();
@@ -658,7 +658,11 @@ import { renderTourProse } from '../media/tourProse.js';
         if (request !== evidenceRequest || state.zoom.mode !== 'history') return;
         if (reload && state.historyPanels.length && state.historyCommit === commit) {
             const panels = await Promise.all(state.historyPanels.map(async (panel) => {
-                const snapshot = panel.commit ? await historyRequest('diff', { path, commit: panel.commit, head: state.authoredTour.range.headOid }) : { rightContent: '', path };
+                // Reuse the selected diff's endpoints: a Full export can contain
+                // the parent snapshot without containing that parent's ancestry.
+                const snapshot = panel.commit === commit ? { rightContent: diff.rightContent, path: diff.path }
+                    : panel.commit === diff.parentCommit ? { rightContent: diff.leftContent, path: diff.previousPath || diff.path }
+                    : panel.commit ? await historyRequest('diff', { path, commit: panel.commit, head: state.authoredTour.range.headOid }) : { rightContent: '', path };
                 return { ...panel, content: snapshot.rightContent, path: snapshot.path };
             }));
             if (request !== evidenceRequest || state.zoom.mode !== 'history') return;
@@ -695,11 +699,37 @@ import { renderTourProse } from '../media/tourProse.js';
         updateTourLocationUrl();
     }
 
+    async function showZoomHistoryOverview(commit = state.historyCommit || state.authoredTour.range.headOid, retainPanels = true) {
+        const request = ++evidenceRequest;
+        const entry = state.historyEntries.find(item => item.commit === commit);
+        if (!entry) throw new Error('The selected revision is unavailable in this history.');
+        const panels = retainPanels && state.historyCommit === commit && state.historyPanels.length
+            ? state.historyPanels : [entry.parentCommit || null, commit].map(oid => ({
+                id: `history-${oid || 'empty'}`, commit: oid, content: '', editable: false,
+                label: oid ? oid.slice(0, 7) : 'Empty tree'
+            }));
+        const result = await historyRequest('changed-files', { commits: panels.map(panel => panel.commit || null), includeEntries: true });
+        if (request !== evidenceRequest || state.zoom.mode !== 'history') return;
+        state.historyCommit = commit;
+        state.historyPanels = panels;
+        state.historyFocus = panels.at(-1).id;
+        state.historyPath = null;
+        state.historyChangedFiles = new Set(result.paths);
+        state.activeTourFilePath = null;
+        updateTourFileSelection();
+        emit({ type: 'showDirectoryDiff', labels: panels.map(panel => panel.label),
+            leftLabel: panels[0].label, rightLabel: panels.at(-1).label, entries: result.entries, canMutate: false,
+            history: panelHistoryState(buildZoomHistoryState(state.historyEntries, commit, {}), panels.map(panel => panel.commit), commit) });
+        setDirectoryOverviewStatus(result.paths.length ? '' : 'No changed files for the selected revisions.');
+        renderComparisonControls();
+        updateTourLocationUrl();
+    }
+
     function buildZoomHistoryState(entries, commit, diff) {
         const index = entries.findIndex((item) => item.commit === commit);
         const entry = entries[index];
         return {
-            fileName: (state.historyPath || diff.path).split('/').pop(),
+            fileName: (state.historyPath || diff.path || 'Changed files').split('/').pop(),
             canGoBack: index >= 0 && index < entries.length - 1,
             canGoForward: index > 0,
             positionLabel: `${index + 1} / ${entries.length}`,
@@ -768,7 +798,7 @@ import { renderTourProse } from '../media/tourProse.js';
         const focus = panels.find((panel) => panel.id === state.historyFocus)?.commit;
         state.activeTourFilePath = state.historyPath;
         updateTourFileSelection();
-        emit({ type: 'showMultiDiff', panels, pairs: panels.slice(0, -1).map((panel, index) => ({ leftIndex: index, rightIndex: index + 1, diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content) })), activePanelId: state.historyFocus, mutationEnabled: true,
+        emit({ type: 'showMultiDiff', panels, pairs: panels.slice(0, -1).map((panel, index) => ({ leftIndex: index, rightIndex: index + 1, diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content) })), activePanelId: state.historyFocus, mutationEnabled: true, canReturnToDirectory: true,
             fileNavigation: { canGoPrevious: Boolean(getCurrentTourFileTarget(-1)), canGoNext: Boolean(getCurrentTourFileTarget(1)) },
             history: panelHistoryState(buildZoomHistoryState(state.historyEntries, state.historyCommit, state.historyDiff), panels.map((panel) => panel.commit), focus) });
     }
@@ -943,7 +973,7 @@ import { renderTourProse } from '../media/tourProse.js';
             document.getElementById('tour-mode-status').textContent = '';
             zoomRestore = landing.restore && !comparison ? landing.location : null;
             if (mode === 'history') {
-                await showZoomHistory(state.historyPath || landing.location.path || state.tour.files.find((file) => file.kind === 'text-diff')?.path, state.historyCommit || landing.location.commit);
+                await showZoomHistory(selectedPath || (landing.restore ? landing.location.path : null), state.historyCommit || landing.location.commit);
             } else if (mode === 'compare') {
                 await showComparison(comparison || state.compare || finalComparison(), selectedPath || landing.location.path || origin.path);
             } else {
@@ -1039,6 +1069,12 @@ import { renderTourProse } from '../media/tourProse.js';
         }
 
         if (state.mode === 'tour') {
+            if (state.zoom?.mode === 'history' && ['openDirectoryEntry', 'returnToDirectory'].includes(message.type)) {
+                cancelPendingModeRestore();
+                if (message.type === 'openDirectoryEntry' && !state.historyChangedFiles.has(message.relativePath)) return;
+                void showZoomHistory(message.type === 'returnToDirectory' ? null : message.relativePath, state.historyCommit).catch(reportModeError);
+                return;
+            }
             if (state.zoom?.mode === 'history' && ['multiAddPanel', 'multiRemovePanel'].includes(message.type)) {
                 void changeHistoryPanels(message).catch(reportModeError);
                 return;
@@ -1082,7 +1118,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 const entry = state.historyEntries[message.index];
                 if (entry && state.zoom?.mode === 'history') {
                     const panel = state.historyPanels.find((item) => item.commit === entry.commit);
-                    if (panel) { state.historyFocus = panel.id; emit({ type: 'focusHistoryPanel', panelId: panel.id }); }
+                    if (panel && state.historyPath) { state.historyFocus = panel.id; emit({ type: 'focusHistoryPanel', panelId: panel.id }); }
                     else void showZoomHistory(state.historyPath, entry.commit, false).catch(reportModeError);
                 }
                 if (entry && state.zoom?.mode !== 'history') {
@@ -1091,7 +1127,7 @@ import { renderTourProse } from '../media/tourProse.js';
                     else {
                         state.historyCommit = entry.commit;
                         state.historyPath = state.activeTourFilePath || state.historyPath;
-                        void switchZoomMode('history').catch(reportModeError);
+                        void switchZoomMode('history', undefined, state.activeTourFilePath).catch(reportModeError);
                     }
                 }
                 return;
@@ -1765,6 +1801,12 @@ import { renderTourProse } from '../media/tourProse.js';
             state.historyPrefix = nextHistoryPrefix;
             state.zoom = new TourZoomSession(initialMode);
             state.historyEntries = parsedHistoryEntries;
+            state.historyCommit = null;
+            state.historyPath = null;
+            state.historyPanels = [];
+            state.historyFocus = null;
+            state.historyDiff = null;
+            state.historyChangedFiles = new Set();
             if (state.zoom) state.tour = zoomTour(initialMode);
             state.mode = 'tour';
             document.body.classList.add('tour-mode');
@@ -1796,7 +1838,7 @@ import { renderTourProse } from '../media/tourProse.js';
                     state.tour = zoomTour('history');
                     renderTourShell();
                     renderZoomControl();
-                    await showZoomHistory(state.historyPath || state.tour.files.find((file) => file.kind === 'text-diff')?.path, parameters.get('commit'));
+                    await showZoomHistory(state.historyPath, parameters.get('commit'));
                 } else if (requestedMode === 'compare' && availableModes().includes('compare')) {
                     const encodedCommits = parameters.get('commits')?.split(',').filter(Boolean);
                     await switchZoomMode('compare', {

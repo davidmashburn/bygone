@@ -1,4 +1,5 @@
 import { diffLines } from 'diff';
+import { buildHistoryDirectoryEntries } from '../src/historyDirectory.ts';
 
 /** Read-only, path-scoped queries against an exported snapshot. No host calls. */
 export function createExportHistory(data) {
@@ -37,10 +38,14 @@ export function createExportHistory(data) {
             const commits = input.commits;
             if (!Array.isArray(commits)) throw new Error('Expected displayed revisions.');
             commits.filter(oid => oid !== null).forEach(entry);
-            return { paths: graph.paths.filter(path => {
+            const paths = graph.paths.filter(path => {
                 const records = commits.map(oid => oid === null ? undefined : graph.snapshots[oid][path]);
                 return records.some(record => JSON.stringify(record) !== JSON.stringify(records[0]));
-            }) };
+            });
+            return { paths, ...(input.includeEntries ? {
+                entries: buildHistoryDirectoryEntries(paths, commits.map(oid => new Set(oid === null ? []
+                    : graph.paths.filter(path => graph.snapshots[oid][path]))))
+            } : {}) };
         }
         if (endpoint === 'compare-many') {
             const commits = input.commits;
