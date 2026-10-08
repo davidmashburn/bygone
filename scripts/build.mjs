@@ -31,7 +31,7 @@ await rm('out/standalone-preload.js.map', { force: true });
 await rm('web/web-host.js', { force: true });
 await rm('web/web-host.js.map', { force: true });
 
-for (const name of ['workspaceGit', 'workspaceHistory', 'historyDirectory', 'workspacePrompt', 'tourReading', 'deepLink', 'deepLinkResolver']) {
+for (const name of ['workspaceGit', 'workspaceHistory', 'historyDirectory', 'revisionView', 'workspacePrompt', 'tourReading', 'deepLink', 'deepLinkResolver']) {
     await build({ ...sharedOptions, entryPoints: [`src/${name}.ts`], outfile: `out/${name}.js`, platform: 'node', format: 'cjs', target: 'node18' });
 }
 

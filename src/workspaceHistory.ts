@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { TextDecoder } from 'util';
 import type { DirectoryEntry } from './directoryDiff';
+import { buildHistoryDirectoryEntries } from './historyDirectory';
 
 const MAX_CONTENT_BYTES = 2 * 1024 * 1024;
 const MAX_GIT_LIST_BYTES = 64 * 1024 * 1024;
@@ -160,43 +161,21 @@ export function createWorkspaceHistory(
                 if (revision === 'INDEX') return new Set(listIndexRecords(repoRoot, scopes).map(record => record.path));
                 return new Set(runGitText(['ls-tree', '-r', '--name-only', '-z', revision], repoRoot, MAX_GIT_LIST_BYTES).split('\0').filter(Boolean));
             });
-            const result = new Map<string, DirectoryEntry>();
-            for (const inventory of inventories) {
-                for (const file of [...inventory]) {
+            // Working-tree parents can exist even when all changed children were
+            // deleted. Keep that filesystem fact at the live repository boundary.
+            revisions.forEach((revision, index) => {
+                if (revision !== 'WORKTREE') return;
+                for (const file of changed) {
                     const parts = file.split('/');
-                    for (let depth = 1; depth < parts.length; depth++) inventory.add(parts.slice(0, depth).join('/'));
+                    for (let depth = 1; depth < parts.length; depth++) {
+                        const directory = parts.slice(0, depth).join('/');
+                        try {
+                            if (fs.lstatSync(path.join(repoRoot, directory)).isDirectory()) inventories[index].add(directory);
+                        } catch { /* Absent parent. */ }
+                    }
                 }
-            }
-            for (const file of changed) {
-                const sides = inventories.map(inventory => inventory.has(file));
-                const parts = file.split('/');
-                for (let depth = 0; depth < parts.length; depth++) {
-                    const relativePath = parts.slice(0, depth + 1).join('/');
-                    const existing = result.get(relativePath);
-                    if (existing) existing.sides = existing.sides.map((value, index) => value || sides[index]);
-                    else result.set(relativePath, { relativePath, displayName: parts[depth], depth,
-                        isDirectory: depth < parts.length - 1, sides: [...sides], status: 'modified' });
-                }
-            }
-            for (const entry of result.values()) {
-                if (entry.isDirectory) entry.sides = inventories.map((inventory, index) => {
-                    if (revisions[index] !== 'WORKTREE') return inventory.has(entry.relativePath);
-                    try { return fs.lstatSync(path.join(repoRoot, entry.relativePath)).isDirectory(); }
-                    catch { return false; }
-                });
-                if (!entry.sides.every(Boolean)) entry.status = revisions.length === 2
-                    ? entry.sides[0] ? 'left-only' : 'right-only' : 'partial';
-            }
-            return [...result.values()].sort((a, b) => {
-                const left = a.relativePath.split('/');
-                const right = b.relativePath.split('/');
-                for (let i = 0; i < Math.min(left.length, right.length); i++) {
-                    if (left[i] === right[i]) continue;
-                    return Number(i < right.length - 1 || b.isDirectory) - Number(i < left.length - 1 || a.isDirectory)
-                        || left[i].localeCompare(right[i]);
-                }
-                return left.length - right.length;
             });
+            return buildHistoryDirectoryEntries(changed, inventories);
         },
         changedFiles: (revisions: readonly string[]): string[] => {
             for (const revision of revisions) {
