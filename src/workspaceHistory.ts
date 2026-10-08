@@ -2,6 +2,7 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { TextDecoder } from 'util';
+import type { DirectoryEntry } from './directoryDiff';
 
 const MAX_CONTENT_BYTES = 2 * 1024 * 1024;
 const MAX_GIT_LIST_BYTES = 64 * 1024 * 1024;
@@ -50,6 +51,7 @@ export interface WorkspaceHistory {
     read(relativePath: string, revision: string): WorkspaceHistoryReadResult;
     changedCommits(relativePath: string): string[];
     changedFiles(revisions: readonly string[]): string[];
+    directoryEntries(revisions: readonly string[]): DirectoryEntry[];
 }
 
 interface NormalizedScope {
@@ -149,6 +151,53 @@ export function createWorkspaceHistory(
     return {
         entries,
         files,
+        directoryEntries(revisions: readonly string[]): DirectoryEntry[] {
+            const changed = this.changedFiles(revisions);
+            // Inventory trees once per revision, without loading every changed blob.
+            const inventories = revisions.map(revision => {
+                if (revision === 'EMPTY') return new Set<string>();
+                if (revision === 'WORKTREE') return new Set(changed.filter(file => isLocalPath(repoRoot, file)));
+                if (revision === 'INDEX') return new Set(listIndexRecords(repoRoot, scopes).map(record => record.path));
+                return new Set(runGitText(['ls-tree', '-r', '--name-only', '-z', revision], repoRoot, MAX_GIT_LIST_BYTES).split('\0').filter(Boolean));
+            });
+            const result = new Map<string, DirectoryEntry>();
+            for (const inventory of inventories) {
+                for (const file of [...inventory]) {
+                    const parts = file.split('/');
+                    for (let depth = 1; depth < parts.length; depth++) inventory.add(parts.slice(0, depth).join('/'));
+                }
+            }
+            for (const file of changed) {
+                const sides = inventories.map(inventory => inventory.has(file));
+                const parts = file.split('/');
+                for (let depth = 0; depth < parts.length; depth++) {
+                    const relativePath = parts.slice(0, depth + 1).join('/');
+                    const existing = result.get(relativePath);
+                    if (existing) existing.sides = existing.sides.map((value, index) => value || sides[index]);
+                    else result.set(relativePath, { relativePath, displayName: parts[depth], depth,
+                        isDirectory: depth < parts.length - 1, sides: [...sides], status: 'modified' });
+                }
+            }
+            for (const entry of result.values()) {
+                if (entry.isDirectory) entry.sides = inventories.map((inventory, index) => {
+                    if (revisions[index] !== 'WORKTREE') return inventory.has(entry.relativePath);
+                    try { return fs.lstatSync(path.join(repoRoot, entry.relativePath)).isDirectory(); }
+                    catch { return false; }
+                });
+                if (!entry.sides.every(Boolean)) entry.status = revisions.length === 2
+                    ? entry.sides[0] ? 'left-only' : 'right-only' : 'partial';
+            }
+            return [...result.values()].sort((a, b) => {
+                const left = a.relativePath.split('/');
+                const right = b.relativePath.split('/');
+                for (let i = 0; i < Math.min(left.length, right.length); i++) {
+                    if (left[i] === right[i]) continue;
+                    return Number(i < right.length - 1 || b.isDirectory) - Number(i < left.length - 1 || a.isDirectory)
+                        || left[i].localeCompare(right[i]);
+                }
+                return left.length - right.length;
+            });
+        },
         changedFiles: (revisions: readonly string[]): string[] => {
             for (const revision of revisions) {
                 if (revision !== 'EMPTY' && !allowedCommits.has(revision)

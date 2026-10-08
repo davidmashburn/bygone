@@ -1403,10 +1403,11 @@ async function routeLaunchTarget(launchTarget) {
     if (launchTarget.kind === 'deep-link') { await enqueueDeepLink(launchTarget.url); return; }
     if (launchTarget.kind === 'smoke-workspace') {
         ensureMainWindow();
-        const timeout = setTimeout(() => app.exit(1), 60000);
+        const timeout = setTimeout(() => { console.error('Workspace smoke timed out after 60 seconds.'); app.exit(1); }, 60000);
         try {
             await require('./workspaceSmoke.js').runWorkspaceSmoke({
                 open: openDiff, openMulti: openMultiDiff, window: () => mainWindow, session: () => session, dialog,
+                openDefault: (cwd) => routeLaunchTarget(parseLaunchArgs(['--cwd', cwd])),
                 openTour: () => workspace.handle({ type: 'workspaceOpenTour', kind: 'historical' }),
                 openLink: openDeepLink, latestTourWindow: () => latestTourWindow, navigation: requestRendererNavigationState,
                 openTourWindow: async (tourPath) => { await openAuthoredTourDocument(tourPath); return latestTourWindow; }
@@ -4249,6 +4250,7 @@ async function openDirectoryFileDiff(dirs, labels, relativePath, review = null, 
 }
 
 async function returnToDirectoryView() {
+    if (session.workspaceView) { await workspace.handle({ type: 'returnToDirectory' }); return; }
     if (session.mode === 'directory-history' && session.dirHistory?.viewRelativePath) {
         session.dirHistory.viewRelativePath = null;
         await sendCurrentDirectoryHistoryEntry();
@@ -4530,6 +4532,7 @@ async function sendCurrentMultiDiff() {
 
 async function sendCurrentSession() {
     installApplicationMenu();
+    if (await workspace.render()) { refreshSessionWindowTitle(); return; }
 
     if (session.mode === 'diff') {
         await sendCurrentDiff();

@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { createWorkspaceHost } = require('../standalone/workspaceHost.js');
+const { getMenuCapabilities } = require('../standalone/menuUtils.js');
 
 const A = 'a'.repeat(40);
 const B = 'b'.repeat(40);
@@ -45,7 +46,8 @@ function makeGit({ failHistory = false } = {}) {
             return { exists: true, content: `${file}:${revision}`, reason: undefined };
         },
         changedCommits() { return [B, A]; },
-        changedFiles() { return this.files; }
+        changedFiles() { return this.files; },
+        directoryEntries(revisions) { return this.changedFiles(revisions).map(relativePath => ({ relativePath })); }
     };
     return {
         calls,
@@ -96,6 +98,56 @@ function makeHost(initial, { confirm = true, unsaved = false, capture = { active
 function showMessage() {
     return { type: 'showMultiDiff', panels: [] };
 }
+
+test('directory history opens changed files and supports drill-down, return, and revision changes', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    git.resolve().paths = [{ path: '', type: 'directory' }];
+    const workspace = createWorkspaceHost(fixture.host, git);
+    await workspace.openHistory(source({ kind: 'directory-history' }));
+    assert.deepEqual(fixture.session.workspaceView, { mode: 'history', path: null, revisions: [A, B] });
+    await workspace.render();
+    assert.equal(fixture.sent.at(-1).type, 'showDirectoryDiff');
+    assert.equal(fixture.sent.at(-1).canMutate, false);
+    await workspace.handle({ type: 'openDirectoryEntry', relativePath: 'two.txt' });
+    assert.equal(fixture.session.workspaceView.path, 'two.txt');
+    await workspace.render();
+    assert.equal(fixture.sent.at(-1).canReturnToDirectory, true);
+    assert.equal(getMenuCapabilities(fixture.session).canReturnToDirectory, true);
+    fixture.confirm = false;
+    await workspace.handle({ type: 'returnToDirectory' });
+    assert.equal(fixture.session.workspaceView.path, 'two.txt', 'Cancel preserves the file view');
+    fixture.confirm = true;
+    await workspace.handle({ type: 'returnToDirectory' });
+    assert.deepEqual(fixture.session.workspaceView, { mode: 'history', path: null, revisions: [A, B] });
+    await workspace.handle({ type: 'historyBack' });
+    assert.equal(fixture.session.workspaceView.path, null);
+    await workspace.handle({ type: 'selectHistoryEntry', index: 0 });
+    assert.equal(fixture.session.workspaceView.path, null);
+    await workspace.handle({ type: 'workspaceMode', mode: 'compare' });
+    assert.equal(fixture.session.workspaceView.path, null);
+    await workspace.handle({ type: 'workspaceMode', mode: 'history' });
+    assert.equal(fixture.session.workspaceView.path, null);
+    await workspace.handle({ type: 'refreshSession' });
+    assert.equal(fixture.session.workspaceView.path, null);
+    assert.equal(workspace.uiState().status, '');
+});
+
+test('directory launch skips empty working state, but file history still opens a file', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const data = git.history();
+    git.resolve().paths = [{ path: '', type: 'directory' }];
+    git.resolve().activeRevision = 'WORKTREE';
+    data.entries.unshift({ commit: 'WORKTREE', parentCommit: B });
+    data.changedFiles = revisions => revisions.includes('WORKTREE') ? [] : ['two.txt'];
+    const workspace = createWorkspaceHost(fixture.host, git);
+    await workspace.openHistory(source({ kind: 'directory-history' }));
+    assert.deepEqual(fixture.session.workspaceView.revisions, [A, B]);
+    await workspace.openHistory(source({ kind: 'file-history' }));
+    assert.equal(fixture.session.workspaceView.path, 'one.txt');
+    assert.deepEqual(fixture.session.workspaceView.revisions, [B, 'WORKTREE']);
+});
 
 test('skill file selection is scoped to the workspace, preserves mode, and survives cancellation', async () => {
     const fixture = makeHost(nativeSession());

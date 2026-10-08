@@ -95,7 +95,8 @@ function createWorkspaceHost(host, git) {
             if (!entries.some((entry) => entry.commit === commit)) entries.push({ commit, shortCommit: commit === 'EMPTY' ? 'Empty tree' : commit.slice(0, 7), summary: 'Displayed base revision', timestamp: '' });
         }
         const session = host.getSession();
-        const active = session.multi?.files.find((panel) => panel.id === session.multi.activePanelId)?.revision;
+        const active = session.multi?.files.find((panel) => panel.id === session.multi.activePanelId)?.revision
+            || (session.workspaceView?.path === null ? revisions.at(-1) : null);
         const hasRevisionPanels = Boolean(session.workspaceView || current.source.resolvedRevisions);
         return {
             fileName: selectedPath || 'Repository', navigatorOnly: current.mode !== 'history', workingTreeControls: current.mode === 'history',
@@ -169,6 +170,12 @@ function createWorkspaceHost(host, git) {
     function makeSession(mode, revisions, file) {
         const current = ensure();
         const history = backend();
+        if (file === null && current.context.paths.some(item => item.type === 'directory')) {
+            return { mode: 'directory', source: current.source, workspaceId: current.id,
+                workspaceView: { mode, path: null, revisions: [...revisions] },
+                left: { label: path.basename(current.context.repoRoot) }, right: { label: 'Changed files' },
+                history: null, directory: null, dirHistory: null, multi: null };
+        }
         const selectedPath = history.files.includes(file) ? file : history.files[0];
         if (!selectedPath) throw new Error('No tracked files exist in this history scope.');
         const files = revisions.map((revision, index) => {
@@ -184,6 +191,7 @@ function createWorkspaceHost(host, git) {
         });
         return {
             mode: 'multi-diff', source: current.source, workspaceId: current.id,
+            canReturnToDirectory: current.context.paths.some(item => item.type === 'directory'),
             workspaceView: { mode, path: selectedPath, revisions: [...revisions] },
             left: {}, right: {}, history: null, directory: null, dirHistory: null,
             multi: { sourceKind: 'workspace', files, activePanelId: files[files.length - 1].id, activePairIndex: Math.max(0, files.length - 2), historySource: null }
@@ -249,6 +257,12 @@ function createWorkspaceHost(host, git) {
         const current = host.getSession();
         if (!current.workspaceView) return false;
         const { revisions } = current.workspaceView;
+        if (current.workspaceView.path === null) {
+            const labels = revisions.map(revision => revision === 'EMPTY' ? 'Empty tree' : revision.slice(0, 12));
+            host.send({ type: 'showDirectoryDiff', labels, leftLabel: labels[0], rightLabel: labels.at(-1),
+                entries: backend().directoryEntries(revisions), canMutate: false });
+            return true;
+        }
         const changedFiles = backend().changedFiles(revisions);
         host.send({
             type: 'showMultiDiff', panels: current.multi.files.map((panel, i) => ({
@@ -258,6 +272,7 @@ function createWorkspaceHost(host, git) {
             })),
             pairs: revisions.slice(0, -1).map((_, i) => ({ leftIndex: i, rightIndex: i + 1 })),
             activePanelId: current.multi.activePanelId, activePairIndex: current.multi.activePairIndex,
+            canReturnToDirectory: current.canReturnToDirectory,
             fileNavigation: { canGoPrevious: Boolean(fileTarget(current, -1, changedFiles)), canGoNext: Boolean(fileTarget(current, 1, changedFiles)) },
             mutationEnabled: state.mode === 'history'
         });
@@ -269,7 +284,7 @@ function createWorkspaceHost(host, git) {
         const current = host.getSession();
         const derived = Boolean(current.workspaceView);
         const sharedAction = ['toggleHistorySelection', 'selectHistoryEntry', 'compareHistoryEntry'].includes(message.type);
-        const derivedAction = derived && ['refreshSession', 'selectHistoryEntry', 'historyBack', 'historyForward', 'openDirectoryEntry', 'navigateFile', 'multiAddPanel', 'multiRemovePanel', 'historyToggleStaged', 'historyToggleSkipUnchanged'].includes(message.type);
+        const derivedAction = derived && ['refreshSession', 'selectHistoryEntry', 'historyBack', 'historyForward', 'openDirectoryEntry', 'returnToDirectory', 'navigateFile', 'multiAddPanel', 'multiRemovePanel', 'historyToggleStaged', 'historyToggleSkipUnchanged'].includes(message.type);
         if (!workspaceAction && !sharedAction && !derivedAction) return false;
         ensure();
         if (busy) return true;
@@ -365,22 +380,24 @@ function createWorkspaceHost(host, git) {
                 let revisions = [...current.workspaceView.revisions];
                 let file = current.workspaceView.path;
                 const data = backend();
-                const focusIndex = current.multi.files.findIndex((panel) => panel.id === current.multi.activePanelId);
+                const focusIndex = current.multi?.files.findIndex((panel) => panel.id === current.multi.activePanelId) ?? revisions.length - 1;
                 const revisionIndex = data.entries.findIndex((entry) => entry.commit === revisions[Math.max(0, focusIndex)]);
                 if (message.type === 'selectHistoryEntry' && state.mode === 'history') {
                     const entry = data.entries[message.index];
                     if (!entry) return true;
                     const loaded = revisions.indexOf(entry.commit);
-                    if (loaded >= 0) { current.multi.activePanelId = current.multi.files[loaded].id; host.send({ type: 'focusHistoryPanel', panelId: current.multi.activePanelId }); return true; }
-                    revisions = windowAround(data.entries, message.index, revisions.length);
+                    if (loaded >= 0 && current.multi) { current.multi.activePanelId = current.multi.files[loaded].id; host.send({ type: 'focusHistoryPanel', panelId: current.multi.activePanelId }); return true; }
+                    revisions = !current.multi && revisions.length === 2
+                        ? [entry.parentCommit || 'EMPTY', entry.commit] : windowAround(data.entries, message.index, revisions.length);
                 } else if (message.type === 'historyBack' || message.type === 'historyForward') {
                     if (state.mode !== 'history') return true;
                     const delta = message.type === 'historyBack' ? 1 : -1;
                     let next = revisionIndex + delta;
-                    const changes = state.skipUnchanged ? new Set(data.changedCommits(file)) : null;
+                    const changes = state.skipUnchanged && file ? new Set(data.changedCommits(file)) : null;
                     while (data.entries[next] && changes && !changes.has(data.entries[next].commit)) next += delta;
                     if (!data.entries[next]) return true;
-                    revisions = windowAround(data.entries, next, revisions.length);
+                    revisions = !current.multi && revisions.length === 2
+                        ? [data.entries[next].parentCommit || 'EMPTY', data.entries[next].commit] : windowAround(data.entries, next, revisions.length);
                 } else if (message.type === 'multiAddPanel') {
                     const left = message.side === 'left';
                     const edge = left ? revisions[0] : revisions[revisions.length - 1];
@@ -389,11 +406,14 @@ function createWorkspaceHost(host, git) {
                     if (!next || revisions.includes(next.commit)) return true;
                     if (left) revisions.unshift(next.commit); else revisions.push(next.commit);
                 } else if (message.type === 'multiRemovePanel') {
-                    if (revisions.length < 2) return true;
+                    if (revisions.length < 2 || !current.multi) return true;
                     revisions = revisions.filter((_, i) => current.multi.files[i].id !== message.panelId);
                 } else if (message.type === 'openDirectoryEntry') {
                     if (!data.files.includes(message.relativePath)) return true;
                     file = message.relativePath;
+                } else if (message.type === 'returnToDirectory') {
+                    if (!state.context.paths.some(item => item.type === 'directory')) return true;
+                    file = null;
                 } else if (message.type === 'navigateFile') {
                     file = fileTarget(current, message.direction === 'previous' ? -1 : 1);
                     if (!file) return true;
@@ -419,8 +439,10 @@ function createWorkspaceHost(host, git) {
             includeStaged: Boolean(source.includeStaged), skipUnchanged: Boolean(source.skipUnchanged) };
         // Install an owner before makeSession calls ensure().
         host.setSession({ ...host.getSession(), source, workspaceId: state.id });
-        const entry = data.entries.find((item) => item.commit === context.activeRevision) || data.entries[0];
-        await install(makeSession('history', [entry.parentCommit || 'EMPTY', entry.commit], data.files[0]), 'history');
+        const entry = (source.kind === 'directory-history'
+            ? data.entries.find(item => data.changedFiles([item.parentCommit || 'EMPTY', item.commit]).length)
+            : data.entries.find(item => item.commit === context.activeRevision)) || data.entries[0];
+        await install(makeSession('history', [entry.parentCommit || 'EMPTY', entry.commit], source.kind === 'directory-history' ? null : data.files[0]), 'history');
     }
 
     return { augment, render, handle, openHistory, uiState, update, isTourActive: () => Boolean(state?.tourMode), reset() { state?.tour?.dispose?.(); state = null; },

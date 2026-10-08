@@ -24,7 +24,7 @@ function getMenuCapabilities(session) {
         canSearchComparison,
         canReplace,
         canRefreshSession: isRefreshableSource(session?.source),
-        canReturnToDirectory: Boolean(session?.returnDirectory || session?.dirHistory?.viewRelativePath),
+        canReturnToDirectory: Boolean(session?.canReturnToDirectory || session?.returnDirectory || session?.dirHistory?.viewRelativePath),
         canAddPanel: session?.mode === 'history' || (isMultiDiff && Boolean(session?.multi?.activePanelId)),
         canRemovePanel: isMultiDiff && (session?.multi?.files?.length || 0) > 1
     };
