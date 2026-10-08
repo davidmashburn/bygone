@@ -23,6 +23,11 @@ clear enough to discuss as an actionable plan.
 
 ## Current ideas
 
+- [Verified refactor decomposition](verified-refactor-decomposition.md) shows
+  a commit as checked formatting, rename, and move stages plus real change.
+  Status: it's complicated; the method works on mechanical changes, but real
+  refactor commits are rarely mechanical.
+
 - [Tour presentation review](tour-presentation-review.md) preserves the initial
   clipping and hierarchy investigation that preceded the reading UI changes.
 

@@ -8,6 +8,9 @@ explanation stages rather than commits. Comparison-local file states,
 navigation, focus slides, and persistent deconstructed-tour markers shipped in
 `5661c20`; `5ae2300` restored ordinary diff navigation outside tour views.
 
+Related idea: [verified refactor decomposition](../ideas/verified-refactor-decomposition.md)
+would add generated transform stages alongside hunk-selection stages.
+
 ## Implemented follow-up: comparison-local stage navigation
 
 ### Problem

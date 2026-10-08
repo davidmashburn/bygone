@@ -5,7 +5,8 @@
 Draft scope, researched 2026-10-07. Slice 0's exact-only analyzer, corpus,
 and Git baseline report exist on the uncommitted development branch
 `feat/move-tracking-slice0`; see [slice 0 findings](#slice-0-findings-2026-10-08).
-No UI or dependency selection.
+No UI or dependency selection. Move tracking is also one transform layer in
+the paused [verified refactor decomposition](../ideas/verified-refactor-decomposition.md) idea.
 The [research notes](text-block-move-tracking-research.md) compare open-source
 implementations and academic work, with primary-source links and limitations.
 
