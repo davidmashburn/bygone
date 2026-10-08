@@ -7,8 +7,8 @@ const budgets = [
     { path: 'media/editor.worker.js', maxBytes: 320_000 },
     // Includes whitespace ranges, edited paragraph alignment, and separate scroll anchors.
     { path: 'media/diff.worker.js', maxBytes: 22_000 },
-    // Includes embedded screenshot evidence and its expandable viewer.
-    { path: 'web/web-host.js', maxBytes: 186_000 },
+    // Includes embedded screenshot evidence and the tour History changed-files overview.
+    { path: 'web/web-host.js', maxBytes: 188_000 },
     { path: 'web/presenter.css', maxBytes: 39_000 }
 ];
 

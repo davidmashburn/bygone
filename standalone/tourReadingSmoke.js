@@ -423,7 +423,7 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
             await clickSelector(`[data-workspace-mode=${mode}]`);
             await waitFor(`document.querySelector('[data-workspace-mode=${mode}][aria-pressed=true]')`, `${mode} workspace mode`);
             await waitFor(
-                `(window.__tourReadingSmokeMessages || []).some((message) => ${JSON.stringify(TRANSITION_TYPES)}.includes(message.type))`,
+                `(window.__tourReadingSmokeMessages || []).some((message) => ${JSON.stringify(mode === 'history' ? ['showDirectoryDiff'] : TRANSITION_TYPES)}.includes(message.type))`,
                 `${mode} source transition`
             );
             await clickSelector('[data-workspace-mode=historical]');

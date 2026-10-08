@@ -4640,7 +4640,7 @@ async function testPresentHistoryUsesStableCommitAxis() {
     assert.equal(renders, 2);
     assert.equal(urls, 2);
     await show('second.txt', 'c');
-    assert.equal(requests.length, 5, 'Returning to History reuses its saved panels');
+    assert.deepEqual(requests.map(request => request.commit), ['c', 'c', 'a'], 'Reuse both diff endpoints without requesting parent ancestry; returning reuses saved panels');
 }
 
 function testCommitRowMarkersStayIndependent() {

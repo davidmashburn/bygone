@@ -45,6 +45,9 @@ test('Minimal captures all authored modes, Full retains bounded history includin
         assert.deepEqual(comparison.files.find(file => file.path === 'transient.txt').comparisonPanels.map(panel => panel.content), ['', 'only in history\n', '']);
         assert.equal(comparison.files.find(file => file.path === 'old.txt').changeKind, 'deleted');
         assert.equal(comparison.files.find(file => file.path === 'new.txt').changeKind, 'added');
+        const overview = await history('changed-files', { commits: [f.base, f.middle, f.head], includeEntries: true });
+        assert.deepEqual(overview.entries.find(entry => entry.relativePath === 'transient.txt').sides, [false, true, false]);
+        assert.ok(overview.entries.some(entry => entry.relativePath === 'binary.dat'), 'Binary changes remain visible in the overview');
         const minHistory = createExportHistory(hydrate(minimal));
         await assert.rejects(minHistory('list', {}), /not included/);
         await assert.rejects(minHistory('compare-many', { commits: [f.base, f.head], path: 'not-packaged' }), /outside/);

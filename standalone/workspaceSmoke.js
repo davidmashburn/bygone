@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { setTimeout, clearTimeout } = require('node:timers');
+const { runTourHistorySmoke } = require('./tourHistorySmoke.js');
 const { runTourReadingSmoke } = require('./tourReadingSmoke.js');
 const { runLinkPreviewSmoke } = require('./linkPreviewSmoke.js');
 const { runPanelSwitchSmoke } = require('./panelSwitchSmoke.js');
@@ -454,6 +455,7 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
                 }; check();
             })`);
             await runLinkPreviewSmoke(nativeTourWindow.webContents);
+            await runTourHistorySmoke(nativeTourWindow.webContents, 'one.txt');
         } finally { nativeTourWindow.destroy(); }
         const { BrowserWindow } = require('electron');
         const browserWindow = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
