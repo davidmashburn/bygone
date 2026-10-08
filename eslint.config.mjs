@@ -43,6 +43,13 @@ export default [
         }
     },
     {
+        files: ['scripts/change-analysis/**/*.js'],
+        languageOptions: {
+            globals: globals.node,
+            sourceType: 'commonjs'
+        }
+    },
+    {
         files: ['bin/**/*.js', 'cli/**/*.js', 'standalone/launchArgs.js'],
         languageOptions: {
             sourceType: 'commonjs'
