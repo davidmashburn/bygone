@@ -11,7 +11,7 @@ const { runPanelSwitchSmoke } = require('./panelSwitchSmoke.js');
 const { serializeDeepLink } = require('../out/deepLink');
 const { pathToFileURL } = require('node:url');
 
-async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, openTour, openTourWindow, openLink, latestTourWindow, navigation }) {
+async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session, dialog, openTour, openTourWindow, openLink, latestTourWindow, navigation }) {
     const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-workspace-smoke-')));
     const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
     const evaluate = (code) => window().webContents.executeJavaScript(code, true).catch((error) => {
@@ -31,6 +31,23 @@ async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, ope
             git('add', '.'); git('commit', '-m', `Revision ${i}`);
             revisions.push(git('rev-parse', 'HEAD').toString().trim());
         }
+        await openDefault(root);
+        await waitFor("document.querySelector('.dir-entry[data-is-dir=false]') && document.querySelector('[data-workspace-mode=history][aria-pressed=true]')");
+        assert.equal(session().workspaceView.path, null, 'Bare launch opens the changed-files overview');
+        assert.deepEqual(session().workspaceView.revisions, revisions.slice(-2), 'A clean checkout opens the latest changed commit');
+        await evaluate("document.querySelector('.dir-entry[data-is-dir=false]').click()");
+        await waitFor("document.querySelectorAll('.monaco-editor').length >= 2 && !document.getElementById('directory-return-toolbar').hidden");
+        const overviewRevisions = [...session().workspaceView.revisions];
+        await evaluate("document.getElementById('back-to-directory').click()");
+        await waitFor("document.querySelector('.dir-entry[data-is-dir=false]') && document.querySelectorAll('.monaco-editor').length === 0");
+        assert.equal(session().workspaceView.path, null, 'Back returns to changed files');
+        assert.deepEqual(session().workspaceView.revisions, overviewRevisions);
+        fs.writeFileSync(path.join(root, 'two.txt'), 'working change\n');
+        await open(path.join(root, 'one.txt'), path.join(root, 'two.txt'));
+        await openDefault(root);
+        await waitFor("document.querySelector('.dir-entry[data-path=\"two.txt\"]') && !document.querySelector('.dir-entry[data-path=\"one.txt\"]')");
+        assert.deepEqual(session().workspaceView.revisions, [revisions.at(-1), 'WORKTREE']);
+        fs.writeFileSync(path.join(root, 'two.txt'), 'two 3\n');
         const comparisonLink = { kind: 'compare', repo: pathToFileURL(root).href,
             revisions: [revisions[0], revisions[3]], file: 'one.txt', revision: revisions[3], line: 2 };
         await openLink(serializeDeepLink(comparisonLink));
@@ -534,7 +551,7 @@ async function runWorkspaceSmoke({ open, openMulti, window, session, dialog, ope
             await assert.rejects(openLink(serializeDeepLink({ ...tourLink, focus: { ...tourLink.focus, step: 'missing' } })), /unavailable/);
             assert.equal(latestTourWindow(), linkedTour, 'Missing sections do not open another window');
         } finally { linkedTour.destroy(); }
-        console.log('Workspace smoke passed: cold/warm comparison links, exact line focus, semantic tour links and fail-closed recovery; link URL tooltips, hover/context/keyboard previews, blocked-header native previews in workspace/embedded/native tours, native editing context menus with system-action frames, navigation and cleanup, short prompts, native Markdown save/select, protected bundled skill, browser custom instructions/download, preserved drafts, History/Compare round trips, same-window tour, and read-only preservation.');
+        console.log('Workspace smoke passed: clean/dirty bare launch, changed-files drill-down and return; cold/warm comparison links, exact line focus, semantic tour links and fail-closed recovery; link URL tooltips, hover/context/keyboard previews, blocked-header native previews in workspace/embedded/native tours, native editing context menus with system-action frames, navigation and cleanup, short prompts, native Markdown save/select, protected bundled skill, browser custom instructions/download, preserved drafts, History/Compare round trips, same-window tour, and read-only preservation.');
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }

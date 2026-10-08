@@ -88,6 +88,42 @@ test('changed files follow displayed snapshots, including empty, local, deleted,
     assert.deepEqual(scoped.changedFiles([f.base, f.rename]), []);
 });
 
+test('directory overview reports only changes with exact side presence across local and committed revisions', t => {
+    const f = makeBranchFixture(t);
+    write(f.repoRoot, 'nested/new.txt', 'added\n');
+    fs.unlinkSync(path.join(f.repoRoot, 'new.txt'));
+    const history = createWorkspaceHistory(rootContext(f, [f.rename, 'WORKTREE', 'INDEX'], 'WORKTREE'), { includeStaged: true });
+    const rows = revisions => history.directoryEntries(revisions).filter(entry => !entry.isDirectory)
+        .map(({ relativePath, sides, status }) => ({ relativePath, sides, status }));
+    assert.deepEqual(rows([f.main, f.rename]), [
+        { relativePath: 'new.txt', sides: [false, true], status: 'right-only' },
+        { relativePath: 'old.txt', sides: [true, false], status: 'left-only' }
+    ]);
+    assert.deepEqual(rows([f.rename, 'WORKTREE']), [
+        { relativePath: 'nested/new.txt', sides: [false, true], status: 'right-only' },
+        { relativePath: 'new.txt', sides: [true, false], status: 'left-only' }
+    ]);
+    assert.deepEqual(rows([f.rename, 'INDEX']), []);
+    assert.equal(history.directoryEntries([f.rename, 'WORKTREE'])[0].isDirectory, true);
+    assert.deepEqual(rows([f.main, f.rename, f.main]).map(entry => entry.status), ['partial', 'partial']);
+    assert.ok(rows(['EMPTY', f.base]).every(entry => entry.status === 'right-only'));
+    assert.throws(() => history.directoryEntries(['--all', f.base]), /Unknown history revision/);
+});
+
+test('directory overview stays scoped and distinguishes an existing parent from its added child', t => {
+    const f = makeBranchFixture(t);
+    write(f.repoRoot, 'nested/keep.txt', 'unchanged\n');
+    f.rename = commit(f.repoRoot, 'existing directory');
+    write(f.repoRoot, 'nested/added.txt', 'new\n');
+    write(f.repoRoot, 'outside.txt', 'outside\n');
+    const history = createWorkspaceHistory(rootContext(f, [f.rename, 'WORKTREE'], 'WORKTREE', [{ path: 'nested', type: 'directory' }]));
+    const entries = history.directoryEntries([f.rename, 'WORKTREE']);
+    assert.deepEqual(entries.map(entry => entry.relativePath), ['nested', 'nested/added.txt']);
+    assert.deepEqual(entries[0].sides, [true, true]);
+    assert.equal(entries[0].status, 'modified');
+    assert.deepEqual(entries[1].sides, [false, true]);
+});
+
 test('builds a deterministic all-commit axis and historical path union', (t) => {
     const fixture = makeBranchFixture(t);
     const context = rootContext(
@@ -132,7 +168,7 @@ test('keeps explicit file scopes, absent paths, and a read-only public surface',
     assert.throws(() => focused.read('old.txt', fixture.rename), /outside.*scope/i);
     assert.deepEqual(focused.read('new.txt', 'EMPTY'), { content: '', exists: false });
     assert.throws(() => focused.read('new.txt', 'not-a-revision'), /unknown history revision/i);
-    assert.deepEqual(Object.keys(focused).sort(), ['changedCommits', 'changedFiles', 'entries', 'files', 'read']);
+    assert.deepEqual(Object.keys(focused).sort(), ['changedCommits', 'changedFiles', 'directoryEntries', 'entries', 'files', 'read']);
     assert.equal(typeof focused.write, 'undefined');
 
     const missingFile = createWorkspaceHistory({
