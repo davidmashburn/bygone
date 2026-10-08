@@ -521,7 +521,7 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(presenterSource, /#history-rail\.present-navigation-rail/);
     assert.match(rendererSource, /tourHost = document\.getElementById\('tour-commits-host'\)/);
     assert.match(rendererSource, /rail\.classList\.toggle\('present-navigation-rail', presentOwned\)/);
-    assert.match(hostSource, /getTourReadingTarget\(readingItems, state\.readingKey, direction\)/);
+    assert.match(hostSource, /getTourReadingTarget\(readingItems, state\.readingKey, direction, isImageOnlyTour\(state\.tour\)\)/);
     assert.doesNotMatch(webMarkup, /id="tour-(?:previous|next|reading-path|parent-view)"/);
     for (const markup of [webMarkup, providerSource]) {
         assert.match(markup, /id="next-file" class="change-button icon-button"/);
