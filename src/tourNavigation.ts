@@ -1,3 +1,4 @@
+import { revisionFileTarget } from './revisionView';
 import type { ChangeTourFile, ChangeTourScene, ChangeTourStackFile } from './changeTourManifest';
 
 export interface TourPosition {
@@ -90,22 +91,9 @@ export function getMultiPanelChangedFileTarget(
     currentPath: string | null,
     direction: -1 | 1
 ): MultiPanelComparisonFileTarget | null {
-    if ((direction !== -1 && direction !== 1) || !currentPath) {
-        return null;
-    }
-    const currentIndex = files.findIndex((file) => file.path === currentPath);
-    if (currentIndex < 0) {
-        return null;
-    }
-    const changedIndices = files
-        .map((file, fileIndex) => ({ file, fileIndex, state: classifyMultiPanelFile(file, pairIndex) }))
-        .filter(({ state }) => CHANGED_MULTI_PANEL_FILE_STATES.has(state));
-    const target = direction < 0
-        ? [...changedIndices].reverse().find(({ fileIndex }) => fileIndex < currentIndex)
-        : changedIndices.find(({ fileIndex }) => fileIndex > currentIndex);
-    return target
-        ? { pairIndex, fileIndex: target.fileIndex, path: target.file.path }
-        : null;
+    const changedPaths = new Set(files.filter(file => CHANGED_MULTI_PANEL_FILE_STATES.has(classifyMultiPanelFile(file, pairIndex))).map(file => file.path));
+    const path = revisionFileTarget({ paths: files.map(file => file.path), currentPath, changedPaths }, direction);
+    return path ? { pairIndex, fileIndex: files.findIndex(file => file.path === path), path } : null;
 }
 
 export function resolveTourPosition(
@@ -160,18 +148,8 @@ export function getTourFileTarget(
     currentPath: string | null,
     direction: -1 | 1
 ): TourFileTarget | null {
-    if (!currentPath) {
-        return null;
-    }
-    const renderable = files
-        .map((file, fileIndex) => ({ file, fileIndex }))
-        .filter(({ file }) => file.kind === 'text-diff');
-    const currentIndex = renderable.findIndex(({ file }) => file.path === currentPath);
-    const targetIndex = currentIndex + direction;
-    const target = currentIndex >= 0 ? renderable[targetIndex] : null;
-    return target
-        ? { fileIndex: target.fileIndex, path: target.file.path }
-        : null;
+    const path = revisionFileTarget({ paths: files.filter(file => file.kind === 'text-diff').map(file => file.path), currentPath }, direction);
+    return path ? { fileIndex: files.findIndex(file => file.path === path), path } : null;
 }
 
 export function getMultiPanelTourFileTarget(

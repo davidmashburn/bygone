@@ -4576,10 +4576,10 @@ async function testPresentHistoryPanelWorkspace() {
     };
     let rendered;
     const history = () => ({ rail: { itemsByTab: { history: state.historyEntries.map((entry, index) => ({ index, label: entry.commit })) } } });
-    const targetImplementation = source.slice(source.indexOf('    function getCurrentTourFileTarget('), source.indexOf('    function ', source.indexOf('    function getCurrentTourFileTarget(') + 20));
-    const workspace = new Function('state', 'chronologicalComparisonCommits', 'historyRequest', 'buildZoomHistoryState', 'buildTwoWayDiffModel', 'updateTourFileSelection', 'emit',
-        `let evidenceRequest = 0; ${targetImplementation}; ${implementation}; return { historyNeighbor, panelHistoryState, changeHistoryPanels, renderZoomHistoryPanels, getCurrentTourFileTarget };`
-    )(state, () => ['a', 'b', 'c'], async (endpoint, input) => endpoint === 'changed-files' ? { paths: ['file.txt', 'z.txt'] } : ({ rightContent: input.commit, path: 'file.txt' }), history, () => ({}), () => {}, (message) => { rendered = message; });
+    const targetImplementation = source.slice(source.indexOf('    function historyRevisionFiles('), source.indexOf('    function ', source.indexOf('    function getCurrentTourFileTarget(') + 20));
+    const workspace = new Function('revisionView', 'state', 'chronologicalComparisonCommits', 'historyRequest', 'buildZoomHistoryState', 'buildTwoWayDiffModel', 'updateTourFileSelection', 'emit',
+        `const { revisionFileTarget, revisionRailItems, revisionPanelsView } = revisionView; let evidenceRequest = 0; ${targetImplementation}; ${implementation}; return { historyNeighbor, panelHistoryState, changeHistoryPanels, renderZoomHistoryPanels, getCurrentTourFileTarget };`
+    )(require('../out/revisionView'), state, () => ['a', 'b', 'c'], async (endpoint, input) => endpoint === 'changed-files' ? { paths: ['file.txt', 'z.txt'] } : ({ rightContent: input.commit, path: 'file.txt' }), history, () => ({}), () => {}, (message) => { rendered = message; });
     await workspace.renderZoomHistoryPanels();
     assert.deepEqual(rendered.fileNavigation, { canGoPrevious: false, canGoNext: true });
     assert.equal(workspace.getCurrentTourFileTarget(1).path, 'z.txt', 'History arrows skip unchanged tour files');
@@ -4724,9 +4724,9 @@ function testPresentInitialCommitHighlights() {
         displayedPanels: [], comparisonDraftCommits: [], directoryEvidence: {}
     };
     const messages = [];
-    const emit = new Function('state', 'window', 'isMultiPanelTourScene', 'getMultiPanelDefinitions',
-        `let renderRequestId = 0; const zoomRestore = null; const imageViewer = { clear() {} }; const renderWorkspaceControls = () => {}; ${implementation}; return emit;`
-    )(state, {
+    const emit = new Function('revisionView', 'state', 'window', 'isMultiPanelTourScene', 'getMultiPanelDefinitions',
+        `const { revisionRailItems } = revisionView; let renderRequestId = 0; const zoomRestore = null; const imageViewer = { clear() {} }; const renderWorkspaceControls = () => {}; ${implementation}; return emit;`
+    )(require('../out/revisionView'), state, {
         CustomEvent: class { constructor(_type, options) { this.detail = options.detail; } },
         dispatchEvent: (event) => messages.push(event.detail)
     }, (item) => ['stacked-diff', 'deconstructed-diff'].includes(item?.kind), (item) => item.stack || item.panels);

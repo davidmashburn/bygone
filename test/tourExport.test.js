@@ -7,6 +7,8 @@ const { createHash } = require('node:crypto');
 const { exportTour, materializeTour } = require('../cli/tourExport');
 const { exportFixture } = require('./exportFixture');
 const { pinTourSource } = require('../out/changeTour');
+const { createWorkspaceHistory } = require('../out/workspaceHistory');
+const { createTourHistory } = require('../cli/tourHistory');
 const historyModule = import('data:text/javascript;base64,' + Buffer.from(buildSync({ entryPoints: [path.resolve(__dirname, '../web/exportHistory.js')], bundle: true, write: false, format: 'esm' }).outputFiles[0].contents).toString('base64'));
 function hydrate(data) {
     return JSON.parse(JSON.stringify(data), (_key, value) => value && typeof value.$text === 'string' ? data.texts[value.$text] : value);
@@ -48,6 +50,13 @@ test('Minimal captures all authored modes, Full retains bounded history includin
         const overview = await history('changed-files', { commits: [f.base, f.middle, f.head], includeEntries: true });
         assert.deepEqual(overview.entries.find(entry => entry.relativePath === 'transient.txt').sides, [false, true, false]);
         assert.ok(overview.entries.some(entry => entry.relativePath === 'binary.dat'), 'Binary changes remain visible in the overview');
+        const revisions = [f.base, f.middle, f.head];
+        const desktop = createWorkspaceHistory({ repoRoot: f.root, paths: [{ path: '', type: 'directory' }],
+            revisions, headOid: f.head, activeRevision: f.head });
+        const liveTour = createTourHistory({ ...hydrate(full).manifest, repository: { root: f.root } });
+        assert.deepEqual(desktop.directoryEntries(revisions), overview.entries, 'Desktop and export use the same overview contract');
+        assert.deepEqual(liveTour.changedFiles({ commits: revisions, includeEntries: true }).entries, overview.entries,
+            'Live and exported tours use the same overview contract');
         const minHistory = createExportHistory(hydrate(minimal));
         await assert.rejects(minHistory('list', {}), /not included/);
         await assert.rejects(minHistory('compare-many', { commits: [f.base, f.head], path: 'not-packaged' }), /outside/);

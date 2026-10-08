@@ -1,3 +1,4 @@
+import { revisionFileTarget, revisionFileAction, revisionDirectoryView, revisionPanelsView, revisionPanelPairs, revisionRailItems } from '../src/revisionView.ts';
 import { createTourImageViewer } from './tourImage.js';
 import { parseDocumentFragment, resolveDocumentFocus, serializeDocumentFragment, serializeDeepLink } from '../src/deepLink.ts';
 import { createExportHistory } from './exportHistory.js';
@@ -623,7 +624,7 @@ import { renderTourProse } from '../media/tourProse.js';
 
     function sharedCommitHistory() {
         const commits = state.displayedPanels.map((panel) => panel.commit);
-        return { ...panelHistoryState(buildComparisonHistoryState({ commits: displayedCommits() }, null), commits, null), navigatorOnly: true };
+        return { ...panelHistoryState(buildComparisonHistoryState({ commits: displayedCommits() }), commits, null), navigatorOnly: true };
     }
 
     async function fileHistory(path) {
@@ -717,8 +718,7 @@ import { renderTourProse } from '../media/tourProse.js';
         state.historyChangedFiles = new Set(result.paths);
         state.activeTourFilePath = null;
         updateTourFileSelection();
-        emit({ type: 'showDirectoryDiff', labels: panels.map(panel => panel.label),
-            leftLabel: panels[0].label, rightLabel: panels.at(-1).label, entries: result.entries, canMutate: false,
+        emit({ ...revisionDirectoryView(panels.map(panel => panel.label), result.entries),
             history: panelHistoryState(buildZoomHistoryState(state.historyEntries, commit, {}), panels.map(panel => panel.commit), commit) });
         setDirectoryOverviewStatus(result.paths.length ? '' : 'No changed files for the selected revisions.');
         renderComparisonControls();
@@ -742,17 +742,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 activeTabId: 'history',
                 tabs: [{ id: 'history', label: 'History' }],
                 itemsByTab: {
-                    history: entries.map((item, itemIndex) => ({
-                        label: `${item.shortCommit} ${item.summary}`.trim(),
-                        meta: item.timestamp,
-                        commit: item.commit, summary: item.summary, timestamp: item.timestamp,
-                        author: item.author, authorEmail: item.authorEmail, message: item.message,
-                        parents: item.parents,
-                        active: itemIndex === index,
-                        selected: state.comparisonDraftCommits.includes(item.commit),
-                        kind: 'history-entry',
-                        index: itemIndex
-                    }))
+                    history: []
                 }
             }
         };
@@ -769,21 +759,13 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     function panelHistoryState(history, commits, focus) {
-        const items = history.rail.itemsByTab.history;
-        for (const item of items) {
-            item.commit = state.historyEntries[item.index]?.commit;
-            const entry = state.historyEntries[item.index];
-            item.inTour = state.authoredTour?.commits.some((revision) => revision.oid === item.commit);
-            item.selectionEnabled = Boolean(state.zoom);
-            if (entry?.parents?.length > 1) item.meta += ` · Merge: ${entry.parents.map((parent) => parent.slice(0, 7)).join(', ')}`;
-            item.panelNumber = commits.indexOf(item.commit) + 1 || null;
-            item.active = item.commit === focus;
-        }
-        commits.forEach((commit, index) => {
-            if (commit === undefined) return; // Synthetic explanation stages are not Git revisions.
-            if (items.some((item) => item.commit === commit)) return;
-            items.push({ label: commit ? `${commit.slice(0, 7)} · Parent/base revision` : 'Empty tree', commit, selected: state.comparisonDraftCommits.includes(commit), selectionEnabled: Boolean(state.zoom), panelNumber: index + 1, active: commit === focus, kind: 'panel-revision', index: -index - 1 });
-        });
+        history.rail.itemsByTab.history = revisionRailItems(state.historyEntries, {
+            displayed: commits, active: focus, selected: state.comparisonDraftCommits,
+            tourCommits: new Set(state.authoredTour?.commits.map(revision => revision.oid)),
+            selectionEnabled: Boolean(state.zoom), missingRevisionSelectionEnabled: Boolean(state.zoom),
+            missingRevisionLabel: commit => commit ? `${commit.slice(0, 7)} · Parent/base revision` : 'Empty tree'
+        }).map(item => ({ ...item, meta: item.parents.length > 1
+            ? `${item.meta} · Merge: ${item.parents.map(parent => parent.slice(0, 7)).join(', ')}` : item.meta }));
         return history;
     }
 
@@ -798,9 +780,9 @@ import { renderTourProse } from '../media/tourProse.js';
         const focus = panels.find((panel) => panel.id === state.historyFocus)?.commit;
         state.activeTourFilePath = state.historyPath;
         updateTourFileSelection();
-        emit({ type: 'showMultiDiff', panels, pairs: panels.slice(0, -1).map((panel, index) => ({ leftIndex: index, rightIndex: index + 1, diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content) })), activePanelId: state.historyFocus, mutationEnabled: true, canReturnToDirectory: true,
-            fileNavigation: { canGoPrevious: Boolean(getCurrentTourFileTarget(-1)), canGoNext: Boolean(getCurrentTourFileTarget(1)) },
-            history: panelHistoryState(buildZoomHistoryState(state.historyEntries, state.historyCommit, state.historyDiff), panels.map((panel) => panel.commit), focus) });
+        emit({ ...revisionPanelsView({ panels, files: historyRevisionFiles(), activePanelId: state.historyFocus,
+            mutationEnabled: true, canReturnToDirectory: true }, (left, right) => buildTwoWayDiffModel(left.content, right.content)),
+            history: panelHistoryState(buildZoomHistoryState(state.historyEntries, state.historyCommit, state.historyDiff), panels.map(panel => panel.commit), focus) });
     }
 
     async function changeHistoryPanels(message) {
@@ -832,7 +814,7 @@ import { renderTourProse } from '../media/tourProse.js';
         if (target) return showZoomHistory(state.historyPath, target.commit, false);
     }
 
-    function buildComparisonHistoryState(selection, focusCommit) {
+    function buildComparisonHistoryState(selection) {
         return {
             fileName: (selection.path || state.activeTourFilePath || 'Comparison').split('/').pop(),
             canGoBack: false,
@@ -847,18 +829,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 activeTabId: 'history',
                 tabs: [{ id: 'history', label: 'History' }],
                 itemsByTab: {
-                    history: state.historyEntries.map((item, index) => ({
-                        label: `${item.shortCommit} ${item.summary}`.trim(),
-                        meta: item.timestamp,
-                        commit: item.commit, summary: item.summary, timestamp: item.timestamp,
-                        author: item.author, authorEmail: item.authorEmail, message: item.message,
-                        parents: item.parents,
-                        active: item.commit === focusCommit,
-                        selected: state.comparisonDraftCommits.includes(item.commit),
-                        panelNumber: selection.commits.indexOf(item.commit) + 1 || null,
-                        kind: 'history-entry',
-                        index
-                    }))
+                    history: []
                 }
             }
         };
@@ -869,24 +840,14 @@ import { renderTourProse } from '../media/tourProse.js';
         const panels = file.comparisonPanels;
         focusCommit = focusCommit || state.comparisonFocus;
         state.comparisonFocus = focusCommit;
-        const pairs = panels.slice(0, -1).map((panel, index) => ({
-            leftIndex: index,
-            rightIndex: index + 1,
-            diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
-        }));
         state.activeTourFilePath = file.path;
         updateTourFileSelection();
-        emit({
-            type: 'showMultiDiff',
-            panels,
-            pairs,
+        emit({ ...revisionPanelsView({ panels,
+            files: { paths: state.tour.files.filter(item => item.kind === 'text-diff').map(item => item.path), currentPath: file.path },
             activePanelId: focusCommit ? `compare-${focusCommit}` : null,
-            history: panelHistoryState(buildComparisonHistoryState(state.compare, focusCommit), state.compare.commits, focusCommit),
-            fileNavigation: {
-                canGoPrevious: Boolean(getCurrentTourFileTarget(-1)),
-                canGoNext: Boolean(getCurrentTourFileTarget(1))
-            },
-            mutationEnabled: false
+            mutationEnabled: false, canReturnToDirectory: false
+        }, (left, right) => buildTwoWayDiffModel(left.content, right.content)),
+            history: panelHistoryState(buildComparisonHistoryState(state.compare), state.compare.commits, focusCommit)
         });
         updateTourLocationUrl();
         return true;
@@ -912,8 +873,9 @@ import { renderTourProse } from '../media/tourProse.js';
         else {
             state.activeTourFilePath = null;
             const panels = selection.commits.map((commit) => ({ id: `compare-${commit}`, commit, path: 'No text changes', content: '', label: commit.slice(0, 7), editable: false }));
-            emit({ type: 'showMultiDiff', panels, pairs: panels.slice(0, -1).map((panel, index) => ({ leftIndex: index, rightIndex: index + 1, diffModel: buildTwoWayDiffModel('', '') })), mutationEnabled: false,
-                history: panelHistoryState(buildComparisonHistoryState(selection, null), selection.commits, null) });
+            emit({ ...revisionPanelsView({ panels, files: { paths: [], currentPath: null }, mutationEnabled: false, canReturnToDirectory: false },
+                (left, right) => buildTwoWayDiffModel(left.content, right.content)),
+                history: panelHistoryState(buildComparisonHistoryState(selection), selection.commits, null) });
             state.activeTourFilePath = null;
             zoomRestore = null;
         }
@@ -1069,10 +1031,14 @@ import { renderTourProse } from '../media/tourProse.js';
         }
 
         if (state.mode === 'tour') {
-            if (state.zoom?.mode === 'history' && ['openDirectoryEntry', 'returnToDirectory'].includes(message.type)) {
+            if (state.zoom?.mode === 'history' && ['openDirectoryEntry', 'returnToDirectory', 'navigateFile'].includes(message.type)) {
                 cancelPendingModeRestore();
-                if (message.type === 'openDirectoryEntry' && !state.historyChangedFiles.has(message.relativePath)) return;
-                void showZoomHistory(message.type === 'returnToDirectory' ? null : message.relativePath, state.historyCommit).catch(reportModeError);
+                const files = historyRevisionFiles();
+                // The overview includes binary changes too; the backend reports
+                // their display limits when opened, rather than hiding evidence.
+                if (message.type === 'openDirectoryEntry') files.paths = [...state.historyChangedFiles];
+                const target = revisionFileAction(message, files, true);
+                if (target) void showZoomHistory(target.path, state.historyCommit).catch(reportModeError);
                 return;
             }
             if (state.zoom?.mode === 'history' && ['multiAddPanel', 'multiRemovePanel'].includes(message.type)) {
@@ -2192,11 +2158,7 @@ import { renderTourProse } from '../media/tourProse.js';
         state.activeTourFilePath = null;
         updateTourFileSelection();
         document.body.classList.remove('tour-discussion');
-        emit({
-            type: 'showDirectoryDiff',
-            leftLabel: evidence.labels[0], rightLabel: evidence.labels[1],
-            labels: evidence.labels, entries: evidence.entries, canMutate: false
-        });
+        emit(revisionDirectoryView(evidence.labels, evidence.entries));
         setDirectoryOverviewStatus(evidence.entries.length ? '' : 'No changed files in this directory for the selected comparison.');
         updateTourLocationUrl();
         return true;
@@ -2343,11 +2305,7 @@ import { renderTourProse } from '../media/tourProse.js';
             editable: false,
             stackId: getMultiPanelDefinitions(scene)[index].id
         }));
-        const pairs = panels.slice(0, -1).map((panel, index) => ({
-            leftIndex: index,
-            rightIndex: index + 1,
-            diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content)
-        }));
+        const pairs = revisionPanelPairs(panels, (left, right) => buildTwoWayDiffModel(left.content, right.content));
         const tourAnnotations = buildStackedTourAnnotationsForFile(file.path, pairs);
         const activeAnnotation = tourAnnotations.find((annotation) => annotation.active);
         const focusPairIndex = activeAnnotation?.pairIndex ?? step.pairIndex;
@@ -2386,6 +2344,11 @@ import { renderTourProse } from '../media/tourProse.js';
         return true;
     }
 
+    function historyRevisionFiles() {
+        return { paths: state.tour.files.filter(file => file.kind === 'text-diff').map(file => file.path),
+            currentPath: state.activeTourFilePath, changedPaths: state.historyChangedFiles };
+    }
+
     function getCurrentTourFileTarget(direction) {
         const tour = state.tour;
         if (!tour || (direction !== -1 && direction !== 1)) {
@@ -2393,12 +2356,8 @@ import { renderTourProse } from '../media/tourProse.js';
         }
         const scene = tour.scenes[state.activeSceneIndex];
         if (state.zoom?.mode === 'history') {
-            const index = tour.files.findIndex(file => file.path === state.activeTourFilePath);
-            for (let fileIndex = index + direction; fileIndex >= 0 && fileIndex < tour.files.length; fileIndex += direction) {
-                const file = tour.files[fileIndex];
-                if (file.kind === 'text-diff' && state.historyChangedFiles.has(file.path)) return { fileIndex, path: file.path };
-            }
-            return null;
+            const path = revisionFileTarget(historyRevisionFiles(), direction);
+            return path ? { fileIndex: tour.files.findIndex(file => file.path === path), path } : null;
         }
         if (state.directoryEvidence) {
             const files = state.directoryEvidence.files;

@@ -1,4 +1,5 @@
 import type { DirectoryEntry } from './directoryDiff';
+import { buildHistoryDirectoryEntries } from './historyDirectory';
 import type { ChangeTourManifest, ChangeTourScene, ChangeTourDiffScene, ChangeTourOmittedFile } from './changeTourManifest';
 
 /** Materialize the overview's exact comparison without substituting final snapshots. */
@@ -43,42 +44,19 @@ export function buildTourDirectoryEvidence(tour: ChangeTourManifest, scene: Chan
         files = tour.files.filter((file): file is ChangeTourDiffScene => file.kind === 'text-diff' && inScope(file.path));
         omitted = tour.files.filter((file): file is ChangeTourOmittedFile => file.kind === 'omitted' && inScope(file.path));
     }
-    const entries = new Map<string, DirectoryEntry>();
-    for (const file of [...files, ...omitted]) {
-        const sides = [file.changeKind !== 'added', file.changeKind !== 'deleted'];
-        const parts = file.path.split('/');
-        for (let depth = 0; depth < parts.length - 1; depth++) {
-            const path = parts.slice(0, depth + 1).join('/');
-            const directory = entries.get(path);
-            if (directory) directory.sides = directory.sides.map((exists, index) => exists || sides[index]);
-            else entries.set(path, {
-                relativePath: path, displayName: parts[depth], depth, isDirectory: true,
-                status: 'modified', sides: [...sides]
-            });
-        }
-        entries.set(file.path, {
-            relativePath: file.path, displayName: parts[parts.length - 1], depth: parts.length - 1,
-            isDirectory: false, sides,
-            status: !sides[0] ? 'right-only' : !sides[1] ? 'left-only' : 'modified',
-            gitChangeKind: file.changeKind,
+    // Authored evidence may include synthetic stages and omitted files. Build
+    // inventories from that evidence only, then retain its explanatory metadata.
+    const evidence = [...files, ...omitted];
+    const byPath = new Map(evidence.map(file => [file.path, file]));
+    const inventories = [
+        new Set(evidence.filter(file => file.changeKind !== 'added').map(file => file.path)),
+        new Set(evidence.filter(file => file.changeKind !== 'deleted').map(file => file.path))
+    ];
+    const sorted = buildHistoryDirectoryEntries(evidence.map(file => file.path), inventories).map(entry => {
+        const file = byPath.get(entry.relativePath);
+        return !file || entry.isDirectory ? entry : { ...entry, gitChangeKind: file.changeKind,
             ...(file.previousPath ? { previousPath: file.previousPath } : {}),
-            ...(file.kind === 'omitted' ? { relationSummary: `Unavailable: ${file.reason}` } : {})
-        });
-    }
-    for (const entry of entries.values()) {
-        if (entry.isDirectory) entry.status = !entry.sides[0] ? 'right-only' : !entry.sides[1] ? 'left-only' : 'modified';
-    }
-    // Compare ancestor segments so each directory's descendants stay together.
-    const sorted = [...entries.values()].sort((a, b) => {
-        const left = a.relativePath.split('/');
-        const right = b.relativePath.split('/');
-        for (let i = 0; i < Math.min(left.length, right.length); i++) {
-            if (left[i] === right[i]) continue;
-            const leftDirectory = i < left.length - 1 || a.isDirectory;
-            const rightDirectory = i < right.length - 1 || b.isDirectory;
-            return Number(rightDirectory) - Number(leftDirectory) || left[i].localeCompare(right[i]);
-        }
-        return left.length - right.length;
+            ...(file.kind === 'omitted' ? { relationSummary: `Unavailable: ${file.reason}` } : {}) };
     });
     const suffix = scope ? ` / ${scope}/` : '';
     return { entries: sorted, files, labels: [labels[0] + suffix, labels[1] + suffix], omitted };

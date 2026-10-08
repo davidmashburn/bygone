@@ -124,6 +124,18 @@ test('directory overview stays scoped and distinguishes an existing parent from 
     assert.deepEqual(entries[1].sides, [false, true]);
 });
 
+test('a deleted working-tree child does not make its surviving parent look deleted', t => {
+    const f = makeBranchFixture(t);
+    write(f.repoRoot, 'nested/gone.txt', 'gone\n');
+    f.rename = commit(f.repoRoot, 'nested file');
+    fs.unlinkSync(path.join(f.repoRoot, 'nested/gone.txt'));
+    const history = createWorkspaceHistory(rootContext(f, [f.rename, 'WORKTREE'], 'WORKTREE', [{ path: 'nested', type: 'directory' }]));
+    const entries = history.directoryEntries([f.rename, 'WORKTREE']);
+    assert.deepEqual(entries.map(entry => [entry.relativePath, entry.sides]), [
+        ['nested', [true, true]], ['nested/gone.txt', [true, false]]
+    ]);
+});
+
 test('builds a deterministic all-commit axis and historical path union', (t) => {
     const fixture = makeBranchFixture(t);
     const context = rootContext(
