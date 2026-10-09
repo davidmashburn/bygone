@@ -193,8 +193,11 @@ body.web-host {
     stroke-linejoin: round;
 }
 
-.edit-mode-toolbar {
-    margin-top: 10px;
+.comparison-mutability {
+    display: inline-block;
+    margin-left: 8px;
+    font-weight: normal;
+    white-space: nowrap;
 }
 
 .edit-mode-toolbar[hidden] {

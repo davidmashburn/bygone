@@ -1116,7 +1116,8 @@ function testEditorComfortUsesNativeMonacoActionsAndSourceModels() {
 function testTextPanelsExposeMutabilityProvenance() {
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
     assert.match(rendererSource, /panel\.mutabilityLabel \|\| 'Read-only snapshot'/);
-    assert.match(rendererSource, /button\.textContent = !hasEditableSide \? hostReadOnlyLabel/);
+    assert.match(rendererSource, /toolbar\.hidden = !hasEditableSide/);
+    assert.match(rendererSource, /status\.textContent = 'Read-only'/);
     assert.match(rendererSource, /hostReadOnlyLabel === 'Read-only file'/);
 }
 

@@ -145,6 +145,11 @@ VS Code's native Search rather than another bundled ripgrep process.
 
 ## Provenance and mutability vocabulary
 
+Two-panel comparisons show immutable status beside the file summary and the
+editing toggle in the existing controls row when editing is available. Read-only
+status does not reserve a separate toolbar row. Multi-panel comparisons retain
+their per-panel provenance, including mixed writable and snapshot panels.
+
 Use these labels consistently:
 
 - **Writable file:** filesystem content and a live `WORKTREE` column participating in dirty, undo,

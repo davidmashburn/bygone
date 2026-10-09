@@ -4414,17 +4414,28 @@ function updateEditModeToolbar() {
     const button = getElement('toggle-readonly');
     const hasEditableSide = currentMode === MODE_TWO_WAY && hasHostEditableSide();
 
-    toolbar.hidden = currentMode !== MODE_TWO_WAY;
+    toolbar.hidden = !hasEditableSide;
     button.disabled = !hasEditableSide;
     button.classList.toggle('is-readonly', userReadOnly);
-    button.textContent = !hasEditableSide ? hostReadOnlyLabel : (userReadOnly ? 'Read-only' : 'Editing On');
-    button.title = !hasEditableSide
-        ? (hostReadOnlyLabel === 'Read-only file'
-            ? 'Editing was disabled when this comparison was opened'
-            : 'This comparison contains historical, committed, or synthetic snapshots')
-        : userReadOnly
+    button.textContent = userReadOnly ? 'Read-only' : 'Editing On';
+    button.setAttribute('aria-pressed', String(userReadOnly));
+    button.title = userReadOnly
         ? 'Allow editing for writable panes'
         : 'Freeze writable panes';
+
+    document.getElementById('comparison-mutability')?.remove();
+    if (currentMode === MODE_TWO_WAY && !hasEditableSide) {
+        const status = document.createElement('span');
+        status.id = 'comparison-mutability';
+        status.className = 'comparison-mutability';
+        status.textContent = 'Read-only';
+        status.tabIndex = 0;
+        status.title = hostReadOnlyLabel === 'Read-only file'
+            ? 'Editing was disabled when this comparison was opened'
+            : `${hostReadOnlyLabel}: historical, committed, or synthetic content cannot be edited`;
+        status.setAttribute('aria-label', `Read-only. ${status.title}`);
+        getElement('file-info').append(status);
+    }
 }
 
 function registerEditorKeybindings(editor, editorMode) {
