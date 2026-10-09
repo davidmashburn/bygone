@@ -8,7 +8,8 @@ checks; these also run in `npm run standalone:smoke` on macOS CI.
 long unchanged surroundings, repeated YAML keys, indentation changes, wrapped
 paragraphs, an insertion, and a substantive edit. It contains no private review
 material. `diffRegression.test.js` checks both comparison directions, exact
-whitespace highlight columns, expected reflow boundaries, preservation of all
+whitespace highlight columns, word replacement edge trimming (including its
+contiguous-middle limit and whole-character Unicode boundaries), expected reflow boundaries, preservation of all
 source lines and segment text, line-length limits, newline variants, and scroll
 correspondence before, within, and after changes. Edited one-to-many paragraphs
 keep inline changes and exclude neighboring additions/deletions; touching blue

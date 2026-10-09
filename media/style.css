@@ -449,10 +449,33 @@ button.file-header:hover {
 
 .change-position {
     text-align: center;
-    color: var(--vscode-descriptionForeground);
+    color: var(--vscode-foreground);
     font-size: 12px;
     white-space: nowrap;
     min-width: 52px;
+}
+
+.monaco-editor .bygone-active-diff-outline {
+    box-sizing: border-box;
+    border: 2px solid var(--vscode-editorCursor-foreground, #d4d4d4);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.monaco-editor .bygone-active-diff-top {
+    border-top: 2px solid var(--vscode-editorCursor-foreground, #d4d4d4);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.monaco-editor .bygone-active-diff-bottom {
+    border-bottom: 2px solid var(--vscode-editorCursor-foreground, #d4d4d4);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.monaco-editor .bygone-active-diff-gutter {
+    border-left: 3px solid var(--vscode-editorCursor-foreground, #d4d4d4);
 }
 
 .change-hint {

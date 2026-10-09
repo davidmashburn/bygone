@@ -53,7 +53,7 @@ export function createExportHistory(data) {
             if (!graph) {
                 if (commits.length !== 2 || commits.some((oid, index) => oid !== endpoints[index])) throw new Error('Minimal exports support only the fixed base → head comparison.');
                 if (input.path && !manifest.files.some(file => file.path === input.path || file.previousPath === input.path)) throw new Error('File is outside the exported scope.');
-                return { commits, files: manifest.files.filter(file => !input.path || file.path === input.path || file.previousPath === input.path).map(file => ({
+                const files = manifest.files.filter(file => !input.path || file.path === input.path || file.previousPath === input.path).map(file => ({
                     ...file,
                     comparisonPanels: commits.map((commit, index) => ({
                         id: `compare-${commit}`, commit, editable: false,
@@ -61,12 +61,15 @@ export function createExportHistory(data) {
                         label: index === 0 ? file.leftLabel : file.rightLabel,
                         content: (index === 0 ? file.leftContent : file.rightContent) || ''
                     }))
-                })) };
+                }));
+                return { commits, files, entries: buildHistoryDirectoryEntries(files.map(file => file.path), commits.map((_, index) => new Set(
+                    files.filter(file => index === 0 ? file.changeKind !== 'added' : file.changeKind !== 'deleted').map(file => file.path)
+                ))) };
             }
             commits.forEach(entry);
             if (input.path && !graph.paths.includes(input.path)) throw new Error('File is outside the exported scope.');
             const paths = input.path ? [input.path] : graph.paths;
-            return { commits, files: paths.flatMap(path => {
+            const files = paths.flatMap(path => {
                 const records = commits.map(oid => graph.snapshots[oid][path]);
                 if (!input.path && records.every(record => JSON.stringify(record) === JSON.stringify(records[0]))) return [];
                 const omitted = records.find(record => record?.omitted);
@@ -81,7 +84,10 @@ export function createExportHistory(data) {
                     comparisonPanels: commits.map((commit, index) => ({ id: `compare-${commit}`, commit, path,
                         label: `${path} @ ${commit.slice(0, 7)}${records[index] ? '' : ' (absent)'}`, content: contents[index], editable: false }))
                 }];
-            }) };
+            });
+            return { commits, files, entries: buildHistoryDirectoryEntries(files.map(file => file.path), commits.map(commit => new Set(
+                files.filter(file => graph.snapshots[commit][file.path]).map(file => file.path)
+            ))) };
         }
         if (!graph) throw new Error('Git history is not included in this Minimal export.');
         const commit = input.commit || manifest.range.headOid;

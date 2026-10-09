@@ -22,7 +22,7 @@ Bygone is a VS Code extension and standalone desktop app for visual diff and fil
 
 - Editable two-way side-by-side diff view
 - Dynamic adjacent multi-panel diff view
-- Flowing connectors, block contours, and inline change highlighting
+- Flowing connectors, block contours, and [inline change highlighting](#inline-highlighting)
 - Git file history viewer with commit-by-commit navigation
 - Local branch-change exploration using merge-base-to-tip semantics and changed-file progress
 - Binary-aware comparisons with side-by-side image previews and byte-equality reporting
@@ -30,6 +30,37 @@ Bygone is a VS Code extension and standalone desktop app for visual diff and fil
 ## Status
 
 This project is usable as a VS Code extension and standalone desktop app. The two-way diff and git history flows are the most complete. The multi-panel view is diff-focused, not a merge tool.
+
+## Inline highlighting
+
+Bygone matches words first, then uses **edge trimming** inside each replacement:
+leave the longest identical beginning and ending unhighlighted, and highlight
+the remaining middle. The beginning and ending never overlap. If one complete
+text is a prefix or suffix of the other, keep it unhighlighted: `Name` → `NewName`
+shows `Name` → `[New]Name`. If either edge works, or otherwise when matching edges
+overlap, prefer the beginning. Adjacent removed
+and inserted tokens form one replacement until an unchanged token separates them.
+
+Brackets below represent the stronger inline highlight:
+
+| Change | Highlighted result |
+| --- | --- |
+| `oldName` → `newName` | `[old]Name` → `[new]Name` |
+| `nameOld` → `nameNew` | `name[Old]` → `name[New]` |
+| `userCount` → `usersCount` | `userCount` → `user[s]Count` |
+| `userStatisticalCount` → `userMetricsCount` | `user[Statistical]Count` → `user[Metrics]Count` |
+| `oldNameOld` → `newNameNew` | `[oldNameOld]` → `[newNameNew]` |
+
+This handles a single contiguous edit anywhere in a replacement. It does not
+search for unchanged text inside the remaining middle: multiple separated edits
+within one word highlight everything from the first difference through the last.
+It also makes no semantic judgment: `timeoutMs` → `timeoutSeconds` preserves the
+shared final `s`, showing `timeout[M]s` → `timeout[Second]s`.
+
+Highlight boundaries preserve whole displayed Unicode characters, including
+combining accents and emoji. Edge trimming changes inline emphasis, not line
+pairing or block colors. Existing whitespace-only highlighting and limits on
+inline highlighting for long lines still apply.
 
 ## Install For Development
 

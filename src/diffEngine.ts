@@ -1427,6 +1427,83 @@ function applyFullLineHighlight(line: DiffLine): void {
     }
 }
 
+const inlineGraphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+/** Keep shared edges; highlight one contiguous middle, without searching inside it. */
+function trimReplacementEdges(left: string, right: string): Diff.Change<string>[] {
+    if (left === right) return left ? [{ value: left }] : [];
+    const leftChars = Array.from(inlineGraphemes.segment(left), part => part.segment);
+    const rightChars = Array.from(inlineGraphemes.segment(right), part => part.segment);
+    const limit = Math.min(leftChars.length, rightChars.length);
+    let prefix = 0;
+    let suffix = 0;
+    while (prefix < limit && leftChars[prefix] === rightChars[prefix]) prefix++;
+    while (suffix < limit
+        && leftChars[leftChars.length - suffix - 1] === rightChars[rightChars.length - suffix - 1]) suffix++;
+    // Preserve a whole original word at either edge before resolving overlap:
+    // Name → NewName is [New]Name, not N[ewN]ame. Otherwise prefer the prefix.
+    if (suffix === limit && prefix < limit) prefix = 0;
+    suffix = Math.min(suffix, limit - prefix);
+    return [
+        { value: leftChars.slice(0, prefix).join('') },
+        { value: leftChars.slice(prefix, leftChars.length - suffix).join(''), removed: true },
+        { value: rightChars.slice(prefix, rightChars.length - suffix).join(''), added: true },
+        { value: suffix ? leftChars.slice(-suffix).join('') : '' }
+    ].filter(change => change.value.length > 0);
+}
+
+function edgeTrimmedWordChanges(left: string, right: string): Diff.Change<string>[] {
+    const words = Diff.diffWordsWithSpace(left, right);
+    const boundaries = (text: string): Set<number> => new Set([
+        ...Array.from(inlineGraphemes.segment(text), part => part.index), text.length
+    ]);
+    const leftBoundaries = boundaries(left);
+    const rightBoundaries = boundaries(right);
+    const result: Diff.Change<string>[] = [];
+    let leftOffset = 0;
+    let rightOffset = 0;
+    let pendingLeft = '';
+    let pendingRight = '';
+
+    for (let index = 0; index < words.length;) {
+        const word = words[index];
+        if (!word.added && !word.removed) {
+            pendingLeft += word.value;
+            pendingRight += word.value;
+            leftOffset += word.value.length;
+            rightOffset += word.value.length;
+            index++;
+        } else {
+            // Adjacent removals/additions form one replacement, even across tokens.
+            while (index < words.length && (words[index].added || words[index].removed)) {
+                const change = words[index++];
+                if (change.removed) {
+                    pendingLeft += change.value;
+                    leftOffset += change.value.length;
+                } else {
+                    pendingRight += change.value;
+                    rightOffset += change.value.length;
+                }
+            }
+        }
+        // The word tokenizer can split a combining sequence or emoji. Absorb
+        // neighboring pieces until both sides end at a whole displayed character.
+        if (leftBoundaries.has(leftOffset) && rightBoundaries.has(rightOffset)) {
+            for (const change of trimReplacementEdges(pendingLeft, pendingRight)) {
+                const previous = result[result.length - 1];
+                if (previous && previous.added === change.added && previous.removed === change.removed) {
+                    previous.value += change.value;
+                } else {
+                    result.push(change);
+                }
+            }
+            pendingLeft = '';
+            pendingRight = '';
+        }
+    }
+    return result;
+}
+
 function buildInlineSegments(
     leftContent: string,
     rightContent: string
@@ -1435,7 +1512,7 @@ function buildInlineSegments(
     rightSegments: DiffSegment[];
     hasInlineChanges: boolean;
 } {
-    const changes = Diff.diffWordsWithSpace(leftContent, rightContent);
+    const changes = edgeTrimmedWordChanges(leftContent, rightContent);
     const leftSegments: DiffSegment[] = [];
     const rightSegments: DiffSegment[] = [];
     let hasInlineChanges = false;

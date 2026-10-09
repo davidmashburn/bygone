@@ -134,6 +134,31 @@ app.whenReady().then(async () => {
             return decorations.some(d => d.options.className === 'bygone-paired-line')
                 && !decorations.some(d => d.options.className === 'bygone-one-sided-line');
         })`), true, 'Worker-computed renamed title fields render blue on both sides');
+        const changeBefore = 'old first\nkeep\nold second\n';
+        const changeAfter = 'new first\nkeep\nnew second\n';
+        for (const count of [2, 3]) {
+            const contents = [changeBefore, changeAfter, changeBefore].slice(0, count);
+            await show(count === 2
+                ? { type: 'showDiff', file1: 'before.txt', file2: 'after.txt', leftContent: changeBefore, rightContent: changeAfter, diffModel: buildTwoWayDiffModel(changeBefore, changeAfter), initialChangeIndex: 0 }
+                : { type: 'showMultiDiff', panels: contents.map((content, index) => ({ id: `change-${index}`, label: `change-${index}`, content, editable: false })),
+                    pairs: contents.slice(1).map((content, index) => ({ leftIndex: index, rightIndex: index + 1, diffModel: buildTwoWayDiffModel(contents[index], content) })), initialChangeIndex: 0 });
+            for (const index of [1, 2]) {
+                if (index === 2) await evaluate("document.querySelector('#next-change').click()");
+                await frames();
+                assert.equal(await evaluate("document.querySelector('#change-position').textContent"), `Change ${index} of 2`);
+                const active = await evaluate(`${editors}.flatMap(e => e.getModel().getAllDecorations()
+                    .filter(d => d.options.blockClassName === 'bygone-active-diff-outline')
+                    .map(d => d.range.startLineNumber))`);
+                assert.deepEqual(active, [index === 1 ? 1 : 3, index === 1 ? 1 : 3], 'Only the current change in the active pair is outlined');
+                assert.equal(await evaluate("document.querySelectorAll('.bygone-active-diff-gutter').length"), 2);
+            }
+        }
+        for (const [leftContent, rightContent] of [['', 'new\n'], ['removed\n', '']]) {
+            await show({ type: 'showDiff', file1: 'before.txt', file2: 'after.txt', leftContent, rightContent, diffModel: buildTwoWayDiffModel(leftContent, rightContent) });
+            await evaluate("document.querySelector('#next-change').click()");
+            await frames();
+            assert.equal(await evaluate(`${editors}.every(e => e.getModel().getAllDecorations().some(d => d.options.blockClassName?.startsWith('bygone-active-diff-')))`), true, 'Added and deleted files mark the current change on both sides');
+        }
         await runPanelDensitySmoke({ window, show });
         assert.deepEqual(errors, []);
         console.log('Diff renderer regression smoke passed: whitespace paint/ranges, long YAML, two/three panels, both scroll directions, wrap on/off, unchanged prefix/suffix, reflow boundaries, panel switching, connector clipping, renamed title pairing.');
