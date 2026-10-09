@@ -1620,12 +1620,12 @@ button.file-header {
 }
 
 .removed-segment.emphasis {
-    background: rgba(79, 124, 255, 0.34);
+    background: rgba(79, 124, 255, 0.60);
     color: inherit;
 }
 
 .added-segment.emphasis {
-    background: rgba(79, 124, 255, 0.34);
+    background: rgba(79, 124, 255, 0.60);
     color: inherit;
 }
 
@@ -1661,7 +1661,7 @@ button.file-header {
 }
 
 .monaco-editor .bygone-inline-blue {
-    background: rgba(79, 124, 255, 0.34);
+    background: rgba(79, 124, 255, 0.60);
     border-radius: 2px;
 }
 
