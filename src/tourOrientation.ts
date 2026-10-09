@@ -75,10 +75,67 @@ export function describeTourComparison(context: TourEvidenceContext): string {
 export function describeTourTransition(previous: TourEvidenceContext | null, current: TourEvidenceContext): string {
     if (!previous) return describeTourComparison(current);
     if (previous.kind !== current.kind) return `${current.kind === 'synthetic' ? 'Switching to explanation stages' : 'Switching to real revisions'}. ${describeTourComparison(current)}`;
-    if (previous.comparisonKey !== current.comparisonKey) return `Comparison changed: ${previous.labels.join(' → ')} to ${current.labels.join(' → ')} · ${current.scope}`;
-    return `Same comparison${previous.scopeKey !== current.scopeKey ? '; scope changed' : ''}: ${current.labels.join(' → ')} · ${current.scope}`;
+    if (previous.comparisonKey !== current.comparisonKey) return `${current.kind === 'synthetic' ? 'Explanation stages changed' : 'Revision comparison changed'}: ${previous.labels.join(' → ')} to ${current.labels.join(' → ')} · ${current.scope}`;
+    const movement = previous.scopeKey !== current.scopeKey
+        ? `${previous.overview || current.overview ? 'view' : 'file'} changed from ${previous.scope} to ${current.scope}`
+        : `same ${current.overview ? 'directory view' : 'file'}: ${current.scope}`;
+    return `Same ${current.kind === 'synthetic' ? 'explanation stages' : 'revision comparison'}; ${movement} · ${current.labels.join(' → ')}`;
 }
 
 function realLabel(label: string, oid: string): string {
     return label === oid || label === oid.slice(0, 7) ? oid.slice(0, 7) : `${label} (${oid.slice(0, 7)})`;
+}
+
+export interface TourRouteEntry {
+    sceneIndex: number;
+    title: string;
+    evidence: string;
+}
+
+/** Describe the authored route without treating scenes as commit or PR boundaries. */
+export function buildTourRoute(tour: ChangeTourManifest): { summary: string; scenes: TourRouteEntry[] } {
+    return {
+        summary: `${tour.scenes.length} ${tour.scenes.length === 1 ? 'scene' : 'scenes'} in this tour. Scenes organize the explanation; steps point to the evidence. A scene can visit several files or revision pairs. The route below names those changes.`,
+        scenes: tour.scenes.map((scene, sceneIndex) => ({ sceneIndex, title: scene.title, evidence: describeSceneRoute(tour, sceneIndex) }))
+    };
+}
+
+export function describeSceneRoute(tour: ChangeTourManifest, sceneIndex: number): string {
+    const scene = tour.scenes[sceneIndex];
+    if (scene.kind === 'discussion') return 'Discussion: pause to connect the findings. No code comparison is displayed.';
+    if (scene.kind === 'walkthrough' && scene.steps.every(step => step.image)) {
+        return `${scene.steps.length} images in reading order. Each step explains what to notice in its image.`;
+    }
+    const items: TourReadingItem[] = 'steps' in scene
+        ? scene.steps.flatMap((step, stepIndex) => 'image' in step && step.image ? [] : [{ kind: 'step' as const, key: `step:${scene.id}:${step.id}`, sceneIndex, stepIndex }])
+        : [{ kind: 'scene', key: `scene:${scene.id}`, sceneIndex, stepIndex: 0 }];
+    const imageCount = scene.kind === 'walkthrough' ? scene.steps.filter(step => step.image).length : 0;
+    const contexts = items.map(item => resolveTourEvidenceContext(tour, item)!).filter(Boolean);
+    const files = contexts.map(context => context.scope).filter((path, index, paths) => index === 0 || path !== paths[index - 1]);
+    const pairs = contexts.filter((context, index) => index === 0 || context.comparisonKey !== contexts[index - 1].comparisonKey);
+    const evidence = `${'steps' in scene ? `${scene.steps.length} steps. ` : ''}${files.length === 1 ? 'File' : 'Files in order'}: ${files.join(' → ')}.`;
+    const comparisons = `${scene.kind === 'deconstructed-diff' ? 'Explanation stages (constructed, not commits)' : 'Revisions'}: ${pairs.map(pair => pair.labels.join(' → ')).join('; then ')}.`;
+    const overviewContext = 'overview' in scene && scene.overview
+        ? resolveTourEvidenceContext(tour, { kind: 'scene', key: `scene:${scene.id}`, sceneIndex, stepIndex: 0 }) : null;
+    const overview = overviewContext ? `Starts with a directory overview${overviewContext.comparisonKey !== contexts[0]?.comparisonKey ? ` (${overviewContext.labels.join(' → ')})` : ''}, then follows the evidence. ` : '';
+    return `${overview}${evidence} ${comparisons}${imageCount ? ` Also includes ${imageCount} image ${imageCount === 1 ? 'step' : 'steps'}.` : ''}`;
+}
+
+/** Fixed reading-order cues also work on direct links and in audio playback. */
+export function describeStepOrientation(tour: ChangeTourManifest, sceneIndex: number, stepIndex: number): string {
+    const scene = tour.scenes[sceneIndex];
+    if (!('steps' in scene)) return '';
+    const step = scene.steps[stepIndex];
+    const prefix = `Step ${stepIndex + 1} of ${scene.steps.length}.`;
+    if ('image' in step && step.image) return `${prefix} Image: ${step.title}.`;
+    const item = { kind: 'step' as const, key: `step:${scene.id}:${step.id}`, sceneIndex, stepIndex };
+    const current = resolveTourEvidenceContext(tour, item)!;
+    const previous = stepIndex > 0 && !(scene.kind === 'walkthrough' && scene.steps[stepIndex - 1].image)
+        ? resolveTourEvidenceContext(tour, { ...item, stepIndex: stepIndex - 1 }) : null;
+    if (!previous) return `${prefix} Evidence in ${current.scope}.`;
+    const pairChanged = previous.comparisonKey !== current.comparisonKey;
+    const fileChanged = previous.scope !== current.scope;
+    const revisions = current.kind === 'synthetic' ? 'explanation stages' : 'revisions';
+    const movement = pairChanged ? `Switch ${revisions} to ${current.labels.join(' → ')}.` : `Keep the same ${revisions}.`;
+    return `${prefix} ${movement} ${fileChanged ? `Move from ${previous.scope} to ${current.scope}.` : `Continue in ${current.scope}.`}`;
 }

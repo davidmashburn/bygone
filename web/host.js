@@ -1,4 +1,4 @@
-import { tourLanding, resolveTourEvidenceContext, resolveTourRangeEvidenceContext, describeTourComparison, describeTourTransition } from '../src/tourOrientation.ts';
+import { buildTourRoute, describeSceneRoute, describeStepOrientation, tourLanding, resolveTourEvidenceContext, resolveTourRangeEvidenceContext, describeTourComparison, describeTourTransition } from '../src/tourOrientation.ts';
 import { revisionFileTarget, revisionFileAction, revisionDirectoryView, revisionPanelsView, revisionPanelPairs, revisionRailItems } from '../src/revisionView.ts';
 import { createTourImageViewer } from './tourImage.js';
 import { parseDocumentFragment, resolveDocumentFocus, serializeDocumentFragment, serializeDeepLink } from '../src/deepLink.ts';
@@ -1772,6 +1772,7 @@ import { renderTourProse } from '../media/tourProse.js';
             document.documentElement.style.setProperty('--tour-narrative-height', `${height}px`);
             const content = document.getElementById('tour-narrative-content');
             content?.style.setProperty('--tour-reading-viewport', `${content.clientHeight}px`);
+            if (state.readingKey === 'title') readingElements.get('title')?.style.setProperty('min-height', `${content.clientHeight}px`);
             updateStickySceneHeaders();
             window.dispatchEvent(new Event('resize'));
         };
@@ -1968,7 +1969,13 @@ import { renderTourProse } from '../media/tourProse.js';
         sceneCount.textContent = isNarrativeMode() && tour.scenes.length ? String(tour.scenes.length) : '';
         fileCount.textContent = String(tour.files.length);
         scenes.replaceChildren();
-        if (isNarrativeMode()) buildReadingDocument();
+        if (isNarrativeMode()) {
+            buildReadingDocument();
+            const intro = readingButton('Intro', 'Read the introduction and tour route', () => activateReadingItem(readingItems.find(item => item.kind === 'title')));
+            intro.className = 'tour-scene';
+            intro.dataset.readingLink = 'title';
+            scenes.append(intro);
+        }
         const sceneById = new Map(tour.scenes.map((scene) => [scene.id, scene]));
         for (const chapter of tour.chapters) {
             const chapterGroup = createOutlineGroup(`chapter:${chapter.id}`, chapter.title, 'tour-chapter-link', () => {
@@ -2141,7 +2148,7 @@ import { renderTourProse } from '../media/tourProse.js';
             void showZoomHistory(path, state.historyCommit).catch((error) => { document.getElementById('tour-mode-status').textContent = error.message; });
             return null;
         }
-        const previousContext = lastReadingEvidence?.tour === tour && !options.zoomLanding && !applyingDocumentLocation && (options.narrationNavigation === 'linear' || options.narrationNavigation === 'controller' || options.fromReadingScroll)
+        const previousContext = lastReadingEvidence?.tour === tour && !options.zoomLanding && !applyingDocumentLocation
             ? lastReadingEvidence.context : null;
         state.directoryEvidence = null;
         setDirectoryOverviewStatus('');
@@ -2149,7 +2156,7 @@ import { renderTourProse } from '../media/tourProse.js';
         buildReadingDocument();
         let readingItem = readingItems.find((item) => item.key === options.readingKey)
             || resolveTourReadingItem(readingItems, index, stepIndex, options.showIntro ? 'overview' : null);
-        if (readingItem && readingItem.kind !== 'step' && readingItem.kind !== 'conclusion' && !(readingItem.kind === 'title' && tour.opening) && isImageOnlyTour(tour)) {
+        if (readingItem && readingItem.kind !== 'step' && readingItem.kind !== 'conclusion' && readingItem.kind !== 'title' && isImageOnlyTour(tour)) {
             readingItem = resolveTourReadingItem(readingItems, readingItem.sceneIndex, 0);
         }
         if (readingItem) {
@@ -2159,6 +2166,9 @@ import { renderTourProse } from '../media/tourProse.js';
         const scene = tour.scenes[index];
         const landing = tourLanding(tour, readingItem);
         document.body.classList.toggle('tour-discussion', landing === 'narrative');
+        const bookend = readingItem.kind === 'title' || readingItem.kind === 'conclusion';
+        const bookendChanged = document.body.classList.contains('tour-bookend') !== bookend;
+        document.body.classList.toggle('tour-bookend', bookend);
         state.readingKey = readingItem?.key || 'title';
         state.sceneIntroVisible = readingItem?.kind !== 'step';
         state.narrativeParent = readingItem?.kind === 'conclusion' ? 'conclusion' : readingItem?.kind === 'title' ? 'tour' : readingItem?.kind === 'chapter' ? 'chapter' : null;
@@ -2179,7 +2189,7 @@ import { renderTourProse } from '../media/tourProse.js';
             ? narrationController.state.unit : buildActiveNarrationUnit(options.narrationEntry || 'playback-start');
         state.renderedNarrationUnit = narrationUnit;
         renderTourNarrative(scene, location, narrationUnit);
-        if (!options.fromReadingScroll) scrollToReadingItem(state.readingKey);
+        if (!options.fromReadingScroll || bookendChanged) scrollToReadingItem(state.readingKey);
         if (narrationUnit && !options.zoomLanding && !options.preserveNarration && (!state.zoom || isNarrativeMode())) {
             if (options.narrationNavigation === 'linear') {
                 narrationController.followLinearNavigation(narrationUnit);
@@ -2348,7 +2358,7 @@ import { renderTourProse } from '../media/tourProse.js';
         const context = rangeOnly || !authoredContext ? resolveTourRangeEvidenceContext(state.tour, filePath) : authoredContext;
         const displayedContext = { ...context, scope: filePath, scopeKey: JSON.stringify([filePath]), overview: false };
         const previous = lastReadingEvidence?.tour === state.tour ? lastReadingEvidence.context : null;
-        const comparison = previous && previous.comparisonKey !== displayedContext.comparisonKey
+        const comparison = previous && (previous.comparisonKey !== displayedContext.comparisonKey || previous.scopeKey !== displayedContext.scopeKey)
             ? describeTourTransition(previous, displayedContext) : describeTourComparison(displayedContext);
         // Remember the actual rendered pair, including user-selected panels and file exploration.
         lastReadingEvidence = { tour: state.tour, context: displayedContext };
@@ -2356,7 +2366,11 @@ import { renderTourProse } from '../media/tourProse.js';
             : item && resolveTourEvidenceContext(state.tour, item, state.zoom?.mode);
         const preview = item && tourLanding(state.tour, item) === 'preview'
             && previewContext?.scope === filePath && previewContext.comparisonKey === context.comparisonKey;
-        return `${preview ? 'Coming up · ' : ''}${comparison}`;
+        const scene = item && state.tour.scenes[item.sceneIndex];
+        const step = scene && isSteppedTourScene(scene) ? scene.steps[item.kind === 'step' ? item.stepIndex : 0] : null;
+        const supportsStep = step && previewContext?.scope === filePath && previewContext.comparisonKey === context.comparisonKey;
+        const purpose = supportsStep ? `${preview ? 'Coming up' : 'Evidence for'}: ${step.title} · ` : '';
+        return `${purpose}${comparison}`;
     }
 
     function formatTourPaneLabel(scene, label, role) {
@@ -3014,7 +3028,7 @@ import { renderTourProse } from '../media/tourProse.js';
         buildReadingDocument();
         document.getElementById('tour-narrative').hidden = false;
         document.getElementById('tour-breadcrumb').textContent = state.narrativeParent === 'tour'
-            ? 'Overview'
+            ? 'Intro'
             : state.narrativeParent === 'conclusion' ? 'Conclusion'
             : state.narrativeParent === 'chapter' ? location.chapter?.title || 'Chapter'
                 : state.sceneIntroVisible ? `Scene ${location.sceneNumber} of ${location.sceneCount}: ${scene.title}`
@@ -3086,6 +3100,18 @@ import { renderTourProse } from '../media/tourProse.js';
                     field(element, 'h2', 'tour-passage-title', state.tour.opening.title, 'passage-title');
                     overview(element, state.tour.opening, true);
                 }
+                const route = buildTourRoute(state.tour);
+                field(element, 'h2', 'tour-passage-title', "What you'll see");
+                field(element, 'p', 'tour-route-summary', route.summary, 'route-summary');
+                const list = field(element, 'ol', 'tour-route', '');
+                route.scenes.forEach(entry => {
+                    const row = field(list, 'li', '', '');
+                    const button = readingButton('', `Read scene: ${entry.title}`, () => activateReadingItem(readingItems.find(item => item.kind === 'scene' && item.sceneIndex === entry.sceneIndex)));
+                    button.className = 'tour-route-link';
+                    field(button, 'span', '', entry.title, 'route-title', entry.sceneIndex);
+                    row.append(button);
+                    field(row, 'p', 'tour-route-evidence', entry.evidence, 'route-evidence', entry.sceneIndex);
+                });
             } else if (item.kind === 'conclusion') {
                 field(element, 'h2', 'tour-passage-title', state.tour.conclusion.title, 'passage-title');
                 overview(element, state.tour.conclusion, true);
@@ -3124,10 +3150,11 @@ import { renderTourProse } from '../media/tourProse.js';
                 });
                 header.append(context);
                 const intro = field(element, 'div', 'tour-scene-overview', '');
+                overview(intro, { ...scene, takeaway: isSteppedTourScene(scene) ? '' : scene.takeaway }, true);
+                if (scene.overview?.purpose) field(intro, 'p', 'tour-overview-purpose', scene.overview.purpose, 'overview-purpose');
                 const evidenceContext = resolveTourEvidenceContext(state.tour, item, state.zoom?.mode);
                 if (evidenceContext) field(intro, 'p', 'tour-scene-orientation', describeTourComparison(evidenceContext));
-                if (scene.overview?.purpose) field(intro, 'p', 'tour-overview-purpose', scene.overview.purpose, 'overview-purpose');
-                overview(intro, { ...scene, takeaway: isSteppedTourScene(scene) ? '' : scene.takeaway }, true);
+                field(intro, 'p', 'tour-scene-route', describeSceneRoute(state.tour, item.sceneIndex), 'scene-route');
                 const tags = field(intro, 'div', 'tour-narrative-tags', '');
                 scene.tags.forEach((tag) => field(tags, 'span', '', tag));
             } else {
@@ -3135,6 +3162,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 const stage = scene.kind === 'deconstructed-diff' ? `Stage ${(step.stageIndex ?? step.pairIndex) + 1} · ` : '';
                 if (stage) field(element, 'div', 'tour-narrative-chapter', stage);
                 field(element, 'h3', 'tour-step-title', step.title, 'step-title');
+                field(element, 'p', 'tour-step-orientation', describeStepOrientation(state.tour, item.sceneIndex, item.stepIndex), 'step-orientation');
                 field(element, 'p', 'tour-step-body', step.body, 'step-body');
                 const requirement = field(element, 'div', 'tour-step-requirement', '');
                 renderStepRequirement(requirement, step.requirement);
@@ -3203,6 +3231,7 @@ import { renderTourProse } from '../media/tourProse.js';
         if (!content || !element) return;
         // Reserve the final passage's scroll space before measuring, including initial deep links.
         content.style.setProperty('--tour-reading-viewport', `${content.clientHeight}px`);
+        if (key === 'title') element.style.minHeight = `${content.clientHeight}px`;
         const header = element.dataset.readingKind === 'step'
             ? element.closest('.tour-scene-group')?.querySelector('.tour-scene-header') : null;
         content.scrollTop += element.getBoundingClientRect().top - content.getBoundingClientRect().top

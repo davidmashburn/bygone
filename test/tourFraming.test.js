@@ -6,7 +6,7 @@ const { materializeTour } = require('../cli/tourExport');
 const { parseChangeTourSource, buildChangeTourManifest, parseChangeTourManifest } = require('../out/changeTour');
 const { buildTourReadingItems, getTourReadingTarget, resolveTourReadingItem } = require('../out/tourReading');
 const { buildReadingNarrationUnit } = require('../out/tourNarration');
-const { tourLanding, resolveTourEvidenceContext, describeTourTransition } = require('../out/tourOrientation');
+const { buildTourRoute, describeStepOrientation, tourLanding, resolveTourEvidenceContext, describeTourTransition } = require('../out/tourOrientation');
 const { parseDocumentFragment, serializeDocumentFragment, resolveDocumentFocus } = require('../out/deepLink');
 const { searchTour } = require('../out/tourSearch');
 const passage = title => ({ title, summary: `${title} summary.`, bullets: [`${title} point.`] });
@@ -83,7 +83,7 @@ test('bookends are reading locations, searchable and linkable, including image-o
         assert.equal(spoken.filter(value => value === text).length, 1, `${text} is narrated once`);
     }
     const direct = buildReadingNarrationUnit(tour, items.find(item => item.key === 'step:s:b'), { entry: 'playback-start' });
-    assert.deepEqual(direct.segments.map(segment => segment.text), ['Scene', 'Second', 'Second evidence.', 'Result.']);
+    assert.deepEqual(direct.segments.map(segment => segment.text), ['Scene', 'Second', 'Step 2 of 2.', 'Image: Second.', 'Second evidence.', 'Result.']);
     assert.equal(direct.position, undefined);
     const modeTour = { ...tour, tours: { historical: tour, deconstructed: { ...tour, conclusion: undefined } } };
     const fragment = serializeDocumentFragment('historical', { part: 'conclusion' });
@@ -105,7 +105,7 @@ test('scene landings and transition identity use actual revisions and distinguis
     const initial = resolveTourEvidenceContext(tour, intro);
     tour.scenes[0].steps[0].diff.path = 'other.ts';
     const scopeChange = resolveTourEvidenceContext(tour, intro);
-    assert.match(describeTourTransition(initial, scopeChange), /Same comparison; scope changed/);
+    assert.match(describeTourTransition(initial, scopeChange), /Same revision comparison; file changed from app.ts to other.ts/);
     tour.range.baseRef = 'Different name';
     assert.equal(initial.comparisonKey, resolveTourEvidenceContext(tour, intro).comparisonKey);
     const reversed = clone(tour); [reversed.range.mergeBaseOid, reversed.range.headOid] = [tour.range.headOid, tour.range.mergeBaseOid];
@@ -113,13 +113,13 @@ test('scene landings and transition identity use actual revisions and distinguis
     tour.range.headOid = 'c'.repeat(40);
     const changed = resolveTourEvidenceContext(tour, intro);
     assert.notEqual(initial.comparisonKey, changed.comparisonKey, 'Same labels do not hide different OIDs');
-    assert.match(describeTourTransition(initial, changed), /Comparison changed/);
+    assert.match(describeTourTransition(initial, changed), /Revision comparison changed/);
     assert.doesNotMatch(describeTourTransition(null, changed), /Same|changed/);
     tour.scenes[0].overview = { purpose: 'See the inventory' };
     assert.equal(tourLanding(tour, intro), 'overview');
     const inventory = resolveTourEvidenceContext(tour, intro);
     tour.scenes[0].overview.path = 'src';
-    assert.match(describeTourTransition(inventory, resolveTourEvidenceContext(tour, intro)), /Same comparison; scope changed/);
+    assert.match(describeTourTransition(inventory, resolveTourEvidenceContext(tour, intro)), /Same revision comparison; view changed/);
     tour.scenes[0] = { id: 'stack', kind: 'stacked-diff', stack: [
         { id: 'a', label: 'Base', oid: 'a'.repeat(40) }, { id: 'b', label: 'Middle', oid: 'b'.repeat(40) }, { id: 'c', label: 'Head', oid: 'c'.repeat(40) }
     ], steps: [{ file: 'app.ts', pairIndex: 1 }] };
@@ -131,4 +131,32 @@ test('scene landings and transition identity use actual revisions and distinguis
     assert.match(describeTourTransition(changed, synthetic), /Switching to explanation stages/);
     tour.scenes[0].id = 'different-explanation';
     assert.notEqual(synthetic.comparisonKey, resolveTourEvidenceContext(tour, intro, 'deconstructed').comparisonKey);
+});
+
+
+test('the opening route separates topics, files, revision pairs, and constructed stages', () => {
+    const tour = { range: { mergeBaseOid: 'a'.repeat(40), headOid: 'c'.repeat(40), baseRef: 'base', headRef: 'head' },
+        scenes: [{ id: 's', title: 'Follow the request', kind: 'walkthrough', steps: [
+            { id: 'a', title: 'Receive', diff: { path: 'route.ts' } },
+            { id: 'b', title: 'Store', diff: { path: 'store.ts' } },
+            { id: 'c', title: 'Respond', diff: { path: 'route.ts' } }
+        ] }] };
+    let route = buildTourRoute(tour);
+    assert.match(route.summary, /Scenes organize the explanation/);
+    assert.match(route.scenes[0].evidence, /Files in order: route.ts → store.ts → route.ts/);
+    assert.match(route.scenes[0].evidence, /Revisions: base \(aaaaaaa\) → head \(ccccccc\)/);
+    assert.doesNotMatch(route.scenes[0].evidence, /then/);
+    assert.equal(describeStepOrientation(tour, 0, 1), 'Step 2 of 3. Keep the same revisions. Move from route.ts to store.ts.');
+    tour.scenes[0] = { id: 's', title: 'Guard then recover', kind: 'stacked-diff', stack: [
+        { id: 'a', label: 'Before', oid: 'a'.repeat(40) }, { id: 'b', label: 'Guard', oid: 'b'.repeat(40) }, { id: 'c', label: 'Recovery', oid: 'c'.repeat(40) }
+    ], steps: [{ id: 'a', file: 'route.ts', pairIndex: 0 }, { id: 'b', file: 'route.ts', pairIndex: 1 }] };
+    route = buildTourRoute(tour);
+    assert.match(route.scenes[0].evidence, /File: route.ts/);
+    assert.match(route.scenes[0].evidence, /; then Guard/);
+    assert.match(describeStepOrientation(tour, 0, 1), /Switch revisions to Guard.*Continue in route.ts/);
+    tour.scenes[0] = { ...tour.scenes[0], kind: 'deconstructed-diff', panels: tour.scenes[0].stack };
+    assert.match(buildTourRoute(tour).scenes[0].evidence, /Explanation stages \(constructed, not commits\)/);
+    assert.match(describeStepOrientation(tour, 0, 1), /Switch explanation stages/);
+    tour.scenes[0] = { id: 'd', title: 'Decide', kind: 'discussion' };
+    assert.match(buildTourRoute(tour).scenes[0].evidence, /No code comparison/);
 });

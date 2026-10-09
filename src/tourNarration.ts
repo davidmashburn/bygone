@@ -1,3 +1,4 @@
+import { buildTourRoute, describeSceneRoute, describeStepOrientation } from './tourOrientation';
 import type { ChangeTourManifest, ChangeTourScene } from './changeTourManifest';
 import type { TourReadingItem } from './tourReading';
 import type { TourPosition } from './tourNavigation';
@@ -7,6 +8,11 @@ export const DEFAULT_NARRATION_SEGMENT_LIMIT = 240;
 export type NarrationField =
     | 'document-title'
     | 'passage-title'
+    | 'route-summary'
+    | 'route-title'
+    | 'route-evidence'
+    | 'scene-route'
+    | 'step-orientation'
     | 'chapter'
     | 'scene-title'
     | 'overview-purpose'
@@ -121,20 +127,30 @@ export function buildReadingNarrationUnit(
         add('passage-title', passage?.title);
         add('summary', passage?.summary);
         passage?.bullets?.forEach((text, index) => add('bullet', text, index));
+        if (item.kind === 'title') {
+            const route = buildTourRoute(tour);
+            add('route-summary', route.summary);
+            route.scenes.forEach(scene => {
+                add('route-title', scene.title, scene.sceneIndex);
+                add('route-evidence', scene.evidence, scene.sceneIndex);
+            });
+        }
     } else if (item.kind === 'chapter') {
         add('chapter', tour.chapters.find(chapter => chapter.id === item.chapterId)?.title);
     } else {
         const scene = tour.scenes[item.sceneIndex];
         if (item.kind === 'scene') {
             add('scene-title', scene.title);
-            if ('overview' in scene) add('overview-purpose', scene.overview?.purpose);
             add('summary', scene.summary);
             scene.bullets.forEach((text, index) => add('bullet', text, index));
             if (!isSteppedScene(scene)) add('takeaway', scene.takeaway);
+            if ('overview' in scene) add('overview-purpose', scene.overview?.purpose);
+            add('scene-route', describeSceneRoute(tour, item.sceneIndex));
         } else if (isSteppedScene(scene)) {
             const step = scene.steps[item.stepIndex];
             if (options.entry === 'playback-start') add('scene-title', scene.title);
             add('step-title', step.title);
+            add('step-orientation', describeStepOrientation(tour, item.sceneIndex, item.stepIndex));
             add('step-body', step.body);
             if ('connection' in step) add('connection', step.connection?.label);
             if (item.stepIndex === scene.steps.length - 1) add('takeaway', scene.takeaway);

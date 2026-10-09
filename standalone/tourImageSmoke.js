@@ -66,7 +66,7 @@ app.whenReady().then(async () => {
             await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
             await wait("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && !document.body.classList.contains('tour-image-active')");
             assert.equal(await evaluate("document.querySelector('.tour-image-dialog')"), null);
-            // A pure screenshot guide opens on an image and crosses chapter/scene
+            // A pure screenshot guide opens with its Intro and crosses chapter/scene
             // boundaries without turning their headings into file-inventory stops.
             const guide = JSON.parse(JSON.stringify(source));
             const firstScene = guide.chapters[0].scenes[0];
@@ -81,12 +81,17 @@ app.whenReady().then(async () => {
             fs.writeFileSync(f.sourcePath, JSON.stringify(source));
             await win.loadURL(pathToFileURL(guideOutput).href);
             const activeKey = "document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey";
-            await wait(`${activeKey} === 'step:scene:step' && document.querySelector('.tour-image-evidence img')?.naturalWidth === 2880`);
+            await wait(`${activeKey} === 'title'`);
+            assert.match(await evaluate("document.querySelector('.tour-route-evidence').textContent"), /images in reading order/);
             const press = async (key, expected) => {
                 await evaluate(`document.activeElement?.blur(); document.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(key)},bubbles:true}))`);
                 await wait(`${activeKey} === ${JSON.stringify(expected)}`);
                 assert.equal(await evaluate("document.body.classList.contains('tour-directory-overview')"), false);
             };
+            await press('ArrowRight', 'step:scene:step');
+            await wait("document.querySelector('.tour-image-evidence img')?.naturalWidth === 2880");
+            await press('ArrowLeft', 'title');
+            await press('ArrowRight', 'step:scene:step');
             await press('ArrowRight', 'step:scene:code');
             await press('ArrowRight', 'step:second-scene:step');
             await press('ArrowLeft', 'step:scene:code');

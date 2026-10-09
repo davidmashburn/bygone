@@ -89,19 +89,18 @@ chapters:
     steps:
     - id: path-host
       title: Keep navigation beside narration
-      body: The reading path occupies the same toolbar as narration, so moving up a level does not require
-        opening another panel. Try hiding narration to give the path more room.
+      body: The earlier reading path placed parent navigation beside narration. Inspect the toolbar markup
+        to see how both controls shared one surface.
       focus: path-host
     - id: path-levels
       title: Show levels with useful choices
-      body: This tour has two chapters with two scenes each, so every parent level appears. A smaller
-        tour omits levels that add no navigation choice.
+      body: The earlier implementation built parent levels only when they offered a navigation choice.
+        Inspect the conditions for adding tour and chapter buttons.
       focus: path-levels
     - id: path-children
       title: Let a parent show its children
-      body: Select the chapter title above to see its scenes, or select the tour title to see both chapters.
-        These buttons enter the selected chapter while keeping the current scene when it already belongs
-        there.
+      body: The earlier parent buttons opened a chapter while preserving the selected scene when it already
+        belonged there. Follow the membership check before the call that changes the reading level.
       focus: path-children
     kind: deconstructed-diff
     base: 1f8fdc07d56fc7a0e50dcab0383a63159c77178c
@@ -183,18 +182,18 @@ chapters:
     steps:
     - id: remember-step
       title: Keep your step ready to resume
-      body: Selecting a parent keeps your current step ready to resume. The URL preserves the step and
-        selected reading level, so refreshing restores both.
+      body: In the earlier design, selecting a parent kept the current step ready to resume. The URL preserved the step and
+        selected reading level so refresh could restore both.
       focus: remember-step
     - id: resume-parent
       title: Resume from a parent
-      body: Next from a parent returns to the remembered step instead of advancing past it. The button
-        label becomes Resume to make that behavior explicit.
+      body: The earlier Next action returned from a parent to the remembered step. Inspect the branch
+        that selected Resume as its label.
       focus: resume-parent
     - id: restore-parent
       title: Restore the parent after refresh
       body: Loading the URL restores the selected tour or chapter view after establishing the saved scene
-        and step. Try refreshing while viewing this chapter.
+        and step. Inspect the ordering of those restoration calls.
       focus: restore-parent
 - id: evidence
   title: Code focus
@@ -330,8 +329,8 @@ tours:
               - id: remember-step
                 title: Keep your step ready to resume
                 body: >-
-                  Selecting a parent keeps your current step ready to resume. The URL preserves the step and
-                  selected reading level, so refreshing restores both.
+                  In the earlier design, selecting a parent kept the current step ready to resume. The URL preserved the step and
+                  selected reading level so refresh could restore both.
                 focus: remember-step
               - id: resume-parent
                 title: Resume from a parent
@@ -343,7 +342,7 @@ tours:
                 title: Restore the parent after refresh
                 body: >-
                   Loading the URL restores the selected tour or chapter view after establishing the
-                  saved scene and step. Try refreshing while viewing this chapter.
+                  saved scene and step. Inspect the ordering of those restoration calls.
                 focus: restore-parent
       - id: historical-correction
         title: The follow-up correction

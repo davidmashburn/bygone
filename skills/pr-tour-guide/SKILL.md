@@ -172,7 +172,12 @@ implementation: the problem, its place in the larger project, the ticket and
 PR relationship, and what this change contributes. Include relevant people,
 timing, and review status concisely; put detailed provenance beside the later
 claims it explains. If separate authored modes have independent entry points,
-give each enough opening context to stand on its own.
+give each enough opening context to stand on its own. Prime the reader with the
+sequence of questions the tour will answer and explain why that sequence matters.
+The Intro's generated route lists scene titles, files, and comparisons; give those
+scene titles meaning, and use the authored opening to explain the story they form.
+A scene boundary is a topic boundary, not necessarily a commit or PR boundary.
+When the comparison changes, explain why that revision pair answers the next question.
 
 Use version 5 `opening: { title, summary, bullets? }` for this context and
 `conclusion: { title, summary, bullets? }` for an evidence-grounded recap.

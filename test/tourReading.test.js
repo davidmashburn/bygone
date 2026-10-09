@@ -18,7 +18,7 @@ test('image-only guides skip structural stops in both directions without changin
     assert.equal(getTourReadingTarget(items, 'title', 1, true).key, 'step:a:a1');
     assert.equal(getTourReadingTarget(items, 'step:a:a2', 1, true).key, 'step:b:b1');
     assert.equal(getTourReadingTarget(items, 'step:b:b1', -1, true).key, 'step:a:a2');
-    assert.equal(getTourReadingTarget(items, 'step:a:a1', -1, true), null);
+    assert.equal(getTourReadingTarget(items, 'step:a:a1', -1, true).key, 'title');
     assert.equal(getTourReadingTarget(items, 'step:b:b1', 1, true), null);
     assert.equal(getTourReadingTarget(items, 'step:a:a2', 1).kind, 'chapter');
     delete tour.scenes[1].steps[0].image;
