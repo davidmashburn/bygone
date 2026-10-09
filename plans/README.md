@@ -26,6 +26,8 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [Tour orientation, scene framing, and conclusions](tour-orientation-and-narrative-framing.md)
+  — explicit comparison identity, purposeful scene transitions, and authored closings.
 - [Text-block move tracking](text-block-move-tracking.md) — scope moves, copies,
   edited blocks, ambiguity, accounting, and presentation, with
   [open-source and academic research](text-block-move-tracking-research.md).
