@@ -612,37 +612,54 @@ test('failed tour loading preserves the empty view and reports the error', async
     assert.equal(workspace.uiState().status, 'Invalid tour');
 });
 
-test('Compare reorder preserves range, dirty state, file navigation, refresh and restored order', async () => {
+test('commit-selector Compare rejects moves and restores canonical revision order', async () => {
     const setup = makeHost(nativeSession(source({ refs: [A, B] })));
-    const git = makeGit();
-    const workspace = createWorkspaceHost(setup.host, git);
+    const workspace = createWorkspaceHost(setup.host, makeGit());
     await workspace.handle({ type: 'toggleHistorySelection', index: 0 });
     await workspace.handle({ type: 'toggleHistorySelection', index: 1 });
     await workspace.handle({ type: 'workspaceApply' });
+    await workspace.render();
+    assert.equal(setup.sent.at(-1).reorderEnabled, false);
     const original = setup.session.multi.files;
     original[0].content = 'edited buffer';
     original[0].dirty = true;
-    const confirms = setup.confirms.length;
     await workspace.handle({ type: 'multiMovePanel', panelId: original[0].id, targetIndex: 1, panelIds: original.map(panel => panel.id) });
-    assert.equal(setup.confirms.length, confirms, 'Reordering does not discard or confirm edits');
-    assert.equal(setup.session.multi.files[1], original[0]);
+    assert.equal(setup.session.multi.files, original, 'Even a stale move request is ignored');
     assert.equal(original[0].content, 'edited buffer');
-    assert.deepEqual(setup.session.workspaceView.revisions, [A, B], 'The canonical Git range stays intact');
-    assert.deepEqual(setup.session.workspaceView.panelOrder, [B, A]);
-    assert.equal(setup.sent.at(-1).history.rail.itemsByTab.history.find(item => item.commit === A).panelNumber, 2);
-    await workspace.handle({ type: 'workspaceOpenFile', relativePath: 'two.txt' });
-    assert.deepEqual(setup.session.multi.files.map(panel => panel.revision), [B, A]);
-    await workspace.handle({ type: 'refreshSession' });
-    assert.deepEqual(setup.session.multi.files.map(panel => panel.revision), [B, A]);
+    assert.deepEqual(setup.session.workspaceView.revisions, [A, B]);
+    // Discard display order saved by the earlier reorderable version.
+    setup.session.source.comparisonView.panelOrder = [B, A];
     const persisted = require('../standalone/windowState').normalizeWindowState({ version: 1, main: { source: setup.session.source }, tours: [] });
     const restored = makeHost(nativeSession());
     const restoredWorkspace = createWorkspaceHost(restored.host, makeGit());
     await restoredWorkspace.restoreComparison(persisted.main.source);
-    assert.deepEqual(restored.session.multi.files.map(panel => panel.revision), [B, A]);
-    assert.equal(restored.session.workspaceView.path, 'two.txt');
-    await workspace.handle({ type: 'workspaceMode', mode: 'history' });
-    assert.equal(setup.session.source.comparisonView, undefined, 'History must not restore as Compare');
-    const historyOrder = setup.session.multi.files.map(panel => panel.id);
-    await workspace.handle({ type: 'multiMovePanel', panelId: historyOrder[0], panelIds: historyOrder, targetIndex: 1 });
-    assert.deepEqual(setup.session.multi.files.map(panel => panel.id), historyOrder);
+    assert.deepEqual(restored.session.multi.files.map(panel => panel.revision), [A, B]);
+    await restoredWorkspace.handle({ type: 'workspaceOpenFile', relativePath: 'two.txt' });
+    await restoredWorkspace.handle({ type: 'refreshSession' });
+    assert.deepEqual(restored.session.multi.files.map(panel => panel.revision), [A, B]);
+    await restoredWorkspace.render();
+    assert.equal(restored.sent.at(-1).reorderEnabled, false);
+});
+
+test('explicit revision comparison badges follow moved panels before entering the selector', async () => {
+    const initial = nativeSession(source({ refs: [A, B], resolvedRevisions: [A, B] }));
+    initial.multi.files = [{ id: 'a', columnIndex: 0 }, { id: 'b', columnIndex: 1 }];
+    initial.multi.sourceKind = 'normal';
+    initial.returnDirectory = { relativePath: 'one.txt' };
+    const setup = makeHost(initial);
+    const workspace = createWorkspaceHost(setup.host, makeGit());
+    workspace.augment(showMessage());
+    const request = { type: 'multiMovePanel', panelId: 'a', targetIndex: 1, panelIds: ['a', 'b'] };
+    assert.equal(await workspace.handle(request), false, 'Explicit comparisons use the normal host move handler');
+    assert.ok(require('../standalone/panelOrder').reorderComparisonSession(initial, request));
+    workspace.update();
+    const entries = setup.sent.at(-1).history.rail.itemsByTab.history;
+    assert.equal(entries.find(item => item.commit === A).panelNumber, 2);
+    assert.equal(entries.find(item => item.commit === B).panelNumber, 1);
+    await workspace.handle({ type: 'toggleHistorySelection', index: 0 });
+    await workspace.handle({ type: 'toggleHistorySelection', index: 1 });
+    await workspace.handle({ type: 'workspaceApply' });
+    await workspace.render();
+    assert.equal(setup.sent.at(-1).reorderEnabled, false, 'Applying a commit selection switches to fixed revision order');
+    assert.deepEqual(setup.session.multi.files.map(panel => panel.revision), [A, B]);
 });

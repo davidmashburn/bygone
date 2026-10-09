@@ -1,5 +1,4 @@
 import { tourReadingTitle, buildTourRoute, describeStepOrientation, tourLanding, resolveTourEvidenceContext, resolveTourRangeEvidenceContext, describeTourComparison, describeTourTransition } from '../src/tourOrientation.ts';
-import { applyComparisonOrder, moveComparisonPanel } from '../src/panelOrder.ts';
 import { revisionFileTarget, revisionFileAction, revisionDirectoryView, revisionPanelsView, revisionPanelPairs, revisionRailItems } from '../src/revisionView.ts';
 import { createTourImageViewer } from './tourImage.js';
 import { parseDocumentFragment, resolveDocumentFocus, serializeDocumentFragment, serializeDeepLink } from '../src/deepLink.ts';
@@ -864,7 +863,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
     }
 
     function buildComparisonHistoryState(selection) {
-        const displayed = selection.panelOrder || selection.commits;
+        const displayed = selection.commits;
         return {
             fileName: (selection.path || state.activeTourFilePath || 'Comparison').split('/').pop(),
             canGoBack: false,
@@ -888,7 +887,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
     function showComparisonFile(file, focusCommit = null) {
         if (!file || file.kind !== 'text-diff') return false;
         setDirectoryOverviewStatus('');
-        const panels = applyComparisonOrder(file.comparisonPanels, state.compare.panelOrder, panel => panel.commit);
+        const panels = file.comparisonPanels;
         focusCommit = focusCommit || state.comparisonFocus;
         state.comparisonFocus = focusCommit;
         state.activeTourFilePath = file.path;
@@ -896,9 +895,9 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         emit({ ...revisionPanelsView({ panels,
             files: displayedRevisionFiles(),
             activePanelId: focusCommit ? `compare-${focusCommit}` : null,
-            mutationEnabled: false, reorderEnabled: true, canReturnToDirectory: true
+            mutationEnabled: false, reorderEnabled: false, canReturnToDirectory: true
         }, (left, right) => buildTwoWayDiffModel(left.content, right.content)),
-            history: panelHistoryState(buildComparisonHistoryState(state.compare), state.compare.panelOrder, focusCommit)
+            history: panelHistoryState(buildComparisonHistoryState(state.compare), state.compare.commits, focusCommit)
         });
         updateTourLocationUrl();
         return true;
@@ -931,7 +930,6 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
     }
 
     async function showComparison(selection, selectedPath, focusCommit = null) {
-        const requestedOrder = selection.panelOrder || state.compare?.panelOrder;
         selection = normalizeComparisonSelection(selection);
         const request = ++evidenceRequest;
         const result = await historyRequest('compare-many', selection);
@@ -944,9 +942,8 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         }
         if (request !== evidenceRequest || state.zoom.mode !== 'compare') return;
         const files = result.files;
-        const panelOrder = applyComparisonOrder(selection.commits, requestedOrder, commit => commit);
-        state.comparisonCommits = panelOrder;
-        state.compare = { ...selection, panelOrder, files, inventory: inventory?.files, entries: result.entries, changedPaths };
+        state.comparisonCommits = selection.commits;
+        state.compare = { ...selection, files, inventory: inventory?.files, entries: result.entries, changedPaths };
         state.tour = zoomTour('compare');
         state.activeSceneIndex = -1;
         state.tourFocusFilePath = null;
@@ -961,10 +958,10 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         }
         else {
             state.activeTourFilePath = null;
-            const panels = panelOrder.map((commit) => ({ id: `compare-${commit}`, commit, path: 'No text changes', content: '', label: commit.slice(0, 7), editable: false }));
-            emit({ ...revisionPanelsView({ panels, files: { paths: [], currentPath: null }, mutationEnabled: false, reorderEnabled: true, canReturnToDirectory: true },
+            const panels = selection.commits.map((commit) => ({ id: `compare-${commit}`, commit, path: 'No text changes', content: '', label: commit.slice(0, 7), editable: false }));
+            emit({ ...revisionPanelsView({ panels, files: { paths: [], currentPath: null }, mutationEnabled: false, reorderEnabled: false, canReturnToDirectory: true },
                 (left, right) => buildTwoWayDiffModel(left.content, right.content)),
-                history: panelHistoryState(buildComparisonHistoryState(selection), panelOrder, null) });
+                history: panelHistoryState(buildComparisonHistoryState(selection), selection.commits, null) });
             state.activeTourFilePath = null;
             zoomRestore = null;
             updateTourFileSelection();
@@ -1141,20 +1138,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
                 }
                 return;
             }
-            if (message.type === 'multiMovePanel') {
-                if (state.zoom?.mode !== 'compare' || !state.compare) return;
-                const panels = moveComparisonPanel(state.displayedPanels, message);
-                if (!panels) return;
-                state.displayedPanels = panels;
-                state.compare.panelOrder = panels.map(panel => panel.commit);
-                state.comparisonCommits = state.compare.panelOrder;
-                state.comparisonFocus = panels.find(panel => panel.id === message.panelId).commit;
-                emit({ type: 'reorderMultiPanels', panelIds: panels.map(panel => panel.id), activePanelId: message.panelId,
-                    history: sharedCommitHistory() });
-                renderComparisonControls();
-                updateTourLocationUrl();
-                return;
-            }
+            if (message.type === 'multiMovePanel') return;
             if (state.zoom?.mode === 'history' && ['openDirectoryEntry', 'returnToDirectory', 'navigateFile'].includes(message.type)) {
                 cancelPendingModeRestore();
                 const files = displayedRevisionFiles();
@@ -1974,7 +1958,6 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
                                 parameters.get('from') || state.authoredTour.range.mergeBaseOid,
                                 parameters.get('to') || state.authoredTour.range.headOid
                             ],
-                        panelOrder: parameters.get('panelOrder')?.split(','),
                         ...(parameters.get('scope') ? { path: parameters.get('scope') } : {})
                     }, parameters.get('file'));
                     if (parameters.get('view') === 'directory') showComparisonDirectory();
@@ -3150,7 +3133,6 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
             for (const key of ['scene', 'step', 'view']) parameters.delete(key);
             if (state.zoom.mode === 'compare' && state.compare) {
                 parameters.set('commits', state.compare.commits.join(','));
-                parameters.set('panelOrder', state.compare.panelOrder.join(','));
                 if (state.compare.path) parameters.set('scope', state.compare.path);
                 if (!state.activeTourFilePath) parameters.set('view', 'directory');
             }

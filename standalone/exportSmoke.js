@@ -98,6 +98,8 @@ app.whenReady().then(async () => {
             await wait("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && !document.querySelector('.workspace-status')?.textContent");
             assert.equal(await evaluate("document.querySelector('[data-tour-navigator=tour]').disabled"), true, 'Compare disables Tour navigation');
             assert.equal(await evaluate("document.querySelector('#tour-scene-count').textContent"), '');
+            await wait("document.querySelectorAll('.multi-pane').length >= 2");
+            assert.equal(await evaluate("document.querySelectorAll('.multi-panel-menu, .multi-pane-select[draggable=true]').length"), 0, 'Export commit comparisons cannot reorder');
             assert.equal(await evaluate("document.querySelector('#back-to-directory').textContent.trim()"), 'Directory');
             assert.equal(await evaluate("document.querySelector('#toggle-directory-sidebar')"), null, 'Duplicate Files control is removed');
             await evaluate("document.querySelector('#back-to-directory').click()");
@@ -107,11 +109,6 @@ app.whenReady().then(async () => {
             await wait("document.querySelectorAll('.monaco-editor').length >= 2 && !document.querySelector('#directory-return-toolbar').hidden");
             await evaluate("document.querySelector('#back-to-directory').click()");
             await wait("document.querySelector('.dir-entry[data-path=\"app.txt\"]') && !document.querySelector('.monaco-editor')");
-            await wait("document.querySelectorAll('.multi-panel-menu').length >= 2");
-            const panelOrder = await evaluate("[...document.querySelectorAll('.multi-pane')].map(pane => pane.dataset.panelId)");
-            await evaluate("document.querySelector('[data-multi-move=\"1\"]').click()");
-            await wait(`document.querySelectorAll('.multi-pane')[1]?.dataset.panelId === ${JSON.stringify(panelOrder[0])}`);
-            assert.deepEqual(await evaluate("[...document.querySelectorAll('.multi-pane')].map(pane => pane.dataset.panelId)"), [panelOrder[1], panelOrder[0], ...panelOrder.slice(2)], 'Export Compare rearranges read-only panels');
             await evaluate("document.querySelector('[data-workspace-mode=deconstructed]').click()");
             await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]') && document.querySelector('[data-reading-key=\"scene:synthetic\"]')");
             await wait("location.hash.includes('mode=deconstructed')");
@@ -471,19 +468,17 @@ app.whenReady().then(async () => {
         assert.equal(await fileLink.evaluate("new URL(location.href).searchParams.get('file')"), 'app.txt');
         fileLink.window.destroy();
         await live.evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
-        await live.wait("document.querySelectorAll('.multi-panel-menu').length >= 2");
+        await live.wait("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && document.querySelectorAll('.multi-pane').length >= 2");
+        assert.equal(await live.evaluate("document.querySelectorAll('.multi-panel-menu, .multi-pane-select[draggable=true]').length"), 0, 'Live commit comparisons cannot reorder');
         const canonicalCommits = await live.evaluate("new URL(location.href).searchParams.get('commits')");
         const originalOrder = await live.evaluate("[...document.querySelectorAll('.multi-pane')].map(pane => pane.dataset.panelId)");
-        await live.evaluate("document.querySelector('[data-multi-move=\"1\"]').click()");
-        await live.wait(`document.querySelectorAll('.multi-pane')[1]?.dataset.panelId === ${JSON.stringify(originalOrder[0])}`);
-        assert.equal(await live.evaluate("new URL(location.href).searchParams.get('commits')"), canonicalCommits, 'Moving does not change the selected Git range');
-        const reorderedUrl = await live.evaluate('location.href');
-        assert.ok(new URL(reorderedUrl).searchParams.get('panelOrder'), 'URL records display order separately');
-        await live.window.loadURL(reorderedUrl);
-        await live.wait(`document.querySelectorAll('.multi-pane')[1]?.dataset.panelId === ${JSON.stringify(originalOrder[0])}`);
-        assert.deepEqual(await live.evaluate("[...document.querySelectorAll('.multi-pane')].map(pane => pane.dataset.panelId)"), [originalOrder[1], originalOrder[0], ...originalOrder.slice(2)], 'Reload restores display order');
-        assert.equal(await live.evaluate("document.getElementById('history-left-commit').textContent"), originalOrder[1].replace(/^compare-/, '').slice(0, 7), 'Reloaded left revision label follows display order');
-        assert.equal(await live.evaluate("document.getElementById('history-right-commit').textContent"), originalOrder[0].replace(/^compare-/, '').slice(0, 7), 'Reloaded right revision label follows display order');
+        const legacyUrl = new URL(await live.evaluate('location.href'));
+        legacyUrl.searchParams.set('panelOrder', canonicalCommits.split(',').reverse().join(','));
+        await live.window.loadURL(legacyUrl.href);
+        await live.wait(`document.querySelectorAll('.multi-pane')[0]?.dataset.panelId === ${JSON.stringify(originalOrder[0])}`);
+        assert.deepEqual(await live.evaluate("[...document.querySelectorAll('.multi-pane')].map(pane => pane.dataset.panelId)"), originalOrder, 'Old reordered URLs restore canonical revision order');
+        assert.equal(await live.evaluate("new URL(location.href).searchParams.get('panelOrder')"), null, 'Old display order is removed from the URL');
+        assert.equal(await live.evaluate("document.querySelectorAll('.multi-panel-menu, .multi-pane-select[draggable=true]').length"), 0);
         live.window.destroy();
         await new Promise(resolve => server.close(resolve));
         const resolved = resolveLocalDeepLink(copiedLink);
@@ -494,7 +489,7 @@ app.whenReady().then(async () => {
         const reopenedView = await open(reopened.url, false);
         await reopenedView.wait("document.activeElement.dataset.readingKey === 'step:scene:step'");
         reopenedView.window.destroy();
-        console.log('Export smoke passed: file URLs, offline runtime/workers, both profiles/modes, panel reordering and URL restore, section links, unavailable targets, integrity failures, sticky headings and keyboard overview, outside-repo copy link and reopen after server shutdown.');
+        console.log('Export smoke passed: file URLs, offline runtime/workers, both profiles/modes, fixed commit order and legacy URL restore, section links, unavailable targets, integrity failures, sticky headings and keyboard overview, outside-repo copy link and reopen after server shutdown.');
         clearTimeout(timeout); app.exit(0);
     } catch (error) {
         console.error(error, { requests, errors }); clearTimeout(timeout); app.exit(1);

@@ -2,7 +2,6 @@
 const path = require('path');
 const { revisionFileLabel } = require('./fileLabel.js');
 const { applyComparisonOrder } = require('../out/panelOrder.js');
-const { reorderComparisonSession } = require('./panelOrder.js');
 const { revisionFileAction, revisionDirectoryView, revisionPanelsView, revisionRailItems } = require('../out/revisionView.js');
 
 // Owns mode cursors, not editor capabilities. The native host continues to own
@@ -179,8 +178,7 @@ function createWorkspaceHost(host, git) {
     function makeSession(mode, revisions, file) {
         const current = ensure();
         const history = backend();
-        const previous = host.getSession().workspaceView;
-        const panelOrder = mode === 'compare' ? applyComparisonOrder(revisions, previous?.panelOrder || current.source.comparisonView?.panelOrder, revision => revision) : [...revisions];
+        const panelOrder = [...revisions];
         if (file === null && current.context.paths.some(item => item.type === 'directory')) {
             return { mode: 'directory', source: current.source, workspaceId: current.id,
                 workspaceView: { mode, path: null, revisions: [...revisions], ...(mode === 'compare' ? { panelOrder } : {}) },
@@ -288,7 +286,7 @@ function createWorkspaceHost(host, git) {
             canReturnToDirectory: current.canReturnToDirectory,
             files: revisionFiles(current, changedFiles),
             mutationEnabled: state.mode === 'history',
-            reorderEnabled: state.mode === 'compare'
+            reorderEnabled: false
         }));
         return true;
     }
@@ -310,12 +308,7 @@ function createWorkspaceHost(host, git) {
         const current = host.getSession();
         const derivedAction = Boolean(current.workspaceView) && ['refreshSession', 'selectHistoryEntry', 'historyBack', 'historyForward', 'openDirectoryEntry', 'returnToDirectory', 'navigateFile', 'multiAddPanel', 'multiRemovePanel', 'historyToggleStaged', 'historyToggleSkipUnchanged'].includes(message.type);
         try {
-            if (message.type === 'multiMovePanel') {
-                if (state.mode !== 'compare' || state.tourMode) return true;
-                const reordered = reorderComparisonSession(current, message);
-                if (reordered) { host.send({ ...reordered, history: rail() }); update(); }
-                return true;
-            }
+            if (message.type === 'multiMovePanel') return true;
             if (message.type === 'workspaceSkillChoose' || message.type === 'workspaceSkillSave') {
                 const target = state;
                 const skill = message.type === 'workspaceSkillChoose'

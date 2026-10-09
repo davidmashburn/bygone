@@ -58,3 +58,16 @@ test('directory display order is independent of canonical roots and persists', (
     assert.deepEqual(restored.main.source.paths, ['/left', '/right']);
     assert.deepEqual(restored.main.source.panelOrder, ['1', '0']);
 });
+
+test('explicit revision comparisons can move, but commit-selector workspaces cannot', () => {
+    const session = { mode: 'multi-diff', source: { kind: 'git-refs', refs: ['HEAD~1', 'HEAD'] },
+        returnDirectory: {}, multi: { sourceKind: 'normal', files: [{ id: 'a', columnIndex: 0 }, { id: 'b', columnIndex: 1 }] } };
+    assert.ok(reorderComparisonSession(session, move(session.multi.files, 'a', 1)));
+    assert.deepEqual(session.multi.files.map(panel => panel.id), ['b', 'a']);
+    assert.deepEqual(session.source.refs, ['HEAD~1', 'HEAD']);
+    session.workspaceView = { mode: 'compare' };
+    assert.equal(reorderComparisonSession(session, move(session.multi.files, 'a', 0)), null);
+    delete session.workspaceView;
+    session.multi.sourceKind = 'workspace';
+    assert.equal(reorderComparisonSession(session, move(session.multi.files, 'a', 0)), null);
+});

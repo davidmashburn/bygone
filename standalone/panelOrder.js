@@ -3,16 +3,13 @@ const { moveComparisonPanel, movedPanelPairIndex } = require('../out/panelOrder.
 
 function reorderComparisonSession(session, message) {
     if (session.mode !== 'multi-diff' || !session.multi || session.multi.sourceKind === 'history'
-        || session.workspaceView?.mode === 'history') return null;
+        || session.multi.sourceKind === 'workspace' || session.workspaceView) return null;
     const files = moveComparisonPanel(session.multi.files, message);
     if (!files) return null;
     session.multi.files = files;
     session.multi.activePanelId = message.panelId;
     session.multi.activePairIndex = movedPanelPairIndex(files.map(panel => panel.id), message.panelId);
-    if (session.workspaceView) {
-        session.workspaceView.panelOrder = files.map(panel => panel.revision);
-        session.source = { ...session.source, comparisonView: { ...session.workspaceView } };
-    } else if (session.returnDirectory) {
+    if (session.returnDirectory) {
         session.source = { ...session.source, panelOrder: files.map(panel => String(panel.columnIndex)) };
         session.returnDirectory.source = session.source;
     } else if (session.source.kind === 'files') {
