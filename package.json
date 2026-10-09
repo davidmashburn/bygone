@@ -221,7 +221,7 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "watch": "tsc -watch -p ./",
-    "test": "npm run compile && node ./test/runTests.js && node --test ./test/revisionView.test.js ./test/devVersion.test.js ./test/focusedStrip.test.js ./test/diffRegression.test.js ./test/deepLink.test.js ./test/tourExport.test.js ./test/tourProse.test.js ./test/tourReading.test.js ./test/tourZoomSession.test.js ./test/tourComparison.test.js ./test/tourHistory.test.js ./test/changeTourAuthoredModes.test.js ./test/renderCompleteToken.test.js ./test/tourDirectoryOverview.test.js ./test/tourDirectoryEvidence.test.js ./test/workspace*.test.js",
+    "test": "npm run compile && node ./test/runTests.js && node --test ./test/revisionView.test.js ./test/devVersion.test.js ./test/focusedStrip.test.js ./test/diffRegression.test.js ./test/deepLink.test.js ./test/tourExport.test.js ./test/tourProse.test.js ./test/tourReading.test.js ./test/tourFraming.test.js ./test/tourZoomSession.test.js ./test/tourComparison.test.js ./test/tourHistory.test.js ./test/changeTourAuthoredModes.test.js ./test/renderCompleteToken.test.js ./test/tourDirectoryOverview.test.js ./test/tourDirectoryEvidence.test.js ./test/workspace*.test.js",
     "test:diff-renderer": "npm run compile && node scripts/run-electron.mjs standalone/diffRegressionSmoke.js",
     "test:export-smoke": "npm run compile && node scripts/run-electron.mjs standalone/exportSmoke.js && node scripts/run-electron.mjs standalone/tourImageSmoke.js"
   },

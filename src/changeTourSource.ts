@@ -1,7 +1,8 @@
+import { validateTourFraming, validateOverviewPurpose, type ChangeTourFraming } from './tourFraming';
 import { validateTourImageSource, type TourImageSource } from './tourImage';
 import type { ChangeTourNarrative } from './changeTourManifest';
 
-export const CHANGE_TOUR_SOURCE_VERSION = 4 as const;
+export const CHANGE_TOUR_SOURCE_VERSION = 5 as const;
 
 export interface ChangeTourSourceAnchor {
     file: string;
@@ -44,6 +45,7 @@ export interface ChangeTourCoverageExclusion {
 
 export interface ChangeTourSourceSceneOverview {
     kind: 'directory-diff';
+    purpose?: string;
     path?: string;
     comparison?: ChangeTourSourceSceneOverviewComparison;
 }
@@ -135,7 +137,7 @@ export interface ChangeTourSourceChapter {
  * source document.  Range, anchors, and connections remain shared on the
  * source; only the chapter and scene narrative varies by mode.
  */
-export interface ChangeTourSourceTour {
+export interface ChangeTourSourceTour extends ChangeTourFraming {
     chapters: ChangeTourSourceChapter[];
 }
 
@@ -144,8 +146,8 @@ export interface ChangeTourSourceTours {
     deconstructed?: ChangeTourSourceTour;
 }
 
-export interface ChangeTourSource {
-    version: 1 | 2 | typeof CHANGE_TOUR_SOURCE_VERSION;
+export interface ChangeTourSource extends ChangeTourFraming {
+    version: 1 | 2 | 4 | typeof CHANGE_TOUR_SOURCE_VERSION;
     title?: string;
     windowTitle?: string;
     sourceUrl?: string;
@@ -169,12 +171,13 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
     if (isRecord(value) && value.version === 3) {
         throw new Error('Tour source format version 3 is retired. Remove the review block, set source version to 4, and recompile the tour.');
     }
-    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
+    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
         throw new Error('Unsupported or missing change-tour source version.');
     }
     requireOnlyKeys(value, [
-        'version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage'
+        'version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage', 'opening', 'conclusion'
     ], 'source');
+    validateTourFraming(value, value.version, 'source');
     optionalString(value.title, 'title');
     optionalString(value.windowTitle, 'windowTitle');
     optionalString(value.sourceUrl, 'sourceUrl');
@@ -251,7 +254,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         'root'
     );
     if (value.tours !== undefined) {
-        if (value.version !== 4) throw new Error('Independent tours require version 4.');
+        if (value.version < 4) throw new Error('Independent tours require version 4.');
         if (!isRecord(value.tours)) throw new Error('tours must be an object.');
         requireOnlyKeys(value.tours, ['historical', 'deconstructed'], 'tours');
         if (value.tours.historical === undefined && value.tours.deconstructed === undefined) {
@@ -262,7 +265,8 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             if (tour === undefined) continue;
             const path = `tours.${mode}`;
             if (!isRecord(tour)) throw new Error(`${path} must be an object.`);
-            requireOnlyKeys(tour, ['chapters'], path);
+            requireOnlyKeys(tour, ['chapters', 'opening', 'conclusion'], path);
+            validateTourFraming(tour, value.version, path);
             validateSourceChapters(tour.chapters, `${path}.chapters`, value.version, value.anchors, connectionIds, mode);
         }
     }
@@ -274,7 +278,7 @@ type SourceTourValidationMode = 'root' | 'historical' | 'deconstructed';
 function validateSourceChapters(
     chaptersValue: unknown,
     chaptersPath: string,
-    version: 1 | 2 | 4,
+    version: 1 | 2 | 4 | 5,
     anchors: Record<string, unknown>,
     connectionIds: ReadonlySet<string>,
     mode: SourceTourValidationMode
@@ -301,9 +305,10 @@ function validateSourceChapters(
             requireString(scene.title, `${path}.title`);
             if (sceneIds.has(scene.id)) throw new Error(`Duplicate scene id: ${scene.id}`);
             sceneIds.add(scene.id);
-            if (scene.overview !== undefined && version !== 4) {
+            if (scene.overview !== undefined && version < 4) {
                 throw new Error(`${path}.overview requires version 4.`);
             }
+            validateOverviewPurpose(scene.overview, version, `${path}.overview`);
             validateNarrative(scene, path);
             if (scene.kind === 'deconstructed-diff') {
                 if (mode === 'historical') {
@@ -548,10 +553,11 @@ export function validateSceneOverview(
 ): asserts value is ChangeTourSourceSceneOverview | undefined {
     if (value === undefined) return;
     if (!isRecord(value)) throw new Error(`${path} must be an object.`);
-    requireOnlyKeys(value, ['kind', 'path', 'comparison'], path);
+    requireOnlyKeys(value, ['kind', 'path', 'comparison', 'purpose'], path);
     if (value.kind !== 'directory-diff') {
         throw new Error(`${path}.kind must be directory-diff.`);
     }
+    if (value.purpose !== undefined) requireString(value.purpose, `${path}.purpose`);
     if (value.path !== undefined) validateDirectoryOverviewPath(value.path, `${path}.path`);
     if (value.comparison === undefined) return;
     if (options.allowComparison === false) {

@@ -1,3 +1,4 @@
+import { tourLanding, resolveTourEvidenceContext, resolveTourRangeEvidenceContext, describeTourComparison, describeTourTransition } from '../src/tourOrientation.ts';
 import { revisionFileTarget, revisionFileAction, revisionDirectoryView, revisionPanelsView, revisionPanelPairs, revisionRailItems } from '../src/revisionView.ts';
 import { createTourImageViewer } from './tourImage.js';
 import { parseDocumentFragment, resolveDocumentFocus, serializeDocumentFragment, serializeDeepLink } from '../src/deepLink.ts';
@@ -7,12 +8,11 @@ import { createJavaScriptSampleFilePair } from '../src/sampleFiles.ts';
 import { parseChangeTourManifest } from '../src/changeTourManifest.ts';
 import {
     classifyMultiPanelFile,
-    getLinearTourTarget,
     getMultiPanelChangedFileTarget,
     getTourFileTarget,
     resolveTourPosition
 } from '../src/tourNavigation.ts';
-import { buildTourNarrationUnit } from '../src/tourNarration.ts';
+import { buildReadingNarrationUnit } from '../src/tourNarration.ts';
 import { buildTourReadingItems, getTourReadingTarget, isImageOnlyTour, resolveTourReadingItem } from '../src/tourReading.ts';
 import { TourNarrationController } from '../src/tourNarrationPlayback.ts';
 import { searchTour } from '../src/tourSearch.ts';
@@ -244,11 +244,11 @@ import { renderTourProse } from '../media/tourProse.js';
         // Compatibility for previously compiled manifests. Never turn a generated
         // revision stack with no authored narration into an additional tour.
         const deconstructed = tour.scenes.some((scene) => scene.kind === 'deconstructed-diff');
-        if (!deconstructed) return { historical: { scenes: tour.scenes, chapters: tour.chapters } };
+        if (!deconstructed) return { historical: { scenes: tour.scenes, chapters: tour.chapters, opening: tour.opening, conclusion: tour.conclusion } };
         const final = legacyFinalTour(tour);
         return {
             ...(final ? { historical: final } : {}),
-            deconstructed: { scenes: tour.scenes, chapters: tour.chapters }
+            deconstructed: { scenes: tour.scenes, chapters: tour.chapters, opening: tour.opening, conclusion: tour.conclusion }
         };
     }
 
@@ -549,8 +549,8 @@ import { renderTourProse } from '../media/tourProse.js';
 
     function zoomTour(mode) {
         const tour = state.authoredTour;
-        if (authoredTours()[mode]) return { ...tour, ...authoredTours()[mode] };
-        return { ...tour, scenes: [], chapters: [], files: mode === 'compare' && state.compare ? state.compare.files : tour.files };
+        if (authoredTours()[mode]) return { ...tour, opening: undefined, conclusion: undefined, ...authoredTours()[mode] };
+        return { ...tour, opening: undefined, conclusion: undefined, scenes: [], chapters: [], files: mode === 'compare' && state.compare ? state.compare.files : tour.files };
     }
 
     function renderZoomControl() {
@@ -959,7 +959,8 @@ import { renderTourProse } from '../media/tourProse.js';
         try {
             origin = await captureZoomLocation();
             state.zoom.depart(origin);
-            narrationController.pauseForExternalOwner();
+            // A different authored mode owns different prose and narration units.
+            narrationController.stop();
             const landing = state.zoom.enter(mode, mode === 'history' ? origin : null);
             state.tourNavigatorTab = landing.restore ? landing.location.navigatorTab || 'commits' : isNarrativeMode() ? 'tour' : 'commits';
             state.activeSceneIndex = -1;
@@ -1096,6 +1097,9 @@ import { renderTourProse } from '../media/tourProse.js';
                 return;
             }
             if (message.type === 'multiSetActivePair' || message.type === 'multiSetActivePanel') {
+                if (isNarrativeMode() && Number.isInteger(message.pairIndex)) {
+                    document.getElementById('file-info').textContent = tourEvidenceCaption(state.activeTourFilePath, message.pairIndex);
+                }
                 if (state.zoom?.mode === 'history') {
                     state.historyFocus = message.type === 'multiSetActivePanel' ? message.panelId
                         : state.historyPanels[message.pairIndex]?.id || state.historyFocus;
@@ -1455,8 +1459,6 @@ import { renderTourProse } from '../media/tourProse.js';
         if (!deviceNarrationAvailable || state.mode !== 'tour') return;
         const unit = buildActiveNarrationUnit('playback-start');
         if (!unit) return;
-        const firstSegment = unit.segments[0];
-        setSceneIntroVisible(Boolean(firstSegment && ['chapter', 'scene-title', 'summary', 'bullet', 'takeaway'].includes(firstSegment.source.field)));
         state.renderedNarrationUnit = unit;
         renderCurrentNarrativeForNarrationUnit(unit);
         narrationController.start(unit, true);
@@ -1471,27 +1473,20 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     function buildActiveNarrationUnit(entry) {
-        if (!state.tour || state.activeSceneIndex < 0) return null;
-        return buildTourNarrationUnit(state.tour, {
-            sceneIndex: state.activeSceneIndex,
-            stepIndex: state.activeStepIndex
-        }, { entry });
+        const item = readingItems.find(item => item.key === state.readingKey);
+        return state.tour && item ? buildReadingNarrationUnit(state.tour, item, { entry }) : null;
     }
 
     function canNavigateNarrationUnit(unit, direction) {
-        const tour = state.tour;
-        return Boolean(tour && getLinearTourTarget(tour.scenes, unit.position, direction));
+        return Boolean(state.tour && getTourReadingTarget(readingItems, unit.readingKey, direction, isImageOnlyTour(state.tour)));
     }
 
     function navigateNarrationUnit(unit, direction) {
-        const tour = state.tour;
-        if (!tour) return null;
-        const target = getLinearTourTarget(tour.scenes, unit.position, direction);
+        if (!state.tour) return null;
+        const target = getTourReadingTarget(readingItems, unit.readingKey, direction, isImageOnlyTour(state.tour));
         if (!target) return null;
         return showTourScene(target.sceneIndex, target.stepIndex, {
-            narrationNavigation: 'controller',
-            narrationEntry: 'continuous',
-            showIntro: false
+            readingKey: target.key, narrationNavigation: 'controller', narrationEntry: 'continuous'
         });
     }
 
@@ -1557,13 +1552,6 @@ import { renderTourProse } from '../media/tourProse.js';
         // Exploring the document pauses narration; a paused segment must not
         // pull the reader back to the introduction or move the code pane.
         if (paused) return;
-        const passage = element.closest('[data-reading-kind]');
-        if (passage?.dataset.readingKind === 'scene') {
-            const sceneField = ['chapter', 'scene-title', 'summary', 'bullet', 'takeaway'].includes(segment.source.field);
-            setSceneIntroVisible(sceneField);
-        } else if (passage?.dataset.readingKind === 'step') {
-            setSceneIntroVisible(false);
-        }
         const narrative = document.getElementById('tour-narrative-content');
         if (!narrative) return;
         const elementBounds = element.getBoundingClientRect();
@@ -1612,11 +1600,10 @@ import { renderTourProse } from '../media/tourProse.js';
         if (!match) return;
         if (match.kind === 'narrative') {
             cancelPendingModeRestore();
-            showTourScene(match.sceneIndex, match.stepIndex ?? 0, { showIntro: match.stepIndex === undefined });
+            showTourScene(match.sceneIndex, match.stepIndex ?? 0, { readingKey: match.readingKey, showIntro: match.stepIndex === undefined });
             return;
         }
         if (!showTourFileAtIndex(match.fileIndex)) return;
-        setSceneIntroVisible(false);
         window.requestAnimationFrame(() => emit({
             type: 'revealSearchResult',
             sideIndex: match.sideIndex,
@@ -1860,7 +1847,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 showIntro: parameters.get('view') === 'overview' || !parameters.get('step'),
                 readingKey: !parameters.get('scene') && !parameters.get('step') ? 'title' : undefined
             });
-            if (['tour', 'chapter'].includes(parameters.get('view'))) setNarrativeView(parameters.get('view'));
+            if (['tour', 'chapter', 'conclusion'].includes(parameters.get('view'))) setNarrativeView(parameters.get('view'));
             if (state.zoom) {
                 const aliases = {
                     explanation: 'deconstructed',
@@ -1895,7 +1882,7 @@ import { renderTourProse } from '../media/tourProse.js';
                         showIntro: parameters.get('view') === 'overview' || !parameters.get('step'),
                         readingKey: !parameters.get('scene') && !parameters.get('step') ? 'title' : undefined
                     });
-                    if (['tour', 'chapter'].includes(parameters.get('view'))) setNarrativeView(parameters.get('view'));
+                    if (['tour', 'chapter', 'conclusion'].includes(parameters.get('view'))) setNarrativeView(parameters.get('view'));
                 }
                 const requestedEmbeddedMode = pendingEmbeddedWorkspaceMode;
                 pendingEmbeddedWorkspaceMode = null;
@@ -1975,7 +1962,7 @@ import { renderTourProse } from '../media/tourProse.js';
         const baseLabel = formatTourRef(tour.range.baseRef);
         const headLabel = formatTourRef(tour.range.headRef);
         const resolvedHead = tour.range.headOid.slice(0, 7);
-        range.textContent = `${baseLabel} → ${headLabel}${headLabel === resolvedHead ? '' : ` · ${resolvedHead}`}`;
+        range.textContent = `${isNarrativeMode() ? 'Tour range: ' : ''}${baseLabel} → ${headLabel}${headLabel === resolvedHead ? '' : ` · ${resolvedHead}`}`;
         stats.textContent = `${formatCount(tour.summary.changedFiles, 'file')} · +${tour.summary.additions} −${tour.summary.deletions} · ${formatCount(tour.summary.commitCount, 'commit')}`;
         renderAuthoringCoverage(authoringCoverage, tour.authoringCoverage);
         sceneCount.textContent = isNarrativeMode() && tour.scenes.length ? String(tour.scenes.length) : '';
@@ -2050,6 +2037,12 @@ import { renderTourProse } from '../media/tourProse.js';
                     });
                 } else group.toggle.hidden = true;
             }
+        }
+        if (isNarrativeMode() && tour.conclusion) {
+            const conclusion = readingButton('Conclusion', `Read ${tour.conclusion.title}`, () => activateReadingItem(readingItems.find(item => item.kind === 'conclusion')));
+            conclusion.className = 'tour-scene';
+            conclusion.dataset.readingLink = 'conclusion';
+            scenes.append(conclusion);
         }
         files.replaceChildren(...tour.files.map((file, index) => {
             const button = document.createElement('button');
@@ -2133,9 +2126,11 @@ import { renderTourProse } from '../media/tourProse.js';
         }
     }
 
+    let lastReadingEvidence = null;
+
     function showTourScene(index, stepIndex = 0, options = {}) {
         const tour = state.tour;
-        if (!tour || index < 0 || index >= tour.scenes.length) {
+        if (!tour || (options.readingKey !== 'conclusion' && (index < 0 || index >= tour.scenes.length))) {
             return null;
         }
         imageViewer.clear();
@@ -2146,12 +2141,15 @@ import { renderTourProse } from '../media/tourProse.js';
             void showZoomHistory(path, state.historyCommit).catch((error) => { document.getElementById('tour-mode-status').textContent = error.message; });
             return null;
         }
+        const previousContext = lastReadingEvidence?.tour === tour && !options.zoomLanding && !applyingDocumentLocation && (options.narrationNavigation === 'linear' || options.narrationNavigation === 'controller' || options.fromReadingScroll)
+            ? lastReadingEvidence.context : null;
         state.directoryEvidence = null;
+        setDirectoryOverviewStatus('');
         renderDirectoryOverviewBreadcrumb();
         buildReadingDocument();
         let readingItem = readingItems.find((item) => item.key === options.readingKey)
             || resolveTourReadingItem(readingItems, index, stepIndex, options.showIntro ? 'overview' : null);
-        if (readingItem && readingItem.kind !== 'step' && isImageOnlyTour(tour)) {
+        if (readingItem && readingItem.kind !== 'step' && readingItem.kind !== 'conclusion' && !(readingItem.kind === 'title' && tour.opening) && isImageOnlyTour(tour)) {
             readingItem = resolveTourReadingItem(readingItems, readingItem.sceneIndex, 0);
         }
         if (readingItem) {
@@ -2159,27 +2157,30 @@ import { renderTourProse } from '../media/tourProse.js';
             stepIndex = readingItem.stepIndex;
         }
         const scene = tour.scenes[index];
+        const landing = tourLanding(tour, readingItem);
+        document.body.classList.toggle('tour-discussion', landing === 'narrative');
         state.readingKey = readingItem?.key || 'title';
         state.sceneIntroVisible = readingItem?.kind !== 'step';
-        state.narrativeParent = readingItem?.kind === 'title' ? 'tour' : readingItem?.kind === 'chapter' ? 'chapter' : null;
+        state.narrativeParent = readingItem?.kind === 'conclusion' ? 'conclusion' : readingItem?.kind === 'title' ? 'tour' : readingItem?.kind === 'chapter' ? 'chapter' : null;
         state.activeSceneIndex = index;
         state.activeStepIndex = isSteppedTourScene(scene)
             ? Math.min(Math.max(stepIndex, 0), Math.max(scene.steps.length - 1, 0))
             : 0;
-        state.tourFocusFilePath = scene.kind === 'text-diff'
+        state.tourFocusFilePath = !scene || state.narrativeParent ? null : scene.kind === 'text-diff'
             ? scene.path
             : scene.kind === 'walkthrough'
                 ? scene.steps[state.activeStepIndex]?.diff.path ?? null
                 : isMultiPanelTourScene(scene)
                     ? scene.steps[state.activeStepIndex]?.file ?? null
                 : null;
-        const location = getSceneLocation(tour, index);
+        const location = scene ? getSceneLocation(tour, index) : null;
         updateReadingSelection();
-        const narrationUnit = buildActiveNarrationUnit(options.narrationEntry || 'playback-start');
+        const narrationUnit = options.preserveNarration && narrationController.engaged
+            ? narrationController.state.unit : buildActiveNarrationUnit(options.narrationEntry || 'playback-start');
         state.renderedNarrationUnit = narrationUnit;
         renderTourNarrative(scene, location, narrationUnit);
         if (!options.fromReadingScroll) scrollToReadingItem(state.readingKey);
-        if (narrationUnit && !options.zoomLanding && (!state.zoom || isNarrativeMode())) {
+        if (narrationUnit && !options.zoomLanding && !options.preserveNarration && (!state.zoom || isNarrativeMode())) {
             if (options.narrationNavigation === 'linear') {
                 narrationController.followLinearNavigation(narrationUnit);
             } else if (options.narrationNavigation !== 'controller') {
@@ -2187,14 +2188,22 @@ import { renderTourProse } from '../media/tourProse.js';
             }
         }
         updateTourLocationUrl();
-        if (state.sceneIntroVisible && showTourDirectoryOverview()) return narrationUnit;
-        if (scene.kind === 'discussion') {
+        const context = resolveTourEvidenceContext(tour, readingItem, state.zoom?.mode);
+        if (landing === 'overview') lastReadingEvidence = { tour, context };
+        else if (landing !== 'narrative') lastReadingEvidence = previousContext ? { tour, context: previousContext } : null;
+        else if (readingItem.kind !== 'chapter') lastReadingEvidence = null;
+        const orientation = readingElements.get(readingItem.key)?.querySelector('.tour-scene-orientation');
+        if (orientation && context) orientation.textContent = describeTourTransition(previousContext, context);
+        if (landing === 'overview' && showTourDirectoryOverview()) return narrationUnit;
+        if (landing === 'narrative') {
             ++renderRequestId;
             state.displayedPanels = [];
             state.activeTourFilePath = null;
             emit({ type: 'updateCommitHistory', history: sharedCommitHistory() });
             document.body.classList.add('tour-discussion');
+            state.tourFocusFilePath = null;
             updateTourFileSelection();
+            renderWorkspaceControls();
             return narrationUnit;
         }
         document.body.classList.remove('tour-discussion');
@@ -2220,17 +2229,15 @@ import { renderTourProse } from '../media/tourProse.js';
         const scene = state.tour?.scenes[state.activeSceneIndex];
         if (!isNarrativeMode() || !scene) return false;
         if (isImageOnlyTour(state.tour)) return false;
-        if (!state.narrativeParent && scene.kind === 'text-diff') return false;
-        // The title describes the full tour; scene overviews retain their exact
-        // authored comparison (including synthetic intermediate snapshots).
-        const evidenceScene = state.narrativeParent === 'tour'
-            ? { ...scene, kind: 'discussion', overview: undefined } : scene;
-        const evidence = buildTourDirectoryEvidence(state.tour, evidenceScene);
+        if (state.narrativeParent || !scene.overview) return false;
+        const evidence = buildTourDirectoryEvidence(state.tour, scene);
         state.directoryEvidence = evidence;
         state.activeTourFilePath = null;
         updateTourFileSelection();
         document.body.classList.remove('tour-discussion');
-        emit(revisionDirectoryView(evidence.labels, evidence.entries));
+        const context = resolveTourEvidenceContext(state.tour, readingItems.find(item => item.key === state.readingKey), state.zoom?.mode);
+        emit(revisionDirectoryView(context.labels, evidence.entries));
+        document.getElementById('file-info').textContent = describeTourComparison(context);
         setDirectoryOverviewStatus(evidence.entries.length ? '' : 'No changed files in this directory for the selected comparison.');
         updateTourLocationUrl();
         return true;
@@ -2285,7 +2292,8 @@ import { renderTourProse } from '../media/tourProse.js';
         return `file::${filePath}`;
     }
 
-    function emitDiffScene(scene, annotations = [], comparisonId = getTourFileComparisonId(scene.path), history = null) {
+    function emitDiffScene(scene, annotations = [], comparisonId = getTourFileComparisonId(scene.path), history = null, previewFocus = null) {
+        document.body.classList.remove('tour-discussion');
         const tour = state.tour;
         if (!tour) return;
         imageViewer.clear();
@@ -2296,7 +2304,9 @@ import { renderTourProse } from '../media/tourProse.js';
         const diffModel = buildTwoWayDiffModel(scene.leftContent, scene.rightContent);
         const leftLabel = formatTourPaneLabel(scene, scene.leftLabel, state.zoom?.mode === 'compare' ? 'from' : 'base');
         const rightLabel = formatTourPaneLabel(scene, scene.rightLabel, state.zoom?.mode === 'compare' ? 'to' : 'head');
-        const activeAnnotation = annotations.find((annotation) => annotation.active);
+        const activeAnnotation = annotations.find((annotation) => annotation.active) || (previewFocus && {
+            side: previewFocus.revision === 'head' ? 'right' : 'left', startLine: previewFocus.startLine
+        });
         const fileExists = scene.changeKind === 'added'
             ? { left: false, right: true }
             : scene.changeKind === 'deleted'
@@ -2319,7 +2329,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 canGoNext: Boolean(getCurrentTourFileTarget(1))
             },
             editableSides: { left: false, right: false },
-            comparisonSummary: scene.takeaway ? `${scene.path} · ${scene.takeaway}` : scene.path,
+            comparisonSummary: tourEvidenceCaption(scene.path, undefined, !state.directoryEvidence),
             initialChangeIndex: activeAnnotation
                 ? findChangeIndexAtSourceLine(
                     diffModel,
@@ -2329,6 +2339,24 @@ import { renderTourProse } from '../media/tourProse.js';
                 : scene.focusChangeIndex,
             tourAnnotations: annotations
         });
+    }
+
+    function tourEvidenceCaption(filePath, activePairIndex, rangeOnly = false) {
+        if (!isNarrativeMode()) return filePath;
+        const item = readingItems.find(item => item.key === state.readingKey);
+        const authoredContext = item && resolveTourEvidenceContext(state.tour, item, state.zoom?.mode, activePairIndex);
+        const context = rangeOnly || !authoredContext ? resolveTourRangeEvidenceContext(state.tour, filePath) : authoredContext;
+        const displayedContext = { ...context, scope: filePath, scopeKey: JSON.stringify([filePath]), overview: false };
+        const previous = lastReadingEvidence?.tour === state.tour ? lastReadingEvidence.context : null;
+        const comparison = previous && previous.comparisonKey !== displayedContext.comparisonKey
+            ? describeTourTransition(previous, displayedContext) : describeTourComparison(displayedContext);
+        // Remember the actual rendered pair, including user-selected panels and file exploration.
+        lastReadingEvidence = { tour: state.tour, context: displayedContext };
+        const previewContext = activePairIndex === undefined ? authoredContext
+            : item && resolveTourEvidenceContext(state.tour, item, state.zoom?.mode);
+        const preview = item && tourLanding(state.tour, item) === 'preview'
+            && previewContext?.scope === filePath && previewContext.comparisonKey === context.comparisonKey;
+        return `${preview ? 'Coming up · ' : ''}${comparison}`;
     }
 
     function formatTourPaneLabel(scene, label, role) {
@@ -2350,8 +2378,8 @@ import { renderTourProse } from '../media/tourProse.js';
         }
         emitDiffScene(
             step.diff,
-            buildTourAnnotationsForFile(step.diff.path),
-            getTourFileComparisonId(step.diff.path)
+            state.sceneIntroVisible ? [] : buildTourAnnotationsForFile(step.diff.path),
+            getTourFileComparisonId(step.diff.path), null, state.sceneIntroVisible ? step.focus : null
         );
     }
 
@@ -2362,6 +2390,7 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     function emitMultiPanelFile(scene, filePath, step) {
+        document.body.classList.remove('tour-discussion');
         const file = getMultiPanelFile(scene, filePath);
         if (!step || !file) return;
         state.activeTourFilePath = file.path;
@@ -2378,7 +2407,7 @@ import { renderTourProse } from '../media/tourProse.js';
             stackId: getMultiPanelDefinitions(scene)[index].id
         }));
         const pairs = revisionPanelPairs(panels, (left, right) => buildTwoWayDiffModel(left.content, right.content));
-        const tourAnnotations = buildStackedTourAnnotationsForFile(file.path, pairs);
+        const tourAnnotations = state.sceneIntroVisible ? [] : buildStackedTourAnnotationsForFile(file.path, pairs);
         const activeAnnotation = tourAnnotations.find((annotation) => annotation.active);
         const focusPairIndex = activeAnnotation?.pairIndex ?? step.pairIndex;
         const focusSide = activeAnnotation?.side ?? step.side;
@@ -2401,9 +2430,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 canGoNext: Boolean(getCurrentTourFileTarget(1))
             },
             mutationEnabled: false,
-            comparisonSummary: scene.kind === 'deconstructed-diff'
-                ? `${scene.stageLabel} · ${file.path} · ${formatTourRef(scene.realRange.baseRef)} → ${formatTourRef(scene.realRange.targetRef)}`
-                : `${file.path} · ${scene.takeaway}`,
+            comparisonSummary: tourEvidenceCaption(file.path),
             tourAnnotations
         });
     }
@@ -2412,7 +2439,7 @@ import { renderTourProse } from '../media/tourProse.js';
         if (!isNarrativeMode()) return false;
         const target = getTourReadingTarget(readingItems, state.readingKey, direction, isImageOnlyTour(state.tour));
         if (!target) return false;
-        activateReadingItem(target);
+        activateReadingItem(target, false, true);
         return true;
     }
 
@@ -2470,6 +2497,7 @@ import { renderTourProse } from '../media/tourProse.js';
             return false;
         }
         if (interruptNarration) narrationController.interruptForExploration();
+        state.directoryEvidence = null;
         emitDiffScene(
             file,
             buildTourAnnotationsForFile(file.path),
@@ -2522,6 +2550,7 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     function returnToTourFocus() {
+        if (state.narrativeParent) return Boolean(showTourScene(state.activeSceneIndex, state.activeStepIndex, { readingKey: state.readingKey, preserveNarration: true }));
         if (state.directoryEvidence) return showTourDirectoryOverview();
         const scene = state.tour?.scenes[state.activeSceneIndex];
         if (!scene || !state.tourFocusFilePath) {
@@ -2639,7 +2668,8 @@ import { renderTourProse } from '../media/tourProse.js';
             const inTourMode = isNarrativeMode();
             const imageStep = scene?.kind === 'walkthrough' && scene.steps[state.activeStepIndex]?.image;
             returnButton.hidden = !inTourMode || Boolean(state.directoryEvidence)
-                || !state.tourFocusFilePath || (imageStep ? imageViewer.isVisible() : state.activeTourFilePath === state.tourFocusFilePath);
+                || (state.narrativeParent ? !state.activeTourFilePath : (!state.tourFocusFilePath || (imageStep ? imageViewer.isVisible() : state.activeTourFilePath === state.tourFocusFilePath)));
+            returnButton.textContent = state.narrativeParent ? 'Return to passage' : 'Return to tour focus';
         }
     }
 
@@ -2655,9 +2685,9 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     function isSteppedTourScene(scene) {
-        return scene.kind === 'walkthrough'
-            || scene.kind === 'stacked-diff'
-            || scene.kind === 'deconstructed-diff';
+        return scene?.kind === 'walkthrough'
+            || scene?.kind === 'stacked-diff'
+            || scene?.kind === 'deconstructed-diff';
     }
 
     function isMultiPanelTourScene(scene) {
@@ -2695,7 +2725,7 @@ import { renderTourProse } from '../media/tourProse.js';
 
     function formatTourBreadcrumb(location, scene, stepIndex) {
         return isSteppedTourScene(scene)
-            ? `Scene ${location.sceneNumber} of ${location.sceneCount} · Step ${stepIndex + 1} of ${scene.steps.length}`
+            ? `Scene ${location.sceneNumber} of ${location.sceneCount}: ${scene.title} · Step ${stepIndex + 1} of ${scene.steps.length}`
             : `Scene ${location.sceneNumber} of ${location.sceneCount}`;
     }
 
@@ -2732,27 +2762,8 @@ import { renderTourProse } from '../media/tourProse.js';
 
     function renderCurrentNarrativeForNarrationUnit(unit) {
         const scene = state.tour?.scenes[state.activeSceneIndex];
-        if (!state.tour || !scene) return;
-        renderTourNarrative(scene, getSceneLocation(state.tour, state.activeSceneIndex), unit);
-    }
-
-    function setSceneIntroVisible(visible) {
-        const scene = state.tour?.scenes[state.activeSceneIndex];
-        if (!scene) return;
-        state.narrativeParent = null;
-        state.sceneIntroVisible = visible;
-        const item = resolveTourReadingItem(readingItems, state.activeSceneIndex, state.activeStepIndex, visible ? 'overview' : null);
-        if (item) state.readingKey = item.key;
-        updateReadingSelection();
-        renderNarrativeViewControls();
-        if (state.sceneIntroVisible && !state.directoryEvidence) {
-            showTourDirectoryOverview();
-        } else if (!state.sceneIntroVisible && state.directoryEvidence) {
-            state.directoryEvidence = null;
-            if (scene.kind === 'walkthrough') renderWalkthroughStep(scene);
-            else if (isMultiPanelTourScene(scene)) renderMultiPanelStep(scene);
-        }
-        updateTourLocationUrl();
+        if (!state.tour) return;
+        renderTourNarrative(scene, scene ? getSceneLocation(state.tour, state.activeSceneIndex) : null, unit);
     }
 
     function setNarrativeView(view) {
@@ -2824,6 +2835,7 @@ import { renderTourProse } from '../media/tourProse.js';
 
     function focusForReadingItem(item) {
         if (!item || item.kind === 'title') return { part: 'title' };
+        if (item.kind === 'conclusion') return { part: 'conclusion' };
         if (item.kind === 'chapter') return { part: 'chapter', chapter: item.chapterId };
         const scene = state.tour.scenes[item.sceneIndex];
         return item.kind === 'scene' ? { part: 'scene', scene: scene.id }
@@ -2883,6 +2895,7 @@ import { renderTourProse } from '../media/tourProse.js';
             if (request !== documentNavigationId) return;
             if (state.zoom.mode !== location.mode) throw new Error('The requested tour mode could not be opened.');
             zoomRestore = null;
+            document.getElementById('tour-mode-status').textContent = '';
             showTourScene(target.sceneIndex, target.stepIndex, { readingKey: target.key, showIntro: location.focus.part !== 'step' });
             await new Promise(resolve => window.requestAnimationFrame(resolve));
             if (request !== documentNavigationId) return;
@@ -2918,6 +2931,11 @@ import { renderTourProse } from '../media/tourProse.js';
             window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}${window.location.hash}`);
             return;
         }
+        if (state.readingKey === 'conclusion') {
+            parameters.delete('scene'); parameters.delete('step'); parameters.set('view', 'conclusion');
+            window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}${serializeDocumentFragment(state.zoom.mode, { part: 'conclusion' })}`);
+            return;
+        }
         if (!scene) return;
         parameters.set('scene', scene.id);
         const step = isSteppedTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
@@ -2928,7 +2946,7 @@ import { renderTourProse } from '../media/tourProse.js';
         if (state.narrativeParent) parameters.set('view', state.narrativeParent);
         else if (step && state.sceneIntroVisible) parameters.set('view', 'overview');
         else parameters.delete('view');
-        window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}${window.location.hash}`);
+        window.history.replaceState(null, '', `${window.location.pathname}?${parameters.toString()}${serializeDocumentFragment(state.zoom.mode, focusForReadingItem(readingItems.find(item => item.key === state.readingKey)))}`);
     }
 
     function getActiveStepCodeTarget(scene = state.tour?.scenes[state.activeSceneIndex], stepIndex = state.activeStepIndex) {
@@ -2996,15 +3014,16 @@ import { renderTourProse } from '../media/tourProse.js';
         buildReadingDocument();
         document.getElementById('tour-narrative').hidden = false;
         document.getElementById('tour-breadcrumb').textContent = state.narrativeParent === 'tour'
-            ? state.tour.title
+            ? 'Overview'
+            : state.narrativeParent === 'conclusion' ? 'Conclusion'
             : state.narrativeParent === 'chapter' ? location.chapter?.title || 'Chapter'
-                : state.sceneIntroVisible ? `Scene ${location.sceneNumber} of ${location.sceneCount} · Overview`
+                : state.sceneIntroVisible ? `Scene ${location.sceneNumber} of ${location.sceneCount}: ${scene.title}`
                     : formatTourBreadcrumb(location, scene, state.activeStepIndex);
         // Only refresh sentence spans, never replace the document or disclosures.
-        const sceneElement = readingElements.get(`scene:${scene.id}`);
+        const sceneElement = scene && readingElements.get(`scene:${scene.id}`);
         const step = isSteppedTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
         const stepElement = step && readingElements.get(`step:${scene.id}:${step.id}`);
-        for (const element of [sceneElement, stepElement].filter(Boolean)) {
+        for (const element of new Set([sceneElement, stepElement, readingElements.get(state.readingKey)].filter(Boolean))) {
             element.querySelectorAll('[data-reading-field]').forEach((field) => {
                 if (field.closest('[data-reading-key]') !== element) return;
                 renderNarrationField(field, field.dataset.readingText, {
@@ -3042,7 +3061,7 @@ import { renderTourProse } from '../media/tourProse.js';
         };
         const overview = (parent, scene, narrated) => {
             field(parent, 'p', 'tour-narrative-summary', scene.summary, narrated ? 'summary' : null);
-            if (scene.bullets.length) {
+            if (scene.bullets?.length) {
                 const list = document.createElement('ul');
                 list.className = 'tour-narrative-bullets';
                 scene.bullets.forEach((text, index) => field(list, 'li', '', text, narrated ? 'bullet' : null, index));
@@ -3058,11 +3077,20 @@ import { renderTourProse } from '../media/tourProse.js';
             element.dataset.sceneIndex = String(item.sceneIndex);
             element.dataset.stepIndex = String(item.stepIndex);
             const scene = state.tour.scenes[item.sceneIndex];
+            if (tourLanding(state.tour, item) === 'narrative') {
+                field(element, 'p', 'tour-document-meta', `Tour range: ${formatTourRef(state.tour.range.mergeBaseOid)} → ${formatTourRef(state.tour.range.headOid)} · No code comparison displayed`);
+            }
             if (item.kind === 'title') {
-                field(element, 'h1', 'tour-document-title', state.tour.title);
-                field(element, 'p', 'tour-document-meta', `${formatTourRef(state.tour.range.mergeBaseOid)} → ${formatTourRef(state.tour.range.headOid)}`);
+                field(element, 'h1', 'tour-document-title', state.tour.title, 'document-title');
+                if (state.tour.opening) {
+                    field(element, 'h2', 'tour-passage-title', state.tour.opening.title, 'passage-title');
+                    overview(element, state.tour.opening, true);
+                }
+            } else if (item.kind === 'conclusion') {
+                field(element, 'h2', 'tour-passage-title', state.tour.conclusion.title, 'passage-title');
+                overview(element, state.tour.conclusion, true);
             } else if (item.kind === 'chapter') {
-                field(element, 'h2', 'tour-document-chapter', state.tour.chapters.find((chapter) => chapter.id === item.chapterId)?.title);
+                field(element, 'h2', 'tour-document-chapter', state.tour.chapters.find((chapter) => chapter.id === item.chapterId)?.title, 'chapter');
             } else if (item.kind === 'scene') {
                 element.classList.add('tour-scene-group');
                 const header = field(element, 'div', 'tour-scene-header', '');
@@ -3096,7 +3124,10 @@ import { renderTourProse } from '../media/tourProse.js';
                 });
                 header.append(context);
                 const intro = field(element, 'div', 'tour-scene-overview', '');
-                overview(intro, scene, true);
+                const evidenceContext = resolveTourEvidenceContext(state.tour, item, state.zoom?.mode);
+                if (evidenceContext) field(intro, 'p', 'tour-scene-orientation', describeTourComparison(evidenceContext));
+                if (scene.overview?.purpose) field(intro, 'p', 'tour-overview-purpose', scene.overview.purpose, 'overview-purpose');
+                overview(intro, { ...scene, takeaway: isSteppedTourScene(scene) ? '' : scene.takeaway }, true);
                 const tags = field(intro, 'div', 'tour-narrative-tags', '');
                 scene.tags.forEach((tag) => field(tags, 'span', '', tag));
             } else {
@@ -3111,6 +3142,7 @@ import { renderTourProse } from '../media/tourProse.js';
                     field(element, 'p', 'tour-connection', `${step.connection.from.path} → ${step.connection.to.path}`);
                     field(element, 'p', 'tour-connection', step.connection.label, 'connection');
                 }
+                if (item.stepIndex === scene.steps.length - 1) field(element, 'p', 'tour-narrative-takeaway', scene.takeaway, 'takeaway');
                 const target = getActiveStepCodeTarget(scene, item.stepIndex);
                 if (target) {
                     const code = field(element, 'div', 'tour-step-code', '');
@@ -3169,6 +3201,8 @@ import { renderTourProse } from '../media/tourProse.js';
         const content = document.getElementById('tour-narrative-content');
         const element = readingElements.get(key);
         if (!content || !element) return;
+        // Reserve the final passage's scroll space before measuring, including initial deep links.
+        content.style.setProperty('--tour-reading-viewport', `${content.clientHeight}px`);
         const header = element.dataset.readingKind === 'step'
             ? element.closest('.tour-scene-group')?.querySelector('.tour-scene-header') : null;
         content.scrollTop += element.getBoundingClientRect().top - content.getBoundingClientRect().top
@@ -3193,13 +3227,13 @@ import { renderTourProse } from '../media/tourProse.js';
         return height;
     }
 
-    function activateReadingItem(item, fromScroll = false) {
+    function activateReadingItem(item, fromScroll = false, linear = false) {
         if (!fromScroll && !applyingDocumentLocation && isNarrativeMode()) {
             window.history.pushState(null, '', serializeDocumentFragment(state.zoom.mode, focusForReadingItem(item)));
         }
         return showTourScene(item.sceneIndex, item.stepIndex, {
             readingKey: item.key, showIntro: item.kind !== 'step',
-            userNavigation: true, fromReadingScroll: fromScroll
+            userNavigation: true, fromReadingScroll: fromScroll, narrationNavigation: linear ? 'linear' : undefined, narrationEntry: linear ? 'continuous' : 'playback-start'
         });
     }
 

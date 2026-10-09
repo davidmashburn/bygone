@@ -1,5 +1,14 @@
-version: 4
+version: 5
 title: How Bygone learned to review a branch
+opening:
+  title: How does a branch become reviewable evidence?
+  summary: Follow one branch-review pipeline from merge-base selection to temporary trees and the existing directory viewer. The final fixture checks the historical boundary; this tour does not assess every renderer behavior.
+conclusion:
+  title: A stable boundary reaches the existing viewer
+  summary: The pipeline resolves the merge base before materializing snapshots, then hands those trees to the directory comparison surface. The fixture protects that range choice.
+  bullets:
+    - Git preparation and rendering meet at the temporary-tree boundary.
+    - The cited test establishes range semantics; interactive renderer behavior needs its own checks.
 sourceUrl: https://github.com/davidmashburn/bygone/commit/75b6d7c0303124ec314aa790d6b808c4a9d9ea0e
 range:
   base: 292fe9248c5c49f762489dc688296fc100d120bc
@@ -47,7 +56,7 @@ chapters:
     scenes:
       - id: review-pipeline
         title: From Git history to a visual workspace
-        summary: Follow the branch-review feature from its historical boundary to the reusable comparison surface and the test that fixes its semantics.
+        summary: Which historical boundary should a branch review show? Trace the range resolver, tree materialization, and viewer handoff, then inspect the fixture. Notice that the merge base is chosen before any comparison files are created.
         bullets:
           - Resolve the range before materializing files for the comparison.
           - Keep Git-specific preparation at the temporary-tree handoff.

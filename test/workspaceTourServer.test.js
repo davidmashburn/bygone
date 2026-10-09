@@ -46,7 +46,7 @@ test('uploaded tours are validated in the existing repository and retain indepen
         assert.equal(convertedSource.chapters[0].scenes[0].id, 'scene');
         assert.match(convertedSource.chapters[0].scenes[0].steps[0].body, /Original notes/);
         assert.equal((await (await fetch(`${origin}${convertedResult.manifestUrl}`)).json()).version, 4);
-        assert.equal((await upload({ source: JSON.stringify({ ...source(commits[2]), version: 5 }), convertToV4: true })).status, 400);
+        assert.equal((await upload({ source: JSON.stringify({ ...source(commits[2]), version: 6 }), convertToV4: true })).status, 400);
         const response = await upload({ source: JSON.stringify(source(commits[2])) });
         assert.equal(response.status, 200);
         const opened = await response.json();

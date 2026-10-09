@@ -447,7 +447,8 @@ host.onMessage((message) => {
             message.initialChangeIndex,
             Boolean(message.revealFirstChangeInEachPanel),
             message.tourAnnotations || [],
-            message.renderRequestId
+            message.renderRequestId,
+            message.comparisonSummary
         );
         return;
     }
@@ -516,7 +517,8 @@ async function initializeRenderer() {
             pendingMultiPayload.initialChangeIndex,
             Boolean(pendingMultiPayload.revealFirstChangeInEachPanel),
             pendingMultiPayload.tourAnnotations || [],
-            pendingMultiPayload.renderRequestId
+            pendingMultiPayload.renderRequestId,
+            pendingMultiPayload.comparisonSummary
         );
         pendingMultiPayload = undefined;
     }
@@ -1077,7 +1079,7 @@ function setDirectoryViewMode(mode) {
     getElement('directory-files-tab').setAttribute('aria-pressed', String(!showOverview));
 }
 
-function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = [], renderRequestId = undefined) {
+function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = [], renderRequestId = undefined, comparisonSummary = null) {
     if (!Array.isArray(panels) || panels.length < 1) {
         return;
     }
@@ -1118,7 +1120,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     const isBlankMultiPanel = panels.length === 1 && !panels[0]?.path && !panels[0]?.content;
     setTextContent(
         'file-info',
-        isBlankMultiPanel ? 'Blank editable diff' : `Comparing ${panels.length} file${panels.length === 1 ? '' : 's'}`
+        comparisonSummary || (isBlankMultiPanel ? 'Blank editable diff' : `Comparing ${panels.length} file${panels.length === 1 ? '' : 's'}`)
     );
     setCopyableFilePaths(getElement('file-info'), panels.map((panel) => panel.path || panel.label));
 
@@ -3252,6 +3254,7 @@ function setActiveMultiPanel(panelId, notifyHost) {
     if (notifyHost) {
         host.postMessage({
             type: 'multiSetActivePanel',
+            pairIndex: activeMultiPairIndex,
             panelId
         });
     }

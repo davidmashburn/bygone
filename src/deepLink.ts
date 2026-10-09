@@ -2,6 +2,7 @@ import type { ChangeTourManifest, ChangeTourModeTour } from './changeTourManifes
 
 export type DocumentFocus =
     | { part: 'title' }
+    | { part: 'conclusion' }
     | { part: 'chapter'; chapter: string }
     | { part: 'scene'; scene: string }
     | { part: 'step'; scene: string; step: string };
@@ -44,7 +45,7 @@ function validateLocalFileUrl(value: string): string {
 }
 export function parseDocumentFocus(params: URLSearchParams): DocumentFocus {
     const part = required(params, 'part');
-    const fields = part === 'title' ? [] : part === 'chapter' ? ['chapter']
+    const fields = (part === 'title' || part === 'conclusion') ? [] : part === 'chapter' ? ['chapter']
         : part === 'scene' ? ['scene'] : part === 'step' ? ['scene', 'step'] : null;
     if (!fields) throw new Error(`Unsupported document part: ${part}.`);
     for (const key of focusFields.filter(key => key !== 'part')) {
@@ -112,6 +113,10 @@ export function authoredModeTour(tour: ChangeTourManifest, mode: TourLink['mode'
 export function resolveDocumentFocus(tour: ChangeTourManifest, mode: TourLink['mode'], focus: DocumentFocus): { key: string; sceneIndex: number; stepIndex: number } {
     const selected = authoredModeTour(tour, mode);
     if (focus.part === 'title') return { key: 'title', sceneIndex: 0, stepIndex: 0 };
+    if (focus.part === 'conclusion') {
+        if (!selected.conclusion) throw new Error('Conclusion is unavailable in this tour mode.');
+        return { key: 'conclusion', sceneIndex: -1, stepIndex: 0 };
+    }
     if (focus.part === 'chapter') {
         const chapter = selected.chapters.find(item => item.id === focus.chapter);
         const sceneIndex = selected.scenes.findIndex(scene => scene.id === chapter?.sceneIds[0]);

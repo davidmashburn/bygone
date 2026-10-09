@@ -1,3 +1,4 @@
+import { validateTourFraming, validateOverviewPurpose, type ChangeTourFraming } from './tourFraming';
 import { validateTourImage, type TourImage } from './tourImage';
 import type { BranchCommit, GitChangeKind } from './gitComparison';
 import {
@@ -6,7 +7,7 @@ import {
     type ChangeTourStepRequirement
 } from './changeTourSource';
 
-export const CHANGE_TOUR_MANIFEST_VERSION = 4 as const;
+export const CHANGE_TOUR_MANIFEST_VERSION = 5 as const;
 
 export type ChangeTourMode = 'explanation' | 'revisions' | 'final' | 'history';
 
@@ -34,6 +35,7 @@ export interface ChangeTourNarrative {
 
 export interface ChangeTourSceneOverview {
     kind: 'directory-diff';
+    purpose?: string;
     path?: string;
     comparison?: ChangeTourSceneOverviewComparison;
 }
@@ -222,7 +224,7 @@ export interface ChangeTourChapter {
     sceneIds: string[];
 }
 
-export interface ChangeTourModeTour {
+export interface ChangeTourModeTour extends ChangeTourFraming {
     chapters: ChangeTourChapter[];
     scenes: ChangeTourScene[];
 }
@@ -249,8 +251,8 @@ export interface ChangeTourAuthoringCoverage {
     }>;
 }
 
-export interface ChangeTourManifest {
-    version: 1 | 2 | typeof CHANGE_TOUR_MANIFEST_VERSION;
+export interface ChangeTourManifest extends ChangeTourFraming {
+    version: 1 | 2 | 4 | typeof CHANGE_TOUR_MANIFEST_VERSION;
     repository?: { root: string };
     zoom?: ChangeTourZoom;
     title: string;
@@ -290,10 +292,11 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     if (isRecord(value) && value.version === 3) {
         throw new Error('Tour manifest format version 3 is retired. Remove the review block, set source version to 4, and recompile the tour.');
     }
-    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
+    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
         throw new Error(`Unsupported or missing change-tour manifest version.`);
     }
     if ('review' in value) throw new Error('Change-tour manifests do not support the review field. Put observations in scene and step narrative.');
+    validateTourFraming(value, value.version, 'manifest');
     requireString(value.title, 'title');
     requireString(value.generatedAt, 'generatedAt');
     if (value.windowTitle !== undefined) {
@@ -362,7 +365,7 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     }
 
     if (value.tours !== undefined) {
-        if (value.version !== 4) throw new Error('Independent tours require manifest version 4.');
+        if (value.version !== 4 && value.version !== 5) throw new Error('Independent tours require manifest version 4.');
         validateModeTours(value.tours, value.version);
     }
 
@@ -371,7 +374,7 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     return { ...value, files } as unknown as ChangeTourManifest;
 }
 
-function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 4): asserts value is ChangeTourAuthoringCoverage {
+function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 4 | 5): asserts value is ChangeTourAuthoringCoverage {
     if (!isRecord(value) || !isRecord(value.walkthrough) || !Array.isArray(value.explanationAssignments)) {
         throw new Error('authoringCoverage must contain walkthrough and explanationAssignments.');
     }
@@ -401,7 +404,7 @@ function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 4): asserts 
     }
 }
 
-function validateModeTours(value: unknown, version: 4): asserts value is ChangeTourTours {
+function validateModeTours(value: unknown, version: 4 | 5): asserts value is ChangeTourTours {
     if (!isRecord(value)) throw new Error('Change-tour manifest tours must be an object.');
     if (value.historical === undefined && value.deconstructed === undefined) {
         throw new Error('Change-tour manifest tours must contain a historical or deconstructed tour.');
@@ -413,6 +416,7 @@ function validateModeTours(value: unknown, version: 4): asserts value is ChangeT
             || tour.chapters.length === 0 || tour.scenes.length === 0) {
             throw new Error(`Change-tour manifest tours.${mode} must contain non-empty chapters and scenes arrays.`);
         }
+        validateTourFraming(tour, version, `tours.${mode}`);
         const sceneIds = new Set<string>();
         let hasDeconstructed = false;
         for (const [index, scene] of tour.scenes.entries()) {
@@ -477,7 +481,7 @@ export function parseChangeTourStory(value: unknown): ChangeTourStory {
     return value as unknown as ChangeTourStory;
 }
 
-function validateZoom(value: Record<string, unknown>, version: 2 | 4, exported: boolean): void {
+function validateZoom(value: Record<string, unknown>, version: 2 | 4 | 5, exported: boolean): void {
     if (!exported && (!isRecord(value.repository) || typeof value.repository.root !== 'string' || !value.repository.root)) {
         throw new Error('A v2 tour requires its originating repository.root.');
     }
@@ -539,16 +543,17 @@ function validateZoom(value: Record<string, unknown>, version: 2 | 4, exported: 
     }
 }
 
-function validateScene(value: unknown, index: number, version: 1 | 2 | 4): asserts value is ChangeTourScene {
+function validateScene(value: unknown, index: number, version: 1 | 2 | 4 | 5): asserts value is ChangeTourScene {
     if (!isRecord(value) || !['text-diff', 'discussion', 'walkthrough', 'stacked-diff', 'deconstructed-diff'].includes(String(value.kind))) {
         throw new Error(`scenes[${index}] must be a text-diff, discussion, walkthrough, stacked-diff, or deconstructed-diff scene.`);
     }
     for (const key of ['id', 'title']) {
         requireString(value[key], `scenes[${index}].${key}`);
     }
-    if (value.overview !== undefined && version !== 4) {
+    if (value.overview !== undefined && version < 4) {
         throw new Error(`scenes[${index}].overview requires manifest version 4.`);
     }
+    validateOverviewPurpose(value.overview, version, `scenes[${index}].overview`);
     validateNarrative(value, `scenes[${index}]`);
     if (value.kind === 'discussion') {
         validateSceneOverview(value.overview, `scenes[${index}].overview`, { allowComparison: false });

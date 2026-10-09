@@ -210,6 +210,8 @@ export function buildChangeTourManifest(
         version: source?.version ?? 1,
         title: source?.title || options.story?.title || options.title || `${range.headRef} against ${range.baseRef}`,
         windowTitle: source?.windowTitle,
+        opening: source?.opening,
+        conclusion: source?.conclusion,
         sourceUrl: source?.sourceUrl || options.story?.sourceUrl || options.sourceUrl,
         generatedAt: options.generatedAt || new Date().toISOString(),
         range: {
@@ -231,7 +233,7 @@ export function buildChangeTourManifest(
         chapters,
         scenes
     };
-    const authoredModeTours = source?.version === 4
+    const authoredModeTours = source && source.version >= 4
         ? buildAuthoredModeTours(
             source,
             authored as CompiledSourceTour,
@@ -400,22 +402,22 @@ function buildAuthoredModeTours(
     if (source.tours?.historical) {
         const compiled = applySourceChapters(source, source.tours.historical.chapters, defaultScenes, repoRoot, { base: mergeBaseOid, head: headOid });
         validateHistoricalStackEndpoints(compiled.scenes, mergeBaseOid, headOid);
-        tours.historical = { chapters: compiled.chapters, scenes: compiled.scenes };
-    } else if (source.version === 4) {
+        tours.historical = { opening: source.tours.historical.opening, conclusion: source.tours.historical.conclusion, chapters: compiled.chapters, scenes: compiled.scenes };
+    } else if (source.version >= 4) {
         const fallback = buildHistoricalFallback(source.chapters, root);
-        if (fallback) tours.historical = fallback;
+        if (fallback) tours.historical = { ...fallback, ...(root.scenes.every(scene => scene.kind !== 'deconstructed-diff') ? { opening: source.opening, conclusion: source.conclusion } : {}) };
     }
 
     if (source.tours?.deconstructed) {
         const compiled = applySourceChapters(source, source.tours.deconstructed.chapters, defaultScenes, repoRoot, { base: mergeBaseOid, head: headOid });
-        tours.deconstructed = { chapters: compiled.chapters, scenes: compiled.scenes };
-    } else if (source.version === 4 && source.chapters.some((chapter) => (
+        tours.deconstructed = { opening: source.tours.deconstructed.opening, conclusion: source.tours.deconstructed.conclusion, chapters: compiled.chapters, scenes: compiled.scenes };
+    } else if (source.version >= 4 && source.chapters.some((chapter) => (
         chapter.scenes.some((scene) => scene.kind === 'deconstructed-diff')
     ))) {
         // Preserve the existing repository-bound authored result exactly. This fallback is
         // intentionally based on scene ids and chapter order, never inferred
         // by matching files or narrative text across modes.
-        tours.deconstructed = { chapters: root.chapters, scenes: root.scenes };
+        tours.deconstructed = { opening: source.opening, conclusion: source.conclusion, chapters: root.chapters, scenes: root.scenes };
     }
 
     return tours.historical || tours.deconstructed ? tours : undefined;
@@ -467,6 +469,7 @@ function compileSceneOverview(
     if (!overview) return undefined;
     return {
         kind: overview.kind,
+        ...(overview.purpose === undefined ? {} : { purpose: overview.purpose }),
         ...(overview.path === undefined ? {} : { path: overview.path }),
         ...(includeComparison && overview.comparison ? { comparison: { ...overview.comparison } } : {})
     };
