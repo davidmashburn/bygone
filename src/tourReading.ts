@@ -76,7 +76,7 @@ export function getTourReadingTarget(
     if (index < 0) return null;
     for (let next = index + direction; next >= 0 && next < items.length; next += direction) {
         const item = items[next];
-        if (!stepsOnly || item.kind === 'step' || item.kind === 'conclusion' || (item.kind === 'title' && item.authored)) return item;
+        if (!stepsOnly || item.kind === 'step' || item.kind === 'conclusion' || item.kind === 'title') return item;
     }
     return null;
 }

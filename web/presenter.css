@@ -1516,3 +1516,15 @@ body.tour-discussion #container { visibility: hidden; pointer-events: none; }
 .tour-scene-orientation { color: var(--tour-muted); font-size: 0.9em; overflow-wrap: anywhere; }
 .tour-overview-purpose { font-weight: 600; }
 .tour-passage-title { overflow-wrap: anywhere; }
+
+.tour-route { padding-left: 1.5em; }
+.tour-route > li { padding-left: 0.3em; margin: 0 0 1em; }
+.tour-route-link { color: var(--tour-accent-bright); background: none; border: 0; padding: 0; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.tour-route-link:hover { text-decoration: underline; }
+.tour-route-link:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.tour-route-evidence, .tour-scene-route, .tour-step-orientation { color: var(--tour-muted); font-size: 0.9em; overflow-wrap: anywhere; }
+.tour-route-evidence { margin: 0.3em 0 0; }
+
+/* Bookends use the space otherwise reserved for code; evidence keeps its saved split. */
+body.tour-bookend:not(.tour-derived-mode) #tour-narrative { height: 100vh !important; }
+body.tour-bookend #tour-narrative-resizer { display: none; }

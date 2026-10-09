@@ -90,6 +90,18 @@ app.whenReady().then(async () => {
             await evaluate("location.hash = '#location=1&mode=historical&part=step&scene=scene&step=gone'");
             await wait("document.querySelector('.workspace-status')?.textContent.includes('unavailable')");
             assert.equal(await evaluate("document.querySelector('.tour-reading-item.is-active').dataset.readingKey"), 'chapter:chapter');
+            assert.equal(await evaluate("document.querySelector('#tour-scenes').firstElementChild.dataset.readingLink"), 'title', 'Intro is the first explicit outline entry');
+            await evaluate("document.querySelector('[data-reading-link=title]').click()");
+            await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'title'");
+            assert.equal(await evaluate("document.querySelector('[data-reading-link=title]').getAttribute('aria-current')"), 'location');
+            assert.ok(await evaluate("document.querySelector('[data-reading-key=title]').textContent.includes(\"What you'll see\")"));
+            assert.ok(await evaluate("document.querySelector('.tour-route-evidence').textContent.includes('app.txt')"));
+            assert.ok(await evaluate("document.querySelector('#tour-narrative').getBoundingClientRect().height >= innerHeight - 1"), 'Intro uses the available reading area');
+            await evaluate("document.querySelector('.tour-route-link').click()");
+            await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'scene:scene'");
+            await wait("document.querySelector('#file-info').textContent.startsWith('Coming up:')");
+            assert.ok(await evaluate("document.querySelector('.tour-scene-route').textContent.includes('Revisions:')"));
+            assert.ok(await evaluate("document.querySelector('#tour-narrative').getBoundingClientRect().height < innerHeight - 100"), 'Entering evidence restores the split view');
             await evaluate("location.hash = '#location=1&mode=historical&part=conclusion'");
             await wait("document.activeElement.dataset.readingKey === 'conclusion'");
             assert.equal(await evaluate("getComputedStyle(document.querySelector('#container')).visibility"), 'hidden', 'Conclusion hides stale evidence');
