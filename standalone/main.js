@@ -2049,15 +2049,15 @@ async function handleRendererMessage(message) {
 }
 
 async function openCompareFilesDialog() {
-    const filePaths = await collectComparisonPaths('file');
-    if (filePaths.length < 2) {
+    const { paths: filePaths, blankCount } = await collectComparisonPaths('file');
+    if (filePaths.length + blankCount === 0) {
         return;
     }
 
-    if (filePaths.length === 2) {
+    if (filePaths.length === 2 && blankCount === 0) {
         await openDiff(filePaths[0], filePaths[1]);
     } else {
-        await openMultiDiff(filePaths);
+        await openMultiDiff(filePaths, { blankCount });
     }
 }
 
@@ -2076,20 +2076,24 @@ async function collectComparisonPaths(kind) {
             return null;
         }
         return result.filePaths.map((selectedPath) => path.resolve(selectedPath));
-    }, async (paths) => {
+    }, async (paths, blankCount) => {
+        const panelCount = paths.length + blankCount;
+        const buttons = [panelCount === 1 ? 'Open File' : `Compare ${panelCount}`, 'Select More…',
+            ...(!isDirectory ? ['Add Blank Panel'] : []), 'Cancel'];
         const choice = await dialog.showMessageBox(mainWindow, {
             type: 'question',
-            buttons: [`Compare ${paths.length}`, 'Add More…', 'Cancel'],
+            buttons,
             defaultId: 0,
-            cancelId: 2,
-            message: `Compare ${paths.length} selected ${noun}${paths.length === 1 ? '' : 's'}?`,
-            detail: paths.join('\n')
+            cancelId: buttons.length - 1,
+            message: panelCount === 1 ? 'Open the selected file?' : `Compare ${panelCount} ${isDirectory ? 'directories' : 'panels'}?`,
+            detail: [...paths, ...(blankCount ? [`${blankCount} blank panel${blankCount === 1 ? '' : 's'}`] : [])].join('\n')
         });
         if (choice.response === 0) {
             return 'compare';
         }
-        return choice.response === 1 ? 'add' : 'cancel';
-    });
+        if (choice.response === 1) return 'add';
+        return !isDirectory && choice.response === 2 ? 'blank' : 'cancel';
+    }, { minimumCount: isDirectory ? 2 : 1, allowBlankPanels: !isDirectory });
 }
 
 function ensureExploreWindow() {
@@ -2277,7 +2281,7 @@ async function openBranchReviewDialog() {
 }
 
 async function openCompareDirectoriesDialog() {
-    const directoryPaths = await collectComparisonPaths('directory');
+    const { paths: directoryPaths } = await collectComparisonPaths('directory');
     if (directoryPaths.length < 2) {
         return;
     }
@@ -3457,19 +3461,24 @@ async function openPathPair(leftPath, rightPath, expectedMode, options = {}) {
 
 async function openMultiDiff(filePaths, options = {}) {
     const resolvedPaths = filePaths.map((filePath) => path.resolve(filePath));
-    if (resolvedPaths.length < 1 || !resolvedPaths.every((filePath) => getPathKind(filePath) === 'file')) {
-        await showInfo('Multi-file compare requires one or more files.');
+    const blankCount = options.blankCount ?? 0;
+    if (!Number.isInteger(blankCount) || blankCount < 0 || resolvedPaths.length + blankCount < 1
+        || !resolvedPaths.every((filePath) => getPathKind(filePath) === 'file')) {
+        await showInfo('A comparison requires one or more files or blank panels.');
         return;
     }
     if (!options.skipConfirm && !await confirmSessionReplacement('open another comparison')) {
         return;
     }
 
-    const files = resolvedPaths.map((filePath) => createMultiPanelState(filePath, !options.source?.readOnly));
+    const files = [
+        ...resolvedPaths.map((filePath) => createMultiPanelState(filePath, !options.source?.readOnly)),
+        ...Array.from({ length: blankCount }, () => createBlankMultiPanelState(!options.source?.readOnly))
+    ];
 
     session = {
         mode: 'multi-diff',
-        source: cloneSessionSource(options.source || createFilesSource(resolvedPaths)),
+        source: cloneSessionSource(options.source || (blankCount ? { kind: 'synthetic' } : createFilesSource(resolvedPaths))),
         left: createSideState('', ''),
         right: createSideState('', ''),
         history: null,
@@ -3493,27 +3502,11 @@ async function openBlankDiff(readOnly = false) {
     if (!await confirmSessionReplacement('open a blank comparison')) {
         return;
     }
-    const panel = createBlankMultiPanelState(!readOnly);
-    session = {
-        mode: 'multi-diff',
+    await openMultiDiff([], {
+        blankCount: 2,
+        skipConfirm: true,
         source: { kind: 'blank', ...(readOnly ? { readOnly: true } : {}) },
-        left: createSideState('', ''),
-        right: createSideState('', ''),
-        history: null,
-        directory: null,
-        multi: {
-            sourceKind: 'normal',
-            files: [panel],
-            activePanelId: panel.id,
-            activePairIndex: null,
-            historySource: null
-        },
-        dirHistory: null
-    };
-
-    clearWatchers();
-    updateWatchers();
-    await sendCurrentMultiDiff();
+    });
 }
 
 function normalizeMultiPairIndex(activePairIndex, panelCount) {

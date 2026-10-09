@@ -1083,7 +1083,6 @@ function testStandaloneMenusExposeProductAreasAndReplace() {
     assert.match(standaloneSource, /label: 'Explore Guide'/);
     assert.match(standaloneSource, /label: 'Present and Tour Guide'/);
     assert.match(standaloneSource, /async function collectComparisonPaths\(kind\)[\s\S]{0,1200}multiSelections/);
-    assert.match(standaloneSource, /buttons: \[`Compare \$\{paths\.length\}`, 'Add More…', 'Cancel'\]/);
     assert.match(standaloneSource, /kind: 'git-refs'[\s\S]{0,500}HEAD~1 HEAD/);
     assert.match(standaloneSource, /kind: 'review-branch'[\s\S]{0,600}Base branch or ref \(optional\)/);
     assert.match(rendererSource, /type: 'submitLaunchPrompt'/);
@@ -2350,10 +2349,114 @@ async function testComparisonPickerAccumulatesSelectionsAcrossDirectories() {
         ['/left/a.ts', '/right/b.ts'],
         ['/left/a.ts', '/right/b.ts', '/third/c.ts']
     ]);
-    assert.deepEqual(selected, ['/left/a.ts', '/right/b.ts', '/third/c.ts']);
+    assert.deepEqual(selected, { paths: ['/left/a.ts', '/right/b.ts', '/third/c.ts'], blankCount: 0 });
 
     const canceled = await collectComparisonSelection(async () => null, async () => 'compare');
-    assert.deepEqual(canceled, []);
+    assert.deepEqual(canceled, { paths: [], blankCount: 0 });
+}
+
+async function testComparisonPickerSupportsSingleFilesAndBlankPanels() {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
+    const pickerCode = source.slice(source.indexOf('async function openCompareFilesDialog()'), source.indexOf('function ensureExploreWindow()'));
+    const panelCode = source.slice(source.indexOf('async function openMultiDiff('), source.indexOf('function normalizeMultiPairIndex('));
+    const stateCode = source.slice(source.indexOf('function createSideState('), source.indexOf('function getHistoryNeighborIndex('));
+    const selections = [];
+    const decisions = [];
+    const summaries = [];
+    const pairs = [];
+    let allowReplacement = true;
+    let confirmations = 0;
+    const controller = new Function('deps', `
+        const { path, collectComparisonSelection, createFilesSource, dialog, confirmSessionReplacement, openDiff } = deps;
+        const mainWindow = null;
+        const ensureExploreWindow = () => {};
+        const getPathKind = () => 'file';
+        const readFileContent = () => 'saved file content';
+        const cloneSessionSource = value => JSON.parse(JSON.stringify(value));
+        const clearWatchers = () => {};
+        const updateWatchers = () => {};
+        const sendCurrentMultiDiff = async () => {};
+        const showInfo = async message => { throw new Error(message); };
+        let session = null;
+        let nextMultiPanelId = 1;
+        ${pickerCode}
+        ${panelCode}
+        ${stateCode}
+        return { openCompareFilesDialog, openBlankDiff, getSession: () => session };
+    `)({
+        path, collectComparisonSelection, createFilesSource,
+        dialog: {
+            async showOpenDialog() {
+                assert.ok(selections.length, 'Unexpected file picker');
+                const filePaths = selections.shift();
+                return { canceled: filePaths === null, filePaths: filePaths || [] };
+            },
+            async showMessageBox(_owner, summary) {
+                summaries.push(summary);
+                assert.ok(decisions.length, 'Unexpected selection summary');
+                return { response: decisions.shift() };
+            }
+        },
+        confirmSessionReplacement: async () => { confirmations += 1; return allowReplacement; },
+        openDiff: async (...paths) => pairs.push(paths)
+    });
+
+    await controller.openBlankDiff();
+    let current = controller.getSession();
+    assert.equal(current.multi.files.length, 2);
+    assert.equal(new Set(current.multi.files.map(panel => panel.id)).size, 2);
+    assert.ok(current.multi.files.every(panel => panel.editable && !panel.path && !panel.content && !panel.dirty));
+    assert.equal(current.multi.activePairIndex, 0);
+    assert.equal(current.multi.activePanelId, current.multi.files[0].id);
+    assert.equal(confirmations, 1, 'New blank asks about unsaved work only once');
+    await controller.openBlankDiff(true);
+    assert.ok(controller.getSession().multi.files.every(panel => !panel.editable));
+
+    selections.push(['/left/a.ts'], null);
+    decisions.push(0);
+    await controller.openCompareFilesDialog();
+    current = controller.getSession();
+    assert.equal(current.multi.files.length, 1, 'Canceling the second picker can open a single file');
+    assert.equal(current.multi.files[0].path, '/left/a.ts');
+    assert.equal(current.multi.files[0].content, 'saved file content');
+    assert.equal(current.multi.activePairIndex, null);
+    assert.equal(current.source.kind, 'files');
+    assert.deepEqual(summaries.at(-1).buttons, ['Open File', 'Select More…', 'Add Blank Panel', 'Cancel']);
+
+    selections.push(['/left/a.ts'], null, ['/left/a.ts', '/right/b.ts'], null);
+    decisions.push(2, 2, 1, 1, 0);
+    await controller.openCompareFilesDialog();
+    current = controller.getSession();
+    assert.deepEqual(current.multi.files.map(panel => panel.path), ['/left/a.ts', '/right/b.ts', '', '']);
+    assert.ok(current.multi.files.every(panel => panel.editable && !panel.dirty));
+    assert.equal(current.source.kind, 'synthetic', 'Refreshing must not drop blank panels');
+    assert.equal(summaries.at(-1).buttons[0], 'Compare 4');
+    assert.match(summaries.at(-1).detail, /2 blank panels/);
+
+    selections.push(['/left/a.ts', '/right/b.ts']);
+    decisions.push(0);
+    await controller.openCompareFilesDialog();
+    assert.deepEqual(pairs, [['/left/a.ts', '/right/b.ts']], 'Two files retain the existing comparison route');
+
+    selections.push(['/left/a.ts'], null);
+    decisions.push(3);
+    await controller.openCompareFilesDialog();
+    assert.equal(controller.getSession(), current, 'Canceling the summary preserves the workspace');
+    selections.push(null);
+    await controller.openCompareFilesDialog();
+    assert.equal(controller.getSession(), current, 'Canceling the first picker preserves the workspace');
+    allowReplacement = false;
+    await controller.openBlankDiff();
+    selections.push(['/left/a.ts'], null);
+    decisions.push(0);
+    await controller.openCompareFilesDialog();
+    assert.equal(controller.getSession(), current, 'Declining replacement preserves unsaved work');
+
+    const directories = [['/left'], null];
+    const canceled = await collectComparisonSelection(async () => directories.shift(), async () => {
+        assert.fail('Directory comparisons still require two directories');
+    });
+    assert.deepEqual(canceled, { paths: [], blankCount: 0 });
 }
 
 function createFindEditor(name, actionLog, available = true) {
@@ -4854,6 +4957,7 @@ async function run() {
     testBinaryComparisonDetectsGenericBinaryWithoutPreview();
     testMenuCapabilitiesFollowSessionMode();
     await testComparisonPickerAccumulatesSelectionsAcrossDirectories();
+    await testComparisonPickerSupportsSingleFilesAndBlankPanels();
     testFindControllerTargetsOneActiveEditor();
     testFindCommandsUseRendererRatherThanPageSearch();
     testFindShortcutCapturesControlAndCommandBeforeEditors();

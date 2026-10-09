@@ -30,30 +30,38 @@ function getMenuCapabilities(session) {
     };
 }
 
-async function collectComparisonSelection(choosePaths, confirmSelection) {
+async function collectComparisonSelection(choosePaths, confirmSelection, { minimumCount = 2, allowBlankPanels = false } = {}) {
     const paths = [];
+    let blankCount = 0;
+    let chooseMore = true;
+    const canceled = () => ({ paths: [], blankCount: 0 });
     while (true) {
-        const selectedPaths = await choosePaths(paths.length);
-        if (!Array.isArray(selectedPaths) || selectedPaths.length === 0) {
-            return [];
-        }
-
-        for (const selectedPath of selectedPaths) {
-            if (typeof selectedPath === 'string' && !paths.includes(selectedPath)) {
-                paths.push(selectedPath);
+        if (chooseMore) {
+            const selectedPaths = await choosePaths(paths.length + blankCount);
+            const pickerCanceled = !Array.isArray(selectedPaths) || selectedPaths.length === 0;
+            if (!pickerCanceled) {
+                for (const selectedPath of selectedPaths) {
+                    if (typeof selectedPath === 'string' && !paths.includes(selectedPath)) {
+                        paths.push(selectedPath);
+                    }
+                }
             }
+            // A canceled follow-up picker keeps the selection available for review.
+            if (pickerCanceled && paths.length + blankCount < minimumCount) return canceled();
+            if (!pickerCanceled && paths.length + blankCount < 2) continue;
         }
 
-        if (paths.length < 2) {
-            continue;
-        }
-
-        const decision = await confirmSelection([...paths]);
+        const decision = await confirmSelection([...paths], blankCount);
         if (decision === 'compare') {
-            return paths;
+            return { paths, blankCount };
         }
-        if (decision !== 'add') {
-            return [];
+        if (decision === 'blank' && allowBlankPanels) {
+            blankCount += 1;
+            chooseMore = false;
+        } else if (decision === 'add') {
+            chooseMore = true;
+        } else {
+            return canceled();
         }
     }
 }
