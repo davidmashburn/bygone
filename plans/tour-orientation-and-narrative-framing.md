@@ -92,14 +92,16 @@ revision labels, and short OIDs. Remote PR discovery is outside this work.
 
 ### Persistent orientation and transitions
 
-Add a compact context strip at the boundary between narrative and evidence.
-Reuse the current header space where practical, especially on narrow windows.
-An illustrative state is:
+Distribute context across the existing workspace row, reading breadcrumb,
+evidence headers, and inventory caption as specified by
+[Workspace identity and sidebar context](workspace-identity-and-sidebar-context.md).
+Do not add a separate context strip or repeat the authored title in persistent
+chrome. The title remains the document H1. An illustrative allocation is:
 
 ```text
-Tour: Adopt the event contract · a1b2c3d → e4f5a6b
-Scene 2 of 3: How callers preserve the contract
-Showing: Data model (b2c3d4e) → Callers (c3d4e5f) · src/consumer.ts
+Workspace row: project · [view tabs] · Tour range: a1b2c3d → e4f5a6b
+Reading breadcrumb: Scene 2 of 3: How callers preserve the contract
+Evidence header: Data model (b2c3d4e) → Callers (c3d4e5f) · src/consumer.ts
 ```
 
 For synthetic stages, the showing line must say `Explanation stages` and use
@@ -281,7 +283,7 @@ in different scenes must never be treated as identical snapshots. Display
 labels are presentation only. Do not deduplicate independently authored
 synthetic evidence based on names or content resemblance.
 
-Keep the resolver as the common source for the context strip, directory labels,
+Keep the resolver as the common source for these context surfaces, directory labels,
 active-pair reporting, and transition wording. Avoid a second independently
 mutable comparison state that can drift from the renderer. Build on
 `tourDirectoryEvidence.ts` for actual directory evidence, not a replacement
@@ -414,8 +416,10 @@ evidence that this comprehension goal has been achieved.
   repository comparison semantics, edit permissions, or Git history discovery.
 - Do not introduce a new stop hierarchy, a generic slide editor, automated
   prose generation, automatic PR fetching, or a new model service.
-- Keep any workspace view-selector redesign independent. This plan supplies
-  context for the selected view; it does not change which views exist.
+- Coordinate placement with the workspace identity/sidebar plan. This plan
+  supplies richer evidence and transition semantics to the existing surfaces;
+  it does not add another header or change which views exist. Authored framing
+  and schema work remain independent of that smaller presentation cleanup.
 - A first-evidence preview may still distract from framing. The reader trial
   should compare it with a narrative-only scene introduction; choose one
   consistent default based on the result, without proliferating per-scene

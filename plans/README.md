@@ -26,10 +26,12 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [Workspace identity and sidebar context](workspace-identity-and-sidebar-context.md)
+  — one workspace identity, one authored title, and accurate scope across modes.
 - [Tour orientation, scene framing, and conclusions](tour-orientation-and-narrative-framing.md)
   — explicit comparison identity, purposeful scene transitions, and authored closings.
 - [Compact workspace view tabs](workspace-view-selector.md) — keep four visible
-  destinations on one compact row and remove the duplicate title.
+  destinations on one compact row; implemented on the feature branch, awaiting integration.
 - [Text-block move tracking](text-block-move-tracking.md) — scope moves, copies,
   edited blocks, ambiguity, accounting, and presentation, with
   [open-source and academic research](text-block-move-tracking-research.md).

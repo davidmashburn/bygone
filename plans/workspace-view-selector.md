@@ -1,6 +1,7 @@
 # Compact workspace view tabs
 
-Status: Design direction accepted after interactive mockup; implementation pending.
+Status: Implemented in `f0f5f26`, rebased onto main `cbe4707` for integration. Follow-up proposal:
+[Workspace identity and sidebar context](workspace-identity-and-sidebar-context.md).
 
 ## Outcome
 
@@ -152,6 +153,12 @@ and refined in the project-planning worktree. All four mock tab transitions
 were checked; the revised desktop toolbar was measured, visually inspected,
 and checked for overflow at 320px. Planning whitespace checks passed.
 
-No product code was changed. Actual host integration, screen-reader behavior,
-and reader usability have not been verified. Builds, product tests, and runtime
-smokes were skipped because the changes are planning and mockups only.
+The subsequent implementation is committed as `4381bdf`. Build, 150 tests, and
+desktop workspace/export/image smokes passed during that implementation. Manual
+VS Code, screen-reader behavior, and reader usability were not verified. These
+checks were not rerun during the follow-up planning pass.
+
+The follow-up plan revises this document's assumption that the existing title
+placement was sufficient: identity is missing in plain comparisons, and the tour
+title is repeated in authored views. It also scopes revision-action placement,
+which was intentionally excluded from the original compact-tabs change.
