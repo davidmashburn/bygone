@@ -1,0 +1,218 @@
+[
+  {
+    "left": "parseHTTP2Request",
+    "right": "readHTTP3Response",
+    "results": {
+      "affixes": [
+        "[parseHTTP2Request]",
+        "[readHTTP3Response]"
+      ],
+      "subwords": [
+        "[parseHTTP2Request]",
+        "[readHTTP3Response]"
+      ],
+      "bounded": [
+        "[parse]HTTP[2Request]",
+        "[read]HTTP[3Response]"
+      ]
+    }
+  },
+  {
+    "left": "getURLValue",
+    "right": "setURIValues",
+    "results": {
+      "affixes": [
+        "[getURLValue]",
+        "[setURIValues]"
+      ],
+      "subwords": [
+        "[getURLValue]",
+        "[setURIValues]"
+      ],
+      "bounded": [
+        "[g]etUR[L]Value",
+        "[s]etUR[I]Value[s]"
+      ]
+    }
+  },
+  {
+    "left": "customerId",
+    "right": "invoiceId",
+    "results": {
+      "affixes": [
+        "[customer]Id",
+        "[invoice]Id"
+      ],
+      "subwords": [
+        "[customer]Id",
+        "[invoice]Id"
+      ],
+      "bounded": [
+        "[customer]Id",
+        "[invoice]Id"
+      ]
+    }
+  },
+  {
+    "left": "old_user_name",
+    "right": "new_user_names",
+    "results": {
+      "affixes": [
+        "[old_user_name]",
+        "[new_user_names]"
+      ],
+      "subwords": [
+        "[old]_user_name",
+        "[new]_user_name[s]"
+      ],
+      "bounded": [
+        "[old]_user_name",
+        "[new]_user_name[s]"
+      ]
+    }
+  },
+  {
+    "left": "JSONParser",
+    "right": "JSONObjectParser",
+    "results": {
+      "affixes": [
+        "JSONParser",
+        "JSON[Object]Parser"
+      ],
+      "subwords": [
+        "JSONParser",
+        "JSON[Object]Parser"
+      ],
+      "bounded": [
+        "JSONParser",
+        "JSON[Object]Parser"
+      ]
+    }
+  },
+  {
+    "left": "loadCSV",
+    "right": "saveCSV",
+    "results": {
+      "affixes": [
+        "[load]CSV",
+        "[save]CSV"
+      ],
+      "subwords": [
+        "[load]CSV",
+        "[save]CSV"
+      ],
+      "bounded": [
+        "[load]CSV",
+        "[save]CSV"
+      ]
+    }
+  },
+  {
+    "left": "enableFeature",
+    "right": "disableFeatures",
+    "results": {
+      "affixes": [
+        "[enableFeature]",
+        "[disableFeatures]"
+      ],
+      "subwords": [
+        "[enableFeature]",
+        "[disableFeatures]"
+      ],
+      "bounded": [
+        "[en]ableFeature",
+        "[dis]ableFeature[s]"
+      ]
+    }
+  },
+  {
+    "left": "release2025Build1",
+    "right": "release2026Build2",
+    "results": {
+      "affixes": [
+        "release202[5Build1]",
+        "release202[6Build2]"
+      ],
+      "subwords": [
+        "release202[5Build1]",
+        "release202[6Build2]"
+      ],
+      "bounded": [
+        "release202[5]Build[1]",
+        "release202[6]Build[2]"
+      ]
+    }
+  },
+  {
+    "left": "myURL",
+    "right": "myURI",
+    "results": {
+      "affixes": [
+        "myUR[L]",
+        "myUR[I]"
+      ],
+      "subwords": [
+        "myUR[L]",
+        "myUR[I]"
+      ],
+      "bounded": [
+        "myUR[L]",
+        "myUR[I]"
+      ]
+    }
+  },
+  {
+    "left": "snake_case",
+    "right": "snake_cases",
+    "results": {
+      "affixes": [
+        "snake_case",
+        "snake_case[s]"
+      ],
+      "subwords": [
+        "snake_case",
+        "snake_case[s]"
+      ],
+      "bounded": [
+        "snake_case",
+        "snake_case[s]"
+      ]
+    }
+  },
+  {
+    "left": "version1Build3",
+    "right": "version2Build4",
+    "results": {
+      "affixes": [
+        "version[1Build3]",
+        "version[2Build4]"
+      ],
+      "subwords": [
+        "version[1Build3]",
+        "version[2Build4]"
+      ],
+      "bounded": [
+        "version[1]Build[3]",
+        "version[2]Build[4]"
+      ]
+    }
+  },
+  {
+    "left": "getUserById",
+    "right": "getAccountById",
+    "results": {
+      "affixes": [
+        "get[User]ById",
+        "get[Account]ById"
+      ],
+      "subwords": [
+        "get[User]ById",
+        "get[Account]ById"
+      ],
+      "bounded": [
+        "get[User]ById",
+        "get[Account]ById"
+      ]
+    }
+  }
+]

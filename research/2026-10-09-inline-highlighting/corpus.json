@@ -1,0 +1,3971 @@
+[
+  {
+    "id": "history-0",
+    "category": "repository",
+    "left": "  editing a draft selection; **Update comparison** applies it. Activating a loaded revision focuses its",
+    "right": "  editing a draft selection; **Apply** updates the displayed comparison. It is",
+    "why": "Actual changed line pair",
+    "commit": "c08545c9976f53c5d8632ddbaf0645fde3ba41cb",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-1",
+    "category": "repository",
+    "left": "  panel. **Compare selected** includes all changed files. Parent/base shortcuts",
+    "right": "  focuses its panel. **Compare** includes all changed files. Parent/base shortcuts",
+    "why": "Actual changed line pair",
+    "commit": "c08545c9976f53c5d8632ddbaf0645fde3ba41cb",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-2",
+    "category": "repository",
+    "left": "then choose **Compare selected** (or **Update comparison** in Compare).",
+    "right": "then choose **Compare** (or **Apply** in Compare).",
+    "why": "Actual changed line pair",
+    "commit": "c08545c9976f53c5d8632ddbaf0645fde3ba41cb",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-3",
+    "category": "repository",
+    "left": "**Reset selection** selects the real revisions currently loaded in the workspace.",
+    "right": "**Select displayed revisions** selects the real revisions currently loaded in the workspace.",
+    "why": "Actual changed line pair",
+    "commit": "c08545c9976f53c5d8632ddbaf0645fde3ba41cb",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-4",
+    "category": "repository",
+    "left": "    for (const file of [...files, ...omitted]) {",
+    "right": "    const evidence = [...files, ...omitted];",
+    "why": "Actual changed line pair",
+    "commit": "8bdf0b414b2d6391f314c80283925c76f960278a",
+    "file": "src/tourDirectoryEvidence.ts"
+  },
+  {
+    "id": "history-5",
+    "category": "repository",
+    "left": "        const sides = [file.changeKind !== 'added', file.changeKind !== 'deleted'];",
+    "right": "        new Set(evidence.filter(file => file.changeKind !== 'added').map(file => file.path)),",
+    "why": "Actual changed line pair",
+    "commit": "8bdf0b414b2d6391f314c80283925c76f960278a",
+    "file": "src/tourDirectoryEvidence.ts"
+  },
+  {
+    "id": "history-6",
+    "category": "repository",
+    "left": "            ...(file.kind === 'omitted' ? { relationSummary: `Unavailable: ${file.reason}` } : {})",
+    "right": "            ...(file.kind === 'omitted' ? { relationSummary: `Unavailable: ${file.reason}` } : {}) };",
+    "why": "Actual changed line pair",
+    "commit": "8bdf0b414b2d6391f314c80283925c76f960278a",
+    "file": "src/tourDirectoryEvidence.ts"
+  },
+  {
+    "id": "history-7",
+    "category": "repository",
+    "left": "            return { paths: [...paths].sort() };",
+    "right": "            const changed = [...paths].sort();",
+    "why": "Actual changed line pair",
+    "commit": "e2c025b0357a70657097720ccbc9a80b930f97d7",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-8",
+    "category": "repository",
+    "left": "The command opens a local browser presentation. Select **Two files, one visual",
+    "right": "The command opens a local browser presentation on **Two files, one visual",
+    "why": "Actual changed line pair",
+    "commit": "f313db986f55634c01f46136f8b2ac0f0211f96a",
+    "file": "docs/visual-walkthrough/README.md"
+  },
+  {
+    "id": "history-9",
+    "category": "repository",
+    "left": "comparison** in the outline to begin. Read down the narrative or select each",
+    "right": "comparison**. Read down the narrative or select each step in the outline;",
+    "why": "Actual changed line pair",
+    "commit": "f313db986f55634c01f46136f8b2ac0f0211f96a",
+    "file": "docs/visual-walkthrough/README.md"
+  },
+  {
+    "id": "history-10",
+    "category": "repository",
+    "left": "step in the outline; each step replaces the evidence area with its screenshot.",
+    "right": "each step replaces the evidence area with its screenshot. Next/Previous moves",
+    "why": "Actual changed line pair",
+    "commit": "f313db986f55634c01f46136f8b2ac0f0211f96a",
+    "file": "docs/visual-walkthrough/README.md"
+  },
+  {
+    "id": "history-11",
+    "category": "repository",
+    "left": "    direction: -1 | 1",
+    "right": "    direction: -1 | 1,",
+    "why": "Actual changed line pair",
+    "commit": "f313db986f55634c01f46136f8b2ac0f0211f96a",
+    "file": "src/tourReading.ts"
+  },
+  {
+    "id": "history-12",
+    "category": "repository",
+    "left": "# Bygone Walkthrough",
+    "right": "# Bygone visual walkthrough",
+    "why": "Actual changed line pair",
+    "commit": "936c30978626fdad2a9241fc07aa2aeef1727eac",
+    "file": "docs/walkthrough.md"
+  },
+  {
+    "id": "history-13",
+    "category": "repository",
+    "left": "        ? applySource(source, defaultScenes, range.repoRoot)",
+    "right": "        ? applySourceChapters(source, source.chapters, defaultScenes, range.repoRoot, { base: range.mergeBaseOid, head: range.headOid })",
+    "why": "Actual changed line pair",
+    "commit": "43206b524fee90965d05d2409c10d3e7fcdf52bf",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-14",
+    "category": "repository",
+    "left": "    repoRoot: string",
+    "right": "    repoRoot: string,",
+    "why": "Actual changed line pair",
+    "commit": "43206b524fee90965d05d2409c10d3e7fcdf52bf",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-15",
+    "category": "repository",
+    "left": "                        connections",
+    "right": "                        connections,",
+    "why": "Actual changed line pair",
+    "commit": "43206b524fee90965d05d2409c10d3e7fcdf52bf",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-16",
+    "category": "repository",
+    "left": "            const scene = buildWalkthroughManifestScene(authoredScene, available, resolvedAnchors, connections);",
+    "right": "            const scene = buildWalkthroughManifestScene(authoredScene, available, resolvedAnchors, connections,",
+    "why": "Actual changed line pair",
+    "commit": "43206b524fee90965d05d2409c10d3e7fcdf52bf",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-17",
+    "category": "repository",
+    "left": "        const compiled = applySourceChapters(source, source.tours.historical.chapters, defaultScenes, repoRoot);",
+    "right": "        const compiled = applySourceChapters(source, source.tours.historical.chapters, defaultScenes, repoRoot, { base: mergeBaseOid, head: headOid });",
+    "why": "Actual changed line pair",
+    "commit": "43206b524fee90965d05d2409c10d3e7fcdf52bf",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-18",
+    "category": "repository",
+    "left": "        const compiled = applySourceChapters(source, source.tours.deconstructed.chapters, defaultScenes, repoRoot);",
+    "right": "        const compiled = applySourceChapters(source, source.tours.deconstructed.chapters, defaultScenes, repoRoot, { base: mergeBaseOid, head: headOid });",
+    "why": "Actual changed line pair",
+    "commit": "43206b524fee90965d05d2409c10d3e7fcdf52bf",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-19",
+    "category": "repository",
+    "left": "    connections: ReadonlyMap<string, NonNullable<ChangeTourWalkthroughScene['steps'][number]['connection']>>",
+    "right": "    connections: ReadonlyMap<string, NonNullable<ChangeTourWalkthroughScene['steps'][number]['connection']>>,",
+    "why": "Actual changed line pair",
+    "commit": "43206b524fee90965d05d2409c10d3e7fcdf52bf",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-20",
+    "category": "repository",
+    "left": "        requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth', 'requirement'], stepPath);",
+    "right": "        requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth', 'requirement', 'image'], stepPath);",
+    "why": "Actual changed line pair",
+    "commit": "43206b524fee90965d05d2409c10d3e7fcdf52bf",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-21",
+    "category": "repository",
+    "left": "scope before interpreting the results: an active pane, visible panes, and the",
+    "right": "scope before interpreting the results: visible panes, all comparison panels, the",
+    "why": "Actual changed line pair",
+    "commit": "976854536b8978f2e383e23fef47f70632da9dab",
+    "file": "docs/visual-walkthrough/narrative.md"
+  },
+  {
+    "id": "history-22",
+    "category": "repository",
+    "left": "whole comparison answer different questions. A result takes you back to the",
+    "right": "current change set, and Git history answer different questions. A result takes you back to the",
+    "why": "Actual changed line pair",
+    "commit": "976854536b8978f2e383e23fef47f70632da9dab",
+    "file": "docs/visual-walkthrough/narrative.md"
+  },
+  {
+    "id": "history-23",
+    "category": "repository",
+    "left": "Directory history combines the file inventory with the commit axis. Files and",
+    "right": "Repository history combines file navigation with the commit axis. Here, the",
+    "why": "Actual changed line pair",
+    "commit": "976854536b8978f2e383e23fef47f70632da9dab",
+    "file": "docs/visual-walkthrough/narrative.md"
+  },
+  {
+    "id": "history-24",
+    "category": "repository",
+    "left": "Commits are two ways to choose your next question. Revision labels identify the",
+    "right": "and Commits are two ways to choose your next question. Revision labels identify the",
+    "why": "Actual changed line pair",
+    "commit": "976854536b8978f2e383e23fef47f70632da9dab",
+    "file": "docs/visual-walkthrough/narrative.md"
+  },
+  {
+    "id": "history-25",
+    "category": "repository",
+    "left": "The Listen controls provide another way to follow the same explanation.",
+    "right": "The Narration controls provide another way to follow the same explanation.",
+    "why": "Actual changed line pair",
+    "commit": "976854536b8978f2e383e23fef47f70632da9dab",
+    "file": "docs/visual-walkthrough/narrative.md"
+  },
+  {
+    "id": "history-26",
+    "category": "repository",
+    "left": "The small link beside a document heading identifies a particular place in the",
+    "right": "Heading links identify a particular place in the tour. This screenshot shows",
+    "why": "Actual changed line pair",
+    "commit": "976854536b8978f2e383e23fef47f70632da9dab",
+    "file": "docs/visual-walkthrough/narrative.md"
+  },
+  {
+    "id": "history-27",
+    "category": "repository",
+    "left": "tour. Local desktop links still depend on the referenced repository and tour",
+    "right": "the other sharing route: an exported HTML document with Tour details expanded. Local desktop links still depend on the referenced repository and tour",
+    "why": "Actual changed line pair",
+    "commit": "976854536b8978f2e383e23fef47f70632da9dab",
+    "file": "docs/visual-walkthrough/narrative.md"
+  },
+  {
+    "id": "history-28",
+    "category": "repository",
+    "left": "Choose based on how much independent exploration the recipient needs.",
+    "right": "no internet. Choose based on how much independent exploration the recipient",
+    "why": "Actual changed line pair",
+    "commit": "976854536b8978f2e383e23fef47f70632da9dab",
+    "file": "docs/visual-walkthrough/narrative.md"
+  },
+  {
+    "id": "history-29",
+    "category": "repository",
+    "left": "1. Two files: read paired changes, additions, whitespace, and connector ribbons.",
+    "right": "1. Two files: read paired changes, additions, and connector ribbons.",
+    "why": "Actual changed line pair",
+    "commit": "976854536b8978f2e383e23fef47f70632da9dab",
+    "file": "docs/visual-walkthrough/outline.md"
+  },
+  {
+    "id": "history-30",
+    "category": "repository",
+    "left": "        const loadedMatch = requestUrl.pathname.match(/^\\/loaded\\/(\\d+)\\/(tour\\.json|history\\/(?:list|diff|compare|compare-many|revisions))$/);",
+    "right": "        const loadedMatch = requestUrl.pathname.match(/^\\/loaded\\/(\\d+)\\/(tour\\.json|history\\/(?:list|diff|compare|compare-many|changed-files|revisions))$/);",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-31",
+    "category": "repository",
+    "left": "            || requestUrl.pathname === '/history/revisions') {",
+    "right": "            || requestUrl.pathname === '/history/changed-files' || requestUrl.pathname === '/history/revisions') {",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-32",
+    "category": "repository",
+    "left": "                                    : requestHistory.revisions(input);",
+    "right": "                                        : requestHistory.revisions(input);",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-33",
+    "category": "repository",
+    "left": "**Open in History** resolves the comparison's Git ownership and path scope.",
+    "right": "**History** resolves the comparison's Git ownership and path scope.",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "docs/product-surface.md"
+  },
+  {
+    "id": "history-34",
+    "category": "repository",
+    "left": "**Back to comparison** restores the originating ordered comparison and its",
+    "right": "**Compare** restores the retained comparison and its navigation. Mode transitions",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "docs/product-surface.md"
+  },
+  {
+    "id": "history-35",
+    "category": "repository",
+    "left": "navigation. Mode transitions use the native unsaved-edit guard; writable",
+    "right": "use the native unsaved-edit guard; writable working files remain writable and",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "docs/product-surface.md"
+  },
+  {
+    "id": "history-36",
+    "category": "repository",
+    "left": "working files remain writable and explicit read-only launches stay read-only.",
+    "right": "explicit read-only launches stay read-only.",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "docs/product-surface.md"
+  },
+  {
+    "id": "history-37",
+    "category": "repository",
+    "left": "    minimumPaneWidth,",
+    "right": "    minimumPaneWidth = 360,",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/focusedStripController.js"
+  },
+  {
+    "id": "history-38",
+    "category": "repository",
+    "left": "    gutterWidth",
+    "right": "    gutterWidth = 96,",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/focusedStripController.js"
+  },
+  {
+    "id": "history-39",
+    "category": "repository",
+    "left": "    const pairGutter = Math.max(0, Number.isFinite(gutterWidth) ? gutterWidth : 0);",
+    "right": "    const pairGutter = Math.max(0, Number.isFinite(gutterWidth) ? gutterWidth : 96);",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/focusedStripController.js"
+  },
+  {
+    "id": "history-40",
+    "category": "repository",
+    "left": "    const pairMode = count > 1 && width >= (minimum * 2) + pairGutter;",
+    "right": "    const gutterForCount = number => number === 1 ? 0 : number === 2 ? pairGutter : 48;",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/focusedStripController.js"
+  },
+  {
+    "id": "history-41",
+    "category": "repository",
+    "left": "    const mode = pairMode ? 'pair' : 'panel';",
+    "right": "    const mode = effectiveCount > 1 ? 'pair' : 'panel';",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/focusedStripController.js"
+  },
+  {
+    "id": "history-42",
+    "category": "repository",
+    "left": "    const effectiveGutterWidth = pairMode ? pairGutter : 0;",
+    "right": "    const effectiveGutterWidth = gutterForCount(effectiveCount);",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/focusedStripController.js"
+  },
+  {
+    "id": "history-43",
+    "category": "repository",
+    "left": "    const paneWidth = pairMode ? (width - effectiveGutterWidth) / 2 : width;",
+    "right": "    const paneWidth = (width - (effectiveCount - 1) * effectiveGutterWidth) / effectiveCount;",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/focusedStripController.js"
+  },
+  {
+    "id": "history-44",
+    "category": "repository",
+    "left": "    const offset = Math.min(maximumOffset, Math.max(0, anchorIndex * stride));",
+    "right": "    const offset = Math.min(Math.max(0, trackWidth - width), visibleStart * stride);",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/focusedStripController.js"
+  },
+  {
+    "id": "history-45",
+    "category": "repository",
+    "left": "        mode,",
+    "right": "        mode, paneWidth, gutterWidth: effectiveGutterWidth, trackWidth, offset,",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/focusedStripController.js"
+  },
+  {
+    "id": "history-46",
+    "category": "repository",
+    "left": "    computeFocusedStripLayout",
+    "right": "    computeFocusedStripLayout,",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/focusedStripController.js"
+  },
+  {
+    "id": "history-47",
+    "category": "repository",
+    "left": "import { computeFocusedStripLayout } from './focusedStripController';",
+    "right": "import { computeFocusedStripLayout, readVisiblePanelPreference, writeVisiblePanelPreference } from './focusedStripController';",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-48",
+    "category": "repository",
+    "left": "        gutterWidth: MULTI_GUTTER_WIDTH",
+    "right": "        gutterWidth: MULTI_GUTTER_WIDTH,",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-49",
+    "category": "repository",
+    "left": "        if (currentMode !== MODE_MULTI_WAY || !track.isConnected) return;",
+    "right": "        if (currentMode !== MODE_MULTI_WAY || !track.isConnected || focusedStripLayout !== layout) return;",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-50",
+    "category": "repository",
+    "left": "        layoutEditors();",
+    "right": "            layoutEditors();",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-51",
+    "category": "repository",
+    "left": "        ? `Panels ${current + 1}–${current + 2} of ${multiPanels.length}`",
+    "right": "        ? `Panels ${visible[0] + 1}–${visible.at(-1) + 1} of ${multiPanels.length}`",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-52",
+    "category": "repository",
+    "left": "        : `Panel ${current + 1} of ${multiPanels.length}`;",
+    "right": "        : `Panel ${visible[0] + 1} of ${multiPanels.length}`;",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-53",
+    "category": "repository",
+    "left": "            if (item.panelNumber) item.active = pairMode",
+    "right": "            if (item.panelNumber) {",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-54",
+    "category": "repository",
+    "left": "                host.postMessage({ type: 'openDirectoryEntry', relativePath: item.relativePath });",
+    "right": "                host.postMessage({ type: item.workspaceFile ? 'workspaceOpenFile' : 'openDirectoryEntry', relativePath: item.relativePath });",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-55",
+    "category": "repository",
+    "left": "            const preferredPairIndex = panelIndex === 0 ? 0 : Math.min(panelIndex - 1, multiDiffPairs.length - 1);",
+    "right": "            const preferredPairIndex = visiblePairIndex ?? Math.max(0, Math.min(panelIndex - 1, multiDiffPairs.length - 1));",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-56",
+    "category": "repository",
+    "left": "    const indices = focusedStripLayout.mode === 'pair'",
+    "right": "    const indices = focusedStripLayout.visiblePanelIndexes;",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-57",
+    "category": "repository",
+    "left": "    getElement('toggle-directory-sidebar').hidden = !hasDirectoryNavigation;",
+    "right": "    getElement('toggle-directory-sidebar').hidden = true;",
+    "why": "Actual changed line pair",
+    "commit": "0048e8d02c479495c6a238a156c4fea5cf88e7b2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-58",
+    "category": "repository",
+    "left": "const { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } = require('fs');",
+    "right": "const { createReadStream, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } = require('fs');",
+    "why": "Actual changed line pair",
+    "commit": "60d7465df4774b9266be8e92a613d5baedd0bb40",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-59",
+    "category": "repository",
+    "left": "        const root = builtManifest.repository?.root || cwd;",
+    "right": "        const root = realpathSync(builtManifest.repository?.root || cwd);",
+    "why": "Actual changed line pair",
+    "commit": "60d7465df4774b9266be8e92a613d5baedd0bb40",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-60",
+    "category": "repository",
+    "left": "        const relative = path.relative(root, loadedSource.resolvedPath).split(path.sep).join('/');",
+    "right": "        const relative = path.relative(root, documentPath).split(path.sep).join('/');",
+    "why": "Actual changed line pair",
+    "commit": "60d7465df4774b9266be8e92a613d5baedd0bb40",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-61",
+    "category": "repository",
+    "left": "- Tour: `tour=<relative document path>`, `mode=historical|deconstructed`,",
+    "right": "- Tour: `tour=<repository-relative document path or local file URL>`, `mode=historical|deconstructed`,",
+    "why": "Actual changed line pair",
+    "commit": "60d7465df4774b9266be8e92a613d5baedd0bb40",
+    "file": "docs/sharing-tours.md"
+  },
+  {
+    "id": "history-62",
+    "category": "repository",
+    "left": "    const repo = required(p, 'repo');",
+    "right": "    const repo = validateLocalFileUrl(required(p, 'repo'));",
+    "why": "Actual changed line pair",
+    "commit": "60d7465df4774b9266be8e92a613d5baedd0bb40",
+    "file": "src/deepLink.ts"
+  },
+  {
+    "id": "history-63",
+    "category": "repository",
+    "left": "        return { kind, repo, tour: validateRelativePath(required(p, 'tour')), mode, focus: parseDocumentFocus(p) };",
+    "right": "        return { kind, repo, tour, mode, focus: parseDocumentFocus(p) };",
+    "why": "Actual changed line pair",
+    "commit": "60d7465df4774b9266be8e92a613d5baedd0bb40",
+    "file": "src/deepLink.ts"
+  },
+  {
+    "id": "history-64",
+    "category": "repository",
+    "left": "        const documentPath = fs.realpathSync(path.join(repoRoot, link.tour));",
+    "right": "        const documentPath = fs.realpathSync(absolute ? fileURLToPath(link.tour) : path.join(repoRoot, link.tour));",
+    "why": "Actual changed line pair",
+    "commit": "60d7465df4774b9266be8e92a613d5baedd0bb40",
+    "file": "src/deepLinkResolver.ts"
+  },
+  {
+    "id": "history-65",
+    "category": "repository",
+    "left": "        if (!relative || relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative)) throw new Error('The linked tour resolves outside its repository.');",
+    "right": "        if (!absolute && (!relative || relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative))) throw new Error('The linked tour resolves outside its repository.');",
+    "why": "Actual changed line pair",
+    "commit": "60d7465df4774b9266be8e92a613d5baedd0bb40",
+    "file": "src/deepLinkResolver.ts"
+  },
+  {
+    "id": "history-66",
+    "category": "repository",
+    "left": "    for (const block of model.blocks || []) {",
+    "right": "    for (const block of model.reflows || model.blocks || []) {",
+    "why": "Actual changed line pair",
+    "commit": "2023661bf6db25b6ae6904aaa3f5aad0659f0f78",
+    "file": "media/scrollMapping.js"
+  },
+  {
+    "id": "history-67",
+    "category": "repository",
+    "left": "    const coherentBlock = hasCoherentBlockCorrespondence(leftLines, rightLines, crediblePairs);",
+    "right": "        && hasCoherentBlockCorrespondence(leftLines, rightLines, crediblePairs);",
+    "why": "Actual changed line pair",
+    "commit": "2023661bf6db25b6ae6904aaa3f5aad0659f0f78",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-68",
+    "category": "repository",
+    "left": "    if (leftText === rightText && (leftEnd > 1 || rightEnd > 1)) {",
+    "right": "    if (leftText === rightText && (leftEnd > 1 || rightEnd > 1)",
+    "why": "Actual changed line pair",
+    "commit": "2023661bf6db25b6ae6904aaa3f5aad0659f0f78",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-69",
+    "category": "repository",
+    "left": "    const leftCharacterCount = leftLines.reduce((total, line) => total + line.length, 0);",
+    "right": "    const leftCharacterCount = leftLines.reduce((total, line) => total + Math.min(line.length, MAX_SCORING_LINE_LENGTH), 0);",
+    "why": "Actual changed line pair",
+    "commit": "2023661bf6db25b6ae6904aaa3f5aad0659f0f78",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-70",
+    "category": "repository",
+    "left": "    const rightCharacterCount = rightLines.reduce((total, line) => total + line.length, 0);",
+    "right": "    const rightCharacterCount = rightLines.reduce((total, line) => total + Math.min(line.length, MAX_SCORING_LINE_LENGTH), 0);",
+    "why": "Actual changed line pair",
+    "commit": "2023661bf6db25b6ae6904aaa3f5aad0659f0f78",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-71",
+    "category": "repository",
+    "left": "    if (!leftInformative || !rightInformative",
+    "right": "    if (!leftInformative || !rightInformative) {",
+    "why": "Actual changed line pair",
+    "commit": "2023661bf6db25b6ae6904aaa3f5aad0659f0f78",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-72",
+    "category": "repository",
+    "left": "    const characterSimilarity = lineSimilarity(normalizedLeft, normalizedRight);",
+    "right": "    const characterSimilarity = lineSimilarity(sample(normalizedLeft), sample(normalizedRight));",
+    "why": "Actual changed line pair",
+    "commit": "2023661bf6db25b6ae6904aaa3f5aad0659f0f78",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-73",
+    "category": "repository",
+    "left": "    const score = (characterSimilarity * 0.52)",
+    "right": "    const score = Math.min(1, (characterSimilarity * 0.52)",
+    "why": "Actual changed line pair",
+    "commit": "2023661bf6db25b6ae6904aaa3f5aad0659f0f78",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-74",
+    "category": "repository",
+    "left": "        + (boundarySimilarity * 0.06);",
+    "right": "        + (boundarySimilarity * 0.06) + prefixBonus);",
+    "why": "Actual changed line pair",
+    "commit": "2023661bf6db25b6ae6904aaa3f5aad0659f0f78",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-75",
+    "category": "repository",
+    "left": "    const hasContentEvidence = characterSimilarity >= 0.52",
+    "right": "    const hasContentEvidence = prefixBonus > 0 || characterSimilarity >= 0.52",
+    "why": "Actual changed line pair",
+    "commit": "2023661bf6db25b6ae6904aaa3f5aad0659f0f78",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-76",
+    "category": "repository",
+    "left": "Each title, chapter, scene, and step has a **Copy link** button. In a saved local",
+    "right": "Each title, chapter, scene, and step has a chain icon beside its heading, shown",
+    "why": "Actual changed line pair",
+    "commit": "104d8f4bd6025a05251d8d82bab55d62cab652ba",
+    "file": "docs/sharing-tours.md"
+  },
+  {
+    "id": "history-77",
+    "category": "repository",
+    "left": "            className,",
+    "right": "            className",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-78",
+    "category": "repository",
+    "left": "    for (const editor of multiEditors) {",
+    "right": "    for (const [index, editor] of multiEditors.entries()) {",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-79",
+    "category": "repository",
+    "left": "        editor.setScrollTop(verticalRatio * Math.max(0, editor.getScrollHeight() - editor.getLayoutInfo().height));",
+    "right": "            0, Math.max(0, editor.getScrollHeight() - editor.getLayoutInfo().height)));",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-80",
+    "category": "repository",
+    "left": "        if (row.left === undefined || row.right === undefined",
+    "right": "        if (row.reflow || row.left === undefined || row.right === undefined",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-81",
+    "category": "repository",
+    "left": "        blocks.push(makeDiffBlock(",
+    "right": "        const block = makeDiffBlock(",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-82",
+    "category": "repository",
+    "left": "    for (const { left, right } of normalized) {",
+    "right": "    for (const { left, right, reflow } of normalized) {",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-83",
+    "category": "repository",
+    "left": "        const nextKind: DiffBlock['kind'] = coherentBlock",
+    "right": "        const nextKind: DiffBlock['kind'] = coherentBlock || reflow",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-84",
+    "category": "repository",
+    "left": "        if (blockKind !== nextKind) {",
+    "right": "        if (blockKind !== nextKind || blockReflow !== Boolean(reflow) || reflow?.start) {",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-85",
+    "category": "repository",
+    "left": "        if (renderedLeftLine && renderedRightLine) {",
+    "right": "        } else if (renderedLeftLine && renderedRightLine) {",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-86",
+    "category": "repository",
+    "left": "        if ((singletonScore.eligible || singletonScore.score >= MINIMUM_SINGLE_PAIR_SCORE)",
+    "right": "        if ((!leftLines[0].trim() && !rightLines[0].trim()) || ((singletonScore.eligible || singletonScore.score >= MINIMUM_SINGLE_PAIR_SCORE)",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-87",
+    "category": "repository",
+    "left": "            && isInformativeLine(normalizeMatchingContent(rightLines[0]))) {",
+    "right": "            && isInformativeLine(normalizeMatchingContent(rightLines[0])))) {",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-88",
+    "category": "repository",
+    "left": "function alignLargeReplacementLines(leftLines: string[], rightLines: string[]): AlignedReplacementLine[] {",
+    "right": "function alignLargeReplacementLines(",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-89",
+    "category": "repository",
+    "left": "    const anchors = collectLargeHunkAnchors(leftLines, rightLines);",
+    "right": "    const anchors = collectLargeHunkAnchors(leftLines, rightLines, exactOnly);",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-90",
+    "category": "repository",
+    "left": "    rightLines: string[]",
+    "right": "    rightLines: string[],",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-91",
+    "category": "repository",
+    "left": "    const candidatePairs = collectRareTokenCandidatePairs(leftLines, rightLines);",
+    "right": "    const candidatePairs = collectRareTokenCandidatePairs(leftLines, rightLines, exactOnly);",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-92",
+    "category": "repository",
+    "left": "        const emphasis = /[^\\s]/.test(value);",
+    "right": "        const emphasis = value.length > 0;",
+    "why": "Actual changed line pair",
+    "commit": "0595d1787496ea2cdb0bc760e9b7d2bd22e7e8f3",
+    "file": "src/diffEngine.ts"
+  },
+  {
+    "id": "history-93",
+    "category": "repository",
+    "left": "const { loadTourSource, parseTourSourceText, buildManifestForTourSource } = require('./tourFile.js');",
+    "right": "const { loadTourSource, parseTourSourceText, inspectTourConversion, convertTourSourceText, buildManifestForTourSource } = require('./tourFile.js');",
+    "why": "Actual changed line pair",
+    "commit": "e25a75bc0b510b819b968c91d9f7a8ef2bcd929c",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-94",
+    "category": "repository",
+    "left": "        const relative = path.relative(root, path.resolve(cwd, tourPath)).split(path.sep).join('/');",
+    "right": "        const relative = path.relative(root, loadedSource.resolvedPath).split(path.sep).join('/');",
+    "why": "Actual changed line pair",
+    "commit": "e25a75bc0b510b819b968c91d9f7a8ef2bcd929c",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-95",
+    "category": "repository",
+    "left": "                    const uploadedSource = parseTourSourceText(JSON.parse(body).source);",
+    "right": "                    const uploadedSource = converted?.source || parseTourSourceText(input.source);",
+    "why": "Actual changed line pair",
+    "commit": "e25a75bc0b510b819b968c91d9f7a8ef2bcd929c",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-96",
+    "category": "repository",
+    "left": "                    respondJson(response, 200, { manifestUrl: `/loaded/${id}/tour.json`, repository: loaded.repository?.root || cwd, range: loaded.range });",
+    "right": "                    respondJson(response, 200, { manifestUrl: `/loaded/${id}/tour.json`, repository: loaded.repository?.root || cwd, range: loaded.range, convertedSource: converted?.text });",
+    "why": "Actual changed line pair",
+    "commit": "e25a75bc0b510b819b968c91d9f7a8ef2bcd929c",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-97",
+    "category": "repository",
+    "left": "    return { manifest, server, url };",
+    "right": "    return { manifest, server, url, sourcePath: loadedSource?.resolvedPath };",
+    "why": "Actual changed line pair",
+    "commit": "e25a75bc0b510b819b968c91d9f7a8ef2bcd929c",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-98",
+    "category": "repository",
+    "left": "const { loadAll: loadYamlDocuments } = require('js-yaml');",
+    "right": "const { loadAll: loadYamlDocuments, dump: dumpYaml } = require('js-yaml');",
+    "why": "Actual changed line pair",
+    "commit": "e25a75bc0b510b819b968c91d9f7a8ef2bcd929c",
+    "file": "cli/tourFile.js"
+  },
+  {
+    "id": "history-99",
+    "category": "repository",
+    "left": "    return parseTourSourceText(text, sourceLabel, { maxBytes });",
+    "right": "    return text;",
+    "why": "Actual changed line pair",
+    "commit": "e25a75bc0b510b819b968c91d9f7a8ef2bcd929c",
+    "file": "cli/tourFile.js"
+  },
+  {
+    "id": "history-100",
+    "category": "repository",
+    "left": "function parseTourSourceText(text, sourceLabel = 'uploaded tour', options = {}) {",
+    "right": "function readTourSourceValue(text, sourceLabel = 'uploaded tour', options = {}) {",
+    "why": "Actual changed line pair",
+    "commit": "e25a75bc0b510b819b968c91d9f7a8ef2bcd929c",
+    "file": "cli/tourFile.js"
+  },
+  {
+    "id": "history-101",
+    "category": "repository",
+    "left": "        return parseChangeTourSource(documents[0]);",
+    "right": "        return parseChangeTourSource(readTourSourceValue(text, sourceLabel, options));",
+    "why": "Actual changed line pair",
+    "commit": "e25a75bc0b510b819b968c91d9f7a8ef2bcd929c",
+    "file": "cli/tourFile.js"
+  },
+  {
+    "id": "history-102",
+    "category": "repository",
+    "left": "    tour_actions=('context:Build structured change evidence' 'coverage:Measure authored tour coverage' 'validate:Validate source and anchors' 'compile:Compile a repository-bound manifest' 'schema:Print the source schema')",
+    "right": "    tour_actions=('context:Build structured change evidence' 'coverage:Measure authored tour coverage' 'validate:Validate source and anchors' 'compile:Compile a repository-bound manifest' 'export:Export a portable HTML tour' 'schema:Print the source schema')",
+    "why": "Actual changed line pair",
+    "commit": "6adcb3dc415a4fa263f06097f412bbc6eb7ab7fa",
+    "file": "cli/completions.js"
+  },
+  {
+    "id": "history-103",
+    "category": "repository",
+    "left": "                COMPREPLY=( $(compgen -W 'context coverage validate compile schema' -- \"$cur\") )",
+    "right": "                COMPREPLY=( $(compgen -W 'context coverage validate compile export schema' -- \"$cur\") )",
+    "why": "Actual changed line pair",
+    "commit": "6adcb3dc415a4fa263f06097f412bbc6eb7ab7fa",
+    "file": "cli/completions.js"
+  },
+  {
+    "id": "history-104",
+    "category": "repository",
+    "left": "        \"complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'context coverage validate compile schema' -d 'Tour action'\",",
+    "right": "        \"complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'context coverage validate compile export schema' -d 'Tour action'\",",
+    "why": "Actual changed line pair",
+    "commit": "6adcb3dc415a4fa263f06097f412bbc6eb7ab7fa",
+    "file": "cli/completions.js"
+  },
+  {
+    "id": "history-105",
+    "category": "repository",
+    "left": "const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'compile', 'schema']);",
+    "right": "const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'compile', 'export', 'schema']);",
+    "why": "Actual changed line pair",
+    "commit": "6adcb3dc415a4fa263f06097f412bbc6eb7ab7fa",
+    "file": "cli/tour.js"
+  },
+  {
+    "id": "history-106",
+    "category": "repository",
+    "left": "let wordWrapEnabled = readWordWrapPreference(window.localStorage);",
+    "right": "let wordWrapEnabled = readWordWrapPreference(safePreferenceStorage());",
+    "why": "Actual changed line pair",
+    "commit": "6adcb3dc415a4fa263f06097f412bbc6eb7ab7fa",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-107",
+    "category": "repository",
+    "left": "    writeWordWrapPreference(window.localStorage, wordWrapEnabled);",
+    "right": "    writeWordWrapPreference(safePreferenceStorage(), wordWrapEnabled);",
+    "why": "Actual changed line pair",
+    "commit": "6adcb3dc415a4fa263f06097f412bbc6eb7ab7fa",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-108",
+    "category": "repository",
+    "left": "    const source = options.source ? parseChangeTourSource(options.source) : undefined;",
+    "right": "    let source = options.source ? parseChangeTourSource(options.source) : undefined;",
+    "why": "Actual changed line pair",
+    "commit": "6adcb3dc415a4fa263f06097f412bbc6eb7ab7fa",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-109",
+    "category": "repository",
+    "left": "export function parseChangeTourManifest(value: unknown): ChangeTourManifest {",
+    "right": "export function parseChangeTourManifest(value: unknown, options: { exported?: boolean } = {}): ChangeTourManifest {",
+    "why": "Actual changed line pair",
+    "commit": "6adcb3dc415a4fa263f06097f412bbc6eb7ab7fa",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-110",
+    "category": "repository",
+    "left": "    if (value.version !== 1) validateZoom(value, value.version);",
+    "right": "    if (value.version !== 1) validateZoom(value, value.version, Boolean(options.exported));",
+    "why": "Actual changed line pair",
+    "commit": "6adcb3dc415a4fa263f06097f412bbc6eb7ab7fa",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-111",
+    "category": "repository",
+    "left": "function validateZoom(value: Record<string, unknown>, version: 2 | 4): void {",
+    "right": "function validateZoom(value: Record<string, unknown>, version: 2 | 4, exported: boolean): void {",
+    "why": "Actual changed line pair",
+    "commit": "6adcb3dc415a4fa263f06097f412bbc6eb7ab7fa",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-112",
+    "category": "repository",
+    "left": "    if (!isRecord(value.repository) || typeof value.repository.root !== 'string' || !value.repository.root) {",
+    "right": "    if (!exported && (!isRecord(value.repository) || typeof value.repository.root !== 'string' || !value.repository.root)) {",
+    "why": "Actual changed line pair",
+    "commit": "6adcb3dc415a4fa263f06097f412bbc6eb7ab7fa",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-113",
+    "category": "repository",
+    "left": "    const url = `http://127.0.0.1:${address.port}/?manifest=/tour.json`;",
+    "right": "    const url = `http://127.0.0.1:${address.port}/?manifest=/tour.json${options.location ? serializeDocumentFragment(options.location.mode, options.location.focus) : ''}`;",
+    "why": "Actual changed line pair",
+    "commit": "f08761078c136b196e7bd40bc54879699f77bfaf",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-114",
+    "category": "repository",
+    "left": "    const pattern = /\\[([^\\]\\n]+)\\]\\((https?:\\/\\/(?:[^\\s()]|\\([^\\s()]*\\))+)\\)/gu;",
+    "right": "    const pattern = /\\[([^\\]\\n]+)\\]\\(((?:https?:\\/\\/|bygone:\\/\\/)(?:[^\\s()]|\\([^\\s()]*\\))+)\\)/gu;",
+    "why": "Actual changed line pair",
+    "commit": "f08761078c136b196e7bd40bc54879699f77bfaf",
+    "file": "media/tourProse.js"
+  },
+  {
+    "id": "history-115",
+    "category": "repository",
+    "left": "        if (url.protocol !== 'https:' && url.protocol !== 'http:') continue;",
+    "right": "        else if (url.protocol !== 'https:' && url.protocol !== 'http:') continue;",
+    "why": "Actual changed line pair",
+    "commit": "f08761078c136b196e7bd40bc54879699f77bfaf",
+    "file": "media/tourProse.js"
+  },
+  {
+    "id": "history-116",
+    "category": "repository",
+    "left": "    tour: Pick<ChangeTourManifest, 'scenes' | 'chapters'>",
+    "right": "    tour: Pick<ChangeTourManifest, 'scenes' | 'chapters'>,",
+    "why": "Actual changed line pair",
+    "commit": "f08761078c136b196e7bd40bc54879699f77bfaf",
+    "file": "src/tourReading.ts"
+  },
+  {
+    "id": "history-117",
+    "category": "repository",
+    "left": "        if (tour.chapters.length > 1 && chapterId && !emittedChapterIds.has(chapterId)) {",
+    "right": "        if ((includeSingleChapter || tour.chapters.length > 1) && chapterId && !emittedChapterIds.has(chapterId)) {",
+    "why": "Actual changed line pair",
+    "commit": "f08761078c136b196e7bd40bc54879699f77bfaf",
+    "file": "src/tourReading.ts"
+  },
+  {
+    "id": "history-118",
+    "category": "repository",
+    "left": "requires the corresponding local repository and Git objects. Version 2 and 3",
+    "right": "requires the corresponding local repository and Git objects. Version 2 and version 4",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-119",
+    "category": "repository",
+    "left": "artifacts, without the mode switcher. Version 3 adds independent authored",
+    "right": "artifacts, without the mode switcher. Version 4 supports independent authored",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-120",
+    "category": "repository",
+    "left": "tours, scene directory overviews, and review notes; versions 1 and 2 remain",
+    "right": "tours and scene directory overviews; versions 1 and 2 remain accepted without",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-121",
+    "category": "repository",
+    "left": "accepted without those fields.",
+    "right": "those fields.",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-122",
+    "category": "repository",
+    "left": "## Version 3 stability and compatibility",
+    "right": "## Version 4 stability and compatibility",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-123",
+    "category": "repository",
+    "left": "Format version **3 is the stable authoring contract for Bygone 0.9.2**. The",
+    "right": "Format version **4** is the current authoring contract. Application and document",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-124",
+    "category": "repository",
+    "left": "| Document version | Reader support in 0.9.2 | Contract |",
+    "right": "| Document version | Reader support | Contract |",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-125",
+    "category": "repository",
+    "left": "| 3 | Supported; use for new sources | Version 2 capabilities plus independent authored tours, scene directory overviews, and review notes |",
+    "right": "| 4 | Supported; use for new sources | Independent authored tours and scene directory overviews; no Review Notes |",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-126",
+    "category": "repository",
+    "left": "| Greater than 3 | Rejected with an upgrade message | Never interpreted as version 3 |",
+    "right": "| Greater than 4 | Rejected with an upgrade message | Never interpreted as version 4 |",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-127",
+    "category": "repository",
+    "left": "The v3 field names, types, required fields, enum values, and meanings are fixed",
+    "right": "The v4 field names, types, required fields, enum values, and meanings are fixed",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-128",
+    "category": "repository",
+    "left": "semantic rules in this document. Valid v3 sources and compiled manifests must",
+    "right": "semantic rules in this document. Breaking syntax or semantic changes require",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-129",
+    "category": "repository",
+    "left": "stage coverage, comparison endpoints, and review freshness. A schema-only pass",
+    "right": "stage coverage, and comparison endpoints. A schema-only pass",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-130",
+    "category": "repository",
+    "left": "not a second authoring syntax; v2/v3 manifests retain repository identity and",
+    "right": "not a second authoring syntax; v2/v4 manifests retain repository identity and",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-131",
+    "category": "repository",
+    "left": "The compatibility checks cover v1/v2 acceptance, v3-only field gates,",
+    "right": "The compatibility checks cover v1/v2 acceptance, v4-only field gates,",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-132",
+    "category": "repository",
+    "left": "independent authored modes, overview evidence and fallback semantics, review",
+    "right": "independent authored modes, overview evidence and fallback semantics, retired",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-133",
+    "category": "repository",
+    "left": "freshness, and rejection of future versions. Run `npm test` before releasing a",
+    "right": "v3 rejection, removed-field rejection, and rejection of future versions. Run",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-134",
+    "category": "repository",
+    "left": "parser, compiler, or schema change; update those checks with any new contract.",
+    "right": "`npm test` before releasing a parser, compiler, or schema change; update those",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-135",
+    "category": "repository",
+    "left": "Version 3 can supply `tours.historical.chapters` and",
+    "right": "Version 4 can supply `tours.historical.chapters` and",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-136",
+    "category": "repository",
+    "left": "In version 3, an authored walkthrough, stacked-diff, or deconstructed-diff scene may carry a",
+    "right": "In version 4, an authored walkthrough, stacked-diff, or deconstructed-diff scene may carry a",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-137",
+    "category": "repository",
+    "left": "version: 3",
+    "right": "version: 4",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-138",
+    "category": "repository",
+    "left": "Version 2 and 3 tours show one mode control for moving among live Git History,",
+    "right": "Version 2 and 4 tours show one mode control for moving among live Git History,",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-139",
+    "category": "repository",
+    "left": "commits. In versions 2 and 3, a `deconstructed-diff` scene in root `chapters`",
+    "right": "commits. In versions 2 and 4, a `deconstructed-diff` scene in root `chapters`",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-140",
+    "category": "repository",
+    "left": "walkthrough `steps` for compatibility. In version 3, a scene authored inside",
+    "right": "walkthrough `steps` for compatibility. In version 4, a scene authored inside",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-141",
+    "category": "repository",
+    "left": "- In a version 3 source, keep unresolved questions and review decisions in the top-level `review` block rather than presenting them as settled scene narration.",
+    "right": "- Put concepts, boundaries, and tradeoffs beside their evidence in scene or step narrative. Label unresolved questions explicitly and state the next check that would resolve them; do not present them as settled conclusions.",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/generating-change-tours.md"
+  },
+  {
+    "id": "history-142",
+    "category": "repository",
+    "left": "Create a v3 deconstructed tour for /path/to/repository, from <base OID> to <head OID>.",
+    "right": "Create a v4 deconstructed tour for /path/to/repository, from <base OID> to <head OID>.",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/generating-change-tours.md"
+  },
+  {
+    "id": "history-143",
+    "category": "repository",
+    "left": "Version 2 and 3 presentations expose **History**, **Compare**, and the available",
+    "right": "Version 2 and 4 presentations expose **History**, **Compare**, and the available",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-144",
+    "category": "repository",
+    "left": "Independent Historical and Deconstructed tours require version 3:",
+    "right": "Independent Historical and Deconstructed tours require version 4:",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-145",
+    "category": "repository",
+    "left": "and step narrative should still explain the implemented change and the tradeoffs",
+    "right": "Scene and step narrative explain the implemented change, concepts, boundaries,",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-146",
+    "category": "repository",
+    "left": "In version 3, an authored scene can show a directory comparison in its Overview. Open a file",
+    "right": "In version 4, an authored scene can show a directory comparison in its Overview. Open a file",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-147",
+    "category": "repository",
+    "left": "short, editable prompt referencing the bundled v3 tour skill and the workspace's",
+    "right": "short, editable prompt referencing the bundled v4 tour skill and the workspace's",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/product-surface.md"
+  },
+  {
+    "id": "history-148",
+    "category": "repository",
+    "left": "| Assess authored tour coverage | Coverage indicators in the Present sidebar | Distinct hunks referenced by authored walkthrough anchors; v2/v3 Final walkthrough coverage remains separate from deconstructed Explanation assignment completeness | Read-only authoring diagnostics; generated tours have no authored coverage metric | Advanced authoring | v1/v2/v3 coverage and presenter-host tests |",
+    "right": "| Assess authored tour coverage | Coverage indicators in the Present sidebar | Distinct hunks referenced by authored walkthrough anchors; v2/v4 Final walkthrough coverage remains separate from deconstructed Explanation assignment completeness | Read-only authoring diagnostics; generated tours have no authored coverage metric | Advanced authoring | v1/v2/v4 coverage and presenter-host tests |",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "docs/product-surface.md"
+  },
+  {
+    "id": "history-149",
+    "category": "repository",
+    "left": "    parseChangeTourSource,",
+    "right": "    parseChangeTourSource",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-150",
+    "category": "repository",
+    "left": "        scenes,",
+    "right": "        scenes",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-151",
+    "category": "repository",
+    "left": "    const authoredModeTours = source?.version === 3",
+    "right": "    const authoredModeTours = source?.version === 4",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-152",
+    "category": "repository",
+    "left": " * mode tours are emitted only for v3, when the source supplies one or contains",
+    "right": " * mode tours are emitted only for v4, when the source supplies one or contains",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-153",
+    "category": "repository",
+    "left": "    } else if (source.version === 3) {",
+    "right": "    } else if (source.version === 4) {",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-154",
+    "category": "repository",
+    "left": "    } else if (source.version === 3 && source.chapters.some((chapter) => (",
+    "right": "    } else if (source.version === 4 && source.chapters.some((chapter) => (",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-155",
+    "category": "repository",
+    "left": "export const CHANGE_TOUR_MANIFEST_VERSION = 3 as const;",
+    "right": "export const CHANGE_TOUR_MANIFEST_VERSION = 4 as const;",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-156",
+    "category": "repository",
+    "left": "        if (value.version !== 3) throw new Error('Independent tours require manifest version 3.');",
+    "right": "        if (value.version !== 4) throw new Error('Independent tours require manifest version 4.');",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-157",
+    "category": "repository",
+    "left": "function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 3): asserts value is ChangeTourAuthoringCoverage {",
+    "right": "function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 4): asserts value is ChangeTourAuthoringCoverage {",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-158",
+    "category": "repository",
+    "left": "function validateModeTours(value: unknown, version: 3): asserts value is ChangeTourTours {",
+    "right": "function validateModeTours(value: unknown, version: 4): asserts value is ChangeTourTours {",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-159",
+    "category": "repository",
+    "left": "function validateZoom(value: Record<string, unknown>, version: 2 | 3): void {",
+    "right": "function validateZoom(value: Record<string, unknown>, version: 2 | 4): void {",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-160",
+    "category": "repository",
+    "left": "function validateScene(value: unknown, index: number, version: 1 | 2 | 3): asserts value is ChangeTourScene {",
+    "right": "function validateScene(value: unknown, index: number, version: 1 | 2 | 4): asserts value is ChangeTourScene {",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-161",
+    "category": "repository",
+    "left": "    if (value.overview !== undefined && version !== 3) {",
+    "right": "    if (value.overview !== undefined && version !== 4) {",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-162",
+    "category": "repository",
+    "left": "        throw new Error(`scenes[${index}].overview requires manifest version 3.`);",
+    "right": "        throw new Error(`scenes[${index}].overview requires manifest version 4.`);",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-163",
+    "category": "repository",
+    "left": "export const CHANGE_TOUR_SOURCE_VERSION = 3 as const;",
+    "right": "export const CHANGE_TOUR_SOURCE_VERSION = 4 as const;",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-164",
+    "category": "repository",
+    "left": "        'version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage', 'review'",
+    "right": "        'version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage'",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-165",
+    "category": "repository",
+    "left": "    const authoredWalkthroughSteps = validateSourceChapters(",
+    "right": "    validateSourceChapters(",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-166",
+    "category": "repository",
+    "left": "        if (value.version !== 3) throw new Error('Independent tours require version 3.');",
+    "right": "        if (value.version !== 4) throw new Error('Independent tours require version 4.');",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-167",
+    "category": "repository",
+    "left": "    version: 1 | 2 | 3,",
+    "right": "    version: 1 | 2 | 4,",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-168",
+    "category": "repository",
+    "left": "            if (scene.overview !== undefined && version !== 3) {",
+    "right": "            if (scene.overview !== undefined && version !== 4) {",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-169",
+    "category": "repository",
+    "left": "                throw new Error(`${path}.overview requires version 3.`);",
+    "right": "                throw new Error(`${path}.overview requires version 4.`);",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-170",
+    "category": "repository",
+    "left": "        `Create a v3 ${normalizedKind} tour.`,",
+    "right": "        `Create a v4 ${normalizedKind} tour.`,",
+    "why": "Actual changed line pair",
+    "commit": "611f215fc979b82d3819fd09e02ee273e59fe060",
+    "file": "src/workspacePrompt.ts"
+  },
+  {
+    "id": "history-171",
+    "category": "repository",
+    "left": "        tooltip.textContent = textFor(owner);",
+    "right": "        description.textContent = textFor(owner);",
+    "why": "Actual changed line pair",
+    "commit": "a0b6183835bd4dac47a092cbfc82e05c43f6c700",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-172",
+    "category": "repository",
+    "left": "        if (!target || target.closest('.monaco-editor, .commit-hover-details')) return;",
+    "right": "        if (!target || restoringFocus || !menu.hidden || target.closest('.monaco-editor, .commit-hover-details')) return;",
+    "why": "Actual changed line pair",
+    "commit": "a0b6183835bd4dac47a092cbfc82e05c43f6c700",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-173",
+    "category": "repository",
+    "left": "        const element = target.closest('[data-tooltip]') || findTruncatedTextElement(target);",
+    "right": "        const element = target.closest('a[href]') || target.closest('[data-tooltip]') || findTruncatedTextElement(target);",
+    "why": "Actual changed line pair",
+    "commit": "a0b6183835bd4dac47a092cbfc82e05c43f6c700",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-174",
+    "category": "repository",
+    "left": "    <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; worker-src ${webview.cspSource} blob:;\">",
+    "right": "    <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; frame-src http: https:; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; worker-src ${webview.cspSource} blob:;\">",
+    "why": "Actual changed line pair",
+    "commit": "a0b6183835bd4dac47a092cbfc82e05c43f6c700",
+    "file": "src/diffViewProvider.ts"
+  },
+  {
+    "id": "history-175",
+    "category": "repository",
+    "left": "        element.title = fullText;",
+    "right": "    tooltip.hidden = true;",
+    "why": "Actual changed line pair",
+    "commit": "5b27c5e00bfd028cbcf29e527dfcd4d6103b718f",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-176",
+    "category": "repository",
+    "left": "        if (!row || restoringFocus || pinned || !menu.hidden || row.contains(event.relatedTarget)) return;",
+    "right": "        if (!row || !entry || restoringFocus || pinned || !menu.hidden || entry.contains(event.relatedTarget)) return;",
+    "why": "Actual changed line pair",
+    "commit": "5b27c5e00bfd028cbcf29e527dfcd4d6103b718f",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-177",
+    "category": "repository",
+    "left": "        clearTimeout(timer);",
+    "right": "        close();",
+    "why": "Actual changed line pair",
+    "commit": "5b27c5e00bfd028cbcf29e527dfcd4d6103b718f",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-178",
+    "category": "repository",
+    "left": "        timer = setTimeout(() => showDetails(row), 450);",
+    "right": "        timer = setTimeout(() => showDetails(row), readTooltipDelay());",
+    "why": "Actual changed line pair",
+    "commit": "5b27c5e00bfd028cbcf29e527dfcd4d6103b718f",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-179",
+    "category": "repository",
+    "left": "        if (!row || row.contains(event.relatedTarget) || pinned || !menu.hidden) return;",
+    "right": "        if (!row || !entry || entry.contains(event.relatedTarget) || pinned || !menu.hidden) return;",
+    "why": "Actual changed line pair",
+    "commit": "5b27c5e00bfd028cbcf29e527dfcd4d6103b718f",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-180",
+    "category": "repository",
+    "left": "    const output = git(root, ['log', '--topo-order', '--format=%x1e%H%x00%P%x00%s%x00%cI%x00', commit, '--']);",
+    "right": "    const output = git(root, ['log', '--topo-order', '--format=%x1e%H%x00%P%x00%s%x00%cI%x00%an%x00%ae%x00%B%x00', commit, '--']);",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-181",
+    "category": "repository",
+    "left": "        const [oid, parents, summary, timestamp] = fields;",
+    "right": "        const [oid, parents, summary, timestamp, author, authorEmail, message] = fields;",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-182",
+    "category": "repository",
+    "left": "                '--format=%x1e%H%x00%P%x00%s%x00%cI%x00', '--name-status', '-z', commit, '--', filePath]);",
+    "right": "                '--format=%x1e%H%x00%P%x00%s%x00%cI%x00%an%x00%ae%x00%B%x00', '--name-status', '-z', commit, '--', filePath]);",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-183",
+    "category": "repository",
+    "left": "                const [oid, parents, summary, timestamp] = fields;",
+    "right": "                const [oid, parents, summary, timestamp, author, authorEmail, message] = fields;",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-184",
+    "category": "repository",
+    "left": "                const changes = parseNameStatusZ(fields.slice(4).join('\\0').replace(/^\\0?\\n/, ''));",
+    "right": "                const changes = parseNameStatusZ(fields.slice(7).join('\\0').replace(/^\\0?\\n/, ''));",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-185",
+    "category": "repository",
+    "left": "                    shortCommit: oid.slice(0, 7), summary, timestamp, path: change.path,",
+    "right": "                    shortCommit: oid.slice(0, 7), summary, timestamp, author, authorEmail, message: message.trimEnd(),",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-186",
+    "category": "repository",
+    "left": "        if (!target || target.closest('.monaco-editor')) return;",
+    "right": "        if (!target || target.closest('.monaco-editor, [data-commit-row]')) return;",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-187",
+    "category": "repository",
+    "left": "                if (item) item.selected = !item.selected;",
+    "right": "                item.selected = !item.selected;",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-188",
+    "category": "repository",
+    "left": "    if (focusedIndex !== undefined && focusedIndex !== null) rail.querySelector(`[${focusedKind}][data-rail-index=\"${focusedIndex}\"]`)?.focus({ preventScroll: true });",
+    "right": "    if (focusedIndex !== undefined && focusedIndex !== null) rail.querySelector(`button[${focusedKind}][data-rail-index=\"${focusedIndex}\"]`)?.focus({ preventScroll: true });",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-189",
+    "category": "repository",
+    "left": "    const selection = item.selectionEnabled !== false && (item.kind === 'history-entry' || (item.kind === 'panel-revision' && item.commit))",
+    "right": "    const selectable = item.selectionEnabled !== false && (item.kind === 'history-entry' || (item.kind === 'panel-revision' && item.commit));",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-190",
+    "category": "repository",
+    "left": "    return `<div class=\"history-rail-item${activeClass}${panelClass}${statusClass}\"${item.panelNumber ? ` data-rail-panel=\"${item.panelNumber}\"` : ''}>`",
+    "right": "    return `<div class=\"history-rail-item${activeClass}${panelClass}${statusClass}${selectable && item.selected ? ' selected' : ''}\" ${rowAttrs}${selectionAttrs}${isCommit ? ' data-commit-row' : ''}${item.panelNumber ? ` data-rail-panel=\"${item.panelNumber}\"` : ''}>`",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-191",
+    "category": "repository",
+    "left": "        + `<span class=\"history-rail-text\"><span class=\"history-rail-label\">${escapeHtml(item.label)}</span>${metadata}</span>${panelBadge}`",
+    "right": "        + `<span class=\"history-rail-text\"><span class=\"history-rail-label\">${escapeHtml(item.label)}</span>${metadata}</span>${panelBadge}${selection}`",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-192",
+    "category": "repository",
+    "left": "                '--format=%H%x09%h%x09%cI%x09%s%x09%P',",
+    "right": "                '--format=%H%x00%h%x00%cI%x00%s%x00%P%x00%an%x00%ae%x00%B%x1e',",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "src/gitHistory.ts"
+  },
+  {
+    "id": "history-193",
+    "category": "repository",
+    "left": "            .split('\\n')",
+    "right": "            .split('\\x1e')",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "src/gitHistory.ts"
+  },
+  {
+    "id": "history-194",
+    "category": "repository",
+    "left": "            .map((line) => {",
+    "right": "            .map((record) => {",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "src/gitHistory.ts"
+  },
+  {
+    "id": "history-195",
+    "category": "repository",
+    "left": "            timestamp: entry.timestamp",
+    "right": "            timestamp: entry.timestamp,",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "src/workspaceHistory.ts"
+  },
+  {
+    "id": "history-196",
+    "category": "repository",
+    "left": "        '--format=%H%x00%h%x00%cI%x00%s%x00%P%x1e',",
+    "right": "        '--format=%H%x00%h%x00%cI%x00%s%x00%P%x00%an%x00%ae%x00%B%x1e',",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "src/workspaceHistory.ts"
+  },
+  {
+    "id": "history-197",
+    "category": "repository",
+    "left": "        const [commit = '', shortCommit = '', timestamp = '', summary = '', parentField = ''] = record.split('\\0');",
+    "right": "        const [commit = '', shortCommit = '', timestamp = '', summary = '', parentField = '', author = '', authorEmail = '', message = ''] = record.split('\\0');",
+    "why": "Actual changed line pair",
+    "commit": "9e0ac73b441ce9ace35b9393dd4031dce23f447f",
+    "file": "src/workspaceHistory.ts"
+  },
+  {
+    "id": "history-198",
+    "category": "repository",
+    "left": "  skip** first-pass reading hints. Next advances to the recommended file.",
+    "right": "  skip** first-pass reading hints. Continue through the reading flow to reach",
+    "why": "Actual changed line pair",
+    "commit": "02834712e2f75c06103b11693cc7353f40eb1696",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-199",
+    "category": "repository",
+    "left": "only one of those lists is visible at a time. The active scene expands into",
+    "right": "only one of those lists is visible at a time. The Tour outline has independently",
+    "why": "Actual changed line pair",
+    "commit": "02834712e2f75c06103b11693cc7353f40eb1696",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-200",
+    "category": "repository",
+    "left": "steps** to open the first step; a direct link that includes a step opens that",
+    "right": "A direct link to a step opens that step immediately. The header reports the",
+    "why": "Actual changed line pair",
+    "commit": "02834712e2f75c06103b11693cc7353f40eb1696",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-201",
+    "category": "repository",
+    "left": "step immediately. The header reports the current position as `Scene N of M ·",
+    "right": "current position as `Scene N of M · Step N of M`, or identifies the overview.",
+    "why": "Actual changed line pair",
+    "commit": "02834712e2f75c06103b11693cc7353f40eb1696",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-202",
+    "category": "repository",
+    "left": "workspace. On narrow screens, the navigator becomes an overlay instead of",
+    "right": "navigator becomes an overlay instead of stacking another permanent region",
+    "why": "Actual changed line pair",
+    "commit": "02834712e2f75c06103b11693cc7353f40eb1696",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-203",
+    "category": "repository",
+    "left": "the overview text and saved step. Select **Overview** above the diff to return",
+    "right": "the overview text and reading position. Select **Overview** above the diff to",
+    "why": "Actual changed line pair",
+    "commit": "02834712e2f75c06103b11693cc7353f40eb1696",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-204",
+    "category": "repository",
+    "left": "to the tree, or **Resume step** to continue the tour.",
+    "right": "return to the tree, or continue through the narrative to the next step.",
+    "why": "Actual changed line pair",
+    "commit": "02834712e2f75c06103b11693cc7353f40eb1696",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-205",
+    "category": "repository",
+    "left": "reading position. The **Overview** breadcrumb returns to its file tree; **Start steps**",
+    "right": "reading position. The **Overview** breadcrumb returns to its file tree;",
+    "why": "Actual changed line pair",
+    "commit": "02834712e2f75c06103b11693cc7353f40eb1696",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-206",
+    "category": "repository",
+    "left": "scenes default to their first and last panels; walkthroughs use the review's",
+    "right": "scenes default to their first and last panels and compare only files materialized",
+    "why": "Actual changed line pair",
+    "commit": "64d2af0437908d719a059feb09aa5f877bcd6cfd",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-207",
+    "category": "repository",
+    "left": "base-to-head comparison. For a narrower authored comparison, add:",
+    "right": "scope the overview to a subdirectory. For a narrower authored comparison, add:",
+    "why": "Actual changed line pair",
+    "commit": "64d2af0437908d719a059feb09aa5f877bcd6cfd",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-208",
+    "category": "repository",
+    "left": "commits. In version 2 and 3, every root deconstructed scene must also provide the regular",
+    "right": "commits. In versions 2 and 3, a `deconstructed-diff` scene in root `chapters`",
+    "why": "Actual changed line pair",
+    "commit": "64d2af0437908d719a059feb09aa5f877bcd6cfd",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-209",
+    "category": "repository",
+    "left": "does not infer the stack from Git history. Every changed hunk must be assigned",
+    "right": "revisions. Bygone does not infer a real stack from Git history. Every changed",
+    "why": "Actual changed line pair",
+    "commit": "64d2af0437908d719a059feb09aa5f877bcd6cfd",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-210",
+    "category": "repository",
+    "left": "once or explicitly excluded.",
+    "right": "hunk must be assigned once or explicitly excluded.",
+    "why": "Actual changed line pair",
+    "commit": "64d2af0437908d719a059feb09aa5f877bcd6cfd",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-211",
+    "category": "repository",
+    "left": "changing the active tour position. Browsing another file keeps the active tour",
+    "right": "changing the active tour position. While reading a step, browsing another file",
+    "why": "Actual changed line pair",
+    "commit": "64d2af0437908d719a059feb09aa5f877bcd6cfd",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-212",
+    "category": "repository",
+    "left": "anchor visible and offers **Return to Tour** to restore the scene's intended",
+    "right": "keeps the active tour anchor visible; **Return to Tour** restores the scene's",
+    "why": "Actual changed line pair",
+    "commit": "64d2af0437908d719a059feb09aa5f877bcd6cfd",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-213",
+    "category": "repository",
+    "left": "Historical and Deconstructed scenes use a stable comparison: by default, the",
+    "right": "Stacked and Deconstructed scenes use a stable comparison: by default, the first",
+    "why": "Actual changed line pair",
+    "commit": "64d2af0437908d719a059feb09aa5f877bcd6cfd",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-214",
+    "category": "repository",
+    "left": "first and last scene panels, or explicit endpoints chosen by the author. Moving",
+    "right": "and last scene panels, or explicit endpoints chosen by the author. Moving between",
+    "why": "Actual changed line pair",
+    "commit": "64d2af0437908d719a059feb09aa5f877bcd6cfd",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-215",
+    "category": "repository",
+    "left": "between steps never changes this comparison. The column labels identify its endpoints. Walkthrough scenes use",
+    "right": "steps never changes this comparison. The column labels identify its endpoints.",
+    "why": "Actual changed line pair",
+    "commit": "64d2af0437908d719a059feb09aa5f877bcd6cfd",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-216",
+    "category": "repository",
+    "left": "a file, `Overview › file path` shows where you are, with a reminder that narration",
+    "right": "subdirectory. While browsing a file, `Overview › file path` shows where you are,",
+    "why": "Actual changed line pair",
+    "commit": "64d2af0437908d719a059feb09aa5f877bcd6cfd",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-217",
+    "category": "repository",
+    "left": "still describes the overview.",
+    "right": "with a reminder that narration still describes the overview.",
+    "why": "Actual changed line pair",
+    "commit": "64d2af0437908d719a059feb09aa5f877bcd6cfd",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-218",
+    "category": "repository",
+    "left": "shell command runs automatically. Prompt ranges use exact committed identities",
+    "right": "automatically. Prompt ranges use exact committed identities or explicitly ask for",
+    "why": "Actual changed line pair",
+    "commit": "8692027b432db454e86c9c7fb3586f8d12553787",
+    "file": "docs/product-surface.md"
+  },
+  {
+    "id": "history-219",
+    "category": "repository",
+    "left": "    historical: 'No Historical tour is available for this comparison. View or edit a sample LLM prompt.',",
+    "right": "    historical: 'No Historical tour is available. Copy a prompt for your coding agent and read or customize its Markdown instructions.',",
+    "why": "Actual changed line pair",
+    "commit": "8692027b432db454e86c9c7fb3586f8d12553787",
+    "file": "media/workspaceControls.js"
+  },
+  {
+    "id": "history-220",
+    "category": "repository",
+    "left": "    deconstructed: 'No Deconstructed tour is available for this comparison. View or edit a sample LLM prompt.'",
+    "right": "    deconstructed: 'No Deconstructed tour is available. Copy a prompt for your coding agent and read or customize its Markdown instructions.'",
+    "why": "Actual changed line pair",
+    "commit": "8692027b432db454e86c9c7fb3586f8d12553787",
+    "file": "media/workspaceControls.js"
+  },
+  {
+    "id": "history-221",
+    "category": "repository",
+    "left": "        if (draft.contextKey !== contextKey(currentState.promptContext)) {",
+    "right": "        } else if (draft.contextKey !== contextKey(currentState.promptContext)) {",
+    "why": "Actual changed line pair",
+    "commit": "8692027b432db454e86c9c7fb3586f8d12553787",
+    "file": "media/workspaceControls.js"
+  },
+  {
+    "id": "history-222",
+    "category": "repository",
+    "left": "                text: buildWorkspacePrompt(kind, currentState.promptContext),",
+    "right": "                text: buildWorkspacePrompt(kind, currentState.promptContext, getSkill()),",
+    "why": "Actual changed line pair",
+    "commit": "8692027b432db454e86c9c7fb3586f8d12553787",
+    "file": "media/workspaceControls.js"
+  },
+  {
+    "id": "history-223",
+    "category": "repository",
+    "left": "    textarea.rows = 22;",
+    "right": "    textarea.rows = 9;",
+    "why": "Actual changed line pair",
+    "commit": "8692027b432db454e86c9c7fb3586f8d12553787",
+    "file": "media/workspaceControls.js"
+  },
+  {
+    "id": "history-224",
+    "category": "repository",
+    "left": "    const resetButton = makeButton(document, 'Reset sample', 'workspace-prompt-reset');",
+    "right": "    const resetButton = makeButton(document, 'Reset prompt', 'workspace-prompt-reset');",
+    "why": "Actual changed line pair",
+    "commit": "8692027b432db454e86c9c7fb3586f8d12553787",
+    "file": "media/workspaceControls.js"
+  },
+  {
+    "id": "history-225",
+    "category": "repository",
+    "left": " * Build the provider-neutral authoring handoff shown when a tour kind is not",
+    "right": " * Build a compact provider-neutral authoring handoff without inspecting the",
+    "why": "Actual changed line pair",
+    "commit": "8692027b432db454e86c9c7fb3586f8d12553787",
+    "file": "src/workspacePrompt.ts"
+  },
+  {
+    "id": "history-226",
+    "category": "repository",
+    "left": "    context: WorkspacePromptContext = {}",
+    "right": "    context: WorkspacePromptContext = {},",
+    "why": "Actual changed line pair",
+    "commit": "8692027b432db454e86c9c7fb3586f8d12553787",
+    "file": "src/workspacePrompt.ts"
+  },
+  {
+    "id": "history-227",
+    "category": "repository",
+    "left": "    const exactRange = isExactRange(repository, revisions, status);",
+    "right": "    const exactRange = isExactRange(repository, revisions, context.rangeStatus);",
+    "why": "Actual changed line pair",
+    "commit": "8692027b432db454e86c9c7fb3586f8d12553787",
+    "file": "src/workspacePrompt.ts"
+  },
+  {
+    "id": "history-228",
+    "category": "repository",
+    "left": "function shellQuote(value: string): string {",
+    "right": "function buildSkillInstruction(skill: WorkspacePromptSkill): string {",
+    "why": "Actual changed line pair",
+    "commit": "8692027b432db454e86c9c7fb3586f8d12553787",
+    "file": "src/workspacePrompt.ts"
+  },
+  {
+    "id": "history-229",
+    "category": "repository",
+    "left": "    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;",
+    "right": "    return typeof value === 'string' && value.trim().length > 0 ? value : undefined;",
+    "why": "Actual changed line pair",
+    "commit": "8692027b432db454e86c9c7fb3586f8d12553787",
+    "file": "src/workspacePrompt.ts"
+  },
+  {
+    "id": "history-230",
+    "category": "repository",
+    "left": "const { loadTourSource } = require('./tourFile.js');",
+    "right": "const { loadTourSource, parseTourSourceText, buildManifestForTourSource } = require('./tourFile.js');",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-231",
+    "category": "repository",
+    "left": "    const story = process.env.BYGONE_TOUR_STORY",
+    "right": "    const story = !options.ignoreEnvironment && process.env.BYGONE_TOUR_STORY",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-232",
+    "category": "repository",
+    "left": "        title: process.env.BYGONE_TOUR_TITLE,",
+    "right": "        title: options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_TITLE,",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-233",
+    "category": "repository",
+    "left": "        sourceUrl: process.env.BYGONE_TOUR_SOURCE_URL,",
+    "right": "        sourceUrl: options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_SOURCE_URL,",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-234",
+    "category": "repository",
+    "left": "    const outputPath = process.env.BYGONE_TOUR_OUTPUT;",
+    "right": "    const outputPath = options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_OUTPUT;",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-235",
+    "category": "repository",
+    "left": "            if (!history) return respondJson(response, 404, { error: 'History requires a version 2 tour.' });",
+    "right": "            if (!requestHistory) return respondJson(response, 404, { error: 'History requires a version 2 tour.' });",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-236",
+    "category": "repository",
+    "left": "                        ? history.list(input)",
+    "right": "                        ? requestHistory.list(input)",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-237",
+    "category": "repository",
+    "left": "                            ? history.diff(input)",
+    "right": "                            ? requestHistory.diff(input)",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-238",
+    "category": "repository",
+    "left": "                                ? history.compare(input)",
+    "right": "                                ? requestHistory.compare(input)",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-239",
+    "category": "repository",
+    "left": "                                    ? history.compareMany(input)",
+    "right": "                                    ? requestHistory.compareMany(input)",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-240",
+    "category": "repository",
+    "left": "                                    : history.revisions(input);",
+    "right": "                                    : requestHistory.revisions(input);",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-241",
+    "category": "repository",
+    "left": "    const requestedPort = readPort(process.env.BYGONE_TOUR_PORT);",
+    "right": "    const requestedPort = readPort(options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_PORT);",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-242",
+    "category": "repository",
+    "left": "            navigation: captureNavigationState()",
+    "right": "            navigation: captureNavigationState(), buffers",
+    "why": "Actual changed line pair",
+    "commit": "d43cf0336bf87a369d19ed9ea0315f17f672f6ed",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-243",
+    "category": "repository",
+    "left": "    const tourMarker = item.inTour ? '<span class=\"history-tour-marker\">Tour</span>' : '';",
+    "right": "    const tourMarker = item.inTour ? '<span class=\"history-tour-marker\" role=\"img\" title=\"In tour range\" aria-label=\"In tour range\"></span>' : '';",
+    "why": "Actual changed line pair",
+    "commit": "2b893d2257feae009bff416db0af273026e649e2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-244",
+    "category": "repository",
+    "left": "        + selection",
+    "right": "        + tourMarker + selection",
+    "why": "Actual changed line pair",
+    "commit": "2b893d2257feae009bff416db0af273026e649e2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-245",
+    "category": "repository",
+    "left": "        + `<span class=\"history-rail-text\"><span class=\"history-rail-label\">${escapeHtml(item.label)}</span>${meta}</span>${fileMarker}${tourMarker}${panelBadge}`",
+    "right": "        + `<span class=\"history-rail-text\"><span class=\"history-rail-label\">${escapeHtml(item.label)}</span>${metadata}</span>${panelBadge}`",
+    "why": "Actual changed line pair",
+    "commit": "2b893d2257feae009bff416db0af273026e649e2",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-246",
+    "category": "repository",
+    "left": "    const output = git(root, ['log', `--max-count=${DEFAULT_HISTORY_MAX_COMMITS}`, '--format=%x1e%H%x00%P%x00%s%x00%cI%x00', commit, '--']);",
+    "right": "    const output = git(root, ['log', '--topo-order', '--format=%x1e%H%x00%P%x00%s%x00%cI%x00', commit, '--']);",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-247",
+    "category": "repository",
+    "left": "            const output = git(root, ['--literal-pathspecs', 'log', '--follow', '-M', '--max-count=250',",
+    "right": "            const output = git(root, ['--literal-pathspecs', 'log', '--topo-order', '--follow', '-M',",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-248",
+    "category": "repository",
+    "left": "            const filePath = validatePath(input.path);",
+    "right": "            let filePath = validatePath(input.path);",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-249",
+    "category": "repository",
+    "left": "                if (!oid || absent) return '';",
+    "right": "                if (!oid || absent || !pathExistsAt(root, oid, name)) return '';",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-250",
+    "category": "repository",
+    "left": "                const content = git(root, ['cat-file', 'blob', `${oid}:${name}`], { encoding: 'buffer', maxBuffer: DEFAULT_HISTORY_MAX_FILE_BYTES + 1 });",
+    "right": "                const content = readGitText(root, oid, name);",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-251",
+    "category": "repository",
+    "left": "                if (content.includes(0) || content.length > DEFAULT_HISTORY_MAX_FILE_BYTES) throw new Error('History file is binary or too large to display.');",
+    "right": "                if (content.kind === 'omitted') throw new Error(content.reason);",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-252",
+    "category": "repository",
+    "left": "                return content.toString('utf8');",
+    "right": "                return content.content;",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-253",
+    "category": "repository",
+    "left": "- **History** browses a file's actual Git revisions. Choose **Commits** in the",
+    "right": "- **History** uses all commits reachable from the presentation's head, in stable",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-254",
+    "category": "repository",
+    "left": "  navigator, check two or more revisions, then choose **Compare selected**.",
+    "right": "  topological order, including commits that did not change the current file.",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-255",
+    "category": "repository",
+    "left": "  History starts with a commit and its parent. Panel `+` controls expand into",
+    "right": "  Left/right moves through commits; up/down moves through the Files list without",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-256",
+    "category": "repository",
+    "left": "Parent/base revisions absent from the file history appear as labeled extra rows.",
+    "right": "commit list appear as labeled extra rows.",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-257",
+    "category": "repository",
+    "left": "**Reset selection** selects the revisions currently loaded in the workspace.",
+    "right": "**Reset selection** selects the real revisions currently loaded in the workspace.",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-258",
+    "category": "repository",
+    "left": "position during the session; entering a tour for the first time starts at its",
+    "right": "position and navigator tab during the session; entering a tour for the first time starts at its",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-259",
+    "category": "repository",
+    "left": "        setActiveMultiPanel(message.panelId, true);",
+    "right": "        } else setActiveMultiPanel(message.panelId, true);",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-260",
+    "category": "repository",
+    "left": "    if (!history) {",
+    "right": "    if (!history || history.navigatorOnly) {",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-261",
+    "category": "repository",
+    "left": "        '<div class=\"history-rail-tabs\">',",
+    "right": "        `<div class=\"history-rail-tabs\"${presentOwned && tabs.length === 1 ? ' hidden' : ''}>`,",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-262",
+    "category": "repository",
+    "left": "    const selection = item.kind === 'history-entry' || (item.kind === 'panel-revision' && item.commit)",
+    "right": "    const selection = item.selectionEnabled !== false && (item.kind === 'history-entry' || (item.kind === 'panel-revision' && item.commit))",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-263",
+    "category": "repository",
+    "left": "        + `<span class=\"history-rail-text\"><span class=\"history-rail-label\">${escapeHtml(item.label)}</span>${meta}</span>${panelBadge}`",
+    "right": "        + `<span class=\"history-rail-text\"><span class=\"history-rail-label\">${escapeHtml(item.label)}</span>${meta}</span>${fileMarker}${tourMarker}${panelBadge}`",
+    "why": "Actual changed line pair",
+    "commit": "e6363cdfbcf1751e790626fe0399055ca51f243e",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-264",
+    "category": "repository",
+    "left": "The active scene expands into named, selectable steps in the outline. The",
+    "right": "named, selectable steps in the Tour outline. The",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-265",
+    "category": "repository",
+    "left": "narrow screens above the diff.",
+    "right": "stacking another permanent region above the diff.",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-266",
+    "category": "repository",
+    "left": "collapsed. The Files rail is independent of the narrative. Browsing another file keeps",
+    "right": "changing the active tour position. Browsing another file keeps the active tour",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-267",
+    "category": "repository",
+    "left": "the active tour anchor visible and offers **Return to Tour** to restore the",
+    "right": "anchor visible and offers **Return to Tour** to restore the scene's intended",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-268",
+    "category": "repository",
+    "left": "scene's intended focus.",
+    "right": "focus.",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-269",
+    "category": "repository",
+    "left": "**Tour details** is expanded by default and contains the source link, range, change counts, and authored",
+    "right": "**Tour details** is available on demand and contains the source link, range,",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-270",
+    "category": "repository",
+    "left": "diff-hunk coverage. Coverage describes how much code the author anchored; it",
+    "right": "change counts, and authored diff-hunk coverage. Coverage describes how much",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-271",
+    "category": "repository",
+    "left": "does not measure your reading progress. The header shows your current step.",
+    "right": "code the author anchored; it does not measure your reading progress. The",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-272",
+    "category": "repository",
+    "left": "- **History** browses a file's actual Git revisions. Check two or more revisions",
+    "right": "- **History** browses a file's actual Git revisions. Choose **Commits** in the",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-273",
+    "category": "repository",
+    "left": "  in the revision rail, then choose **Compare selected**. Activating a revision's",
+    "right": "  navigator, check two or more revisions, then choose **Compare selected**.",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-274",
+    "category": "repository",
+    "left": "  label previews it without changing the comparison selection. Shortcuts compare",
+    "right": "  History starts with a commit and its parent. Panel `+` controls expand into",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-275",
+    "category": "repository",
+    "left": "  diff between each adjacent pair. The revision rail remains available for",
+    "right": "  diff between each adjacent pair. The Commit navigator remains available for",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-276",
+    "category": "repository",
+    "left": "  adding or removing panels, and activating a selected revision focuses its",
+    "right": "  editing a draft selection; **Update comparison** applies it. Activating a loaded revision focuses its",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-277",
+    "category": "repository",
+    "left": "Narration controls appear beside the reading breadcrumb by default,",
+    "right": "Narration controls are available from **‹ Narration** beside the reading",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-278",
+    "category": "repository",
+    "left": "with sentence navigation, Stop, voice, and speed. Use the right-edge chevron to",
+    "right": "breadcrumb, with sentence navigation, Stop, voice, and speed. Use the",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-279",
+    "category": "repository",
+    "left": "  exact source evidence, and an independent changed-files rail.",
+    "right": "  exact source evidence, and one task navigator for Tour, Files, or Commits.",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/product-surface.md"
+  },
+  {
+    "id": "history-280",
+    "category": "repository",
+    "left": "| Explain a branch automatically | Present → Present Current Branch or Present Branch or Ref; `bygone present` | Committed merge-base-to-tip range with a deterministic overview first scene and complete Files rail | Read-only; authored tours retain their authored order | Core | attention-model, presentation launch, generated-tour, and desktop menu tests |",
+    "right": "| Explain a branch automatically | Present → Present Current Branch or Present Branch or Ref; `bygone present` | Committed merge-base-to-tip range with a deterministic overview first scene and complete Files navigator | Read-only; authored tours retain their authored order | Core | attention-model, presentation launch, generated-tour, and desktop menu tests |",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/product-surface.md"
+  },
+  {
+    "id": "history-281",
+    "category": "repository",
+    "left": "| Browse away from the narration | Files rail, change navigation | Browsed file versus active tour focus remain distinct | Read-only; Return to Tour restores narrative focus | Core | tour focus and persistent-anchor tests |",
+    "right": "| Browse away from the narration | Files navigator, change navigation | Browsed file versus active tour focus remain distinct | Read-only; Return to Tour restores narrative focus | Core | tour focus and persistent-anchor tests |",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "docs/product-surface.md"
+  },
+  {
+    "id": "history-282",
+    "category": "repository",
+    "left": "            + `<span class=\"multi-pane-title\">${escapeHtml(panel.label)}</span>`",
+    "right": "            + `<span class=\"multi-pane-title\">${index + 1}. ${escapeHtml(panel.label)}</span>`",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-283",
+    "category": "repository",
+    "left": "        ? `Comparison ${current + 1}–${current + 2} of ${multiPanels.length}`",
+    "right": "        ? `Panels ${current + 1}–${current + 2} of ${multiPanels.length}`",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-284",
+    "category": "repository",
+    "left": "            if (Number.isInteger(itemIndex)) host.postMessage({ type: 'toggleHistorySelection', index: itemIndex });",
+    "right": "                host.postMessage({ type: 'toggleHistorySelection', index: itemIndex });",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-285",
+    "category": "repository",
+    "left": "        && !navigationRailCollapsed",
+    "right": "        && (presentOwned || !navigationRailCollapsed)",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-286",
+    "category": "repository",
+    "left": "        showButton.hidden = !railAvailable;",
+    "right": "        showButton.hidden = presentOwned || !railAvailable;",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-287",
+    "category": "repository",
+    "left": "    container.classList.add('history-rail-visible');",
+    "right": "    container.classList.toggle('history-rail-visible', !presentOwned);",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-288",
+    "category": "repository",
+    "left": "        '<div class=\"history-rail-controls\">',",
+    "right": "            '<div class=\"history-rail-controls\">',",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-289",
+    "category": "repository",
+    "left": "        `<span>${historyRailKind === 'directory' ? 'Files' : 'History'}</span>`,",
+    "right": "            `<span>${historyRailKind === 'directory' ? 'Files' : 'History'}</span>`,",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-290",
+    "category": "repository",
+    "left": "        '<button class=\"history-rail-collapse\" type=\"button\" title=\"Hide navigation sidebar\" aria-label=\"Hide navigation sidebar\" data-rail-collapse>‹</button>',",
+    "right": "            '<button class=\"history-rail-collapse\" type=\"button\" title=\"Hide navigation sidebar\" aria-label=\"Hide navigation sidebar\" data-rail-collapse>‹</button>',",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-291",
+    "category": "repository",
+    "left": "        '</div>',",
+    "right": "            '</div>'",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-292",
+    "category": "repository",
+    "left": "        `<div class=\"history-rail-resizer\" role=\"separator\" aria-label=\"Resize navigation sidebar\" title=\"Resize navigation sidebar (Left/Right; Home/End)\" aria-orientation=\"vertical\" aria-valuemin=\"${NAVIGATION_SIDEBAR_MIN_WIDTH}\" aria-valuemax=\"${maximumNavigationSidebarWidth()}\" aria-valuenow=\"${navigationRailWidth}\" tabindex=\"0\" data-rail-resizer></div>`",
+    "right": "            `<div class=\"history-rail-resizer\" role=\"separator\" aria-label=\"Resize navigation sidebar\" title=\"Resize navigation sidebar (Left/Right; Home/End)\" aria-orientation=\"vertical\" aria-valuemin=\"${NAVIGATION_SIDEBAR_MIN_WIDTH}\" aria-valuemax=\"${maximumNavigationSidebarWidth()}\" aria-valuenow=\"${navigationRailWidth}\" tabindex=\"0\" data-rail-resizer></div>`",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-293",
+    "category": "repository",
+    "left": "    const selection = item.kind === 'history-entry'",
+    "right": "    const selection = item.kind === 'history-entry' || (item.kind === 'panel-revision' && item.commit)",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-294",
+    "category": "repository",
+    "left": "        ? `<button class=\"history-rail-selection${item.selected ? ' selected' : ''}\" type=\"button\" role=\"checkbox\" aria-checked=\"${String(Boolean(item.selected))}\" title=\"${item.selected ? 'Remove from' : 'Add to'} comparison\" data-rail-select=\"true\"${indexAttr}>${item.selected ? '✓' : ''}</button>`",
+    "right": "        ? `<button class=\"history-rail-selection${item.selected ? ' selected' : ''}\" type=\"button\" role=\"checkbox\" aria-checked=\"${String(Boolean(item.selected))}\" title=\"${item.selected ? 'Remove from' : 'Add to'} comparison\" data-rail-select=\"true\" data-rail-tab=\"${escapeAttr(tabId)}\"${indexAttr}>${item.selected ? '✓' : ''}</button>`",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-295",
+    "category": "repository",
+    "left": "    return `<div class=\"history-rail-item${activeClass}${statusClass}\">`",
+    "right": "    return `<div class=\"history-rail-item${activeClass}${panelClass}${statusClass}\"${item.panelNumber ? ` data-rail-panel=\"${item.panelNumber}\"` : ''}>`",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-296",
+    "category": "repository",
+    "left": "        + `<span class=\"history-rail-text\"><span class=\"history-rail-label\">${escapeHtml(item.label)}</span>${meta}</span>`",
+    "right": "        + `<span class=\"history-rail-text\"><span class=\"history-rail-label\">${escapeHtml(item.label)}</span>${meta}</span>${panelBadge}`",
+    "why": "Actual changed line pair",
+    "commit": "d25de50b95caf67ffad7a739ba9a837abbd595b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-297",
+    "category": "repository",
+    "left": "            || requestUrl.pathname === '/history/compare' || requestUrl.pathname === '/history/revisions') {",
+    "right": "            || requestUrl.pathname === '/history/compare' || requestUrl.pathname === '/history/compare-many'",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-298",
+    "category": "repository",
+    "left": "                                : history.revisions(input);",
+    "right": "                                    : history.revisions(input);",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-299",
+    "category": "repository",
+    "left": "        compare(input) {",
+    "right": "        compareMany(input) {",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-300",
+    "category": "repository",
+    "left": "                to,",
+    "right": "                commits,",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-301",
+    "category": "repository",
+    "left": "                files: changedPaths.map(changedPath => buildComparisonFile(root, from, to, changedPath, statsByPath))",
+    "right": "                files: aggregateComparisonFiles(commits, comparisons)",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-302",
+    "category": "repository",
+    "left": "Version 2 and 3 tours show one mode control for jumping directly among the authored",
+    "right": "Version 2 and 3 tours show one mode control for moving among live Git History,",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-303",
+    "category": "repository",
+    "left": "navigating restores that location exactly.",
+    "right": "location; switching back restores that location exactly.",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-304",
+    "category": "repository",
+    "left": "Expand **Files** at the bottom of the sidebar to browse all changed files.",
+    "right": "**Files** at the bottom of the sidebar is expanded by default and can be",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-305",
+    "category": "repository",
+    "left": "The Files rail is independent of the narrative. Browsing another file keeps",
+    "right": "collapsed. The Files rail is independent of the narrative. Browsing another file keeps",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-306",
+    "category": "repository",
+    "left": "**Tour details** contains the source link, range, change counts, and authored",
+    "right": "**Tour details** is expanded by default and contains the source link, range, change counts, and authored",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-307",
+    "category": "repository",
+    "left": "Version 2 and 3 presentations group the mode switcher into **Explore** and **Tours**.",
+    "right": "Version 2 and 3 presentations expose **History**, **Compare**, and the available",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-308",
+    "category": "repository",
+    "left": "- **History** browses a file's actual Git revisions. Select a revision, choose",
+    "right": "- **History** browses a file's actual Git revisions. Check two or more revisions",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-309",
+    "category": "repository",
+    "left": "  **Compare from here**, then select another revision and choose **Compare to",
+    "right": "  in the revision rail, then choose **Compare selected**. Activating a revision's",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-310",
+    "category": "repository",
+    "left": "  here**. Shortcuts compare with the parent or review base.",
+    "right": "  label previews it without changing the comparison selection. Shortcuts compare",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-311",
+    "category": "repository",
+    "left": "- **Compare** shows a plain two-way diff between the selected revisions.",
+    "right": "- **Compare** shows one panel per selected revision, oldest to newest, with a",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-312",
+    "category": "repository",
+    "left": "  Change either endpoint or swap their order. Comparisons opened from file",
+    "right": "  diff between each adjacent pair. The revision rail remains available for",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-313",
+    "category": "repository",
+    "left": "  history stay on that file; **Show all changed files** expands the same range.",
+    "right": "  adding or removing panels, and activating a selected revision focuses its",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-314",
+    "category": "repository",
+    "left": "  **Final diff** selects the review base and head across all changed files.",
+    "right": "  panel. Comparisons opened from file history stay on that file; **Show all",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-315",
+    "category": "repository",
+    "left": "beginning. Switching modes does not infer a corresponding step in another tour.",
+    "right": "modes does not infer a corresponding step in another tour.",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-316",
+    "category": "repository",
+    "left": "        const target = event.target instanceof Element ? event.target.closest('[data-rail-tab], [data-rail-item], [data-rail-collapse]') : null;",
+    "right": "        const target = event.target instanceof Element ? event.target.closest('[data-rail-tab], [data-rail-item], [data-rail-select], [data-rail-collapse]') : null;",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-317",
+    "category": "repository",
+    "left": "    const action = item.kind === 'directory-entry' ? 'Open file' : 'Open history entry';",
+    "right": "    const action = item.kind === 'directory-entry' ? 'Open file' : 'Preview history entry';",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-318",
+    "category": "repository",
+    "left": "        + `<span class=\"history-rail-marker\">${escapeHtml(marker)}</span>`",
+    "right": "        : `<span class=\"history-rail-marker\">${escapeHtml(marker)}</span>`;",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-319",
+    "category": "repository",
+    "left": "        + `</button>`;",
+    "right": "        + `</button></div>`;",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-320",
+    "category": "repository",
+    "left": "    enter(mode: TourZoomMode, _mapped?: ZoomLocation | null): { location: ZoomLocation; restore: boolean } {",
+    "right": "    enter(mode: TourZoomMode, initial?: ZoomLocation | null): { location: ZoomLocation; restore: boolean } {",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "src/tourZoomSession.ts"
+  },
+  {
+    "id": "history-321",
+    "category": "repository",
+    "left": "            : { location: defaultZoomLocation(), restore: false };",
+    "right": "            : { location: initial ?? defaultZoomLocation(), restore: false };",
+    "why": "Actual changed line pair",
+    "commit": "8eef3a3fb83535c157d4fdad43c3405c66cb4b75",
+    "file": "src/tourZoomSession.ts"
+  },
+  {
+    "id": "history-322",
+    "category": "repository",
+    "left": "    if (manifest.version !== 2) return null;",
+    "right": "    if (manifest.version < 2) return null;",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-323",
+    "category": "repository",
+    "left": "requires the corresponding local repository and Git objects. Version 2",
+    "right": "requires the corresponding local repository and Git objects. Version 2 and 3",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-324",
+    "category": "repository",
+    "left": "artifacts, without the mode switcher.",
+    "right": "artifacts, without the mode switcher. Version 3 adds independent authored",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-325",
+    "category": "repository",
+    "left": "Version 2 can supply `tours.historical.chapters` and",
+    "right": "Version 3 can supply `tours.historical.chapters` and",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-326",
+    "category": "repository",
+    "left": "An authored walkthrough, stacked-diff, or deconstructed-diff scene may carry a",
+    "right": "In version 3, an authored walkthrough, stacked-diff, or deconstructed-diff scene may carry a",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-327",
+    "category": "repository",
+    "left": "version: 2",
+    "right": "version: 3",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-328",
+    "category": "repository",
+    "left": "Version 2 tours show one mode control for jumping directly among the authored",
+    "right": "Version 2 and 3 tours show one mode control for jumping directly among the authored",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-329",
+    "category": "repository",
+    "left": "commits. In version 2, every deconstructed scene must also provide the regular",
+    "right": "commits. In version 2 and 3, every root deconstructed scene must also provide the regular",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/change-tour-format.md"
+  },
+  {
+    "id": "history-330",
+    "category": "repository",
+    "left": "- Keep unresolved questions and review decisions in the external review record that accompanies the tour. The current `.bygone` schema has no separate notes field for them.",
+    "right": "- In a version 3 source, keep unresolved questions and review decisions in the top-level `review` block rather than presenting them as settled scene narration.",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/generating-change-tours.md"
+  },
+  {
+    "id": "history-331",
+    "category": "repository",
+    "left": "- keep unresolved questions and review decisions in the accompanying review record rather than adding an unsupported notes key;",
+    "right": "- for version 3, keep unresolved questions and review decisions in the top-level `review` block rather than adding an unsupported notes key;",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/generating-change-tours.md"
+  },
+  {
+    "id": "history-332",
+    "category": "repository",
+    "left": "An authored source may add a top-level `review` block when a reviewer needs a",
+    "right": "A version 3 authored source may add a top-level `review` block when a reviewer needs a",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/generating-change-tours.md"
+  },
+  {
+    "id": "history-333",
+    "category": "repository",
+    "left": "version 2 source it resolves against the **Final walkthrough**; if the reader",
+    "right": "resolves against the **Final walkthrough**. If the reader is in history or a",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/generating-change-tours.md"
+  },
+  {
+    "id": "history-334",
+    "category": "repository",
+    "left": "is in history or a revisions view, following an evidence link first returns to",
+    "right": "revisions view, following an evidence link first returns to that final range",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/generating-change-tours.md"
+  },
+  {
+    "id": "history-335",
+    "category": "repository",
+    "left": "that final range before selecting the scene and step.",
+    "right": "before selecting the scene and step.",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/generating-change-tours.md"
+  },
+  {
+    "id": "history-336",
+    "category": "repository",
+    "left": "Version 2 presentations group the mode switcher into **Explore** and **Tours**:",
+    "right": "Version 2 and 3 presentations group the mode switcher into **Explore** and **Tours**.",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-337",
+    "category": "repository",
+    "left": "The authored tour currently has no separate review-notes surface. Keep open",
+    "right": "Version 3 authored tours may expose a separate, read-only **Review notes** panel",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-338",
+    "category": "repository",
+    "left": "questions and review decisions in the review record that accompanies the tour;",
+    "right": "for evidence-linked concepts, boundaries, tradeoffs, and open questions. Scene",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-339",
+    "category": "repository",
+    "left": "the scene and step narrative should explain the implemented change and the",
+    "right": "and step narrative should still explain the implemented change and the tradeoffs",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-340",
+    "category": "repository",
+    "left": "tradeoffs supported by its evidence.",
+    "right": "supported by its evidence.",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-341",
+    "category": "repository",
+    "left": "An authored scene can show a directory comparison in its Overview. Open a file",
+    "right": "In version 3, an authored scene can show a directory comparison in its Overview. Open a file",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/present.md"
+  },
+  {
+    "id": "history-342",
+    "category": "repository",
+    "left": "| Read optional authored review notes | Browser or desktop Present shows an opt-in **Review notes** button when the manifest includes `review` | `baseOid`/`headOid` pins and evidence links into the v1 walkthrough or v2 Final walkthrough | Immutable range; read-only panel; no scores or persisted reviewer state | Local prototype | `examples/bygone-history.bygone`, `test/reviewNotes.test.js`, and manual browser navigation check |",
+    "right": "| Read optional authored review notes | Browser or desktop Present shows an opt-in **Review notes** button when a v3 manifest includes `review` | `baseOid`/`headOid` pins and evidence links into the Final walkthrough | Immutable range; read-only panel; no scores or persisted reviewer state | Local prototype | `examples/bygone-history.bygone`, `test/reviewNotes.test.js`, and manual browser navigation check |",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/product-surface.md"
+  },
+  {
+    "id": "history-343",
+    "category": "repository",
+    "left": "| Assess authored tour coverage | Coverage indicators in the Present sidebar | Distinct hunks referenced by authored walkthrough anchors; v2 Final walkthrough coverage remains separate from deconstructed Explanation assignment completeness | Read-only authoring diagnostics; generated tours have no authored coverage metric | Advanced authoring | v1/v2 coverage and presenter-host tests |",
+    "right": "| Assess authored tour coverage | Coverage indicators in the Present sidebar | Distinct hunks referenced by authored walkthrough anchors; v2/v3 Final walkthrough coverage remains separate from deconstructed Explanation assignment completeness | Read-only authoring diagnostics; generated tours have no authored coverage metric | Advanced authoring | v1/v2/v3 coverage and presenter-host tests |",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "docs/product-surface.md"
+  },
+  {
+    "id": "history-344",
+    "category": "repository",
+    "left": "        // Only authored v2 files opt into repository-bound zoom modes. Generated",
+    "right": "        // Only authored v2+ files opt into repository-bound zoom modes. Generated",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-345",
+    "category": "repository",
+    "left": "    const authoredModeTours = source",
+    "right": "    const authoredModeTours = source?.version === 3",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-346",
+    "category": "repository",
+    "left": "    if (manifest.version === 2) {",
+    "right": "    if (manifest.version >= 2) {",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-347",
+    "category": "repository",
+    "left": "                    throw new Error(`Deconstructed scene ${scene.id} requires an explicit real revision stack in v2.`);",
+    "right": "                    throw new Error(`Deconstructed scene ${scene.id} requires an explicit real revision stack in v2+.`);",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-348",
+    "category": "repository",
+    "left": " * scenes from the root tour.  The root chapters remain the v1/v2 compatibility",
+    "right": " * scenes from the root tour.  The root chapters remain the compatibility tour;",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-349",
+    "category": "repository",
+    "left": " * tour; mode tours are emitted only when the source supplies one or when a v2",
+    "right": " * mode tours are emitted only for v3, when the source supplies one or contains",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-350",
+    "category": "repository",
+    "left": " * source contains enough authored material for an exact legacy fallback.",
+    "right": " * enough authored material for an exact legacy fallback.",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-351",
+    "category": "repository",
+    "left": "    } else if (source.version === 2) {",
+    "right": "    } else if (source.version === 3) {",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-352",
+    "category": "repository",
+    "left": "    } else if (source.version === 2 && source.chapters.some((chapter) => (",
+    "right": "    } else if (source.version === 3 && source.chapters.some((chapter) => (",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-353",
+    "category": "repository",
+    "left": "        // Preserve the existing v2 authored result exactly.  This fallback is",
+    "right": "        // Preserve the existing repository-bound authored result exactly. This fallback is",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-354",
+    "category": "repository",
+    "left": "export const CHANGE_TOUR_MANIFEST_VERSION = 2 as const;",
+    "right": "export const CHANGE_TOUR_MANIFEST_VERSION = 3 as const;",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-355",
+    "category": "repository",
+    "left": "    version: 1 | typeof CHANGE_TOUR_MANIFEST_VERSION;",
+    "right": "    version: 1 | 2 | typeof CHANGE_TOUR_MANIFEST_VERSION;",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-356",
+    "category": "repository",
+    "left": "    if (!isRecord(value) || (value.version !== 1 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {",
+    "right": "    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-357",
+    "category": "repository",
+    "left": "        validateScene(candidate, index);",
+    "right": "        validateScene(candidate, index, value.version);",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-358",
+    "category": "repository",
+    "left": "        validateModeTours(value.tours);",
+    "right": "        validateModeTours(value.tours, value.version);",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-359",
+    "category": "repository",
+    "left": "    if (value.version === 2) validateZoom(value);",
+    "right": "    if (value.version !== 1) validateZoom(value, value.version);",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-360",
+    "category": "repository",
+    "left": "        const evidenceScenes = value.version === 2 && isRecord(value.zoom) && isRecord(value.zoom.final)",
+    "right": "        const evidenceScenes = value.version >= 2 && isRecord(value.zoom) && isRecord(value.zoom.final)",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-361",
+    "category": "repository",
+    "left": "function validateAuthoringCoverage(value: unknown, version: 1 | 2): asserts value is ChangeTourAuthoringCoverage {",
+    "right": "function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 3): asserts value is ChangeTourAuthoringCoverage {",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-362",
+    "category": "repository",
+    "left": "    const expectedScope = version === 2 ? 'final' : 'tour';",
+    "right": "    const expectedScope = version >= 2 ? 'final' : 'tour';",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-363",
+    "category": "repository",
+    "left": "function validateModeTours(value: unknown): asserts value is ChangeTourTours {",
+    "right": "function validateModeTours(value: unknown, version: 3): asserts value is ChangeTourTours {",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-364",
+    "category": "repository",
+    "left": "            validateScene(scene, index);",
+    "right": "            validateScene(scene, index, version);",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-365",
+    "category": "repository",
+    "left": "function validateZoom(value: Record<string, unknown>): void {",
+    "right": "function validateZoom(value: Record<string, unknown>, version: 2 | 3): void {",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-366",
+    "category": "repository",
+    "left": "        validateScene(scene, index);",
+    "right": "        validateScene(scene, index, version);",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-367",
+    "category": "repository",
+    "left": "function validateScene(value: unknown, index: number): asserts value is ChangeTourScene {",
+    "right": "function validateScene(value: unknown, index: number, version: 1 | 2 | 3): asserts value is ChangeTourScene {",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-368",
+    "category": "repository",
+    "left": "            validateScene(step.diff, index);",
+    "right": "            validateScene(step.diff, index, version);",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-369",
+    "category": "repository",
+    "left": "        validateScene(value, index);",
+    "right": "        validateScene(value, index, 1);",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-370",
+    "category": "repository",
+    "left": "export const CHANGE_TOUR_SOURCE_VERSION = 2 as const;",
+    "right": "export const CHANGE_TOUR_SOURCE_VERSION = 3 as const;",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-371",
+    "category": "repository",
+    "left": "    /** Required for v2 root deconstruction; mode-specific Deconstructed may omit it. */",
+    "right": "    /** Required for v2+ root deconstruction; mode-specific Deconstructed may omit it. */",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-372",
+    "category": "repository",
+    "left": "    /** Required for v2 root deconstruction when endpoint walkthrough evidence is authored. */",
+    "right": "    /** Required for v2+ root deconstruction when endpoint walkthrough evidence is authored. */",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-373",
+    "category": "repository",
+    "left": "    version: 1 | typeof CHANGE_TOUR_SOURCE_VERSION;",
+    "right": "    version: 1 | 2 | typeof CHANGE_TOUR_SOURCE_VERSION;",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-374",
+    "category": "repository",
+    "left": "    if (!isRecord(value) || (value.version !== 1 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {",
+    "right": "    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-375",
+    "category": "repository",
+    "left": "        if (value.version !== 2) throw new Error('Independent tours require version 2.');",
+    "right": "        if (value.version !== 3) throw new Error('Independent tours require version 3.');",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-376",
+    "category": "repository",
+    "left": "    version: 1 | 2,",
+    "right": "    version: 1 | 2 | 3,",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-377",
+    "category": "repository",
+    "left": "                // scene.  v2 root scenes and explicit Historical scenes retain",
+    "right": "                // scene.  v2+ root scenes and explicit Historical scenes retain",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-378",
+    "category": "repository",
+    "left": "                const requireRealEvidence = mode === 'root' && version === 2;",
+    "right": "                const requireRealEvidence = mode === 'root' && version >= 2;",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-379",
+    "category": "repository",
+    "left": "                validateStackedScene(scene, path, mode === 'root' ? (version === 2 ? 2 : 3) : 2);",
+    "right": "                validateStackedScene(scene, path, mode === 'root' ? (version >= 2 ? 2 : 3) : 2);",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-380",
+    "category": "repository",
+    "left": "    const percentageDecimalPlaces = manifest.version === 2 ? 2 : 0;",
+    "right": "    const percentageDecimalPlaces = manifest.version >= 2 ? 2 : 0;",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/tourCoverage.ts"
+  },
+  {
+    "id": "history-381",
+    "category": "repository",
+    "left": "    const walkthroughScenes = manifest.version === 2",
+    "right": "    const walkthroughScenes = manifest.version >= 2",
+    "why": "Actual changed line pair",
+    "commit": "a5822fd56ab67f516d732ef80ba9fc24726f5430",
+    "file": "src/tourCoverage.ts"
+  },
+  {
+    "id": "history-382",
+    "category": "repository",
+    "left": "        if (requestUrl.pathname === '/history/list' || requestUrl.pathname === '/history/diff') {",
+    "right": "        if (requestUrl.pathname === '/history/list' || requestUrl.pathname === '/history/diff'",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-383",
+    "category": "repository",
+    "left": "                    const result = requestUrl.pathname === '/history/list' ? history.list(input) : history.diff(input);",
+    "right": "                    const result = requestUrl.pathname === '/history/list'",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "cli/present.js"
+  },
+  {
+    "id": "history-384",
+    "category": "repository",
+    "left": "function git(root, args) {",
+    "right": "function git(root, args, options = {}) {",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-385",
+    "category": "repository",
+    "left": "    const resolved = git(root, ['rev-parse', '--verify', `${value}^{commit}`]).trim();",
+    "right": "        resolved = git(root, ['rev-parse', '--verify', `${value}^{commit}`]).trim();",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-386",
+    "category": "repository",
+    "left": "            const changes = parseNameStatusZ(git(root, ['diff-tree', '--root', '--no-commit-id', '-r', '-M', '--name-status', '-z',",
+    "right": "            const changes = parseNameStatusZ(git(root, ['--literal-pathspecs', 'diff-tree', '--root', '--no-commit-id', '-r', '-M', '--name-status', '-z',",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-387",
+    "category": "repository",
+    "left": "                ...(parentCommit ? [parentCommit, commit] : [commit])]));",
+    "right": "                ...(parentCommit ? [parentCommit, commit] : [commit]), '--']));",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-388",
+    "category": "repository",
+    "left": "                const content = git(root, ['show', `${oid}:${name}`]);",
+    "right": "                const content = git(root, ['cat-file', 'blob', `${oid}:${name}`], { encoding: 'buffer', maxBuffer: DEFAULT_HISTORY_MAX_FILE_BYTES + 1 });",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-389",
+    "category": "repository",
+    "left": "                if (content.includes('\\0') || content.length > 2 * 1024 * 1024) throw new Error('History file is binary or too large to display.');",
+    "right": "                if (content.includes(0) || content.length > DEFAULT_HISTORY_MAX_FILE_BYTES) throw new Error('History file is binary or too large to display.');",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-390",
+    "category": "repository",
+    "left": "                return content;",
+    "right": "                return content.toString('utf8');",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "cli/tourHistory.js"
+  },
+  {
+    "id": "history-391",
+    "category": "repository",
+    "left": "function notifyRenderComplete() {",
+    "right": "function notifyRenderComplete(renderRequestId = undefined) {",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-392",
+    "category": "repository",
+    "left": "            message.fileExists || null",
+    "right": "            message.fileExists || null,",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-393",
+    "category": "repository",
+    "left": "            message.review || null",
+    "right": "            message.review || null,",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-394",
+    "category": "repository",
+    "left": "            message.tourAnnotations || []",
+    "right": "            message.tourAnnotations || [],",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-395",
+    "category": "repository",
+    "left": "            pendingTwoWayPayload.fileExists || null",
+    "right": "            pendingTwoWayPayload.fileExists || null,",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-396",
+    "category": "repository",
+    "left": "            pendingMultiPayload.tourAnnotations || []",
+    "right": "            pendingMultiPayload.tourAnnotations || [],",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-397",
+    "category": "repository",
+    "left": "function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = [], sourceInfo = null, readOnlyLabel = null, fileExists = null) {",
+    "right": "function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = [], sourceInfo = null, readOnlyLabel = null, fileExists = null, renderRequestId = undefined) {",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-398",
+    "category": "repository",
+    "left": "        computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, diffEpoch);",
+    "right": "        computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, diffEpoch, renderRequestId);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-399",
+    "category": "repository",
+    "left": "        notifyRenderComplete();",
+    "right": "        notifyRenderComplete(renderRequestId);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-400",
+    "category": "repository",
+    "left": "function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, epoch) {",
+    "right": "function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextActiveDiffIndex, epoch, renderRequestId = undefined) {",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-401",
+    "category": "repository",
+    "left": "            notifyRenderComplete();",
+    "right": "            notifyRenderComplete(renderRequestId);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-402",
+    "category": "repository",
+    "left": "                notifyRenderComplete();",
+    "right": "                notifyRenderComplete(renderRequestId);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-403",
+    "category": "repository",
+    "left": "function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canMutate = true, review = null) {",
+    "right": "function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canMutate = true, review = null, renderRequestId = undefined) {",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-404",
+    "category": "repository",
+    "left": "    notifyRenderComplete();",
+    "right": "    notifyRenderComplete(renderRequestId);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-405",
+    "category": "repository",
+    "left": "function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = []) {",
+    "right": "function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = [], renderRequestId = undefined) {",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "media/script.js"
+  },
+  {
+    "id": "history-406",
+    "category": "repository",
+    "left": "    const authored = options.source",
+    "right": "    const authored = parsedSource",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-407",
+    "category": "repository",
+    "left": "        ? applySource(parseChangeTourSource(options.source), defaultScenes, range.repoRoot)",
+    "right": "        ? applySource(parsedSource, defaultScenes, range.repoRoot)",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-408",
+    "category": "repository",
+    "left": "        version: options.source?.version ?? 1,",
+    "right": "        version: parsedSource?.version ?? 1,",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-409",
+    "category": "repository",
+    "left": "        title: options.source?.title || options.story?.title || options.title || `${range.headRef} against ${range.baseRef}`,",
+    "right": "        title: parsedSource?.title || options.story?.title || options.title || `${range.headRef} against ${range.baseRef}`,",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-410",
+    "category": "repository",
+    "left": "        windowTitle: options.source?.windowTitle,",
+    "right": "        windowTitle: parsedSource?.windowTitle,",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-411",
+    "category": "repository",
+    "left": "        sourceUrl: options.source?.sourceUrl || options.story?.sourceUrl || options.sourceUrl,",
+    "right": "        sourceUrl: parsedSource?.sourceUrl || options.story?.sourceUrl || options.sourceUrl,",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-412",
+    "category": "repository",
+    "left": "                const authoredScene = options.source?.chapters.flatMap((chapter) => chapter.scenes)",
+    "right": "                const authoredScene = parsedSource?.chapters.flatMap((chapter) => chapter.scenes)",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-413",
+    "category": "repository",
+    "left": "    for (const chapter of source.chapters) {",
+    "right": "    for (const chapter of chaptersToCompile) {",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-414",
+    "category": "repository",
+    "left": "    authoredScene: ChangeTourNarrative & { id: string; title: string; steps: ChangeTourSourceStep[] },",
+    "right": "    authoredScene: ChangeTourNarrative & {",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTour.ts"
+  },
+  {
+    "id": "history-415",
+    "category": "repository",
+    "left": "import { validateStepRequirement, type ChangeTourStepRequirement } from './changeTourSource';",
+    "right": "import { validateSceneOverview, validateStepRequirement, type ChangeTourStepRequirement } from './changeTourSource';",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourManifest.ts"
+  },
+  {
+    "id": "history-416",
+    "category": "repository",
+    "left": "    /** Required in v2: the real tour underlying the explanation stages. */",
+    "right": "    /** Required for v2 root deconstruction; mode-specific Deconstructed may omit it. */",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-417",
+    "category": "repository",
+    "left": "    /** Required in v2: the regular endpoint tour underlying the explanation stages. */",
+    "right": "    /** Required for v2 root deconstruction when endpoint walkthrough evidence is authored. */",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-418",
+    "category": "repository",
+    "left": "    requireOnlyKeys(value, ['version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'coverage'], 'source');",
+    "right": "        'version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage'",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-419",
+    "category": "repository",
+    "left": "    for (const [chapterIndex, chapter] of value.chapters.entries()) {",
+    "right": "    for (const [chapterIndex, chapter] of chaptersValue.entries()) {",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-420",
+    "category": "repository",
+    "left": "            throw new Error(`chapters[${chapterIndex}] must contain a non-empty scenes array.`);",
+    "right": "            throw new Error(`${chapterPath} must contain a non-empty scenes array.`);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-421",
+    "category": "repository",
+    "left": "        requireString(chapter.id, `chapters[${chapterIndex}].id`);",
+    "right": "        requireString(chapter.id, `${chapterPath}.id`);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-422",
+    "category": "repository",
+    "left": "        requireString(chapter.title, `chapters[${chapterIndex}].title`);",
+    "right": "        requireString(chapter.title, `${chapterPath}.title`);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-423",
+    "category": "repository",
+    "left": "        requireOnlyKeys(chapter, ['id', 'title', 'scenes'], `chapters[${chapterIndex}]`);",
+    "right": "        requireOnlyKeys(chapter, ['id', 'title', 'scenes'], chapterPath);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-424",
+    "category": "repository",
+    "left": "            const path = `chapters[${chapterIndex}].scenes[${sceneIndex}]`;",
+    "right": "            const path = `${chapterPath}.scenes[${sceneIndex}]`;",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-425",
+    "category": "repository",
+    "left": "                if (value.version === 2 || scene.stack !== undefined) validateRealStack(scene.stack, `${path}.stack`, 2);",
+    "right": "                    validateRealStack(scene.stack, `${path}.stack`, 2);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-426",
+    "category": "repository",
+    "left": "                    validateWalkthroughSteps(scene, path, value.anchors, connectionIds);",
+    "right": "                    validateWalkthroughSteps(scene, path, anchors, connectionIds);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-427",
+    "category": "repository",
+    "left": "                validateStackedScene(scene, path, value.version === 2 ? 2 : 3);",
+    "right": "                validateStackedScene(scene, path, mode === 'root' ? (version === 2 ? 2 : 3) : 2);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-428",
+    "category": "repository",
+    "left": "            requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'steps'], path);",
+    "right": "            requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'overview', 'steps'], path);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-429",
+    "category": "repository",
+    "left": "            validateWalkthroughSteps(scene, path, value.anchors, connectionIds);",
+    "right": "            validateWalkthroughSteps(scene, path, anchors, connectionIds);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-430",
+    "category": "repository",
+    "left": "    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'base', 'target', 'stack', 'steps', 'stages', 'exclusions'], path);",
+    "right": "    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'overview', 'base', 'target', 'stack', 'steps', 'stages', 'exclusions'], path);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-431",
+    "category": "repository",
+    "left": "    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'stack', 'files', 'steps'], path);",
+    "right": "    requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'overview', 'stack', 'files', 'steps'], path);",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/changeTourSource.ts"
+  },
+  {
+    "id": "history-432",
+    "category": "repository",
+    "left": "        ? requireFinalScenes(manifest.zoom?.final.scenes)",
+    "right": "        ? requireFinalScenes(historicalHasWalkthrough ? authoredHistoricalScenes : manifest.zoom?.final.scenes)",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/tourCoverage.ts"
+  },
+  {
+    "id": "history-433",
+    "category": "repository",
+    "left": "        : manifest.scenes;",
+    "right": "        : historicalHasWalkthrough ? authoredHistoricalScenes : manifest.scenes;",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/tourCoverage.ts"
+  },
+  {
+    "id": "history-434",
+    "category": "repository",
+    "left": "    return source.chapters",
+    "right": "    return deconstructedChapters",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/tourCoverage.ts"
+  },
+  {
+    "id": "history-435",
+    "category": "repository",
+    "left": "/** Session cursors are only replaced by deliberate navigation, never by a fallback landing. */",
+    "right": "/** The canonical views that keep an independent cursor in a tour session. */",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/tourZoomSession.ts"
+  },
+  {
+    "id": "history-436",
+    "category": "repository",
+    "left": "export type TourZoomMode = 'explanation' | 'revisions' | 'final' | 'history';",
+    "right": "export type TourZoomMode = 'history' | 'compare' | 'historical' | 'deconstructed';",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/tourZoomSession.ts"
+  },
+  {
+    "id": "history-437",
+    "category": "repository",
+    "left": "    private cursors = new Map<TourZoomMode, { location: ZoomLocation; epoch: number }>();",
+    "right": "    private cursors = new Map<TourZoomMode, ZoomLocation>();",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/tourZoomSession.ts"
+  },
+  {
+    "id": "history-438",
+    "category": "repository",
+    "left": "    navigate(): void { this.dirty = true; }",
+    "right": "    navigate(): void {}",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/tourZoomSession.ts"
+  },
+  {
+    "id": "history-439",
+    "category": "repository",
+    "left": "    enter(mode: TourZoomMode, mapped: ZoomLocation | null): { location: ZoomLocation; restore: boolean } {",
+    "right": "    enter(mode: TourZoomMode, _mapped?: ZoomLocation | null): { location: ZoomLocation; restore: boolean } {",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/tourZoomSession.ts"
+  },
+  {
+    "id": "history-440",
+    "category": "repository",
+    "left": "        return { location: mapped || { sceneIndex: 0, stepIndex: 0, path: null }, restore: false };",
+    "right": "            : { location: defaultZoomLocation(), restore: false };",
+    "why": "Actual changed line pair",
+    "commit": "2b5add94769bf5fc4c22d89f60be07886913a4b7",
+    "file": "src/tourZoomSession.ts"
+  }
+]

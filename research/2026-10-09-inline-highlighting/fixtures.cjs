@@ -1,0 +1,58 @@
+// Expected bracket ranges are readability judgments declared before comparison.
+// They are not a universal semantic ground truth. Cases without expectations
+// deliberately leave room for judgment and are inspected visually.
+const cases = [];
+function add(id, category, left, right, why, expected) { cases.push({id,category,left,right,why,expected}); }
+add('plural-insertion','identifier','const userCount = 2;','const usersCount = 2;','Expose one inserted letter',['const userCount = 2;','const user[s]Count = 2;']);
+add('unit-rename','identifier','const timeoutMs = 200;','const timeoutSeconds = 200;','Expose changed unit',['const timeout[Ms] = 200;','const timeout[Seconds] = 200;']);
+add('camel-case','identifier','const userid = 2;','const userId = 2;','Expose capitalization',['const user[i]d = 2;','const user[I]d = 2;']);
+add('snake-case','identifier','let user_count = 2;','let users_count = 2;','Expose suffix insertion',['let user_count = 2;','let user[s]_count = 2;']);
+add('two-edits-one-name','identifier','getOldUserName()','setOldUserNames()','Two distant edits in one identifier',['[g]etOldUserName()','[s]etOldUserName[s]()']);
+add('internal-two-edits','identifier','prefixOldMiddleOldSuffix','prefixNewMiddleNewSuffix','Preserve useful internal component', ['prefix[Old]Middle[Old]Suffix','prefix[New]Middle[New]Suffix']);
+add('whole-name','identifier','const customer = item;','const invoice = item;','Unrelated names should read as replacements',['const [customer] = item;','const [invoice] = item;']);
+add('similar-unrelated','prose','Please receive the result.','Please retrieve the result.','Avoid scattered single-letter islands');
+add('different-verbs','prose','Please cancel the request.','Please confirm the request.','Shared letters need not imply meaning');
+add('different-nouns','prose','The cat is here.','The car is here.','Minimal edit versus whole-word semantics');
+add('typo','prose','The recieve handler runs.','The receive handler runs.','Transposed letters');
+add('suffix','prose','The file is saved.','The file is saving.','Common stem');
+add('prefix-negation','prose','This is acceptable.','This is unacceptable.','Small insertion with large meaning',['This is acceptable.','This is [un]acceptable.']);
+add('sentence-rewrite','prose','The quick brown fox jumps over the lazy dog.','A slower red fox walks past an alert dog.','Do not link scattered letters across replacement words');
+add('phrase-swap','prose','Read the old file and save the new file.','Read the new file and save the old file.','Repeated anchors');
+add('negation','prose','The file is ready.','The file is not ready.','Inserted whole word');
+add('word-boundary','prose','The input is nowhere.','The input is now here.','Word split');
+add('compound','prose','Use the database field.','Use the data base field.','Word split with tiny visible edit');
+add('digit','number','const port = 8080;','const port = 8081;','Expose final digit',['const port = 808[0];','const port = 808[1];']);
+add('negative','number','const count = 10;','const count = -10;','Expose sign',['const count = 10;','const count = [-]10;']);
+add('decimal','number','const rate = 0.125;','const rate = 0.135;','Expose changed decimal digit',['const rate = 0.1[2]5;','const rate = 0.1[3]5;']);
+add('version','number','version: 1.12.4','version: 1.13.4','Version component');
+add('scientific','number','const epsilon = 1e-6;','const epsilon = 1e-9;','Exponent');
+add('hash','number','checksum: abcdef0123456789','checksum: abcdff0123456788','Multiple changes in opaque token');
+add('operator','syntax','if (count < limit) return;','if (count <= limit) return;','Single punctuation',['if (count < limit) return;','if (count <[=] limit) return;']);
+add('strict-equality','syntax','if (a == b) return;','if (a === b) return;','Added operator character');
+add('optional-chain','syntax','const name = user.name;','const name = user?.name;','Added operator');
+add('quotes','syntax','const name = "alice";',"const name = 'alice';",'Separated punctuation edits');
+add('path','syntax','path: /var/log/bygone.log','path: /var/log/bygone.old.log','Inserted path component');
+add('url','syntax','url: https://api.example.com/v1/users','url: https://api.example.com/v2/users','Changed URL version');
+add('reorder','syntax','call(first, second);','call(second, first);','Reordered arguments');
+add('indent','whitespace','  key: value','    key: value','Preserve existing whitespace behavior');
+add('trailing-space','whitespace','key: value','key: value  ','Trailing whitespace');
+add('mixed-space-word','whitespace','  const user = 1;','    const users = 1;','Whitespace and content together');
+add('tabs','whitespace','\tconst user = 1;','  const users = 1;','Tabs and content');
+add('reflow-edit','reflow','summary: The sensor records temperature and humidity.','summary: The instrument records\n  temperature and humidity.','Word edit plus line wrapping');
+add('reflow-typo','reflow','summary: The recieve handler records temperature.','summary: The receive handler\n  records temperature.','Character refinement within reflow');
+add('accent','unicode','const label = "cafe";','const label = "café";','Accented letter');
+add('decomposed-accent','unicode','const label = "cafe";','const label = "cafe\u0301";','Never split a grapheme');
+add('unicode-normalization','unicode','label: café','label: cafe\u0301','Visually identical but distinct code points');
+add('emoji','unicode','label: 😀','label: 😃','Never split a surrogate pair');
+add('emoji-zwj','unicode','label: 👩‍💻','label: 👩‍🔬','Keep joined emoji whole');
+add('emoji-skin','unicode','label: 👍🏻','label: 👍🏽','Keep skin modifier attached');
+add('cjk','unicode','message: 用户数量','message: 用户总数量','Useful insertion without space-delimited words');
+add('arabic','unicode','message: مرحبا بالعالم','message: مرحباً بالعالم','Combining marks');
+add('no-change','edge','same text','same text','No emphasis');
+add('empty-left','edge','','new text','Complete insertion');
+add('empty-right','edge','old text','','Complete deletion');
+add('repetition','edge','value: aaaaaaaaaabaaaaaaaaaa','value: aaaaaaaaaacaaaaaaaaaa','Repeated characters');
+add('word-repetition','edge','one two one two one','one one two two one','Ambiguous repeated word anchors');
+add('unrelated','edge','abcdefghij','9876543210','Complete replacement',['[abcdefghij]','[9876543210]']);
+add('two-small-edits','identifier','version1Build3','version2Build4','Multiple changes separated by stable component',['version[1]Build[3]','version[2]Build[4]']);
+module.exports = cases;

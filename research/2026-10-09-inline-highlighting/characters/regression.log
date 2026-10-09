@@ -1,0 +1,260 @@
+TAP version 13
+# Subtest: whitespace highlights exact changed columns: indent
+ok 1 - whitespace highlights exact changed columns: indent
+  ---
+  duration_ms: 2.176209
+  type: 'test'
+  ...
+# Subtest: whitespace highlights exact changed columns: dedent
+ok 2 - whitespace highlights exact changed columns: dedent
+  ---
+  duration_ms: 0.142458
+  type: 'test'
+  ...
+# Subtest: whitespace highlights exact changed columns: tabs
+ok 3 - whitespace highlights exact changed columns: tabs
+  ---
+  duration_ms: 0.123584
+  type: 'test'
+  ...
+# Subtest: whitespace highlights exact changed columns: trailing
+ok 4 - whitespace highlights exact changed columns: trailing
+  ---
+  duration_ms: 0.093166
+  type: 'test'
+  ...
+# Subtest: whitespace highlights exact changed columns: internal
+ok 5 - whitespace highlights exact changed columns: internal
+  ---
+  duration_ms: 2.032959
+  type: 'test'
+  ...
+# Subtest: whitespace highlights exact changed columns: blank
+ok 6 - whitespace highlights exact changed columns: blank
+  ---
+  duration_ms: 0.077833
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 499
+ok 7 - long whitespace-only lines remain paired and highlighted at length 499
+  ---
+  duration_ms: 0.819958
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 500
+ok 8 - long whitespace-only lines remain paired and highlighted at length 500
+  ---
+  duration_ms: 0.316459
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 501
+ok 9 - long whitespace-only lines remain paired and highlighted at length 501
+  ---
+  duration_ms: 0.339084
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 1999
+ok 10 - long whitespace-only lines remain paired and highlighted at length 1999
+  ---
+  duration_ms: 0.398792
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 2000
+ok 11 - long whitespace-only lines remain paired and highlighted at length 2000
+  ---
+  duration_ms: 0.252333
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 2001
+ok 12 - long whitespace-only lines remain paired and highlighted at length 2001
+  ---
+  duration_ms: 0.202583
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 9000
+ok 13 - long whitespace-only lines remain paired and highlighted at length 9000
+  ---
+  duration_ms: 0.727292
+  type: 'test'
+  ...
+# Subtest: large mixed YAML preserves reflows, real changes, and scroll anchors (forward)
+ok 14 - large mixed YAML preserves reflows, real changes, and scroll anchors (forward)
+  ---
+  duration_ms: 33.932416
+  type: 'test'
+  ...
+# Subtest: large mixed YAML preserves reflows, real changes, and scroll anchors (reverse)
+ok 15 - large mixed YAML preserves reflows, real changes, and scroll anchors (reverse)
+  ---
+  duration_ms: 22.717459
+  type: 'test'
+  ...
+# Subtest: edited reflow retains substantive inline highlights
+ok 16 - edited reflow retains substantive inline highlights
+  ---
+  duration_ms: 0.297167
+  type: 'test'
+  ...
+# Subtest: multi-panel scrolling composes adjacent mappings in both directions and uses new models after edits
+ok 17 - multi-panel scrolling composes adjacent mappings in both directions and uses new models after edits
+  ---
+  duration_ms: 0.327625
+  type: 'test'
+  ...
+# Subtest: wrapped and folded visual lines map within the actual model line height
+ok 18 - wrapped and folded visual lines map within the actual model line height
+  ---
+  duration_ms: 0.109917
+  type: 'test'
+  ...
+# Subtest: touching blue regions merge while retaining separate scroll anchors (LF)
+ok 19 - touching blue regions merge while retaining separate scroll anchors (LF)
+  ---
+  duration_ms: 0.347292
+  type: 'test'
+  ...
+# Subtest: touching blue regions merge while retaining separate scroll anchors (CRLF)
+ok 20 - touching blue regions merge while retaining separate scroll anchors (CRLF)
+  ---
+  duration_ms: 0.245834
+  type: 'test'
+  ...
+# Subtest: touching blue regions merge while retaining separate scroll anchors (LF with final newline)
+ok 21 - touching blue regions merge while retaining separate scroll anchors (LF with final newline)
+  ---
+  duration_ms: 0.214292
+  type: 'test'
+  ...
+# Subtest: timeout fallback preserves unchanged scroll anchors and remains monotonic
+ok 22 - timeout fallback preserves unchanged scroll anchors and remains monotonic
+  ---
+  duration_ms: 1.395584
+  type: 'test'
+  ...
+# Subtest: edited YAML paragraphs pair across physical wrapping without absorbing new items (false)
+not ok 23 - edited YAML paragraphs pair across physical wrapping without absorbing new items (false)
+  ---
+  duration_ms: 15.815833
+  type: 'test'
+  location: '/private/tmp/bygone-inline-study-20261009/characters/test/diffRegression.test.js:158:5'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(model[`${side}Lines`].some(line => line.segments?.some(segment => segment.emphasis && segment.text.includes('instrument'))))
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (/private/tmp/bygone-inline-study-20261009/characters/test/diffRegression.test.js:175:16)
+    Test.runInAsyncScope (node:async_hooks:226:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: edited YAML paragraphs pair across physical wrapping without absorbing new items (true)
+not ok 24 - edited YAML paragraphs pair across physical wrapping without absorbing new items (true)
+  ---
+  duration_ms: 15.329958
+  type: 'test'
+  location: '/private/tmp/bygone-inline-study-20261009/characters/test/diffRegression.test.js:158:5'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(model[`${side}Lines`].some(line => line.segments?.some(segment => segment.emphasis && segment.text.includes('instrument'))))
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (/private/tmp/bygone-inline-study-20261009/characters/test/diffRegression.test.js:175:16)
+    Test.runInAsyncScope (node:async_hooks:226:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: long edited lines remain paired at 2001 characters
+ok 25 - long edited lines remain paired at 2001 characters
+  ---
+  duration_ms: 218.879
+  type: 'test'
+  ...
+# Subtest: long edited lines remain paired at 9000 characters
+ok 26 - long edited lines remain paired at 9000 characters
+  ---
+  duration_ms: 220.061541
+  type: 'test'
+  ...
+# Subtest: matching paragraph does not absorb removed block-scalar notes or following fields
+ok 27 - matching paragraph does not absorb removed block-scalar notes or following fields
+  ---
+  duration_ms: 1.02975
+  type: 'test'
+  ...
+# Subtest: unchanged context keeps blue regions separate
+ok 28 - unchanged context keeps blue regions separate
+  ---
+  duration_ms: 0.175417
+  type: 'test'
+  ...
+# Subtest: field prefixes pair renamed titles in large repeated YAML (false)
+ok 29 - field prefixes pair renamed titles in large repeated YAML (false)
+  ---
+  duration_ms: 19.224042
+  type: 'test'
+  ...
+# Subtest: field prefixes pair renamed titles in large repeated YAML (true)
+ok 30 - field prefixes pair renamed titles in large repeated YAML (true)
+  ---
+  duration_ms: 21.843625
+  type: 'test'
+  ...
+# Subtest: prefix bonus does not override repeated labels
+ok 31 - prefix bonus does not override repeated labels
+  ---
+  duration_ms: 0.926333
+  type: 'test'
+  ...
+# Subtest: prefix bonus does not override generic language prefix
+ok 32 - prefix bonus does not override generic language prefix
+  ---
+  duration_ms: 0.211625
+  type: 'test'
+  ...
+# Subtest: meaningful prefix evidence works independently of neighboring matches
+ok 33 - meaningful prefix evidence works independently of neighboring matches
+  ---
+  duration_ms: 0.98225
+  type: 'test'
+  ...
+# Subtest: different field names do not earn a prefix bonus
+ok 34 - different field names do not earn a prefix bonus
+  ---
+  duration_ms: 0.187875
+  type: 'test'
+  ...
+# Subtest: a shared field prefix cannot outweigh unrelated long content
+ok 35 - a shared field prefix cannot outweigh unrelated long content
+  ---
+  duration_ms: 477.442458
+  type: 'test'
+  ...
+1..35
+# tests 35
+# suites 0
+# pass 33
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1194.82825

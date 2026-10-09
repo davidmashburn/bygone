@@ -1,0 +1,449 @@
+[
+  {
+    "name": "words",
+    "length": 500,
+    "shape": "unrelated",
+    "ms": 0.6245830000000012,
+    "segments": 2
+  },
+  {
+    "name": "characters",
+    "length": 500,
+    "shape": "unrelated",
+    "ms": 20.235125000000004,
+    "segments": 2
+  },
+  {
+    "name": "affixes",
+    "length": 500,
+    "shape": "unrelated",
+    "ms": 0.7495419999999982,
+    "segments": 2
+  },
+  {
+    "name": "smart",
+    "length": 500,
+    "shape": "unrelated",
+    "ms": 22.397083000000002,
+    "segments": 2
+  },
+  {
+    "name": "anchored",
+    "length": 500,
+    "shape": "unrelated",
+    "ms": 20.569125000000003,
+    "segments": 2
+  },
+  {
+    "name": "bounded",
+    "length": 500,
+    "shape": "unrelated",
+    "ms": 20.132458,
+    "segments": 2
+  },
+  {
+    "name": "subwords",
+    "length": 500,
+    "shape": "unrelated",
+    "ms": 1.7415420000000026,
+    "segments": 2
+  },
+  {
+    "name": "words",
+    "length": 500,
+    "shape": "local-edit",
+    "ms": 0.5300420000000017,
+    "segments": 2
+  },
+  {
+    "name": "characters",
+    "length": 500,
+    "shape": "local-edit",
+    "ms": 0.6478749999999991,
+    "segments": 4
+  },
+  {
+    "name": "affixes",
+    "length": 500,
+    "shape": "local-edit",
+    "ms": 0.7553750000000008,
+    "segments": 4
+  },
+  {
+    "name": "smart",
+    "length": 500,
+    "shape": "local-edit",
+    "ms": 3.1147499999999972,
+    "segments": 4
+  },
+  {
+    "name": "anchored",
+    "length": 500,
+    "shape": "local-edit",
+    "ms": 0.9571249999999978,
+    "segments": 4
+  },
+  {
+    "name": "bounded",
+    "length": 500,
+    "shape": "local-edit",
+    "ms": 1.0320420000000006,
+    "segments": 4
+  },
+  {
+    "name": "subwords",
+    "length": 500,
+    "shape": "local-edit",
+    "ms": 1.2270830000000004,
+    "segments": 4
+  },
+  {
+    "name": "words",
+    "length": 500,
+    "shape": "camel",
+    "ms": 0.8000830000000008,
+    "segments": 2
+  },
+  {
+    "name": "characters",
+    "length": 500,
+    "shape": "camel",
+    "ms": 20.475541999999997,
+    "segments": 2
+  },
+  {
+    "name": "affixes",
+    "length": 500,
+    "shape": "camel",
+    "ms": 0.798209,
+    "segments": 2
+  },
+  {
+    "name": "smart",
+    "length": 500,
+    "shape": "camel",
+    "ms": 20.092542,
+    "segments": 2
+  },
+  {
+    "name": "anchored",
+    "length": 500,
+    "shape": "camel",
+    "ms": 20.312584,
+    "segments": 2
+  },
+  {
+    "name": "bounded",
+    "length": 500,
+    "shape": "camel",
+    "ms": 20.20925,
+    "segments": 2
+  },
+  {
+    "name": "subwords",
+    "length": 500,
+    "shape": "camel",
+    "ms": 8.289791999999998,
+    "segments": 2
+  },
+  {
+    "name": "words",
+    "length": 2000,
+    "shape": "unrelated",
+    "ms": 0.8257919999999999,
+    "segments": 2
+  },
+  {
+    "name": "characters",
+    "length": 2000,
+    "shape": "unrelated",
+    "ms": 286.662875,
+    "segments": 2
+  },
+  {
+    "name": "affixes",
+    "length": 2000,
+    "shape": "unrelated",
+    "ms": 1.1743330000000007,
+    "segments": 2
+  },
+  {
+    "name": "smart",
+    "length": 2000,
+    "shape": "unrelated",
+    "ms": 289.652333,
+    "segments": 2
+  },
+  {
+    "name": "anchored",
+    "length": 2000,
+    "shape": "unrelated",
+    "ms": 281.954584,
+    "segments": 2
+  },
+  {
+    "name": "bounded",
+    "length": 2000,
+    "shape": "unrelated",
+    "ms": 1.5747079999999976,
+    "segments": 2
+  },
+  {
+    "name": "subwords",
+    "length": 2000,
+    "shape": "unrelated",
+    "ms": 1.7503750000000018,
+    "segments": 2
+  },
+  {
+    "name": "words",
+    "length": 2000,
+    "shape": "local-edit",
+    "ms": 0.7369589999999988,
+    "segments": 2
+  },
+  {
+    "name": "characters",
+    "length": 2000,
+    "shape": "local-edit",
+    "ms": 0.9997499999999988,
+    "segments": 4
+  },
+  {
+    "name": "affixes",
+    "length": 2000,
+    "shape": "local-edit",
+    "ms": 1.1707909999999977,
+    "segments": 4
+  },
+  {
+    "name": "smart",
+    "length": 2000,
+    "shape": "local-edit",
+    "ms": 1.4527909999999977,
+    "segments": 4
+  },
+  {
+    "name": "anchored",
+    "length": 2000,
+    "shape": "local-edit",
+    "ms": 1.1830420000000004,
+    "segments": 4
+  },
+  {
+    "name": "bounded",
+    "length": 2000,
+    "shape": "local-edit",
+    "ms": 1.50075,
+    "segments": 4
+  },
+  {
+    "name": "subwords",
+    "length": 2000,
+    "shape": "local-edit",
+    "ms": 1.806207999999998,
+    "segments": 4
+  },
+  {
+    "name": "words",
+    "length": 2000,
+    "shape": "camel",
+    "ms": 0.5525839999999995,
+    "segments": 2
+  },
+  {
+    "name": "characters",
+    "length": 2000,
+    "shape": "camel",
+    "ms": 276.1145,
+    "segments": 2
+  },
+  {
+    "name": "affixes",
+    "length": 2000,
+    "shape": "camel",
+    "ms": 1.1416670000000018,
+    "segments": 2
+  },
+  {
+    "name": "smart",
+    "length": 2000,
+    "shape": "camel",
+    "ms": 301.48974999999996,
+    "segments": 2
+  },
+  {
+    "name": "anchored",
+    "length": 2000,
+    "shape": "camel",
+    "ms": 293.16499999999996,
+    "segments": 2
+  },
+  {
+    "name": "bounded",
+    "length": 2000,
+    "shape": "camel",
+    "ms": 1.457290999999998,
+    "segments": 2
+  },
+  {
+    "name": "subwords",
+    "length": 2000,
+    "shape": "camel",
+    "ms": 1.6593750000000007,
+    "segments": 2
+  },
+  {
+    "name": "words",
+    "length": 9990,
+    "shape": "unrelated",
+    "ms": 0.5694170000000014,
+    "segments": 2
+  },
+  {
+    "name": "characters",
+    "length": 9990,
+    "shape": "unrelated",
+    "timeout": true,
+    "error": "ETIMEDOUT",
+    "status": null
+  },
+  {
+    "name": "affixes",
+    "length": 9990,
+    "shape": "unrelated",
+    "ms": 1.9230829999999983,
+    "segments": 2
+  },
+  {
+    "name": "smart",
+    "length": 9990,
+    "shape": "unrelated",
+    "timeout": true,
+    "error": "ETIMEDOUT",
+    "status": null
+  },
+  {
+    "name": "anchored",
+    "length": 9990,
+    "shape": "unrelated",
+    "timeout": true,
+    "error": "ETIMEDOUT",
+    "status": null
+  },
+  {
+    "name": "bounded",
+    "length": 9990,
+    "shape": "unrelated",
+    "ms": 4.1469590000000025,
+    "segments": 2
+  },
+  {
+    "name": "subwords",
+    "length": 9990,
+    "shape": "unrelated",
+    "ms": 4.182666999999999,
+    "segments": 2
+  },
+  {
+    "name": "words",
+    "length": 9990,
+    "shape": "local-edit",
+    "ms": 0.5351250000000007,
+    "segments": 2
+  },
+  {
+    "name": "characters",
+    "length": 9990,
+    "shape": "local-edit",
+    "ms": 1.8529579999999974,
+    "segments": 4
+  },
+  {
+    "name": "affixes",
+    "length": 9990,
+    "shape": "local-edit",
+    "ms": 2.223374999999997,
+    "segments": 4
+  },
+  {
+    "name": "smart",
+    "length": 9990,
+    "shape": "local-edit",
+    "ms": 3.556083000000001,
+    "segments": 4
+  },
+  {
+    "name": "anchored",
+    "length": 9990,
+    "shape": "local-edit",
+    "ms": 2.1943330000000003,
+    "segments": 4
+  },
+  {
+    "name": "bounded",
+    "length": 9990,
+    "shape": "local-edit",
+    "ms": 4.279,
+    "segments": 4
+  },
+  {
+    "name": "subwords",
+    "length": 9990,
+    "shape": "local-edit",
+    "ms": 4.295207999999999,
+    "segments": 4
+  },
+  {
+    "name": "words",
+    "length": 9990,
+    "shape": "camel",
+    "ms": 0.5513750000000002,
+    "segments": 2
+  },
+  {
+    "name": "characters",
+    "length": 9990,
+    "shape": "camel",
+    "timeout": true,
+    "error": "ETIMEDOUT",
+    "status": null
+  },
+  {
+    "name": "affixes",
+    "length": 9990,
+    "shape": "camel",
+    "ms": 1.8639580000000002,
+    "segments": 2
+  },
+  {
+    "name": "smart",
+    "length": 9990,
+    "shape": "camel",
+    "timeout": true,
+    "error": "ETIMEDOUT",
+    "status": null
+  },
+  {
+    "name": "anchored",
+    "length": 9990,
+    "shape": "camel",
+    "timeout": true,
+    "error": "ETIMEDOUT",
+    "status": null
+  },
+  {
+    "name": "bounded",
+    "length": 9990,
+    "shape": "camel",
+    "ms": 4.050750000000001,
+    "segments": 2
+  },
+  {
+    "name": "subwords",
+    "length": 9990,
+    "shape": "camel",
+    "ms": 4.477208999999998,
+    "segments": 2
+  }
+]

@@ -1,0 +1,425 @@
+{
+  "manifest": {
+    "date": "2026-10-09T19:18:15.204Z",
+    "commit": "c08545c9976f53c5d8632ddbaf0645fde3ba41cb",
+    "sourceSHA256": "161aea6b5a72b48e3b9c221ff3874a19f0ef1b8c60ea275a74665f3f8f39a361",
+    "node": "v26.10.0",
+    "diffVersion": "5.2.2"
+  },
+  "fixtureCount": 52,
+  "corpusCount": 441,
+  "qualifyingHunks": 378,
+  "regressions": {
+    "baseline": {
+      "status": 0,
+      "summary": [
+        "# tests 35",
+        "# pass 35",
+        "# fail 0",
+        "# duration_ms 1219.761125"
+      ]
+    },
+    "characters": {
+      "status": 1,
+      "summary": [
+        "# tests 35",
+        "# pass 33",
+        "# fail 2",
+        "# duration_ms 1194.82825"
+      ]
+    },
+    "affixes": {
+      "status": 0,
+      "summary": [
+        "# tests 35",
+        "# pass 35",
+        "# fail 0",
+        "# duration_ms 1179.301125"
+      ]
+    },
+    "wordCharacters": {
+      "status": 1,
+      "summary": [
+        "# tests 35",
+        "# pass 33",
+        "# fail 2",
+        "# duration_ms 1160.727042"
+      ]
+    },
+    "smart": {
+      "status": 0,
+      "summary": [
+        "# tests 35",
+        "# pass 35",
+        "# fail 0",
+        "# duration_ms 1151.217208"
+      ]
+    },
+    "anchored": {
+      "status": 0,
+      "summary": [
+        "# tests 35",
+        "# pass 35",
+        "# fail 0",
+        "# duration_ms 1163.520834"
+      ]
+    },
+    "subwords": {
+      "status": 0,
+      "summary": [
+        "# tests 35",
+        "# pass 35",
+        "# fail 0",
+        "# duration_ms 1147.711583"
+      ]
+    },
+    "bounded": {
+      "status": 0,
+      "summary": [
+        "# tests 35",
+        "# pass 35",
+        "# fail 0",
+        "# duration_ms 1131.301833"
+      ]
+    }
+  },
+  "validations": 15944,
+  "fuzzRuns": 12000,
+  "fuzzBoundaryCounts": {
+    "words": 344,
+    "characters": 0,
+    "affixes": 12,
+    "wordCharacters": 12,
+    "smart": 44,
+    "anchored": 12,
+    "subwords": 0,
+    "bounded": 0
+  },
+  "fuzzExamples": [
+    {
+      "name": "words",
+      "x": "👩‍💻中é0中_dé aécbF👩‍💻;bE👩‍💻 a.;éEE_👩‍💻dé 1Fé01FFd ",
+      "y": "👩‍💻中a0中_dé aécbF👩‍💻;bE👩‍💻 a.déEE_👩‍💻dé 1Fbé01FFd "
+    },
+    {
+      "name": "words",
+      "x": "é_.Féc é👩‍💻c;b0 c 0é 👩‍💻é0;Féééd ;cFF.é; 0;b👩‍💻中é",
+      "y": "é_.Féc é👩‍💻c;b0 c 0é 👩‍💻é0;Féééd ;éFF.é;;0;b👩‍💻中é"
+    },
+    {
+      "name": "words",
+      "x": "_dééé.中Fc_;ébééé",
+      "y": "_dééé.中Fc_;ébééé;"
+    },
+    {
+      "name": "words",
+      "x": "E.1FaacééEdF._acé👩‍💻0é_..F_1é",
+      "y": "E.1FaacééEdFb_ac1é👩‍💻0é_..F_1é"
+    },
+    {
+      "name": "words",
+      "x": ";;_écc中0éé;0中a中 _1.1cé;Fb E a中Ec..._bF",
+      "y": ";;_écc中0éé;0中F中 _1.1 cé;Fb E a中Ec👩‍💻..._bF"
+    },
+    {
+      "name": "words",
+      "x": ".F👩‍💻; é;;EE1  _dFé00中👩‍💻FaFé",
+      "y": ".F👩‍💻; é; cE1  _dFé00中👩‍💻F01Fé"
+    },
+    {
+      "name": "words",
+      "x": "中. é 👩‍💻bc.c_bé1é👩‍💻;FFé_a;10_Fbc;",
+      "y": "中. é 👩‍💻bc.c_bé1é👩‍💻;中Fé_;;10_Fbc;"
+    },
+    {
+      "name": "words",
+      "x": "00中F0中.é;éb0ccé👩‍💻F1中中éd;éd中F_0_é.dabdEFE0; ",
+      "y": "00中F0中.éEéb0ccé👩‍💻é1中中éd;éd中F_0_é.dabdE1E0; "
+    }
+  ],
+  "fixtures": {
+    "words": {
+      "cases": 52,
+      "expectedCases": 14,
+      "expectedMatches": 3,
+      "changedChars": 678,
+      "tinyInternalIslands": 0,
+      "asymmetricCases": 0,
+      "graphemeSplitCases": [
+        "decomposed-accent"
+      ]
+    },
+    "characters": {
+      "cases": 52,
+      "expectedCases": 14,
+      "expectedMatches": 12,
+      "changedChars": 259,
+      "tinyInternalIslands": 18,
+      "asymmetricCases": 5,
+      "graphemeSplitCases": []
+    },
+    "affixes": {
+      "cases": 52,
+      "expectedCases": 14,
+      "expectedMatches": 10,
+      "changedChars": 366,
+      "tinyInternalIslands": 0,
+      "asymmetricCases": 0,
+      "graphemeSplitCases": [
+        "decomposed-accent"
+      ]
+    },
+    "wordCharacters": {
+      "cases": 52,
+      "expectedCases": 14,
+      "expectedMatches": 12,
+      "changedChars": 272,
+      "tinyInternalIslands": 13,
+      "asymmetricCases": 6,
+      "graphemeSplitCases": [
+        "decomposed-accent"
+      ]
+    },
+    "smart": {
+      "cases": 52,
+      "expectedCases": 14,
+      "expectedMatches": 13,
+      "changedChars": 308,
+      "tinyInternalIslands": 0,
+      "asymmetricCases": 0,
+      "graphemeSplitCases": [
+        "decomposed-accent"
+      ]
+    },
+    "anchored": {
+      "cases": 52,
+      "expectedCases": 14,
+      "expectedMatches": 13,
+      "changedChars": 300,
+      "tinyInternalIslands": 0,
+      "asymmetricCases": 0,
+      "graphemeSplitCases": [
+        "decomposed-accent"
+      ]
+    },
+    "subwords": {
+      "cases": 52,
+      "expectedCases": 14,
+      "expectedMatches": 12,
+      "changedChars": 329,
+      "tinyInternalIslands": 0,
+      "asymmetricCases": 0,
+      "graphemeSplitCases": []
+    },
+    "bounded": {
+      "cases": 52,
+      "expectedCases": 14,
+      "expectedMatches": 13,
+      "changedChars": 301,
+      "tinyInternalIslands": 0,
+      "asymmetricCases": 0,
+      "graphemeSplitCases": []
+    }
+  },
+  "corpus": {
+    "words": {
+      "cases": 441,
+      "expectedCases": 0,
+      "expectedMatches": 0,
+      "changedChars": 14369,
+      "tinyInternalIslands": 3,
+      "asymmetricCases": 14,
+      "graphemeSplitCases": []
+    },
+    "characters": {
+      "cases": 441,
+      "expectedCases": 0,
+      "expectedMatches": 0,
+      "changedChars": 11375,
+      "tinyInternalIslands": 731,
+      "asymmetricCases": 64,
+      "graphemeSplitCases": []
+    },
+    "affixes": {
+      "cases": 441,
+      "expectedCases": 0,
+      "expectedMatches": 0,
+      "changedChars": 13289,
+      "tinyInternalIslands": 3,
+      "asymmetricCases": 14,
+      "graphemeSplitCases": []
+    },
+    "wordCharacters": {
+      "cases": 441,
+      "expectedCases": 0,
+      "expectedMatches": 0,
+      "changedChars": 11935,
+      "tinyInternalIslands": 559,
+      "asymmetricCases": 68,
+      "graphemeSplitCases": []
+    },
+    "smart": {
+      "cases": 441,
+      "expectedCases": 0,
+      "expectedMatches": 0,
+      "changedChars": 13713,
+      "tinyInternalIslands": 3,
+      "asymmetricCases": 14,
+      "graphemeSplitCases": []
+    },
+    "anchored": {
+      "cases": 441,
+      "expectedCases": 0,
+      "expectedMatches": 0,
+      "changedChars": 13131,
+      "tinyInternalIslands": 3,
+      "asymmetricCases": 14,
+      "graphemeSplitCases": []
+    },
+    "subwords": {
+      "cases": 441,
+      "expectedCases": 0,
+      "expectedMatches": 0,
+      "changedChars": 13269,
+      "tinyInternalIslands": 3,
+      "asymmetricCases": 14,
+      "graphemeSplitCases": []
+    },
+    "bounded": {
+      "cases": 441,
+      "expectedCases": 0,
+      "expectedMatches": 0,
+      "changedChars": 13131,
+      "tinyInternalIslands": 3,
+      "asymmetricCases": 14,
+      "graphemeSplitCases": []
+    }
+  },
+  "timing": {
+    "words": {
+      "calls": 2465,
+      "medianMs": 0.005499999999301508,
+      "p95Ms": 0.036041999999724794,
+      "maxMs": 0.6254160000007687
+    },
+    "characters": {
+      "calls": 2465,
+      "medianMs": 0.022791999999753898,
+      "p95Ms": 0.21312500000021828,
+      "maxMs": 1.5562919999993028
+    },
+    "affixes": {
+      "calls": 2465,
+      "medianMs": 0.007458000000042375,
+      "p95Ms": 0.05237499999930151,
+      "maxMs": 0.7406250000003638
+    },
+    "wordCharacters": {
+      "calls": 2465,
+      "medianMs": 0.009790999998585903,
+      "p95Ms": 0.10512499999822467,
+      "maxMs": 0.6230419999992591
+    },
+    "smart": {
+      "calls": 2465,
+      "medianMs": 0.012208000000100583,
+      "p95Ms": 0.12787500000013097,
+      "maxMs": 1.3089170000002923
+    },
+    "anchored": {
+      "calls": 2465,
+      "medianMs": 0.01079099999878963,
+      "p95Ms": 0.11762500000077125,
+      "maxMs": 1.15625
+    },
+    "subwords": {
+      "calls": 2465,
+      "medianMs": 0.020583999999871594,
+      "p95Ms": 0.08462500000132422,
+      "maxMs": 0.9614169999986188
+    },
+    "bounded": {
+      "calls": 2465,
+      "medianMs": 0.02412499999991269,
+      "p95Ms": 0.13720800000010058,
+      "maxMs": 1.0342080000009446
+    }
+  },
+  "sensitivity": [
+    {
+      "minIsland": 2,
+      "minRetained": 0.35,
+      "changedCasesFromDefault": 35
+    },
+    {
+      "minIsland": 2,
+      "minRetained": 0.5,
+      "changedCasesFromDefault": 6
+    },
+    {
+      "minIsland": 2,
+      "minRetained": 0.65,
+      "changedCasesFromDefault": 36
+    },
+    {
+      "minIsland": 3,
+      "minRetained": 0.35,
+      "changedCasesFromDefault": 24
+    },
+    {
+      "minIsland": 3,
+      "minRetained": 0.5,
+      "changedCasesFromDefault": 0
+    },
+    {
+      "minIsland": 3,
+      "minRetained": 0.65,
+      "changedCasesFromDefault": 34
+    },
+    {
+      "minIsland": 4,
+      "minRetained": 0.35,
+      "changedCasesFromDefault": 24
+    },
+    {
+      "minIsland": 4,
+      "minRetained": 0.5,
+      "changedCasesFromDefault": 1
+    },
+    {
+      "minIsland": 4,
+      "minRetained": 0.65,
+      "changedCasesFromDefault": 34
+    }
+  ],
+  "integration": {
+    "characters": {
+      "checked": 202,
+      "passed": true
+    },
+    "affixes": {
+      "checked": 202,
+      "passed": true
+    },
+    "wordCharacters": {
+      "checked": 202,
+      "passed": true
+    },
+    "smart": {
+      "checked": 202,
+      "passed": true
+    },
+    "anchored": {
+      "checked": 202,
+      "passed": true
+    },
+    "subwords": {
+      "checked": 202,
+      "passed": true
+    },
+    "bounded": {
+      "checked": 202,
+      "passed": true
+    }
+  }
+}

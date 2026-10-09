@@ -1,0 +1,220 @@
+TAP version 13
+# Subtest: whitespace highlights exact changed columns: indent
+ok 1 - whitespace highlights exact changed columns: indent
+  ---
+  duration_ms: 2.322083
+  type: 'test'
+  ...
+# Subtest: whitespace highlights exact changed columns: dedent
+ok 2 - whitespace highlights exact changed columns: dedent
+  ---
+  duration_ms: 0.161458
+  type: 'test'
+  ...
+# Subtest: whitespace highlights exact changed columns: tabs
+ok 3 - whitespace highlights exact changed columns: tabs
+  ---
+  duration_ms: 0.128167
+  type: 'test'
+  ...
+# Subtest: whitespace highlights exact changed columns: trailing
+ok 4 - whitespace highlights exact changed columns: trailing
+  ---
+  duration_ms: 0.088333
+  type: 'test'
+  ...
+# Subtest: whitespace highlights exact changed columns: internal
+ok 5 - whitespace highlights exact changed columns: internal
+  ---
+  duration_ms: 2.552958
+  type: 'test'
+  ...
+# Subtest: whitespace highlights exact changed columns: blank
+ok 6 - whitespace highlights exact changed columns: blank
+  ---
+  duration_ms: 0.25325
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 499
+ok 7 - long whitespace-only lines remain paired and highlighted at length 499
+  ---
+  duration_ms: 1.067791
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 500
+ok 8 - long whitespace-only lines remain paired and highlighted at length 500
+  ---
+  duration_ms: 0.260458
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 501
+ok 9 - long whitespace-only lines remain paired and highlighted at length 501
+  ---
+  duration_ms: 0.209417
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 1999
+ok 10 - long whitespace-only lines remain paired and highlighted at length 1999
+  ---
+  duration_ms: 0.483542
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 2000
+ok 11 - long whitespace-only lines remain paired and highlighted at length 2000
+  ---
+  duration_ms: 0.221167
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 2001
+ok 12 - long whitespace-only lines remain paired and highlighted at length 2001
+  ---
+  duration_ms: 0.2015
+  type: 'test'
+  ...
+# Subtest: long whitespace-only lines remain paired and highlighted at length 9000
+ok 13 - long whitespace-only lines remain paired and highlighted at length 9000
+  ---
+  duration_ms: 0.759458
+  type: 'test'
+  ...
+# Subtest: large mixed YAML preserves reflows, real changes, and scroll anchors (forward)
+ok 14 - large mixed YAML preserves reflows, real changes, and scroll anchors (forward)
+  ---
+  duration_ms: 35.379708
+  type: 'test'
+  ...
+# Subtest: large mixed YAML preserves reflows, real changes, and scroll anchors (reverse)
+ok 15 - large mixed YAML preserves reflows, real changes, and scroll anchors (reverse)
+  ---
+  duration_ms: 22.628833
+  type: 'test'
+  ...
+# Subtest: edited reflow retains substantive inline highlights
+ok 16 - edited reflow retains substantive inline highlights
+  ---
+  duration_ms: 0.227583
+  type: 'test'
+  ...
+# Subtest: multi-panel scrolling composes adjacent mappings in both directions and uses new models after edits
+ok 17 - multi-panel scrolling composes adjacent mappings in both directions and uses new models after edits
+  ---
+  duration_ms: 0.295458
+  type: 'test'
+  ...
+# Subtest: wrapped and folded visual lines map within the actual model line height
+ok 18 - wrapped and folded visual lines map within the actual model line height
+  ---
+  duration_ms: 0.110625
+  type: 'test'
+  ...
+# Subtest: touching blue regions merge while retaining separate scroll anchors (LF)
+ok 19 - touching blue regions merge while retaining separate scroll anchors (LF)
+  ---
+  duration_ms: 0.534708
+  type: 'test'
+  ...
+# Subtest: touching blue regions merge while retaining separate scroll anchors (CRLF)
+ok 20 - touching blue regions merge while retaining separate scroll anchors (CRLF)
+  ---
+  duration_ms: 0.240375
+  type: 'test'
+  ...
+# Subtest: touching blue regions merge while retaining separate scroll anchors (LF with final newline)
+ok 21 - touching blue regions merge while retaining separate scroll anchors (LF with final newline)
+  ---
+  duration_ms: 0.204208
+  type: 'test'
+  ...
+# Subtest: timeout fallback preserves unchanged scroll anchors and remains monotonic
+ok 22 - timeout fallback preserves unchanged scroll anchors and remains monotonic
+  ---
+  duration_ms: 1.2045
+  type: 'test'
+  ...
+# Subtest: edited YAML paragraphs pair across physical wrapping without absorbing new items (false)
+ok 23 - edited YAML paragraphs pair across physical wrapping without absorbing new items (false)
+  ---
+  duration_ms: 11.199291
+  type: 'test'
+  ...
+# Subtest: edited YAML paragraphs pair across physical wrapping without absorbing new items (true)
+ok 24 - edited YAML paragraphs pair across physical wrapping without absorbing new items (true)
+  ---
+  duration_ms: 12.358375
+  type: 'test'
+  ...
+# Subtest: long edited lines remain paired at 2001 characters
+ok 25 - long edited lines remain paired at 2001 characters
+  ---
+  duration_ms: 226.171708
+  type: 'test'
+  ...
+# Subtest: long edited lines remain paired at 9000 characters
+ok 26 - long edited lines remain paired at 9000 characters
+  ---
+  duration_ms: 223.456583
+  type: 'test'
+  ...
+# Subtest: matching paragraph does not absorb removed block-scalar notes or following fields
+ok 27 - matching paragraph does not absorb removed block-scalar notes or following fields
+  ---
+  duration_ms: 1.006
+  type: 'test'
+  ...
+# Subtest: unchanged context keeps blue regions separate
+ok 28 - unchanged context keeps blue regions separate
+  ---
+  duration_ms: 0.185167
+  type: 'test'
+  ...
+# Subtest: field prefixes pair renamed titles in large repeated YAML (false)
+ok 29 - field prefixes pair renamed titles in large repeated YAML (false)
+  ---
+  duration_ms: 19.129833
+  type: 'test'
+  ...
+# Subtest: field prefixes pair renamed titles in large repeated YAML (true)
+ok 30 - field prefixes pair renamed titles in large repeated YAML (true)
+  ---
+  duration_ms: 20.384875
+  type: 'test'
+  ...
+# Subtest: prefix bonus does not override repeated labels
+ok 31 - prefix bonus does not override repeated labels
+  ---
+  duration_ms: 0.836083
+  type: 'test'
+  ...
+# Subtest: prefix bonus does not override generic language prefix
+ok 32 - prefix bonus does not override generic language prefix
+  ---
+  duration_ms: 0.2
+  type: 'test'
+  ...
+# Subtest: meaningful prefix evidence works independently of neighboring matches
+ok 33 - meaningful prefix evidence works independently of neighboring matches
+  ---
+  duration_ms: 1.305708
+  type: 'test'
+  ...
+# Subtest: different field names do not earn a prefix bonus
+ok 34 - different field names do not earn a prefix bonus
+  ---
+  duration_ms: 0.173416
+  type: 'test'
+  ...
+# Subtest: a shared field prefix cannot outweigh unrelated long content
+ok 35 - a shared field prefix cannot outweigh unrelated long content
+  ---
+  duration_ms: 434.029291
+  type: 'test'
+  ...
+1..35
+# tests 35
+# suites 0
+# pass 35
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1151.217208
