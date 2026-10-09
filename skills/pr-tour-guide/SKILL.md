@@ -174,8 +174,10 @@ timing, and review status concisely; put detailed provenance beside the later
 claims it explains. If separate authored modes have independent entry points,
 give each enough opening context to stand on its own.
 
-Use the first scene's summary/bullets or equivalent supported narrative fields
-for this opening; do not invent a slide kind or metadata keys. Keep source
+Use version 5 `opening: { title, summary, bullets? }` for this context and
+`conclusion: { title, summary, bullets? }` for an evidence-grounded recap.
+Place bookends inside each independently authored mode when its narrative differs.
+Do not invent a slide kind or metadata keys. Keep source
 anchors for code claims and source links for external context distinct.
 
 Identify the smallest set of reviewer questions that makes the change understandable. Organize by conceptual dependency rather than filename order. Usually move through:
@@ -200,7 +202,15 @@ These are pacing heuristics, not quotas. Preserve asymmetry when one capability 
 
 Use these narrative constraints:
 
-- State one reviewer question or thesis per scene.
+- State one reviewer question or thesis per scene. In its summary, explain why
+  this question comes next, what evidence is about to appear, and what to notice.
+- Split scenes only when the reviewer question changes. Several steps can support
+  one scene; several scenes can examine the same comparison. Do not split merely
+  because the file, panel, or viewport changes. A chapter groups related questions.
+- At a real comparison change, explain why the new revisions matter. At a
+  same-comparison transition, explain the new question instead of implying a new diff.
+- End with supported findings, consequences, and unresolved checks. Do not make
+  a conclusion stronger than the evidence or manufacture evidence for a recap.
 - Give every chapter a coherent multi-scene arc when the material supports one; allow a single-scene chapter only when that scene is independently substantial.
 - Decompose scenes by conceptual need, not a fixed template; do not force every scene to use the same step count.
 - Prefer three to seven steps per scene.
@@ -217,13 +227,13 @@ Retrieve the current contract:
 bygone tour schema > /tmp/change-tour-source.schema.json
 ```
 
-Write a version 4 `.bygone` file for new tours. The legacy `.bygone.yaml`
+Write a version 5 `.bygone` file for new tours. The legacy `.bygone.yaml`
 spelling remains valid when generic YAML tooling requires it. Treat the
 authored source and its compiled `.tour.json` as Git-backed, non-portable
 artifacts: pin `range.base` and `range.head` to the exact OIDs from the
 context, and keep them with the corresponding repository so Bygone can resolve
-those objects and live history. Versions 1 and 2 remain readable for legacy
-inputs; v4 is the format for independent authored modes and directory overviews.
+those objects and live history. Versions 1, 2, and 4 remain readable for legacy
+inputs; v5 adds bookends and requires a purpose for explicit directory overviews.
 Version 3 is retired. The source has no `review` or ad hoc `notes` field.
 
 Set optional `windowTitle` when the tour should appear in the native window
@@ -291,11 +301,14 @@ Keep deconstructed-tour coordinates distinct:
 - When an ordinal is necessary, qualify the coordinate: "stage 2 of 4" versus "tour step 11 of 46."
 - Treat presenter-generated labels as UI context; do not repeat them in authored prose unless the distinction itself needs explanation.
 
-Version 4 scenes may include a directory Overview:
+Use a directory overview only when its inventory answers the scene’s question.
+Otherwise the viewer previews the first step without an active annotation.
+Version 5 requires an explicit purpose:
 
 ```yaml
 overview:
   kind: directory-diff
+  purpose: See which web layers changed together before tracing their interaction.
   path: web
 ```
 

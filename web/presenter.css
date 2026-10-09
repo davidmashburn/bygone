@@ -1510,3 +1510,9 @@ body.workspace-empty-tour #container { display: none; }
 @media (max-width: 720px) {
     .tour-shell { height: calc(100vh - var(--workspace-toolbar-height)); }
 }
+/* Bookends and chapter passages have no evidence. Keep the reading geometry
+   stable while scrolling across scene boundaries; hide stale renderer content. */
+body.tour-discussion #container { visibility: hidden; pointer-events: none; }
+.tour-scene-orientation { color: var(--tour-muted); font-size: 0.9em; overflow-wrap: anywhere; }
+.tour-overview-purpose { font-weight: 600; }
+.tour-passage-title { overflow-wrap: anywhere; }

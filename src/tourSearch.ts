@@ -5,6 +5,7 @@ export type TourSearchScope = 'all' | 'narrative' | 'code';
 export type TourSearchMatch = Readonly<{
     kind: 'narrative';
     sceneIndex: number;
+    readingKey?: string;
     stepIndex?: number;
     label: string;
     preview: string;
@@ -30,11 +31,16 @@ export function searchTour(
     const matches: TourSearchMatch[] = [];
 
     if (scope !== 'code') {
+        for (const [key, passage] of [['title', tour.opening], ['conclusion', tour.conclusion]] as const) {
+            const preview = passage && firstContaining([passage.title, passage.summary, ...(passage.bullets || [])], needle);
+            if (preview && passage) matches.push({ kind: 'narrative', sceneIndex: key === 'title' ? 0 : -1, readingKey: key, label: passage.title, preview });
+        }
         const chapterTitleByScene = new Map<string, string>();
         tour.chapters.forEach((chapter) => chapter.sceneIds.forEach((sceneId) => chapterTitleByScene.set(sceneId, chapter.title)));
         tour.scenes.forEach((scene, sceneIndex) => {
             const sceneText = [
                 chapterTitleByScene.get(scene.id), scene.title, scene.summary,
+                'overview' in scene ? scene.overview?.purpose : undefined,
                 ...scene.bullets, ...scene.tags, scene.takeaway
             ];
             const scenePreview = firstContaining(sceneText, needle);

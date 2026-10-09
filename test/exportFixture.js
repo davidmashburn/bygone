@@ -24,9 +24,9 @@ function exportFixture() {
     const narrative = { summary: 'Read </script> safely.', bullets: [], tags: [], takeaway: 'Exact evidence' };
     const chapters = [{ id: 'chapter', title: 'Chapter', scenes: [{ id: 'scene', kind: 'walkthrough', title: 'Scene', ...narrative,
         steps: [{ id: 'step', title: 'Step', body: 'Evidence', focus: 'changed' }] }] }];
-    const source = { version: 4, title: 'Export <fixture>', range: { base: 'export-base', head: 'export-head' },
+    const source = { version: 5, title: 'Export <fixture>', range: { base: 'export-base', head: 'export-head' },
         anchors: { changed: { file: 'app.txt', revision: 'head', contains: 'BETA' } }, connections: [], chapters,
-        tours: { historical: { chapters }, deconstructed: { chapters: [{ id: 'explain', title: 'Explanation', scenes: [{
+        tours: { historical: { opening: { title: 'Review question', summary: 'Trace the evidence for the changed line.' }, conclusion: { title: 'What we established', summary: 'The changed line is captured in real revisions.' }, chapters }, deconstructed: { chapters: [{ id: 'explain', title: 'Explanation', scenes: [{
             id: 'synthetic', kind: 'deconstructed-diff', title: 'Stages', ...narrative,
             exclusions: inventory.files.filter(file => file.path !== 'app.txt').map(file => ({ file: file.path, reason: 'Outside this explanation' })),
             stages: [{ id: 'stage', title: 'Change', narration: 'Explain', changes: [{ file: 'app.txt', hunks: [hunk] }] }]

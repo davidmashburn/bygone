@@ -94,3 +94,19 @@ invokes an agent automatically. Edited prompt drafts survive instruction changes
 use **Reset prompt** to regenerate their file reference and workspace context.
 
 The generated prose remains a proposal. Validation proves that its evidence exists and is reproducible; a reviewer must still judge whether its interpretation is correct.
+
+## Frame the reading path
+
+Use version 5 opening and conclusion passages to state the tour’s question and
+recap what its evidence established. Give each authored mode its own framing.
+A scene answers one reviewer question; steps provide the supporting evidence.
+Multiple scenes may examine the same comparison when each has a different
+question. Merge scenes that merely repeat a question across files.
+
+Before the first step, explain why this scene comes next, what evidence will
+appear, and what the reader should notice. Use an explicit directory overview
+only when the inventory itself supports that question, and state its `purpose`.
+Without one, the viewer previews the first step. The comparison caption identifies
+resolved revisions or synthetic stages; prose should explain why a transition
+matters. Close with supported findings and any remaining checks, without adding
+fake code stops. See [the format](change-tour-format.md) for the fields.

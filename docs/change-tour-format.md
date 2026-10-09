@@ -8,16 +8,16 @@ suffix, and explicitly supplied files are validated by content rather than
 rejected by extension.
 
 An authored source is Git-backed, not portable: resolving refs and anchors
-requires the corresponding local repository and Git objects. Version 2 and version 4
+requires the corresponding local repository and Git objects. Version 2, 4, and 5
 compiled manifests remain bound to that repository so the presenter can load
 live file history. Version 1 manifests remain readable as legacy portable
 artifacts, without the mode switcher. Version 4 supports independent authored
 tours and scene directory overviews; versions 1 and 2 remain accepted without
 those fields.
 
-## Version 4 stability and compatibility
+## Version 5 stability and compatibility
 
-Format version **4** is the current authoring contract. Application and document
+Format version **5** is the current authoring contract. Application and document
 versions are separate; UI fixes do not require rewriting a tour.
 
 | Document version | Reader support | Contract |
@@ -25,8 +25,9 @@ versions are separate; UI fixes do not require rewriting a tour.
 | 1 | Supported | Legacy source and portable compiled manifests |
 | 2 | Supported | Repository-bound manifests, real revision stacks, and endpoint walkthroughs |
 | 3 | Retired | Remove the top-level `review` block, set source `version: 4`, and recompile |
-| 4 | Supported; use for new sources | Independent authored tours and scene directory overviews; no Review Notes |
-| Greater than 4 | Rejected with an upgrade message | Never interpreted as version 4 |
+| 4 | Supported | Independent authored tours and scene directory overviews; no Review Notes |
+| 5 | Use for new sources | Optional opening and conclusion passages; explicit overview purpose |
+| Greater than 5 | Rejected with an upgrade message | Never interpreted as version 5 |
 
 Version 4 removes the `review` field and the separate Review Notes panel.
 Concepts, boundaries, tradeoffs, and unresolved questions belong in scene or
@@ -34,7 +35,7 @@ step narrative. Clearly distinguish an unknown from a supported conclusion and
 state the next check that would resolve it. Neither source nor compiled manifests
 accept a `review` field; existing v3 documents receive a migration error.
 
-The v4 field names, types, required fields, enum values, and meanings are fixed
+The v5 field names, types, required fields, enum values, and meanings are fixed
 by the [source schema](../schemas/change-tour-source.schema.json) and the
 semantic rules in this document. Breaking syntax or semantic changes require
 a new document version. Fixes enforcing the documented contract do not make
@@ -48,7 +49,7 @@ does not prove that the source compiles. Validate against the intended local
 repository before sharing a tour.
 
 Keep authored YAML as the editable source. Compiled JSON is generated evidence,
-not a second authoring syntax; v2/v4 manifests retain repository identity and
+not a second authoring syntax; v2/v4/v5 manifests retain repository identity and
 resolved Git objects. Stable format support does not make missing repositories
 or pruned objects available, and does not promise byte-identical generated
 timestamps or presentation layout. Pin full commit IDs in `range` when the
@@ -59,6 +60,37 @@ independent authored modes, overview evidence and fallback semantics, retired
 v3 rejection, removed-field rejection, and rejection of future versions. Run
 `npm test` before releasing a parser, compiler, or schema change; update those
 checks with any new contract.
+
+## Opening and conclusion passages
+
+Version 5 adds optional `opening` and `conclusion` at the document root and
+inside each independently authored `tours.historical` or `tours.deconstructed`.
+Each belongs to that narrative; one mode does not inherit another mode’s prose.
+Switching modes stops narration and restores the selected mode’s reading position.
+Returning from file exploration keeps the current passage and paused speech position.
+
+```yaml
+version: 5
+opening:
+  title: What this tour will establish
+  summary: Explain the problem, the review question, and the route through the evidence.
+  bullets:
+    - Name the boundaries this tour will and will not cover.
+conclusion:
+  title: What the evidence established
+  summary: Summarize the supported behavior and its consequence for the reviewer.
+  bullets:
+    - State any remaining uncertainty and the next check that would resolve it.
+```
+
+Both passages require nonblank `title` and `summary`; optional `bullets` contain
+nonblank strings. Unknown fields are rejected. They are narrative reading
+positions, not scenes or evidence: they add no files, steps, or coverage.
+The opening extends the title page, and the conclusion follows the last step.
+Keyboard navigation, narration, search, and heading links include both, including
+image-only guides. A conclusion link uses `part=conclusion`; requesting it in a
+mode without a conclusion reports an unavailable target. Legacy tours remain
+readable and receive no invented closing.
 
 ## Opening and compiling a source
 
@@ -115,14 +147,20 @@ Compare.
 
 ## Scene directory overviews
 
-In version 4, an authored walkthrough, stacked-diff, or deconstructed-diff scene may carry a
+In versions 4 and 5, an authored walkthrough, stacked-diff, or deconstructed-diff scene may carry a
 directory overview for the presenter to render alongside the current scene:
 
 ```yaml
 overview:
   kind: directory-diff
+  purpose: See which web layers changed together before tracing their interaction.
   path: web
 ```
+
+Version 5 requires a nonblank `purpose`: explain what the inventory establishes
+and why it is useful at this point. A scene without an explicit `overview` previews
+its first step’s evidence with a “Coming up” caption and no active annotation.
+Title, chapter, discussion, and conclusion passages show narrative only.
 
 `path` is optional and is relative to the repository root. Omit it or use `.`
 for the root directory. Absolute paths, backslashes, and `..` path segments are
@@ -252,9 +290,9 @@ only when every panel is a real selected Git revision. Use a
 [deconstructed-diff example](../examples/deconstructed-diff.bygone) when
 the teaching order is clearer than the real commit history; its cumulative
 panels are synthetic explanation stages and must never be described as
-commits. In versions 2 and 4, a `deconstructed-diff` scene in root `chapters`
+commits. In versions 2, 4, and 5, a `deconstructed-diff` scene in root `chapters`
 requires a real `stack` with the same base and final endpoints and nonempty
-walkthrough `steps` for compatibility. In version 4, a scene authored inside
+walkthrough `steps` for compatibility. In versions 4 and 5, a scene authored inside
 `tours.deconstructed` may omit both because that tour is synthetic by design.
 Explicit `tours.historical` content supplies its own explanation of real
 revisions. Bygone does not infer a real stack from Git history. Every changed

@@ -7,7 +7,9 @@
   "additionalProperties": false,
   "required": ["version", "anchors", "connections", "chapters"],
   "properties": {
-    "version": { "enum": [1, 2, 4] },
+    "version": { "enum": [1, 2, 4, 5] },
+    "opening": { "$ref": "#/$defs/passage" },
+    "conclusion": { "$ref": "#/$defs/passage" },
     "title": { "$ref": "#/$defs/nonEmptyString" },
     "windowTitle": {
       "$ref": "#/$defs/nonEmptyString",
@@ -69,6 +71,25 @@
   },
   "allOf": [
     {
+      "if": { "properties": { "version": { "const": 5 } } },
+      "then": {
+        "properties": {
+          "chapters": { "$ref": "#/$defs/purposeChapters" },
+          "tours": { "additionalProperties": { "properties": {
+            "chapters": { "$ref": "#/$defs/purposeChapters" }
+          } } }
+        }
+      },
+      "else": {
+        "properties": {
+          "opening": false, "conclusion": false, "chapters": { "$ref": "#/$defs/legacyFramingChapters" },
+          "tours": { "additionalProperties": { "properties": {
+            "opening": false, "conclusion": false, "chapters": { "$ref": "#/$defs/legacyFramingChapters" }
+          } } }
+        }
+      }
+    },
+    {
       "if": { "properties": { "version": { "enum": [1, 2] } }, "required": ["version"] },
       "then": {
         "not": { "required": ["tours"] },
@@ -105,7 +126,7 @@
       }
     },
     {
-      "if": { "properties": { "version": { "enum": [2, 4] } }, "required": ["version"] },
+      "if": { "properties": { "version": { "enum": [2, 4, 5] } }, "required": ["version"] },
       "then": {
         "properties": {
           "chapters": {
@@ -125,6 +146,26 @@
     }
   ],
   "$defs": {
+    "legacyFramingChapters": {
+      "items": { "properties": { "scenes": {
+        "items": { "properties": { "overview": { "not": { "required": ["purpose"] } } } }
+      } } }
+    },
+    "purposeChapters": {
+      "items": { "properties": { "scenes": {
+        "items": { "properties": { "overview": { "required": ["purpose"] } } }
+      } } }
+    },
+    "prose": { "type": "string", "pattern": "\\S" },
+    "passage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["title", "summary"],
+      "properties": {
+        "title": { "$ref": "#/$defs/prose" },
+        "summary": { "$ref": "#/$defs/prose" },
+        "bullets": { "type": "array", "items": { "$ref": "#/$defs/prose" } }
+      }
+    },
     "nonEmptyString": { "type": "string", "minLength": 1 },
     "stringArray": {
       "type": "array",
@@ -177,6 +218,7 @@
       "additionalProperties": false,
       "required": ["kind"],
       "properties": {
+        "purpose": { "$ref": "#/$defs/prose" },
         "kind": { "const": "directory-diff" },
         "comparison": {
           "type": "object",
@@ -408,6 +450,8 @@
       "additionalProperties": false,
       "required": ["chapters"],
       "properties": {
+        "opening": { "$ref": "#/$defs/passage" },
+        "conclusion": { "$ref": "#/$defs/passage" },
         "chapters": {
           "type": "array",
           "minItems": 1,
@@ -439,6 +483,8 @@
       "additionalProperties": false,
       "required": ["chapters"],
       "properties": {
+        "opening": { "$ref": "#/$defs/passage" },
+        "conclusion": { "$ref": "#/$defs/passage" },
         "chapters": {
           "type": "array",
           "minItems": 1,

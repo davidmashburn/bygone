@@ -1,7 +1,8 @@
 import type { ChangeTourManifest, ChangeTourScene } from './changeTourManifest';
 
 export type TourReadingItem =
-    | { kind: 'title'; key: 'title'; sceneIndex: 0; stepIndex: 0 }
+    | { kind: 'title'; key: 'title'; authored?: boolean; sceneIndex: 0; stepIndex: 0 }
+    | { kind: 'conclusion'; key: 'conclusion'; sceneIndex: -1; stepIndex: 0 }
     | { kind: 'chapter'; key: string; chapterId: string; sceneIndex: number; stepIndex: 0 }
     | { kind: 'scene'; key: string; sceneIndex: number; stepIndex: 0 }
     | { kind: 'step'; key: string; sceneIndex: number; stepIndex: number };
@@ -13,11 +14,11 @@ export type TourReadingItem =
  * the first scene they contain; they do not become a second ordering axis.
  */
 export function buildTourReadingItems(
-    tour: Pick<ChangeTourManifest, 'scenes' | 'chapters'>,
+    tour: Pick<ChangeTourManifest, 'scenes' | 'chapters' | 'opening' | 'conclusion'>,
     includeSingleChapter = false
 ): TourReadingItem[] {
     const items: TourReadingItem[] = [
-        { kind: 'title', key: 'title', sceneIndex: 0, stepIndex: 0 }
+        { kind: 'title', key: 'title', sceneIndex: 0, stepIndex: 0, ...(tour.opening ? { authored: true } : {}) }
     ];
     const chapterBySceneId = new Map<string, string>();
     for (const chapter of tour.chapters) {
@@ -59,6 +60,7 @@ export function buildTourReadingItems(
         }
     });
 
+    if (tour.conclusion) items.push({ kind: 'conclusion', key: 'conclusion', sceneIndex: -1, stepIndex: 0 });
     return items;
 }
 
@@ -73,7 +75,8 @@ export function getTourReadingTarget(
     const index = items.findIndex((item) => item.key === key);
     if (index < 0) return null;
     for (let next = index + direction; next >= 0 && next < items.length; next += direction) {
-        if (!stepsOnly || items[next].kind === 'step') return items[next];
+        const item = items[next];
+        if (!stepsOnly || item.kind === 'step' || item.kind === 'conclusion' || (item.kind === 'title' && item.authored)) return item;
     }
     return null;
 }
@@ -93,8 +96,9 @@ export function resolveTourReadingItem(
     items: readonly TourReadingItem[],
     sceneIndex: number,
     stepIndex: number,
-    view: 'tour' | 'chapter' | 'overview' | null = null
+    view: 'tour' | 'chapter' | 'overview' | 'conclusion' | null = null
 ): TourReadingItem | null {
+    if (view === 'conclusion') return items.find(item => item.kind === 'conclusion') ?? null;
     if (view === 'tour') {
         return items.find((item) => item.kind === 'title') ?? null;
     }

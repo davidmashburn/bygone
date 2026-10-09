@@ -310,7 +310,7 @@ function testTourSearchFindsNarrativeStepsAndExactCodeLocations() {
     assert.match(markup, /id="tour-search-input"/);
     assert.match(markup, /Narrative \+ code/);
     assert.match(host, /type: 'revealSearchResult'/);
-    assert.match(host, /showTourScene\(match\.sceneIndex, match\.stepIndex \?\? 0, \{ showIntro: match\.stepIndex === undefined \}\)/);
+    assert.match(host, /readingKey: match\.readingKey/);
 }
 
 function testDeconstructedTourNavigationTraversesExplanationStages() {
@@ -484,7 +484,7 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(rendererSource, /workingTreeControls === false/);
     assert.match(hostSource, /function renderMultiPanelStep/);
     assert.match(hostSource, /scene\.kind === 'deconstructed-diff'/);
-    assert.match(hostSource, /scene\.stageLabel/);
+    assert.match(hostSource, /describeTourComparison/);
     assert.match(hostSource, /Stage \$\{\(step\.stageIndex \?\? step\.pairIndex\) \+ 1\}/);
     assert.doesNotMatch(hostSource, /Stage \$\{state\.activeStepIndex \+ 1\}/);
     for (const label of ['Modified here', 'Created here', 'Deleted here', 'Unchanged here', 'Not created yet', 'Already deleted']) {
@@ -718,7 +718,7 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(hostSource, /buildWalkthroughTourAnnotations/);
     assert.match(hostSource, /buildStackedTourAnnotations/);
     assert.match(hostSource, /getFirstChangeSourceRange\(pairs\?\.\[pairIndex\]\?\.diffModel, side\)/);
-    assert.match(hostSource, /const tourAnnotations = buildStackedTourAnnotationsForFile\(file\.path, pairs\);/);
+    assert.match(hostSource, /const tourAnnotations = state\.sceneIntroVisible \? \[\] : buildStackedTourAnnotationsForFile\(file\.path, pairs\);/);
     assert.match(hostSource, /formatCount\(scene\.panels\.length - 1, 'comparison stage'\)[\s\S]{0,120}formatCount\(scene\.steps\.length, 'tour slide'\)/);
     assert.match(hostSource, /tourAnnotations/);
     assert.match(rendererSource, /function showMultiDiff\([\s\S]{0,500}tourAnnotations = \[\]/);
@@ -1416,8 +1416,8 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.equal(parseChangeTourManifest(JSON.parse(JSON.stringify(manifest))).version, 1);
     assert.throws(() => parseChangeTourManifest({ version: 1 }), /title must be a string/);
     assert.throws(
-        () => parseChangeTourManifest({ version: 5 }),
-        /manifest format version 5, but this version of Bygone supports up to version 4\. Upgrade Bygone to open it\./
+        () => parseChangeTourManifest({ version: 6 }),
+        /manifest format version 6, but this version of Bygone supports up to version 5\. Upgrade Bygone to open it\./
     );
 
     const story = parseChangeTourStory({
@@ -1551,8 +1551,8 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.throws(() => parseChangeTourSource({ ...source, inventedField: true }), /unknown field: inventedField/);
     assert.throws(() => parseChangeTourSource({ ...source, chapters: [] }), /non-empty array/);
     assert.throws(
-        () => parseChangeTourSource({ ...source, version: 5 }),
-        /source format version 5, but this version of Bygone supports up to version 4\. Upgrade Bygone to open it\./
+        () => parseChangeTourSource({ ...source, version: 6 }),
+        /source format version 6, but this version of Bygone supports up to version 5\. Upgrade Bygone to open it\./
     );
 
     fs.mkdirSync(path.join(repo, 'web'), { recursive: true });
@@ -2052,7 +2052,7 @@ function testAgentTourCommandsValidateCompileAndExposeSchema() {
 
     const outputPath = path.join(os.tmpdir(), `bygone-tour-${process.pid}.json`);
     runTourCommand(['compile', sourcePath, '--output', outputPath], repoRoot, repoRoot, { write() {} });
-    assert.equal(parseChangeTourManifest(JSON.parse(fs.readFileSync(outputPath, 'utf8'))).version, 4);
+    assert.equal(parseChangeTourManifest(JSON.parse(fs.readFileSync(outputPath, 'utf8'))).version, 5);
     fs.rmSync(outputPath, { force: true });
 
     let schemaOutput = '';

@@ -1,11 +1,15 @@
 import type { ChangeTourManifest, ChangeTourScene } from './changeTourManifest';
+import type { TourReadingItem } from './tourReading';
 import type { TourPosition } from './tourNavigation';
 
 export const DEFAULT_NARRATION_SEGMENT_LIMIT = 240;
 
 export type NarrationField =
+    | 'document-title'
+    | 'passage-title'
     | 'chapter'
     | 'scene-title'
+    | 'overview-purpose'
     | 'summary'
     | 'bullet'
     | 'step-title'
@@ -29,7 +33,9 @@ export interface NarrationSegment {
 
 export interface NarrationUnit {
     id: string;
-    position: TourPosition;
+    /** Reading identity is authoritative; position is retained for the legacy builder. */
+    readingKey?: string;
+    position?: TourPosition;
     segments: NarrationSegment[];
 }
 
@@ -96,6 +102,48 @@ export function buildTourNarrationUnit(
         id: unitId,
         position: normalizedPosition,
         segments
+    };
+}
+
+/** One narration unit per reading item, so structural passages are never repeated as steps. */
+export function buildReadingNarrationUnit(
+    tour: ChangeTourManifest,
+    item: TourReadingItem,
+    options: BuildNarrationUnitOptions
+): NarrationUnit {
+    const fields: NarrationFieldValue[] = [];
+    const add = (field: NarrationField, text: string | undefined, itemIndex?: number) => {
+        if (text) fields.push({ source: { field, ...(itemIndex === undefined ? {} : { itemIndex }) }, text });
+    };
+    if (item.kind === 'title' || item.kind === 'conclusion') {
+        const passage = item.kind === 'title' ? tour.opening : tour.conclusion;
+        if (item.kind === 'title') add('document-title', tour.title);
+        add('passage-title', passage?.title);
+        add('summary', passage?.summary);
+        passage?.bullets?.forEach((text, index) => add('bullet', text, index));
+    } else if (item.kind === 'chapter') {
+        add('chapter', tour.chapters.find(chapter => chapter.id === item.chapterId)?.title);
+    } else {
+        const scene = tour.scenes[item.sceneIndex];
+        if (item.kind === 'scene') {
+            add('scene-title', scene.title);
+            if ('overview' in scene) add('overview-purpose', scene.overview?.purpose);
+            add('summary', scene.summary);
+            scene.bullets.forEach((text, index) => add('bullet', text, index));
+            if (!isSteppedScene(scene)) add('takeaway', scene.takeaway);
+        } else if (isSteppedScene(scene)) {
+            const step = scene.steps[item.stepIndex];
+            if (options.entry === 'playback-start') add('scene-title', scene.title);
+            add('step-title', step.title);
+            add('step-body', step.body);
+            if ('connection' in step) add('connection', step.connection?.label);
+            if (item.stepIndex === scene.steps.length - 1) add('takeaway', scene.takeaway);
+        }
+    }
+    return {
+        id: item.key,
+        readingKey: item.key,
+        segments: fields.flatMap(field => buildFieldSegments(item.key, field, options.segmentLimit ?? DEFAULT_NARRATION_SEGMENT_LIMIT))
     };
 }
 

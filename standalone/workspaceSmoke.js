@@ -105,7 +105,7 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
         assert.match(initialPrompt, /SKILL\.md/);
         assert.ok(initialPrompt.length < 1600, 'The handoff stays short');
         const instructions = await evaluate("document.querySelector('[aria-label=\"Tour skill Markdown instructions\"]').value");
-        assert.match(instructions, /version 4/);
+        assert.match(instructions, /version 5/);
         const saveDialog = dialog.showSaveDialog;
         const chooseDialog = dialog.showOpenDialog;
         const skillCopy = path.join(root, 'my-tour-instructions.md');
