@@ -1483,3 +1483,32 @@ body.tour-image-active #container > #diff-workspace { display: none; }
 .tour-image-dialog::backdrop { background: rgba(0, 0, 0, .8); }
 .tour-image-dialog button { display: block; margin: 0 0 10px auto; }
 .tour-image-dialog img { display: block; max-width: 90vw; max-height: 84vh; object-fit: contain; }
+
+/* The shared view tabs occupy one row above the existing panel stack. */
+:root { --workspace-toolbar-height: 0px; }
+#workspace-view { display: contents; }
+#tour-mode-controls {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 145;
+    margin: 0;
+    background: var(--tour-surface);
+}
+.tour-shell { top: var(--workspace-toolbar-height); }
+.tour-sidebar-show { top: calc(var(--workspace-toolbar-height) + 14px); }
+.tour-narrative { top: var(--workspace-toolbar-height); }
+.tour-narrative-resizer { top: calc(var(--workspace-toolbar-height) + var(--tour-narrative-height) - 4px); }
+body.tour-mode #container {
+    height: calc(100vh - var(--workspace-toolbar-height) - var(--tour-narrative-height));
+    margin-top: calc(var(--workspace-toolbar-height) + var(--tour-narrative-height));
+}
+#workspace-view > .workspace-empty-view {
+    position: fixed;
+    inset: var(--workspace-toolbar-height) 0 0 var(--tour-rail-width);
+    box-sizing: border-box;
+    background: var(--tour-surface);
+}
+body.workspace-empty-tour #container { display: none; }
+@media (max-width: 720px) {
+    .tour-shell { height: calc(100vh - var(--workspace-toolbar-height)); }
+}

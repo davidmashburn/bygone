@@ -24,6 +24,7 @@ let workspaceControls;
 let workspaceSelection;
 let workspaceTourFrame;
 let workspaceTourUrl;
+let workspaceContent;
 
 // Embedded tours keep their read-only host boundary. Relay only a web URL from
 // the currently displayed, known tour frame; the native preview lives above it.
@@ -45,8 +46,13 @@ function updateWorkspaceControls(state) {
     if (!workspaceControls) {
         const container = document.createElement('div');
         container.id = 'workspace-header';
-        document.getElementById('container').prepend(container);
-        workspaceControls = createWorkspaceControls({ container, send: (message) => host.postMessage(message) });
+        const workspace = document.getElementById('container');
+        workspaceContent = document.createElement('div');
+        workspaceContent.id = 'workspace-view';
+        workspaceContent.append(document.getElementById('header'), document.getElementById('diff-workspace'));
+        workspace.appendChild(workspaceContent);
+        workspace.prepend(container);
+        workspaceControls = createWorkspaceControls({ container, content: workspaceContent, send: (message) => host.postMessage(message) });
         workspaceSelection = document.createElement('div');
         workspaceSelection.className = 'workspace-selection-actions';
         for (const [type, label] of [['workspaceApply', 'Compare selected'], ['workspaceClear', 'Clear'], ['workspaceReset', 'Select displayed revisions']]) {
@@ -73,7 +79,7 @@ function showWorkspaceTour(message) {
         workspaceTourFrame.setAttribute('sandbox', 'allow-scripts allow-same-origin');
         workspaceTourFrame.src = message.url;
         workspaceTourUrl = message.url;
-        document.getElementById('container').appendChild(workspaceTourFrame);
+        workspaceContent.appendChild(workspaceTourFrame);
     }
     workspaceTourFrame.hidden = false;
     document.getElementById('header').hidden = true;
@@ -222,6 +228,12 @@ host.onMessage((message) => {
     if (message.workspace) updateWorkspaceControls(message.workspace);
     if (message.type === 'workspaceState') return;
     if (message.type === 'workspaceTour') { showWorkspaceTour(message); return; }
+    if (message.type === 'workspaceEmptyTour') {
+        if (workspaceTourFrame) workspaceTourFrame.hidden = true;
+        document.getElementById('header').hidden = true;
+        document.getElementById('diff-workspace').hidden = true;
+        return;
+    }
     if (message.type === 'workspaceHideTour' || message.type.startsWith('show')) {
         if (workspaceTourFrame) workspaceTourFrame.hidden = true;
         document.getElementById('header').hidden = false;

@@ -140,7 +140,7 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
             const code = document.querySelector('#container').getBoundingClientRect();
             const resizer = document.querySelector('#tour-narrative-resizer');
             const handle = resizer.getBoundingClientRect();
-            return { height: narrative.height, codeTop: code.top, codeHeight: code.height,
+            return { top: narrative.top, height: narrative.height, codeTop: code.top, codeHeight: code.height,
                 handleY: handle.top + handle.height / 2, handleX: handle.left + handle.width / 2,
                 value: Number(resizer.getAttribute('aria-valuenow')),
                 max: Number(resizer.getAttribute('aria-valuemax')),
@@ -148,8 +148,8 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
                 cursor: getComputedStyle(resizer).cursor };
         })()`);
         const assertSplit = (split) => {
-            assert.ok(Math.abs(split.codeTop - split.height) <= 1, 'Code starts at the narrative boundary');
-            assert.ok(Math.abs(split.handleY - split.height) <= 1, 'The divider tracks the narrative boundary');
+            assert.ok(Math.abs(split.codeTop - split.top - split.height) <= 1, 'Code starts at the narrative boundary');
+            assert.ok(Math.abs(split.handleY - split.top - split.height) <= 1, 'The divider tracks the narrative boundary');
             assert.equal(split.value, split.height, 'The separator exposes its current height');
             assert.ok(split.codeHeight >= 180, 'Resizing preserves room for code');
         };
@@ -159,9 +159,9 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
             const y = Math.round(split.handleY);
             browserContents.sendInputEvent({ type: 'mouseMove', x, y });
             browserContents.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, x, y });
-            browserContents.sendInputEvent({ type: 'mouseMove', x, y: height });
+            browserContents.sendInputEvent({ type: 'mouseMove', x, y: height + split.top });
             await waitFor(`Number(document.querySelector('#tour-narrative-resizer').getAttribute('aria-valuenow')) === ${height}`, 'dragged narrative boundary');
-            browserContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, x, y: height });
+            browserContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, x, y: height + split.top });
             await waitFor("!document.body.classList.contains('is-resizing-tour-narrative')", 'narrative drag completion');
             await waitForRaf();
         };
@@ -421,13 +421,13 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
             const before = await read();
             await clearMessages();
             await clickSelector(`[data-workspace-mode=${mode}]`);
-            await waitFor(`document.querySelector('[data-workspace-mode=${mode}][aria-pressed=true]')`, `${mode} workspace mode`);
+            await waitFor(`document.querySelector('[data-workspace-mode=${mode}][aria-selected=true]')`, `${mode} workspace mode`);
             await waitFor(
                 `(window.__tourReadingSmokeMessages || []).some((message) => ${JSON.stringify(mode === 'history' ? ['showDirectoryDiff'] : TRANSITION_TYPES)}.includes(message.type))`,
                 `${mode} source transition`
             );
             await clickSelector('[data-workspace-mode=historical]');
-            await waitFor("document.querySelector('[data-workspace-mode=historical][aria-pressed=true]')", 'historical workspace mode');
+            await waitFor("document.querySelector('[data-workspace-mode=historical][aria-selected=true]')", 'historical workspace mode');
             await waitFor(`document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === ${JSON.stringify(before.activeKeys[0])}
                 && Math.abs(document.querySelector('#tour-narrative-content').scrollTop - ${JSON.stringify(before.content.scrollTop)}) <= 8`,
                 `${mode} restores reading position`);

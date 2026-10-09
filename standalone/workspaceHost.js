@@ -74,7 +74,9 @@ function createWorkspaceHost(host, git) {
             tourSkill: current.tourSkill || host.defaultTourSkill?.(),
             canReturn: Boolean(current.original && (current.tourMode || host.getSession() !== current.original)),
             history: { enabled: context.kind === 'ready' && !current.backendError, label: 'History', reason: current.backendError || (context.kind === 'ready' ? context.notice || '' : context.reason) },
-            promptContext: current.tourMode ? current.tour.promptContext : {
+            revisionContext: revisions.map(revision => revision === 'EMPTY' ? 'Empty tree'
+                : revision === 'WORKTREE' ? 'Working tree' : revision === 'INDEX' ? 'Staged' : revision.slice(0, 7)).join(' → '),
+            promptContext: current.tourMode && current.tour ? current.tour.promptContext : {
                 repository: context.kind === 'ready' ? context.repoRoot : undefined,
                 paths: context.kind === 'ready' ? context.paths.map((item) => item.path || '.') : [],
                 revisions, rangeStatus: range.status, reason: range.reason
@@ -201,13 +203,15 @@ function createWorkspaceHost(host, git) {
 
     async function switchMode(mode) {
         ensure();
+        if (mode === (state.tourMode || state.mode)) return;
         if (['historical', 'deconstructed'].includes(mode)) {
-            if (!state.tour?.kinds.includes(mode)) return;
             if (!state.tourMode && !await leave()) return;
             const retained = state.saved.get(state.mode);
             if (retained) host.setSession(retained);
             state.tourMode = mode;
-            host.send({ type: 'workspaceTour', url: state.tour.url, mode, workspace: uiState() });
+            host.send(state.tour?.kinds.includes(mode)
+                ? { type: 'workspaceTour', url: state.tour.url, mode, workspace: uiState() }
+                : { type: 'workspaceEmptyTour', workspace: uiState() });
             return;
         }
         if (state.tourMode) {

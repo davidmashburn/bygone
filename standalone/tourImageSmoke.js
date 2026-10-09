@@ -64,7 +64,7 @@ app.whenReady().then(async () => {
             await evaluate("document.querySelector('#tour-return-focus').click()");
             await wait("document.querySelector('.tour-image-evidence img')?.naturalWidth === 2880 && document.querySelector('#tour-return-focus').hidden");
             await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
-            await wait("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && !document.body.classList.contains('tour-image-active')");
+            await wait("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && !document.body.classList.contains('tour-image-active')");
             assert.equal(await evaluate("document.querySelector('.tour-image-dialog')"), null);
             // A pure screenshot guide opens on an image and crosses chapter/scene
             // boundaries without turning their headings into file-inventory stops.
