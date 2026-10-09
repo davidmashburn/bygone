@@ -6,10 +6,13 @@ prescribed reading order.
 ## Start a comparison
 
 - The **File** menu contains the familiar new/open/save lifecycle. **New Blank
-  Comparison** opens a writable comparison without source paths.
-- **File → Compare Files…** accepts two or more files. Select one item at a time when
+  Comparison** opens two writable blank panels without source paths.
+- **File → Compare Files…** accepts one or more files. Select one item at a time when
   the files live in different folders, or select several together. Two files open a side-by-side
-  comparison; additional files open the focused multi-panel strip.
+  comparison; additional files open the focused multi-panel strip. Cancel the second
+  file picker to review your first selection and choose **Open File**. The summary
+  also offers **Select More…** and **Add Blank Panel**; add blank panels repeatedly
+  to include as many as you need before choosing **Compare**.
 - **File → Compare Directories…** uses the same additive selection flow for two or
   more directory trees.
 - Drag files or directories into the window for the same selection-count
