@@ -1,0 +1,168 @@
+<div id="bygone-tabs-mock" aria-label="Bygone workspace navigation mockup">
+  <style>
+    #bygone-tabs-mock { --bg-app:light-dark(#ffffff,#1e1e1e); --bg-chrome:light-dark(#f5f5f5,#252526); --bg-text:light-dark(#242424,#d4d4d4); --bg-muted:light-dark(#616161,#9da1a6); --bg-line:light-dark(#dedede,#3c3c3c); --bg-focus:light-dark(#006fbc,#64b5f6); --bg-selected:light-dark(#e8f1fb,#293849); --bg-add:light-dark(#e7f4e8,#213b2b); --bg-del:light-dark(#fbe9e7,#462a2a); font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--bg-text); }
+    #bygone-tabs-mock { color-scheme:light dark; }
+    #bygone-tabs-mock * { box-sizing:border-box; }
+    #bygone-tabs-mock [hidden] { display:none!important; }
+    #bygone-tabs-mock .product { background:var(--bg-app); border:1px solid var(--bg-line); border-radius:8px; overflow:hidden; }
+    #bygone-tabs-mock .window { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0 18px; padding:0 18px; background:var(--bg-chrome); border-bottom:1px solid var(--bg-line); }
+    #bygone-tabs-mock .revision-context { padding:6px 0; white-space:nowrap; }
+    #bygone-tabs-mock .subtle { color:var(--bg-muted); }
+    #bygone-tabs-mock .nav { display:flex; flex-wrap:wrap; gap:24px; }
+    #bygone-tabs-mock button { font:inherit; color:inherit; }
+    #bygone-tabs-mock .tab { border:0; border-bottom:2px solid transparent; border-radius:0; padding:6px 0 4px; background:transparent; color:var(--bg-muted); white-space:nowrap; }
+    #bygone-tabs-mock .tab[aria-selected="true"] { border-bottom-color:var(--bg-focus); color:var(--bg-text); }
+    #bygone-tabs-mock .tab:hover { color:var(--bg-text); }
+    #bygone-tabs-mock .workspace { display:grid; grid-template-columns:218px minmax(0,1fr); min-height:410px; }
+    #bygone-tabs-mock .rail { border-right:1px solid var(--bg-line); background:var(--bg-chrome); padding:15px 12px; }
+    #bygone-tabs-mock .rail-heading { font-weight:500; margin:0 0 12px 5px; }
+    #bygone-tabs-mock .revision { display:block; width:100%; text-align:left; padding:10px 9px; margin-bottom:4px; background:transparent; border:0; border-radius:3px; }
+    #bygone-tabs-mock .revision.selected { background:var(--bg-selected); }
+    #bygone-tabs-mock .revision small { display:block; margin-top:3px; color:var(--bg-muted); font-size:11px; }
+    #bygone-tabs-mock .rail-note { margin:20px 5px 8px; color:var(--bg-muted); font-size:12px; }
+    #bygone-tabs-mock .file { display:block; padding:7px 9px; overflow-wrap:anywhere; }
+    #bygone-tabs-mock .file.selected { background:var(--bg-selected); border-radius:3px; }
+    #bygone-tabs-mock .context { display:flex; flex-wrap:wrap; justify-content:space-between; gap:7px; padding:12px 15px; border-bottom:1px solid var(--bg-line); }
+    #bygone-tabs-mock .panes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    #bygone-tabs-mock .pane + .pane { border-left:1px solid var(--bg-line); }
+    #bygone-tabs-mock .pane-heading { padding:9px 14px; background:var(--bg-chrome); border-bottom:1px solid var(--bg-line); }
+    #bygone-tabs-mock .code { margin:0; padding:16px 0; font:12px/1.85 ui-monospace,SFMono-Regular,Menlo,monospace; }
+    #bygone-tabs-mock .line { display:flex; padding:0 10px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+    #bygone-tabs-mock .ln { flex:0 0 34px; padding-right:9px; text-align:right; color:var(--bg-muted); user-select:none; }
+    #bygone-tabs-mock .added { background:var(--bg-add); }
+    #bygone-tabs-mock .removed { background:var(--bg-del); }
+    #bygone-tabs-mock .prose { max-width:650px; padding:26px 28px; margin:auto; }
+    #bygone-tabs-mock h2 { margin:0 0 10px; font-size:20px; font-weight:500; }
+    #bygone-tabs-mock h3 { margin:20px 0 7px; font-size:15px; font-weight:500; }
+    #bygone-tabs-mock p { margin:8px 0 16px; }
+    #bygone-tabs-mock .empty { min-height:410px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:44px 24px; text-align:center; }
+    #bygone-tabs-mock .empty p { max-width:400px; color:var(--bg-muted); }
+    #bygone-tabs-mock .actions { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+    #bygone-tabs-mock .action { padding:7px 12px; background:var(--bg-chrome); border:1px solid var(--bg-line); border-radius:4px; }
+    #bygone-tabs-mock .action.primary { background:var(--bg-selected); border-color:var(--bg-focus); }
+    #bygone-tabs-mock .statusbar { display:flex; flex-wrap:wrap; justify-content:space-between; padding:7px 16px; gap:8px; border-top:1px solid var(--bg-line); color:var(--bg-muted); font-size:11px; background:var(--bg-chrome); }
+    #bygone-tabs-mock dialog { color:var(--bg-text); background:var(--bg-app); border:1px solid var(--bg-line); border-radius:8px; padding:24px; width:min(540px,calc(100% - 24px)); }
+    #bygone-tabs-mock dialog::backdrop { background:light-dark(rgb(0 0 0 / 25%),rgb(0 0 0 / 55%)); }
+    #bygone-tabs-mock dialog textarea { font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; width:100%; min-height:150px; padding:10px; color:var(--bg-text); background:var(--bg-chrome); border:1px solid var(--bg-line); resize:vertical; margin:8px 0 16px; }
+    #bygone-tabs-mock dialog .actions { justify-content:flex-end; }
+    @media(max-width:650px) { #bygone-tabs-mock .workspace { grid-template-columns:160px minmax(0,1fr); } #bygone-tabs-mock .nav { gap:18px; } #bygone-tabs-mock .panes { grid-template-columns:1fr; } #bygone-tabs-mock .pane + .pane { border-left:0; border-top:1px solid var(--bg-line); } }
+    @media(max-width:440px) { #bygone-tabs-mock .workspace { grid-template-columns:1fr; } #bygone-tabs-mock .rail { border-right:0; border-bottom:1px solid var(--bg-line); } #bygone-tabs-mock .revision { padding:6px 9px; } #bygone-tabs-mock .rail-note { margin-top:8px; } #bygone-tabs-mock .nav { display:grid; grid-template-columns:repeat(2,max-content); gap:0 22px; } #bygone-tabs-mock .empty { min-height:350px; } }
+    @media(pointer:coarse) { #bygone-tabs-mock .tab { min-height:44px; } }
+  </style>
+  <section class="product" aria-label="Bygone">
+    <header class="window">
+    <nav class="nav" role="tablist" aria-label="Workspace views">
+      <button class="tab cursor-interaction" id="mock-tab-history" type="button" role="tab" aria-selected="true" aria-controls="mock-history" data-view="history">History</button>
+      <button class="tab cursor-interaction" id="mock-tab-compare" type="button" role="tab" aria-selected="false" aria-controls="mock-compare" data-view="compare">Compare</button>
+      <button class="tab cursor-interaction" id="mock-tab-historical" type="button" role="tab" aria-selected="false" aria-controls="mock-historical" data-view="historical">Historical tour</button>
+      <button class="tab cursor-interaction" id="mock-tab-deconstructed" type="button" role="tab" aria-selected="false" aria-controls="mock-deconstructed" data-view="deconstructed">Deconstructed tour</button>
+    </nav>
+      <span class="subtle revision-context">main &rarr; working tree</span>
+    </header>
+    <section id="mock-history" role="tabpanel" aria-labelledby="mock-tab-history">
+      <div class="workspace">
+        <aside class="rail">
+          <div class="rail-heading">Revisions</div>
+          <button class="revision selected cursor-interaction" type="button" data-revision="working">Working tree<small>Current changes</small></button>
+          <button class="revision cursor-interaction" type="button" data-revision="main">main<small>8bdf0b4 &middot; Latest commit</small></button>
+          <div class="rail-note">Files</div><span class="file selected">workspaceControls.js</span><span class="file">workspaceControls.css</span>
+        </aside>
+        <div><div class="context"><span>media/workspaceControls.js</span><span class="subtle">2 revisions</span></div><div class="panes" data-diff></div></div>
+      </div>
+    </section>
+    <section id="mock-compare" role="tabpanel" aria-labelledby="mock-tab-compare" hidden>
+      <div class="workspace">
+        <aside class="rail"><div class="rail-heading">Changed files</div><span class="file selected">workspaceControls.js</span><span class="file">workspaceControls.css</span><div class="rail-note">main &rarr; working tree</div></aside>
+        <div><div class="context"><span>media/workspaceControls.js</span><span class="subtle">Selected revisions</span></div><div class="panes" data-diff></div></div>
+      </div>
+    </section>
+    <section id="mock-historical" role="tabpanel" aria-labelledby="mock-tab-historical" hidden>
+      <div class="workspace">
+        <aside class="rail"><div class="rail-heading">Historical tour</div><span class="file selected">Make views look like views</span><span class="file">Keep creation in context</span><div class="rail-note">Actual revisions<br>Step 1 of 2</div></aside>
+        <article><div class="context"><span>Make views look like views</span><span class="subtle">main &rarr; working tree</span></div><div class="prose"><h2>A quieter way to switch views</h2><p>The four destinations stay visible. An underline marks your current view, and switching takes one click.</p><h3>Navigation stays in one place</h3><p>The file and revision controls belong to the view below. The navigation row only selects what you are looking at.</p></div><div class="panes" data-diff></div></article>
+      </div>
+    </section>
+    <section id="mock-deconstructed" role="tabpanel" aria-labelledby="mock-tab-deconstructed" hidden>
+      <div class="empty" data-empty>
+        <h2>No Deconstructed tour yet</h2>
+        <p>Explain this change in smaller stages.<br>Create a tour with your coding agent, or open one you already have.</p>
+        <div class="actions"><button type="button" class="action primary cursor-interaction" data-create>Create tour&hellip;</button><button type="button" class="action cursor-interaction" data-open>Open existing tour&hellip;</button></div>
+      </div>
+      <article class="prose" data-sample hidden><div class="subtle">Deconstructed tour &middot; Example</div><h2>Separate navigation from actions</h2><p>First, replace the button boxes with visible text tabs. Then move tour creation into the view it belongs to.</p><h3>Stage 1 of 2</h3><p>Every tab now opens a view. A missing tour has a clear starting point, instead of opening a dialog directly from navigation.</p></article>
+    </section>
+    <footer class="statusbar"><span data-status aria-live="polite">History</span><span>Design mockup &middot; Sample content</span></footer>
+  </section>
+  <dialog data-prompt aria-labelledby="mock-prompt-heading">
+    <h2 id="mock-prompt-heading">Create a Deconstructed tour</h2><p>Use this prompt with your coding agent, then open the tour it creates.</p>
+    <label for="mock-prompt-text">Prompt</label>
+    <textarea id="mock-prompt-text">Create a Deconstructed Bygone tour for the navigation cleanup. Explain the change through smaller constructed stages, preserving the real comparison endpoints. Inspect the code and anchor each explanation to source evidence. Validate the .bygone document before opening it.</textarea>
+    <div class="actions"><button class="action cursor-interaction" type="button" data-dismiss>Close</button><button class="action primary cursor-interaction" type="button" data-copy>Copy prompt</button></div><p data-copy-status aria-live="polite"></p>
+  </dialog>
+  <dialog data-open-dialog aria-labelledby="mock-open-heading"><h2 id="mock-open-heading">Open existing tour</h2><p>This preview includes a sample Deconstructed tour.</p><div class="actions"><button class="action cursor-interaction" type="button" data-dismiss>Cancel</button><button class="action primary cursor-interaction" type="button" data-load>Open sample tour</button></div></dialog>
+  <script>
+    (() => {
+      const root = document.getElementById('bygone-tabs-mock');
+      const views = ['history','compare','historical','deconstructed'];
+      const tabs = Array.from(root.querySelectorAll('[data-view]'));
+      const state = {view:'history', available:false};
+      const escape = value => value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const oldLines = ['const modes = [', "  'history',", "  'compare',", "  'historical',", "  'deconstructed'", '];', '', 'renderModeButtons(modes);'];
+      const newLines = ['const views = [', "  'history',", "  'compare',", "  'historical',", "  'deconstructed'", '];', '', 'renderViewTabs(views);'];
+      function pane(label, lines, changed) {
+        return '<section class="pane"><div class="pane-heading">' + label + '</div><div class="code">' + lines.map((line,i) => '<div class="line ' + (i===0 || i===7 ? changed : '') + '"><span class="ln">' + (i+1) + '</span><span>' + escape(line) + '</span></div>').join('') + '</div></section>';
+      }
+      root.querySelectorAll('[data-diff]').forEach(el => el.innerHTML = pane('main', oldLines, 'removed') + pane('Working tree', newLines, 'added'));
+      function render() {
+        tabs.forEach(tab => tab.setAttribute('aria-selected',String(tab.dataset.view===state.view)));
+        views.forEach(view => root.querySelector('#mock-' + view).hidden = view!==state.view);
+        root.querySelector('[data-empty]').hidden = state.available;
+        root.querySelector('[data-sample]').hidden = !state.available;
+        root.querySelector('[data-status]').textContent = tabs.find(tab => tab.dataset.view===state.view).textContent;
+      }
+      function save() {
+        if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({modelContent:{view:state.view,deconstructedAvailable:state.available},privateContent:null}).catch(() => {});
+      }
+      function applySaved(saved) {
+        const model = saved && (saved.modelContent || saved);
+        if (model && views.includes(model.view)) state.view=model.view;
+        if (model && typeof model.deconstructedAvailable==='boolean') state.available=model.deconstructedAvailable;
+        render();
+      }
+      tabs.forEach((tab,index) => {
+        tab.addEventListener('click',() => {state.view=tab.dataset.view;render();save();});
+        tab.addEventListener('keydown',event => {
+          let next = index;
+          if (event.key==='ArrowRight') next=(index+1)%tabs.length;
+          else if (event.key==='ArrowLeft') next=(index+tabs.length-1)%tabs.length;
+          else if (event.key==='Home') next=0;
+          else if (event.key==='End') next=tabs.length-1;
+          else return;
+          event.preventDefault();tabs[next].focus();tabs[next].click();
+        });
+      });
+      const prompt = root.querySelector('[data-prompt]');
+      const openDialog = root.querySelector('[data-open-dialog]');
+      root.querySelector('[data-create]').addEventListener('click',() => prompt.showModal());
+      root.querySelector('[data-open]').addEventListener('click',() => openDialog.showModal());
+      root.querySelectorAll('[data-dismiss]').forEach(button => button.addEventListener('click',() => button.closest('dialog').close()));
+      root.querySelector('[data-load]').addEventListener('click',() => {state.available=true;openDialog.close();render();save();});
+      root.querySelector('[data-copy]').addEventListener('click',async () => {
+        const status = root.querySelector('[data-copy-status]');
+        try {await navigator.clipboard.writeText(root.querySelector('#mock-prompt-text').value);status.textContent='Prompt copied.';}
+        catch {status.textContent='Select and copy the prompt above.';}
+      });
+      root.querySelectorAll('[data-revision]').forEach(button => button.addEventListener('click',() => {
+        root.querySelectorAll('[data-revision]').forEach(item => item.classList.toggle('selected',item===button));
+        root.querySelector('[data-status]').textContent='History · ' + (button.dataset.revision==='main' ? 'main selected' : 'Working tree selected');
+      }));
+      applySaved(window.openai && window.openai.widgetState);
+      window.addEventListener('openai:set_globals',event => {
+        if(event.detail && event.detail.globals && event.detail.globals.widgetState) applySaved(event.detail.globals.widgetState);
+      });
+      if (globalThis.Tweak) {
+        const tweak=new Tweak({container:root,onChange:render});
+        tweak.addToggle(state,'available',{label:'Deconstructed tour available'});
+      }
+    })();
+  </script>
+</div>

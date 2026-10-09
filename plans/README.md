@@ -28,6 +28,8 @@ grew out of an earlier concept.
 
 - [Tour orientation, scene framing, and conclusions](tour-orientation-and-narrative-framing.md)
   — explicit comparison identity, purposeful scene transitions, and authored closings.
+- [Compact workspace view tabs](workspace-view-selector.md) — keep four visible
+  destinations on one compact row and remove the duplicate title.
 - [Text-block move tracking](text-block-move-tracking.md) — scope moves, copies,
   edited blocks, ambiguity, accounting, and presentation, with
   [open-source and academic research](text-block-move-tracking-research.md).
