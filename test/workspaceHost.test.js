@@ -461,3 +461,49 @@ test('changing staged visibility rerenders clean panes after discarding edits', 
     assert.deepEqual(git.calls.history.at(-1), { includeStaged: true });
     assert.deepEqual(fixture.restored.at(-1), { active: 'one' });
 });
+
+
+test('missing tours are selected views and restore the retained comparison', async () => {
+    const original = nativeSession();
+    const fixture = makeHost(original);
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    workspace.augment(showMessage());
+    await workspace.handle({ type: 'toggleHistorySelection', index: 1 });
+    await workspace.handle({ type: 'workspaceMode', mode: 'historical' });
+    assert.equal(workspace.uiState().mode, 'historical');
+    assert.equal(workspace.uiState().selectionCount, 1);
+    assert.equal(fixture.sent.at(-1).type, 'workspaceEmptyTour');
+    assert.equal(workspace.augment(showMessage()).type, 'workspaceState');
+    await workspace.handle({ type: 'workspaceOpenTour', kind: 'historical' });
+    assert.equal(workspace.uiState().mode, 'historical', 'Canceling the picker keeps the empty view');
+    await workspace.handle({ type: 'workspaceMode', mode: 'deconstructed' });
+    assert.equal(workspace.uiState().mode, 'deconstructed');
+    await workspace.handle({ type: 'workspaceMode', mode: 'compare' });
+    assert.equal(workspace.uiState().mode, 'compare');
+    assert.equal(fixture.session, original);
+    assert.deepEqual(fixture.restored.at(-1), { active: 'one' });
+    assert.equal(workspace.uiState().selectionCount, 1);
+});
+
+test('canceling missing-tour entry preserves edits and the selected native view', async () => {
+    const original = nativeSession();
+    original.multi.files[0].dirty = true;
+    const fixture = makeHost(original, { confirm: false, unsaved: true });
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    workspace.augment(showMessage());
+    await workspace.handle({ type: 'workspaceMode', mode: 'historical' });
+    assert.equal(workspace.uiState().mode, 'compare');
+    assert.equal(fixture.session, original);
+    assert.equal(original.multi.files[0].dirty, true);
+    assert.equal(fixture.sent.some(message => message.type === 'workspaceEmptyTour'), false);
+});
+
+test('failed tour loading preserves the empty view and reports the error', async () => {
+    const fixture = makeHost(nativeSession(), { tour: () => { throw new Error('Invalid tour'); } });
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    workspace.augment(showMessage());
+    await workspace.handle({ type: 'workspaceMode', mode: 'historical' });
+    await workspace.handle({ type: 'workspaceOpenTour', kind: 'historical' });
+    assert.equal(workspace.uiState().mode, 'historical');
+    assert.equal(workspace.uiState().status, 'Invalid tour');
+});

@@ -256,7 +256,7 @@ import { renderTourProse } from '../media/tourProse.js';
         return [
             ...(supportsWorkspaceHistory() ? ['history'] : []),
             ...(exportData || supportsWorkspaceHistory() ? ['compare'] : []),
-            ...Object.keys(authoredTours()).filter((mode) => authoredTours()[mode])
+            ...(exportData ? Object.keys(authoredTours()).filter((mode) => authoredTours()[mode]) : ['historical', 'deconstructed'])
         ];
     }
 
@@ -288,8 +288,20 @@ import { renderTourProse } from '../media/tourProse.js';
         workspaceControlsHost = document.createElement('div');
         workspaceControlsHost.id = 'workspace-mode-controls';
         controls.prepend(workspaceControlsHost);
+        document.body.prepend(controls);
+        const content = document.createElement('div');
+        content.id = 'workspace-view';
+        for (const id of ['tour-narrative', 'tour-narrative-resizer', 'container']) {
+            const element = document.getElementById(id);
+            if (element) content.appendChild(element);
+        }
+        document.body.appendChild(content);
+        new ResizeObserver(() => {
+            document.documentElement.style.setProperty('--workspace-toolbar-height', `${controls.offsetHeight}px`);
+        }).observe(controls);
         workspaceControls = createWorkspaceControls({
             container: workspaceControlsHost,
+            content,
             send: handleWorkspaceControlMessage
         });
     }
@@ -332,12 +344,13 @@ import { renderTourProse } from '../media/tourProse.js';
                 ...(historyAvailable ? {} : { reason: workspaceCompareUnavailableReason() })
             },
             availableTours: Object.keys(authoredTours()).filter((mode) => mode === 'historical' || mode === 'deconstructed'),
+            canCreateTours: !exportData,
+            canOpenTours: !exportData,
+            unavailableTourReason: 'This tour is not included in the export.',
+            revisionContext: [state.authoredTour?.range?.baseRef || state.authoredTour?.range?.mergeBaseOid, state.authoredTour?.range?.headRef || state.authoredTour?.range?.headOid].filter(Boolean).map(ref => /^[0-9a-f]{40}$/i.test(ref) ? ref.slice(0, 7) : ref).join(' → '),
             promptContext: buildWorkspacePromptContext(),
             status: state.workspacePromptStatus
         });
-        if (exportData) for (const button of workspaceControlsHost.querySelectorAll('[data-workspace-mode]')) {
-            if (!availableModes().includes(button.dataset.workspaceMode)) { button.disabled = true; button.title = 'This mode is not included in the export.'; }
-        }
     }
 
     function workspaceSessionId() {
@@ -531,7 +544,7 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     function isNarrativeMode() {
-        return !state.zoom || state.zoom.mode === 'historical' || state.zoom.mode === 'deconstructed';
+        return !state.zoom || Boolean(authoredTours()[state.zoom.mode]);
     }
 
     function zoomTour(mode) {
@@ -553,6 +566,8 @@ import { renderTourProse } from '../media/tourProse.js';
         const historyAvailable = supportsWorkspaceHistory();
         document.getElementById('tour-history-controls').hidden = !historyAvailable || state.zoom.mode === 'compare';
         document.getElementById('tour-compare-controls').hidden = !historyAvailable || state.zoom.mode !== 'compare';
+        const missingTour = ['historical', 'deconstructed'].includes(state.zoom.mode) && !authoredTours()[state.zoom.mode];
+        document.body.classList.toggle('workspace-empty-tour', missingTour);
         document.body.classList.toggle('tour-derived-mode', !isNarrativeMode());
         if (!isNarrativeMode()) {
             document.body.classList.remove('tour-discussion');
@@ -963,7 +978,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 await showZoomHistory(selectedPath || (landing.restore ? landing.location.path : null), state.historyCommit || landing.location.commit);
             } else if (mode === 'compare') {
                 await showComparison(comparison || state.compare || finalComparison(), selectedPath || landing.location.path || origin.path);
-            } else {
+            } else if (authoredTours()[mode]) {
                 showTourScene(Math.max(0, landing.location.sceneIndex), landing.location.stepIndex, {
                     zoomLanding: true, showIntro: landing.restore ? landing.location.sceneIntroVisible : true,
                     readingKey: landing.restore ? landing.location.readingKey : 'title'
@@ -1742,7 +1757,7 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     function maximumTourNarrativeHeight() {
-        return Math.max(TOUR_NARRATIVE_MIN_HEIGHT, window.innerHeight - TOUR_DIFF_MIN_HEIGHT);
+        return Math.max(TOUR_NARRATIVE_MIN_HEIGHT, window.innerHeight - document.getElementById('tour-mode-controls').offsetHeight - TOUR_DIFF_MIN_HEIGHT);
     }
 
     function setTourNarrativeHeight(height) {
@@ -1759,6 +1774,7 @@ import { renderTourProse } from '../media/tourProse.js';
         const resizer = document.getElementById('tour-narrative-resizer');
         resizer?.setAttribute('aria-valuemax', String(maximumTourNarrativeHeight()));
         resizer?.setAttribute('aria-valuenow', String(state.tourNarrativeHeight));
+        if (resizer) resizer.style.top = `calc(var(--workspace-toolbar-height, 0px) + ${state.tourNarrativeHeight - 4}px)`;
     }
 
     function initializeTourNarrativeLayout() {

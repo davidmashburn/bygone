@@ -25,11 +25,11 @@ const RANGE_STATUSES = new Set([
 let controlInstanceId = 0;
 
 /**
- * Mount the shared workspace mode strip and the missing-tour prompt dialog.
+ * Mount shared workspace tabs, the missing-tour view, and its prompt dialog.
  * The controller owns only DOM state and per-session prompt drafts; navigation,
  * tour loading, and repository operations remain with the host.
  */
-function createWorkspaceControls({ container, send } = {}) {
+function createWorkspaceControls({ container, content, send } = {}) {
     if (!container || typeof container.appendChild !== 'function') {
         throw new TypeError('createWorkspaceControls requires a DOM container.');
     }
@@ -47,7 +47,8 @@ function createWorkspaceControls({ container, send } = {}) {
 
     const strip = document.createElement('nav');
     strip.className = 'workspace-mode-strip';
-    strip.setAttribute('aria-label', 'Workspace modes');
+    strip.setAttribute('role', 'tablist');
+    strip.setAttribute('aria-label', 'Workspace views');
     root.appendChild(strip);
 
     const descriptionHost = document.createElement('div');
@@ -61,6 +62,8 @@ function createWorkspaceControls({ container, send } = {}) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'workspace-mode-button';
+        button.id = `bygone-workspace-${instanceId}-${mode}-tab`;
+        button.setAttribute('role', 'tab');
         button.setAttribute('data-workspace-mode', mode);
         button.textContent = MODE_LABELS[mode];
 
@@ -82,6 +85,27 @@ function createWorkspaceControls({ container, send } = {}) {
     statusElement.setAttribute('aria-atomic', 'true');
     root.appendChild(statusElement);
 
+    const revisionContext = document.createElement('span');
+    revisionContext.className = 'workspace-revision-context';
+    root.appendChild(revisionContext);
+
+    const panel = content || container;
+    if (!panel.id) panel.id = `bygone-workspace-${instanceId}-view`;
+    panel.setAttribute('role', 'tabpanel');
+    const emptyView = document.createElement('section');
+    emptyView.className = 'workspace-empty-view';
+    emptyView.setAttribute('data-workspace-empty-tour', '');
+    emptyView.hidden = true;
+    const emptyTitle = document.createElement('h2');
+    const emptyDescription = document.createElement('p');
+    const emptyActions = document.createElement('div');
+    emptyActions.className = 'workspace-empty-actions';
+    const createButton = makeButton(document, 'Create tour…', 'create-tour');
+    const openButton = makeButton(document, 'Open existing tour…', 'open-tour');
+    emptyActions.append(createButton, openButton);
+    emptyView.append(emptyTitle, emptyDescription, emptyActions);
+    panel.appendChild(emptyView);
+
     const dialogParts = createPromptDialog(document, instanceId);
     root.appendChild(dialogParts.dialog);
     container.appendChild(root);
@@ -98,14 +122,24 @@ function createWorkspaceControls({ container, send } = {}) {
     for (const [mode, button] of modeButtons) {
         button.addEventListener('click', () => {
             if (destroyed || button.disabled) return;
-            const available = isModeAvailable(mode, currentState);
-            if ((mode === 'historical' || mode === 'deconstructed') && !available) {
-                openPrompt(mode, button);
-                return;
-            }
+            if (mode === currentState.mode) return;
             emit({ type: 'workspaceMode', mode });
         });
+        button.addEventListener('keydown', event => {
+            const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+            if (!keys.includes(event.key)) return;
+            const enabled = [...modeButtons.values()].filter(tab => !tab.disabled);
+            const index = enabled.indexOf(button);
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? enabled.length - 1
+                : (index + (event.key === 'ArrowRight' ? 1 : -1) + enabled.length) % enabled.length;
+            event.preventDefault();
+            enabled[next]?.focus();
+            enabled[next]?.click();
+        });
     }
+
+    createButton.addEventListener('click', () => openPrompt(currentState.mode, createButton));
+    openButton.addEventListener('click', () => emit({ type: 'workspaceOpenTour', kind: currentState.mode }));
 
     dialogParts.textarea.addEventListener('input', () => {
         if (!activeKind) return;
@@ -209,6 +243,7 @@ function createWorkspaceControls({ container, send } = {}) {
         if (activeKind && next.status !== currentState.status) interactionStatus = next.status;
         currentState = next;
         renderModes();
+        renderEmptyView();
         renderStatus();
         if (activeKind) renderPromptDialog();
     }
@@ -221,6 +256,7 @@ function createWorkspaceControls({ container, send } = {}) {
         else root.parentNode?.removeChild(root);
         modeButtons.clear();
         modeDescriptions.clear();
+        emptyView.remove();
         draftsBySession.clear();
         skillsBySession.clear();
     }
@@ -230,8 +266,9 @@ function createWorkspaceControls({ container, send } = {}) {
             const button = modeButtons.get(mode);
             const description = modeDescriptions.get(mode);
             const available = isModeAvailable(mode, currentState);
-            const active = available && currentState.mode === mode;
+            const active = currentState.mode === mode;
             const missingTour = (mode === 'historical' || mode === 'deconstructed') && !available;
+            const unavailableTour = missingTour && !currentState.canCreateTours;
             const unavailableHistory = mode === 'history' && currentState.history.enabled === false;
             const unavailableCompare = mode === 'compare' && currentState.compare.enabled === false;
             const label = mode === 'history'
@@ -239,8 +276,10 @@ function createWorkspaceControls({ container, send } = {}) {
                 : mode === 'compare'
                     ? currentState.compare.label
                     : currentState.modeLabels[mode] || MODE_LABELS[mode];
-            const explanation = missingTour
-                ? `${MISSING_TOUR_COPY[mode]} Opens a prompt dialog without changing the current mode.`
+            const explanation = unavailableTour
+                ? currentState.unavailableTourReason
+                : missingTour
+                ? `No ${label} yet. Open this view to create or open a tour.`
                 : unavailableHistory
                     ? currentState.history.reason || 'History is unavailable for this workspace.'
                     : unavailableCompare
@@ -256,16 +295,32 @@ function createWorkspaceControls({ container, send } = {}) {
             description.textContent = explanation;
             button.classList.toggle('is-active', active);
             button.classList.toggle('is-missing', missingTour);
-            button.classList.toggle('is-unavailable', unavailableHistory || unavailableCompare);
-            button.disabled = unavailableHistory || unavailableCompare;
-            if (missingTour) button.removeAttribute('aria-pressed');
-            else button.setAttribute('aria-pressed', String(active));
+            button.classList.toggle('is-unavailable', unavailableHistory || unavailableCompare || unavailableTour);
+            button.disabled = unavailableHistory || unavailableCompare || unavailableTour;
+            button.setAttribute('aria-selected', String(active));
+            button.setAttribute('aria-controls', panel.id);
+            if (active) panel.setAttribute('aria-labelledby', button.id);
+        }
+    }
+
+    function renderEmptyView() {
+        const mode = currentState.mode;
+        const missing = ['historical', 'deconstructed'].includes(mode) && !isModeAvailable(mode, currentState);
+        emptyView.hidden = !missing;
+        createButton.hidden = !currentState.canCreateTours;
+        openButton.hidden = !currentState.canOpenTours;
+        if (missing) {
+            const label = currentState.modeLabels[mode] || MODE_LABELS[mode];
+            emptyTitle.textContent = `No ${label} yet`;
+            emptyDescription.textContent = 'Create a tour with your coding agent, or open one you already have.';
         }
     }
 
     function renderStatus() {
         statusElement.textContent = currentState.status || '';
         statusElement.hidden = !currentState.status;
+        revisionContext.textContent = currentState.revisionContext;
+        revisionContext.hidden = !currentState.revisionContext;
     }
 
     function openPrompt(kind, trigger) {
@@ -547,6 +602,10 @@ function normalizeState(input = {}) {
         history,
         compare,
         availableTours,
+        canCreateTours: input?.canCreateTours !== false,
+        canOpenTours: input?.canOpenTours !== false,
+        unavailableTourReason: stringOr(input?.unavailableTourReason, 'This tour is unavailable in this workspace.'),
+        revisionContext: stringOr(input?.revisionContext, ''),
         nativeSkillFiles: input?.nativeSkillFiles === true,
         tourSkill: input?.tourSkill && typeof input.tourSkill.path === 'string'
             ? { path: input.tourSkill.path, text: typeof input.tourSkill.text === 'string' ? input.tourSkill.text : bundledTourSkill } : null,

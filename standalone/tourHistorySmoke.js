@@ -31,7 +31,7 @@ async function runTourHistorySmoke(contents, file) {
         await wait(overview);
         assert.deepEqual(await evaluate('window.__historySmokeMessage.labels'), original, 'Return preserves compared revisions');
         await evaluate("document.querySelector('[data-workspace-mode=historical]').click()");
-        await wait("document.querySelector('[data-workspace-mode=historical][aria-pressed=true]')");
+        await wait("document.querySelector('[data-workspace-mode=historical][aria-selected=true]')");
         await evaluate("window.__historySmokeMessage = null; document.querySelector('[data-workspace-mode=history]').click()");
         await wait(overview);
         assert.deepEqual(await evaluate('window.__historySmokeMessage.labels'), original, 'Mode round trip restores the overview');

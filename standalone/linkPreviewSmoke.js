@@ -1,14 +1,16 @@
 /* global require, module */
 const assert = require('node:assert/strict');
 const http = require('node:http');
-const { BrowserWindow, Menu, webContents } = require('electron');
+const { BrowserWindow, Menu, webContents, clipboard } = require('electron');
 const { setTimeout, clearTimeout } = require('node:timers');
 
 async function checkPreviewContextMenu(guest, previewRenderer) {
     const originalPopup = Menu.prototype.popup;
     let shownMenu;
     let timeout;
+    const clipboardContents = clipboard.availableFormats().map(format => [format, clipboard.readBuffer(format)]);
     try {
+        clipboard.writeText('Link preview paste fixture');
         const popup = new Promise((resolve, reject) => {
             timeout = setTimeout(() => reject(new Error('Preview right-click did not open a native menu')), 10000);
             Menu.prototype.popup = function (options) {
@@ -42,6 +44,8 @@ async function checkPreviewContextMenu(guest, previewRenderer) {
         clearTimeout(timeout);
         Menu.prototype.popup = originalPopup;
         shownMenu?.closePopup();
+        clipboard.clear();
+        for (const [format, buffer] of clipboardContents) clipboard.writeBuffer(format, buffer);
     }
 }
 

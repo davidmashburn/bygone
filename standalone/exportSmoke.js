@@ -59,7 +59,7 @@ app.whenReady().then(async () => {
             assert.equal(await evaluate("document.querySelector('[data-workspace-mode=history]').disabled"), profile === 'minimal');
             assert.equal(await evaluate("getComputedStyle(document.querySelector('#refresh-session')).display"), 'none');
             await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
-            await wait("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && !document.querySelector('.workspace-status')?.textContent");
+            await wait("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && !document.querySelector('.workspace-status')?.textContent");
             assert.equal(await evaluate("document.querySelector('[data-tour-navigator=tour]').disabled"), true, 'Compare disables Tour navigation');
             assert.equal(await evaluate("document.querySelector('#tour-scene-count').textContent"), '');
             assert.equal(await evaluate("document.querySelector('#back-to-directory').textContent.trim()"), 'Directory');
@@ -72,7 +72,7 @@ app.whenReady().then(async () => {
             await evaluate("document.querySelector('#back-to-directory').click()");
             await wait("document.querySelector('.dir-entry[data-path=\"app.txt\"]') && !document.querySelector('.monaco-editor')");
             await evaluate("document.querySelector('[data-workspace-mode=deconstructed]').click()");
-            await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-pressed=true]') && document.querySelector('[data-reading-key=\"scene:synthetic\"]')");
+            await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]') && document.querySelector('[data-reading-key=\"scene:synthetic\"]')");
             await wait("location.hash.includes('mode=deconstructed')");
             assert.equal(await evaluate("document.querySelector('[data-tour-navigator=tour]').disabled"), false, 'Tour navigation is re-enabled for a narrative mode');
             await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
@@ -80,11 +80,11 @@ app.whenReady().then(async () => {
             await evaluate("document.querySelector('[data-workspace-mode=deconstructed]').click()");
             await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-pressed=true]') && document.querySelector('[data-reading-key=\"scene:synthetic\"]')");
             await window.loadURL(window.webContents.getURL());
-            await wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('[data-workspace-mode=deconstructed][aria-pressed=true]')");
+            await wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]')");
             await evaluate("location.hash = '#location=1&mode=historical&part=chapter&chapter=chapter'");
             await wait("document.activeElement.dataset.readingKey === 'chapter:chapter'");
             await evaluate('history.back()');
-            await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-pressed=true]') && document.activeElement.dataset.readingKey === 'title'");
+            await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]') && document.activeElement.dataset.readingKey === 'title'");
             await evaluate('history.forward()');
             await wait("document.activeElement.dataset.readingKey === 'chapter:chapter'");
             await evaluate("location.hash = '#location=1&mode=historical&part=step&scene=scene&step=gone'");
@@ -92,7 +92,7 @@ app.whenReady().then(async () => {
             assert.equal(await evaluate("document.querySelector('.tour-reading-item.is-active').dataset.readingKey"), 'chapter:chapter');
             if (profile === 'full') {
                 await runTourHistorySmoke(window.webContents, 'app.txt');
-                await wait("document.querySelector('[data-workspace-mode=history][aria-pressed=true]')");
+                await wait("document.querySelector('[data-workspace-mode=history][aria-selected=true]')");
                 assert.equal(await evaluate("document.querySelector('[data-tour-navigator=tour]').disabled"), true, 'History disables Tour navigation');
                 assert.equal(await evaluate("document.querySelector('#tour-scene-count').textContent"), '');
             }
@@ -106,6 +106,20 @@ app.whenReady().then(async () => {
             assert.equal(await bad.evaluate('Boolean(window.__BYGONE_EXPORT_READY__)'), false);
             bad.window.destroy();
         }
+        const originalSource = fs.readFileSync(fixture.sourcePath, 'utf8');
+        const oneTourSource = JSON.parse(originalSource);
+        delete oneTourSource.tours.deconstructed;
+        fs.writeFileSync(fixture.sourcePath, JSON.stringify(oneTourSource));
+        const oneTourOutput = path.join(fixture.root, 'one-tour.html');
+        exportTour(fixture.sourcePath, oneTourOutput, path.resolve(__dirname, '..'), { profile: 'minimal' });
+        fs.writeFileSync(fixture.sourcePath, originalSource);
+        const omitted = await open(pathToFileURL(oneTourOutput).href);
+        await omitted.wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('[data-workspace-mode=historical][aria-selected=true]')");
+        assert.equal(await omitted.evaluate("document.querySelector('[data-workspace-mode=deconstructed]').disabled"), true);
+        assert.match(await omitted.evaluate("document.querySelector('[data-workspace-mode=deconstructed]').getAttribute('aria-description')"), /not included/);
+        assert.equal(await omitted.evaluate("[...document.querySelectorAll('.workspace-empty-actions button')].every(button => button.hidden)"), true, 'Exports expose no authoring actions');
+        assert.equal(await omitted.evaluate("document.querySelector('[role=tabpanel]').getAttribute('aria-labelledby') === document.querySelector('[data-workspace-mode=historical]').id"), true);
+        omitted.window.destroy();
         assert.deepEqual(requests, [], 'Embedded exports perform no network requests');
         assert.deepEqual(errors, [], 'No renderer errors');
         // The live presentation also validates a semantic target before opening.

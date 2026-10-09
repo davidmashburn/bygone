@@ -33,7 +33,7 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             revisions.push(git('rev-parse', 'HEAD').toString().trim());
         }
         await openDefault(root);
-        await waitFor("document.querySelector('.dir-entry[data-is-dir=false]') && document.querySelector('[data-workspace-mode=history][aria-pressed=true]')");
+        await waitFor("document.querySelector('.dir-entry[data-is-dir=false]') && document.querySelector('[data-workspace-mode=history][aria-selected=true]')");
         assert.equal(session().workspaceView.path, null, 'Bare launch opens the changed-files overview');
         assert.deepEqual(session().workspaceView.revisions, revisions.slice(-2), 'A clean checkout opens the latest changed commit');
         await evaluate("document.querySelector('.dir-entry[data-is-dir=false]').click()");
@@ -62,15 +62,16 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
         assert.equal(session(), linkedSession, 'Invalid targets preserve the current comparison');
         await runPanelSwitchSmoke({ browserContents: window().webContents, openMulti });
         await open(path.join(root, 'one.txt'), path.join(root, 'two.txt'));
-        await waitFor("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && document.querySelectorAll('.monaco-editor').length >= 2");
+        await waitFor("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && document.querySelectorAll('.monaco-editor').length >= 2");
         assert.equal(await evaluate(`(() => {
             const controls = document.querySelector('#workspace-header').getBoundingClientRect();
             const rail = document.querySelector('#history-rail').getBoundingClientRect();
             const header = document.querySelector('#header').getBoundingClientRect();
-            return Math.abs(controls.left - rail.left) < 1 && Math.abs(controls.width - rail.width) < 1
-                && controls.bottom <= rail.top && header.left >= controls.right
+            return controls.width === document.querySelector('#container').clientWidth
+                && controls.bottom <= rail.top && controls.bottom <= header.top
+                && new Set([...document.querySelectorAll('[data-workspace-mode]')].map(tab => tab.offsetTop)).size === 1
                 && [...document.querySelectorAll('.history-rail-tab')].some(tab => tab.textContent === 'Files');
-        })()`), true, 'Compare keeps workspace controls above the left navigator with Files next to Commits');
+        })()`), true, 'Compare keeps all four tabs in one row above the panel stack');
         const readWindowTheme = `(() => {
             const style = selector => getComputedStyle(document.querySelector(selector));
             const controls = style('.workspace-controls');
@@ -96,6 +97,9 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
         await evaluate("document.querySelectorAll('[data-multi-select-panel]')[1].click()");
         await waitFor("document.querySelectorAll('[data-multi-select-panel]')[1].getAttribute('aria-pressed') === 'true'");
         await evaluate("document.querySelector('[data-workspace-mode=historical]').click()");
+        await waitFor("document.querySelector('[data-workspace-mode=historical][aria-selected=true]') && !document.querySelector('[data-workspace-empty-tour]').hidden");
+        assert.equal(await evaluate("Boolean(document.querySelector('dialog[open]'))"), false);
+        await evaluate("document.querySelector('[data-workspace-prompt-action=create-tour]').click()");
         await waitFor("document.querySelector('dialog[open] textarea')");
         const initialPrompt = await evaluate("document.querySelector('dialog[open] textarea').value");
         assert.match(initialPrompt, /SKILL\.md/);
@@ -126,7 +130,7 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
         } finally { dialog.showSaveDialog = saveDialog; dialog.showOpenDialog = chooseDialog; }
         await evaluate("document.querySelector('dialog[open] textarea').value = 'Keep this prompt'; document.querySelector('dialog[open] textarea').dispatchEvent(new Event('input')); document.querySelector('dialog[open]').dispatchEvent(new Event('cancel', {cancelable:true}))");
         await evaluate("document.querySelector('[data-workspace-mode=history]').click()");
-        await waitFor("document.querySelector('[data-workspace-mode=history][aria-pressed=true]') && document.querySelectorAll('.multi-pane').length === 2");
+        await waitFor("document.querySelector('[data-workspace-mode=history][aria-selected=true]') && document.querySelectorAll('.multi-pane').length === 2");
         assert.equal(session().workspaceView.path, 'two.txt');
         assert.deepEqual(await evaluate(readWindowTheme), compareTheme, 'History uses the same window theme as Compare');
         assert.equal(session().multi.files.at(-1).editable, true);
@@ -344,11 +348,16 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
         await waitFor("document.querySelector('[data-action=workspaceApply]').textContent.includes('(0)')");
         assert.equal(session().workspaceView.mode, 'history');
         await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
-        await waitFor("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && document.querySelectorAll('.multi-pane').length === 2");
+        await waitFor("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && document.querySelectorAll('.multi-pane').length === 2");
         assert.equal(session(), original);
         await evaluate("document.querySelector('[data-workspace-mode=historical]').click()");
+        await waitFor("document.querySelector('[data-workspace-mode=historical][aria-selected=true]') && !document.querySelector('[data-workspace-empty-tour]').hidden");
+        assert.equal(await evaluate("Boolean(document.querySelector('dialog[open]'))"), false);
+        await evaluate("document.querySelector('[data-workspace-prompt-action=create-tour]').click()");
         await waitFor("document.querySelector('dialog[open] textarea')?.value === 'Keep this prompt'");
         await evaluate("document.querySelector('dialog[open]').dispatchEvent(new Event('cancel', {cancelable:true}))");
+        await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
+        await waitFor("document.querySelector('[data-workspace-mode=compare][aria-selected=true]')");
         const dirtyConfirm = dialog.showMessageBox;
         let dirtyPrompts = 0;
         let confirmResponse = 2;
@@ -367,9 +376,9 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             assert.equal(session().multi.files[1].content, 'unsent edit\n');
             confirmResponse = 1;
             await evaluate("document.querySelector('[data-workspace-mode=history]').click()");
-            await waitFor("document.querySelector('[data-workspace-mode=history][aria-pressed=true]')");
+            await waitFor("document.querySelector('[data-workspace-mode=history][aria-selected=true]')");
             await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
-            await waitFor("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]')");
+            await waitFor("document.querySelector('[data-workspace-mode=compare][aria-selected=true]')");
             assert.equal(session().multi.files[1].content, 'two 3\n', 'Discarded edits cannot return in the retained comparison');
             assert.ok(session().multi.files.every((panel) => !panel.dirty));
         } finally { dialog.showMessageBox = dirtyConfirm; }
@@ -414,7 +423,7 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             assert.equal(require('../cli/tourFile.js').readTourSourceDocument(path.join(root, 'legacy.v4.bygone')).version, 4);
         } finally { dialog.showOpenDialog = pick; dialog.showMessageBox = confirm; }
         assert.equal(confirmations, 2, 'An older tour requires conversion and a scoped comparison requires a tour-context choice');
-        await waitFor("document.querySelector('[data-workspace-mode=historical][aria-pressed=true]') && document.querySelector('#workspace-tour-frame:not([hidden])')");
+        await waitFor("document.querySelector('[data-workspace-mode=historical][aria-selected=true]') && document.querySelector('#workspace-tour-frame:not([hidden])')");
         const tourFrame = await new Promise((resolve, reject) => {
             const contents = window().webContents;
             const timeout = setTimeout(() => { contents.removeListener('did-frame-finish-load', check); reject(new Error('Tour subframe did not load')); }, 15000);
@@ -481,6 +490,13 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             // The browser surface cannot supply local absolute paths. Its selected
             // Markdown remains an attachment, and user-edited drafts survive changes.
             await browserContents.executeJavaScript("document.querySelector('[data-workspace-mode=deconstructed]').click()");
+            await browserContents.executeJavaScript(`new Promise((resolve, reject) => {
+                const start = Date.now(); const check = () => {
+                    if (document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]') && !document.querySelector('[data-workspace-empty-tour]').hidden) resolve();
+                    else if (Date.now() - start > 5000) reject(new Error('Missing tour did not render')); else requestAnimationFrame(check);
+                }; check();
+            })`);
+            await browserContents.executeJavaScript("document.querySelector('[data-workspace-prompt-action=create-tour]').click()");
             const browserPrompt = await browserContents.executeJavaScript("document.querySelector('dialog[open] textarea').value");
             assert.match(browserPrompt, /attached/);
             await browserContents.executeJavaScript(`(async () => {
@@ -526,14 +542,14 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             assert.match(await browserContents.executeJavaScript("document.querySelector('dialog[open] textarea').value"), /another\.md/);
         } finally { browserWindow.destroy(); }
         await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
-        await waitFor("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && document.querySelector('#workspace-tour-frame').hidden");
+        await waitFor("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && document.querySelector('#workspace-tour-frame').hidden");
         assert.equal(session(), retainedOriginal);
         await open(path.join(root, 'one.txt'), path.join(root, 'two.txt'), {
             source: { kind: 'files', paths: [path.join(root, 'one.txt'), path.join(root, 'two.txt')], readOnly: true }
         });
         await waitFor("document.querySelectorAll('.multi-pane-provenance.is-readonly').length === 2");
         await evaluate("document.querySelector('[data-workspace-mode=history]').click()");
-        await waitFor("document.querySelector('[data-workspace-mode=history][aria-pressed=true]')");
+        await waitFor("document.querySelector('[data-workspace-mode=history][aria-selected=true]')");
         assert.ok(session().multi.files.every((panel) => panel.editable === false));
         await openLink(serializeDeepLink({ ...comparisonLink, revision: revisions[0], line: 1 }));
         await waitFor("document.querySelectorAll('.monaco-editor').length >= 2");

@@ -459,7 +459,7 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /final: legacyFinalTour\(\) \? 'historical' : 'compare'/);
     assert.match(hostSource, /mode === 'historical' && legacyFinalTour\(\) \? 'Final tour'/);
     assert.match(hostSource, /classList\.toggle\('tour-derived-mode', !isNarrativeMode\(\)\)/);
-    assert.match(hostSource, /state\.zoom\.mode === 'historical' \|\| state\.zoom\.mode === 'deconstructed'/);
+    assert.match(hostSource, /Boolean\(authoredTours\(\)\[state\.zoom\.mode\]\)/);
     assert.match(hostSource, /state\.zoom\.enter\(mode, mode === 'history' \? origin : null\)/);
     assert.match(hostSource, /state\.zoom\?\.mode === 'history'[\s\S]{0,100}state\.historyPath \|\| scene\.path/);
     assert.match(hostSource, /function formatTourPaneLabel[\s\S]{0,120}state\.zoom\?\.mode === 'history'[\s\S]{0,40}return label/);
@@ -3544,7 +3544,7 @@ function testDynamicButtonsHaveTooltips() {
             assert.match(button, /\btitle=/, `${relativePath} creates a button without a tooltip: ${button}`);
         });
     }
-    const createdTourButtons = tourSource.match(/document\.createElement\('button'\)/g) || [];
+    const createdTourButtons = tourSource.match(/const (?:button|stepButton|titleToggle) = document\.createElement\('button'\)/g) || [];
     const titledTourButtons = tourSource.match(/\b(?:button|stepButton|titleToggle)\.title\s*=/g) || [];
     assert.equal(titledTourButtons.length, createdTourButtons.length, 'every dynamically-created tour button should receive a tooltip');
     assert.match(rendererSource, /Run search \(Enter\)/);
