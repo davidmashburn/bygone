@@ -61,6 +61,13 @@ The focused strip shows an adjacent pair when space permits and one readable
 panel on narrow windows. Use the strip buttons, panel headers, gutters, wheel,
 or `Alt+Left`/`Alt+Right` to change focus.
 
+In a Compare panel strip, drag a panel title to move it, or open its **⋮** menu and choose
+**Move left** or **Move right**. Hold a drag near either edge to reach hidden
+panels; press `Escape` to cancel. Edits, undo history, and save destinations
+travel with the panel. Adjacent diffs and copy arrows follow the new order.
+Git revision selection stays unchanged; History and authored tours keep their
+original order.
+
 - `Cmd/Ctrl+F` searches the active pane.
 - `Cmd/Ctrl+Shift+F` searches either the panes currently displayed by the strip
   or every loaded panel in the comparison, using the explicit scope selector.

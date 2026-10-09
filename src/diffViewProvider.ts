@@ -1,3 +1,4 @@
+import { moveComparisonPanel, movedPanelPairIndex, PanelMove } from './panelOrder';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { BinaryComparison } from './binaryComparison';
@@ -244,6 +245,10 @@ export class DiffViewProvider implements vscode.Disposable {
                 this.directoryReturnHandler();
             }
 
+            if (message.type === 'multiMovePanel') {
+                this.handleMultiMovePanel(message as PanelMove);
+                return;
+            }
             if (isMultiSetActivePanelMessage(message)) {
                 this.handleMultiSetActivePanel(message.panelId);
             }
@@ -423,7 +428,8 @@ export class DiffViewProvider implements vscode.Disposable {
         this.postOrQueueMessage({
             ...message,
             ...directoryContext,
-            mutationEnabled: false
+            mutationEnabled: false,
+            reorderEnabled: true
         });
     }
 
@@ -845,6 +851,20 @@ export class DiffViewProvider implements vscode.Disposable {
             activePairIndex: message.activePairIndex,
             panelIds: message.panels.map((panel) => panel.id)
         });
+    }
+
+    private handleMultiMovePanel(move: PanelMove): void {
+        const current = this.currentMessage;
+        if (current?.type !== 'showMultiDiff' || !current.reorderEnabled) return;
+        const panels = moveComparisonPanel(current.panels, move);
+        if (!panels) return;
+        this.currentMessage = { ...current, panels, activePanelId: move.panelId,
+            activePairIndex: movedPanelPairIndex(panels.map(panel => panel.id), move.panelId),
+            pairs: panels.slice(0, -1).map((panel, index) => ({ leftIndex: index, rightIndex: index + 1,
+                diffModel: buildTwoWayDiffModel(panel.content, panels[index + 1].content) })) };
+        if (this.activeState) this.activeState.currentMessage = this.currentMessage;
+        void this.panel?.webview.postMessage({ type: 'reorderMultiPanels', panelIds: panels.map(panel => panel.id), activePanelId: move.panelId });
+        this.updateMultiPanelTitle(this.currentMessage);
     }
 
     private handleMultiSetActivePanel(panelId: string): void {

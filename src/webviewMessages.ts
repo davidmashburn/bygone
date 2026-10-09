@@ -162,6 +162,7 @@ export interface ShowMultiDiffMessage {
     directoryNavigation?: DirectoryNavigationState | null;
     fileNavigation?: FileNavigationState | null;
     mutationEnabled?: boolean;
+    reorderEnabled?: boolean;
     initialChangeIndex?: number;
     revealFirstChangeInEachPanel?: boolean;
     tourAnnotations?: TourAnnotation[];

@@ -1,5 +1,6 @@
 import { dedupeDecorations, unionChangeDecorations } from './decorationUtils';
 import { isCancellationError } from 'monaco-editor/esm/vs/base/common/errors.js';
+import { applyComparisonOrder, moveComparisonPanel, movedPanelPairIndex } from '../src/panelOrder';
 import { mapLinePosition, mapMultiPanelLinePositions, scrollTopToModelLinePosition, modelLinePositionToScrollTop } from './scrollMapping';
 import {
     buildBlockChanges,
@@ -185,6 +186,8 @@ let activeMultiPairIndex = null;
 let focusSelectedPair = false;
 let multiPanelChangeIndices = new Map();
 let multiPanelMutationEnabled = false;
+let multiPanelReorderEnabled = false;
+let cancelPanelReorder = () => {};
 let focusedStripLayout = null;
 let pendingMultiLayoutAnchors = null;
 let requestedVisiblePanelCount = readVisiblePanelPreference(safePreferenceStorage());
@@ -470,6 +473,11 @@ host.onMessage((message) => {
         return;
     }
 
+    if (message.type === 'reorderMultiPanels') {
+        applyMultiPanelOrder(message);
+        return;
+    }
+
     if (message.type === 'showMultiDiff') {
         if (!monacoInstance) {
             pendingMultiPayload = message;
@@ -490,7 +498,8 @@ host.onMessage((message) => {
             Boolean(message.revealFirstChangeInEachPanel),
             message.tourAnnotations || [],
             message.renderRequestId,
-            message.comparisonSummary
+            message.comparisonSummary,
+            message.reorderEnabled === true
         );
         return;
     }
@@ -560,7 +569,8 @@ async function initializeRenderer() {
             Boolean(pendingMultiPayload.revealFirstChangeInEachPanel),
             pendingMultiPayload.tourAnnotations || [],
             pendingMultiPayload.renderRequestId,
-            pendingMultiPayload.comparisonSummary
+            pendingMultiPayload.comparisonSummary,
+            pendingMultiPayload.reorderEnabled === true
         );
         pendingMultiPayload = undefined;
     }
@@ -1150,7 +1160,7 @@ function setDirectoryViewMode(mode) {
     applyDirectoryStripLayout();
 }
 
-function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = [], renderRequestId = undefined, comparisonSummary = null) {
+function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = [], renderRequestId = undefined, comparisonSummary = null, reorderEnabled = false) {
     if (!Array.isArray(panels) || panels.length < 1) {
         return;
     }
@@ -1184,6 +1194,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, nextActivePairIndex, activeMultiPanelId, panels);
     multiPanelChangeIndices = new Map();
     multiPanelMutationEnabled = mutationEnabled;
+    multiPanelReorderEnabled = reorderEnabled;
     updateHistoryToolbar(history);
     updateNavigationRail(history?.rail || directoryNavigation?.rail || null, history ? 'history' : (directoryNavigation ? 'directory' : null));
     updateFileNavigationState(fileNavigation, canReturnToDirectory);
@@ -1575,6 +1586,7 @@ function disposeTwoWayEditors() {
 }
 
 function disposeMultiEditors(resetState = true) {
+    cancelPanelReorder(false);
     pendingMultiLayoutAnchors = null;
     multiEditors.forEach(disposeEditorAndModel);
     multiEditors = [];
@@ -1607,12 +1619,13 @@ function renderMultiDiffShell(panels) {
             `<div class="multi-pane" data-index="${index}" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header" data-panel-id="${escapeAttr(panel.id)}">`
             + `<div class="multi-pane-header-top">`
-            + `<button class="multi-pane-title-wrap multi-pane-select" type="button" title="Select panel: ${escapeAttr(panel.label)}" data-file-path="${escapeAttr(panel.path || panel.label)}" data-multi-select-panel="${escapeAttr(panel.id)}" data-panel-id="${escapeAttr(panel.id)}" aria-pressed="false">`
+            + `<button class="multi-pane-title-wrap multi-pane-select" type="button" title="Select panel: ${escapeAttr(panel.label)}" data-file-path="${escapeAttr(panel.path || panel.label)}" draggable="${multiPanelReorderEnabled && panels.length > 1}" data-multi-select-panel="${escapeAttr(panel.id)}" data-panel-id="${escapeAttr(panel.id)}" aria-pressed="false">`
             + `<span class="multi-pane-title">${index + 1}. ${escapeHtml(panel.label)}</span>`
             + `<span class="multi-pane-dirty${panel.dirty ? ' is-visible' : ''}" aria-hidden="true" title="Unsaved changes">•</span>`
             + `</button>`
             + `<span class="multi-pane-provenance ${panel.editable ? 'is-writable' : 'is-readonly'}">${escapeHtml(panel.editable ? 'Writable file' : (panel.mutabilityLabel || 'Read-only snapshot'))}</span>`
             + `<span class="multi-pane-actions">`
+            + (multiPanelReorderEnabled && panels.length > 1 ? `<details class="multi-panel-menu"><summary aria-label="Reorder ${escapeAttr(panel.label)}" title="Reorder panel">⋮</summary><div class="multi-panel-menu-items"><button type="button" data-multi-move="-1" title="Move panel left" data-panel-id="${escapeAttr(panel.id)}"${index === 0 ? ' disabled' : ''}>Move left</button><button type="button" data-multi-move="1" title="Move panel right" data-panel-id="${escapeAttr(panel.id)}"${index === panels.length - 1 ? ' disabled' : ''}>Move right</button></div></details>` : '')
             + `<button class="multi-pane-action" type="button" data-multi-add-side="left" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the left" aria-label="Add panel to the left"${panel.addLeftEnabled ? '' : ' disabled'}>+</button>`
             + `<button class="multi-pane-action multi-pane-action-danger" type="button" data-multi-remove-panel="${escapeAttr(panel.id)}" title="Remove panel" aria-label="Remove panel"${panel.removeEnabled ? '' : ' disabled'}>×</button>`
             + `<button class="multi-pane-action" type="button" data-multi-add-side="right" data-panel-id="${escapeAttr(panel.id)}" title="Add panel to the right" aria-label="Add panel to the right"${panel.addRightEnabled ? '' : ' disabled'}>+</button>`
@@ -1652,6 +1665,150 @@ function renderMultiDiffShell(panels) {
         '</div>',
         `<div class="multi-view-track" style="grid-template-columns:${columns.join(' ')};">${children.join('')}</div>`
     ].join('');
+}
+
+function requestMultiPanelMove(panelId, targetIndex) {
+    if (!multiPanelReorderEnabled || currentMode !== MODE_MULTI_WAY) return;
+    const move = { panelId, targetIndex, panelIds: multiPanels.map(panel => panel.id) };
+    if (!moveComparisonPanel(multiPanels, move)) return;
+    host.postMessage({ type: 'multiMovePanel', ...move });
+}
+
+function applyMultiPanelOrder(message) {
+    if (currentMode !== MODE_MULTI_WAY || !multiPanelReorderEnabled) return;
+    cancelPanelReorder(false);
+    const ordered = applyComparisonOrder(multiPanels, message.panelIds, panel => panel.id);
+    if (ordered.every((panel, index) => panel === multiPanels[index])) return;
+    const container = getElement(VIEW_IDS.multiWay);
+    const track = container.querySelector('.multi-view-track');
+    const panes = new Map([...track.querySelectorAll('.multi-pane')].map(pane => [pane.dataset.panelId, pane]));
+    const editors = new Map(multiPanels.map((panel, index) => [panel.id, multiEditors[index]]));
+    const decorations = new Map(multiPanels.map((panel, index) => [panel.id, multiDecorationIds[index]]));
+    clearTimeout(multiRecomputeTimer);
+    multiRecomputeTimer = null;
+    multiRecomputePendingPanelIds.clear();
+    multiDiffEpoch += 1;
+    multiPanels = ordered;
+    multiEditors = ordered.map(panel => editors.get(panel.id));
+    multiDecorationIds = ordered.map(panel => decorations.get(panel.id));
+    multiDiffPairs = ordered.slice(1).map((_, index) => ({ leftIndex: index, rightIndex: index + 1 }));
+    multiPanelChangeIndices.clear();
+    activeMultiPanelId = message.activePanelId;
+    activeMultiPairIndex = movedPanelPairIndex(message.panelIds, activeMultiPanelId);
+    // Move existing nodes: their Monaco models, undo stacks, selections and scroll survive.
+    suppressEditorEvents = true;
+    track.querySelectorAll('.multi-gutter').forEach(gutter => gutter.remove());
+    ordered.forEach((panel, index) => {
+        const pane = panes.get(panel.id);
+        pane.dataset.index = String(index);
+        pane.querySelector('.multi-pane-content').id = `multi-pane-${index}-content`;
+        pane.querySelector('.multi-pane-title').textContent = `${index + 1}. ${panel.label}`;
+        pane.querySelectorAll('[data-multi-move]').forEach(button => {
+            button.disabled = Number(button.dataset.multiMove) < 0 ? index === 0 : index === ordered.length - 1;
+        });
+        pane.querySelectorAll('details[open]').forEach(menu => { menu.open = false; });
+        track.appendChild(pane);
+        if (index < ordered.length - 1) {
+            const gutter = document.createElement('button');
+            gutter.className = 'multi-gutter';
+            gutter.type = 'button';
+            gutter.dataset.pairIndex = String(index);
+            gutter.setAttribute('aria-label', `Compare ${panel.label} with ${ordered[index + 1].label}`);
+            gutter.title = gutter.getAttribute('aria-label');
+            track.appendChild(gutter);
+        }
+    });
+    suppressEditorEvents = false;
+    if (message.history) updateHistoryToolbar(message.history);
+    focusedStripLayout = null;
+    applyFocusedStripLayout(false);
+    updateMultiActivePairModel(false);
+    applyMultiDiffDecorations([]);
+    updateActiveMultiShellState();
+    recomputeMultiDiffState();
+    setCopyableFilePaths(getElement('file-info'), ordered.map(panel => panel.path || panel.label));
+    panes.get(activeMultiPanelId)?.querySelector('[data-multi-select-panel]')?.focus({ preventScroll: true });
+}
+
+function initializePanelReordering(container) {
+    let dragging = null;
+    let dragOrigin = null;
+    let targetIndex = null;
+    let edgeTimer = null;
+    let edgeDirection = 0;
+    const clearMarker = () => container.querySelectorAll('.panel-drop-before, .panel-drop-after').forEach(pane => pane.classList.remove('panel-drop-before', 'panel-drop-after'));
+    const finish = (cancel = true) => {
+        if (cancel && dragging && dragOrigin && multiPanels.map(panel => panel.id).join('\0') === dragOrigin.ids.join('\0')) {
+            activeMultiPanelId = dragOrigin.panel;
+            activeMultiPairIndex = dragOrigin.pair;
+            updateMultiActivePairModel(false);
+            updateActiveMultiShellState();
+            applyFocusedStripLayout(false);
+        }
+        clearInterval(edgeTimer);
+        edgeTimer = null;
+        edgeDirection = 0;
+        dragging = null;
+        targetIndex = null;
+        clearMarker();
+        container.classList.remove('is-reordering');
+    };
+    const point = (x) => {
+        clearMarker();
+        const visible = [...container.querySelectorAll('.multi-pane')].filter(pane => !pane.inert);
+        const pane = visible.find(item => x < item.getBoundingClientRect().right) || visible.at(-1);
+        if (!pane) return;
+        const bounds = pane.getBoundingClientRect();
+        const after = x > bounds.left + bounds.width / 2;
+        const from = multiPanels.findIndex(panel => panel.id === dragging);
+        const insertion = Number(pane.dataset.index) + Number(after);
+        targetIndex = insertion - Number(from < insertion);
+        pane.classList.add(after ? 'panel-drop-after' : 'panel-drop-before');
+    };
+    cancelPanelReorder = finish;
+    container.addEventListener('dragstart', event => {
+        const header = event.target instanceof Element ? event.target.closest('[data-multi-select-panel]') : null;
+        if (!header || !multiPanelReorderEnabled) return;
+        dragging = header.dataset.panelId;
+        dragOrigin = { ids: multiPanels.map(panel => panel.id), panel: activeMultiPanelId, pair: activeMultiPairIndex };
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('application/x-bygone-panel', dragging);
+        container.classList.add('is-reordering');
+    });
+    container.addEventListener('dragover', event => {
+        if (!dragging) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = 'move';
+        point(event.clientX);
+        const bounds = container.getBoundingClientRect();
+        const direction = event.clientX < bounds.left + 48 ? -1 : event.clientX > bounds.right - 48 ? 1 : 0;
+        if (direction !== edgeDirection) {
+            clearInterval(edgeTimer);
+            edgeDirection = direction;
+            edgeTimer = direction ? setInterval(() => { moveFocusedStrip(direction, false); point(event.clientX); }, 450) : null;
+        }
+    });
+    container.addEventListener('drop', event => {
+        if (!dragging) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (Number.isInteger(targetIndex) && multiPanels.map(panel => panel.id).join('\0') === dragOrigin.ids.join('\0')) requestMultiPanelMove(dragging, targetIndex);
+        finish(false);
+    });
+    container.addEventListener('dragend', finish);
+    container.addEventListener('dragleave', event => {
+        if (!container.contains(event.relatedTarget)) { clearInterval(edgeTimer); edgeDirection = 0; clearMarker(); }
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        if (dragging) { event.preventDefault(); finish(); }
+        container.querySelectorAll('.multi-panel-menu[open]').forEach(menu => { menu.open = false; menu.querySelector('summary').focus(); });
+    });
+    document.addEventListener('pointerdown', event => {
+        container.querySelectorAll('.multi-panel-menu[open]').forEach(menu => { if (!menu.contains(event.target)) menu.open = false; });
+    });
+    window.addEventListener('blur', finish);
 }
 
 function recomputeMultiDiffState(changedPanelIds = null) {
@@ -2342,18 +2499,18 @@ function updateFocusedStripControls() {
     });
 }
 
-function moveFocusedStrip(direction) {
+function moveFocusedStrip(direction, notifyHost = true) {
     if (!focusedStripLayout || (direction !== -1 && direction !== 1)) return false;
     if (focusedStripLayout.mode === 'pair') {
         const nextPair = focusedStripLayout.pairIndex + direction;
         if (nextPair < 0 || nextPair >= multiDiffPairs.length) return false;
-        setActiveMultiPair(nextPair, true);
+        setActiveMultiPair(nextPair, notifyHost);
         return true;
     }
     const nextPanel = focusedStripLayout.panelIndex + direction;
     const panel = multiPanels[nextPanel];
     if (!panel) return false;
-    setActiveMultiPanel(panel.id, true);
+    setActiveMultiPanel(panel.id, notifyHost);
     return true;
 }
 
@@ -3210,12 +3367,20 @@ function initializeMultiDiffInteractions() {
         event.preventDefault();
     }, { passive: false, capture: true });
 
+    initializePanelReordering(container);
     container.addEventListener('click', (event) => {
         const stripDirection = event.target instanceof Element
             ? event.target.closest('[data-multi-strip-direction]')?.getAttribute('data-multi-strip-direction')
             : null;
         if (stripDirection) {
             moveFocusedStrip(stripDirection === 'previous' ? -1 : 1);
+            return;
+        }
+        const move = event.target instanceof Element ? event.target.closest('[data-multi-move]') : null;
+        if (move) {
+            const id = move.dataset.panelId;
+            requestMultiPanelMove(id, multiPanels.findIndex(panel => panel.id === id) + Number(move.dataset.multiMove));
+            move.closest('details').open = false;
             return;
         }
         const target = event.target instanceof Element ? event.target.closest('[data-panel-id], [data-pair-index], [data-multi-add-side], [data-multi-remove-panel], [data-multi-panel-copy]') : null;

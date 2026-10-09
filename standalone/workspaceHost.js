@@ -1,6 +1,8 @@
 /* global module, require */
 const path = require('path');
 const { revisionFileLabel } = require('./fileLabel.js');
+const { applyComparisonOrder } = require('../out/panelOrder.js');
+const { reorderComparisonSession } = require('./panelOrder.js');
 const { revisionFileAction, revisionDirectoryView, revisionPanelsView, revisionRailItems } = require('../out/revisionView.js');
 
 // Owns mode cursors, not editor capabilities. The native host continues to own
@@ -47,6 +49,7 @@ function createWorkspaceHost(host, git) {
         const absolute = panel?.path || current.right?.path;
         const context = ensure().context;
         if (context.kind !== 'ready') return null;
+        if (panel?.path && current.source.kind === 'files') return path.relative(context.repoRoot, panel.path).split(path.sep).join('/');
         const index = current.multi?.files.indexOf(panel);
         if (context.paths[index]?.type === 'file') return context.paths[index].path;
         if (absolute && !current.directory) return path.relative(context.repoRoot, absolute).split(path.sep).join('/');
@@ -102,7 +105,8 @@ function createWorkspaceHost(host, git) {
         const revisions = selectedRevisions();
         const session = host.getSession();
         const changedFiles = new Set(history.changedFiles(revisions));
-        const active = session.multi?.files.find((panel) => panel.id === session.multi.activePanelId)?.revision
+        const activePanel = session.multi?.files.find((panel) => panel.id === session.multi.activePanelId);
+        const active = activePanel?.revision || revisions[activePanel?.columnIndex]
             || (session.workspaceView?.path === null ? revisions.at(-1) : null);
         const hasRevisionPanels = Boolean(session.workspaceView || current.source.resolvedRevisions);
         return {
@@ -114,7 +118,9 @@ function createWorkspaceHost(host, git) {
                 activeTabId: 'history', tabs: [{ id: 'history', label: 'Commits' }, { id: 'workspace-files', label: 'Files', filterChangedFiles: true }],
                 itemsByTab: {
                     history: revisionRailItems(history.entries, {
-                        displayed: hasRevisionPanels ? revisions : [], selected: current.draft, active, changed: changes,
+                        displayed: hasRevisionPanels ? (session.workspaceView?.panelOrder
+                            || applyComparisonOrder(revisions.map((revision, index) => ({ revision, id: String(index) })),
+                                session.source?.panelOrder, item => item.id).map(item => item.revision)) : [], selected: current.draft, active, changed: changes,
                         selectionEnabled: true,
                         missingRevisionSelectionEnabled: true,
                         missingRevisionLabel: commit => `${commit === 'EMPTY' ? 'Empty tree' : commit.slice(0, 7)} Displayed base revision`
@@ -173,19 +179,21 @@ function createWorkspaceHost(host, git) {
     function makeSession(mode, revisions, file) {
         const current = ensure();
         const history = backend();
+        const previous = host.getSession().workspaceView;
+        const panelOrder = mode === 'compare' ? applyComparisonOrder(revisions, previous?.panelOrder || current.source.comparisonView?.panelOrder, revision => revision) : [...revisions];
         if (file === null && current.context.paths.some(item => item.type === 'directory')) {
             return { mode: 'directory', source: current.source, workspaceId: current.id,
-                workspaceView: { mode, path: null, revisions: [...revisions] },
+                workspaceView: { mode, path: null, revisions: [...revisions], ...(mode === 'compare' ? { panelOrder } : {}) },
                 left: { label: path.basename(current.context.repoRoot) }, right: { label: 'Changed files' },
                 history: null, directory: null, dirHistory: null, multi: null };
         }
         const selectedPath = history.files.includes(file) ? file : history.files[0];
         if (!selectedPath) throw new Error('No tracked files exist in this history scope.');
-        const files = revisions.map((revision, index) => {
+        const files = panelOrder.map((revision) => {
             const value = history.read(selectedPath, revision);
             const editable = revision === 'WORKTREE' && !current.source.readOnly && value.exists && !value.reason;
             return {
-                id: `${current.id}-${mode}-${index}`, revision,
+                id: `${current.id}-${mode}-${selectedPath}-${revision}`, revision,
                 label: `${revisionFileLabel(selectedPath, revision === 'EMPTY' ? 'Empty tree' : revision.slice(0, 12))}${value.exists ? '' : ' (absent)'}${value.reason ? ` — ${value.reason}` : ''}`,
                 path: path.join(current.context.repoRoot, selectedPath), content: value.content,
                 savedContent: value.content, dirty: false, editable,
@@ -195,7 +203,7 @@ function createWorkspaceHost(host, git) {
         return {
             mode: 'multi-diff', source: current.source, workspaceId: current.id,
             canReturnToDirectory: current.context.paths.some(item => item.type === 'directory'),
-            workspaceView: { mode, path: selectedPath, revisions: [...revisions] },
+            workspaceView: { mode, path: selectedPath, revisions: [...revisions], ...(mode === 'compare' ? { panelOrder } : {}) },
             left: {}, right: {}, history: null, directory: null, dirHistory: null,
             multi: { sourceKind: 'workspace', files, activePanelId: files[files.length - 1].id, activePairIndex: Math.max(0, files.length - 2), historySource: null }
         };
@@ -205,6 +213,11 @@ function createWorkspaceHost(host, git) {
         if (state.tourMode) host.send({ type: 'workspaceHideTour' });
         state.tourMode = null;
         state.mode = mode;
+        if (mode === 'compare' && next.workspaceView) next.source = { ...next.source, comparisonView: { ...next.workspaceView } };
+        if (mode !== 'compare' && next.source.comparisonView) {
+            next.source = { ...next.source };
+            delete next.source.comparisonView;
+        }
         host.setSession(next);
         await host.render();
         if (navigation) host.restore(navigation);
@@ -237,7 +250,8 @@ function createWorkspaceHost(host, git) {
             const data = backend();
             const context = state.context;
             const activeIndex = host.getSession().multi?.files.findIndex((item) => item.id === host.getSession().multi.activePanelId);
-            const active = context.revisions[activeIndex] || context.activeRevision;
+            const activePanel = host.getSession().multi?.files[activeIndex];
+            const active = activePanel?.revision || context.revisions[activePanel?.columnIndex ?? activeIndex] || context.activeRevision;
             const entry = data.entries.find((item) => item.commit === active) || data.entries[0];
             const revisions = mode === 'history' ? [entry.parentCommit || 'EMPTY', entry.commit]
                 : host.getSession().workspaceView?.revisions || [entry.parentCommit || 'EMPTY', entry.commit];
@@ -273,7 +287,8 @@ function createWorkspaceHost(host, git) {
             activePanelId: current.multi.activePanelId, activePairIndex: current.multi.activePairIndex,
             canReturnToDirectory: current.canReturnToDirectory,
             files: revisionFiles(current, changedFiles),
-            mutationEnabled: state.mode === 'history'
+            mutationEnabled: state.mode === 'history',
+            reorderEnabled: state.mode === 'compare'
         }));
         return true;
     }
@@ -283,7 +298,7 @@ function createWorkspaceHost(host, git) {
         const current = host.getSession();
         const derived = Boolean(current.workspaceView);
         const sharedAction = ['toggleHistorySelection', 'selectHistoryEntry', 'compareHistoryEntry'].includes(message.type);
-        const derivedAction = derived && ['refreshSession', 'selectHistoryEntry', 'historyBack', 'historyForward', 'openDirectoryEntry', 'returnToDirectory', 'navigateFile', 'multiAddPanel', 'multiRemovePanel', 'historyToggleStaged', 'historyToggleSkipUnchanged'].includes(message.type);
+        const derivedAction = derived && ['multiMovePanel', 'refreshSession', 'selectHistoryEntry', 'historyBack', 'historyForward', 'openDirectoryEntry', 'returnToDirectory', 'navigateFile', 'multiAddPanel', 'multiRemovePanel', 'historyToggleStaged', 'historyToggleSkipUnchanged'].includes(message.type);
         if (!workspaceAction && !sharedAction && !derivedAction) return false;
         const target = ensure();
         const action = actions.then(() => ensure() === target ? runAction(message) : true);
@@ -295,6 +310,12 @@ function createWorkspaceHost(host, git) {
         const current = host.getSession();
         const derivedAction = Boolean(current.workspaceView) && ['refreshSession', 'selectHistoryEntry', 'historyBack', 'historyForward', 'openDirectoryEntry', 'returnToDirectory', 'navigateFile', 'multiAddPanel', 'multiRemovePanel', 'historyToggleStaged', 'historyToggleSkipUnchanged'].includes(message.type);
         try {
+            if (message.type === 'multiMovePanel') {
+                if (state.mode !== 'compare' || state.tourMode) return true;
+                const reordered = reorderComparisonSession(current, message);
+                if (reordered) { host.send({ ...reordered, history: rail() }); update(); }
+                return true;
+            }
             if (message.type === 'workspaceSkillChoose' || message.type === 'workspaceSkillSave') {
                 const target = state;
                 const skill = message.type === 'workspaceSkillChoose'
@@ -456,7 +477,15 @@ function createWorkspaceHost(host, git) {
         await install(makeSession('history', [entry.parentCommit || 'EMPTY', entry.commit], source.kind === 'directory-history' ? null : data.files[0]), 'history');
     }
 
-    return { augment, render, handle, openHistory, uiState, update, isTourActive: () => Boolean(state?.tourMode), reset() { state?.tour?.dispose?.(); state = null; },
+    async function restoreComparison(source) {
+        state = null;
+        host.setSession({ source, mode: 'multi-diff', left: {}, right: {}, multi: null });
+        ensure();
+        const view = source.comparisonView;
+        await install(makeSession('compare', view.revisions, view.path), 'compare');
+    }
+
+    return { augment, render, handle, openHistory, restoreComparison, uiState, update, isTourActive: () => Boolean(state?.tourMode), reset() { state?.tour?.dispose?.(); state = null; },
         setStatus(status) { ensure().status = status; update(); },
         setTours(tours) { ensure().tours = tours; update(); } };
 }

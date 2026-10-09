@@ -2091,3 +2091,24 @@ button.file-header {
 .file-tree [hidden] { display: none; }
 
 #toggle-pair-focus[hidden] { display: none; }
+/* Panel order is independent of whether its contents are writable. */
+.multi-pane-select[draggable="true"] { cursor: grab; }
+.is-reordering .multi-pane-select { cursor: grabbing; }
+.multi-pane.panel-drop-before, .multi-pane.panel-drop-after { position: relative; }
+.multi-pane.panel-drop-before::after, .multi-pane.panel-drop-after::after {
+    content: ''; position: absolute; top: 0; bottom: 0; width: 4px;
+    z-index: 40; pointer-events: none; background: var(--vscode-focusBorder, #5ca6ff);
+}
+.multi-pane.panel-drop-before::after { left: 0; }
+.multi-pane.panel-drop-after::after { right: 0; }
+.multi-panel-menu { position: relative; }
+.multi-panel-menu summary { cursor: pointer; list-style: none; padding: 2px 8px; border-radius: 4px; }
+.multi-panel-menu summary::-webkit-details-marker { display: none; }
+.multi-panel-menu summary:hover, .multi-panel-menu[open] summary { background: var(--vscode-toolbar-hoverBackground, #ffffff18); }
+.multi-panel-menu-items { position: absolute; right: 0; top: 100%; z-index: 30; min-width: 120px; padding: 4px; border: 1px solid var(--vscode-widget-border, #555); border-radius: 5px; background: var(--vscode-menu-background, #252526); box-shadow: 0 4px 12px #0006; }
+.multi-panel-menu-items button { display: block; width: 100%; text-align: left; border: 0; padding: 6px 10px; background: transparent; color: inherit; cursor: pointer; }
+.multi-panel-menu-items button:hover:not(:disabled) { background: var(--vscode-toolbar-hoverBackground, #ffffff18); }
+.multi-panel-menu-items button:disabled { opacity: .4; cursor: default; }
+.multi-pane:has(.multi-panel-menu[open]) { z-index: 5; }
+
+.multi-pane-header:has(.multi-panel-menu) { overflow: visible; }

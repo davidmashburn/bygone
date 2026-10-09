@@ -72,6 +72,14 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
                 && new Set([...document.querySelectorAll('[data-workspace-mode]')].map(tab => tab.offsetTop)).size === 1
                 && [...document.querySelectorAll('.history-rail-tab')].some(tab => tab.textContent === 'Files');
         })()`), true, 'Compare keeps all four tabs in one row above the panel stack');
+        const originalPanels = [...session().multi.files];
+        await evaluate("document.querySelector('.multi-pane [data-multi-move=\"1\"]').click()");
+        await waitFor(`document.querySelector('.multi-pane').dataset.panelId === ${JSON.stringify(originalPanels[1].id)}`);
+        assert.deepEqual(session().multi.files, [originalPanels[1], originalPanels[0]], 'Native host and renderer agree on moved panel order');
+        assert.deepEqual(session().source.paths, originalPanels.map(panel => panel.path).reverse(), 'Native restore source follows file order');
+        await evaluate("document.querySelector('.multi-pane [data-multi-move=\"1\"]').click()");
+        await waitFor(`document.querySelector('.multi-pane').dataset.panelId === ${JSON.stringify(originalPanels[0].id)}`);
+        assert.deepEqual(session().multi.files, originalPanels, 'Native panel move round trip preserves the panel objects');
         const readWindowTheme = `(() => {
             const style = selector => getComputedStyle(document.querySelector(selector));
             const controls = style('.workspace-controls');

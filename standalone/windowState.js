@@ -48,6 +48,15 @@ function normalizeWindowState(value) {
     if (mainSource && pins) {
         mainSource.resolvedRevisions = [...pins];
     }
+    const panelOrder = value.main?.source?.panelOrder;
+    if (mainSource && Array.isArray(panelOrder) && panelOrder.every(item => typeof item === 'string')) mainSource.panelOrder = [...panelOrder];
+    const view = value.main?.source?.comparisonView;
+    const validRevision = revision => typeof revision === 'string' && /^(?:[a-f0-9]{40}|[a-f0-9]{64}|WORKTREE|INDEX|EMPTY)$/.test(revision);
+    if (mainSource && view?.mode === 'compare' && Array.isArray(view.revisions) && view.revisions.length
+        && view.revisions.every(validRevision) && (view.path === null || typeof view.path === 'string')) {
+        mainSource.comparisonView = { mode: 'compare', revisions: [...view.revisions], path: view.path,
+            panelOrder: Array.isArray(view.panelOrder) && view.panelOrder.every(validRevision) ? [...view.panelOrder] : [...view.revisions] };
+    }
     if (value.main !== null && !mainSource) {
         return null;
     }

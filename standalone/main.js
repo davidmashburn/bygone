@@ -39,6 +39,8 @@ const { tokenMatches, tokensFor } = require('../cli/commandSpec.js');
 const { startPresentation } = require('../cli/present.js');
 const { resolveWorkingDirectory } = require('../cli/workingDirectory.js');
 const { extractReadOnlyLaunchOption, getCliArgsFromArgv, getForwardedLaunchArgs } = require('./launchArgs.js');
+const { applyComparisonOrder } = require('../out/panelOrder.js');
+const { reorderComparisonSession } = require('./panelOrder.js');
 const { readWindowState, writeWindowState } = require('./windowState.js');
 const { createWorkspaceHost } = require('./workspaceHost.js');
 const { revisionFileLabel } = require('./fileLabel.js');
@@ -1656,6 +1658,10 @@ async function restoreMainSession(source) {
         return;
     }
 
+    if (source.comparisonView) {
+        await workspace.restoreComparison(source);
+        return;
+    }
     if (source.kind === 'file-history' || source.kind === 'directory-history') {
         await workspace.openHistory(source);
         return;
@@ -1872,7 +1878,10 @@ async function handleRendererMessage(message) {
         return;
     }
     if (typeof message.type !== 'string') return;
-    if (await workspace.handle(message)) return;
+    if (await workspace.handle(message)) {
+        if (message.type === 'multiMovePanel') persistOpenWindowState();
+        return;
+    }
 
     if (message.type === 'ready') {
         hostReady = true;
@@ -2089,6 +2098,20 @@ async function handleRendererMessage(message) {
         && typeof message.anchorPanelId === 'string'
         && (message.side === 'left' || message.side === 'right')) {
         await addMultiPanel(message.anchorPanelId, message.side);
+        return;
+    }
+
+    if (message.type === 'multiMovePanel') {
+        if (workspace.isTourActive()) return;
+        if (session.workspaceView) { await workspace.handle(message); persistOpenWindowState(); return; }
+        const reordered = reorderComparisonSession(session, message);
+        if (reordered) {
+            updateWatchers();
+            postOrQueue(reordered);
+            workspace.update();
+            refreshSessionWindowTitle();
+            persistOpenWindowState();
+        }
         return;
     }
 
@@ -4240,6 +4263,7 @@ async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review =
         const editable = Boolean(resolvedColumns[i]?.editable);
         return {
             id: `panel-${nextMultiPanelId++}`,
+            columnIndex: i,
             path: filePath,
             label: `${revisionFileLabel(relativePath, labels[i])}${exists ? '' : ' (missing)'}`,
             content,
@@ -4261,7 +4285,7 @@ async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review =
         directory: null,
         multi: {
             sourceKind: 'normal',
-            files: panels,
+            files: applyComparisonOrder(panels, source.panelOrder, panel => String(panel.columnIndex)),
             activePanelId: panels[panels.length - 1]?.id ?? null,
             activePairIndex: panels.length > 1 ? panels.length - 2 : null,
             historySource: null
@@ -4574,6 +4598,7 @@ async function sendCurrentMultiDiff() {
         directoryNavigation: buildDirectoryDrilldownNavigationState(),
         fileNavigation: buildStandaloneFileNavigationState(),
         mutationEnabled: !isDirectoryDrilldown,
+        reorderEnabled: sourceKind !== 'history',
         revealFirstChangeInEachPanel: isDirectoryDrilldown
     });
 

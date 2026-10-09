@@ -5,6 +5,7 @@ const path = require('node:path');
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { buildTwoWayDiffModel } = require('../out/diffEngine');
 const { runMultiHighlightSmoke } = require('./multiHighlightSmoke');
+const { runPanelOrderSmoke } = require('./panelOrderSmoke');
 const { runPanelDensitySmoke } = require('./panelDensitySmoke');
 const { runGutterCopySmoke } = require('./gutterCopySmoke');
 const { runSelectionHighlightSmoke } = require('./selectionHighlightSmoke');
@@ -251,6 +252,7 @@ app.whenReady().then(async () => {
         await show({ type: 'showDiff', file1: 'final-before.txt', file2: 'final-after.txt', leftContent: 'final before\n', rightContent: 'final after\n' });
         assert.deepEqual(await evaluate('window.highlightFailures'), ['Injected highlight failure'], 'Non-cancellation highlight failures remain observable');
         assert.equal(await evaluate(`${editors}.every(e => e.getOption(window.monaco.editor.EditorOption.occurrencesHighlight) !== 'off')`), true, 'Word highlighting stays enabled');
+        await runPanelOrderSmoke({ window, show });
         assert.deepEqual(errors, []);
         console.log('Diff renderer regression smoke passed: whitespace paint/ranges, long YAML, two/three panels, both scroll directions, wrap on/off, unchanged prefix/suffix, reflow boundaries, panel switching, connector clipping, renamed title pairing.');
         clearTimeout(timeout); app.exit(0);
