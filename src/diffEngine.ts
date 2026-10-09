@@ -186,8 +186,25 @@ export function buildTwoWayDiffModel(
 
 // Visual/navigation regions can merge without losing paragraph scroll anchors.
 function mergeTouchingBlocks(blocks: DiffBlock[]): DiffBlock[] {
-    const merged: DiffBlock[] = [];
+    // An uninterrupted run of one-sided edits is one region. If it consumes
+    // lines on both sides, present it as a replacement regardless of similarity.
+    const regions: DiffBlock[] = [];
+    let oneSidedRun = false;
     for (const original of blocks) {
+        const oneSided = original.kind !== 'replace';
+        const previous = regions[regions.length - 1];
+        if (oneSided && oneSidedRun && previous.leftEnd === original.leftStart
+            && previous.rightEnd === original.rightStart) {
+            previous.leftEnd = original.leftEnd;
+            previous.rightEnd = original.rightEnd;
+            if (previous.leftEnd > previous.leftStart && previous.rightEnd > previous.rightStart) {
+                previous.kind = 'replace';
+            }
+        } else regions.push({...original});
+        oneSidedRun = oneSided;
+    }
+    const merged: DiffBlock[] = [];
+    for (const original of regions) {
         const block = {...original};
         delete block.reflow;
         const previous = merged[merged.length - 1];
@@ -441,13 +458,36 @@ function appendReplacementCandidate(
     // neighboring items must remain additions/deletions even in a mostly paired hunk.
     const coherentBlock = !aligned.some(row => row.reflow)
         && hasCoherentBlockCorrespondence(leftLines, rightLines, crediblePairs);
-    const normalized = aligned.flatMap((row) => {
+    const candidates = aligned.flatMap((row) => {
         if (row.reflow || row.left === undefined || row.right === undefined
             || hasCredibleLineCorrespondence(row.left, row.right)) {
             return [row];
         }
         return [{ left: row.left }, { right: row.right }];
     });
+    const normalized: AlignedReplacementLine[] = [];
+    for (let index = 0; index < candidates.length;) {
+        const row = candidates[index];
+        if (row.reflow || (row.left !== undefined && row.right !== undefined)) {
+            normalized.push(row);
+            index++;
+            continue;
+        }
+        const start = index;
+        while (index < candidates.length && !candidates[index].reflow
+            && (candidates[index].left === undefined || candidates[index].right === undefined)) index++;
+        const gap = candidates.slice(start, index);
+        const left = gap.filter(item => item.left !== undefined);
+        const right = gap.filter(item => item.right !== undefined);
+        // One line on each side has only one possible presentation pairing.
+        // Do not require whole-word matches before applying inline edge trimming.
+        // Larger ambiguous gaps retain the matcher's conservative row alignment.
+        if (left.length === 1 && right.length === 1) {
+            normalized.push({ left: left[0].left, right: right[0].right });
+        } else {
+            for (const item of gap) normalized.push(item);
+        }
+    }
     let leftLineNumber = initialLeftLineNumber;
     let rightLineNumber = initialRightLineNumber;
     let blockKind: DiffBlock['kind'] | undefined;

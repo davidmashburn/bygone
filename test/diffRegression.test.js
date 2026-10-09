@@ -5,6 +5,13 @@ const { yamlDiffFixture } = require('./yamlDiffFixture');
 const { mapLinePosition, mapMultiPanelLinePositions, scrollTopToModelLinePosition, modelLinePositionToScrollTop } = require('../media/scrollMapping');
 
 function assertPreserved(model, left, right) {
+    for (let index = 1; index < model.blocks.length; index++) {
+        const previous = model.blocks[index - 1];
+        const current = model.blocks[index];
+        const touching = previous.leftEnd === current.leftStart && previous.rightEnd === current.rightStart;
+        assert.ok(!touching || previous.kind === 'replace' || current.kind === 'replace'
+            || previous.kind === current.kind, 'Touching opposite one-sided blocks must form a replacement');
+    }
     for (const [side, source] of [['left', left], ['right', right]]) {
         assert.deepEqual(model[`${side}Lines`].map(line => line.content), source);
         assert.deepEqual(model.rows.filter(row => row[side].lineNumber !== null).map(row => row[side].content), source);
@@ -27,6 +34,8 @@ function emphasizedRanges(line) {
 // Brackets specify the product policy, including deliberately broad highlights
 // when two edits surround an unchanged middle. Check both comparison directions.
 for (const [left, right, expectedLeft, expectedRight] of [
+    ['freeze', 'freezeSet', 'freeze', 'freeze[Set]'],
+    ['userStatisticsThing', 'userMetricsThing', 'user[Statist]icsThing', 'user[Metr]icsThing'],
     ['oldName', 'newName', '[old]Name', '[new]Name'],
     ['nameOld', 'nameNew', 'name[Old]', 'name[New]'],
     ['userCount', 'usersCount', 'userCount', 'user[s]Count'],
@@ -48,16 +57,19 @@ for (const [left, right, expectedLeft, expectedRight] of [
     ['oldName oldCount', 'newName newCount', '[old]Name [old]Count', '[new]Name [new]Count']
 ]) {
     test(`inline edge trimming: ${left} → ${right}`, () => {
-        for (const reverse of [false, true]) {
-            const values = reverse ? [right, left] : [left, right];
-            const expected = reverse ? [expectedRight, expectedLeft] : [expectedLeft, expectedRight];
-            const sources = values.map(value => `const value = ${value};`);
-            const model = buildTwoWayDiffModel(...sources);
-            assertPreserved(model, [sources[0]], [sources[1]]);
-            for (const [index, side] of ['left', 'right'].entries()) {
-                const line = model[`${side}Lines`][0];
-                const marked = line.segments?.map(segment => segment.emphasis ? `[${segment.text}]` : segment.text).join('') ?? line.content;
-                assert.equal(marked, `const value = ${expected[index]};`);
+        for (const [prefix, suffix] of [['', ''], ['const value = ', ';']]) {
+            for (const reverse of [false, true]) {
+                const values = reverse ? [right, left] : [left, right];
+                const expected = reverse ? [expectedRight, expectedLeft] : [expectedLeft, expectedRight];
+                const sources = values.map(value => `${prefix}${value}${suffix}`);
+                const model = buildTwoWayDiffModel(...sources);
+                assert.deepEqual(model.blocks.map(block => block.kind), left === right ? [] : ['replace']);
+                assertPreserved(model, [sources[0]], [sources[1]]);
+                for (const [index, side] of ['left', 'right'].entries()) {
+                    const line = model[`${side}Lines`][0];
+                    const marked = line.segments?.map(segment => segment.emphasis ? `[${segment.text}]` : segment.text).join('') ?? line.content;
+                    assert.equal(marked, `${prefix}${expected[index]}${suffix}`);
+                }
             }
         }
     });
@@ -223,7 +235,7 @@ for (const length of [2001, 9000]) {
         assert.deepEqual(model.blocks.map(block => block.kind), ['replace']);
         assertPreserved(model, [before], [after]);
         const unrelated = buildTwoWayDiffModel('abcdefghij '.repeat(length / 10), '9876543210 '.repeat(length / 10));
-        assert.deepEqual(unrelated.blocks.map(block => block.kind), ['delete', 'insert']);
+        assert.deepEqual(unrelated.blocks.map(block => block.kind), ['replace']);
     });
 }
 
@@ -304,5 +316,27 @@ test('a shared field prefix cannot outweigh unrelated long content', () => {
     const left = 'body: ' + 'abcdefghij '.repeat(300);
     const right = 'body: ' + '9876543210 '.repeat(300);
     assert.equal(scoreReplacementLinePair(left, right).eligible, false);
-    assert.deepEqual(buildTwoWayDiffModel(left, right).blocks.map(block => block.kind), ['delete', 'insert']);
+    assert.deepEqual(alignReplacementLines([left], [right]), [{left}, {right}]);
+    assert.deepEqual(buildTwoWayDiffModel(left, right).blocks.map(block => block.kind), ['replace']);
+});
+
+test('unrelated multiline edits share a blue block without inventing line matches', () => {
+    for (const reverse of [false, true]) {
+        const sides = [['alpha', 'bravo'], ['12345', '67890', '09876']];
+        const [left, right] = reverse ? sides.reverse() : sides;
+        const model = buildTwoWayDiffModel(left.join('\n'), right.join('\n'));
+        assertPreserved(model, left, right);
+        assert.deepEqual(model.blocks, [{kind: 'replace', leftStart: 0, leftEnd: left.length, rightStart: 0, rightEnd: right.length}]);
+        assert.ok(model.rows.every(row => row.left.lineNumber === null || row.right.lineNumber === null));
+    }
+});
+
+test('matching context separates one-sided green blocks', () => {
+    for (const reverse of [false, true]) {
+        const sides = [['removed', 'anchor'], ['anchor', 'inserted']];
+        const [left, right] = reverse ? sides.reverse() : sides;
+        const model = buildTwoWayDiffModel(left.join('\n'), right.join('\n'));
+        assertPreserved(model, left, right);
+        assert.deepEqual(model.blocks.map(block => block.kind), reverse ? ['insert', 'delete'] : ['delete', 'insert']);
+    }
 });
