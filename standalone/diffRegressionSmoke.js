@@ -160,6 +160,29 @@ app.whenReady().then(async () => {
             assert.equal(await evaluate(`${editors}.every(e => e.getModel().getAllDecorations().some(d => d.options.blockClassName?.startsWith('bygone-active-diff-')))`), true, 'Added and deleted files mark the current change on both sides');
         }
         await runPanelDensitySmoke({ window, show });
+        const mutabilityFixture = {
+            type: 'showDiff', file1: 'snapshot.txt', file2: 'worktree.txt',
+            leftContent: 'before\n', rightContent: 'after\n'
+        };
+        const readOnlyOptions = `${editors}.map(e => e.getOption(window.monaco.editor.EditorOption.readOnly))`;
+        await show({ ...mutabilityFixture, editableSides: { left: false, right: true } });
+        assert.equal(await evaluate("document.getElementById('edit-mode-toolbar').hidden"), false);
+        assert.equal(await evaluate("document.getElementById('toggle-readonly').closest('.change-toolbar-actions') !== null"), true);
+        assert.equal(await evaluate("document.getElementById('comparison-mutability') === null"), true);
+        assert.deepEqual(await evaluate(readOnlyOptions), [true, false]);
+        await evaluate("document.getElementById('toggle-readonly').click()");
+        assert.deepEqual(await evaluate(readOnlyOptions), [true, true]);
+        await evaluate("document.getElementById('toggle-readonly').click()");
+        assert.deepEqual(await evaluate(readOnlyOptions), [true, false]);
+        for (const readOnlyLabel of ['Read-only snapshot', 'Read-only file']) {
+            await show({ ...mutabilityFixture, editableSides: { left: false, right: false }, readOnlyLabel });
+            assert.equal(await evaluate("document.getElementById('edit-mode-toolbar').getBoundingClientRect().height"), 0);
+            assert.equal(await evaluate("document.querySelector('#file-info #comparison-mutability').textContent"), 'Read-only');
+            assert.match(await evaluate("document.getElementById('comparison-mutability').getAttribute('aria-label')"),
+                readOnlyLabel === 'Read-only file' ? /Editing was disabled/ : /snapshot/);
+            await evaluate("document.getElementById('toggle-readonly').click()");
+            assert.deepEqual(await evaluate(readOnlyOptions), [true, true], 'Read-only host capabilities cannot be toggled away');
+        }
         assert.deepEqual(errors, []);
         console.log('Diff renderer regression smoke passed: whitespace paint/ranges, long YAML, two/three panels, both scroll directions, wrap on/off, unchanged prefix/suffix, reflow boundaries, panel switching, connector clipping, renamed title pairing.');
         clearTimeout(timeout); app.exit(0);

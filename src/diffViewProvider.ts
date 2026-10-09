@@ -565,9 +565,6 @@ export class DiffViewProvider implements vscode.Disposable {
                     <span>Directory</span>
                 </button>
             </div>
-            <div id="edit-mode-toolbar" class="edit-mode-toolbar header-align-diff" hidden>
-                <button id="toggle-readonly" class="edit-mode-button" type="button" title="Toggle read-only mode">Editing On</button>
-            </div>
             <div id="change-toolbar" class="change-toolbar header-align-diff" hidden>
                 <div class="change-toolbar-main">
                     <div class="change-toolbar-nav">
@@ -613,6 +610,10 @@ export class DiffViewProvider implements vscode.Disposable {
                         </svg>
                     </button>
                     </div>
+                    <div class="change-toolbar-actions">
+                    <div id="edit-mode-toolbar" class="edit-mode-toolbar" hidden>
+                        <button id="toggle-readonly" class="edit-mode-button" type="button" title="Toggle read-only mode">Editing On</button>
+                    </div>
                     <button id="toggle-word-wrap" class="change-button icon-button" type="button" title="Enable line wrapping (Alt+Z)" aria-label="Enable line wrapping" aria-pressed="false" hidden>
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M4 6h13a3 3 0 0 1 0 6H9"></path>
@@ -626,6 +627,7 @@ export class DiffViewProvider implements vscode.Disposable {
                             <path d="M20 5v6h-6"></path>
                         </svg>
                     </button>
+                    </div>
                 </div>
                 <div class="change-hint">F7 / Shift+F7 · Cmd/Ctrl+Shift+Up/Down to jump.</div>
             </div>
