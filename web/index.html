@@ -63,24 +63,44 @@
             </section>
             <section id="tour-navigator-commits" class="tour-navigator-panel" data-tour-navigator-panel="commits" hidden>
                 <div id="tour-history-controls" class="tour-evidence-controls" hidden>
-                    <div class="tour-evidence-actions">
-                        <button id="tour-history-compare" type="button" title="Compare the selected revisions" disabled>Compare selected (0)</button>
-                        <button id="tour-history-clear" type="button" title="Uncheck all draft revisions without changing panels">Clear selection</button>
-                        <button id="tour-history-reset" type="button" title="Select the revisions currently loaded in panels">Reset selection</button>
-                        <button id="tour-history-parent" type="button" title="Compare this revision with its parent">Parent</button>
-                        <button id="tour-history-base" type="button" title="Compare this revision with the review base">Review base</button>
-                        <button id="tour-history-final" type="button" title="Compare the review base with its head across all changed files">Final diff</button>
+                    <div class="tour-selection-toolbar">
+                        <div class="tour-selection-summary" role="status" aria-live="polite">
+                            <span id="tour-history-count" class="tour-selection-count">0 selected</span>
+                            <span id="tour-history-hint" class="tour-selection-hint">Select 2+ revisions</span>
+                        </div>
+                        <button id="tour-history-compare" class="tour-selection-apply" type="button" title="Compare the selected revisions" disabled>Compare</button>
+                        <details class="tour-selection-more">
+                            <summary aria-label="Selection actions" title="Selection actions"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></summary>
+                            <div class="tour-selection-menu">
+                                <button id="tour-history-clear" type="button" title="Uncheck all revisions without changing the comparison">Clear selection</button>
+                                <button id="tour-history-reset" type="button" title="Select the revisions currently shown">Select displayed revisions</button>
+                                <hr>
+                                <button id="tour-history-final" type="button" title="Compare the review base with its head across all changed files">Final diff <span>Base → head · all files</span></button>
+                                <button id="tour-history-parent" type="button" title="Compare this revision with its parent">Compare with parent</button>
+                                <button id="tour-history-base" type="button" title="Compare this revision with the review base">Compare with review base</button>
+                            </div>
+                        </details>
                     </div>
                 </div>
                 <div id="tour-compare-controls" class="tour-evidence-controls" hidden>
-                    <div id="tour-compare-scope"></div>
-                    <div class="tour-evidence-actions">
-                        <button id="tour-compare-apply" type="button" title="Update the comparison with the selected revisions" disabled>Update comparison (0)</button>
-                        <button id="tour-compare-clear" type="button" title="Uncheck all draft revisions without changing panels">Clear selection</button>
-                        <button id="tour-compare-reset" type="button" title="Select the revisions currently loaded in panels">Reset selection</button>
-                        <button id="tour-compare-final" type="button" title="Compare the review base with its head across all changed files">Final diff</button>
-                        <button id="tour-compare-all" type="button" title="Compare these revisions across all changed files" hidden>All files</button>
+                    <div class="tour-selection-toolbar">
+                        <div class="tour-selection-summary" role="status" aria-live="polite">
+                            <span id="tour-compare-count" class="tour-selection-count">0 selected</span>
+                            <span id="tour-compare-hint" class="tour-selection-hint">Select 2+ revisions</span>
+                        </div>
+                        <button id="tour-compare-apply" class="tour-selection-apply" type="button" title="Apply the selected revisions" disabled>Apply</button>
+                        <details class="tour-selection-more">
+                            <summary aria-label="Selection actions" title="Selection actions"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></summary>
+                            <div class="tour-selection-menu">
+                                <button id="tour-compare-clear" type="button" title="Uncheck all revisions without changing the comparison">Clear selection</button>
+                                <button id="tour-compare-reset" type="button" title="Select the revisions currently shown">Select displayed revisions</button>
+                                <hr>
+                                <button id="tour-compare-final" type="button" title="Compare the review base with its head across all changed files">Final diff <span>Base → head · all files</span></button>
+                                <button id="tour-compare-all" type="button" title="Compare these revisions across all changed files" hidden>Show all changed files</button>
+                            </div>
+                        </details>
                     </div>
+                    <div id="tour-compare-scope" class="tour-comparison-scope"></div>
                 </div>
                 <div id="tour-commits-host" class="tour-commits-host"></div>
                 <p class="tour-commit-legend"><span>● Changed this file</span><span># Loaded panel</span><span><span class="tour-range-swatch" aria-hidden="true"></span>Tour range</span></p>
