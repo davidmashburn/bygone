@@ -22,7 +22,7 @@ Bygone is a VS Code extension and standalone desktop app for visual diff and fil
 
 - Editable two-way side-by-side diff view
 - Dynamic adjacent multi-panel diff view
-- Flowing connectors, block contours, and [inline change highlighting](#inline-highlighting)
+- Flowing connectors, block contours, and [inline change highlighting](#change-blocks-and-inline-highlighting)
 - Git file history viewer with commit-by-commit navigation
 - Local branch-change exploration using merge-base-to-tip semantics and changed-file progress
 - Binary-aware comparisons with side-by-side image previews and byte-equality reporting
@@ -31,7 +31,14 @@ Bygone is a VS Code extension and standalone desktop app for visual diff and fil
 
 This project is usable as a VS Code extension and standalone desktop app. The two-way diff and git history flows are the most complete. The multi-panel view is diff-focused, not a merge tool.
 
-## Inline highlighting
+## Change blocks and inline highlighting
+
+A touching run of deletions and insertions forms one blue replacement block,
+even when the text has no matching words. One-sided changes stay green. Green
+and blue blocks can still touch; exactly matching lines separate change regions.
+When an unpaired gap contains exactly one line on each side, those lines are
+compared for inline highlighting. Larger ambiguous gaps keep conservative line
+alignment within their blue block.
 
 Bygone matches words first, then uses **edge trimming** inside each replacement:
 leave the longest identical beginning and ending unhighlighted, and highlight

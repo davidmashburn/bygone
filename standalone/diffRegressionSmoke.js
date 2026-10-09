@@ -126,6 +126,22 @@ app.whenReady().then(async () => {
         }
         await show({ type: 'showDiff', file1: 'after.yaml', file2: 'before.yaml', leftContent: rightContent, rightContent: leftContent });
         await assertWhitespacePaint(0);
+        for (const [leftContent, rightContent, expected] of [
+            ['freeze', 'freezeSet', [[], [[7, 10]]]],
+            ['userStatisticsThing', 'userMetricsThing', [[[5, 12]], [[5, 9]]]]
+        ]) {
+            // Omit the host model so this also verifies the bundled diff worker.
+            await show({type: 'showDiff', file1: 'before.txt', file2: 'after.txt', leftContent, rightContent});
+            assert.equal(await evaluate(`${editors}.every(e => {
+                const decorations = e.getModel().getAllDecorations();
+                return decorations.some(d => d.options.className === 'bygone-paired-line')
+                    && !decorations.some(d => d.options.className === 'bygone-one-sided-line');
+            })`), true, 'Bare identifier changes render as blue replacements');
+            const ranges = await evaluate(`${editors}.map(e => e.getModel().getAllDecorations()
+                .filter(d => d.options.inlineClassName === 'bygone-inline-blue')
+                .map(d => [d.range.startColumn, d.range.endColumn]))`);
+            assert.deepEqual(ranges, expected, 'Bare identifier edges remain unhighlighted');
+        }
         await show({type: 'showDiff', file1: 'title-before.yaml', file2: 'title-after.yaml',
             leftContent: 'title: Find the right depth without expanding the README',
             rightContent: 'title: Organize the engineering and agent reference'});

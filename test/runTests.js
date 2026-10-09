@@ -3074,9 +3074,9 @@ function testReplacementBlockClassificationUsesBlockAndLineEvidenceSeparately() 
     for (const line of coherent.rightLines.filter((entry) => entry.kind === 'added')) {
         assert.equal(line.segments?.some((segment) => segment.emphasis), true);
     }
-    assert.equal(coherent.rows.some((row) => (
-        row.left.content.includes('Cache eviction')
-        && row.right.content.includes('Keyboard focus')
+    assert.equal(alignReplacementLines(coherent.leftLines.map(line => line.content), coherent.rightLines.map(line => line.content)).some((row) => (
+        row.left?.includes('Cache eviction')
+        && row.right?.includes('Keyboard focus')
     )), false);
 
     const independentBefore = fs.readFileSync(path.join(__dirname, 'fixtures', 'block-correspondence-before.md'), 'utf8');
@@ -3084,32 +3084,34 @@ function testReplacementBlockClassificationUsesBlockAndLineEvidenceSeparately() 
     const independent = buildTwoWayDiffModel(independentBefore, independentAfter);
     const replacements = independent.blocks.filter((block) => block.kind === 'replace');
 
-    assert.equal(replacements.length, 1);
-    assert.deepEqual(replacements[0], {
+    assert.equal(replacements.length, 3);
+    assert.deepEqual(replacements[0], {kind: 'replace', leftStart: 2, leftEnd: 3, rightStart: 2, rightEnd: 3});
+    assert.deepEqual(replacements[1], {kind: 'replace', leftStart: 4, leftEnd: 6, rightStart: 4, rightEnd: 7});
+    assert.deepEqual(replacements[2], {
         kind: 'replace',
         leftStart: 9,
         leftEnd: 10,
         rightStart: 10,
         rightEnd: 11
     });
-    assert.equal(independent.leftLines.find((line) => line.content === '## Cache eviction')?.segments, undefined);
-    assert.equal(independent.rightLines.find((line) => line.content === '## Keyboard shortcuts')?.segments, undefined);
+    assert.ok(independent.leftLines.find((line) => line.content === '## Cache eviction')?.segments?.some(segment => segment.emphasis));
+    assert.ok(independent.rightLines.find((line) => line.content === '## Keyboard shortcuts')?.segments?.some(segment => segment.emphasis));
 }
 
-function testSingleCrediblePairDoesNotColorUnrelatedSurroundingsBlue() {
+function testTouchingReplacementRegionsMergeAroundCrediblePairs() {
     const model = buildTwoWayDiffModel(
         'Legacy cache eviction details.\nThe mode menu opens beside the active view.\nExpired entries are swept nightly.\n',
         'Keyboard accelerator reference.\nThe mode menu opens above the active view.\nPress Escape to close the dialog.\n'
     );
 
     assert.equal(model.blocks.filter((block) => block.kind === 'replace').length, 1);
-    assert.equal(model.blocks.filter((block) => block.kind !== 'replace').length, 4);
+    assert.equal(model.blocks.filter((block) => block.kind !== 'replace').length, 0);
     assert.deepEqual(model.blocks.find((block) => block.kind === 'replace'), {
         kind: 'replace',
-        leftStart: 1,
-        leftEnd: 2,
-        rightStart: 1,
-        rightEnd: 2
+        leftStart: 0,
+        leftEnd: 3,
+        rightStart: 0,
+        rightEnd: 3
     });
 }
 
@@ -4984,7 +4986,7 @@ async function run() {
     testReplacementMatchingRejectsLowInformationLines();
     testReplacementMatchingRequiresSharedContentForSingletonHunks();
     testReplacementBlockClassificationUsesBlockAndLineEvidenceSeparately();
-    testSingleCrediblePairDoesNotColorUnrelatedSurroundingsBlue();
+    testTouchingReplacementRegionsMergeAroundCrediblePairs();
     testReplacementMatchingLeavesAmbiguousBoilerplateUnpaired();
     testReplacementMatchingPairsDistinctiveLinesAcrossUnevenHunks();
     testReplacementMatchingUsesUniqueDeclarationAnchors();

@@ -9,11 +9,13 @@ long unchanged surroundings, repeated YAML keys, indentation changes, wrapped
 paragraphs, an insertion, and a substantive edit. It contains no private review
 material. `diffRegression.test.js` checks both comparison directions, exact
 whitespace highlight columns, word replacement edge trimming (including its
-contiguous-middle limit and whole-character Unicode boundaries), expected reflow boundaries, preservation of all
+contiguous-middle limit and whole-character Unicode boundaries) on bare identifiers
+and code statements, expected reflow boundaries, preservation of all
 source lines and segment text, line-length limits, newline variants, and scroll
 correspondence before, within, and after changes. Edited one-to-many paragraphs
 keep inline changes and exclude neighboring additions/deletions; touching blue
-regions merge without merging their scroll anchors. Prefix scoring is tested
+regions merge without merging their scroll anchors. Touching opposite green blocks form a blue replacement;
+unrelated multiline changes retain conservative row alignment. Prefix scoring is tested
 without neighboring anchors, across repeated scenes, against ambiguous repeated
 labels and boilerplate, and against unrelated long values.
 
