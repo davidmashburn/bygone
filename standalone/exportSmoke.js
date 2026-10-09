@@ -76,9 +76,9 @@ app.whenReady().then(async () => {
             await wait("location.hash.includes('mode=deconstructed')");
             assert.equal(await evaluate("document.querySelector('[data-tour-navigator=tour]').disabled"), false, 'Tour navigation is re-enabled for a narrative mode');
             await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
-            await wait("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && document.querySelector('.dir-entry[data-path=\"app.txt\"]') && !document.querySelector('.monaco-editor')");
+            await wait("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && document.querySelector('.dir-entry[data-path=\"app.txt\"]') && !document.querySelector('.monaco-editor')");
             await evaluate("document.querySelector('[data-workspace-mode=deconstructed]').click()");
-            await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-pressed=true]') && document.querySelector('[data-reading-key=\"scene:synthetic\"]')");
+            await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]') && document.querySelector('[data-reading-key=\"scene:synthetic\"]')");
             await window.loadURL(window.webContents.getURL());
             await wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]')");
             await evaluate("location.hash = '#location=1&mode=historical&part=chapter&chapter=chapter'");
@@ -201,13 +201,13 @@ app.whenReady().then(async () => {
         assert.equal(link.tour, pathToFileURL(externalTour).href);
         assert.deepEqual(link.focus, { part: 'step', scene: 'scene', step: 'step' });
         await live.evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
-        await live.wait("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && !document.querySelector('#directory-return-toolbar').hidden");
+        await live.wait("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && !document.querySelector('#directory-return-toolbar').hidden");
         await live.evaluate("document.querySelector('#back-to-directory').click()");
         await live.wait("document.querySelector('.dir-entry[data-path=\"app.txt\"]') && !document.querySelector('.monaco-editor')");
         const compareUrl = await live.evaluate('location.href');
         assert.equal(new URL(compareUrl).searchParams.get('view'), 'directory');
         const compareOverviewLink = await open(compareUrl, false);
-        await compareOverviewLink.wait("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && document.querySelector('.dir-entry[data-path=\"app.txt\"]') && !document.querySelector('.monaco-editor')");
+        await compareOverviewLink.wait("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && document.querySelector('.dir-entry[data-path=\"app.txt\"]') && !document.querySelector('.monaco-editor')");
         compareOverviewLink.window.destroy();
         await runTourHistorySmoke(live.window.webContents, 'app.txt');
         const historyUrl = new URL(await live.evaluate('location.href'));
