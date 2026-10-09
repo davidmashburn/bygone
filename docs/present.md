@@ -99,22 +99,24 @@ Independent Historical and Deconstructed tours require version 4:
   the active revision with its parent or the review base.
 - **Compare** shows one panel per selected revision, oldest to newest, with a
   diff between each adjacent pair. The Commit navigator remains available for
-  editing a draft selection; **Update comparison** applies it. Activating a loaded revision focuses its
-  panel. **Compare selected** includes all changed files. Parent/base shortcuts
+  editing a draft selection; **Apply** updates the displayed comparison. It is
+  disabled when the selection already matches. Activating a loaded revision
+  focuses its panel. **Compare** includes all changed files. Parent/base shortcuts
   stay on the current file; **Show all changed files** expands the same range.
   **Final diff** selects the review base
   and head across all changed files.
 
 All modes share the expanded **Commits** navigator. Check two or more revisions,
-then choose **Compare selected** (or **Update comparison** in Compare).
+then choose **Compare** (or **Apply** in Compare).
 Checkboxes edit a shared draft without reloading panels or leaving the tour.
 Numbered badges and highlights identify loaded real revisions independently of
 that draft. A dot marks commits that changed the current file, following renames;
 the **Tour** tag identifies commits in the authored range. Synthetic explanation
 stages are not labeled as Git revisions. Parent/base revisions outside the
 commit list appear as labeled extra rows.
+The **Selection actions** (•••) menu holds the shortcuts and selection tools.
 **Clear selection** unchecks draft revisions without changing modes or panels;
-**Reset selection** selects the real revisions currently loaded in the workspace.
+**Select displayed revisions** selects the real revisions currently loaded in the workspace.
 
 - **Historical tour** explains actual revision states, including intermediate
   changes, updates, and reverts. It retains chapters, scenes, steps, and narration.

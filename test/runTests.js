@@ -4725,7 +4725,7 @@ function testPresentInitialCommitHighlights() {
     };
     const messages = [];
     const emit = new Function('revisionView', 'state', 'window', 'isMultiPanelTourScene', 'getMultiPanelDefinitions',
-        `const { revisionRailItems } = revisionView; let renderRequestId = 0; const zoomRestore = null; const imageViewer = { clear() {} }; const renderWorkspaceControls = () => {}; ${implementation}; return emit;`
+        `const { revisionRailItems } = revisionView; let renderRequestId = 0; const zoomRestore = null; const imageViewer = { clear() {} }; const renderWorkspaceControls = () => {}; const renderComparisonControls = () => {}; ${implementation}; return emit;`
     )(require('../out/revisionView'), state, {
         CustomEvent: class { constructor(_type, options) { this.detail = options.detail; } },
         dispatchEvent: (event) => messages.push(event.detail)

@@ -157,6 +157,7 @@ import { renderTourProse } from '../media/tourProse.js';
                     : state.zoom?.mode === 'history' ? state.historyPanels : twoWayCommitPanels();
                 if (!message.history) message.history = sharedCommitHistory();
                 renderWorkspaceControls();
+                renderComparisonControls();
             }
             if (zoomRestore) zoomRestoreRequestId = message.renderRequestId;
         }
@@ -560,14 +561,26 @@ import { renderTourProse } from '../media/tourProse.js';
     }
 
     function renderComparisonControls() {
-        const count = state.comparisonDraftCommits.length;
-        const compareButton = document.getElementById('tour-history-compare');
-        compareButton.textContent = `Compare selected (${count})`;
-        compareButton.disabled = count < 2 || !supportsWorkspaceHistory();
+        const draft = state.comparisonDraftCommits;
+        const count = draft.length;
+        const available = supportsWorkspaceHistory();
+        const displayed = [...new Set(displayedCommits())];
+        const matches = (commits) => commits.length === count && commits.every(commit => draft.includes(commit));
+        const applied = state.zoom?.mode === 'compare' && matches(state.compare?.commits || []);
+        for (const mode of ['history', 'compare']) {
+            document.getElementById(`tour-${mode}-count`).textContent = `${count} selected`;
+            document.getElementById(`tour-${mode}-hint`).textContent = count < 2 ? 'Select 2+ revisions'
+                : applied ? 'Selection applied' : mode === 'compare' ? 'Unapplied selection' : 'Ready to compare';
+            document.getElementById(`tour-${mode}-clear`).disabled = !count;
+            document.getElementById(`tour-${mode}-reset`).disabled = !displayed.length || matches(displayed);
+        }
+        document.getElementById('tour-history-compare').disabled = count < 2 || !available;
         const updateButton = document.getElementById('tour-compare-apply');
-        updateButton.textContent = `Update comparison (${count})`;
-        updateButton.disabled = count < 2 || !supportsWorkspaceHistory();
-        document.getElementById('tour-compare-scope').textContent = state.compare?.path ? `File: ${state.compare.path}` : 'All changed files';
+        updateButton.disabled = count < 2 || !available || applied;
+        updateButton.title = applied ? 'These revisions are already displayed' : 'Apply the selected revisions';
+        const scope = document.getElementById('tour-compare-scope');
+        scope.textContent = state.compare?.path || 'All changed files';
+        scope.title = state.compare?.path ? `File scope: ${state.compare.path}` : 'Comparing across all changed files';
         document.getElementById('tour-compare-all').hidden = !state.compare?.path;
         for (const id of ['tour-history-parent', 'tour-history-base']) {
             document.getElementById(id).disabled = !supportsWorkspaceHistory() || !state.historyCommit;
@@ -1137,6 +1150,26 @@ import { renderTourProse } from '../media/tourProse.js';
     function bindControls() {
         const action = (id, handler) => document.getElementById(id)?.addEventListener('click', () => {
             Promise.resolve().then(handler).catch(reportModeError);
+        });
+        const selectionMenus = [...document.querySelectorAll('.tour-selection-more')];
+        const closeSelectionMenu = (menu, restoreFocus = false) => {
+            menu.open = false;
+            if (restoreFocus) menu.querySelector('summary').focus();
+        };
+        for (const menu of selectionMenus) {
+            menu.addEventListener('click', (event) => {
+                if (event.target.closest('button')) closeSelectionMenu(menu, true);
+            });
+        }
+        document.addEventListener('click', (event) => {
+            for (const menu of selectionMenus) if (menu.open && !menu.contains(event.target)) closeSelectionMenu(menu);
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') return;
+            for (const menu of selectionMenus) if (menu.open) {
+                event.preventDefault();
+                closeSelectionMenu(menu, true);
+            }
         });
         action('tour-history-compare', () => openComparison({ commits: state.comparisonDraftCommits }));
         action('tour-compare-apply', () => openComparison({ commits: state.comparisonDraftCommits, path: state.compare?.path }));
