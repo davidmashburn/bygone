@@ -185,11 +185,17 @@ test('commit comparisons cover whole trees, scoped unchanged files, reverse endp
         assert.deepEqual(many.commits, [rootCommit, changedCommit, thirdCommit]);
         assert.equal(many.files.length, 1);
         assert.deepEqual(many.files[0].comparisonPanels.map(panel => panel.path), ['old.txt', 'renamed.txt', 'renamed.txt']);
+        assert.deepEqual(many.entries.map(({ relativePath, sides }) => ({ relativePath, sides })), [
+            { relativePath: 'renamed.txt', sides: [true, true, true] }
+        ], 'Scoped Compare overview follows historical names across revisions');
         assert.deepEqual(many.files[0].comparisonPanels.map(panel => panel.content), [
             'first line\nsecond line\n',
             'first line\nsecond line\nrenamed\n',
             'first line\nsecond line\nrenamed again\n'
         ]);
+        const overview = history.compareMany({ commits: [rootCommit, changedCommit, thirdCommit] }).entries;
+        assert.deepEqual(overview.find(entry => entry.relativePath === 'created.txt').sides, [false, true, true]);
+        assert.deepEqual(overview.find(entry => entry.relativePath === 'delete-me.txt').sides, [true, false, false]);
 
         const reverse = history.compare({ from: changedCommit, to: rootCommit });
         const reverseByPath = new Map(reverse.files.map(file => [file.path, file]));

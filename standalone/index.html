@@ -13,15 +13,13 @@
             <div id="file-info" class="header-align-diff">Choose a compare command to render a diff.</div>
             <div id="status-banner" class="status-banner header-align-diff" role="status" aria-live="polite" aria-atomic="true" hidden></div>
             <div id="directory-return-toolbar" class="directory-return-toolbar header-align-diff" hidden>
-                <button id="back-to-directory" class="directory-return-button" type="button" title="Back to directory view (Cmd/Ctrl+[)">
+                <button id="back-to-directory" class="directory-return-button" type="button" title="Show directory comparison (Cmd/Ctrl+[)" aria-label="Show directory comparison">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M15 18l-6-6 6-6"></path>
-                        <path d="M9 12h10"></path>
+                        <path d="M4 3v14h4M4 7h4"></path>
+                        <rect x="8" y="4" width="12" height="6" rx="1"></rect>
+                        <rect x="8" y="14" width="12" height="6" rx="1"></rect>
                     </svg>
-                    <span>Back</span>
-                </button>
-                <button id="toggle-directory-sidebar" class="directory-return-button" type="button" title="Hide directory files" aria-label="Hide directory files" aria-pressed="true">
-                    <span>Files</span>
+                    <span>Directory</span>
                 </button>
             </div>
             <div id="edit-mode-toolbar" class="edit-mode-toolbar header-align-diff" hidden>

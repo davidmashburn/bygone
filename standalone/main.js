@@ -932,7 +932,7 @@ function installApplicationMenu() {
                 },
                 { type: 'separator' },
                 {
-                    label: 'Back to Directory',
+                    label: 'Directory',
                     accelerator: 'CmdOrCtrl+[',
                     enabled: canReturnToDirectory,
                     click: () => { void returnToDirectoryView(); }

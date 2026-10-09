@@ -191,6 +191,7 @@ import { renderTourProse } from '../media/tourProse.js';
                     sceneIndex: state.activeSceneIndex,
                     stepIndex: state.activeStepIndex,
                     path: state.activeTourFilePath,
+                    view: state.zoom?.mode === 'compare' && !state.activeTourFilePath ? 'directory' : 'file',
                     line: editor?.selection?.startLineNumber,
                     commit: (state.zoom?.mode === 'history' ? state.historyCommit : definitions[panel + 1]?.oid) || state.authoredTour.range.headOid,
                     navigation,
@@ -850,6 +851,7 @@ import { renderTourProse } from '../media/tourProse.js';
 
     function showComparisonFile(file, focusCommit = null) {
         if (!file || file.kind !== 'text-diff') return false;
+        setDirectoryOverviewStatus('');
         const panels = file.comparisonPanels;
         focusCommit = focusCommit || state.comparisonFocus;
         state.comparisonFocus = focusCommit;
@@ -858,7 +860,7 @@ import { renderTourProse } from '../media/tourProse.js';
         emit({ ...revisionPanelsView({ panels,
             files: { paths: state.tour.files.filter(item => item.kind === 'text-diff').map(item => item.path), currentPath: file.path },
             activePanelId: focusCommit ? `compare-${focusCommit}` : null,
-            mutationEnabled: false, canReturnToDirectory: false
+            mutationEnabled: false, canReturnToDirectory: true
         }, (left, right) => buildTwoWayDiffModel(left.content, right.content)),
             history: panelHistoryState(buildComparisonHistoryState(state.compare), state.compare.commits, focusCommit)
         });
@@ -873,7 +875,7 @@ import { renderTourProse } from '../media/tourProse.js';
         if (request !== evidenceRequest || state.zoom.mode !== 'compare') return;
         const files = result.files;
         state.comparisonCommits = selection.commits;
-        state.compare = { ...selection, files };
+        state.compare = { ...selection, files, entries: result.entries };
         state.tour = zoomTour('compare');
         state.activeSceneIndex = -1;
         state.tourFocusFilePath = null;
@@ -882,11 +884,12 @@ import { renderTourProse } from '../media/tourProse.js';
         renderTourSearchResults();
         const file = files.find((item) => item.kind === 'text-diff' && item.path === selectedPath)
             || files.find((item) => item.kind === 'text-diff');
-        if (file) showComparisonFile(file, focusCommit);
+        if (zoomRestore?.view === 'directory') showComparisonDirectory();
+        else if (file) showComparisonFile(file, focusCommit);
         else {
             state.activeTourFilePath = null;
             const panels = selection.commits.map((commit) => ({ id: `compare-${commit}`, commit, path: 'No text changes', content: '', label: commit.slice(0, 7), editable: false }));
-            emit({ ...revisionPanelsView({ panels, files: { paths: [], currentPath: null }, mutationEnabled: false, canReturnToDirectory: false },
+            emit({ ...revisionPanelsView({ panels, files: { paths: [], currentPath: null }, mutationEnabled: false, canReturnToDirectory: true },
                 (left, right) => buildTwoWayDiffModel(left.content, right.content)),
                 history: panelHistoryState(buildComparisonHistoryState(selection), selection.commits, null) });
             state.activeTourFilePath = null;
@@ -907,6 +910,15 @@ import { renderTourProse } from '../media/tourProse.js';
         if (state.zoom.mode !== 'compare') await switchZoomMode('compare', selection);
         else await showComparison(selection, state.activeTourFilePath);
         setTourNavigatorTab('commits');
+    }
+
+    function showComparisonDirectory() {
+        if (!state.compare) return;
+        state.activeTourFilePath = null;
+        updateTourFileSelection();
+        emit(revisionDirectoryView(state.compare.commits.map(commit => commit.slice(0, 7)), state.compare.entries));
+        setDirectoryOverviewStatus(state.compare.entries.length ? '' : 'No changed files for the selected comparison.');
+        updateTourLocationUrl();
     }
 
     function finalComparison() {
@@ -1044,6 +1056,16 @@ import { renderTourProse } from '../media/tourProse.js';
         }
 
         if (state.mode === 'tour') {
+            if (state.zoom?.mode === 'compare' && ['openDirectoryEntry', 'returnToDirectory'].includes(message.type)) {
+                cancelPendingModeRestore();
+                if (message.type === 'returnToDirectory') showComparisonDirectory();
+                else {
+                    const file = state.compare.files.find(file => file.path === message.relativePath);
+                    if (file?.kind === 'text-diff') showComparisonFile(file);
+                    else if (file) setDirectoryOverviewStatus(`${file.path}: ${file.reason || 'This file cannot be displayed as text.'}`);
+                }
+                return;
+            }
             if (state.zoom?.mode === 'history' && ['openDirectoryEntry', 'returnToDirectory', 'navigateFile'].includes(message.type)) {
                 cancelPendingModeRestore();
                 const files = historyRevisionFiles();
@@ -1849,6 +1871,7 @@ import { renderTourProse } from '../media/tourProse.js';
                             ],
                         ...(parameters.get('scope') ? { path: parameters.get('scope') } : {})
                     }, parameters.get('file'));
+                    if (parameters.get('view') === 'directory') showComparisonDirectory();
                 } else if (requestedMode && requestedMode !== state.zoom.mode && availableModes().includes(requestedMode)) {
                     await switchZoomMode(requestedMode);
                     const position = resolveTourPosition(state.tour.scenes, parameters.get('scene'), parameters.get('step'));
@@ -2872,6 +2895,7 @@ import { renderTourProse } from '../media/tourProse.js';
             if (state.zoom.mode === 'compare' && state.compare) {
                 parameters.set('commits', state.compare.commits.join(','));
                 if (state.compare.path) parameters.set('scope', state.compare.path);
+                if (!state.activeTourFilePath) parameters.set('view', 'directory');
             }
             if (state.zoom.mode === 'history' && state.historyCommit) parameters.set('commit', state.historyCommit);
             if (state.activeTourFilePath) parameters.set('file', state.zoom.mode === 'history' ? state.historyPath : state.activeTourFilePath);

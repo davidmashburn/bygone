@@ -3353,16 +3353,16 @@ function testInlineHighlightsSingleWordReplacement() {
         model.leftLines[0].segments,
         [
             { kind: 'context', text: 'const value = ', emphasis: false },
-            { kind: 'removed', text: 'oldName', emphasis: true },
-            { kind: 'context', text: ';', emphasis: false }
+            { kind: 'removed', text: 'old', emphasis: true },
+            { kind: 'context', text: 'Name;', emphasis: false }
         ]
     );
     assert.deepEqual(
         model.rightLines[0].segments,
         [
             { kind: 'context', text: 'const value = ', emphasis: false },
-            { kind: 'added', text: 'newName', emphasis: true },
-            { kind: 'context', text: ';', emphasis: false }
+            { kind: 'added', text: 'new', emphasis: true },
+            { kind: 'context', text: 'Name;', emphasis: false }
         ]
     );
 }
@@ -3429,19 +3429,19 @@ function testInlineHighlightsAlignAroundInsertedAndDeletedLines() {
     ]);
     assert.deepEqual(
         model.leftLines[0].segments?.filter((segment) => segment.emphasis).map((segment) => segment.text),
-        ['1']
+        []
     );
     assert.deepEqual(
         model.rightLines[1].segments?.filter((segment) => segment.emphasis).map((segment) => segment.text),
-        ['10']
+        ['0']
     );
 }
 
-function testRendererDoesNotAddActiveOrAdjacentSemanticOverrides() {
+function testRendererDoesNotOverrideDiffColorsDuringNavigation() {
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
     const connectorSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'connectors.js'), 'utf8');
 
-    assert.doesNotMatch(rendererSource, /addActiveBlockDecorations|addAdjacentEdgeDecorations/);
+    assert.doesNotMatch(rendererSource, /addAdjacentEdgeDecorations/);
     assert.doesNotMatch(connectorSource, /getActiveBlockColor/);
 }
 
@@ -5003,7 +5003,7 @@ async function run() {
     testInlineHighlightsEveryChangedReplaceLine();
     testPureDeleteHasNoInlineSegments();
     testInlineHighlightsAlignAroundInsertedAndDeletedLines();
-    testRendererDoesNotAddActiveOrAdjacentSemanticOverrides();
+    testRendererDoesNotOverrideDiffColorsDuringNavigation();
     testDiffWorkerUsesHostResolvedUrlAcrossSurfaces();
     testStaticButtonsHaveTooltips();
     testMacCliRoutesThroughCentralAppInstance();

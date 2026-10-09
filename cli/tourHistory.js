@@ -442,9 +442,14 @@ function createTourHistory(manifest) {
                 to: commits[index + 1],
                 ...(input.path !== undefined ? { path: input.path } : {})
             }));
+            const files = aggregateComparisonFiles(commits, comparisons);
             return {
                 commits,
-                files: aggregateComparisonFiles(commits, comparisons)
+                files,
+                entries: buildHistoryDirectoryEntries(files.map(file => file.path), commits.map((commit, index) => {
+                    const inventory = new Set(git(root, ['ls-tree', '-r', '--name-only', '-z', commit]).split('\0').filter(Boolean));
+                    return new Set(files.filter(file => inventory.has(file.comparisonPanels[index].path)).map(file => file.path));
+                }))
             };
         }
     };

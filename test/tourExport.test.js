@@ -50,6 +50,8 @@ test('Minimal captures all authored modes, Full retains bounded history includin
         const overview = await history('changed-files', { commits: [f.base, f.middle, f.head], includeEntries: true });
         assert.deepEqual(overview.entries.find(entry => entry.relativePath === 'transient.txt').sides, [false, true, false]);
         assert.ok(overview.entries.some(entry => entry.relativePath === 'binary.dat'), 'Binary changes remain visible in the overview');
+        assert.deepEqual(comparison.entries, overview.entries, 'Compare uses the selected revisions for its directory overview');
+        assert.deepEqual((await history('compare-many', { commits: [f.base, f.middle, f.head], path: 'app.txt' })).entries.map(entry => entry.relativePath), ['app.txt']);
         const revisions = [f.base, f.middle, f.head];
         const desktop = createWorkspaceHistory({ repoRoot: f.root, paths: [{ path: '', type: 'directory' }],
             revisions, headOid: f.head, activeRevision: f.head });
@@ -57,12 +59,19 @@ test('Minimal captures all authored modes, Full retains bounded history includin
         assert.deepEqual(desktop.directoryEntries(revisions), overview.entries, 'Desktop and export use the same overview contract');
         assert.deepEqual(liveTour.changedFiles({ commits: revisions, includeEntries: true }).entries, overview.entries,
             'Live and exported tours use the same overview contract');
+        const liveComparison = liveTour.compareMany({ commits: revisions });
+        assert.deepEqual(liveComparison.entries.find(entry => entry.relativePath === 'new.txt').sides, [true, true, true],
+            'Live Compare follows the rename under its final path');
+        assert.deepEqual(liveComparison.entries.find(entry => entry.relativePath === 'transient.txt').sides, [false, true, false]);
         const minHistory = createExportHistory(hydrate(minimal));
         await assert.rejects(minHistory('list', {}), /not included/);
         await assert.rejects(minHistory('compare-many', { commits: [f.base, f.head], path: 'not-packaged' }), /outside/);
         await assert.rejects(minHistory('compare-many', { commits: [f.head, f.base] }), /fixed/);
         const endpoints = await minHistory('compare-many', { commits: [f.base, f.head] });
         assert.equal(endpoints.files.find(file => file.path === 'app.txt').comparisonPanels[1].content, 'alpha\nBETA\n');
+        assert.deepEqual(endpoints.entries.find(entry => entry.relativePath === 'new.txt').sides, [true, true], 'Minimal Compare follows the exported rename');
+        assert.deepEqual(endpoints.entries.find(entry => entry.relativePath === 'binary.dat').sides, [false, true]);
+        assert.ok(endpoints.entries.some(entry => entry.relativePath === 'binary.dat'));
         assert.equal(fs.readFileSync(f.sourcePath, 'utf8'), before);
         f.git('branch', '-f', 'export-head', f.middle);
         assert.equal(hydrate(minimal).manifest.range.headOid, f.head, 'An export is independent of subsequently moved refs');

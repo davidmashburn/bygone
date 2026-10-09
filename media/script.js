@@ -149,7 +149,6 @@ let focusedStripWheelDelta = 0;
 let historyRailState = null;
 let activeHistoryRailTabId = null;
 let historyRailKind = null;
-let directoryRailVisible = true;
 let navigationRailCollapsed = false;
 let navigationRailWidth = readStoredSidebarWidth(
     NAVIGATION_SIDEBAR_STORAGE_KEY,
@@ -1658,7 +1657,7 @@ function updateActiveMultiShellState() {
         const panelId = element.getAttribute('data-multi-panel-position') || '';
         const panelChanges = getMultiPanelChanges(panelId);
         const panelChangeIndex = getMultiPanelChangeIndex(panelId, panelChanges);
-        element.textContent = panelChanges.length > 0 ? `${panelChangeIndex + 1} / ${panelChanges.length}` : '0 / 0';
+        element.textContent = panelChanges.length > 0 ? (panelChangeIndex >= 0 ? `Change ${panelChangeIndex + 1} of ${panelChanges.length}` : `${panelChanges.length} changes`) : 'No changes';
     });
     container.querySelectorAll('[data-multi-panel-copy]').forEach((button) => {
         const panelId = button.getAttribute('data-panel-id') || '';
@@ -2478,6 +2477,12 @@ function applyDiffDecorations(diffModel, tourAnnotations = []) {
         }
     }
 
+    const activeBlock = diffModel.blocks?.[activeDiffIndex];
+    if (activeBlock) {
+        addActiveBlockDecorations(leftDecorations, activeBlock.leftStart, activeBlock.leftEnd, leftEditor.getModel()?.getLineCount() ?? 0);
+        addActiveBlockDecorations(rightDecorations, activeBlock.rightStart, activeBlock.rightEnd, rightEditor.getModel()?.getLineCount() ?? 0);
+    }
+
     addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
     addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
 
@@ -2498,7 +2503,7 @@ function applyDiffDecorations(diffModel, tourAnnotations = []) {
 function applyMultiDiffDecorations(pairs) {
     const decorations = multiEditors.map(() => []);
 
-    (pairs || []).forEach((pair) => {
+    (pairs || []).forEach((pair, pairIndex) => {
         const leftDecorations = decorations[pair.leftIndex];
         const rightDecorations = decorations[pair.rightIndex];
         const diffModel = pair.diffModel;
@@ -2527,6 +2532,11 @@ function applyMultiDiffDecorations(pairs) {
         addInlineDecorations(leftDecorations, diffModel.leftLines || [], 'removed', 'bygone-inline-blue');
         addInlineDecorations(rightDecorations, diffModel.rightLines || [], 'added', 'bygone-inline-blue');
 
+        const activeBlock = pairIndex === activeMultiPairIndex && diffModel.blocks?.[activeDiffIndex];
+        if (activeBlock) {
+            addActiveBlockDecorations(leftDecorations, activeBlock.leftStart, activeBlock.leftEnd, multiEditors[pair.leftIndex].getModel()?.getLineCount() ?? 0);
+            addActiveBlockDecorations(rightDecorations, activeBlock.rightStart, activeBlock.rightEnd, multiEditors[pair.rightIndex].getModel()?.getLineCount() ?? 0);
+        }
     });
 
     for (const tourAnnotation of currentTourAnnotations) {
@@ -2546,6 +2556,20 @@ function applyMultiDiffDecorations(pairs) {
     multiDecorationIds = multiEditors.map((editor, index) => (
         editor.deltaDecorations(multiDecorationIds[index] || [], dedupeDecorations(decorations[index]))
     ));
+}
+
+function addActiveBlockDecorations(target, start, end, lineCount) {
+    if (start === end) {
+        addCollapsedBoundaryDecoration(target, start, lineCount, 'bygone-active-diff');
+    } else {
+        addBlockEdgeDecorations(target, start, end, 'bygone-active-diff');
+    }
+    if (lineCount > 0) {
+        target.push({
+            range: new monacoInstance.Range(clamp(start + 1, 1, lineCount), 1, clamp(Math.max(start + 1, end), 1, lineCount), 1),
+            options: { linesDecorationsClassName: 'bygone-active-diff-gutter', hoverMessage: { value: 'Current change' } }
+        });
+    }
 }
 
 function pushTourAnnotationDecoration(target, editor, tourAnnotation) {
@@ -2753,9 +2777,7 @@ function initializeHistoryRail() {
     window.addEventListener('bygone:present-navigator-change', renderHistoryRail);
     showButton.addEventListener('click', () => {
         navigationRailCollapsed = false;
-        directoryRailVisible = true;
         renderHistoryRail();
-        updateDirectorySidebarToggle();
         resizeDiffWorkspace();
     });
 
@@ -3018,20 +3040,6 @@ function initializeCommitRailActions(rail) {
 
 function initializeDirectoryReturnToolbar() {
     getElement('back-to-directory').addEventListener('click', () => returnToDirectory());
-    getElement('toggle-directory-sidebar').addEventListener('click', () => {
-        if (!hasDirectoryNavigation) {
-            return;
-        }
-        if (navigationRailCollapsed) {
-            navigationRailCollapsed = false;
-            directoryRailVisible = true;
-        } else {
-            directoryRailVisible = !directoryRailVisible;
-        }
-        renderHistoryRail();
-        updateDirectorySidebarToggle();
-        resizeDiffWorkspace();
-    });
 }
 
 function initializeMultiDiffInteractions() {
@@ -4387,16 +4395,6 @@ function returnToDirectory() {
 
 function updateDirectoryReturnToolbar(canReturnToDirectory) {
     getElement('directory-return-toolbar').hidden = !canReturnToDirectory;
-    getElement('toggle-directory-sidebar').hidden = true;
-    updateDirectorySidebarToggle();
-}
-
-function updateDirectorySidebarToggle() {
-    const button = getElement('toggle-directory-sidebar');
-    const isVisible = hasDirectoryNavigation && directoryRailVisible && !navigationRailCollapsed;
-    button.setAttribute('aria-pressed', isVisible ? 'true' : 'false');
-    button.setAttribute('aria-label', isVisible ? 'Hide directory files' : 'Show directory files');
-    button.title = isVisible ? 'Hide directory files' : 'Show directory files';
 }
 
 function updateEditModeToolbar() {
@@ -4698,7 +4696,7 @@ function updateChangeToolbarState() {
             toolbarHint.hidden = false;
         }
         const currentIndex = getActiveDirectoryEntryIndex(directoryTargets);
-        setTextContent('change-position', `${currentIndex + 1} / ${directoryTargets.length}`);
+        setTextContent('change-position', `File ${currentIndex + 1} of ${directoryTargets.length}`);
         getElement('copy-left-to-right').hidden = false;
         getElement('copy-right-to-left').hidden = false;
         getElement('previous-file').hidden = false;
@@ -4718,8 +4716,8 @@ function updateChangeToolbarState() {
         if (toolbarHint) {
             toolbarHint.hidden = false;
         }
-        const safeIndex = diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1;
-        setTextContent('change-position', diffBlocks.length > 0 ? `${safeIndex + 1} / ${diffBlocks.length}` : '0 / 0');
+        const safeIndex = diffBlocks.length > 0 ? clamp(activeDiffIndex, -1, diffBlocks.length - 1) : -1;
+        setTextContent('change-position', diffBlocks.length > 0 ? (safeIndex >= 0 ? `Change ${safeIndex + 1} of ${diffBlocks.length}` : `${diffBlocks.length} changes`) : 'No changes');
         getElement('copy-left-to-right').hidden = false;
         getElement('copy-right-to-left').hidden = false;
         getElement('previous-file').hidden = false;
@@ -4752,12 +4750,12 @@ function updateChangeToolbarState() {
     }
 
     if (currentMode === MODE_MULTI_WAY) {
-        const safeIndex = diffBlocks.length > 0 ? clamp(activeDiffIndex, 0, diffBlocks.length - 1) : -1;
+        const safeIndex = diffBlocks.length > 0 ? clamp(activeDiffIndex, -1, diffBlocks.length - 1) : -1;
         toolbarCenter.hidden = false;
         if (toolbarHint) {
             toolbarHint.hidden = true;
         }
-        setTextContent('change-position', diffBlocks.length > 0 ? `${safeIndex + 1} / ${diffBlocks.length}` : '0 / 0');
+        setTextContent('change-position', diffBlocks.length > 0 ? (safeIndex >= 0 ? `Change ${safeIndex + 1} of ${diffBlocks.length}` : `${diffBlocks.length} changes`) : 'No changes');
         getElement('copy-left-to-right').hidden = true;
         getElement('copy-right-to-left').hidden = true;
         getElement('previous-change').disabled = diffBlocks.length === 0;
@@ -5403,7 +5401,6 @@ function updateNavigationRail(historyRail, kind) {
     }
 
     renderHistoryRail();
-    updateDirectorySidebarToggle();
 }
 
 function renderHistoryRail() {
@@ -5424,8 +5421,7 @@ function renderHistoryRail() {
     rail.classList.toggle('present-navigation-rail', presentOwned);
     const railAvailable = Boolean(historyRailState);
     const railRequested = railAvailable
-        && (presentOwned || !navigationRailCollapsed)
-        && !(historyRailKind === 'directory' && !directoryRailVisible);
+        && (presentOwned || !navigationRailCollapsed);
 
     if (!railRequested) {
         rail.hidden = true;

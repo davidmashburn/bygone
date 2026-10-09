@@ -24,6 +24,45 @@ function emphasizedRanges(line) {
     });
 }
 
+// Brackets specify the product policy, including deliberately broad highlights
+// when two edits surround an unchanged middle. Check both comparison directions.
+for (const [left, right, expectedLeft, expectedRight] of [
+    ['oldName', 'newName', '[old]Name', '[new]Name'],
+    ['nameOld', 'nameNew', 'name[Old]', 'name[New]'],
+    ['userCount', 'usersCount', 'userCount', 'user[s]Count'],
+    ['Name', 'NewName', 'Name', '[New]Name'],
+    ['name', 'names', 'name', 'name[s]'],
+    ['userStatisticalCount', 'userMetricsCount', 'user[Statistical]Count', 'user[Metrics]Count'],
+    ['customer', 'invoice', '[customer]', '[invoice]'],
+    ['receive', 'retrieve', 're[cei]ve', 're[trie]ve'],
+    ['timeoutMs', 'timeoutSeconds', 'timeout[M]s', 'timeout[Second]s'],
+    ['oldNameOld', 'newNameNew', '[oldNameOld]', '[newNameNew]'],
+    ['prefixOldMiddleOldSuffix', 'prefixNewMiddleNewSuffix', 'prefix[OldMiddleOld]Suffix', 'prefix[NewMiddleNew]Suffix'],
+    ['aaaa', 'aaa', 'aaa[a]', 'aaa'],
+    ['1', '10', '1', '1[0]'],
+    ['sameName', 'sameName', 'sameName', 'sameName'],
+    ['cafe', 'cafe\u0301', 'caf[e]', 'caf[e\u0301]'],
+    ['cafe\u0301', 'cafe\u0300', 'caf[e\u0301]', 'caf[e\u0300]'],
+    ['👩‍💻Count', '👩‍🔬Count', '[👩‍💻]Count', '[👩‍🔬]Count'],
+    ['👍Count', '👍🏽Count', '[👍]Count', '[👍🏽]Count'],
+    ['oldName oldCount', 'newName newCount', '[old]Name [old]Count', '[new]Name [new]Count']
+]) {
+    test(`inline edge trimming: ${left} → ${right}`, () => {
+        for (const reverse of [false, true]) {
+            const values = reverse ? [right, left] : [left, right];
+            const expected = reverse ? [expectedRight, expectedLeft] : [expectedLeft, expectedRight];
+            const sources = values.map(value => `const value = ${value};`);
+            const model = buildTwoWayDiffModel(...sources);
+            assertPreserved(model, [sources[0]], [sources[1]]);
+            for (const [index, side] of ['left', 'right'].entries()) {
+                const line = model[`${side}Lines`][0];
+                const marked = line.segments?.map(segment => segment.emphasis ? `[${segment.text}]` : segment.text).join('') ?? line.content;
+                assert.equal(marked, `const value = ${expected[index]};`);
+            }
+        }
+    });
+}
+
 // Meld's matcher/tag tests check exact boundaries. VS Code's fixture tests
 // check expected mappings and source reconstruction. These are original cases.
 for (const [name, left, right, leftRanges, rightRanges] of [
