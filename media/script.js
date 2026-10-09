@@ -1756,14 +1756,13 @@ function initializePanelReordering(container) {
     const point = (x) => {
         clearMarker();
         const visible = [...container.querySelectorAll('.multi-pane')].filter(pane => !pane.inert);
-        const pane = visible.find(item => x < item.getBoundingClientRect().right) || visible.at(-1);
+        // Crossing the gutter enters the neighboring slot; its entire panel is a drop target.
+        const pane = visible.find((item, index) => !visible[index + 1]
+            || x < (item.getBoundingClientRect().right + visible[index + 1].getBoundingClientRect().left) / 2);
         if (!pane) return;
-        const bounds = pane.getBoundingClientRect();
-        const after = x > bounds.left + bounds.width / 2;
         const from = multiPanels.findIndex(panel => panel.id === dragging);
-        const insertion = Number(pane.dataset.index) + Number(after);
-        targetIndex = insertion - Number(from < insertion);
-        pane.classList.add(after ? 'panel-drop-after' : 'panel-drop-before');
+        targetIndex = Number(pane.dataset.index);
+        if (targetIndex !== from) pane.classList.add(targetIndex > from ? 'panel-drop-after' : 'panel-drop-before');
     };
     cancelPanelReorder = finish;
     container.addEventListener('dragstart', event => {

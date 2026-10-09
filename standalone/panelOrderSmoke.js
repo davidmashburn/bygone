@@ -60,17 +60,31 @@ async function runPanelOrderSmoke({ window, show }) {
         await evaluate(`document.querySelector('.multi-pane').dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: window.reorderDrag }));`);
         assert.equal(moves, count, 'Escape cancels the move');
         await load(2);
-        await evaluate(`{
-            const source = document.querySelector('[data-multi-select-panel="reorder-0"]');
-            const target = document.querySelector('[data-panel-id="reorder-1"].multi-pane');
-            const bounds = target.getBoundingClientRect();
-            const dataTransfer = new DataTransfer();
-            source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer }));
-            target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer, clientX: bounds.right - 10 }));
-            target.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer }));
-        }`);
-        await frames();
-        assert.deepEqual(await order(), ['reorder-1', 'reorder-0'], 'Dragging swaps two panels');
+        const dragAcross = async (edge, gutter = false) => {
+            await evaluate(`{
+                const source = document.querySelector('[data-multi-select-panel="reorder-0"]');
+                const target = document.querySelector('[data-panel-id="reorder-1"].multi-pane');
+                const bounds = target.getBoundingClientRect();
+                const sourceBounds = source.closest('.multi-pane').getBoundingClientRect();
+                const clientX = ${edge === 'left'
+        ? (gutter ? '(sourceBounds.right + bounds.left) / 2 + 1' : 'bounds.left + 1')
+        : (gutter ? '(bounds.right + sourceBounds.left) / 2 - 1' : 'bounds.right - 1')};
+                const dataTransfer = new DataTransfer();
+                source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer }));
+                target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer, clientX }));
+                target.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer }));
+            }`);
+            await frames();
+        };
+        await dragAcross('left');
+        assert.deepEqual(await order(), ['reorder-1', 'reorder-0'], 'Entering the left edge of the right neighbor swaps panels');
+        await dragAcross('right');
+        assert.deepEqual(await order(), ['reorder-0', 'reorder-1'], 'Entering the right edge of the left neighbor swaps panels');
+        await dragAcross('left', true);
+        assert.deepEqual(await order(), ['reorder-1', 'reorder-0'], 'Crossing the gutter midpoint to the right is sufficient');
+        await dragAcross('right', true);
+        assert.deepEqual(await order(), ['reorder-0', 'reorder-1'], 'Crossing the gutter midpoint to the left is sufficient');
+        await dragAcross('left');
         // Wait for async diff computation through observable enabled copy action.
         await evaluate(`new Promise((resolve, reject) => {
             const end = Date.now() + 5000;
