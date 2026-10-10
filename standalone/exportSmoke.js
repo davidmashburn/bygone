@@ -97,6 +97,8 @@ app.whenReady().then(async () => {
             assert.ok(await evaluate("document.querySelector('[data-reading-key=title]').textContent.includes(\"What you'll see\")"));
             assert.ok(await evaluate("document.querySelector('.tour-route-evidence').textContent.includes('app.txt')"));
             assert.ok(await evaluate("document.querySelector('.tour-route-chapter-link').textContent.startsWith('Chapter 1:')"));
+            assert.equal(await evaluate("document.querySelector('[data-reading-key=title] .tour-scope-details').open"), false, 'Intro scope is optional');
+            assert.equal(await evaluate("document.querySelector('[data-reading-key=title] .tour-route li').checkVisibility()"), false, 'Intro starts with chapters only');
             assert.ok(await evaluate("document.querySelector('.tour-route li .tour-route-link').textContent.startsWith('Scene 1.1:')"));
             assert.ok(await evaluate("document.querySelector('.tour-outline-step').textContent.startsWith('Step 1.1.1:')"));
             await evaluate("document.querySelector('.tour-route-chapter-link').click()");
@@ -107,7 +109,7 @@ app.whenReady().then(async () => {
             await evaluate("document.querySelector('[data-reading-link=title]').click()");
             await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'title'");
             assert.ok(await evaluate("document.querySelector('#tour-narrative').getBoundingClientRect().height >= innerHeight - 1"), 'Intro uses the available reading area');
-            await evaluate("document.querySelector('.tour-route li .tour-route-link').click()");
+            await evaluate("document.querySelector('[data-reading-key=title] .tour-scope-details > summary').click(); document.querySelector('.tour-route li .tour-route-link').click()");
             await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'scene:scene'");
             await wait("document.querySelector('#file-info').textContent.startsWith('Coming up:')");
             assert.ok(await evaluate("document.querySelector('.tour-scene-route').textContent.includes('Revisions:')"));

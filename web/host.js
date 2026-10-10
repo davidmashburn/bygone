@@ -3081,6 +3081,12 @@ import { renderTourProse } from '../media/tourProse.js';
             if (scene.takeaway) field(parent, 'p', 'tour-narrative-takeaway', scene.takeaway, narrated ? 'takeaway' : null);
         };
         const route = buildTourRoute(state.tour);
+        const scopeDetails = (parent, evidence) => {
+            const details = field(parent, 'details', 'tour-scope-details', '');
+            field(details, 'summary', '', 'Scope details');
+            field(details, 'p', 'tour-route-evidence', evidence);
+            return details;
+        };
         const renderSceneRoute = (parent, entries) => {
             const list = field(parent, 'ol', 'tour-route', '');
             entries.forEach(entry => {
@@ -3089,8 +3095,8 @@ import { renderTourProse } from '../media/tourProse.js';
                 button.className = 'tour-route-link';
                 field(button, 'span', '', entry.title, 'route-title', entry.sceneIndex);
                 row.append(button);
-                field(row, 'p', 'tour-route-purpose', entry.purpose, 'route-purpose', entry.sceneIndex);
-                field(row, 'p', 'tour-route-evidence', entry.evidence, 'route-evidence', entry.sceneIndex);
+                const details = scopeDetails(row, entry.evidence);
+                field(details, 'p', 'tour-route-purpose', entry.purpose);
             });
         };
         for (const item of readingItems) {
@@ -3119,8 +3125,8 @@ import { renderTourProse } from '../media/tourProse.js';
                     button.className = 'tour-route-link tour-route-chapter-link';
                     field(button, 'span', '', chapter.title, 'route-chapter', chapter.chapterIndex);
                     heading.append(button);
-                    field(section, 'p', 'tour-route-evidence', chapter.evidence, 'chapter-scope', chapter.chapterIndex);
-                    renderSceneRoute(section, chapter.scenes);
+                    const details = scopeDetails(section, chapter.evidence);
+                    renderSceneRoute(details, chapter.scenes);
                 });
                 if (!route.chapters.length) renderSceneRoute(element, route.scenes);
             } else if (item.kind === 'conclusion') {
@@ -3129,7 +3135,7 @@ import { renderTourProse } from '../media/tourProse.js';
             } else if (item.kind === 'chapter') {
                 const chapter = route.chapters.find(chapter => chapter.chapterId === item.chapterId);
                 field(element, 'h2', 'tour-document-chapter', chapter.title, 'chapter');
-                field(element, 'p', 'tour-route-evidence', chapter.evidence, 'chapter-scope', chapter.chapterIndex);
+                scopeDetails(element, chapter.evidence);
                 renderSceneRoute(element, chapter.scenes);
             } else if (item.kind === 'scene') {
                 element.classList.add('tour-scene-group');
@@ -3168,7 +3174,8 @@ import { renderTourProse } from '../media/tourProse.js';
                 if (scene.overview?.purpose) field(intro, 'p', 'tour-overview-purpose', scene.overview.purpose, 'overview-purpose');
                 const evidenceContext = resolveTourEvidenceContext(state.tour, item, state.zoom?.mode);
                 if (evidenceContext) field(intro, 'p', 'tour-scene-orientation', describeTourComparison(evidenceContext));
-                field(intro, 'p', 'tour-scene-route', describeSceneRoute(state.tour, item.sceneIndex), 'scene-route');
+                const scope = scopeDetails(intro, describeSceneRoute(state.tour, item.sceneIndex));
+                scope.querySelector('p').classList.add('tour-scene-route');
                 const tags = field(intro, 'div', 'tour-narrative-tags', '');
                 scene.tags.forEach((tag) => field(tags, 'span', '', tag));
             } else {

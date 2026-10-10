@@ -263,8 +263,9 @@ purpose; each step connects a claim to code or an image. Scene 1.2 belongs to
 Chapter 1, and Step 1.2.3 is its third step. The same numbering appears in the
 outline, headings, and narration. Even a single chapter remains explicit.
 
-Chapter introductions list their focused files, actual revision comparisons (or
-constructed explanation stages), and the purpose and scope of every scene.
-These comparisons are derived from the evidence; a chapter or scene boundary
-does not by itself imply a different file, commit, or PR. A chapter can cover
+Intro shows a short chapter outline; chapter introductions list their scenes.
+“Scope details” expands the focused files, actual revision comparisons (or
+constructed explanation stages), and scene purposes. Optional scope details
+are omitted from narration. These comparisons are derived from the evidence;
+a chapter or scene boundary does not by itself imply a different file, commit, or PR. A chapter can cover
 multiple comparisons, and its introduction lists them individually.

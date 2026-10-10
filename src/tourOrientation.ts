@@ -159,7 +159,7 @@ export function buildTourRoute(tour: ChangeTourManifest): { summary: string; cha
     });
     const stepCount = tour.scenes.reduce((count, scene) => count + ('steps' in scene ? scene.steps.length : 0), 0);
     return {
-        summary: `${chapters.length} ${chapters.length === 1 ? 'chapter' : 'chapters'} → ${scenes.length} ${scenes.length === 1 ? 'scene' : 'scenes'} → ${stepCount} ${stepCount === 1 ? 'step' : 'steps'}. A chapter groups related topics. Scenes organize the explanation around one question or purpose. A step connects a claim to specific code or an image. Numbers show your place: Scene 1.2 is the second scene in Chapter 1; Step 1.2.3 is its third step. These levels do not imply a new file, commit, or PR. The scopes below identify the actual comparisons and files.`,
+        summary: `${chapters.length} ${chapters.length === 1 ? 'chapter' : 'chapters'} → ${scenes.length} ${scenes.length === 1 ? 'scene' : 'scenes'} → ${stepCount} ${stepCount === 1 ? 'step' : 'steps'}. Chapters group topics; scenes explain one idea; steps show the evidence.`,
         chapters, scenes
     };
 }

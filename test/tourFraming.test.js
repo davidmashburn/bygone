@@ -142,7 +142,7 @@ test('the opening route separates topics, files, revision pairs, and constructed
             { id: 'c', title: 'Respond', diff: { path: 'route.ts' } }
         ] }] };
     let route = buildTourRoute(tour);
-    assert.match(route.summary, /Scenes organize the explanation/);
+    assert.match(route.summary, /scenes explain one idea/);
     assert.match(route.scenes[0].evidence, /Files in order: route.ts → store.ts → route.ts/);
     assert.match(route.scenes[0].evidence, /Revisions: base \(aaaaaaa\) → head \(ccccccc\)/);
     assert.doesNotMatch(route.scenes[0].evidence, /then/);
@@ -182,8 +182,7 @@ test('chapters expose precise scopes and hierarchical numbers without implying o
     assert.match(route.chapters[0].evidence, /Middle \(bbbbbbb\) → Head \(ccccccc\)/);
     assert.doesNotMatch(route.chapters[1].evidence, /Revisions:/);
     const spoken = buildReadingNarrationUnit(tour, { kind: 'chapter', key: 'chapter:c1', chapterId: 'c1', sceneIndex: 0, stepIndex: 0 }, { entry: 'continuous', segmentLimit: 2000 });
-    assert.equal(spoken.segments.map(segment => segment.text).join(' '), [route.chapters[0].title, route.chapters[0].evidence,
-        ...route.chapters[0].scenes.flatMap(scene => [scene.title, scene.purpose, scene.evidence])].join(' '));
+    assert.equal(spoken.segments.map(segment => segment.text).join(' '), [route.chapters[0].title, ...route.chapters[0].scenes.map(scene => scene.title)].join(' '));
     tour.scenes[1] = { ...tour.scenes[1], kind: 'deconstructed-diff', panels: tour.scenes[1].stack };
     assert.match(buildTourRoute(tour).chapters[0].evidence, /Constructed stages: Middle → Head/);
     assert.doesNotMatch(buildTourRoute(tour).chapters[0].evidence, /Revisions: Middle/);
