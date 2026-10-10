@@ -133,7 +133,6 @@ export function buildReadingNarrationUnit(
         passage?.bullets?.forEach((text, index) => add('bullet', text, index));
         if (item.kind === 'title') {
             const route = buildTourRoute(tour);
-            add('route-summary', route.summary);
             route.chapters.forEach(chapter => {
                 add('route-chapter', chapter.title, chapter.chapterIndex);
             });

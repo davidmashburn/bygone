@@ -83,7 +83,7 @@ test('bookends are reading locations, searchable and linkable, including image-o
         assert.equal(spoken.filter(value => value === text).length, 1, `${text} is narrated once`);
     }
     const direct = buildReadingNarrationUnit(tour, items.find(item => item.key === 'step:s:b'), { entry: 'playback-start' });
-    assert.deepEqual(direct.segments.map(segment => segment.text), ['Scene 1.1: Scene', 'Step 1.1.2: Second', 'Step 2 of 2.', 'Image: Second.', 'Second evidence.', 'Result.']);
+    assert.deepEqual(direct.segments.map(segment => segment.text), ['Scene', 'Second', 'Step 2 of 2.', 'Image: Second.', 'Second evidence.', 'Result.']);
     assert.equal(direct.position, undefined);
     const modeTour = { ...tour, tours: { historical: tour, deconstructed: { ...tour, conclusion: undefined } } };
     const fragment = serializeDocumentFragment('historical', { part: 'conclusion' });
@@ -162,7 +162,7 @@ test('the opening route separates topics, files, revision pairs, and constructed
 });
 
 
-test('chapters expose precise scopes and hierarchical numbers without implying one revision range', () => {
+test('route titles keep authored wording without outline numbering', () => {
     const tour = { range: { mergeBaseOid: 'a'.repeat(40), headOid: 'c'.repeat(40), baseRef: 'base', headRef: 'head' },
         chapters: [{ id: 'c1', title: 'Request', sceneIds: ['s', 't'] }, { id: 'c2', title: 'Review', sceneIds: ['d'] }],
         scenes: [
@@ -174,8 +174,8 @@ test('chapters expose precise scopes and hierarchical numbers without implying o
         ] };
     const route = buildTourRoute(tour);
     assert.match(route.summary, /2 chapters → 3 scenes → 2 steps/);
-    assert.deepEqual(route.chapters.map(chapter => chapter.title), ['Chapter 1: Request', 'Chapter 2: Review']);
-    assert.deepEqual(route.scenes.map(scene => scene.title), ['Scene 1.1: Receive', 'Scene 1.2: Store', 'Scene 2.1: Decide']);
+    assert.deepEqual(route.chapters.map(chapter => chapter.title), ['Request', 'Review']);
+    assert.deepEqual(route.scenes.map(scene => scene.title), ['Receive', 'Store', 'Decide']);
     assert.equal(route.scenes[1].purpose, 'Trace persistence.');
     assert.match(route.chapters[0].evidence, /Focus files: route.ts, store.ts/);
     assert.match(route.chapters[0].evidence, /base \(aaaaaaa\) → head \(ccccccc\)/);
