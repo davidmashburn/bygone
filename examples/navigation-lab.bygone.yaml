@@ -2,8 +2,8 @@ version: 5
 title: Navigation lab
 windowTitle: Bygone navigation lab
 opening:
-  title: Keep the reading path and code focus aligned
-  summary: Follow the navigation model from reading levels through return positions to the marker correction. These scenes answer different questions about the same overall change; their focused evidence differs.
+  title: Explore a tour without losing your place
+  summary: This change lets you step back from code to a scene, chapter, or tour overview, then resume the code step you left. It also fixes resizing that could push highlighted code out of view. We’ll trace the navigation controls, the saved position, and the scrolling fix.
 conclusion:
   title: Navigation needs both a reading position and a stable marker
   summary: The tour traced the hierarchy, its return positions, and the distinction between layout events and real scrolling. The cited regression checks cover marker behavior; they do not establish reader comprehension.
@@ -241,14 +241,14 @@ chapters:
 tours:
   historical:
     opening:
-      title: Follow the real commit boundaries
-      summary: First isolate the hierarchy commit, then inspect return-position behavior across the completed range. Finally isolate the marker correction and check its regression evidence. Each scene explains why its comparison is useful.
+      title: Explore a tour without losing your place
+      summary: This change lets you step back from code to a scene, chapter, or tour overview, then resume the code step you left. It also fixes resizing that could push highlighted code out of view. We’ll follow the navigation change and its later scrolling fix through two commits.
     conclusion:
       title: The hierarchy and correction remain separate changes
       summary: The first commit introduces reading levels and return positions. The later correction distinguishes layout-only events from actual scrolling so the code marker remains useful. The tests support that event distinction; reader comprehension still needs observation.
     chapters:
       - id: historical-reading
-        title: The hierarchy commit
+        title: Move between overview and code
         scenes:
           - id: hierarchy-revision
             overview:
@@ -345,7 +345,7 @@ tours:
                   saved scene and step. Inspect the ordering of those restoration calls.
                 focus: restore-parent
       - id: historical-correction
-        title: The follow-up correction
+        title: Keep highlighted code in view
         scenes:
           - id: marker-revision
             kind: stacked-diff

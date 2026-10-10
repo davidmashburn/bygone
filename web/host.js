@@ -1980,7 +1980,7 @@ import { renderTourProse } from '../media/tourProse.js';
         }
         const sceneById = new Map(tour.scenes.map((scene) => [scene.id, scene]));
         for (const chapter of tour.chapters) {
-            const chapterGroup = createOutlineGroup(`chapter:${chapter.id}`, chapter.title, 'tour-chapter-link', () => {
+            const chapterGroup = createOutlineGroup(`chapter:${chapter.id}`, `${tour.chapters.indexOf(chapter) + 1}. ${chapter.title}`, 'tour-chapter-link', () => {
                 const item = readingItems.find((entry) => entry.kind === 'chapter' && entry.chapterId === chapter.id)
                     || readingItems.find((entry) => entry.kind === 'scene' && chapter.sceneIds.includes(tour.scenes[entry.sceneIndex]?.id));
                 if (item) activateReadingItem(item);
@@ -2004,7 +2004,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 const copy = document.createElement('span');
                 copy.className = 'tour-scene-copy';
                 for (const [className, text] of [
-                    ['tour-scene-title', scene.title],
+                    ['tour-scene-title', `${index + 1}. ${scene.title}`],
                     ['tour-scene-path', scene.kind === 'text-diff'
                         ? scene.path
                         : scene.kind === 'deconstructed-diff'
@@ -2033,8 +2033,8 @@ import { renderTourProse } from '../media/tourProse.js';
                         stepButton.dataset.stepIndex = String(stepIndex);
                         const stage = scene.kind === 'deconstructed-diff'
                             ? `Stage ${(step.stageIndex ?? step.pairIndex) + 1}: ` : '';
-                        stepButton.textContent = `${stage}${step.title}`;
-                        stepButton.title = stepButton.textContent;
+                        stepButton.textContent = `${stepIndex + 1}. ${step.title}`;
+                        stepButton.title = `${stage}${step.title}`;
                         stepButton.addEventListener('click', () => showTourScene(index, stepIndex, {
                             userNavigation: true,
                             showIntro: false
@@ -3094,6 +3094,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 const row = field(list, 'li', '', '');
                 const button = readingButton('', `Read ${entry.title}`, () => activateReadingItem(readingItems.find(item => item.kind === 'scene' && item.sceneIndex === entry.sceneIndex)));
                 button.className = 'tour-route-link';
+                field(button, 'span', 'tour-route-number', `${entry.sceneIndex + 1}. `);
                 field(button, 'span', '', entry.title, 'route-title', entry.sceneIndex);
                 row.append(button);
             });
@@ -3118,6 +3119,7 @@ import { renderTourProse } from '../media/tourProse.js';
                     const heading = field(section, 'h3', '', '');
                     const button = readingButton('', `Read ${chapter.title}`, () => activateReadingItem(readingItems.find(item => item.kind === 'chapter' && item.chapterId === chapter.chapterId)));
                     button.className = 'tour-route-link tour-route-chapter-link';
+                    field(button, 'span', 'tour-route-number', `${chapter.chapterIndex + 1}. `);
                     field(button, 'span', '', chapter.title, 'route-chapter', chapter.chapterIndex);
                     heading.append(button);
                 });
