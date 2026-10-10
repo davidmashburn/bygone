@@ -33,6 +33,12 @@ This project is usable as a VS Code extension and standalone desktop app. The tw
 
 ## Change blocks and inline highlighting
 
+Hover a changed block on either side or its gutter connector to show copy arrows.
+Moving the text cursor into a changed block or jumping to a change also shows them.
+Each arrow stays beside its source block's first line: the left arrow points right,
+and the right arrow points left. Clicking copies that block to the opposite panel;
+arrows targeting a read-only panel are disabled.
+
 A touching run of deletions and insertions forms one blue replacement block,
 even when the text has no matching words. One-sided changes stay green. Green
 and blue blocks can still touch; exactly matching lines separate change regions.

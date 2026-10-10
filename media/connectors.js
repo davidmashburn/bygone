@@ -29,12 +29,22 @@
         let hoveredRegion = null;
         let copyRegions = [];
         let pointer = null;
+        let selectedBlock = null;
+        let selectedPairIndex = null;
 
         return {
             initializeCanvas,
             resizeCanvas,
-            scheduleDrawConnections
+            scheduleDrawConnections,
+            selectBlock
         };
+
+        function selectBlock(block, pairIndex = null) {
+            selectedBlock = block;
+            selectedPairIndex = pairIndex;
+            pointer = null;
+            scheduleDrawConnections();
+        }
 
         function initializeCanvas() {
             connectionCanvas = document.getElementById('connection-canvas');
@@ -57,10 +67,10 @@
             copyControls.className = 'gutter-copy-controls';
             copyControls.hidden = true;
             copyControls.setAttribute('role', 'group');
-            copyControls.setAttribute('aria-label', 'Copy hovered change');
+            copyControls.setAttribute('aria-label', 'Copy change');
             for (const direction of ['left-to-right', 'right-to-left']) {
                 const button = document.createElement('button');
-                const label = `Copy this change ${direction === 'left-to-right' ? 'right' : 'left'}`;
+                const label = `Copy this change from ${direction === 'left-to-right' ? 'left to right' : 'right to left'}`;
                 button.type = 'button';
                 button.dataset.gutterCopy = direction;
                 button.title = label;
@@ -72,6 +82,7 @@
                     event.stopPropagation();
                     if (hoveredRegion) options.copyBlock?.(hoveredRegion.block, hoveredRegion.pairIndex, direction);
                     pointer = null;
+                    selectedBlock = null;
                     updateCopyControls();
                 });
                 copyControls.appendChild(button);
@@ -89,6 +100,7 @@
             copyControls.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape') {
                     pointer = null;
+                    selectedBlock = null;
                     copyControls.hidden = true;
                     hoveredRegion = null;
                 }
@@ -100,25 +112,29 @@
             const rect = connectionCanvas.getBoundingClientRect();
             const x = pointer ? pointer.x - rect.left : -1;
             const y = pointer ? pointer.y - rect.top : -1;
-            const region = copyRegions.find((item) => x >= item.left && x <= item.right
-                && y >= item.top && y <= item.bottom
-                && canvasContext.isPointInPath(item.path, (item.left + item.right) / 2, y));
+            const visibleRegions = copyRegions.filter((item) => item.blockBottom >= item.top && item.blockTop <= item.bottom);
+            const region = visibleRegions.find((item) => y >= item.top && y <= item.bottom && (
+                (x >= item.left && x <= item.right && canvasContext.isPointInPath(item.path, x, y))
+                || (x >= item.leftEdge && x < item.left && y >= item.leftBounds.top && y <= item.leftBounds.bottom)
+                || (x > item.right && x <= item.rightEdge && y >= item.rightBounds.top && y <= item.rightBounds.bottom)
+            )) || visibleRegions.find((item) => item.block === selectedBlock && item.pairIndex === selectedPairIndex);
             if (!region) {
                 copyControls.hidden = true;
                 hoveredRegion = null;
                 return;
             }
-            const changed = hoveredRegion?.block !== region.block || hoveredRegion?.pairIndex !== region.pairIndex;
             hoveredRegion = region;
             for (const button of copyControls.children) {
                 button.disabled = !options.canCopyBlock?.(region.block, region.pairIndex, button.dataset.gutterCopy);
+                const bounds = button.dataset.gutterCopy === 'left-to-right' ? region.leftBounds : region.rightBounds;
+                // Keep each arrow beside its source's first line, even when the
+                // opposite side starts elsewhere or the pointer enters lower down.
+                const anchor = bounds.top + Math.min(10, (bounds.bottom - bounds.top) / 2);
+                button.style.top = `${Math.max(region.top + 12, Math.min(anchor, region.bottom - 12))}px`;
             }
             copyControls.hidden = [...copyControls.children].every((button) => button.disabled);
-            const narrow = region.right - region.left < 56;
-            copyControls.classList.toggle('is-narrow', narrow);
-            copyControls.style.left = `${(region.left + region.right) / 2}px`;
-            const halfHeight = narrow ? 25 : 15;
-            if (changed) copyControls.style.top = `${Math.max(region.top + halfHeight, Math.min(y, region.bottom - halfHeight))}px`;
+            copyControls.style.left = `${region.left}px`;
+            copyControls.style.width = `${region.right - region.left}px`;
         }
 
         function resizeCanvas() {
@@ -546,8 +562,12 @@
             const bottom = Math.min(leftRect.bottom, rightRect.bottom, viewportRect.bottom) - containerRect.top;
             const left = Math.max(leftRect.right, viewportRect.left) - containerRect.left;
             const right = Math.min(rightRect.left, viewportRect.right) - containerRect.left;
-            if (right - left >= 26 && bottom - top >= 50) {
-                copyRegions.push({ block, pairIndex, path, left, right, top, bottom });
+            if (right - left >= 52 && bottom - top >= 24) {
+                copyRegions.push({ block, pairIndex, path, left, right, top, bottom, leftBounds, rightBounds,
+                    leftEdge: Math.max(leftRect.left, viewportRect.left) - containerRect.left,
+                    rightEdge: Math.min(rightRect.right, viewportRect.right) - containerRect.left,
+                    blockTop: Math.min(leftBounds.top, rightBounds.top),
+                    blockBottom: Math.max(leftBounds.bottom, rightBounds.bottom) });
             }
 
             canvasContext.fillStyle = gradient;
