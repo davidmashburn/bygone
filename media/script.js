@@ -124,6 +124,7 @@ let currentDiffModel = null;
 let currentTourAnnotations = [];
 let suppressEditorEvents = false;
 let recomputeTimer;
+let twoWayDiffRecomputePending = false;
 let multiRecomputeTimer;
 const multiRecomputePendingPanelIds = new Set();
 let diffWorker = null;
@@ -193,6 +194,8 @@ const connectorController = window.BygoneConnectors.createConnectorController({
     getEditors: () => ({ leftEditor, rightEditor }),
     getDiffBlocks: () => diffBlocks,
     getActiveDiffIndex: () => activeDiffIndex,
+    canCopyBlock: (block, pairIndex, direction) => Boolean(getGutterCopyEditors(block, pairIndex, direction)),
+    copyBlock: copyGutterBlock,
     getDirectoryEntries: () => directoryEntries,
     getMultiDiffState: () => ({
         editors: multiEditors,
@@ -2471,6 +2474,7 @@ function hasHostEditableSide() {
 }
 
 function setCurrentDiffModel(diffModel) {
+    twoWayDiffRecomputePending = false;
     currentDiffModel = diffModel;
     diffBlocks = diffModel?.blocks || [];
 }
@@ -4054,8 +4058,6 @@ function initializeChangeToolbar() {
     getElement('next-file').addEventListener('click', () => navigateFile('next'));
     getElement('previous-change').addEventListener('click', () => navigateDiff(-1));
     getElement('next-change').addEventListener('click', () => navigateDiff(1));
-    getElement('copy-left-to-right').addEventListener('click', () => copyCurrentChange('left-to-right'));
-    getElement('copy-right-to-left').addEventListener('click', () => copyCurrentChange('right-to-left'));
     getElement('refresh-session').addEventListener('click', requestSessionRefresh);
     getElement('toggle-word-wrap').addEventListener('click', toggleWordWrap);
 
@@ -4727,16 +4729,12 @@ function updateChangeToolbarState() {
         }
         const currentIndex = getActiveDirectoryEntryIndex(directoryTargets);
         setTextContent('change-position', `File ${currentIndex + 1} of ${directoryTargets.length}`);
-        getElement('copy-left-to-right').hidden = false;
-        getElement('copy-right-to-left').hidden = false;
         getElement('previous-file').hidden = false;
         getElement('next-file').hidden = false;
         getElement('previous-change').disabled = true;
         getElement('next-change').disabled = true;
         getElement('previous-file').disabled = currentIndex <= 0;
         getElement('next-file').disabled = currentIndex >= directoryTargets.length - 1;
-        getElement('copy-left-to-right').disabled = true;
-        getElement('copy-right-to-left').disabled = true;
         updateDirectoryEntrySelection();
         return;
     }
@@ -4748,16 +4746,12 @@ function updateChangeToolbarState() {
         }
         const safeIndex = diffBlocks.length > 0 ? clamp(activeDiffIndex, -1, diffBlocks.length - 1) : -1;
         setTextContent('change-position', diffBlocks.length > 0 ? (safeIndex >= 0 ? `Change ${safeIndex + 1} of ${diffBlocks.length}` : `${diffBlocks.length} changes`) : 'No changes');
-        getElement('copy-left-to-right').hidden = false;
-        getElement('copy-right-to-left').hidden = false;
         getElement('previous-file').hidden = false;
         getElement('next-file').hidden = false;
         getElement('previous-change').disabled = diffBlocks.length === 0;
         getElement('next-change').disabled = diffBlocks.length === 0;
         getElement('previous-file').disabled = !currentFileNavigation.canGoPrevious;
         getElement('next-file').disabled = !currentFileNavigation.canGoNext;
-        getElement('copy-left-to-right').disabled = !isSideEditable('right');
-        getElement('copy-right-to-left').disabled = !isSideEditable('left');
         return;
     }
 
@@ -4768,8 +4762,6 @@ function updateChangeToolbarState() {
             toolbarHint.hidden = true;
         }
         setTextContent('change-position', '');
-        getElement('copy-left-to-right').hidden = true;
-        getElement('copy-right-to-left').hidden = true;
         getElement('previous-change').disabled = true;
         getElement('next-change').disabled = true;
         getElement('previous-file').hidden = !hasDirectoryNavigation;
@@ -4786,16 +4778,12 @@ function updateChangeToolbarState() {
             toolbarHint.hidden = true;
         }
         setTextContent('change-position', diffBlocks.length > 0 ? (safeIndex >= 0 ? `Change ${safeIndex + 1} of ${diffBlocks.length}` : `${diffBlocks.length} changes`) : 'No changes');
-        getElement('copy-left-to-right').hidden = true;
-        getElement('copy-right-to-left').hidden = true;
         getElement('previous-change').disabled = diffBlocks.length === 0;
         getElement('next-change').disabled = diffBlocks.length === 0;
         getElement('previous-file').hidden = !hasDirectoryNavigation;
         getElement('next-file').hidden = !hasDirectoryNavigation;
         getElement('previous-file').disabled = !currentFileNavigation.canGoPrevious;
         getElement('next-file').disabled = !currentFileNavigation.canGoNext;
-        getElement('copy-left-to-right').disabled = true;
-        getElement('copy-right-to-left').disabled = true;
         updateActiveMultiShellState();
         return;
     }
@@ -4805,14 +4793,10 @@ function updateChangeToolbarState() {
         toolbarHint.hidden = false;
     }
     setTextContent('change-position', '—');
-    getElement('copy-left-to-right').hidden = false;
-    getElement('copy-right-to-left').hidden = false;
     getElement('previous-change').disabled = true;
     getElement('next-change').disabled = true;
     getElement('previous-file').disabled = true;
     getElement('next-file').disabled = true;
-    getElement('copy-left-to-right').disabled = true;
-    getElement('copy-right-to-left').disabled = true;
 }
 
 function getNavigableDirectoryEntries() {
@@ -4961,6 +4945,41 @@ function revealBlockSide(editor, start, end, smooth) {
         if (editor.getModel() === model && editor.getScrollTop() === scrollTop) reveal();
         connectorController.scheduleDrawConnections();
     });
+}
+
+// Gutter actions address the hovered block, independent of the panel's current change.
+function getGutterCopyEditors(block, pairIndex, direction) {
+    const toRight = direction === 'left-to-right';
+    if (currentMode === MODE_MULTI_WAY) {
+        const pair = multiDiffPairs[pairIndex];
+        const targetIndex = toRight ? pair?.rightIndex : pair?.leftIndex;
+        if (!multiPanelMutationEnabled || multiDiffRecomputePending || multiRecomputePendingPanelIds.size > 0
+            || !pair?.diffModel?.blocks.includes(block) || multiPanels[targetIndex]?.editable === false) return null;
+        return { source: multiEditors[toRight ? pair.leftIndex : pair.rightIndex], target: multiEditors[targetIndex] };
+    }
+    if (currentMode !== MODE_TWO_WAY || twoWayDiffRecomputePending || !diffBlocks.includes(block)
+        || !isSideEditable(toRight ? 'right' : 'left')) return null;
+    return { source: toRight ? leftEditor : rightEditor, target: toRight ? rightEditor : leftEditor };
+}
+
+function copyGutterBlock(block, pairIndex, direction) {
+    const editors = getGutterCopyEditors(block, pairIndex, direction);
+    if (!editors?.source || !editors.target) return;
+    const toRight = direction === 'left-to-right';
+    const sourceLines = getEditorLines(editors.source).slice(
+        toRight ? block.leftStart : block.rightStart, toRight ? block.leftEnd : block.rightEnd);
+    editors.target.pushUndoStop();
+    replaceEditorLines(editors.target, toRight ? block.rightStart : block.leftStart,
+        toRight ? block.rightEnd : block.leftEnd, sourceLines);
+    if (currentMode === MODE_MULTI_WAY) {
+        clearTimeout(multiRecomputeTimer);
+        multiRecomputeTimer = null;
+        multiRecomputePendingPanelIds.clear();
+        recomputeMultiDiffState();
+    } else {
+        scheduleRecompute();
+    }
+    connectorController.scheduleDrawConnections();
 }
 
 function copyCurrentChange(direction) {
@@ -5593,6 +5612,7 @@ function mapScrollTopBetweenEditors(sourceEditor, targetEditor) {
 }
 
 function scheduleRecompute() {
+    twoWayDiffRecomputePending = true;
     clearTimeout(recomputeTimer);
     recomputeTimer = window.setTimeout(() => {
         if (!leftEditor || !rightEditor) {
