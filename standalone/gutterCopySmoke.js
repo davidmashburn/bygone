@@ -12,7 +12,7 @@ async function runGutterCopySmoke({ window, show }) {
         const diffModel = buildTwoWayDiffModel(left, right);
         await show(multi ? { type: 'showMultiDiff', panels: [left, right].map((content, i) => ({
             id: `gutter-${i}`, label: `${i}.txt`, content, editable: editable[i]
-        })), pairs: [{leftIndex: 0, rightIndex: 1, diffModel}], activePanelId: 'gutter-0', initialChangeIndex: 0 }
+        })), pairs: [{leftIndex: 0, rightIndex: 1, diffModel}], activePanelId: 'gutter-0' }
             : { type: 'showDiff', file1: 'left.txt', file2: 'right.txt', leftContent: left, rightContent: right,
                 diffModel, editableSides: {left: editable[0], right: editable[1]} });
         return diffModel;
@@ -34,6 +34,15 @@ async function runGutterCopySmoke({ window, show }) {
         return !document.querySelector('.gutter-copy-controls').hidden;
     })()`);
     const click = async direction => evaluate(`document.querySelector('[data-gutter-copy="${direction}"]').click()`);
+    const buttonRects = () => evaluate("[...document.querySelectorAll('[data-gutter-copy]')].map(b => { const r = b.getBoundingClientRect(); return {x:r.x,y:r.y}; })");
+    const hoverLine = (side, line) => evaluate(`(() => {
+        const editor = window.monaco.editor.getEditors()[${side}];
+        const rect = editor.getDomNode().getBoundingClientRect();
+        document.getElementById('diff-container').dispatchEvent(new PointerEvent('pointermove', {
+            clientX: rect.left + rect.width / 2,
+            clientY: rect.top + editor.getTopForLineNumber(${line}) - editor.getScrollTop() + 8
+        }));
+    })()`);
     const left = 'old first\nkeep\nold second\nend';
     const right = 'new first\nkeep\nnew second\nend';
     for (const multi of [true, false]) {
@@ -46,6 +55,42 @@ async function runGutterCopySmoke({ window, show }) {
         assert.equal(await hidden(), true, 'Arrows dismiss after copying');
         await evaluate('window.monaco.editor.getEditors()[1].getModel().undo()');
         assert.deepEqual(await values(), [left, right], 'One undo restores the copied change');
+
+        await render(left, right, [true, true], multi);
+        for (const side of [0, 1]) {
+            await evaluate(`(() => {
+                const editor = window.monaco.editor.getEditors()[${side}];
+                editor.focus();
+                editor.setPosition({lineNumber:2,column:1});
+                editor.trigger('keyboard', 'cursorDown', {});
+            })()`);
+            await settle();
+            assert.equal(await hidden(), false, 'Keyboard cursor in either side reveals arrows');
+            await evaluate("document.getElementById('diff-container').dispatchEvent(new PointerEvent('pointerleave'))");
+            assert.equal(await hidden(), false, 'Cursor-selected arrows survive mouse leaving');
+            await evaluate(`window.monaco.editor.getEditors()[${side}].trigger('keyboard', 'cursorUp', {})`);
+            await settle();
+            assert.equal(await hidden(), true, 'Cursor in matching context dismisses arrows');
+        }
+        await evaluate("document.getElementById('previous-change').click()");
+        await settle();
+        assert.equal(await hidden(), false, 'Jump to previous change reveals arrows');
+        await evaluate("document.getElementById('next-change').click()");
+        await settle();
+        assert.equal(await hidden(), false, 'Jump to next change reveals arrows');
+        await click('right-to-left');
+        assert.deepEqual(await values(), ['old first\nkeep\nnew second\nend', right], 'Jump arrows copy the jumped-to block');
+
+        await render('keep\nold a\nold b\nold c\nend', 'keep\nnew a\nnew b\nnew c\nend', [true,true], multi);
+        await hoverLine(0, 2);
+        assert.equal(await hidden(), false, 'Hovering source text reveals arrows');
+        const anchored = await buttonRects();
+        assert.ok(anchored[0].x < anchored[1].x, 'Each arrow stays on its source side');
+        await hoverLine(0, 4);
+        assert.deepEqual(await buttonRects(), anchored, 'Arrows do not track pointer vertically');
+        await hoverLine(1, 3);
+        assert.equal(await hidden(), false, 'Hovering opposite text reveals arrows');
+        assert.deepEqual(await buttonRects(), anchored, 'Both sides reveal the same anchored controls');
     }
     for (const direction of ['left-to-right', 'right-to-left']) {
         for (const pair of [['keep\nend', 'keep\ninserted\nend'], ['keep\ndeleted\nend', 'keep\nend']]) {
@@ -84,7 +129,7 @@ async function runGutterCopySmoke({ window, show }) {
     await render(left, right);
     await evaluate("document.querySelector('[data-panel-id=\"gutter-0\"][data-multi-panel-copy=\"left-to-right\"]').click()");
     assert.deepEqual(await values(), [left, 'old first\nkeep\nnew second\nend'], 'Panel copy controls still work');
-    console.log('Gutter copy smoke passed: instant hover, exact block, both directions, insert/delete, undo, read-only, stale diffs, scrolling and panel controls.');
+    console.log('Gutter copy smoke passed: fixed source placement, text/gutter hover, keyboard cursor, change navigation, exact block, both directions, insert/delete, undo, read-only, stale diffs, scrolling and panel controls.');
 }
 
 module.exports = { runGutterCopySmoke };

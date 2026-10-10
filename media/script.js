@@ -1441,6 +1441,7 @@ function createEditor(container, editorMode, side = null, initialModel = null) {
             if (changeIndex >= 0 && changeIndex !== activeDiffIndex) {
                 setActiveDiffIndex(changeIndex, false);
             }
+            connectorController.selectBlock(diffBlocks[changeIndex] || null);
             return;
         }
 
@@ -1450,6 +1451,9 @@ function createEditor(container, editorMode, side = null, initialModel = null) {
             const changeIndex = findChangeIndexAtLine(panelChanges, lineNumber, activeMultiPairIndex);
             if (changeIndex >= 0) {
                 setActiveMultiPanelChangeIndex(changeIndex, false, true);
+                connectorController.selectBlock(diffBlocks[activeDiffIndex], activeMultiPairIndex);
+            } else {
+                connectorController.selectBlock(null);
             }
         }
     };
@@ -1463,7 +1467,7 @@ function createEditor(container, editorMode, side = null, initialModel = null) {
     });
 
     editor.onDidChangeCursorPosition((event) => {
-        if (event.source === 'mouse') {
+        if (event.source === 'mouse' || event.source === 'keyboard') {
             selectChangeAtLine(event.position.lineNumber);
         }
     });
@@ -3454,6 +3458,8 @@ function updateMultiActivePairModel(shouldReveal, preferredPairIndex = null) {
     updateActiveMultiShellState();
 
     if (shouldReveal) {
+        connectorController.selectBlock(diffBlocks[activeDiffIndex] || null,
+            currentMode === MODE_MULTI_WAY ? activeMultiPairIndex : null);
         revealActiveDiff(true);
     } else {
         connectorController.scheduleDrawConnections();
@@ -4560,6 +4566,7 @@ function setActiveMultiPanelChangeIndex(index, shouldReveal, notifyHost = false)
 
     updateActiveMultiShellState();
     if (shouldReveal) {
+        connectorController.selectBlock(diffBlocks[activeDiffIndex] || null, activeMultiPairIndex);
         revealActiveDiff(true);
     }
 
@@ -4696,6 +4703,8 @@ function setActiveDiffIndex(index, shouldReveal) {
     }
 
     if (shouldReveal) {
+        connectorController.selectBlock(diffBlocks[activeDiffIndex] || null,
+            currentMode === MODE_MULTI_WAY ? activeMultiPairIndex : null);
         revealActiveDiff(true);
     }
 }

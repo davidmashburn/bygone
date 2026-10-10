@@ -971,6 +971,8 @@ body.is-resizing-sidebar .history-rail-resizer {
     gap: 0;
 }
 
+#two-way-diff:not(.is-single-sided) { column-gap: 56px; }
+
 #two-way-diff.is-single-sided:not(.hidden) ~ #connection-canvas {
     display: none;
 }
@@ -1468,32 +1470,30 @@ div.repository-replace-preview label span { overflow: hidden; text-overflow: ell
 
 .gutter-copy-controls {
     position: absolute;
+    top: 0;
     z-index: 4;
-    display: flex;
-    gap: 2px;
-    padding: 2px;
-    transform: translate(-50%, -50%);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 5px;
-    background: var(--vscode-editor-background);
-    box-shadow: 0 1px 4px #0003;
+    pointer-events: none;
 }
 
 .gutter-copy-controls[hidden] { display: none; }
-.gutter-copy-controls.is-narrow { flex-direction: column; gap: 0; padding: 1px; }
-.gutter-copy-controls.is-narrow button { width: 22px; height: 22px; }
 .gutter-copy-controls button {
+    position: absolute;
+    transform: translateY(-50%);
+    pointer-events: auto;
     display: grid;
     place-items: center;
     width: 24px;
     height: 24px;
     padding: 3px;
-    border: 0;
+    border: 1px solid var(--vscode-panel-border);
     border-radius: 3px;
-    background: transparent;
+    background: var(--vscode-editor-background);
+    box-shadow: 0 1px 3px #0003;
     color: var(--vscode-foreground);
     cursor: pointer;
 }
+.gutter-copy-controls [data-gutter-copy="left-to-right"] { left: 2px; }
+.gutter-copy-controls [data-gutter-copy="right-to-left"] { right: 2px; }
 .gutter-copy-controls button:hover:not(:disabled) { background: var(--vscode-list-hoverBackground, #80808033); }
 .gutter-copy-controls button:focus-visible { outline: 2px solid var(--vscode-focusBorder); }
 .gutter-copy-controls button:disabled { opacity: .3; cursor: default; }
