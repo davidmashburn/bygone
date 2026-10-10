@@ -99,8 +99,11 @@ The generated prose remains a proposal. Validation proves that its evidence exis
 
 Use version 5 opening and conclusion passages to state the tour’s question and
 recap what its evidence established. Give each authored mode its own framing.
-The Intro is an explicit outline entry. Its “What you'll see” route links to each
-scene and lists its evidence files and revision pairs (or constructed stages).
+The Intro is an explicit outline entry. Its “What you'll see” route links to
+chapters, or scenes when there are no chapters. Lists use simple reference
+numbers; headings and narration use plain titles.
+Start the opening with the concrete behavior added or fixed and why it matters.
+Keep that outcome to one or two sentences, then introduce the route.
 Write the opening to explain the problem and the sequence of questions the route
 will answer. Use scene titles that communicate those questions or findings.
 The generated itinerary supplies navigation facts, not the reason the work matters.
