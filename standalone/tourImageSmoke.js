@@ -82,7 +82,7 @@ app.whenReady().then(async () => {
             await win.loadURL(pathToFileURL(guideOutput).href);
             const activeKey = "document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey";
             await wait(`${activeKey} === 'title'`);
-            assert.match(await evaluate("document.querySelector('.tour-route-evidence').textContent"), /images in reading order/);
+            assert.match(await evaluate("document.querySelector('.tour-route li .tour-route-evidence').textContent"), /images in reading order/);
             const press = async (key, expected) => {
                 await evaluate(`document.activeElement?.blur(); document.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(key)},bubbles:true}))`);
                 await wait(`${activeKey} === ${JSON.stringify(expected)}`);

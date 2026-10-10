@@ -1,4 +1,4 @@
-import { buildTourRoute, describeSceneRoute, describeStepOrientation } from './tourOrientation';
+import { tourReadingTitle, buildTourRoute, describeSceneRoute, describeStepOrientation } from './tourOrientation';
 import type { ChangeTourManifest, ChangeTourScene } from './changeTourManifest';
 import type { TourReadingItem } from './tourReading';
 import type { TourPosition } from './tourNavigation';
@@ -11,6 +11,9 @@ export type NarrationField =
     | 'route-summary'
     | 'route-title'
     | 'route-evidence'
+    | 'route-purpose'
+    | 'route-chapter'
+    | 'chapter-scope'
     | 'scene-route'
     | 'step-orientation'
     | 'chapter'
@@ -121,6 +124,13 @@ export function buildReadingNarrationUnit(
     const add = (field: NarrationField, text: string | undefined, itemIndex?: number) => {
         if (text) fields.push({ source: { field, ...(itemIndex === undefined ? {} : { itemIndex }) }, text });
     };
+    const addScenes = (scenes: ReturnType<typeof buildTourRoute>['scenes']) => {
+        scenes.forEach(scene => {
+            add('route-title', scene.title, scene.sceneIndex);
+            add('route-purpose', scene.purpose, scene.sceneIndex);
+            add('route-evidence', scene.evidence, scene.sceneIndex);
+        });
+    };
     if (item.kind === 'title' || item.kind === 'conclusion') {
         const passage = item.kind === 'title' ? tour.opening : tour.conclusion;
         if (item.kind === 'title') add('document-title', tour.title);
@@ -130,17 +140,22 @@ export function buildReadingNarrationUnit(
         if (item.kind === 'title') {
             const route = buildTourRoute(tour);
             add('route-summary', route.summary);
-            route.scenes.forEach(scene => {
-                add('route-title', scene.title, scene.sceneIndex);
-                add('route-evidence', scene.evidence, scene.sceneIndex);
+            route.chapters.forEach(chapter => {
+                add('route-chapter', chapter.title, chapter.chapterIndex);
+                add('chapter-scope', chapter.evidence, chapter.chapterIndex);
+                addScenes(chapter.scenes);
             });
+            if (!route.chapters.length) addScenes(route.scenes);
         }
     } else if (item.kind === 'chapter') {
-        add('chapter', tour.chapters.find(chapter => chapter.id === item.chapterId)?.title);
+        const chapter = buildTourRoute(tour).chapters.find(chapter => chapter.chapterId === item.chapterId)!;
+        add('chapter', chapter.title);
+        add('chapter-scope', chapter.evidence, chapter.chapterIndex);
+        addScenes(chapter.scenes);
     } else {
         const scene = tour.scenes[item.sceneIndex];
         if (item.kind === 'scene') {
-            add('scene-title', scene.title);
+            add('scene-title', tourReadingTitle(tour, { kind: 'scene', key: `scene:${scene.id}`, sceneIndex: item.sceneIndex, stepIndex: 0 }));
             add('summary', scene.summary);
             scene.bullets.forEach((text, index) => add('bullet', text, index));
             if (!isSteppedScene(scene)) add('takeaway', scene.takeaway);
@@ -148,8 +163,8 @@ export function buildReadingNarrationUnit(
             add('scene-route', describeSceneRoute(tour, item.sceneIndex));
         } else if (isSteppedScene(scene)) {
             const step = scene.steps[item.stepIndex];
-            if (options.entry === 'playback-start') add('scene-title', scene.title);
-            add('step-title', step.title);
+            if (options.entry === 'playback-start') add('scene-title', tourReadingTitle(tour, { kind: 'scene', key: `scene:${scene.id}`, sceneIndex: item.sceneIndex, stepIndex: 0 }));
+            add('step-title', tourReadingTitle(tour, item));
             add('step-orientation', describeStepOrientation(tour, item.sceneIndex, item.stepIndex));
             add('step-body', step.body);
             if ('connection' in step) add('connection', step.connection?.label);

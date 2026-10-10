@@ -1,4 +1,4 @@
-import { buildTourRoute, describeSceneRoute, describeStepOrientation, tourLanding, resolveTourEvidenceContext, resolveTourRangeEvidenceContext, describeTourComparison, describeTourTransition } from '../src/tourOrientation.ts';
+import { tourSceneNumber, tourReadingTitle, buildTourRoute, describeSceneRoute, describeStepOrientation, tourLanding, resolveTourEvidenceContext, resolveTourRangeEvidenceContext, describeTourComparison, describeTourTransition } from '../src/tourOrientation.ts';
 import { revisionFileTarget, revisionFileAction, revisionDirectoryView, revisionPanelsView, revisionPanelPairs, revisionRailItems } from '../src/revisionView.ts';
 import { createTourImageViewer } from './tourImage.js';
 import { parseDocumentFragment, resolveDocumentFocus, serializeDocumentFragment, serializeDeepLink } from '../src/deepLink.ts';
@@ -1978,13 +1978,13 @@ import { renderTourProse } from '../media/tourProse.js';
         }
         const sceneById = new Map(tour.scenes.map((scene) => [scene.id, scene]));
         for (const chapter of tour.chapters) {
-            const chapterGroup = createOutlineGroup(`chapter:${chapter.id}`, chapter.title, 'tour-chapter-link', () => {
+            const chapterGroup = createOutlineGroup(`chapter:${chapter.id}`, `Chapter ${tour.chapters.indexOf(chapter) + 1}: ${chapter.title}`, 'tour-chapter-link', () => {
                 const item = readingItems.find((entry) => entry.kind === 'chapter' && entry.chapterId === chapter.id)
                     || readingItems.find((entry) => entry.kind === 'scene' && chapter.sceneIds.includes(tour.scenes[entry.sceneIndex]?.id));
                 if (item) activateReadingItem(item);
             });
-            const chapterContent = tour.chapters.length > 1 ? chapterGroup.children : scenes;
-            if (tour.chapters.length > 1) scenes.append(chapterGroup.group);
+            const chapterContent = chapterGroup.children;
+            scenes.append(chapterGroup.group);
             for (const sceneId of chapter.sceneIds) {
                 const scene = sceneById.get(sceneId);
                 if (!scene) {
@@ -1999,13 +1999,10 @@ import { renderTourProse } from '../media/tourProse.js';
                 button.dataset.sceneId = scene.id;
                 if (scene.kind === 'text-diff') button.dataset.filePath = scene.path;
                 group.link.title = `Open scene: ${scene.kind === 'text-diff' ? scene.path : scene.title}`;
-                const number = document.createElement('span');
-                number.className = 'tour-scene-number';
-                number.textContent = String(index + 1).padStart(2, '0');
                 const copy = document.createElement('span');
                 copy.className = 'tour-scene-copy';
                 for (const [className, text] of [
-                    ['tour-scene-title', scene.title],
+                    ['tour-scene-title', `Scene ${tourSceneNumber(tour, index)}: ${scene.title}`],
                     ['tour-scene-path', scene.kind === 'text-diff'
                         ? scene.path
                         : scene.kind === 'deconstructed-diff'
@@ -2020,7 +2017,7 @@ import { renderTourProse } from '../media/tourProse.js';
                     line.textContent = text;
                     copy.append(line);
                 }
-                button.append(number, copy);
+                button.append(copy);
                 chapterContent.append(group.group);
                 if (isSteppedTourScene(scene)) {
                     const steps = group.children;
@@ -2034,8 +2031,8 @@ import { renderTourProse } from '../media/tourProse.js';
                         stepButton.dataset.stepIndex = String(stepIndex);
                         const stage = scene.kind === 'deconstructed-diff'
                             ? `Stage ${(step.stageIndex ?? step.pairIndex) + 1}: ` : '';
-                        stepButton.textContent = `${stepIndex + 1}. ${stage}${step.title}`;
-                        stepButton.title = `Open step ${stepIndex + 1}: ${step.title}`;
+                        stepButton.textContent = `Step ${tourSceneNumber(tour, index)}.${stepIndex + 1}: ${stage}${step.title}`;
+                        stepButton.title = stepButton.textContent;
                         stepButton.addEventListener('click', () => showTourScene(index, stepIndex, {
                             userNavigation: true,
                             showIntro: false
@@ -2166,7 +2163,7 @@ import { renderTourProse } from '../media/tourProse.js';
         const scene = tour.scenes[index];
         const landing = tourLanding(tour, readingItem);
         document.body.classList.toggle('tour-discussion', landing === 'narrative');
-        const bookend = readingItem.kind === 'title' || readingItem.kind === 'conclusion';
+        const bookend = readingItem.kind === 'title' || readingItem.kind === 'chapter' || readingItem.kind === 'conclusion';
         const bookendChanged = document.body.classList.contains('tour-bookend') !== bookend;
         document.body.classList.toggle('tour-bookend', bookend);
         state.readingKey = readingItem?.key || 'title';
@@ -2369,7 +2366,7 @@ import { renderTourProse } from '../media/tourProse.js';
         const scene = item && state.tour.scenes[item.sceneIndex];
         const step = scene && isSteppedTourScene(scene) ? scene.steps[item.kind === 'step' ? item.stepIndex : 0] : null;
         const supportsStep = step && previewContext?.scope === filePath && previewContext.comparisonKey === context.comparisonKey;
-        const purpose = supportsStep ? `${preview ? 'Coming up' : 'Evidence for'}: ${step.title} · ` : '';
+        const purpose = supportsStep ? `${preview ? 'Coming up' : 'Evidence for'}: ${tourReadingTitle(state.tour, { kind: 'step', key: `step:${scene.id}:${step.id}`, sceneIndex: item.sceneIndex, stepIndex: item.kind === 'step' ? item.stepIndex : 0 })} · ` : '';
         return `${purpose}${comparison}`;
     }
 
@@ -2732,15 +2729,15 @@ import { renderTourProse } from '../media/tourProse.js';
             chapterNumber: chapterIndex >= 0 ? chapterIndex + 1 : sceneIndex + 1,
             sceneInChapter,
             scenesInChapter,
-            sceneNumber: sceneIndex + 1,
+            sceneNumber: tourSceneNumber(tour, sceneIndex),
             sceneCount: tour.scenes.length
         };
     }
 
     function formatTourBreadcrumb(location, scene, stepIndex) {
         return isSteppedTourScene(scene)
-            ? `Scene ${location.sceneNumber} of ${location.sceneCount}: ${scene.title} · Step ${stepIndex + 1} of ${scene.steps.length}`
-            : `Scene ${location.sceneNumber} of ${location.sceneCount}`;
+            ? `Chapter ${location.chapterNumber} · Scene ${location.sceneNumber} · Step ${location.sceneNumber}.${stepIndex + 1} (${stepIndex + 1} of ${scene.steps.length})`
+            : `Chapter ${location.chapterNumber} · Scene ${location.sceneNumber}`;
     }
 
     function findChangeIndexAtSourceLine(diffModel, side, sourceLine) {
@@ -3030,8 +3027,8 @@ import { renderTourProse } from '../media/tourProse.js';
         document.getElementById('tour-breadcrumb').textContent = state.narrativeParent === 'tour'
             ? 'Intro'
             : state.narrativeParent === 'conclusion' ? 'Conclusion'
-            : state.narrativeParent === 'chapter' ? location.chapter?.title || 'Chapter'
-                : state.sceneIntroVisible ? `Scene ${location.sceneNumber} of ${location.sceneCount}: ${scene.title}`
+            : state.narrativeParent === 'chapter' ? `Chapter ${location.chapterNumber}: ${location.chapter?.title || ''}`
+                : state.sceneIntroVisible ? `Chapter ${location.chapterNumber} · Scene ${location.sceneNumber}: ${scene.title}`
                     : formatTourBreadcrumb(location, scene, state.activeStepIndex);
         // Only refresh sentence spans, never replace the document or disclosures.
         const sceneElement = scene && readingElements.get(`scene:${scene.id}`);
@@ -3083,6 +3080,19 @@ import { renderTourProse } from '../media/tourProse.js';
             }
             if (scene.takeaway) field(parent, 'p', 'tour-narrative-takeaway', scene.takeaway, narrated ? 'takeaway' : null);
         };
+        const route = buildTourRoute(state.tour);
+        const renderSceneRoute = (parent, entries) => {
+            const list = field(parent, 'ol', 'tour-route', '');
+            entries.forEach(entry => {
+                const row = field(list, 'li', '', '');
+                const button = readingButton('', `Read ${entry.title}`, () => activateReadingItem(readingItems.find(item => item.kind === 'scene' && item.sceneIndex === entry.sceneIndex)));
+                button.className = 'tour-route-link';
+                field(button, 'span', '', entry.title, 'route-title', entry.sceneIndex);
+                row.append(button);
+                field(row, 'p', 'tour-route-purpose', entry.purpose, 'route-purpose', entry.sceneIndex);
+                field(row, 'p', 'tour-route-evidence', entry.evidence, 'route-evidence', entry.sceneIndex);
+            });
+        };
         for (const item of readingItems) {
             const element = document.createElement('section');
             element.className = 'tour-reading-item';
@@ -3100,27 +3110,31 @@ import { renderTourProse } from '../media/tourProse.js';
                     field(element, 'h2', 'tour-passage-title', state.tour.opening.title, 'passage-title');
                     overview(element, state.tour.opening, true);
                 }
-                const route = buildTourRoute(state.tour);
                 field(element, 'h2', 'tour-passage-title', "What you'll see");
                 field(element, 'p', 'tour-route-summary', route.summary, 'route-summary');
-                const list = field(element, 'ol', 'tour-route', '');
-                route.scenes.forEach(entry => {
-                    const row = field(list, 'li', '', '');
-                    const button = readingButton('', `Read scene: ${entry.title}`, () => activateReadingItem(readingItems.find(item => item.kind === 'scene' && item.sceneIndex === entry.sceneIndex)));
-                    button.className = 'tour-route-link';
-                    field(button, 'span', '', entry.title, 'route-title', entry.sceneIndex);
-                    row.append(button);
-                    field(row, 'p', 'tour-route-evidence', entry.evidence, 'route-evidence', entry.sceneIndex);
+                route.chapters.forEach(chapter => {
+                    const section = field(element, 'section', 'tour-route-chapter', '');
+                    const heading = field(section, 'h3', '', '');
+                    const button = readingButton('', `Read ${chapter.title}`, () => activateReadingItem(readingItems.find(item => item.kind === 'chapter' && item.chapterId === chapter.chapterId)));
+                    button.className = 'tour-route-link tour-route-chapter-link';
+                    field(button, 'span', '', chapter.title, 'route-chapter', chapter.chapterIndex);
+                    heading.append(button);
+                    field(section, 'p', 'tour-route-evidence', chapter.evidence, 'chapter-scope', chapter.chapterIndex);
+                    renderSceneRoute(section, chapter.scenes);
                 });
+                if (!route.chapters.length) renderSceneRoute(element, route.scenes);
             } else if (item.kind === 'conclusion') {
                 field(element, 'h2', 'tour-passage-title', state.tour.conclusion.title, 'passage-title');
                 overview(element, state.tour.conclusion, true);
             } else if (item.kind === 'chapter') {
-                field(element, 'h2', 'tour-document-chapter', state.tour.chapters.find((chapter) => chapter.id === item.chapterId)?.title, 'chapter');
+                const chapter = route.chapters.find(chapter => chapter.chapterId === item.chapterId);
+                field(element, 'h2', 'tour-document-chapter', chapter.title, 'chapter');
+                field(element, 'p', 'tour-route-evidence', chapter.evidence, 'chapter-scope', chapter.chapterIndex);
+                renderSceneRoute(element, chapter.scenes);
             } else if (item.kind === 'scene') {
                 element.classList.add('tour-scene-group');
                 const header = field(element, 'div', 'tour-scene-header', '');
-                const heading = field(header, 'h2', 'tour-scene-heading', scene.title, 'scene-title');
+                const heading = field(header, 'h2', 'tour-scene-heading', tourReadingTitle(state.tour, item), 'scene-title');
                 const titleToggle = document.createElement('button');
                 titleToggle.className = 'tour-scene-title-toggle';
                 titleToggle.type = 'button';
@@ -3161,7 +3175,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 const step = scene.steps[item.stepIndex];
                 const stage = scene.kind === 'deconstructed-diff' ? `Stage ${(step.stageIndex ?? step.pairIndex) + 1} · ` : '';
                 if (stage) field(element, 'div', 'tour-narrative-chapter', stage);
-                field(element, 'h3', 'tour-step-title', step.title, 'step-title');
+                field(element, 'h3', 'tour-step-title', tourReadingTitle(state.tour, item), 'step-title');
                 field(element, 'p', 'tour-step-orientation', describeStepOrientation(state.tour, item.sceneIndex, item.stepIndex), 'step-orientation');
                 field(element, 'p', 'tour-step-body', step.body, 'step-body');
                 const requirement = field(element, 'div', 'tour-step-requirement', '');
@@ -3231,7 +3245,7 @@ import { renderTourProse } from '../media/tourProse.js';
         if (!content || !element) return;
         // Reserve the final passage's scroll space before measuring, including initial deep links.
         content.style.setProperty('--tour-reading-viewport', `${content.clientHeight}px`);
-        if (key === 'title') element.style.minHeight = `${content.clientHeight}px`;
+        if (key === 'title' || element.dataset.readingKind === 'chapter') element.style.minHeight = `${content.clientHeight}px`;
         const header = element.dataset.readingKind === 'step'
             ? element.closest('.tour-scene-group')?.querySelector('.tour-scene-header') : null;
         content.scrollTop += element.getBoundingClientRect().top - content.getBoundingClientRect().top
