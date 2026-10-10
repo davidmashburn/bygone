@@ -96,8 +96,18 @@ app.whenReady().then(async () => {
             assert.equal(await evaluate("document.querySelector('[data-reading-link=title]').getAttribute('aria-current')"), 'location');
             assert.ok(await evaluate("document.querySelector('[data-reading-key=title]').textContent.includes(\"What you'll see\")"));
             assert.ok(await evaluate("document.querySelector('.tour-route-evidence').textContent.includes('app.txt')"));
+            assert.ok(await evaluate("document.querySelector('.tour-route-chapter-link').textContent.startsWith('Chapter 1:')"));
+            assert.ok(await evaluate("document.querySelector('.tour-route li .tour-route-link').textContent.startsWith('Scene 1.1:')"));
+            assert.ok(await evaluate("document.querySelector('.tour-outline-step').textContent.startsWith('Step 1.1.1:')"));
+            await evaluate("document.querySelector('.tour-route-chapter-link').click()");
+            await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'chapter:chapter'");
+            assert.ok(await evaluate("document.querySelector('[data-reading-key=\"chapter:chapter\"] .tour-route-evidence').textContent.includes('app.txt')"));
+            assert.ok(await evaluate("document.querySelector('[data-reading-key=\"chapter:chapter\"] .tour-route-link').textContent.startsWith('Scene 1.1:')"));
+            assert.ok(await evaluate("document.querySelector('#tour-narrative').getBoundingClientRect().height >= innerHeight - 1"), 'Chapter scope uses the available reading area');
+            await evaluate("document.querySelector('[data-reading-link=title]').click()");
+            await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'title'");
             assert.ok(await evaluate("document.querySelector('#tour-narrative').getBoundingClientRect().height >= innerHeight - 1"), 'Intro uses the available reading area');
-            await evaluate("document.querySelector('.tour-route-link').click()");
+            await evaluate("document.querySelector('.tour-route li .tour-route-link').click()");
             await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'scene:scene'");
             await wait("document.querySelector('#file-info').textContent.startsWith('Coming up:')");
             assert.ok(await evaluate("document.querySelector('.tour-scene-route').textContent.includes('Revisions:')"));
@@ -223,7 +233,7 @@ app.whenReady().then(async () => {
             content.scrollTop += next.getBoundingClientRect().top - content.getBoundingClientRect().top;
         })()`);
         await live.wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:next-scene:next-step'");
-        assert.equal(await live.evaluate("document.querySelector('.tour-scene-header.is-stuck .tour-scene-heading').textContent"), 'Next scene');
+        assert.equal(await live.evaluate("document.querySelector('.tour-scene-header.is-stuck .tour-scene-heading').textContent"), 'Scene 1.2: Next scene');
         assert.equal(await live.evaluate("document.querySelector('.tour-scene-context').open"), false, 'Leaving the scene closes its overview');
         await live.evaluate(`document.querySelector('#tour-narrative-content').scrollTop = ${initialScroll}`);
         await live.wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:scene:step'");

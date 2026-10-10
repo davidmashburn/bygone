@@ -79,11 +79,11 @@ test('bookends are reading locations, searchable and linkable, including image-o
     assert.equal(getTourReadingTarget(items, 'conclusion', 1), null);
     assert.equal(resolveTourReadingItem(items, -1, 0, 'conclusion').key, 'conclusion');
     const spoken = items.flatMap(item => buildReadingNarrationUnit(tour, item, { entry: 'continuous' }).segments.map(segment => segment.text));
-    for (const text of ['Welcome summary.', 'See the inventory.', 'Purpose.', 'First evidence.', 'Second evidence.', 'Result.', 'Recap summary.']) {
+    for (const text of ['Welcome summary.', 'See the inventory.', 'First evidence.', 'Second evidence.', 'Result.', 'Recap summary.']) {
         assert.equal(spoken.filter(value => value === text).length, 1, `${text} is narrated once`);
     }
     const direct = buildReadingNarrationUnit(tour, items.find(item => item.key === 'step:s:b'), { entry: 'playback-start' });
-    assert.deepEqual(direct.segments.map(segment => segment.text), ['Scene', 'Second', 'Step 2 of 2.', 'Image: Second.', 'Second evidence.', 'Result.']);
+    assert.deepEqual(direct.segments.map(segment => segment.text), ['Scene 1.1: Scene', 'Step 1.1.2: Second', 'Step 2 of 2.', 'Image: Second.', 'Second evidence.', 'Result.']);
     assert.equal(direct.position, undefined);
     const modeTour = { ...tour, tours: { historical: tour, deconstructed: { ...tour, conclusion: undefined } } };
     const fragment = serializeDocumentFragment('historical', { part: 'conclusion' });
@@ -159,4 +159,32 @@ test('the opening route separates topics, files, revision pairs, and constructed
     assert.match(describeStepOrientation(tour, 0, 1), /Switch explanation stages/);
     tour.scenes[0] = { id: 'd', title: 'Decide', kind: 'discussion' };
     assert.match(buildTourRoute(tour).scenes[0].evidence, /No code comparison/);
+});
+
+
+test('chapters expose precise scopes and hierarchical numbers without implying one revision range', () => {
+    const tour = { range: { mergeBaseOid: 'a'.repeat(40), headOid: 'c'.repeat(40), baseRef: 'base', headRef: 'head' },
+        chapters: [{ id: 'c1', title: 'Request', sceneIds: ['s', 't'] }, { id: 'c2', title: 'Review', sceneIds: ['d'] }],
+        scenes: [
+            { id: 's', title: 'Receive', summary: 'Trace the input.', kind: 'walkthrough', steps: [{ id: 'a', title: 'Handler', diff: { path: 'route.ts' } }] },
+            { id: 't', title: 'Store', summary: 'Trace persistence.', kind: 'stacked-diff', stack: [
+                { id: 'a', label: 'Base', oid: 'a'.repeat(40) }, { id: 'b', label: 'Middle', oid: 'b'.repeat(40) }, { id: 'c', label: 'Head', oid: 'c'.repeat(40) }
+            ], steps: [{ id: 'b', title: 'Write', file: 'store.ts', pairIndex: 1 }] },
+            { id: 'd', title: 'Decide', summary: 'Weigh the tradeoffs.', kind: 'discussion' }
+        ] };
+    const route = buildTourRoute(tour);
+    assert.match(route.summary, /2 chapters → 3 scenes → 2 steps/);
+    assert.deepEqual(route.chapters.map(chapter => chapter.title), ['Chapter 1: Request', 'Chapter 2: Review']);
+    assert.deepEqual(route.scenes.map(scene => scene.title), ['Scene 1.1: Receive', 'Scene 1.2: Store', 'Scene 2.1: Decide']);
+    assert.equal(route.scenes[1].purpose, 'Trace persistence.');
+    assert.match(route.chapters[0].evidence, /Focus files: route.ts, store.ts/);
+    assert.match(route.chapters[0].evidence, /base \(aaaaaaa\) → head \(ccccccc\)/);
+    assert.match(route.chapters[0].evidence, /Middle \(bbbbbbb\) → Head \(ccccccc\)/);
+    assert.doesNotMatch(route.chapters[1].evidence, /Revisions:/);
+    const spoken = buildReadingNarrationUnit(tour, { kind: 'chapter', key: 'chapter:c1', chapterId: 'c1', sceneIndex: 0, stepIndex: 0 }, { entry: 'continuous', segmentLimit: 2000 });
+    assert.equal(spoken.segments.map(segment => segment.text).join(' '), [route.chapters[0].title, route.chapters[0].evidence,
+        ...route.chapters[0].scenes.flatMap(scene => [scene.title, scene.purpose, scene.evidence])].join(' '));
+    tour.scenes[1] = { ...tour.scenes[1], kind: 'deconstructed-diff', panels: tour.scenes[1].stack };
+    assert.match(buildTourRoute(tour).chapters[0].evidence, /Constructed stages: Middle → Head/);
+    assert.doesNotMatch(buildTourRoute(tour).chapters[0].evidence, /Revisions: Middle/);
 });

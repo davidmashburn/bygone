@@ -255,3 +255,16 @@ retain scene introductions. Intro and Conclusion use the full reading area;
 entering evidence restores the saved prose/code split.
 
 See the [visual walkthrough](visual-walkthrough/README.md) for a complete example.
+
+
+The Intro explains the reading hierarchy and groups its roadmap by numbered
+chapters. A chapter groups related topics; each scene introduces a question or
+purpose; each step connects a claim to code or an image. Scene 1.2 belongs to
+Chapter 1, and Step 1.2.3 is its third step. The same numbering appears in the
+outline, headings, and narration. Even a single chapter remains explicit.
+
+Chapter introductions list their focused files, actual revision comparisons (or
+constructed explanation stages), and the purpose and scope of every scene.
+These comparisons are derived from the evidence; a chapter or scene boundary
+does not by itself imply a different file, commit, or PR. A chapter can cover
+multiple comparisons, and its introduction lists them individually.
