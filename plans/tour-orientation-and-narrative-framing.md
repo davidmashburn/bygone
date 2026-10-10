@@ -2,6 +2,11 @@
 
 Status: Detailed proposal; implementation has not started.
 
+Follow-up: [Tour reasoning and salience](tour-reasoning-and-salience.md) records
+the subsequent feature-branch iterations, reader feedback, and research-backed
+narrative experiment. The status and source observations below are the original
+planning snapshot; consult the follow-up before treating them as current work.
+
 ## Outcome
 
 A reader always knows what the tour is explaining, why the current scene
