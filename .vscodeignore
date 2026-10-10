@@ -38,6 +38,7 @@ web/**
 tours/**
 schemas/**
 mockups/**
+work/**
 examples/**
 docs/**
 completions/**
@@ -47,6 +48,7 @@ skills/**
 .agents/**
 skills-lock.json
 .claude/**
+.kilo/**
 .vsmux/**
 AGENTS.md
 CODEBASE.md

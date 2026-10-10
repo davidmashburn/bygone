@@ -599,13 +599,20 @@ function applyMonacoTheme() {
     const background = styles.getPropertyValue('--vscode-editor-background').trim() || '#1e1e1e';
     const foreground = styles.getPropertyValue('--vscode-foreground').trim() || '#d4d4d4';
     const lineNumber = styles.getPropertyValue('--vscode-editorLineNumber-foreground').trim() || '#858585';
-    const selection = styles.getPropertyValue('--vscode-editor-selectionBackground').trim() || '#264f78';
     const bodyClasses = document.body.classList;
     const isDark = bodyClasses.contains('vscode-dark')
         || bodyClasses.contains('vscode-high-contrast')
         || (!bodyClasses.contains('vscode-light')
             && !bodyClasses.contains('vscode-high-contrast-light')
             && isDarkColor(background));
+    const isHighContrast = bodyClasses.contains('vscode-high-contrast')
+        || bodyClasses.contains('vscode-high-contrast-light');
+    // Warm gray separates dark-mode selections from the blue inline diff fill.
+    // Keep host selection colors for light and high-contrast themes.
+    const selection = isDark && !isHighContrast
+        ? '#686258'
+        : styles.getPropertyValue('--vscode-editor-selectionBackground').trim()
+            || (isDark ? '#264f78' : '#add6ff');
 
     monacoInstance.editor.defineTheme('bygone', {
         base: isDark ? 'vs-dark' : 'vs',
