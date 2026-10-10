@@ -25,6 +25,10 @@
         let connectionCanvas;
         let canvasContext;
         let drawScheduled = false;
+        let copyControls;
+        let hoveredRegion = null;
+        let copyRegions = [];
+        let pointer = null;
 
         return {
             initializeCanvas,
@@ -42,7 +46,79 @@
             }
 
             canvasContext = connectionCanvas.getContext('2d');
+            initializeCopyControls();
             resizeCanvas();
+        }
+
+        function initializeCopyControls() {
+            if (copyControls) return;
+            const container = options.getElement('diff-container');
+            copyControls = document.createElement('div');
+            copyControls.className = 'gutter-copy-controls';
+            copyControls.hidden = true;
+            copyControls.setAttribute('role', 'group');
+            copyControls.setAttribute('aria-label', 'Copy hovered change');
+            for (const direction of ['left-to-right', 'right-to-left']) {
+                const button = document.createElement('button');
+                const label = `Copy this change ${direction === 'left-to-right' ? 'right' : 'left'}`;
+                button.type = 'button';
+                button.dataset.gutterCopy = direction;
+                button.title = label;
+                button.setAttribute('aria-label', label);
+                button.innerHTML = direction === 'left-to-right'
+                    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
+                    : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';
+                button.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    if (hoveredRegion) options.copyBlock?.(hoveredRegion.block, hoveredRegion.pairIndex, direction);
+                    pointer = null;
+                    updateCopyControls();
+                });
+                copyControls.appendChild(button);
+            }
+            container.appendChild(copyControls);
+            container.addEventListener('pointermove', (event) => {
+                if (copyControls.contains(event.target)) return;
+                pointer = { x: event.clientX, y: event.clientY };
+                updateCopyControls();
+            });
+            container.addEventListener('pointerleave', () => {
+                pointer = null;
+                updateCopyControls();
+            });
+            copyControls.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    pointer = null;
+                    copyControls.hidden = true;
+                    hoveredRegion = null;
+                }
+            });
+        }
+
+        function updateCopyControls() {
+            if (!copyControls) return;
+            const rect = connectionCanvas.getBoundingClientRect();
+            const x = pointer ? pointer.x - rect.left : -1;
+            const y = pointer ? pointer.y - rect.top : -1;
+            const region = copyRegions.find((item) => x >= item.left && x <= item.right
+                && y >= item.top && y <= item.bottom
+                && canvasContext.isPointInPath(item.path, (item.left + item.right) / 2, y));
+            if (!region) {
+                copyControls.hidden = true;
+                hoveredRegion = null;
+                return;
+            }
+            const changed = hoveredRegion?.block !== region.block || hoveredRegion?.pairIndex !== region.pairIndex;
+            hoveredRegion = region;
+            for (const button of copyControls.children) {
+                button.disabled = !options.canCopyBlock?.(region.block, region.pairIndex, button.dataset.gutterCopy);
+            }
+            copyControls.hidden = [...copyControls.children].every((button) => button.disabled);
+            const narrow = region.right - region.left < 56;
+            copyControls.classList.toggle('is-narrow', narrow);
+            copyControls.style.left = `${(region.left + region.right) / 2}px`;
+            const halfHeight = narrow ? 25 : 15;
+            if (changed) copyControls.style.top = `${Math.max(region.top + halfHeight, Math.min(y, region.bottom - halfHeight))}px`;
         }
 
         function resizeCanvas() {
@@ -64,10 +140,12 @@
             window.requestAnimationFrame(() => {
                 drawScheduled = false;
                 drawConnections();
+                updateCopyControls();
             });
         }
 
         function drawConnections() {
+            copyRegions = [];
             if (!canvasContext || !connectionCanvas) {
                 return;
             }
@@ -112,6 +190,8 @@
                     rightEditor,
                     leftRect,
                     rightRect,
+                    containerRect,
+                    null,
                     containerRect
                 );
             });
@@ -168,7 +248,9 @@
                         rightEditor,
                         leftRect,
                         rightRect,
-                        containerRect
+                        containerRect,
+                        state.activePairIndex,
+                        viewportRect
                     );
                 });
                 canvasContext.restore();
@@ -416,7 +498,7 @@
             return Boolean(row) && row.offsetParent !== null;
         }
 
-        function drawBlockRegion(block, leftEditor, rightEditor, leftRect, rightRect, containerRect) {
+        function drawBlockRegion(block, leftEditor, rightEditor, leftRect, rightRect, containerRect, pairIndex, viewportRect) {
             const leftBounds = getBlockBounds(leftEditor, block.leftStart, block.leftEnd, leftRect, containerRect, true);
             const rightBounds = getBlockBounds(rightEditor, block.rightStart, block.rightEnd, rightRect, containerRect, false);
 
@@ -459,6 +541,14 @@
                 leftBounds.x, leftBounds.bottom
             );
             path.closePath();
+
+            const top = Math.max(leftRect.top, rightRect.top, viewportRect.top) - containerRect.top;
+            const bottom = Math.min(leftRect.bottom, rightRect.bottom, viewportRect.bottom) - containerRect.top;
+            const left = Math.max(leftRect.right, viewportRect.left) - containerRect.left;
+            const right = Math.min(rightRect.left, viewportRect.right) - containerRect.left;
+            if (right - left >= 26 && bottom - top >= 50) {
+                copyRegions.push({ block, pairIndex, path, left, right, top, bottom });
+            }
 
             canvasContext.fillStyle = gradient;
             canvasContext.fill(path);

@@ -1439,8 +1439,6 @@ body.tour-directory-file-open #file-info { display: none; }
 .export-notice { padding: 10px; font-size: 12px; }
 
 .export-host #refresh-session,
-.export-host #copy-left-to-right,
-.export-host #copy-right-to-left,
 .export-host [data-dir-add-side],
 .export-host [data-dir-remove-side] { display: none !important; }
 

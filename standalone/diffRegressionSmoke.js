@@ -5,6 +5,7 @@ const path = require('node:path');
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { buildTwoWayDiffModel } = require('../out/diffEngine');
 const { runPanelDensitySmoke } = require('./panelDensitySmoke');
+const { runGutterCopySmoke } = require('./gutterCopySmoke');
 const { yamlDiffFixture } = require('../test/yamlDiffFixture');
 
 app.whenReady().then(async () => {
@@ -199,6 +200,7 @@ app.whenReady().then(async () => {
             await evaluate("document.getElementById('toggle-readonly').click()");
             assert.deepEqual(await evaluate(readOnlyOptions), [true, true], 'Read-only host capabilities cannot be toggled away');
         }
+        await runGutterCopySmoke({ window, show });
         assert.deepEqual(errors, []);
         console.log('Diff renderer regression smoke passed: whitespace paint/ranges, long YAML, two/three panels, both scroll directions, wrap on/off, unchanged prefix/suffix, reflow boundaries, panel switching, connector clipping, renamed title pairing.');
         clearTimeout(timeout); app.exit(0);
