@@ -1,4 +1,4 @@
-import { tourReadingTitle, buildTourRoute, describeSceneRoute, describeStepOrientation } from './tourOrientation';
+import { tourReadingTitle, buildTourRoute, describeStepOrientation } from './tourOrientation';
 import type { ChangeTourManifest, ChangeTourScene } from './changeTourManifest';
 import type { TourReadingItem } from './tourReading';
 import type { TourPosition } from './tourNavigation';
@@ -10,11 +10,7 @@ export type NarrationField =
     | 'passage-title'
     | 'route-summary'
     | 'route-title'
-    | 'route-evidence'
-    | 'route-purpose'
     | 'route-chapter'
-    | 'chapter-scope'
-    | 'scene-route'
     | 'step-orientation'
     | 'chapter'
     | 'scene-title'
@@ -127,8 +123,6 @@ export function buildReadingNarrationUnit(
     const addScenes = (scenes: ReturnType<typeof buildTourRoute>['scenes']) => {
         scenes.forEach(scene => {
             add('route-title', scene.title, scene.sceneIndex);
-            add('route-purpose', scene.purpose, scene.sceneIndex);
-            add('route-evidence', scene.evidence, scene.sceneIndex);
         });
     };
     if (item.kind === 'title' || item.kind === 'conclusion') {
@@ -142,15 +136,12 @@ export function buildReadingNarrationUnit(
             add('route-summary', route.summary);
             route.chapters.forEach(chapter => {
                 add('route-chapter', chapter.title, chapter.chapterIndex);
-                add('chapter-scope', chapter.evidence, chapter.chapterIndex);
-                addScenes(chapter.scenes);
             });
             if (!route.chapters.length) addScenes(route.scenes);
         }
     } else if (item.kind === 'chapter') {
         const chapter = buildTourRoute(tour).chapters.find(chapter => chapter.chapterId === item.chapterId)!;
         add('chapter', chapter.title);
-        add('chapter-scope', chapter.evidence, chapter.chapterIndex);
         addScenes(chapter.scenes);
     } else {
         const scene = tour.scenes[item.sceneIndex];
@@ -160,7 +151,6 @@ export function buildReadingNarrationUnit(
             scene.bullets.forEach((text, index) => add('bullet', text, index));
             if (!isSteppedScene(scene)) add('takeaway', scene.takeaway);
             if ('overview' in scene) add('overview-purpose', scene.overview?.purpose);
-            add('scene-route', describeSceneRoute(tour, item.sceneIndex));
         } else if (isSteppedScene(scene)) {
             const step = scene.steps[item.stepIndex];
             if (options.entry === 'playback-start') add('scene-title', tourReadingTitle(tour, { kind: 'scene', key: `scene:${scene.id}`, sceneIndex: item.sceneIndex, stepIndex: 0 }));

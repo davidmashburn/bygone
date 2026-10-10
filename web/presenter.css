@@ -1532,3 +1532,7 @@ body.tour-bookend #tour-narrative-resizer { display: none; }
 .tour-route-chapter { margin-top: 1.5em; }
 .tour-route-chapter > .tour-route { margin-top: 1em; padding-left: 1em; border-left: 2px solid var(--tour-border); }
 .tour-route-purpose { margin: 0.4em 0; }
+
+.tour-scope-details { margin: 0.5em 0 1em; color: var(--tour-muted); font-size: 0.9em; }
+.tour-scope-details > summary { cursor: pointer; width: fit-content; }
+.tour-scope-details .tour-route { margin-top: 1em; }
