@@ -390,6 +390,17 @@ body.tour-derived-mode .tour-narrative-resizer {
     background: rgba(255, 255, 255, 0.025);
 }
 
+.tour-navigation {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.tour-narrative-toolbar .tour-navigation button {
+    color: var(--tour-body);
+}
+
 .tour-narrative-toolbar button {
     padding: 5px 9px;
     color: var(--tour-muted);
@@ -1522,8 +1533,7 @@ body.tour-discussion #container { visibility: hidden; pointer-events: none; }
 .tour-route-link { color: var(--tour-accent-bright); background: none; border: 0; padding: 0; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
 .tour-route-link:hover { text-decoration: underline; }
 .tour-route-link:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
-.tour-route-evidence, .tour-scene-route, .tour-step-orientation { color: var(--tour-muted); font-size: 0.9em; overflow-wrap: anywhere; }
-.tour-route-evidence { margin: 0.3em 0 0; }
+.tour-step-orientation { color: var(--tour-muted); font-size: 0.9em; overflow-wrap: anywhere; }
 
 /* Bookends use the space otherwise reserved for code; evidence keeps its saved split. */
 body.tour-bookend:not(.tour-derived-mode) #tour-narrative { height: 100vh !important; }
@@ -1531,8 +1541,3 @@ body.tour-bookend #tour-narrative-resizer { display: none; }
 
 .tour-route-chapter { margin-top: 1.5em; }
 .tour-route-chapter > .tour-route { margin-top: 1em; padding-left: 1em; border-left: 2px solid var(--tour-border); }
-.tour-route-purpose { margin: 0.4em 0; }
-
-.tour-scope-details { margin: 0.5em 0 1em; color: var(--tour-muted); font-size: 0.9em; }
-.tour-scope-details > summary { cursor: pointer; width: fit-content; }
-.tour-scope-details .tour-route { margin-top: 1em; }

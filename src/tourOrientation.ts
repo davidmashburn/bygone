@@ -86,24 +86,14 @@ function realLabel(label: string, oid: string): string {
     return label === oid || label === oid.slice(0, 7) ? oid.slice(0, 7) : `${label} (${oid.slice(0, 7)})`;
 }
 
-/** Numbers follow reading order within the chapter, independent of file/revision changes. */
-export function tourSceneNumber(tour: ChangeTourManifest, sceneIndex: number): string {
-    const scene = tour.scenes[sceneIndex];
-    const chapterIndex = tour.chapters?.findIndex(chapter => chapter.sceneIds.includes(scene.id)) ?? -1;
-    if (chapterIndex < 0) return String(sceneIndex + 1);
-    const siblings = tour.scenes.filter(candidate => tour.chapters[chapterIndex].sceneIds.includes(candidate.id));
-    return `${chapterIndex + 1}.${siblings.indexOf(scene) + 1}`;
-}
-
 export function tourReadingTitle(tour: ChangeTourManifest, item: TourReadingItem): string {
     if (item.kind === 'chapter') {
         const index = tour.chapters.findIndex(chapter => chapter.id === item.chapterId);
-        return `Chapter ${index + 1}: ${tour.chapters[index].title}`;
+        return tour.chapters[index].title;
     }
     const scene = tour.scenes[item.sceneIndex];
-    const number = tourSceneNumber(tour, item.sceneIndex);
-    if (item.kind === 'step' && 'steps' in scene) return `Step ${number}.${item.stepIndex + 1}: ${scene.steps[item.stepIndex].title}`;
-    return `Scene ${number}: ${scene.title}`;
+    if (item.kind === 'step' && 'steps' in scene) return scene.steps[item.stepIndex].title;
+    return scene.title;
 }
 
 export interface TourRouteEntry {
@@ -154,7 +144,7 @@ export function buildTourRoute(tour: ChangeTourManifest): { summary: string; cha
         }, 0);
         const scope = files.length ? `Focus files: ${files.join(', ')}.` : 'No code steps; this chapter uses discussion or images.';
         const ranges = pairs.map(pair => `${pair.kind === 'synthetic' ? 'Constructed stages' : 'Revisions'}: ${pair.labels.join(' → ')}.`).join(' ');
-        return { chapterIndex, chapterId: chapter.id, title: `Chapter ${chapterIndex + 1}: ${chapter.title}`,
+        return { chapterIndex, chapterId: chapter.id, title: chapter.title,
             evidence: `${entries.length} ${entries.length === 1 ? 'scene' : 'scenes'} · ${steps} ${steps === 1 ? 'step' : 'steps'}. ${scope}${ranges ? ` ${ranges}` : ''}`, scenes: entries };
     });
     const stepCount = tour.scenes.reduce((count, scene) => count + ('steps' in scene ? scene.steps.length : 0), 0);

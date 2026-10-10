@@ -82,7 +82,11 @@ app.whenReady().then(async () => {
             await win.loadURL(pathToFileURL(guideOutput).href);
             const activeKey = "document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey";
             await wait(`${activeKey} === 'title'`);
-            assert.match(await evaluate("document.querySelector('.tour-route li .tour-route-evidence').textContent"), /images in reading order/);
+            assert.equal(await evaluate("document.querySelector('#tour-back').disabled"), true);
+            await evaluate("document.querySelector('#tour-next').click()");
+            await wait(`${activeKey} === 'step:scene:step'`);
+            await evaluate("document.querySelector('#tour-back').click()");
+            await wait(`${activeKey} === 'title'`);
             const press = async (key, expected) => {
                 await evaluate(`document.activeElement?.blur(); document.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(key)},bubbles:true}))`);
                 await wait(`${activeKey} === ${JSON.stringify(expected)}`);
@@ -94,6 +98,7 @@ app.whenReady().then(async () => {
             await press('ArrowRight', 'step:scene:step');
             await press('ArrowRight', 'step:scene:code');
             await press('ArrowRight', 'step:second-scene:step');
+            assert.equal(await evaluate("document.querySelector('#tour-next').disabled"), true);
             await press('ArrowLeft', 'step:scene:code');
             await evaluate("location.hash = '#location=1&mode=historical&part=chapter&chapter=second-chapter'");
             await wait(`${activeKey} === 'step:second-scene:step'`);
