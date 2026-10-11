@@ -1772,9 +1772,7 @@ import { renderTourProse } from '../media/tourProse.js';
         const updateHeight = () => {
             const height = narrative.hidden ? 0 : Math.ceil(narrative.getBoundingClientRect().height);
             document.documentElement.style.setProperty('--tour-narrative-height', `${height}px`);
-            const content = document.getElementById('tour-narrative-content');
-            content?.style.setProperty('--tour-reading-viewport', `${content.clientHeight}px`);
-            if (state.readingKey === 'title') readingElements.get('title')?.style.setProperty('min-height', `${content.clientHeight}px`);
+            updateReadingViewport();
             updateStickySceneHeaders();
             window.dispatchEvent(new Event('resize'));
         };
@@ -2353,16 +2351,21 @@ import { renderTourProse } from '../media/tourProse.js';
     function tourEvidenceCaption(filePath, activePairIndex, rangeOnly = false) {
         if (!isNarrativeMode()) return filePath;
         const item = readingItems.find(item => item.key === state.readingKey);
-        const authoredContext = item && resolveTourEvidenceContext(state.tour, item, state.zoom?.mode, activePairIndex);
-        const context = rangeOnly || !authoredContext ? resolveTourRangeEvidenceContext(state.tour, filePath) : authoredContext;
+        const authoredContext = item && resolveTourEvidenceContext(state.tour, item, state.zoom?.mode);
+        // Panel selection describes rendered evidence even while the reader stays
+        // on an intro, chapter, or conclusion with no evidence of its own.
+        const evidenceItem = activePairIndex === undefined ? item : {
+            kind: 'step', sceneIndex: state.activeSceneIndex, stepIndex: state.activeStepIndex
+        };
+        const evidenceContext = evidenceItem && resolveTourEvidenceContext(state.tour, evidenceItem, state.zoom?.mode, activePairIndex);
+        const context = rangeOnly || !evidenceContext ? resolveTourRangeEvidenceContext(state.tour, filePath) : evidenceContext;
         const displayedContext = { ...context, scope: filePath, scopeKey: JSON.stringify([filePath]), overview: false };
         const previous = lastReadingEvidence?.tour === state.tour ? lastReadingEvidence.context : null;
         const comparison = previous && (previous.comparisonKey !== displayedContext.comparisonKey || previous.scopeKey !== displayedContext.scopeKey)
             ? describeTourTransition(previous, displayedContext) : describeTourComparison(displayedContext);
         // Remember the actual rendered pair, including user-selected panels and file exploration.
         lastReadingEvidence = { tour: state.tour, context: displayedContext };
-        const previewContext = activePairIndex === undefined ? authoredContext
-            : item && resolveTourEvidenceContext(state.tour, item, state.zoom?.mode);
+        const previewContext = authoredContext;
         const preview = item && tourLanding(state.tour, item) === 'preview'
             && previewContext?.scope === filePath && previewContext.comparisonKey === context.comparisonKey;
         const scene = item && state.tour.scenes[item.sceneIndex];
@@ -2443,7 +2446,7 @@ import { renderTourProse } from '../media/tourProse.js';
                 canGoNext: Boolean(getCurrentTourFileTarget(1))
             },
             mutationEnabled: false,
-            comparisonSummary: tourEvidenceCaption(file.path),
+            comparisonSummary: tourEvidenceCaption(file.path, focusPairIndex),
             tourAnnotations
         });
     }
@@ -3172,11 +3175,22 @@ import { renderTourProse } from '../media/tourProse.js';
                 scene.tags.forEach((tag) => field(tags, 'span', '', tag));
             } else {
                 const step = scene.steps[item.stepIndex];
-                const stage = scene.kind === 'deconstructed-diff' ? `Stage ${(step.stageIndex ?? step.pairIndex) + 1} · ` : '';
-                if (stage) field(element, 'div', 'tour-narrative-chapter', stage);
+                const stage = scene.kind === 'deconstructed-diff'
+                    ? (!step.body ? scene.panels[step.pairIndex + 1].label : `Stage ${(step.stageIndex ?? step.pairIndex) + 1}`) : '';
+                if (stage) field(element, 'div', 'tour-narrative-chapter', stage, 'stage-title');
                 field(element, 'h3', 'tour-step-title', tourReadingTitle(state.tour, item), 'step-title');
                 field(element, 'p', 'tour-step-orientation', describeStepOrientation(state.tour, item.sceneIndex, item.stepIndex), 'step-orientation');
-                field(element, 'p', 'tour-step-body', step.body, 'step-body');
+                if (step.body) field(element, 'p', 'tour-step-body', step.body, 'step-body');
+                if (scene.kind === 'deconstructed-diff' && !step.body) {
+                    const firstStepIndex = scene.steps.findIndex(candidate => candidate.pairIndex === step.pairIndex);
+                    if (firstStepIndex >= 0 && firstStepIndex < item.stepIndex) {
+                        const explanation = readingItems.find(candidate => candidate.kind === 'step'
+                            && candidate.sceneIndex === item.sceneIndex && candidate.stepIndex === firstStepIndex);
+                        const button = readingButton('Read stage explanation', `Read ${scene.steps[firstStepIndex].title}`, () => activateReadingItem(explanation));
+                        button.className = 'tour-show-in-code tour-stage-explanation';
+                        element.append(button);
+                    }
+                }
                 const requirement = field(element, 'div', 'tour-step-requirement', '');
                 renderStepRequirement(requirement, step.requirement);
                 if (step.connection) {
@@ -3238,13 +3252,24 @@ import { renderTourProse } from '../media/tourProse.js';
         }
     }
 
+    function updateReadingViewport() {
+        const narrative = document.getElementById('tour-narrative');
+        const content = document.getElementById('tour-narrative-content');
+        if (!narrative || !content || !narrative.getClientRects().length) return;
+        const bounds = narrative.getBoundingClientRect();
+        const chromeHeight = bounds.height - content.clientHeight;
+        content.style.setProperty('--tour-reading-viewport', `${content.clientHeight}px`);
+        // Bookend space must not depend on which passages have been visited.
+        // Rebuilding after History/Compare then preserves the reading offsets.
+        content.style.setProperty('--tour-bookend-viewport', `${Math.max(0, window.innerHeight - bounds.top - chromeHeight)}px`);
+    }
+
     function scrollToReadingItem(key) {
         const content = document.getElementById('tour-narrative-content');
         const element = readingElements.get(key);
         if (!content || !element) return;
         // Reserve the final passage's scroll space before measuring, including initial deep links.
-        content.style.setProperty('--tour-reading-viewport', `${content.clientHeight}px`);
-        if (key === 'title' || element.dataset.readingKind === 'chapter') element.style.minHeight = `${content.clientHeight}px`;
+        updateReadingViewport();
         const header = element.dataset.readingKind === 'step'
             ? element.closest('.tour-scene-group')?.querySelector('.tour-scene-header') : null;
         content.scrollTop += element.getBoundingClientRect().top - content.getBoundingClientRect().top

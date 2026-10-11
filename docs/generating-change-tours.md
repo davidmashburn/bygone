@@ -50,7 +50,8 @@ Use `bygone tour schema` to print the current JSON Schema. The checked-in schema
 
 ## Narrative constraints
 
-- Prefer one reviewer question per scene and three to seven steps per scene.
+- Give each scene one explanatory job. Choose the number of steps needed to
+  develop it; do not split or pad an argument to meet a step-count target.
 - Lead with contracts, invariants, or architectural boundaries before their consumers.
 - Pair behavior with the tests or evidence that prove it.
 - Keep mechanical, generated, and lockfile changes out of the authored narrative unless they alter the reviewer’s conclusion; they remain visible in the complete Files rail.
@@ -60,6 +61,49 @@ Use `bygone tour schema` to print the current JSON Schema. The checked-in schema
 - Use connections sparingly. A connection should answer “how are these two facts related?”
 - Preserve access to the complete change instead of presenting the tour as exhaustive review.
 - Put concepts, boundaries, and tradeoffs beside their evidence in scene or step narrative. Label unresolved questions explicitly and state the next check that would resolve them; do not present them as settled conclusions.
+
+## Explain the causal link
+
+Before selecting files, write what the reader should be able to explain after
+each scene. “We inspected the handler” is an activity; “layout notifications
+could invoke synchronization without a position change” is an understanding.
+Merge scenes that produce the same answer, including a separate test scene
+when its checks simply complete the explanation already underway.
+
+Keep the connection from behavior to mechanism to evidence in the main path.
+Do not hide the reason a change works behind a scope disclosure or replace it
+with an inventory of files and revisions. Use enough prose to explain the
+inference. A shorter description can require more reader effort when it removes
+the causal link.
+
+For example, “Ignore layout events” names an action. This explains its effect:
+
+> Neither scroll position changed, so the guard redraws the connectors and
+> returns before either synchronizer runs. This prevents a layout event from
+> undoing the code reveal. Events that do change a position continue through
+> the handler.
+
+Use a title that states the important finding, then focus the code or assertion
+that supports it. Include a preserved behavior, tradeoff, or uncertainty when
+it affects that finding. These are writing responsibilities, not mandatory
+claim/cause/proof fields or repeated labels on every slide.
+
+Compare the small fix in [marker-focus.bygone](../examples/marker-focus.bygone)
+with the multi-commit [navigation lab](../examples/navigation-lab.bygone.yaml).
+The latter uses multiple questions within one comparison before deliberately
+isolating the later correction. Its synthetic mode separates teaching stages
+from real history; generated focus steps are not additional explanatory scenes.
+Each constructed stage's narration appears at its first evidence step. Later
+focuses retain their code targets and offer **Read stage explanation** instead
+of repeating the paragraph. Write the stage narration to cover its argument
+as a whole, and use the scene introduction to explain why the stages belong together.
+
+After validation, walk the compiled route. Check for repeated stage narration,
+unnecessary setup stops, and evidence that does not support the adjacent claim.
+Compiling successfully establishes source validity, not reader understanding.
+Ask an unfamiliar reader what changed, why the mechanism works, what evidence
+supports it, and what remains unverified. At a transition, also ask whether the
+comparison changed. Use those observations to choose further viewer changes.
 
 ## Anchor rules
 
@@ -113,9 +157,14 @@ Multiple scenes may examine the same comparison when each has a different
 question. Merge scenes that merely repeat a question across files.
 
 Before the first step, explain why this scene comes next, what evidence will
-appear, and what the reader should notice. Use an explicit directory overview
+appear, and what the reader should notice in connected prose. Do not repeat the
+chapter route or list every file and revision in each introduction. Keep the
+rationale visible; evidence headers and navigation carry reference details.
+Use an explicit directory overview
 only when the inventory itself supports that question, and state its `purpose`.
 Without one, the viewer previews the first step. The comparison caption identifies
 resolved revisions or synthetic stages; prose should explain why a transition
-matters. Close with supported findings and any remaining checks, without adding
+matters. A new scene or file does not inherently mean a new comparison. Close
+by connecting the mechanism back to the promised behavior and stating material
+limits, rather than reciting the chapter titles. Include any remaining checks without adding
 fake code stops. See [the format](change-tour-format.md) for the fields.

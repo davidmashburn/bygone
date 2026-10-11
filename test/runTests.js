@@ -522,7 +522,9 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(rendererSource, /tourHost = document\.getElementById\('tour-commits-host'\)/);
     assert.match(rendererSource, /rail\.classList\.toggle\('present-navigation-rail', presentOwned\)/);
     assert.match(hostSource, /getTourReadingTarget\(readingItems, state\.readingKey, direction, isImageOnlyTour\(state\.tour\)\)/);
-    assert.doesNotMatch(webMarkup, /id="tour-(?:previous|next|reading-path|parent-view)"/);
+    assert.doesNotMatch(webMarkup, /id="tour-(?:previous|reading-path|parent-view)"/);
+    assert.match(webMarkup, /id="tour-back"/);
+    assert.match(webMarkup, /id="tour-next"/);
     for (const markup of [webMarkup, providerSource]) {
         assert.match(markup, /id="next-file" class="change-button icon-button"/);
         assert.doesNotMatch(markup, /id="next-file" class="[^"]*change-button-primary/);
@@ -4417,6 +4419,26 @@ function testDeconstructedStagesValidateAndMaterializeCumulativeFiles() {
     assert.deepEqual(manifestScene.steps.map((step) => step.stageId), ['model', 'model', 'behavior', 'behavior']);
     assert.deepEqual(manifestScene.steps.map((step) => step.id), ['model', 'model-focus-2', 'behavior', 'behavior-focus-2']);
     assert.equal(manifestScene.steps[0].focusCount, 2);
+    assert.deepEqual(manifestScene.steps.map(step => step.body), [
+        scene.stages[0].narration, '', scene.stages[1].narration, ''
+    ], 'Each stage explanation occurs once without dropping any evidence focuses');
+    assert.equal(manifestScene.steps[0].title, 'Introduce the model');
+    assert.equal(manifestScene.steps[1].title, 'added.txt · Evidence 2 of 2');
+    assert.equal(manifestScene.steps[2].title, 'Finish the behavior');
+    assert.equal(parseChangeTourManifest(manifest).scenes.find(candidate => candidate.id === manifestScene.id).steps.length, 4);
+    const { buildReadingNarrationUnit } = require('../out/tourNarration');
+    const sceneIndex = manifest.scenes.indexOf(manifestScene);
+    const narrationFor = (stepIndex, entry) => buildReadingNarrationUnit(manifest, {
+        kind: 'step', key: `step:${manifestScene.id}:${manifestScene.steps[stepIndex].id}`, sceneIndex, stepIndex
+    }, { entry }).segments;
+    const spoken = manifestScene.steps.flatMap((_, index) => narrationFor(index, 'continuous'));
+    for (const stage of scene.stages) {
+        assert.equal(spoken.filter(segment => segment.text === stage.narration).length, 1);
+    }
+    assert.equal(spoken.some(segment => segment.source.field === 'stage-title'), false);
+    assert.equal(narrationFor(3, 'playback-start').find(segment => segment.source.field === 'stage-title').text,
+        'Stage 2: Finish the behavior');
+    assert.equal(narrationFor(3, 'playback-start').some(segment => segment.source.field === 'step-body'), false);
     assert.equal(manifestScene.files.find((file) => file.path === 'delete.txt').panels[2].exists, false);
     assert.equal(compiled.excludedFiles.length, 3);
     assert.deepEqual(

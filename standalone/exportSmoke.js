@@ -16,7 +16,7 @@ const { startPresentation } = require('../cli/present');
 app.on('window-all-closed', () => {});
 app.whenReady().then(async () => {
     const timeout = setTimeout(() => { console.error('Export smoke timed out'); app.exit(1); }, 60000);
-    const fixture = exportFixture();
+    const fixture = exportFixture({ multipleFocuses: true });
     const reviews = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-external-tour-')));
     const windows = [];
     const requests = [];
@@ -74,6 +74,26 @@ app.whenReady().then(async () => {
             await evaluate("document.querySelector('[data-workspace-mode=deconstructed]').click()");
             await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]') && document.querySelector('[data-reading-key=\"scene:synthetic\"]')");
             await wait("location.hash.includes('mode=deconstructed')");
+            assert.equal(await evaluate("document.querySelectorAll('[data-reading-key^=\"step:synthetic:\"] .tour-step-body').length"), 1, 'Stage prose renders once across multiple evidence focuses');
+            await evaluate("location.hash = '#location=1&mode=deconstructed&part=step&scene=synthetic&step=stage-focus-2'");
+            await wait("document.activeElement.dataset.readingKey === 'step:synthetic:stage-focus-2'");
+            await wait("document.querySelectorAll('#container .monaco-editor .view-line').length >= 2");
+            assert.equal(await evaluate("document.querySelector('.tour-reading-item.is-active [data-reading-field=stage-title]').textContent"), 'Stage 1: Change', 'Direct continuation identifies its stage argument');
+            assert.equal(await evaluate(`(() => {
+                const editor = window.monaco.editor.getEditors()[0];
+                editor.setPosition({ lineNumber: 1, column: 2 });
+                const pending = editor.getContribution('editor.contrib.wordHighlighter')
+                    ?.wordHighlighter?.runDelayer?.completionPromise;
+                document.querySelector('.tour-reading-item.is-active .tour-stage-explanation').click();
+                return Boolean(pending);
+            })()`), true, 'Stage recovery replaces editors while cursor highlighting is pending');
+            await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:synthetic:stage'");
+            await wait("document.querySelectorAll('#container .monaco-editor .view-line').length >= 2");
+            await evaluate('history.back()');
+            await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:synthetic:stage-focus-2'");
+            await wait("document.querySelectorAll('#container .monaco-editor .view-line').length >= 2");
+            await evaluate("document.querySelector('[data-reading-link=title]').click()");
+            await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'title'");
             assert.equal(await evaluate("document.querySelector('[data-tour-navigator=tour]').disabled"), false, 'Tour navigation is re-enabled for a narrative mode');
             await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
             await wait("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && document.querySelector('.dir-entry[data-path=\"app.txt\"]') && !document.querySelector('.monaco-editor')");
@@ -120,10 +140,49 @@ app.whenReady().then(async () => {
             await advance('tour-back', 'title');
             await evaluate("document.querySelector('.tour-route-chapter-link').click()");
             await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'chapter:chapter'");
-            assert.ok(await evaluate("document.querySelector('#tour-narrative').getBoundingClientRect().height >= innerHeight - 1"), 'Chapter scope uses the available reading area');
+            const fillsReadingArea = `(() => {
+                const rect = document.querySelector('#tour-narrative').getBoundingClientRect();
+                const toolbarHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--workspace-toolbar-height'));
+                return Math.abs(rect.top - toolbarHeight) < 2 && Math.abs(rect.bottom - innerHeight) < 2;
+            })()`;
+            assert.ok(await evaluate(fillsReadingArea), 'Chapter fills the reading area below the workspace toolbar');
+            const exploreFromPassage = async (key, expectedCaption) => {
+                await evaluate(`document.querySelector('[data-reading-link="${key}"]').click()`);
+                await wait(`${activeKey} === ${JSON.stringify(key)}`);
+                await wait(fillsReadingArea);
+                await evaluate("document.querySelector('[data-tour-navigator=files]').click(); document.querySelector('.tour-file[data-file-path=\"app.txt\"]').click()");
+                try {
+                    await wait(`(() => {
+                        const editor = document.querySelector('#container').getBoundingClientRect();
+                        const narrative = document.querySelector('#tour-narrative').getBoundingClientRect();
+                        return editor.height > 100 && Math.abs(editor.top - narrative.bottom) < 2
+                            && editor.bottom <= innerHeight + 2
+                            && getComputedStyle(document.querySelector('#tour-narrative-resizer')).display !== 'none';
+                    })()`);
+                } catch (error) {
+                    const details = await evaluate(`JSON.stringify({ passage: ${JSON.stringify(key)}, body: document.body.className, editor: document.querySelector('#container').getBoundingClientRect().toJSON(), narrative: document.querySelector('#tour-narrative').getBoundingClientRect().toJSON(), resizer: getComputedStyle(document.querySelector('#tour-narrative-resizer')).display, active: ${activeKey} })`);
+                    throw new Error(`${error.message}: ${details}`, { cause: error });
+                }
+                assert.equal(await evaluate(activeKey), key, 'File exploration preserves the passage');
+                assert.match(await evaluate("document.querySelector('#file-info').textContent"), expectedCaption);
+                await wait("document.querySelectorAll('#container .monaco-editor .view-line').length >= 2");
+                // Let Monaco's 50 ms word-highlighter debounce finish before the next
+                // navigation disposes these editors; this test checks passage layout.
+                await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
+                await evaluate("document.querySelector('#tour-return-focus').click()");
+                await wait(fillsReadingArea);
+                assert.equal(await evaluate(activeKey), key, 'Return restores the same passage');
+                assert.equal(await evaluate("getComputedStyle(document.querySelector('#container')).visibility"), 'hidden');
+                await evaluate("document.querySelector('[data-tour-navigator=tour]').click()");
+                await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
+            };
+            for (const key of ['title', 'chapter:chapter', 'conclusion']) {
+                await exploreFromPassage(key, /Comparison:.*export-base.*export-head.*app.txt/);
+            }
+
             await evaluate("document.querySelector('[data-reading-link=title]').click()");
             await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'title'");
-            assert.ok(await evaluate("document.querySelector('#tour-narrative').getBoundingClientRect().height >= innerHeight - 1"), 'Intro uses the available reading area');
+            assert.ok(await evaluate(fillsReadingArea), 'Intro fills the reading area below the workspace toolbar');
             await evaluate("document.querySelector('[data-reading-link=\"scene:scene\"]').click()");
             await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'scene:scene'");
             await wait("document.querySelector('#file-info').textContent.startsWith('Coming up:')");
@@ -144,6 +203,8 @@ app.whenReady().then(async () => {
             await wait("getComputedStyle(document.querySelector('#container')).visibility === 'hidden'");
             await evaluate("document.querySelector('[data-workspace-mode=deconstructed]').click()");
             await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]')");
+            await exploreFromPassage('chapter:explain', /Explanation stages: Explanation baseline → Stage 1: Change.*app.txt/);
+
             await evaluate("document.querySelector('[data-workspace-mode=historical]').click()");
             await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'conclusion'");
             await evaluate("location.hash = '#location=1&mode=historical&part=scene&scene=scene'");

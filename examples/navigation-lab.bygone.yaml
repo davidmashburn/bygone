@@ -1,362 +1,341 @@
 version: 5
-title: Navigation lab
+title: Explore a tour without losing your place
 windowTitle: Bygone navigation lab
 opening:
-  title: Explore a tour without losing your place
-  summary: This change lets you step back from code to a scene, chapter, or tour overview, then resume the code step you left. It also fixes resizing that could push highlighted code out of view. We’ll trace the navigation controls, the saved position, and the scrolling fix.
+  title: Leave step 3. Come back to step 3.
+  summary: >-
+    You pause at a code step to read the chapter overview. Returning should bring you back to that
+    step, with its code still in view. Two Bygone commits address those two needs: one remembers the
+    return destination; the next prevents layout changes from disturbing it. We’ll follow the saved
+    position, then the scroll guard. This tour examines an earlier viewer implementation.
 conclusion:
-  title: Navigation needs both a reading position and a stable marker
-  summary: The tour traced the hierarchy, its return positions, and the distinction between layout events and real scrolling. The cited regression checks cover marker behavior; they do not establish reader comprehension.
+  title: A saved step also needs stable code focus
+  summary: >-
+    Opening an overview keeps the selected step; returning resumes it before advancing. The URL
+    preserves both choices across reload. Separately, the scroll guard prevents layout-only
+    notifications from invoking synchronization. The source explains the return path, and callback
+    tests check the guard. Neither demonstrates the complete interaction: refresh, return, and
+    resize still need a browser check.
 range:
   base: 1f8fdc07d56fc7a0e50dcab0383a63159c77178c
   head: 901a193203e4840dbf6e06c6a273fac7f2d713bd
 anchors:
-  path-host:
-    file: web/index.html
-    revision: head
-    contains: <nav id="tour-reading-path" class="tour-reading-path" aria-label="Reading hierarchy"></nav>
-  path-levels:
-    file: web/host.js
-    revision: head
-    contains: "        if (tour.scenes.length > 1) levels.push(['tour', tour.title]);\n        if (tour.chapters.length\
-      \ > 1 && chapter && (chapter.sceneIds.length > 1 || state.narrativeParent === 'chapter')) levels.push(['chapter',\
-      \ chapter.title]);\n        levels.push(['scene', scene.title]);\n        if (hasStep) levels.push(['step',\
-      \ `Step ${state.activeStepIndex + 1}`]);"
   path-children:
     file: web/host.js
     revision: head
-    contains: "                    children.append(readingButton(item.title, `Read chapter: ${item.title}`,\
-      \ () => {\n                        if (!item.sceneIds.includes(scene.id)) showTourScene(first, 0,\
-      \ { userNavigation: true, showIntro: true });\n                        setNarrativeView(item.sceneIds.length\
-      \ > 1 ? 'chapter' : 'scene');\n                    }));"
+    contains: |2-
+                          children.append(readingButton(item.title, `Read chapter: ${item.title}`, () => {
+                              if (!item.sceneIds.includes(scene.id)) showTourScene(first, 0, { userNavigation: true, showIntro: true });
+                              setNarrativeView(item.sceneIds.length > 1 ? 'chapter' : 'scene');
+                          }));
   remember-step:
     file: web/host.js
     revision: head
-    contains: "        if (step) parameters.set('step', step.id);\n        else parameters.delete('step');\n\
-      \        if (state.narrativeParent) parameters.set('view', state.narrativeParent);\n        else\
-      \ if (step && state.sceneIntroVisible) parameters.set('view', 'overview');\n        else parameters.delete('view');"
+    contains: |2-
+              if (step) parameters.set('step', step.id);
+              else parameters.delete('step');
+              if (state.narrativeParent) parameters.set('view', state.narrativeParent);
+              else if (step && state.sceneIntroVisible) parameters.set('view', 'overview');
+              else parameters.delete('view');
   resume-parent:
     file: web/host.js
     revision: head
-    contains: "        if (direction === 1 && state.narrativeParent) {\n            showTourScene(state.activeSceneIndex,\
-      \ state.activeStepIndex, { userNavigation: true, showIntro: false });\n            return true;\n\
-      \        }"
+    contains: |2-
+              if (direction === 1 && state.narrativeParent) {
+                  showTourScene(state.activeSceneIndex, state.activeStepIndex, { userNavigation: true, showIntro: false });
+                  return true;
+              }
   restore-parent:
     file: web/host.js
     revision: head
-    contains: '            if ([''tour'', ''chapter''].includes(parameters.get(''view''))) setNarrativeView(parameters.get(''view''));'
+    contains: |2-
+                  const requestedPosition = resolveTourPosition(
+                      state.tour.scenes,
+                      parameters.get('scene'),
+                      parameters.get('step')
+                  );
+                  showTourScene(requestedPosition.sceneIndex, requestedPosition.stepIndex, {
+                      showIntro: parameters.get('view') === 'overview' || !parameters.get('step')
+                  });
+                  if (['tour', 'chapter'].includes(parameters.get('view'))) setNarrativeView(parameters.get('view'));
   ignore-layout:
     file: media/script.js
     revision: head
-    contains: "        if (suppressEditorEvents || (!event.scrollTopChanged && !event.scrollLeftChanged))\
-      \ {\n            connectorController.scheduleDrawConnections();\n            return;\n        }"
-  keep-sync:
-    file: media/script.js
-    revision: head
-    contains: "        if (editorMode === MODE_MULTI_WAY) {\n            synchronizeMultiScroll(editor);\n\
-      \        } else {\n            synchronizeEditorScroll(editor);\n        }"
+    contains: |2-
+              if (suppressEditorEvents || (!event.scrollTopChanged && !event.scrollLeftChanged)) {
+                  connectorController.scheduleDrawConnections();
+                  return;
+              }
   width-test:
     file: test/runTests.js
     revision: head
-    contains: "    assert.deepEqual(\n        invokeScrollHandler({ scrollTopChanged: false, scrollLeftChanged:\
-      \ false, scrollWidthChanged: true }),\n        ['draw']\n    );"
-  vertical-test:
+    contains: |2-
+          assert.deepEqual(
+              invokeScrollHandler({ scrollTopChanged: false, scrollLeftChanged: false, scrollWidthChanged: true }),
+              ['draw']
+          );
+  real-scroll-tests:
     file: test/runTests.js
     revision: head
-    contains: "    assert.deepEqual(\n        invokeScrollHandler({ scrollTopChanged: true, scrollLeftChanged:\
-      \ false }),\n        ['two-way-scroll', 'draw']\n    );"
-  horizontal-test:
-    file: test/runTests.js
+    contains: |2-
+          assert.deepEqual(
+              invokeScrollHandler({ scrollTopChanged: true, scrollLeftChanged: false }),
+              ['two-way-scroll', 'draw']
+          );
+          assert.deepEqual(
+              invokeScrollHandler({ scrollTopChanged: false, scrollLeftChanged: true }, 'multi-way'),
+              ['multi-scroll', 'draw']
+          );
+  parent-view:
+    file: web/host.js
     revision: head
-    contains: "    assert.deepEqual(\n        invokeScrollHandler({ scrollTopChanged: false, scrollLeftChanged:\
-      \ true }, 'multi-way'),\n        ['multi-scroll', 'draw']\n    );"
+    contains: |2-
+              if (view === 'tour' || view === 'chapter') {
+                  state.narrativeParent = view;
+                  renderNarrativeViewControls();
+                  renderTourProgress();
+                  updateTourLocationUrl();
+              } else {
 connections: []
 chapters:
-- id: reading
-  title: Reading levels
-  scenes:
-  - id: reading-path
-    overview:
-      kind: directory-diff
-      purpose: Locate the files that jointly implement the reading hierarchy before tracing each responsibility.
-    title: Explore the reading path
-    summary: How did the reading hierarchy fit into the presenter? Begin with the combined stage inventory, then follow the markup, navigation logic, and styles that make each level usable. These constructed stages separate responsibilities that landed together in a real commit.
-    bullets: []
-    tags:
-    - navigation-demo
-    takeaway: Mode chooses the representation of the change; the breadcrumb chooses your reading depth
-      within it.
-    steps:
-    - id: path-host
-      title: Keep navigation beside narration
-      body: The earlier reading path placed parent navigation beside narration. Inspect the toolbar markup
-        to see how both controls shared one surface.
-      focus: path-host
-    - id: path-levels
-      title: Show levels with useful choices
-      body: The earlier implementation built parent levels only when they offered a navigation choice.
-        Inspect the conditions for adding tour and chapter buttons.
-      focus: path-levels
-    - id: path-children
-      title: Let a parent show its children
-      body: The earlier parent buttons opened a chapter while preserving the selected scene when it already
-        belonged there. Follow the membership check before the call that changes the reading level.
-      focus: path-children
-    kind: deconstructed-diff
-    base: 1f8fdc07d56fc7a0e50dcab0383a63159c77178c
-    target: 901a193203e4840dbf6e06c6a273fac7f2d713bd
-    stack:
-    - id: before
-      ref: 1f8fdc07d56fc7a0e50dcab0383a63159c77178c
-      label: Before hierarchy
-    - id: hierarchy
-      ref: a50c2a6f58a2dfd7f85039105a27e4b92b98a3f7
-      label: Hierarchy added
-    - id: marker
-      ref: 901a193203e4840dbf6e06c6a273fac7f2d713bd
-      label: Marker fix added
-    stages:
-    - id: surface
-      title: Place the reading controls
-      narration: Add the breadcrumb, parent container, child list, and their styling. These are synthetic
-        cumulative panels, not historical commits.
-      changes:
-      - file: web/index.html
-        hunks:
-        - hunk-2828c9627055
-        - hunk-68a3bdc9f262
-        - hunk-ad7073e10ed7
-      - file: web/presenter.css
-        hunks:
-        - hunk-3d4093808d4b
-    - id: navigation
-      title: Connect parents and return positions
-      narration: Wire the hierarchy to the selected scene and step, then document the reading behavior.
-      changes:
-      - file: docs/present.md
-        hunks:
-        - hunk-5b7f86aadb64
-        - hunk-635769fc5c13
-        - hunk-d3f94ec64c1f
-      - file: web/host.js
-        hunks:
-        - hunk-3bd48ca387ae
-        - hunk-069a2fee2f36
-        - hunk-e7def68037d5
-        - hunk-755dbc1b8067
-        - hunk-82249952520f
-        - hunk-db24a55e418e
-        - hunk-87209fb2e340
-        - hunk-5ebccafb6522
-        - hunk-b62a3aedf12b
-        - hunk-50d651bf7762
-        - hunk-3a1c863cc48a
-        - hunk-1d2fb5f32ab9
-        - hunk-df6ed3ebba70
-        - hunk-5106426d3c27
-        - hunk-8d0ffe62e5b7
-        - hunk-fc04b2890333
-    - id: focus
-      title: Protect the code marker
-      narration: Ignore layout-only scroll events so revealing a marker is not undone by panel resizing.
-      changes:
-      - file: media/script.js
-        hunks:
-        - hunk-636df0304da5
-    - id: proof
-      title: Check scrolling behavior
-      narration: Test that width-only changes redraw connectors while actual scrolling still synchronizes
-        editors.
-      changes:
-      - file: test/runTests.js
-        hunks:
-        - hunk-acbf72ffb0da
-        - hunk-c6c53c72b8b1
-  - id: return-position
-    title: Return without losing your place
-    summary: With the hierarchy established, how did its original design preserve a return position? Follow the completed URL and parent-view logic across the real range. Notice that reading level and saved step were separate state; these anchors describe the earlier navigation design.
-    bullets: []
-    tags:
-    - navigation-demo
-    takeaway: The reading level and the return step are separate pieces of state.
-    steps:
-    - id: remember-step
-      title: Keep your step ready to resume
-      body: In the earlier design, selecting a parent kept the current step ready to resume. The URL preserved the step and
-        selected reading level so refresh could restore both.
-      focus: remember-step
-    - id: resume-parent
-      title: Resume from a parent
-      body: The earlier Next action returned from a parent to the remembered step. Inspect the branch
-        that selected Resume as its label.
-      focus: resume-parent
-    - id: restore-parent
-      title: Restore the parent after refresh
-      body: Loading the URL restores the selected tour or chapter view after establishing the saved scene
-        and step. Inspect the ordering of those restoration calls.
-      focus: restore-parent
-- id: evidence
-  title: Code focus
-  scenes:
-  - id: marker-focus
-    title: Keep the marker in view
-    summary: The hierarchy can change panel layout without the reader scrolling. How does the correction keep that layout change from moving code focus? Inspect the event guard, then the synchronization path it must preserve. Watch for the distinction between extent changes and position changes.
-    bullets: []
-    tags:
-    - navigation-demo
-    takeaway: The fix filters layout noise without disabling synchronized scrolling.
-    steps:
-    - id: ignore-layout
-      title: Ignore extent-only scroll events
-      body: The guard exits when neither vertical nor horizontal position changed. A panel-width change
-        therefore cannot synchronize an old position back into the focused editor.
-      focus: ignore-layout
-    - id: keep-sync
-      title: Continue synchronizing real scrolling
-      body: After the guard, actual scroll events still dispatch to the appropriate two-panel or multi-panel
-        synchronization path.
-      focus: keep-sync
-  - id: scroll-proof
-    title: Inspect the regression checks
-    summary: Does the guard reject layout noise while preserving real scrolling? Inspect three callback cases for width, vertical position, and horizontal position. The assertions establish event routing; they do not prove that readers understand the hierarchy.
-    bullets: []
-    tags:
-    - navigation-demo
-    takeaway: Layout-only events redraw, while actual scrolling still synchronizes the appropriate comparison.
-    steps:
-    - id: width-test
-      title: A width change only redraws
-      body: A width-only event must draw connectors without requesting either kind of synchronized scroll.
-      focus: width-test
-    - id: vertical-test
-      title: Vertical scrolling still synchronizes
-      body: A real vertical movement in a two-panel comparison still synchronizes and redraws.
-      focus: vertical-test
-    - id: horizontal-test
-      title: Multi-panel scrolling still synchronizes
-      body: A horizontal movement in multi-panel mode reaches the multi-panel synchronizer. This is callback
-        coverage; the panel-switch landing was also checked manually in the browser.
-      focus: horizontal-test
-
+  - id: reading
+    title: Remember where to return
+    scenes:
+      - id: reading-path
+        title: An overview changes the view, not the selected step
+        summary: >-
+          Suppose you are reading step 3 and open its chapter overview. The viewer needs to change
+          what it explains while keeping step 3 as the return destination. We’ll trace that
+          separation, then the boundary: choosing a different chapter deliberately selects a new
+          destination.
+        bullets: []
+        tags:
+          - navigation-demo
+        takeaway: >-
+          Opening the current chapter preserves its selection; choosing another chapter starts
+          there.
+        steps:
+          - id: parent-view
+            title: Change the view without resetting the selection
+            body: >-
+              Opening a tour or chapter overview sets narrativeParent and redraws the navigation.
+              This branch does not change the active scene or step. Step 3 can therefore remain
+              selected while the reader sees its broader context.
+            focus: parent-view
+          - id: path-children
+            title: A different chapter needs a different destination
+            body: >-
+              The chapter button checks whether it contains the current scene. If it does, the
+              selection stays put. If it does not, the button selects that chapter’s first scene at
+              step 1 before opening its overview. Preserving your place applies to stepping outward;
+              it does not prevent deliberate navigation elsewhere.
+            focus: path-children
+      - id: return-position
+        title: Return to the saved step—even after a reload
+        summary: >-
+          The selection survives in memory, but it also has to survive returning and reloading.
+          Still in the same comparison, follow the two values into the URL, the forward action, and
+          startup. Together they explain why an overview need not become a dead end.
+        bullets: []
+        tags:
+          - navigation-demo
+        takeaway: Save both the step to resume and the view to show; restoring either alone is insufficient.
+        steps:
+          - id: remember-step
+            title: "Save two facts: where to return, and what to show"
+            body: >-
+              The URL keeps the selected step while view records the open overview. In our example,
+              it needs both “step 3” and “chapter view.” Saving only the chapter would lose the
+              return destination; saving only the step would reopen code instead of the overview.
+            focus: remember-step
+          - id: resume-parent
+            title: Resume step 3 before considering step 4
+            body: >-
+              The forward action checks for a parent view before normal advancement. It opens the
+              saved scene and step, then returns immediately. From the chapter overview, that means
+              resume step 3—not skip ahead to step 4.
+            focus: resume-parent
+          - id: restore-parent
+            title: Reload the destination, then reopen the overview
+            body: >-
+              Startup first resolves the scene and step from the URL and selects them. Only then
+              does it apply the parent view. That order restores a return destination underneath the
+              overview. The code establishes this sequence; a reload-and-return interaction remains
+              the browser check.
+            focus: restore-parent
+  - id: evidence
+    title: Keep that code in view
+    scenes:
+      - id: marker-focus
+        title: A resize notification is not necessarily a scroll
+        summary: >-
+          A saved step is not enough if resizing the panels moves its highlighted code off-screen.
+          Monaco can report a changed scrollable area even when the scroll position stays put. The
+          old handler could synchronize that notification. This scene follows the new guard and
+          checks that real scrolling still works.
+        bullets: []
+        tags:
+          - navigation-demo
+        takeaway: >-
+          A change in scrollable size needs a redraw; an unsuppressed position change still needs
+          synchronization.
+        steps:
+          - id: ignore-layout
+            title: Redraw layout changes without moving the other panels
+            body: >-
+              The new condition asks whether either scroll position changed. If neither did, it
+              redraws the lines connecting matching code and returns before synchronization.
+              Existing event suppression also takes this early exit. Unsuppressed movement still
+              reaches the synchronizer, so fixing the resize case does not require disabling linked
+              scrolling.
+            focus: ignore-layout
+          - id: width-test
+            title: A wider scrollable area must not move the code
+            body: >-
+              The test changes the scrollable width while leaving both position flags false. It
+              expects only a connector redraw. Calling a synchronizer here would reopen the route by
+              which layout changes can disturb a code reveal.
+            focus: width-test
+          - id: real-scroll-tests
+            title: Real movement must still keep panels together
+            body: >-
+              Skipping synchronization for every scroll event would pass the previous check but
+              break linked scrolling. These assertions rule that out: vertical movement in two-panel
+              mode and horizontal movement in multi-panel mode each synchronize, then redraw. Panel
+              mode selects the synchronizer; the direction of movement does not. These tests check
+              callback routing, not on-screen marker visibility.
+            focus: real-scroll-tests
 tours:
   historical:
     opening:
-      title: Explore a tour without losing your place
-      summary: This change lets you step back from code to a scene, chapter, or tour overview, then resume the code step you left. It also fixes resizing that could push highlighted code out of view. We’ll follow the navigation change and its later scrolling fix through two commits.
+      title: Leave step 3. Come back to step 3.
+      summary: >-
+        You pause at a code step to read the chapter overview. Returning should bring you back to
+        that step, with its code still in view. Two Bygone commits address those two needs: one
+        remembers the return destination; the next prevents layout changes from disturbing it. We’ll
+        follow the saved position, then the scroll guard. This tour examines an earlier viewer
+        implementation.
     conclusion:
-      title: The hierarchy and correction remain separate changes
-      summary: The first commit introduces reading levels and return positions. The later correction distinguishes layout-only events from actual scrolling so the code marker remains useful. The tests support that event distinction; reader comprehension still needs observation.
+      title: A saved step also needs stable code focus
+      summary: >-
+        Opening an overview keeps the selected step; returning resumes it before advancing. The URL
+        preserves both choices across reload. Separately, the scroll guard prevents layout-only
+        notifications from invoking synchronization. The source explains the return path, and
+        callback tests check the guard. Neither demonstrates the complete interaction: refresh,
+        return, and resize still need a browser check.
     chapters:
-      - id: historical-reading
-        title: Move between overview and code
+      - id: reading
+        title: Remember where to return
         scenes:
-          - id: hierarchy-revision
-            overview:
-              kind: directory-diff
-              purpose: Establish which web layers landed together in the hierarchy commit before following their responsibilities.
-              path: web
-              comparison:
-                from: before
-                to: hierarchy
-            kind: stacked-diff
-            title: Add reading levels in a real commit
+          - id: reading-path
+            title: An overview changes the view, not the selected step
             summary: >-
-              What landed together when the hierarchy was introduced? Start with the web inventory for that commit, then inspect its markup, navigation logic, and styles. Watch how those responsibilities cooperate; Deconstructed tour separates them into teaching stages, while these panels retain the real commit boundaries.
+              Suppose you are reading step 3 and open its chapter overview. The viewer needs to
+              change what it explains while keeping step 3 as the return destination. We’ll trace
+              that separation, then the boundary: choosing a different chapter deliberately selects
+              a new destination.
             bullets: []
             tags:
-              - real-revisions
               - navigation-demo
             takeaway: >-
-              Historical tour keeps the real commit boundaries, even when one commit contains
-              several concepts.
-            stack:
-              - id: before
-                ref: 1f8fdc07d56fc7a0e50dcab0383a63159c77178c
-                label: Before hierarchy
-              - id: hierarchy
-                ref: a50c2a6f58a2dfd7f85039105a27e4b92b98a3f7
-                label: Hierarchy added
-              - id: marker
-                ref: 901a193203e4840dbf6e06c6a273fac7f2d713bd
-                label: Marker fix added
-            files:
-              - web/index.html
-              - web/host.js
-              - web/presenter.css
+              Opening the current chapter preserves its selection; choosing another chapter starts
+              there.
             steps:
-              - id: historical-markup
-                title: Give the hierarchy a home
+              - id: parent-view
+                title: Change the view without resetting the selection
                 body: >-
-                  The hierarchy commit adds the reading path and parent-view containers to the
-                  presenter. This is the same committed markup shown in the synthetic surface stage,
-                  now in its original revision context.
-                file: web/index.html
-                pair:
-                  - before
-                  - hierarchy
-                side: right
-              - id: historical-behavior
-                title: Connect the reading levels
+                  Opening a tour or chapter overview sets narrativeParent and redraws the
+                  navigation. This branch does not change the active scene or step. Step 3 can
+                  therefore remain selected while the reader sees its broader context.
+                focus: parent-view
+              - id: path-children
+                title: A different chapter needs a different destination
                 body: >-
-                  The same commit wires parent navigation and return positions in the host. The
-                  hierarchy was introduced as a coherent UI change, rather than as separate Git
-                  commits for each explanation stage.
-                file: web/host.js
-                pair:
-                  - before
-                  - hierarchy
-                side: right
-              - id: historical-style
-                title: Style the parent choices
-                body: >-
-                  The reading controls and child choices receive their layout in this commit as
-                  well. Change modes to Deconstructed to inspect those changes in a different
-                  teaching order.
-                file: web/presenter.css
-                pair:
-                  - before
-                  - hierarchy
-                side: right
-          - id: historical-return
-            title: Return without losing your place
+                  The chapter button checks whether it contains the current scene. If it does, the
+                  selection stays put. If it does not, the button selects that chapter’s first scene
+                  at step 1 before opening its overview. Preserving your place applies to stepping
+                  outward; it does not prevent deliberate navigation elsewhere.
+                focus: path-children
+          - id: return-position
+            title: Return to the saved step—even after a reload
             summary: >-
-              How did the original hierarchy preserve a return position? This scene uses the full base-to-head comparison to inspect the completed URL and parent-view logic. Notice the separation between reading level and saved step; these anchors describe the earlier navigation design.
+              The selection survives in memory, but it also has to survive returning and reloading.
+              Still in the same comparison, follow the two values into the URL, the forward action,
+              and startup. Together they explain why an overview need not become a dead end.
             bullets: []
             tags:
               - navigation-demo
-            takeaway: The reading level and the return step are separate pieces of state.
+            takeaway: >-
+              Save both the step to resume and the view to show; restoring either alone is
+              insufficient.
             steps:
               - id: remember-step
-                title: Keep your step ready to resume
+                title: "Save two facts: where to return, and what to show"
                 body: >-
-                  In the earlier design, selecting a parent kept the current step ready to resume. The URL preserved the step and
-                  selected reading level so refresh could restore both.
+                  The URL keeps the selected step while view records the open overview. In our
+                  example, it needs both “step 3” and “chapter view.” Saving only the chapter would
+                  lose the return destination; saving only the step would reopen code instead of the
+                  overview.
                 focus: remember-step
               - id: resume-parent
-                title: Resume from a parent
+                title: Resume step 3 before considering step 4
                 body: >-
-                  Next from a parent returns to the remembered step instead of advancing past it.
-                  The button label becomes Resume to make that behavior explicit.
+                  The forward action checks for a parent view before normal advancement. It opens
+                  the saved scene and step, then returns immediately. From the chapter overview,
+                  that means resume step 3—not skip ahead to step 4.
                 focus: resume-parent
               - id: restore-parent
-                title: Restore the parent after refresh
+                title: Reload the destination, then reopen the overview
                 body: >-
-                  Loading the URL restores the selected tour or chapter view after establishing the
-                  saved scene and step. Inspect the ordering of those restoration calls.
+                  Startup first resolves the scene and step from the URL and selects them. Only then
+                  does it apply the parent view. That order restores a return destination underneath
+                  the overview. The code establishes this sequence; a reload-and-return interaction
+                  remains the browser check.
                 focus: restore-parent
-      - id: historical-correction
-        title: Keep highlighted code in view
+      - id: evidence
+        title: Keep that code in view
         scenes:
-          - id: marker-revision
-            kind: stacked-diff
-            title: Fix marker focus after the hierarchy change
+          - id: marker-focus
+            title: A resize notification is not necessarily a scroll
             summary: >-
-              The hierarchy can resize panels without the reader scrolling. This scene isolates the follow-up commit to ask how code focus survives that layout change. Inspect the event guard and the synchronization path it preserves; the active comparison now spans the hierarchy commit to the correction.
+              Now isolate the second commit: navigation is already in place, but a panel resize can
+              still disturb the highlighted code. Monaco reports changes in scrollable size through
+              its scroll callback, even without a position change. The guard separates those
+              notifications from movement; the tests check both paths.
             bullets: []
             tags:
-              - real-revisions
               - navigation-demo
-            takeaway: The later commit repairs code focus while retaining the new reading hierarchy.
+            takeaway: >-
+              A change in scrollable size needs a redraw; an unsuppressed position change still
+              needs synchronization.
+            steps:
+              - id: historical-marker
+                title: Redraw layout changes without moving the other panels
+                body: >-
+                  The new condition asks whether either scroll position changed. If neither did, it
+                  redraws the lines connecting matching code and returns before synchronization.
+                  Existing event suppression also takes this early exit. Unsuppressed movement still
+                  reaches the synchronizer, so fixing the resize case does not require disabling
+                  linked scrolling.
+                file: media/script.js
+                pair:
+                  - hierarchy
+                  - marker
+                side: right
+              - id: historical-proof
+                title: Reject layout-only events without breaking linked scrolling
+                body: >-
+                  In the same commit comparison, this file checks both sides of the guard. A
+                  width-only event must call draw alone. Vertical movement in two-panel mode and
+                  horizontal movement in multi-panel mode must each synchronize, then draw. The
+                  positive cases matter: disabling all synchronization would also pass the
+                  width-only check. These assertions verify routing, not visible marker behavior.
+                file: test/runTests.js
+                pair:
+                  - hierarchy
+                  - marker
+                side: right
+            kind: stacked-diff
             stack:
               - id: before
                 ref: 1f8fdc07d56fc7a0e50dcab0383a63159c77178c
@@ -370,53 +349,137 @@ tours:
             files:
               - media/script.js
               - test/runTests.js
-            steps:
-              - id: historical-marker
-                title: Ignore layout-only scroll events
-                body: >-
-                  Panel resizing can emit scroll events without moving either scroll position. This
-                  revision redraws connections and returns early for those events, preserving the
-                  tour marker focus.
-                file: media/script.js
-                pair:
-                  - hierarchy
-                  - marker
-                side: right
-              - id: historical-proof
-                title: Keep actual scrolling synchronized
-                body: >-
-                  The follow-up includes assertions for width-only events and real vertical or
-                  horizontal scrolling. These checks distinguish a layout update from a user scroll
-                  that must still synchronize editors.
-                file: test/runTests.js
-                pair:
-                  - hierarchy
-                  - marker
-                side: right
-          - id: historical-checks
-            title: Inspect the regression checks
+  deconstructed:
+    opening:
+      title: Leave step 3. Come back to step 3.
+      summary: >-
+        You pause at a code step to read the chapter overview. Returning should bring you back to
+        that step, with its code still in view. Two Bygone commits address those two needs: one
+        remembers the return destination; the next prevents layout changes from disturbing it. We’ll
+        follow the saved position, then the scroll guard. This tour examines an earlier viewer
+        implementation.
+    conclusion:
+      title: A saved step also needs stable code focus
+      summary: >-
+        Opening an overview keeps the selected step; returning resumes it before advancing. The URL
+        preserves both choices across reload. Separately, the scroll guard prevents layout-only
+        notifications from invoking synchronization. The source explains the return path, and
+        callback tests check the guard. Neither demonstrates the complete interaction: refresh,
+        return, and resize still need a browser check.
+    chapters:
+      - id: reading
+        title: Remember where to return
+        scenes:
+          - id: reading-path
+            title: Make the overview reachable, then make the return reliable
             summary: >-
-              Does the correction reject layout noise while preserving real scrolling? Return to the full range to inspect three regression cases for width, vertical position, and horizontal position. Watch the expected callbacks; these tests establish event routing, not reader comprehension.
+              Leave step 3 for its chapter overview: the controls expose the overview, while
+              separate view and selection state preserve the way back. Returning resumes step 3
+              before advancing. Reload restores the selection before reopening the overview;
+              choosing another chapter deliberately selects a new destination. These two constructed
+              stages separate controls from behavior, not commit history. The next scene returns to
+              committed evidence for the scroll guard.
             bullets: []
             tags:
               - navigation-demo
             takeaway: >-
-              Layout-only events redraw, while actual scrolling still synchronizes the appropriate comparison.
+              The controls let the reader step outward; separate view and selection state make the
+              trip reversible.
+            kind: deconstructed-diff
+            base: 1f8fdc07d56fc7a0e50dcab0383a63159c77178c
+            target: 901a193203e4840dbf6e06c6a273fac7f2d713bd
+            stages:
+              - id: surface
+                title: Give the reader a way to step outward
+                narration: >-
+                  The markup and styling provide parent navigation and destination lists. The next
+                  stage supplies the behavior that preserves the return destination.
+                changes:
+                  - file: web/index.html
+                    hunks:
+                      - hunk-2828c9627055
+                      - hunk-68a3bdc9f262
+                      - hunk-ad7073e10ed7
+                  - file: web/presenter.css
+                    hunks:
+                      - hunk-3d4093808d4b
+              - id: navigation
+                title: Keep the selected step underneath the overview
+                narration: >-
+                  The parent view changes independently of the selected step. Saving both lets
+                  return and reload preserve the reader’s place.
+                changes:
+                  - file: docs/present.md
+                    hunks:
+                      - hunk-5b7f86aadb64
+                      - hunk-635769fc5c13
+                      - hunk-d3f94ec64c1f
+                  - file: web/host.js
+                    hunks:
+                      - hunk-3bd48ca387ae
+                      - hunk-069a2fee2f36
+                      - hunk-e7def68037d5
+                      - hunk-755dbc1b8067
+                      - hunk-82249952520f
+                      - hunk-db24a55e418e
+                      - hunk-87209fb2e340
+                      - hunk-5ebccafb6522
+                      - hunk-b62a3aedf12b
+                      - hunk-50d651bf7762
+                      - hunk-3a1c863cc48a
+                      - hunk-1d2fb5f32ab9
+                      - hunk-df6ed3ebba70
+                      - hunk-5106426d3c27
+                      - hunk-8d0ffe62e5b7
+                      - hunk-fc04b2890333
+            exclusions:
+              - file: media/script.js
+                reason: >-
+                  The marker correction is explained with exact committed evidence in the following
+                  scene.
+              - file: test/runTests.js
+                reason: >-
+                  The scroll callback assertions are explained beside the guard in the following
+                  scene.
+      - id: evidence
+        title: Keep that code in view
+        scenes:
+          - id: marker-focus
+            title: A resize notification is not necessarily a scroll
+            summary: >-
+              A saved step is not enough if resizing the panels moves its highlighted code
+              off-screen. Monaco can report a changed scrollable area even when the scroll position
+              stays put. The old handler could synchronize that notification. This scene follows the
+              new guard and checks that real scrolling still works.
+            bullets: []
+            tags:
+              - navigation-demo
+            takeaway: >-
+              A change in scrollable size needs a redraw; an unsuppressed position change still
+              needs synchronization.
             steps:
+              - id: ignore-layout
+                title: Redraw layout changes without moving the other panels
+                body: >-
+                  The new condition asks whether either scroll position changed. If neither did, it
+                  redraws the lines connecting matching code and returns before synchronization.
+                  Existing event suppression also takes this early exit. Unsuppressed movement still
+                  reaches the synchronizer, so fixing the resize case does not require disabling
+                  linked scrolling.
+                focus: ignore-layout
               - id: width-test
-                title: A width change only redraws
+                title: A wider scrollable area must not move the code
                 body: >-
-                  A width-only event must draw connectors without requesting either kind of
-                  synchronized scroll.
+                  The test changes the scrollable width while leaving both position flags false. It
+                  expects only a connector redraw. Calling a synchronizer here would reopen the
+                  route by which layout changes can disturb a code reveal.
                 focus: width-test
-              - id: vertical-test
-                title: Vertical scrolling still synchronizes
-                body: A real vertical movement in a two-panel comparison still synchronizes and redraws.
-                focus: vertical-test
-              - id: horizontal-test
-                title: Multi-panel scrolling still synchronizes
+              - id: real-scroll-tests
+                title: Real movement must still keep panels together
                 body: >-
-                  A horizontal movement in multi-panel mode reaches the multi-panel synchronizer.
-                  This is callback coverage; the panel-switch landing was also checked manually in
-                  the browser.
-                focus: horizontal-test
+                  Skipping synchronization for every scroll event would pass the previous check but
+                  break linked scrolling. These assertions rule that out: vertical movement in
+                  two-panel mode and horizontal movement in multi-panel mode each synchronize, then
+                  redraw. Panel mode selects the synchronizer; the direction of movement does not.
+                  These tests check callback routing, not on-screen marker visibility.
+                focus: real-scroll-tests
