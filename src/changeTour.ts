@@ -642,10 +642,12 @@ function buildDeconstructedFocusSteps(
             id: focusIndex === 0
                 ? claimDeconstructedStageId(stage.id, usedIds)
                 : claimDeconstructedFocusId(`${stage.id}-focus-${focusIndex + 1}`, reservedIds, usedIds),
-            title: focuses.length === 1
+            title: focusIndex === 0
                 ? stage.title
-                : `${stage.title} · ${focus.file} · Focus ${focusIndex + 1}/${focuses.length}`,
-            body: stage.narration,
+                : `${focus.file} · Evidence ${focusIndex + 1} of ${focuses.length}`,
+            // A stage is one argument supported by multiple code focuses.
+            // Keep its explanation once in the reading/narration sequence.
+            body: focusIndex === 0 ? stage.narration : '',
             file: focus.file,
             pairIndex: stageIndex,
             side: focus.side,

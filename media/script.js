@@ -1,4 +1,5 @@
 import { dedupeDecorations } from './decorationUtils';
+import { isCancellationError } from 'monaco-editor/esm/vs/base/common/errors.js';
 import { mapLinePosition, mapMultiPanelLinePositions, scrollTopToModelLinePosition, modelLinePositionToScrollTop } from './scrollMapping';
 import {
     buildBlockChanges,
@@ -2336,6 +2337,7 @@ function setOwnedEditorModel(editor, identity, content, languageId) {
     const currentModel = editor.getModel();
     if (editorModelIdentities.get(editor) !== identity) {
         const nextModel = createOwnedModel(content, languageId);
+        handlePendingWordHighlightCancellation(editor);
         editor.setModel(nextModel);
         currentModel?.dispose();
         editorModelIdentities.set(editor, identity);
@@ -2362,8 +2364,20 @@ function setOwnedEditorModel(editor, identity, content, languageId) {
 
 function disposeEditorAndModel(editor) {
     const model = editor.getModel();
+    handlePendingWordHighlightCancellation(editor);
     editor.dispose();
     model?.dispose();
+}
+
+function handlePendingWordHighlightCancellation(editor) {
+    // Monaco 0.55's word highlighter ignores the promise from its cursor Delayer.
+    // Model replacement and editor disposal cancel it. Handle only that pending
+    // operation's expected cancellation, without hiding other renderer failures.
+    const pending = editor.getContribution('editor.contrib.wordHighlighter')
+        ?.wordHighlighter?.runDelayer?.completionPromise;
+    void pending?.catch(error => {
+        if (!isCancellationError(error)) throw error;
+    });
 }
 
 function updateTwoWayEditorOptions() {

@@ -214,6 +214,9 @@ Use these narrative constraints:
 
 - State one reviewer question or thesis per scene. In its summary, explain why
   this question comes next, what evidence is about to appear, and what to notice.
+- Before authoring, answer: “What can the reader explain after this scene that
+  they could not explain before it?” An inventory of visited files is not an
+  answer. Give each scene a distinct explanatory job.
 - Split scenes only when the reviewer question changes. Several steps can support
   one scene; several scenes can examine the same comparison. Do not split merely
   because the file, panel, or viewport changes. A chapter groups related questions.
@@ -223,8 +226,21 @@ Use these narrative constraints:
   a conclusion stronger than the evidence or manufacture evidence for a recap.
 - Give every chapter a coherent multi-scene arc when the material supports one; allow a single-scene chapter only when that scene is independently substantial.
 - Decompose scenes by conceptual need, not a fixed template; do not force every scene to use the same step count.
-- Prefer three to seven steps per scene.
+- Use as many steps as the argument needs; do not pad or split it to meet a
+  preferred count. Keep tests beside the behavior they support unless they
+  resolve a distinct question that warrants another scene.
 - Explain why focused code matters instead of paraphrasing syntax.
+- Connect the observable outcome to its mechanism and supporting evidence in
+  the main reading path. Preserve the causal links when shortening prose;
+  “ignores layout events” is less useful than explaining why skipping scroll
+  synchronization prevents a layout event from undoing a code reveal.
+- State the important finding in the step title and place its evidence beside
+  the explanation. Include a preserved behavior or material limit when it
+  changes the conclusion. Do not impose repeated claim/cause/proof labels.
+- Keep rationale visible. Do not substitute scope inventories or details
+  disclosures for reasoning, or repeatedly teach the tour hierarchy before
+  explaining the code. Reference numbers belong in lists, not repeated dotted
+  references in prose. Metadata belongs in existing evidence surfaces.
 - Keep summaries, bullets, annotations, and takeaways distinct; bullets that merely restate the summary are a defect.
 - Avoid intent, safety, performance, or runtime claims unsupported by the evidence.
 - Do not imply that the authored tour exhaustively reviews every changed file.
@@ -363,6 +379,10 @@ Treat this as a required self-audit, not a claim the validator can prove. For ea
 - chapter boundaries follow conceptual transitions rather than a fixed count or one-scene-per-chapter pattern;
 - important production behavior is not hidden in the complete Files rail;
 - tests are connected to the behavior they prove;
+- each scene adds a distinct understanding, and the main path explains how
+  the implementation produces the claimed behavior;
+- the compiled route does not repeat an explanation merely because the file
+  changed or another generated focus step was added;
 - connections express causal, contractual, data-flow, ordering, or proof relationships;
 - binary files and omitted patches are surfaced explicitly;
 - every Historical tour excludes synthetic deconstructed scenes, and every
@@ -374,6 +394,15 @@ Treat this as a required self-audit, not a claim the validator can prove. For ea
   walkthrough evidence, while mode-specific synthetic scenes do not claim
   that evidence exists;
 - the final step supplies proof or a clear reviewer conclusion.
+
+For a presentation revision, inspect both a small fix and a multi-commit change;
+see `examples/marker-focus.bygone` and `examples/navigation-lab.bygone.yaml`.
+Ask an unfamiliar reader to explain the outcome, mechanism, supporting evidence,
+and remaining uncertainty, and to identify whether a selected transition changed
+the comparison. Record observed confusion separately from source validation and
+navigation checks. Do not claim improved comprehension from fewer words, fewer
+stops, or a passing validator alone. Use concrete reader or viewer observations
+to justify further presentation changes.
 
 ## Always print the open command
 

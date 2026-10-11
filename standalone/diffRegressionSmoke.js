@@ -201,6 +201,33 @@ app.whenReady().then(async () => {
             assert.deepEqual(await evaluate(readOnlyOptions), [true, true], 'Read-only host capabilities cannot be toggled away');
         }
         await runGutterCopySmoke({ window, show });
+        await show({ type: 'showDiff', file1: 'before.txt', file2: 'after.txt', leftContent: 'before word\n', rightContent: 'after word\n' });
+        assert.equal(await evaluate(`(() => {
+            const editor = ${editors}[0];
+            const delayer = editor.getContribution('editor.contrib.wordHighlighter').wordHighlighter.runDelayer;
+            // Keep real highlight work pending across IPC without sleeping.
+            delayer.defaultDelay = 10000;
+            editor.setPosition({ lineNumber: 1, column: 2 });
+            return Boolean(delayer.completionPromise);
+        })()`), true, 'Model replacement exercises pending Monaco cursor highlighting');
+        await show({ type: 'showDiff', file1: 'next-before.txt', file2: 'next-after.txt', leftContent: 'next before\n', rightContent: 'next after\n' });
+        await evaluate(`(() => {
+            window.highlightFailures = [];
+            window.addEventListener('unhandledrejection', event => {
+                if (event.reason?.message !== 'Injected highlight failure') return;
+                window.highlightFailures.push(event.reason.message);
+                event.preventDefault();
+            });
+            const editor = ${editors}[0];
+            const delayer = editor.getContribution('editor.contrib.wordHighlighter').wordHighlighter.runDelayer;
+            delayer.defaultDelay = 10000;
+            editor.setPosition({ lineNumber: 1, column: 2 });
+            const reject = delayer.doReject;
+            delayer.doReject = () => reject(new Error('Injected highlight failure'));
+        })()`);
+        await show({ type: 'showDiff', file1: 'final-before.txt', file2: 'final-after.txt', leftContent: 'final before\n', rightContent: 'final after\n' });
+        assert.deepEqual(await evaluate('window.highlightFailures'), ['Injected highlight failure'], 'Non-cancellation highlight failures remain observable');
+        assert.equal(await evaluate(`${editors}.every(e => e.getOption(window.monaco.editor.EditorOption.occurrencesHighlight) !== 'off')`), true, 'Word highlighting stays enabled');
         assert.deepEqual(errors, []);
         console.log('Diff renderer regression smoke passed: whitespace paint/ranges, long YAML, two/three panels, both scroll directions, wrap on/off, unchanged prefix/suffix, reflow boundaries, panel switching, connector clipping, renamed title pairing.');
         clearTimeout(timeout); app.exit(0);

@@ -19,6 +19,7 @@ export type NarrationField =
     | 'bullet'
     | 'step-title'
     | 'step-body'
+    | 'stage-title'
     | 'connection'
     | 'takeaway';
 
@@ -153,6 +154,9 @@ export function buildReadingNarrationUnit(
         } else if (isSteppedScene(scene)) {
             const step = scene.steps[item.stepIndex];
             if (options.entry === 'playback-start') add('scene-title', tourReadingTitle(tour, { kind: 'scene', key: `scene:${scene.id}`, sceneIndex: item.sceneIndex, stepIndex: 0 }));
+            if (options.entry === 'playback-start' && scene.kind === 'deconstructed-diff' && !step.body) {
+                add('stage-title', scene.panels[scene.steps[item.stepIndex].pairIndex + 1].label);
+            }
             add('step-title', tourReadingTitle(tour, item));
             add('step-orientation', describeStepOrientation(tour, item.sceneIndex, item.stepIndex));
             add('step-body', step.body);

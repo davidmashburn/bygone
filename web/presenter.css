@@ -828,6 +828,11 @@ body.tour-derived-mode .tour-narrative-resizer {
     min-height: max(0px, var(--tour-reading-viewport, 0px));
 }
 
+.tour-reading-item[data-reading-kind="title"],
+.tour-reading-item[data-reading-kind="chapter"] {
+    min-height: var(--tour-bookend-viewport, 0px);
+}
+
 .tour-narrative-chapter {
     margin-bottom: 5px;
     color: var(--tour-accent-bright);
@@ -1508,8 +1513,10 @@ body.tour-image-active #container > #diff-workspace { display: none; }
 .tour-narrative { top: var(--workspace-toolbar-height); }
 .tour-narrative-resizer { top: calc(var(--workspace-toolbar-height) + var(--tour-narrative-height) - 4px); }
 body.tour-mode #container {
+    position: fixed;
+    top: calc(var(--workspace-toolbar-height) + var(--tour-narrative-height));
     height: calc(100vh - var(--workspace-toolbar-height) - var(--tour-narrative-height));
-    margin-top: calc(var(--workspace-toolbar-height) + var(--tour-narrative-height));
+    margin-top: 0;
 }
 #workspace-view > .workspace-empty-view {
     position: fixed;
@@ -1537,8 +1544,8 @@ body.tour-discussion #container { visibility: hidden; pointer-events: none; }
 .tour-step-orientation { color: var(--tour-muted); font-size: 0.9em; overflow-wrap: anywhere; }
 
 /* Bookends use the space otherwise reserved for code; evidence keeps its saved split. */
-body.tour-bookend:not(.tour-derived-mode) #tour-narrative { height: 100vh !important; }
-body.tour-bookend #tour-narrative-resizer { display: none; }
+body.tour-bookend.tour-discussion:not(.tour-derived-mode) #tour-narrative { height: calc(100vh - var(--workspace-toolbar-height)) !important; }
+body.tour-bookend.tour-discussion #tour-narrative-resizer { display: none; }
 
 .tour-route-chapter { margin-top: 1.5em; }
 .tour-route-chapter > .tour-route { margin-top: 1em; padding-left: 1em; border-left: 2px solid var(--tour-border); }

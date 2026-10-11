@@ -1,0 +1,116 @@
+version: 5
+title: Keep highlighted code in view when panels resize
+opening:
+  title: Resizing a panel should not lose the highlighted code
+  summary: >-
+    A tour reveals a line of code. You resize a panel, and that line can move out of view—even
+    though you never scrolled. This fix changes which editor events trigger linked scrolling. Follow
+    the unwanted path, the guard that blocks it, and the tests that keep normal scrolling intact.
+conclusion:
+  title: Keep redraws; synchronize only actual movement
+  summary: >-
+    The handler now distinguishes a changed scrollable area from a changed scroll position.
+    Layout-only events redraw the connectors and stop; unsuppressed movement still synchronizes. The
+    tests establish that routing distinction. They do not reproduce a resize, so the final visual
+    check is whether highlighted code stays in view when a panel changes size.
+range:
+  base: a50c2a6f58a2dfd7f85039105a27e4b92b98a3f7
+  head: 901a193203e4840dbf6e06c6a273fac7f2d713bd
+anchors:
+  before-guard:
+    file: media/script.js
+    revision: base
+    contains: |2-
+          editor.onDidScrollChange(() => {
+              if (suppressEditorEvents) {
+                  connectorController.scheduleDrawConnections();
+                  return;
+              }
+
+              if (editorMode === MODE_MULTI_WAY) {
+                  synchronizeMultiScroll(editor);
+              } else {
+                  synchronizeEditorScroll(editor);
+              }
+              connectorController.scheduleDrawConnections();
+          });
+  ignore-layout:
+    file: media/script.js
+    revision: head
+    contains: |2-
+              if (suppressEditorEvents || (!event.scrollTopChanged && !event.scrollLeftChanged)) {
+                  connectorController.scheduleDrawConnections();
+                  return;
+              }
+  width-test:
+    file: test/runTests.js
+    revision: head
+    contains: |2-
+          assert.deepEqual(
+              invokeScrollHandler({ scrollTopChanged: false, scrollLeftChanged: false, scrollWidthChanged: true }),
+              ['draw']
+          );
+  real-scroll-tests:
+    file: test/runTests.js
+    revision: head
+    contains: |2-
+          assert.deepEqual(
+              invokeScrollHandler({ scrollTopChanged: true, scrollLeftChanged: false }),
+              ['two-way-scroll', 'draw']
+          );
+          assert.deepEqual(
+              invokeScrollHandler({ scrollTopChanged: false, scrollLeftChanged: true }, 'multi-way'),
+              ['multi-scroll', 'draw']
+          );
+connections: []
+chapters:
+  - id: focus
+    title: Preserve code focus
+    scenes:
+      - id: marker-focus
+        title: Why a resize can move code—and where to stop it
+        summary: >-
+          The scroll callback also reports changes in how much content can be scrolled. The old
+          handler does not inspect that distinction. We’ll compare it with the new guard, then test
+          the layout-only case and real movement separately.
+        takeaway: >-
+          Filter the event before synchronization; preserve the redraw and the normal scrolling
+          path.
+        steps:
+          - id: before-guard
+            title: The old handler treats an unsuppressed event as movement
+            body: >-
+              After the suppression check, every event reaches a synchronizer selected by panel
+              mode. The handler never asks whether the position moved. The fix’s source comment
+              identifies the consequence: synchronizing a layout-only notification can push a
+              revealed code anchor out of view.
+            focus: before-guard
+          - id: ignore-layout
+            title: Redraw layout changes without moving the other panels
+            body: >-
+              The new condition asks whether either scroll position changed. If neither did, it
+              redraws the lines connecting matching code and returns before synchronization.
+              Existing event suppression also takes this early exit. Unsuppressed movement still
+              reaches the synchronizer, so fixing the resize case does not require disabling linked
+              scrolling.
+            focus: ignore-layout
+          - id: width-test
+            title: A wider scrollable area must not move the code
+            body: >-
+              The test changes the scrollable width while leaving both position flags false. It
+              expects only a connector redraw. Calling a synchronizer here would reopen the route by
+              which layout changes can disturb a code reveal.
+            focus: width-test
+          - id: real-scroll-tests
+            title: Real movement must still keep panels together
+            body: >-
+              Skipping synchronization for every scroll event would pass the previous check but break linked scrolling.
+              These assertions rule that out: vertical movement in two-panel mode and horizontal
+              movement in multi-panel mode each synchronize, then redraw. Panel mode selects the
+              synchronizer; the direction of movement does not. These tests check callback routing,
+              not on-screen marker visibility.
+            focus: real-scroll-tests
+        bullets: []
+        tags:
+          - scrolling
+          - bug-fix

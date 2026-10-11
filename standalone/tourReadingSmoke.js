@@ -129,6 +129,11 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
         assert.equal(initial.activeKeys.length, 1, 'Exactly one reading item is active initially');
         assert.equal(initial.activeKeys[0], 'title', 'The title starts as the active reading item');
 
+        assert.equal(await evaluate("getComputedStyle(document.querySelector('#tour-narrative-resizer')).display"), 'none',
+            'The full-height intro has no code divider');
+        await evaluate("document.querySelector('.tour-outline-step').click()");
+        await waitForActive('step:scene-one:step-one-a');
+        const resizeSelection = await read();
         const originalHeight = await evaluate("document.querySelector('#tour-narrative').getBoundingClientRect().height");
         const originalPreference = await evaluate("localStorage.getItem('bygone.tourNarrativeHeight')");
         const resizeKey = async (key) => {
@@ -184,14 +189,16 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
             split = await readSplit();
             assertSplit(split);
             assert.equal(split.stored, target, 'Dragging saves the narrative height');
-            assert.deepEqual((await read()).activeKeys, initial.activeKeys, 'Resizing preserves the selected passage');
-            assert.deepEqual((await read()).url, initial.url, 'Resizing preserves the reading URL');
+            assert.deepEqual((await read()).activeKeys, resizeSelection.activeKeys, 'Resizing preserves the selected passage');
+            assert.deepEqual((await read()).url, resizeSelection.url, 'Resizing preserves the reading URL');
         } finally {
             await dragSplit(Math.round(originalHeight));
             await evaluate(originalPreference === null
                 ? "localStorage.removeItem('bygone.tourNarrativeHeight')"
                 : `localStorage.setItem('bygone.tourNarrativeHeight', ${JSON.stringify(originalPreference)})`);
         }
+        await evaluate("document.querySelector('[data-reading-link=title]').click()");
+        await waitForActive('title');
         assert.equal(initial.items.filter((item) => item.kind === 'title').length, 1, 'The title item is unique');
         assert.equal(initial.items.filter((item) => item.kind === 'chapter').length, 2, 'Each chapter has a reading item');
         assert.equal(initial.items.filter((item) => item.kind === 'scene').length, 2, 'Each scene has a reading item');
@@ -205,8 +212,10 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
             'step:scene-one:step-one-b', 'chapter:chapter-two', 'scene:scene-two',
             'step:scene-two:step-two-a', 'step:scene-two:step-two-b'
         ], 'Reading items follow title, chapter, scene, and step order');
-        assert.equal(await evaluate("Boolean(document.querySelector('#tour-next, #tour-previous, #tour-reading-path'))"), false,
-            'The legacy linear navigation controls are absent');
+        assert.equal(await evaluate("Boolean(document.querySelector('#tour-previous, #tour-reading-path'))"), false,
+            'The legacy reading-path controls are absent');
+        assert.equal(await evaluate("Boolean(document.querySelector('#tour-back') && document.querySelector('#tour-next'))"), true,
+            'Back and Next supplement the continuous reading document');
 
         const sceneItems = initial.items.filter((item) => item.kind === 'scene');
         const chapterItems = initial.items.filter((item) => item.kind === 'chapter');
@@ -243,7 +252,8 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
         for (const detail of contextDetails) {
             assert.equal(detail.open, false, `${detail.key} starts collapsed`);
             assert.equal(detail.repeatedContext, false, `${detail.key} does not repeat the scene overview`);
-            assert.equal(detail.summary, `Scene overview: ${sceneTitles[detail.sceneId]}`, `${detail.key} labels its scene context`);
+            const plainTitle = sceneTitles[detail.sceneId].replace(/^\d+\. /, '');
+            assert.equal(detail.summary, `Scene overview: ${plainTitle}`, `${detail.key} labels its scene context without the outline number`);
             assert.equal(detail.beforeHeading, true, `${detail.key} context precedes its heading`);
             assert.equal(detail.beforeBody, true, `${detail.key} context precedes its body`);
             assert.equal(detail.duplicateNavigation, false, `${detail.key} context contains no duplicate navigation`);

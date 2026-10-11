@@ -257,15 +257,14 @@ entering evidence restores the saved prose/code split.
 See the [visual walkthrough](visual-walkthrough/README.md) for a complete example.
 
 
-The Intro explains the reading hierarchy and groups its roadmap by numbered
-chapters. A chapter groups related topics; each scene introduces a question or
-purpose; each step connects a claim to code or an image. Scene 1.2 belongs to
-Chapter 1, and Step 1.2.3 is its third step. The same numbering appears in the
-outline, headings, and narration. Even a single chapter remains explicit.
+The Intro explains what the change does and gives a short route through the
+chapters. Chapters group related questions, scenes explain one question, and
+steps connect claims to evidence. Chapter, scene, and step lists use simple
+numbers for reference; reading headings and narration use plain titles.
 
-Intro shows a short chapter outline; chapter introductions list their scenes.
-“Scope details” expands the focused files, actual revision comparisons (or
-constructed explanation stages), and scene purposes. Optional scope details
-are omitted from narration. These comparisons are derived from the evidence;
-a chapter or scene boundary does not by itself imply a different file, commit, or PR. A chapter can cover
-multiple comparisons, and its introduction lists them individually.
+Chapter introductions list their scenes. The main explanation keeps the reasons
+for the change beside its evidence. Comparison captions identify the displayed
+revisions or constructed stages; a chapter or scene boundary does not itself
+mean the comparison changed. Intro, chapter, and Conclusion passages fill the
+reading area. Exploring Files restores the prose/code split, and “Return to
+passage” restores the full-height passage.
