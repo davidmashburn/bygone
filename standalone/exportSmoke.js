@@ -17,6 +17,15 @@ app.on('window-all-closed', () => {});
 app.whenReady().then(async () => {
     const timeout = setTimeout(() => { console.error('Export smoke timed out'); app.exit(1); }, 60000);
     const fixture = exportFixture({ multipleFocuses: true });
+    fixture.source.details = { assessment: { reviewer: 'Root fixture', method: 'self-review', assessedAt: '2026-10-12T12:00:00Z', contentHash: '0'.repeat(64), ratings: {} } };
+    fixture.source.tours.historical.details = {
+        audience: { codebase: 'none', language: 'basic', readingDemand: 'technical', purpose: 'review', scope: 'Check the changed line.' },
+        assessment: { reviewer: 'Historical fixture', method: 'simulated-reader', assessedAt: '2026-10-12T12:00:00Z', contentHash: '0'.repeat(64), ratings: {
+            evidence: { score: 2, reason: 'Visible line supports the narrow claim.', references: ['scene/step'] },
+            reasoning: { score: 1, reason: 'Mechanism is not explained.', references: ['scene/step'] }
+        }, blockers: ['Fixture concern remains unresolved.'] }
+    };
+    fs.writeFileSync(fixture.sourcePath, JSON.stringify(fixture.source));
     const reviews = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-external-tour-')));
     const windows = [];
     const requests = [];
@@ -35,7 +44,9 @@ app.whenReady().then(async () => {
             windows.push(window);
             window.webContents.on('console-message', (_event, level, message) => { if (level >= 3 && !message.includes('Electron Security Warning')) errors.push(message); });
             await window.loadURL(url);
-            const evaluate = code => window.webContents.executeJavaScript(code, true);
+            const evaluate = code => window.webContents.executeJavaScript(code, true).catch(error => {
+                throw new Error(`Export script failed: ${code}\n${error.message}`);
+            });
             const wait = condition => evaluate(`new Promise((resolve, reject) => {
                 const start = performance.now(); const check = () => {
                     if (${condition}) resolve(true);
@@ -53,6 +64,29 @@ app.whenReady().then(async () => {
             const { window, evaluate, wait } = await open(fileUrl + hash);
             await wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:scene:step'");
             await wait("document.querySelectorAll('.monaco-editor').length >= 2");
+            assert.match(await evaluate("document.querySelector('#tour-assessment').textContent"), /Needs reassessment/);
+            assert.equal(await evaluate("document.querySelector('.tour-assessment-rating').dataset.dimension"), 'reasoning', 'Weakest rating comes first');
+            assert.match(await evaluate("document.querySelector('#tour-assessment').textContent"), /Simulated reader/);
+            await evaluate(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.feedbackRequest = text; } } }); document.querySelector('#tour-feedback-question').click()`);
+            await wait("document.querySelector('.tour-feedback-dialog[open]')");
+            window.setSize(850, 700);
+            assert.equal(await evaluate("(() => { const rect = document.querySelector('.tour-feedback-dialog').getBoundingClientRect(); return rect.left >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight; })()"), true, 'Feedback dialog fits a narrow desktop viewport');
+            fs.writeFileSync(path.join(os.tmpdir(), 'bygone-assessment-dialog.png'), (await window.webContents.capturePage()).toPNG());
+            window.setSize(1400, 900);
+            await evaluate("document.querySelector('#tour-feedback-concern').value = 'Why is this safe?'; document.querySelector('.tour-feedback-dialog button').click()");
+            await wait("window.feedbackRequest?.includes('Why is this safe?')");
+            assert.match(await evaluate('window.feedbackRequest'), /"step": "step"/);
+            assert.match(await evaluate('window.feedbackRequest'), /"excerpt": "BETA"/);
+            await evaluate("document.querySelector('.tour-feedback-dialog').close(); document.querySelector('[data-reading-link=title]').click()");
+            await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'title'");
+            await evaluate("navigator.clipboard.writeText = async () => { throw new Error('denied'); }; document.querySelector('#tour-feedback-explain').click()");
+            await wait("document.querySelector('.tour-feedback-dialog[open]')");
+            await evaluate("document.querySelector('.tour-feedback-dialog button').click()");
+            await wait("!document.querySelector('.tour-feedback-dialog textarea[readonly]').hidden");
+            assert.match(await evaluate("document.querySelector('.tour-feedback-dialog textarea[readonly]').value"), /"kind": "title"/);
+            assert.ok(!await evaluate("document.querySelector('.tour-feedback-dialog textarea[readonly]').value.includes('\"step\": \"step\"')"), 'Opening does not capture the previous step');
+            await evaluate("document.querySelector('.tour-feedback-dialog').close(); location.hash = '#location=1&mode=historical&part=step&scene=scene&step=step'");
+            await wait("document.activeElement.dataset.readingKey === 'step:scene:step'");
             assert.equal(await evaluate("document.querySelector('[data-tour-navigator=tour]').disabled"), false);
             assert.equal(await evaluate("[...document.querySelectorAll('.tour-reading-item')].every(item => item.querySelector('h1 .tour-copy-location, h2 .tour-copy-location, h3 .tour-copy-location'))"), true, 'Every heading keeps its link action after narration renders');
             assert.equal(await evaluate("document.activeElement.dataset.readingKey"), 'step:scene:step');
@@ -74,6 +108,8 @@ app.whenReady().then(async () => {
             await evaluate("document.querySelector('[data-workspace-mode=deconstructed]').click()");
             await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]') && document.querySelector('[data-reading-key=\"scene:synthetic\"]')");
             await wait("location.hash.includes('mode=deconstructed')");
+            assert.match(await evaluate("document.querySelector('#tour-assessment').textContent"), /Not assessed/);
+            assert.ok(!await evaluate("document.querySelector('#tour-assessment').textContent.includes('Root fixture')"), 'Independent mode does not inherit root assessment');
             assert.equal(await evaluate("document.querySelectorAll('[data-reading-key^=\"step:synthetic:\"] .tour-step-body').length"), 1, 'Stage prose renders once across multiple evidence focuses');
             await evaluate("location.hash = '#location=1&mode=deconstructed&part=step&scene=synthetic&step=stage-focus-2'");
             await wait("document.activeElement.dataset.readingKey === 'step:synthetic:stage-focus-2'");

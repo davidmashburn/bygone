@@ -16,13 +16,14 @@
       "description": "Optional native window title for the tour presenter. Use a short label such as a pull request number when multiple tours may be open."
     },
     "sourceUrl": { "type": "string", "minLength": 1 },
+    "details": { "$ref": "#/$defs/details" },
     "range": {
       "type": "object",
       "additionalProperties": false,
       "required": ["base", "head"],
       "properties": {
-        "base": { "$ref": "#/$defs/nonEmptyString" },
-        "head": { "$ref": "#/$defs/nonEmptyString" }
+        "base": { "$ref": "#/$defs/prose" },
+        "head": { "$ref": "#/$defs/prose" }
       }
     },
     "coverage": {
@@ -82,9 +83,9 @@
       },
       "else": {
         "properties": {
-          "opening": false, "conclusion": false, "chapters": { "$ref": "#/$defs/legacyFramingChapters" },
+          "opening": false, "conclusion": false, "details": false, "chapters": { "$ref": "#/$defs/legacyFramingChapters" },
           "tours": { "additionalProperties": { "properties": {
-            "opening": false, "conclusion": false, "chapters": { "$ref": "#/$defs/legacyFramingChapters" }
+            "opening": false, "conclusion": false, "details": false, "chapters": { "$ref": "#/$defs/legacyFramingChapters" }
           } } }
         }
       }
@@ -167,6 +168,60 @@
       }
     },
     "nonEmptyString": { "type": "string", "minLength": 1 },
+    "details": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "audience": { "$ref": "#/$defs/audience" },
+        "assessment": { "$ref": "#/$defs/assessment" }
+      }
+    },
+    "audience": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codebase", "language", "readingDemand", "purpose", "scope"],
+      "properties": {
+        "codebase": { "enum": ["none", "some", "maintainer"] },
+        "language": { "enum": ["none", "basic", "fluent", "advanced"] },
+        "domain": { "type": "array", "items": { "$ref": "#/$defs/prose" } },
+        "readingDemand": { "enum": ["general", "technical", "specialist"] },
+        "purpose": { "enum": ["overview", "explanation", "review"] },
+        "scope": { "$ref": "#/$defs/prose" },
+        "estimatedMinutes": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer", "method", "assessedAt", "contentHash", "ratings"],
+      "properties": {
+        "reviewer": { "$ref": "#/$defs/prose" },
+        "method": { "enum": ["self-review", "simulated-reader", "human-reader"] },
+        "assessedAt": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+        },
+        "contentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "ratings": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^(purpose|orientation|reasoning|evidence|clarity|economy|completeness)$": { "$ref": "#/$defs/rating" }
+          }
+        },
+        "blockers": { "type": "array", "items": { "$ref": "#/$defs/prose" } }
+      }
+    },
+    "rating": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "reason", "references"],
+      "properties": {
+        "score": { "enum": [0, 1, 2, 3] },
+        "reason": { "$ref": "#/$defs/prose" },
+        "references": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/prose" } }
+      }
+    },
     "stringArray": {
       "type": "array",
       "items": { "type": "string" }
@@ -452,6 +507,7 @@
       "properties": {
         "opening": { "$ref": "#/$defs/passage" },
         "conclusion": { "$ref": "#/$defs/passage" },
+        "details": { "$ref": "#/$defs/details" },
         "chapters": {
           "type": "array",
           "minItems": 1,
@@ -485,6 +541,7 @@
       "properties": {
         "opening": { "$ref": "#/$defs/passage" },
         "conclusion": { "$ref": "#/$defs/passage" },
+        "details": { "$ref": "#/$defs/details" },
         "chapters": {
           "type": "array",
           "minItems": 1,

@@ -1,6 +1,7 @@
 import { validateTourFraming, validateOverviewPurpose, type ChangeTourFraming } from './tourFraming';
 import { validateTourImageSource, type TourImageSource } from './tourImage';
 import type { ChangeTourNarrative } from './changeTourManifest';
+import { validateChangeTourDetails, type ChangeTourDetails } from './tourAssessment';
 
 export const CHANGE_TOUR_SOURCE_VERSION = 5 as const;
 
@@ -139,6 +140,7 @@ export interface ChangeTourSourceChapter {
  */
 export interface ChangeTourSourceTour extends ChangeTourFraming {
     chapters: ChangeTourSourceChapter[];
+    details?: ChangeTourDetails;
 }
 
 export interface ChangeTourSourceTours {
@@ -160,6 +162,7 @@ export interface ChangeTourSource extends ChangeTourFraming {
     chapters: ChangeTourSourceChapter[];
     tours?: ChangeTourSourceTours;
     coverage?: { exclusions: ChangeTourCoverageExclusion[] };
+    details?: ChangeTourDetails;
 }
 
 export function parseChangeTourSource(value: unknown): ChangeTourSource {
@@ -175,7 +178,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         throw new Error('Unsupported or missing change-tour source version.');
     }
     requireOnlyKeys(value, [
-        'version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage', 'opening', 'conclusion'
+        'version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage', 'opening', 'conclusion', 'details'
     ], 'source');
     validateTourFraming(value, value.version, 'source');
     optionalString(value.title, 'title');
@@ -253,6 +256,12 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         connectionIds,
         'root'
     );
+    if (value.details !== undefined) {
+        if (value.version < 5) throw new Error('source.details requires version 5.');
+        validateChangeTourDetails(value.details, 'details', {
+            referenceIds: collectSourceDetailReferences(value.chapters, value)
+        });
+    }
     if (value.tours !== undefined) {
         if (value.version < 4) throw new Error('Independent tours require version 4.');
         if (!isRecord(value.tours)) throw new Error('tours must be an object.');
@@ -265,12 +274,48 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             if (tour === undefined) continue;
             const path = `tours.${mode}`;
             if (!isRecord(tour)) throw new Error(`${path} must be an object.`);
-            requireOnlyKeys(tour, ['chapters', 'opening', 'conclusion'], path);
+            requireOnlyKeys(tour, ['chapters', 'opening', 'conclusion', 'details'], path);
             validateTourFraming(tour, value.version, path);
             validateSourceChapters(tour.chapters, `${path}.chapters`, value.version, value.anchors, connectionIds, mode);
+            if (tour.details !== undefined) {
+                if (value.version < 5) throw new Error(`${path}.details requires source version 5.`);
+                validateChangeTourDetails(tour.details, `${path}.details`, {
+                    referenceIds: collectSourceDetailReferences(tour.chapters, tour)
+                });
+            }
         }
     }
     return { ...value, connections: rawConnections } as unknown as ChangeTourSource;
+}
+
+function collectSourceDetailReferences(chaptersValue: unknown, framing: Record<string, unknown>): Set<string> {
+    const references = new Map<string, number>();
+    const add = (id: string) => references.set(id, (references.get(id) ?? 0) + 1);
+    if (framing.opening !== undefined) add('opening');
+    if (framing.conclusion !== undefined) add('conclusion');
+    if (!Array.isArray(chaptersValue)) return new Set([...references].filter(([, count]) => count === 1).map(([id]) => id));
+    for (const chapter of chaptersValue) {
+        if (!isRecord(chapter) || !Array.isArray(chapter.scenes)) continue;
+        for (const scene of chapter.scenes) {
+            if (!isRecord(scene) || typeof scene.id !== 'string') continue;
+            add(scene.id);
+            if (Array.isArray(scene.steps)) {
+                for (const step of scene.steps) {
+                    if (!isRecord(step) || typeof step.id !== 'string') continue;
+                    add(step.id);
+                    add(`${scene.id}/${step.id}`);
+                }
+            }
+            if (Array.isArray(scene.stages)) {
+                for (const stage of scene.stages) {
+                    if (!isRecord(stage) || typeof stage.id !== 'string') continue;
+                    add(stage.id);
+                    add(`${scene.id}/${stage.id}`);
+                }
+            }
+        }
+    }
+    return new Set([...references].filter(([, count]) => count === 1).map(([id]) => id));
 }
 
 type SourceTourValidationMode = 'root' | 'historical' | 'deconstructed';

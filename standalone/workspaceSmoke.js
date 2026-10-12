@@ -126,7 +126,9 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             dialog.showSaveDialog = async () => ({ canceled: false, filePath: bundledPath });
             await evaluate("document.querySelector('[data-workspace-prompt-action=workspace-skill-save]').click()");
             await waitFor("document.querySelector('dialog[open] .workspace-prompt-status').textContent.includes('read-only')");
-            assert.equal(fs.readFileSync(bundledPath, 'utf8'), instructions, 'Saving a copy cannot overwrite the bundled skill');
+            assert.equal(instructions, fs.readFileSync(bundledPath, 'utf8').replace('(references/assessment-and-feedback.md)', '(#assessment-and-reader-feedback)')
+                + '\n\n' + fs.readFileSync(path.join(path.dirname(bundledPath), 'references', 'assessment-and-feedback.md'), 'utf8'),
+            'Saving a copy cannot overwrite the bundled skill');
         } finally { dialog.showSaveDialog = saveDialog; dialog.showOpenDialog = chooseDialog; }
         await evaluate("document.querySelector('dialog[open] textarea').value = 'Keep this prompt'; document.querySelector('dialog[open] textarea').dispatchEvent(new Event('input')); document.querySelector('dialog[open]').dispatchEvent(new Event('cancel', {cancelable:true}))");
         await evaluate("document.querySelector('[data-workspace-mode=history]').click()");

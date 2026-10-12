@@ -6,6 +6,7 @@ import {
     validateStepRequirement,
     type ChangeTourStepRequirement
 } from './changeTourSource';
+import { validateChangeTourDetails, type ChangeTourDetails } from './tourAssessment';
 
 export const CHANGE_TOUR_MANIFEST_VERSION = 5 as const;
 
@@ -227,6 +228,9 @@ export interface ChangeTourChapter {
 export interface ChangeTourModeTour extends ChangeTourFraming {
     chapters: ChangeTourChapter[];
     scenes: ChangeTourScene[];
+    details?: ChangeTourDetails;
+    /** SHA-256 of the authored source with assessment blocks excluded. */
+    contentHash?: string;
 }
 
 export interface ChangeTourTours {
@@ -281,6 +285,9 @@ export interface ChangeTourManifest extends ChangeTourFraming {
     tours?: ChangeTourTours;
     /** Optional authoring diagnostics supplied by the local presentation host. */
     authoringCoverage?: ChangeTourAuthoringCoverage;
+    details?: ChangeTourDetails;
+    /** SHA-256 of the authored source with assessment blocks excluded. */
+    contentHash?: string;
 }
 
 export function parseChangeTourManifest(value: unknown, options: { exported?: boolean } = {}): ChangeTourManifest {
@@ -295,6 +302,7 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
         throw new Error(`Unsupported or missing change-tour manifest version.`);
     }
+    validateContentHash(value.contentHash, value.version, 'contentHash');
     if ('review' in value) throw new Error('Change-tour manifests do not support the review field. Put observations in scene and step narrative.');
     validateTourFraming(value, value.version, 'manifest');
     requireString(value.title, 'title');
@@ -348,6 +356,12 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     }
     if (value.summary.includedScenes !== value.scenes.length) {
         throw new Error('summary.includedScenes must match the number of scenes.');
+    }
+    if (value.details !== undefined) {
+        if (value.version !== 5) throw new Error('details requires manifest version 5.');
+        validateChangeTourDetails(value.details, 'details', {
+            referenceIds: collectManifestDetailReferences(value.scenes, value)
+        });
     }
 
     const files = value.files === undefined
@@ -430,6 +444,13 @@ function validateModeTours(value: unknown, version: 4 | 5): asserts value is Cha
                 throw new Error('Historical tours cannot contain synthetic deconstructed scenes.');
             }
         }
+        validateContentHash(tour.contentHash, version, `tours.${mode}.contentHash`);
+        if (tour.details !== undefined) {
+            if (version !== 5) throw new Error(`tours.${mode}.details requires manifest version 5.`);
+            validateChangeTourDetails(tour.details, `tours.${mode}.details`, {
+                referenceIds: collectManifestDetailReferences(tour.scenes, tour)
+            });
+        }
         if (mode === 'deconstructed' && !hasDeconstructed) {
             throw new Error('Deconstructed tours must contain a constructed deconstructed-diff scene.');
         }
@@ -446,6 +467,33 @@ function validateModeTours(value: unknown, version: 4 | 5): asserts value is Cha
                 }
             }
         }
+    }
+}
+
+function collectManifestDetailReferences(scenesValue: unknown, framing: Record<string, unknown>): Set<string> {
+    const references = new Map<string, number>();
+    const add = (id: string) => references.set(id, (references.get(id) ?? 0) + 1);
+    if (framing.opening !== undefined) add('opening');
+    if (framing.conclusion !== undefined) add('conclusion');
+    if (!Array.isArray(scenesValue)) return new Set([...references].filter(([, count]) => count === 1).map(([id]) => id));
+    for (const scene of scenesValue) {
+        if (!isRecord(scene) || typeof scene.id !== 'string') continue;
+        add(scene.id);
+        if (!Array.isArray(scene.steps)) continue;
+        for (const step of scene.steps) {
+            if (!isRecord(step) || typeof step.id !== 'string') continue;
+            add(step.id);
+            add(`${scene.id}/${step.id}`);
+        }
+    }
+    return new Set([...references].filter(([, count]) => count === 1).map(([id]) => id));
+}
+
+function validateContentHash(value: unknown, version: 1 | 2 | 4 | 5, path: string): void {
+    if (value === undefined) return;
+    if (version !== 5) throw new Error(`${path} requires manifest version 5.`);
+    if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) {
+        throw new Error(`${path} must be a lowercase SHA-256 hash.`);
     }
 }
 

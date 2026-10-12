@@ -27,6 +27,9 @@ import { TourZoomSession } from '../src/tourZoomSession.ts';
 import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
 import { createWorkspaceControls } from '../media/workspaceControls.js';
 import { renderTourProse } from '../media/tourProse.js';
+import { renderTourAssessment } from './tourAssessment.js';
+import { openTourFeedback } from './tourFeedback.js';
+import { captureTourFeedback } from '../src/tourFeedback.ts';
 
 (function initializeWebHost() {
     const imageViewer = createTourImageViewer();
@@ -244,11 +247,11 @@ import { renderTourProse } from '../media/tourProse.js';
         // Compatibility for previously compiled manifests. Never turn a generated
         // revision stack with no authored narration into an additional tour.
         const deconstructed = tour.scenes.some((scene) => scene.kind === 'deconstructed-diff');
-        if (!deconstructed) return { historical: { scenes: tour.scenes, chapters: tour.chapters, opening: tour.opening, conclusion: tour.conclusion } };
+        if (!deconstructed) return { historical: { scenes: tour.scenes, chapters: tour.chapters, opening: tour.opening, conclusion: tour.conclusion, details: tour.details, contentHash: tour.contentHash } };
         const final = legacyFinalTour(tour);
         return {
             ...(final ? { historical: final } : {}),
-            deconstructed: { scenes: tour.scenes, chapters: tour.chapters, opening: tour.opening, conclusion: tour.conclusion }
+            deconstructed: { scenes: tour.scenes, chapters: tour.chapters, opening: tour.opening, conclusion: tour.conclusion, details: tour.details, contentHash: tour.contentHash }
         };
     }
 
@@ -549,8 +552,8 @@ import { renderTourProse } from '../media/tourProse.js';
 
     function zoomTour(mode) {
         const tour = state.authoredTour;
-        if (authoredTours()[mode]) return { ...tour, opening: undefined, conclusion: undefined, ...authoredTours()[mode] };
-        return { ...tour, opening: undefined, conclusion: undefined, scenes: [], chapters: [], files: mode === 'compare' && state.compare ? state.compare.files : tour.files };
+        if (authoredTours()[mode]) return { ...tour, opening: undefined, conclusion: undefined, details: undefined, contentHash: undefined, ...authoredTours()[mode] };
+        return { ...tour, opening: undefined, conclusion: undefined, details: undefined, contentHash: undefined, scenes: [], chapters: [], files: mode === 'compare' && state.compare ? state.compare.files : tour.files };
     }
 
     function renderZoomControl() {
@@ -1191,6 +1194,18 @@ import { renderTourProse } from '../media/tourProse.js';
     function bindControls() {
         const action = (id, handler) => document.getElementById(id)?.addEventListener('click', () => {
             Promise.resolve().then(handler).catch(reportModeError);
+        });
+        for (const intent of ['explain', 'question']) action(`tour-feedback-${intent}`, () => {
+            if (!isNarrativeMode()) return;
+            const item = readingItems.find(entry => entry.key === state.readingKey);
+            if (!item) return;
+            openTourFeedback(intent, () => captureTourFeedback(state.tour, item, {
+                mode: state.zoom?.mode || 'historical',
+                location: readingLocation(focusForReadingItem(item)),
+                imageVisible: imageViewer.isVisible(),
+                displayedEvidence: document.body.classList.contains('tour-discussion') || imageViewer.isVisible() ? null
+                    : lastReadingEvidence?.tour === state.tour ? lastReadingEvidence.context : null
+            }));
         });
         const selectionMenus = [...document.querySelectorAll('.tour-selection-more')];
         const closeSelectionMenu = (menu, restoreFocus = false) => {
@@ -1966,6 +1981,7 @@ import { renderTourProse } from '../media/tourProse.js';
         range.textContent = `${isNarrativeMode() ? 'Tour range: ' : ''}${baseLabel} → ${headLabel}${headLabel === resolvedHead ? '' : ` · ${resolvedHead}`}`;
         stats.textContent = `${formatCount(tour.summary.changedFiles, 'file')} · +${tour.summary.additions} −${tour.summary.deletions} · ${formatCount(tour.summary.commitCount, 'commit')}`;
         renderAuthoringCoverage(authoringCoverage, tour.authoringCoverage);
+        renderTourAssessment(document.getElementById('tour-assessment'), isNarrativeMode() ? tour : null);
         sceneCount.textContent = isNarrativeMode() && tour.scenes.length ? String(tour.scenes.length) : '';
         fileCount.textContent = String(tour.files.length);
         scenes.replaceChildren();
@@ -2874,10 +2890,7 @@ import { renderTourProse } from '../media/tourProse.js';
             : 'Copy browser location (requires this presentation server)';
         button.addEventListener('click', async (event) => {
             event.stopPropagation();
-            const mode = isNarrativeMode() ? state.zoom.mode : Object.keys(authoredTours())[0];
-            const source = state.authoredTour.localSource;
-            const value = source && !exportData ? serializeDeepLink({ kind: 'tour', ...source, mode, focus })
-                : new URL(serializeDocumentFragment(mode, focus), window.location.href).href;
+            const value = readingLocation(focus);
             try {
                 await navigator.clipboard.writeText(value);
                 button.classList.add('is-copied');
@@ -2897,6 +2910,13 @@ import { renderTourProse } from '../media/tourProse.js';
             }
         });
         return button;
+    }
+
+    function readingLocation(focus) {
+        const mode = isNarrativeMode() ? state.zoom?.mode || 'historical' : Object.keys(authoredTours())[0];
+        const source = state.authoredTour.localSource;
+        return source && !exportData ? serializeDeepLink({ kind: 'tour', ...source, mode, focus })
+            : new URL(serializeDocumentFragment(mode, focus), window.location.href).href;
     }
 
     function openDocumentLocation(location) {

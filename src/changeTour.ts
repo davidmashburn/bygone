@@ -31,9 +31,28 @@ import { buildDeconstructedScene } from './deconstructedChange';
 import { buildTwoWayDiffModel } from './diffEngine';
 import { buildTourFocusRanges } from './tourAnnotations';
 import { buildChangeAttention, classifyChangeFileRole } from './changeAttention';
+import { hashChangeTourSource } from './tourContentHash';
 
 export { parseChangeTourManifest, parseChangeTourStory } from './changeTourManifest';
 export { parseChangeTourSource } from './changeTourSource';
+export { hashChangeTourSource } from './tourContentHash';
+export {
+    TOUR_ASSESSMENT_METHODS,
+    TOUR_ASSESSMENT_RATING_KEYS,
+    TOUR_ASSESSMENT_RUBRIC,
+    TOUR_ASSESSMENT_RUBRIC_KEYS,
+    TOUR_ASSESSMENT_SCORE_VALUES
+} from './tourAssessment';
+export type {
+    ChangeTourAssessment,
+    ChangeTourAssessmentMethod,
+    ChangeTourAssessmentRating,
+    ChangeTourAssessmentRatingKey,
+    ChangeTourAssessmentRatings,
+    ChangeTourAssessmentScore,
+    ChangeTourAudience,
+    ChangeTourDetails
+} from './tourAssessment';
 export { buildChangeTourContext } from './changeTourContext';
 export type { BuildChangeTourContextOptions, ChangeTourContext } from './changeTourContext';
 export { buildChangeAttention, classifyChangeFileRole, CHANGE_ATTENTION_VERSION } from './changeAttention';
@@ -90,6 +109,7 @@ export function buildChangeTourManifest(
     if (source) source = pinTourSource(source, range.repoRoot, new Map([
         [range.headRef, range.headOid], [range.baseRef, range.baseOid]
     ]), range.baseOid, range.headOid);
+    const sourceContentHash = source && source.version >= 5 ? hashChangeTourSource(source) : undefined;
     const maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_TOUR_FILE_BYTES;
     const maxLineBytes = options.maxLineBytes ?? DEFAULT_MAX_TOUR_LINE_BYTES;
     const omittedFiles: string[] = [];
@@ -231,7 +251,9 @@ export function buildChangeTourManifest(
         commits: range.commits,
         files,
         chapters,
-        scenes
+        scenes,
+        ...(source?.details !== undefined ? { details: source.details } : {}),
+        ...(sourceContentHash !== undefined ? { contentHash: sourceContentHash } : {})
     };
     const authoredModeTours = source && source.version >= 4
         ? buildAuthoredModeTours(
@@ -240,7 +262,8 @@ export function buildChangeTourManifest(
             defaultScenes,
             range.repoRoot,
             range.mergeBaseOid,
-            range.headOid
+            range.headOid,
+            sourceContentHash
         )
         : undefined;
     if (authoredModeTours) manifest.tours = authoredModeTours;
@@ -395,29 +418,59 @@ function buildAuthoredModeTours(
     defaultScenes: ChangeTourDiffScene[],
     repoRoot: string,
     mergeBaseOid: string,
-    headOid: string
+    headOid: string,
+    sourceContentHash?: string
 ): ChangeTourTours | undefined {
     const tours: ChangeTourTours = {};
 
     if (source.tours?.historical) {
         const compiled = applySourceChapters(source, source.tours.historical.chapters, defaultScenes, repoRoot, { base: mergeBaseOid, head: headOid });
         validateHistoricalStackEndpoints(compiled.scenes, mergeBaseOid, headOid);
-        tours.historical = { opening: source.tours.historical.opening, conclusion: source.tours.historical.conclusion, chapters: compiled.chapters, scenes: compiled.scenes };
+        tours.historical = {
+            opening: source.tours.historical.opening,
+            conclusion: source.tours.historical.conclusion,
+            chapters: compiled.chapters,
+            scenes: compiled.scenes,
+            ...(source.tours.historical.details !== undefined ? { details: source.tours.historical.details } : {}),
+            ...(sourceContentHash !== undefined ? { contentHash: sourceContentHash } : {})
+        };
     } else if (source.version >= 4) {
         const fallback = buildHistoricalFallback(source.chapters, root);
-        if (fallback) tours.historical = { ...fallback, ...(root.scenes.every(scene => scene.kind !== 'deconstructed-diff') ? { opening: source.opening, conclusion: source.conclusion } : {}) };
+        if (fallback) {
+            tours.historical = {
+                ...fallback,
+                ...(root.scenes.every(scene => scene.kind !== 'deconstructed-diff')
+                    ? { opening: source.opening, conclusion: source.conclusion, details: source.details }
+                    : {}),
+                ...(sourceContentHash !== undefined ? { contentHash: sourceContentHash } : {})
+            };
+        }
     }
 
     if (source.tours?.deconstructed) {
         const compiled = applySourceChapters(source, source.tours.deconstructed.chapters, defaultScenes, repoRoot, { base: mergeBaseOid, head: headOid });
-        tours.deconstructed = { opening: source.tours.deconstructed.opening, conclusion: source.tours.deconstructed.conclusion, chapters: compiled.chapters, scenes: compiled.scenes };
+        tours.deconstructed = {
+            opening: source.tours.deconstructed.opening,
+            conclusion: source.tours.deconstructed.conclusion,
+            chapters: compiled.chapters,
+            scenes: compiled.scenes,
+            ...(source.tours.deconstructed.details !== undefined ? { details: source.tours.deconstructed.details } : {}),
+            ...(sourceContentHash !== undefined ? { contentHash: sourceContentHash } : {})
+        };
     } else if (source.version >= 4 && source.chapters.some((chapter) => (
         chapter.scenes.some((scene) => scene.kind === 'deconstructed-diff')
     ))) {
         // Preserve the existing repository-bound authored result exactly. This fallback is
         // intentionally based on scene ids and chapter order, never inferred
         // by matching files or narrative text across modes.
-        tours.deconstructed = { opening: source.opening, conclusion: source.conclusion, chapters: root.chapters, scenes: root.scenes };
+        tours.deconstructed = {
+            opening: source.opening,
+            conclusion: source.conclusion,
+            details: source.details,
+            chapters: root.chapters,
+            scenes: root.scenes,
+            ...(sourceContentHash !== undefined ? { contentHash: sourceContentHash } : {})
+        };
     }
 
     return tours.historical || tours.deconstructed ? tours : undefined;

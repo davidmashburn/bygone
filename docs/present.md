@@ -54,6 +54,20 @@ code the author anchored; it does not measure your reading progress. The
 header shows your current step. Tour search is likewise disclosed on demand or
 opened by `Cmd/Ctrl+Shift+F`.
 
+Authored v5 tours can also show their intended audience, scope, reading demand,
+and an explanation-quality assessment in **Tour details**. Expand a dimension
+to see its criterion, rating, reason, and references. Missing ratings are
+unassessed; old ratings are marked stale after content changes. Ratings have
+reviewer/method/date provenance and do not certify code correctness or merge
+readiness. There is no combined score.
+
+Use **Explain this** or **Question this change** while reading to capture a
+question with the current passage, comparison, and focused evidence. Review the
+captured context, then **Copy request** and paste it into your coding agent.
+Nothing is sent automatically. If clipboard access fails, the request remains
+selectable for manual copying. The agent should investigate whether code,
+explanation, a design decision, missing evidence, or the viewer needs repair.
+
 Generated overview ranking is deterministic for the resolved Git object IDs.
 It never hides files and does not invent an entry point for a test-only,
 lockfile-only, binary, or generated-only change. Authored tours keep their

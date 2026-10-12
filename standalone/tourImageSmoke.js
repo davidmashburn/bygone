@@ -59,6 +59,14 @@ app.whenReady().then(async () => {
             assert.notEqual(await evaluate("getComputedStyle(document.querySelector('#diff-workspace')).display"), 'none');
             await evaluate("location.hash = '#location=1&mode=historical&part=step&scene=scene&step=step'");
             await wait("document.querySelector('.tour-image-evidence img')?.naturalWidth === 2880");
+            await evaluate("document.querySelector('#tour-feedback-explain').click()");
+            await wait("document.querySelector('.tour-feedback-dialog[open]')");
+            const feedback = await evaluate("JSON.parse(document.querySelector('.tour-feedback-dialog pre').textContent)");
+            assert.equal(feedback.image.path, 'screen.png');
+            assert.equal(feedback.image.displayed, true);
+            assert.equal(feedback.displayedEvidence, null, 'Image feedback does not report the previously displayed code');
+            assert.equal(feedback.image.dataUrl, undefined);
+            await evaluate("document.querySelector('.tour-feedback-dialog').close()");
             await evaluate("document.querySelector('.tour-file[data-file-path=\"app.txt\"]').click()");
             await wait("!document.body.classList.contains('tour-image-active') && !document.querySelector('#tour-return-focus').hidden");
             await evaluate("document.querySelector('#tour-return-focus').click()");

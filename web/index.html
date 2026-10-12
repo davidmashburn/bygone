@@ -25,6 +25,7 @@
                     <div id="tour-stats" class="tour-stats"></div>
                 </div>
                 <div id="tour-authoring-coverage" class="tour-authoring-coverage" aria-label="Tour authoring coverage" hidden></div>
+                <section id="tour-assessment" aria-label="Tour assessment"></section>
             </details>
         </header>
         <nav id="tour-navigator-tabs" class="tour-navigator-tabs" aria-label="Tour navigator">
@@ -116,6 +117,10 @@
                 <button id="tour-next" type="button" title="Next tour passage" disabled>Next ›</button>
             </div>
             <span id="tour-breadcrumb" class="tour-breadcrumb"></span>
+            <div class="tour-feedback-actions" role="group" aria-label="Discuss this passage">
+                <button id="tour-feedback-explain" type="button" title="Ask for help understanding this passage">Explain this</button>
+                <button id="tour-feedback-question" type="button" title="Raise a concern about the change shown here">Question this change</button>
+            </div>
             <div class="tour-narration-dock">
                 <div id="tour-audio-settings" class="tour-audio-settings" hidden>
                     <div id="tour-narration-controls" class="tour-narration-controls" role="group" aria-label="Tour narration">

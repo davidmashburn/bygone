@@ -360,6 +360,19 @@ Use `occurrence` only when repetition is intentional and stable. Treat rename id
 
 ## Validate and repair
 
+When a reader asks to **Explain this**, **Question this change**, assess a tour,
+or resolve feedback, read [Assessment and reader feedback](references/assessment-and-feedback.md).
+That workflow checks whether the implementation, explanation, evidence, design
+decision, or viewer needs repair; confusion alone does not identify the cause.
+
+For new or revised tours, set the v5 `details.audience` to the intended reader
+and purpose when known. Keep quality ratings separate from audience descriptors.
+Do not fabricate ratings, treat an unassessed dimension as zero, or call a model
+simulation human validation. Use the reference's seven anchored dimensions and
+provenance format when an assessment is requested or performed. Independent
+modes need independent assessments. A passing validator verifies structure and
+evidence locations, not comprehension or code correctness.
+
 Always run validation before presenting or handing off:
 
 ```sh
