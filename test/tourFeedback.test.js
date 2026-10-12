@@ -7,6 +7,8 @@ const { captureTourFeedback, buildTourFeedbackRequest } = require('../out/tourFe
 test('feedback freezes the reading position and distinguishes authored from explored evidence', () => {
     const f = exportFixture({ multipleFocuses: true });
     try {
+        f.source.tours.historical.opening = { title: 'Expected behavior', summary: 'Update the changed line while preserving other lines.', bullets: [] };
+        f.source.tours.deconstructed.opening = { title: 'Stage expectation', summary: 'Explain how the endpoint is constructed.', bullets: [] };
         f.source.tours.historical.chapters[0].scenes[0].steps[0].requirement = { id: 'expected', text: 'Preserve the changed behavior', status: 'fulfilled' };
         f.source.tours.historical.chapters[0].scenes[0].overview = { kind: 'directory-diff', purpose: 'Show why the line changed.' };
         const manifest = buildChangeTourManifest(f.root, { source: parseChangeTourSource(f.source) });
@@ -18,6 +20,8 @@ test('feedback freezes the reading position and distinguishes authored from expl
         });
         const captured = JSON.parse(snapshot);
         assert.deepEqual(captured.section, { kind: 'step', chapter: 'chapter', scene: 'scene', step: 'step' });
+        assert.deepEqual(captured.opening, tour.opening);
+        tour.opening.summary = 'Changed later';
         assert.equal(captured.focus.excerpt, 'BETA');
         assert.equal(captured.passage.requirement.text, 'Preserve the changed behavior');
         assert.equal(captured.sceneContext.title, 'Scene');
@@ -40,6 +44,8 @@ test('feedback freezes the reading position and distinguishes authored from expl
         }
         const synthetic = { ...manifest, ...manifest.tours.deconstructed };
         const context = JSON.parse(captureTourFeedback(synthetic, item, { mode: 'deconstructed', location: 'test' }));
+        assert.deepEqual(context.opening, synthetic.opening);
+        assert.notEqual(context.opening.summary, captured.opening.summary);
         assert.equal(context.authoredEvidence.kind, 'synthetic');
         assert.equal(context.focus.path, 'app.txt');
         assert.deepEqual(context.sceneRange, synthetic.scenes[0].realRange);

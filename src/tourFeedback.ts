@@ -23,7 +23,8 @@ export function captureTourFeedback(tour: ChangeTourManifest, item: TourReadingI
     const authoredEvidence = resolveTourEvidenceContext(tour, item, view.mode);
     const snapshot = {
         title: tour.title, sourceUrl: tour.sourceUrl, mode: view.mode, location: view.location,
-        contentHash: tour.contentHash, range: tour.range, audience: tour.details?.audience,
+        range: tour.range, audience: tour.details?.audience,
+        opening: tour.opening,
         section: { kind: item.kind, chapter: chapter?.id, scene: scene?.id, step: step?.id },
         passage: passage && Object.fromEntries(Object.entries(passage).filter(([key]) =>
             ['title', 'summary', 'body', 'bullets', 'takeaway', 'requirement', 'overview'].includes(key))),
@@ -52,7 +53,7 @@ export function buildTourFeedbackRequest(intent: TourFeedbackIntent, concern: st
 My concern:
 ${concern.trim() || '(No additional note; start with the captured passage.)'}
 
-Investigate before deciding what needs repair. Check the stated expectation, the explanation, and the implementation against source and relevant tests. The cause may involve implementation, explanation, a design/scope decision, missing evidence, or the viewer. Keep uncertainty explicit; do not explain away a defect or treat disagreement as confusion. Propose the smallest repair within the existing task authorization. If code changes, refresh the tour evidence and reassess affected claims. Close the loop on both behavior and understanding; report what remains unverified.
+Investigate before deciding what needs repair. Check the stated expectation, the explanation, and the implementation against source and relevant tests. The cause may involve implementation, explanation, a design/scope decision, missing evidence, or the viewer. Recover expected behavior from the user request, agreed requirements, or behavior that must be preserved; label expectations inferred from the diff. Do not silently weaken an expectation to match the code. Keep uncertainty explicit; do not explain away a defect or treat disagreement as confusion. Propose the smallest repair within the existing task authorization. If code changes, refresh the tour evidence and reassess affected claims. Close the loop on both behavior and understanding; report what remains unverified.
 
 Captured tour context (a snapshot, not proof of current workspace state; synthetic panels are not commits):
 ${snapshot}

@@ -27,7 +27,7 @@ import { TourZoomSession } from '../src/tourZoomSession.ts';
 import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
 import { createWorkspaceControls } from '../media/workspaceControls.js';
 import { renderTourProse } from '../media/tourProse.js';
-import { renderTourAssessment } from './tourAssessment.js';
+import { renderTourDetails } from './tourDetails.js';
 import { openTourFeedback } from './tourFeedback.js';
 import { captureTourFeedback } from '../src/tourFeedback.ts';
 
@@ -247,11 +247,11 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         // Compatibility for previously compiled manifests. Never turn a generated
         // revision stack with no authored narration into an additional tour.
         const deconstructed = tour.scenes.some((scene) => scene.kind === 'deconstructed-diff');
-        if (!deconstructed) return { historical: { scenes: tour.scenes, chapters: tour.chapters, opening: tour.opening, conclusion: tour.conclusion, details: tour.details, contentHash: tour.contentHash } };
+        if (!deconstructed) return { historical: { scenes: tour.scenes, chapters: tour.chapters, opening: tour.opening, conclusion: tour.conclusion, details: tour.details } };
         const final = legacyFinalTour(tour);
         return {
             ...(final ? { historical: final } : {}),
-            deconstructed: { scenes: tour.scenes, chapters: tour.chapters, opening: tour.opening, conclusion: tour.conclusion, details: tour.details, contentHash: tour.contentHash }
+            deconstructed: { scenes: tour.scenes, chapters: tour.chapters, opening: tour.opening, conclusion: tour.conclusion, details: tour.details }
         };
     }
 
@@ -552,8 +552,8 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
 
     function zoomTour(mode) {
         const tour = state.authoredTour;
-        if (authoredTours()[mode]) return { ...tour, opening: undefined, conclusion: undefined, details: undefined, contentHash: undefined, ...authoredTours()[mode] };
-        return { ...tour, opening: undefined, conclusion: undefined, details: undefined, contentHash: undefined, scenes: [], chapters: [], files: mode === 'compare' && state.compare ? state.compare.files : tour.files };
+        if (authoredTours()[mode]) return { ...tour, opening: undefined, conclusion: undefined, details: undefined, ...authoredTours()[mode] };
+        return { ...tour, opening: undefined, conclusion: undefined, details: undefined, scenes: [], chapters: [], files: mode === 'compare' && state.compare ? state.compare.files : tour.files };
     }
 
     function renderZoomControl() {
@@ -1981,7 +1981,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         range.textContent = `${isNarrativeMode() ? 'Tour range: ' : ''}${baseLabel} → ${headLabel}${headLabel === resolvedHead ? '' : ` · ${resolvedHead}`}`;
         stats.textContent = `${formatCount(tour.summary.changedFiles, 'file')} · +${tour.summary.additions} −${tour.summary.deletions} · ${formatCount(tour.summary.commitCount, 'commit')}`;
         renderAuthoringCoverage(authoringCoverage, tour.authoringCoverage);
-        renderTourAssessment(document.getElementById('tour-assessment'), isNarrativeMode() ? tour : null);
+        renderTourDetails(document.getElementById('tour-audience'), isNarrativeMode() ? tour : null);
         sceneCount.textContent = isNarrativeMode() && tour.scenes.length ? String(tour.scenes.length) : '';
         fileCount.textContent = String(tour.files.length);
         scenes.replaceChildren();

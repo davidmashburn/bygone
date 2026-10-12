@@ -1,9 +1,9 @@
 import { buildWorkspacePrompt } from '../src/workspacePrompt.ts';
 import tourSkillInstructions from '../skills/pr-tour-guide/SKILL.md';
-import tourSkillAssessment from '../skills/pr-tour-guide/references/assessment-and-feedback.md';
+import tourSkillFeedback from '../skills/pr-tour-guide/references/expectations-and-feedback.md';
 
-const bundledTourSkill = tourSkillInstructions.replace('(references/assessment-and-feedback.md)', '(#assessment-and-reader-feedback)')
-    + '\n\n' + tourSkillAssessment;
+const bundledTourSkill = tourSkillInstructions.replace('(references/expectations-and-feedback.md)', '(#expectations-and-reader-feedback)')
+    + '\n\n' + tourSkillFeedback;
 
 const WORKSPACE_MODES = ['history', 'compare', 'historical', 'deconstructed'];
 const MODE_LABELS = {

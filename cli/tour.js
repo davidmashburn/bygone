@@ -58,7 +58,7 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
         const result = buildValidationResult(resolvedPath, manifest);
         output.write(options.json
             ? `${JSON.stringify(result, null, 2)}\n`
-            : `Valid change tour: ${path.relative(cwd, resolvedPath) || path.basename(resolvedPath)} · ${result.walkthroughSteps} steps · ${result.summary.changedFiles} changed files · ${result.range.mergeBaseOid.slice(0, 7)} → ${result.range.headOid.slice(0, 7)}${result.contentHash ? ` · content ${result.contentHash}` : ''}\n`);
+            : `Valid change tour: ${path.relative(cwd, resolvedPath) || path.basename(resolvedPath)} · ${result.walkthroughSteps} steps · ${result.summary.changedFiles} changed files · ${result.range.mergeBaseOid.slice(0, 7)} → ${result.range.headOid.slice(0, 7)}\n`);
         return result;
     }
 
@@ -203,7 +203,6 @@ function buildValidationResult(sourcePath, manifest) {
         title: manifest.title,
         range: manifest.range,
         summary: manifest.summary,
-        contentHash: manifest.contentHash,
         chapters: manifest.chapters.length,
         walkthroughSteps: manifest.scenes.reduce(
             (total, scene) => total + (

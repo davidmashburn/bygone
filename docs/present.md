@@ -54,16 +54,18 @@ code the author anchored; it does not measure your reading progress. The
 header shows your current step. Tour search is likewise disclosed on demand or
 opened by `Cmd/Ctrl+Shift+F`.
 
-Authored v5 tours can also show their intended audience, scope, reading demand,
-and an explanation-quality assessment in **Tour details**. Expand a dimension
-to see its criterion, rating, reason, and references. Missing ratings are
-unassessed; old ratings are marked stale after content changes. Ratings have
-reviewer/method/date provenance and do not certify code correctness or merge
-readiness. There is no combined score.
+Authored v5 tours can show their purpose, scope, and estimated reading time in
+**Tour details**. Expand **Assumed familiarity** for codebase and language
+experience, reading demand, and prerequisites. Audience details are optional
+and specific to each independently authored mode.
+
+The opening states the expected behavior and its important boundary; the
+conclusion summarizes what the evidence established and what remains unresolved.
+These are authored explanations to evaluate against the code and requirements.
 
 Use **Explain this** or **Question this change** while reading to capture a
-question with the current passage, comparison, and focused evidence. Review the
-captured context, then **Copy request** and paste it into your coding agent.
+question with the active tour's opening, current passage, comparison, and focused
+evidence. Review the captured context, then **Copy request** and paste it into your coding agent.
 Nothing is sent automatically. If clipboard access fails, the request remains
 selectable for manual copying. The agent should investigate whether code,
 explanation, a design decision, missing evidence, or the viewer needs repair.

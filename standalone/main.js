@@ -167,9 +167,9 @@ const workspace = createWorkspaceHost({
         try { existingPath = await fs.promises.realpath(destination); } catch (error) { if (error.code !== 'ENOENT') throw error; }
         if ((existingPath || destination) === await fs.promises.realpath(bundledPath)) throw new Error('Save a separate copy; the bundled instructions are read-only.');
         let text = skill.text ?? await fs.promises.readFile(skill.path, 'utf8');
-        if (skill.path === bundledPath && text.includes('(references/assessment-and-feedback.md)')) {
-            const reference = await fs.promises.readFile(path.join(path.dirname(bundledPath), 'references', 'assessment-and-feedback.md'), 'utf8');
-            text = text.replace('(references/assessment-and-feedback.md)', '(#assessment-and-reader-feedback)') + '\n\n' + reference;
+        if (skill.path === bundledPath && text.includes('(references/expectations-and-feedback.md)')) {
+            const reference = await fs.promises.readFile(path.join(path.dirname(bundledPath), 'references', 'expectations-and-feedback.md'), 'utf8');
+            text = text.replace('(references/expectations-and-feedback.md)', '(#expectations-and-reader-feedback)') + '\n\n' + reference;
         }
         await fs.promises.writeFile(destination, text, 'utf8');
         return { path: destination, text };

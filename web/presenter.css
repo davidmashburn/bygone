@@ -1105,14 +1105,12 @@ body.tour-derived-mode .tour-narrative-resizer {
 }
 .tour-details { margin-top: 10px; font-size: 12px; }
 .tour-details[open] { max-height: 50vh; overflow-y: auto; padding-right: 6px; }
-#tour-assessment { border-top: 1px solid var(--tour-border); margin-top: 12px; line-height: 1.55; overflow-wrap: anywhere; }
-#tour-assessment h2 { font-size: 13px; margin: 14px 0 6px; }
-#tour-assessment p { margin: 6px 0; }
-#tour-assessment summary { cursor: pointer; padding: 5px 0; }
-#tour-assessment dt { color: var(--tour-muted); margin-top: 6px; }
-#tour-assessment dd { margin: 0; }
-.tour-assessment-rating { border-top: 1px solid var(--tour-border); padding: 3px 0; }
-.tour-assessment-legend, .tour-assessment-references { color: var(--tour-muted); }
+#tour-audience { border-top: 1px solid var(--tour-border); margin-top: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+#tour-audience h2 { font-size: 13px; margin: 14px 0 6px; }
+#tour-audience p { margin: 6px 0; }
+#tour-audience summary { cursor: pointer; padding: 5px 0; }
+#tour-audience dt { color: var(--tour-muted); margin-top: 6px; }
+#tour-audience dd { margin: 0; }
 .tour-feedback-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .tour-feedback-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; color: var(--tour-body); background: var(--tour-surface); border: 1px solid var(--tour-border); border-radius: 8px; padding: 24px; }
 .tour-feedback-dialog::backdrop { background: rgb(0 0 0 / 55%); }
@@ -1124,7 +1122,7 @@ body.tour-derived-mode .tour-narrative-resizer {
 .tour-feedback-dialog summary { cursor: pointer; }
 .tour-feedback-dialog pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; font-size: 12px; }
 .tour-feedback-dialog button { color: var(--tour-body); background: var(--tour-surface); border: 1px solid var(--tour-border); border-radius: 4px; padding: 7px 12px; cursor: pointer; }
-.tour-feedback-dialog :focus-visible, #tour-assessment summary:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 2px; }
+.tour-feedback-dialog :focus-visible, #tour-audience summary:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 2px; }
 .tour-details .tour-source { display: inline-block; margin-top: 8px; }
 .tour-details .tour-source[hidden] { display: none; }
 .tour-files[hidden],

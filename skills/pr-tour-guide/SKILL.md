@@ -187,6 +187,12 @@ When the comparison changes, explain why that revision pair answers the next que
 Use version 5 `opening: { title, summary, bullets? }` for this context and
 `conclusion: { title, summary, bullets? }` for an evidence-grounded recap.
 Place bookends inside each independently authored mode when its narrative differs.
+State the expected behavior and its important boundary in the opening, grounded
+in the user request, agreed requirements, or behavior that must be preserved.
+Label intent inferred from the diff. The conclusion says what evidence established
+and what remains unresolved. This is a lightweight change contract expressed in
+existing framing and, where useful, step requirements; it needs no new artifact.
+Never weaken the expectation silently to match the implementation.
 Do not invent a slide kind or metadata keys. Keep source
 anchors for code claims and source links for external context distinct.
 
@@ -360,18 +366,17 @@ Use `occurrence` only when repetition is intentional and stable. Treat rename id
 
 ## Validate and repair
 
-When a reader asks to **Explain this**, **Question this change**, assess a tour,
-or resolve feedback, read [Assessment and reader feedback](references/assessment-and-feedback.md).
-That workflow checks whether the implementation, explanation, evidence, design
-decision, or viewer needs repair; confusion alone does not identify the cause.
-
 For new or revised tours, set the v5 `details.audience` to the intended reader
-and purpose when known. Keep quality ratings separate from audience descriptors.
-Do not fabricate ratings, treat an unassessed dimension as zero, or call a model
-simulation human validation. Use the reference's seven anchored dimensions and
-provenance format when an assessment is requested or performed. Independent
-modes need independent assessments. A passing validator verifies structure and
-evidence locations, not comprehension or code correctness.
+and purpose when known. Use the internal review questions in
+[Expectations and reader feedback](references/expectations-and-feedback.md) to
+find and fix concrete weaknesses, without grades or assessment records.
+
+Also read that reference when a reader asks to **Explain this**, **Question this
+change**, or resolve feedback. Investigate the expected behavior, explanation,
+and implementation before choosing a repair. The cause may be code, narrative,
+a design decision, missing evidence, or the viewer. A passing validator verifies
+structure and evidence locations, not comprehension or code correctness.
+Label simulated-reader checks as simulation.
 
 Always run validation before presenting or handing off:
 

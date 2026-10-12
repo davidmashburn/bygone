@@ -1,7 +1,7 @@
 import { validateTourFraming, validateOverviewPurpose, type ChangeTourFraming } from './tourFraming';
 import { validateTourImageSource, type TourImageSource } from './tourImage';
 import type { ChangeTourNarrative } from './changeTourManifest';
-import { validateChangeTourDetails, type ChangeTourDetails } from './tourAssessment';
+import { validateChangeTourDetails, type ChangeTourDetails } from './tourDetails';
 
 export const CHANGE_TOUR_SOURCE_VERSION = 5 as const;
 
@@ -258,9 +258,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
     );
     if (value.details !== undefined) {
         if (value.version < 5) throw new Error('source.details requires version 5.');
-        validateChangeTourDetails(value.details, 'details', {
-            referenceIds: collectSourceDetailReferences(value.chapters, value)
-        });
+        validateChangeTourDetails(value.details, 'details');
     }
     if (value.tours !== undefined) {
         if (value.version < 4) throw new Error('Independent tours require version 4.');
@@ -279,43 +277,11 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             validateSourceChapters(tour.chapters, `${path}.chapters`, value.version, value.anchors, connectionIds, mode);
             if (tour.details !== undefined) {
                 if (value.version < 5) throw new Error(`${path}.details requires source version 5.`);
-                validateChangeTourDetails(tour.details, `${path}.details`, {
-                    referenceIds: collectSourceDetailReferences(tour.chapters, tour)
-                });
+                validateChangeTourDetails(tour.details, `${path}.details`);
             }
         }
     }
     return { ...value, connections: rawConnections } as unknown as ChangeTourSource;
-}
-
-function collectSourceDetailReferences(chaptersValue: unknown, framing: Record<string, unknown>): Set<string> {
-    const references = new Map<string, number>();
-    const add = (id: string) => references.set(id, (references.get(id) ?? 0) + 1);
-    if (framing.opening !== undefined) add('opening');
-    if (framing.conclusion !== undefined) add('conclusion');
-    if (!Array.isArray(chaptersValue)) return new Set([...references].filter(([, count]) => count === 1).map(([id]) => id));
-    for (const chapter of chaptersValue) {
-        if (!isRecord(chapter) || !Array.isArray(chapter.scenes)) continue;
-        for (const scene of chapter.scenes) {
-            if (!isRecord(scene) || typeof scene.id !== 'string') continue;
-            add(scene.id);
-            if (Array.isArray(scene.steps)) {
-                for (const step of scene.steps) {
-                    if (!isRecord(step) || typeof step.id !== 'string') continue;
-                    add(step.id);
-                    add(`${scene.id}/${step.id}`);
-                }
-            }
-            if (Array.isArray(scene.stages)) {
-                for (const stage of scene.stages) {
-                    if (!isRecord(stage) || typeof stage.id !== 'string') continue;
-                    add(stage.id);
-                    add(`${scene.id}/${stage.id}`);
-                }
-            }
-        }
-    }
-    return new Set([...references].filter(([, count]) => count === 1).map(([id]) => id));
 }
 
 type SourceTourValidationMode = 'root' | 'historical' | 'deconstructed';

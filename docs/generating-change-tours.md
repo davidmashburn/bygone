@@ -4,8 +4,8 @@ Bygone treats an LLM as a narrative planner and evidence selector, not as the au
 
 For agents that support repository skills, use the agent-agnostic [`pr-tour-guide` skill](../skills/pr-tour-guide/SKILL.md). It packages the complete evidence, authoring, validation, and handoff workflow without depending on a particular agent vendor.
 
-For optional v5 audience metadata, explanation ratings, and the investigation
-workflow for reader concerns, see [Assessment and reader feedback](../skills/pr-tour-guide/references/assessment-and-feedback.md).
+For optional v5 audience metadata, expected-behavior framing, and the investigation
+workflow for reader concerns, see [Expectations and reader feedback](../skills/pr-tour-guide/references/expectations-and-feedback.md).
 
 Install it with the skills CLI:
 

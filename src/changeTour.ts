@@ -31,28 +31,13 @@ import { buildDeconstructedScene } from './deconstructedChange';
 import { buildTwoWayDiffModel } from './diffEngine';
 import { buildTourFocusRanges } from './tourAnnotations';
 import { buildChangeAttention, classifyChangeFileRole } from './changeAttention';
-import { hashChangeTourSource } from './tourContentHash';
 
 export { parseChangeTourManifest, parseChangeTourStory } from './changeTourManifest';
 export { parseChangeTourSource } from './changeTourSource';
-export { hashChangeTourSource } from './tourContentHash';
-export {
-    TOUR_ASSESSMENT_METHODS,
-    TOUR_ASSESSMENT_RATING_KEYS,
-    TOUR_ASSESSMENT_RUBRIC,
-    TOUR_ASSESSMENT_RUBRIC_KEYS,
-    TOUR_ASSESSMENT_SCORE_VALUES
-} from './tourAssessment';
 export type {
-    ChangeTourAssessment,
-    ChangeTourAssessmentMethod,
-    ChangeTourAssessmentRating,
-    ChangeTourAssessmentRatingKey,
-    ChangeTourAssessmentRatings,
-    ChangeTourAssessmentScore,
     ChangeTourAudience,
     ChangeTourDetails
-} from './tourAssessment';
+} from './tourDetails';
 export { buildChangeTourContext } from './changeTourContext';
 export type { BuildChangeTourContextOptions, ChangeTourContext } from './changeTourContext';
 export { buildChangeAttention, classifyChangeFileRole, CHANGE_ATTENTION_VERSION } from './changeAttention';
@@ -109,7 +94,6 @@ export function buildChangeTourManifest(
     if (source) source = pinTourSource(source, range.repoRoot, new Map([
         [range.headRef, range.headOid], [range.baseRef, range.baseOid]
     ]), range.baseOid, range.headOid);
-    const sourceContentHash = source && source.version >= 5 ? hashChangeTourSource(source) : undefined;
     const maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_TOUR_FILE_BYTES;
     const maxLineBytes = options.maxLineBytes ?? DEFAULT_MAX_TOUR_LINE_BYTES;
     const omittedFiles: string[] = [];
@@ -253,7 +237,6 @@ export function buildChangeTourManifest(
         chapters,
         scenes,
         ...(source?.details !== undefined ? { details: source.details } : {}),
-        ...(sourceContentHash !== undefined ? { contentHash: sourceContentHash } : {})
     };
     const authoredModeTours = source && source.version >= 4
         ? buildAuthoredModeTours(
@@ -262,8 +245,7 @@ export function buildChangeTourManifest(
             defaultScenes,
             range.repoRoot,
             range.mergeBaseOid,
-            range.headOid,
-            sourceContentHash
+            range.headOid
         )
         : undefined;
     if (authoredModeTours) manifest.tours = authoredModeTours;
@@ -418,8 +400,7 @@ function buildAuthoredModeTours(
     defaultScenes: ChangeTourDiffScene[],
     repoRoot: string,
     mergeBaseOid: string,
-    headOid: string,
-    sourceContentHash?: string
+    headOid: string
 ): ChangeTourTours | undefined {
     const tours: ChangeTourTours = {};
 
@@ -432,7 +413,6 @@ function buildAuthoredModeTours(
             chapters: compiled.chapters,
             scenes: compiled.scenes,
             ...(source.tours.historical.details !== undefined ? { details: source.tours.historical.details } : {}),
-            ...(sourceContentHash !== undefined ? { contentHash: sourceContentHash } : {})
         };
     } else if (source.version >= 4) {
         const fallback = buildHistoricalFallback(source.chapters, root);
@@ -442,7 +422,6 @@ function buildAuthoredModeTours(
                 ...(root.scenes.every(scene => scene.kind !== 'deconstructed-diff')
                     ? { opening: source.opening, conclusion: source.conclusion, details: source.details }
                     : {}),
-                ...(sourceContentHash !== undefined ? { contentHash: sourceContentHash } : {})
             };
         }
     }
@@ -455,7 +434,6 @@ function buildAuthoredModeTours(
             chapters: compiled.chapters,
             scenes: compiled.scenes,
             ...(source.tours.deconstructed.details !== undefined ? { details: source.tours.deconstructed.details } : {}),
-            ...(sourceContentHash !== undefined ? { contentHash: sourceContentHash } : {})
         };
     } else if (source.version >= 4 && source.chapters.some((chapter) => (
         chapter.scenes.some((scene) => scene.kind === 'deconstructed-diff')
@@ -469,7 +447,6 @@ function buildAuthoredModeTours(
             details: source.details,
             chapters: root.chapters,
             scenes: root.scenes,
-            ...(sourceContentHash !== undefined ? { contentHash: sourceContentHash } : {})
         };
     }
 
