@@ -1,8 +1,49 @@
 # Tour assessment and feedback
 
-Status: Approved implementation scope (2026-10-12). The user authorized the build
-and local implementation/planning commits, with no release. This is a research-
-informed adaptation, not a validated code-tour instrument or a merge gate.
+Status: Simplified strategy approved on 2026-10-12. The earlier scored design
+below is preserved as research and decision history, not the current API or UI
+contract. The user authorized implementation and local commits; no release.
+
+## Current decision: expectations, audience, and actionable feedback
+
+Keep optional audience details: purpose, scope, estimated time, and assumed
+familiarity on expansion. Keep **Explain this** and **Question this change**,
+with frozen context including the active mode's opening, passage, and evidence.
+
+Remove numeric grades, authored assessment records, rubric UI, and assessment
+hash/staleness machinery. Keep the seven dimensions as internal skill questions
+that identify concrete weaknesses. Report findings and repair them; do not
+substitute scores for understanding or correctness.
+
+The lightweight “change contract” is expected behavior in the existing opening,
+with a material boundary when needed. Derive it from the user's request, agreed
+requirements, or existing behavior that must be preserved. Label inferred intent
+when the diff is the only basis. Use existing step requirements when traceability
+helps; introduce no additional schema, artifact, or presentation hierarchy.
+
+Compare expectation, explanation, and actual implementation. A mismatch can
+require a code fix, a tour fix, a design/scope decision, more evidence, or a viewer
+fix. Never silently weaken the expectation to fit code. After a code repair,
+refresh the tour evidence and check the explanation again. The conclusion states
+what the evidence established and material unresolved questions.
+
+Example: “Advancing to the next scene preserves the comparison unless the scene
+explicitly changes revisions.” If the viewer resets comparisons, investigate
+whether the implementation violates that expectation. If the comparison is
+preserved but the transition is unclear, improve the explanation or viewer
+orientation. If a different behavior is intended, resolve that design decision
+explicitly rather than rewriting the promise after the fact.
+
+Confidence: high that this removes unsupported scoring overhead; moderate that
+it improves reader outcomes. Real readers' ability to explain the outcome and
+predict consequential cases would strengthen or challenge that assessment.
+No reader study has validated this simplification.
+
+## Historical proposal and preserved research
+
+The remaining sections record the earlier scored proposal and its sources.
+API shapes and implementation recommendations in those sections are superseded
+by the current decision above; the research record remains intact.
 
 ## Relationship to the existing work
 
