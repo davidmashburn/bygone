@@ -1,0 +1,349 @@
+version: 5
+title: Explain the change without losing the reader
+opening:
+  title: Give each stop a reason to exist
+  summary: >-
+    A Bygone tour should explain what a change does and why its evidence matters. This branch
+    addresses two sources of confusion: explanations that oscillate between sparse claims and scope
+    dumps, and a viewer that can make a new topic look like a new comparison. First we’ll trace how
+    purpose and comparison become explicit; then how navigation preserves the thread of the
+    argument. Every scene here uses the same before-and-after revisions.
+conclusion:
+  title: Less repetition, more reasoning—and a visible way through
+  summary: >-
+    The branch gives authors an opening and conclusion, makes scene landings preview relevant
+    evidence, and distinguishes a changed file from changed revisions. Back and Next traverse the
+    explanation; constructed stages retain every code focus while telling their story once. Tests
+    check comparison identity, navigation order, narration, and a cancellation failure exposed by
+    switching code. Those checks establish mechanics, not that a reader understands the change. The
+    remaining test is whether someone can explain the outcome and its cause after this tour.
+range:
+  base: 1e2e7b0392f205294fd98111409d3925d863b44e
+  head: 2ddf51c6e968bb1e5bc827213eef00665a213488
+anchors:
+  causal-writing:
+    file: skills/pr-tour-guide/SKILL.md
+    revision: head
+    contains: |-
+      - Connect the observable outcome to its mechanism and supporting evidence in
+        the main reading path. Preserve the causal links when shortening prose;
+        “ignores layout events” is less useful than explaining why skipping scroll
+        synchronization prevents a layout event from undoing a code reveal.
+  bookends:
+    file: src/tourFraming.ts
+    revision: head
+    contains: |-
+      /** Authored bookends belong to a narrative, independently of its evidence scenes. */
+      export interface TourPassage {
+          title: string;
+          summary: string;
+          bullets?: string[];
+      }
+
+      export interface ChangeTourFraming {
+          opening?: TourPassage;
+          conclusion?: TourPassage;
+      }
+  reading-end:
+    file: src/tourReading.ts
+    revision: head
+    contains: |2-
+          if (tour.conclusion) items.push({ kind: 'conclusion', key: 'conclusion', sceneIndex: -1, stepIndex: 0 });
+          return items;
+  scene-preview:
+    file: src/tourOrientation.ts
+    revision: head
+    contains: |-
+      export function tourLanding(tour: ChangeTourManifest, item: TourReadingItem): TourLanding {
+          if (item.kind === 'title' || item.kind === 'chapter' || item.kind === 'conclusion') return 'narrative';
+          const scene = tour.scenes[item.sceneIndex];
+          if (!scene || scene.kind === 'discussion') return 'narrative';
+          if (item.kind === 'step' || scene.kind === 'text-diff') return 'evidence';
+          return scene.overview ? 'overview' : 'preview';
+      }
+  actual-evidence:
+    file: web/host.js
+    revision: head
+    contains: |2-
+              // Panel selection describes rendered evidence even while the reader stays
+              // on an intro, chapter, or conclusion with no evidence of its own.
+              const evidenceItem = activePairIndex === undefined ? item : {
+                  kind: 'step', sceneIndex: state.activeSceneIndex, stepIndex: state.activeStepIndex
+              };
+              const evidenceContext = evidenceItem && resolveTourEvidenceContext(state.tour, evidenceItem, state.zoom?.mode, activePairIndex);
+              const context = rangeOnly || !evidenceContext ? resolveTourRangeEvidenceContext(state.tour, filePath) : evidenceContext;
+              const displayedContext = { ...context, scope: filePath, scopeKey: JSON.stringify([filePath]), overview: false };
+              const previous = lastReadingEvidence?.tour === state.tour ? lastReadingEvidence.context : null;
+              const comparison = previous && (previous.comparisonKey !== displayedContext.comparisonKey || previous.scopeKey !== displayedContext.scopeKey)
+                  ? describeTourTransition(previous, displayedContext) : describeTourComparison(displayedContext);
+              // Remember the actual rendered pair, including user-selected panels and file exploration.
+              lastReadingEvidence = { tour: state.tour, context: displayedContext };
+  comparison-proof:
+    file: test/tourFraming.test.js
+    revision: head
+    contains: |2-
+          tour.scenes[0].steps[0].diff.path = 'other.ts';
+          const scopeChange = resolveTourEvidenceContext(tour, intro);
+          assert.match(describeTourTransition(initial, scopeChange), /Same revision comparison; file changed from app.ts to other.ts/);
+          tour.range.baseRef = 'Different name';
+          assert.equal(initial.comparisonKey, resolveTourEvidenceContext(tour, intro).comparisonKey);
+          const reversed = clone(tour); [reversed.range.mergeBaseOid, reversed.range.headOid] = [tour.range.headOid, tour.range.mergeBaseOid];
+          assert.notEqual(initial.comparisonKey, resolveTourEvidenceContext(reversed, intro).comparisonKey);
+          tour.range.headOid = 'c'.repeat(40);
+          const changed = resolveTourEvidenceContext(tour, intro);
+          assert.notEqual(initial.comparisonKey, changed.comparisonKey, 'Same labels do not hide different OIDs');
+          assert.match(describeTourTransition(initial, changed), /Revision comparison changed/);
+  linear-navigation:
+    file: web/host.js
+    revision: head
+    contains: |2-
+          function showTourLinear(direction) {
+              if (!isNarrativeMode()) return false;
+              const target = getTourReadingTarget(readingItems, state.readingKey, direction, isImageOnlyTour(state.tour));
+              if (!target) return false;
+              activateReadingItem(target, false, true);
+              return true;
+          }
+  navigation-proof:
+    file: standalone/exportSmoke.js
+    revision: head
+    contains: |2-
+                  await advance('tour-next', 'chapter:chapter');
+                  await advance('tour-next', 'scene:scene');
+                  await advance('tour-next', 'step:scene:step');
+                  await advance('tour-next', 'conclusion');
+                  assert.equal(await evaluate("document.querySelector('#tour-next').disabled"), true);
+                  await advance('tour-back', 'step:scene:step');
+                  await advance('tour-back', 'scene:scene');
+                  await advance('tour-back', 'chapter:chapter');
+                  await advance('tour-back', 'title');
+  stage-once:
+    file: src/changeTour.ts
+    revision: head
+    contains: |2-
+                  title: focusIndex === 0
+                      ? stage.title
+                      : `${focus.file} · Evidence ${focusIndex + 1} of ${focuses.length}`,
+                  // A stage is one argument supported by multiple code focuses.
+                  // Keep its explanation once in the reading/narration sequence.
+                  body: focusIndex === 0 ? stage.narration : '',
+                  file: focus.file,
+                  pairIndex: stageIndex,
+  stage-recovery:
+    file: web/host.js
+    revision: head
+    contains: |2-
+                      if (scene.kind === 'deconstructed-diff' && !step.body) {
+                          const firstStepIndex = scene.steps.findIndex(candidate => candidate.pairIndex === step.pairIndex);
+                          if (firstStepIndex >= 0 && firstStepIndex < item.stepIndex) {
+                              const explanation = readingItems.find(candidate => candidate.kind === 'step'
+                                  && candidate.sceneIndex === item.sceneIndex && candidate.stepIndex === firstStepIndex);
+                              const button = readingButton('Read stage explanation', `Read ${scene.steps[firstStepIndex].title}`, () => activateReadingItem(explanation));
+                              button.className = 'tour-show-in-code tour-stage-explanation';
+                              element.append(button);
+                          }
+                      }
+  stage-proof:
+    file: test/runTests.js
+    revision: head
+    contains: |2-
+          const spoken = manifestScene.steps.flatMap((_, index) => narrationFor(index, 'continuous'));
+          for (const stage of scene.stages) {
+              assert.equal(spoken.filter(segment => segment.text === stage.narration).length, 1);
+          }
+          assert.equal(spoken.some(segment => segment.source.field === 'stage-title'), false);
+          assert.equal(narrationFor(3, 'playback-start').find(segment => segment.source.field === 'stage-title').text,
+              'Stage 2: Finish the behavior');
+          assert.equal(narrationFor(3, 'playback-start').some(segment => segment.source.field === 'step-body'), false);
+  highlight-cancel:
+    file: media/script.js
+    revision: head
+    contains: |-
+      function handlePendingWordHighlightCancellation(editor) {
+          // Monaco 0.55's word highlighter ignores the promise from its cursor Delayer.
+          // Model replacement and editor disposal cancel it. Handle only that pending
+          // operation's expected cancellation, without hiding other renderer failures.
+          const pending = editor.getContribution('editor.contrib.wordHighlighter')
+              ?.wordHighlighter?.runDelayer?.completionPromise;
+          void pending?.catch(error => {
+              if (!isCancellationError(error)) throw error;
+          });
+      }
+  highlight-proof:
+    file: standalone/diffRegressionSmoke.js
+    revision: head
+    contains: |2-
+              assert.deepEqual(await evaluate('window.highlightFailures'), ['Injected highlight failure'], 'Non-cancellation highlight failures remain observable');
+              assert.equal(await evaluate(`${editors}.every(e => e.getOption(window.monaco.editor.EditorOption.occurrencesHighlight) !== 'off')`), true, 'Word highlighting stays enabled');
+              assert.deepEqual(errors, []);
+connections: []
+chapters:
+  - id: purpose-and-context
+    title: Make the purpose and comparison clear
+    scenes:
+      - id: explanation
+        title: What makes a tour an explanation?
+        summary: >-
+          Start with the author’s contract. The writing guidance asks for a causal account; the
+          format gives that account a beginning and an ending. Notice which part requires judgment
+          and which part the software can represent.
+        steps:
+          - id: causal-writing
+            title: Keep the reason when cutting the words
+            body: >-
+              A terse label such as “ignores layout events” leaves the reader to infer why it
+              matters. The revised skill asks authors to connect the outcome to the mechanism and
+              its evidence in the main reading path. This is the strategy change: shorten repetition
+              and inventory, while keeping the reasoning that makes a claim understandable.
+            focus: causal-writing
+          - id: bookends
+            title: Separate the opening promise from the evidence
+            body: >-
+              Version 5 adds authored opening and conclusion passages, each with a title and
+              summary. They belong to the narrative rather than a file or code step, so an author
+              can establish the problem before presenting implementation details. These fields
+              provide room for framing; their existence cannot guarantee useful prose.
+            focus: bookends
+          - id: reading-end
+            title: Make the recap a destination
+            body: >-
+              The conclusion is appended to the continuous reading order after the scenes and their
+              steps. That makes the ending reachable through the same navigation as the evidence,
+              rather than burying the summary in the final code annotation. The navigation test
+              later in this tour checks that readers can reach it and move back.
+            focus: reading-end
+        bullets: []
+        tags: []
+        takeaway: The format can create space for reasoning; the author must supply the causal argument.
+      - id: comparison
+        title: Does a new scene mean a new comparison?
+        summary: >-
+          With the purpose established, the next question is what the viewer puts beneath it. Follow
+          the landing rule, the caption’s source of truth, and a test that distinguishes moving to
+          another file from changing the revisions.
+        steps:
+          - id: scene-preview
+            title: Show the next evidence unless an overview was authored
+            body: >-
+              The landing rule gives bookends and discussion passages a narrative view. A scene with
+              code steps and no explicit overview gets a preview of its evidence; a step gets the
+              evidence itself. A directory overview therefore becomes a deliberate authored choice,
+              instead of the automatic visual interruption at every scene boundary.
+            focus: scene-preview
+          - id: actual-evidence
+            title: Describe the comparison the reader actually sees
+            body: >-
+              The caption resolves the displayed panel pair and file, including manual panel
+              selection and file exploration from a parent passage. It remembers that displayed
+              context for the next transition. Otherwise a caption could describe the authored stop
+              while the reader is looking at a different comparison—the precise ambiguity an
+              orientation cue is meant to remove.
+            focus: actual-evidence
+          - id: comparison-proof
+            title: A new file is not a new revision pair
+            body: >-
+              The test moves from app.ts to other.ts and expects “Same revision comparison.”
+              Renaming a revision label leaves its identity unchanged; reversing endpoints or
+              changing the head OID changes it. This checks that orientation follows the actual
+              ordered revisions, rather than drawing conclusions from titles or file names.
+            focus: comparison-proof
+        bullets: []
+        tags: []
+        takeaway: >-
+          Use a scene boundary to introduce a new question. Use resolved revisions to decide whether
+          the comparison changed.
+  - id: keep-the-thread
+    title: Keep the argument intact as the reader moves
+    scenes:
+      - id: navigation
+        title: Can the reader advance without steering the scroll?
+        summary: >-
+          Now keep that context while moving through the explanation. The buttons use the document’s
+          reading order, and the exported-viewer test exercises both directions through its
+          beginning and ending.
+        steps:
+          - id: linear-navigation
+            title: Move to the next passage, not just the next code step
+            body: >-
+              Back and Next ask for the adjacent item in the reading order and activate it as linear
+              navigation. This carries the reader through introductory passages, scene explanations,
+              evidence, and the conclusion. Scroll remains available, but no longer has to be the
+              main way to choose the next stop.
+            focus: linear-navigation
+          - id: navigation-proof
+            title: The route reaches the conclusion and returns to the intro
+            body: >-
+              The export smoke clicks Next through chapter, scene, step, and conclusion; it then
+              clicks Back through the reverse route to the title. It also checks that Next is
+              disabled at the end. This is a browser interaction check for the navigation contract,
+              not evidence that the prose is persuasive.
+            focus: navigation-proof
+        bullets: []
+        tags: []
+        takeaway: An ending only works as an ending if the reader can reach it through the normal controls.
+      - id: multiple-focuses
+        title: Why show several code focuses for one explanation?
+        summary: >-
+          A constructed stage is an authored intermediate version, rather than a Git commit. It can
+          change several files or separated regions. Each focus should add evidence without
+          restarting the argument. We’ll inspect how the compiler avoids repeated prose, how a
+          reader can recover the explanation, and what narration tests establish.
+        steps:
+          - id: stage-once
+            title: Explain the stage once while retaining every focus
+            body: >-
+              The compiler puts the stage title and narration on its first focus. Later focuses get
+              a file-and-evidence title and an empty body, while keeping the stage’s comparison
+              pair. The reader can inspect all of the code supporting one idea without encountering
+              the same paragraph at every stop. This is behavior for constructed-stage tours; this
+              tour itself stays on real revisions.
+            focus: stage-once
+          - id: stage-recovery
+            title: Let a later focus lead back to its explanation
+            body: >-
+              An empty continuation body does not mean the reader must remember where the argument
+              began. The viewer finds the first focus for the same comparison pair and adds “Read
+              stage explanation.” This preserves a route back for someone who arrives at a later
+              focus directly.
+            focus: stage-recovery
+          - id: stage-proof
+            title: Continuous narration and direct entry need different context
+            body: >-
+              The test requires each stage’s narration to appear once during continuous playback.
+              Starting directly at a later focus supplies “Stage 2: Finish the behavior,” without
+              replaying the full body. That checks generated speech text: it does not establish
+              actual audio quality or whether listeners follow the explanation.
+            focus: stage-proof
+        bullets: []
+        tags: []
+        takeaway: A stage is one argument, even when its evidence needs several stops.
+      - id: switching-code
+        title: Can switching evidence leave a stray failure behind?
+        summary: >-
+          Navigation also replaces editor content. The branch fixes one concrete failure found along
+          that path: cancelling pending word highlighting could surface an unhandled rejection. The
+          guard is narrow, and the regression check makes that boundary explicit.
+        steps:
+          - id: highlight-cancel
+            title: Handle expected cancellation at editor teardown
+            body: >-
+              Before model replacement or editor disposal, the renderer attaches a handler to
+              Monaco’s pending word-highlighting promise. It absorbs cancellation and rethrows other
+              failures. This keeps expected teardown from surfacing as an error while preserving
+              word highlighting. The access reaches into Monaco’s internal highlighter, so an editor
+              upgrade needs to recheck this integration.
+            focus: highlight-cancel
+          - id: highlight-proof
+            title: Keep unrelated failures observable
+            body: >-
+              The regression smoke replaces models with real highlighting work pending, then injects
+              a non-cancellation failure. These assertions require that injected failure to remain
+              observable, word highlighting to stay enabled, and the collected renderer errors to
+              stay empty. The result is deliberately bounded: this guards one navigation-related
+              failure, not every possible editor lifecycle error.
+            focus: highlight-proof
+        bullets: []
+        tags: []
+        takeaway: >-
+          Stable navigation includes the editor work it interrupts; keep the cancellation boundary
+          specific.
