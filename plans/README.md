@@ -62,6 +62,9 @@ grew out of an earlier concept.
 
 ## Deferred plans
 
+- [Color and highlighting design pass](color-and-highlighting-design.md) —
+  research, accessible visual roles, overlapping editor states, and reader-tested
+  alternatives to the temporary occurrence outlines.
 - [Deferred directory workflows](deferred-directory-workflows.md) — directory
   copy/delete and lightweight pairing of differently named files.
 
