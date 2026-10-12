@@ -122,7 +122,7 @@ The missing-tour buttons in History and Compare supply a short handoff like:
 
 ```text
 Read and follow the Bygone tour skill at /path/to/SKILL.md.
-Create a v4 deconstructed tour for /path/to/repository, from <base OID> to <head OID>.
+Create a v5 deconstructed tour for /path/to/repository, from <base OID> to <head OID>.
 Scope: <selected paths, or the whole repository>.
 Additional context: …
 ```

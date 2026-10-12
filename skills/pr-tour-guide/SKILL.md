@@ -1,11 +1,22 @@
 ---
 name: pr-tour-guide
-description: Act as a PR Tour Guide by generating, validating, compiling, and presenting evidence-grounded Bygone code-change tours from Git ranges. Use for requests such as "Tour this commit for me," or whenever an AI coding agent should explain a pull request, branch, commit, or code change as a guided walkthrough; create or repair a .bygone file; produce an LLM-ready Bygone change context; connect narrative claims to exact source evidence; or turn a diff into a browser-presentable review or demo. Always print the exact `bygone` CLI command to open the resulting diff, review, tour, or history view.
+description: Create, repair, validate, and present Bygone code-change tours grounded in Git evidence. Use for requested guided walkthroughs of commits, branches, or pull requests, .bygone tour documents, and Bygone tour context extraction. General review preparation or documentation work does not require a tour.
 ---
 
 # PR Tour Guide
 
-Use Bygone as the deterministic evidence and rendering layer. Treat the language model as the narrative planner, never as the authority on Git ranges or source locations.
+Create a guided reading path that connects an explanation of a change to exact
+code evidence. Bygone resolves and displays that evidence; the authoring agent
+is responsible for the explanation and its claims.
+
+This skill owns tour authoring, validation, and presentation. It works standalone;
+no writing, review, or orchestration skill is required. Existing code, maintained
+docs, requirements, and PR discussion keep their roles. A tour can summarize and
+link to them, but does not replace them or certify a review.
+
+Honor an explicit request for a tour. When a broader task leaves the medium open,
+a concise explanation or ordinary code links may suffice; no tour is a valid
+outcome. Do not create a tour to compensate for a defect in another artifact.
 
 ## Install this skill
 
@@ -134,122 +145,56 @@ Then read patches only for likely narrative-bearing files. Account explicitly fo
 
 Compiled tours and context dossiers are large because they embed source snapshots. Inspect them progressively and do not load every patch unless the narrative really needs it.
 
-## Gather ticket and PR framing
+## Use existing context
 
-When available, read the ticket and PR context supplied by the user or directly
-linked from the change, using accessible read-only sources. Follow relevant
-parent-project or review links when they explain the change; keep discovery
-bounded to this work. Missing metadata should not block a useful code tour.
+Read relevant code and the supplied or directly linked docs, requirements, and
+PR explanation. Keep discovery bounded to the change. Bring in only the context
+needed to explain its behavior and evidence; link to the existing account for
+more detail. People, dates, and review history are useful only when they affect
+the explanation, not as a required inventory.
 
-Capture the facts that help a reader understand the change:
-
-- **Ticket:** identifier, title, problem and requested outcome, relevant details
-  or acceptance criteria, creator/requester and assignee as distinct roles,
-  creation date or relevant timeline, and its place in a parent project, epic,
-  or larger initiative.
-- **PR:** number, title, URL, author, relevant creation/merge dates, associated
-  ticket, and actual review history: who reviewed, when, their recorded outcome,
-  and consequential feedback or resulting changes.
-
-Be explicit about whose ticket it was, who authored the PR, and who reviewed
-it when the sources establish those roles. Credit implementation contributors
-when known; PR authorship alone does not establish sole implementation credit.
-A requested reviewer is not an actual reviewer; a comment is not an approval. Do not assume an earlier review
-covers the current head or an entire multi-PR range. For stacked work, keep
-ticket, author, timing, and review provenance attached to the correct PR.
-
-Link the supporting ticket, PR, and review sources in the tour's narrative.
-Distinguish the ticket's requested outcome and the author's stated intent from
-behavior established by code and tests. Do not invent ownership, dates, project
-relationships, ticket associations, review status, or approval. Briefly disclose
-material gaps or conflicting context where they affect the explanation; omit
-irrelevant unavailable fields rather than filling the tour with placeholders.
+Distinguish requested behavior, an author's stated intent, and behavior supported
+by implementation and tests. Label intent inferred from the diff. Do not invent
+requirements, rationale, authorship, or approval; disclose material uncertainty.
+If another artifact is deficient, identify that destination instead of hiding
+the gap in tour prose. Tour authoring alone does not authorize editing it.
 
 ## Plan the explanation
 
-Begin with an opening slide that summarizes the high-level context before the
-implementation: the problem, its place in the larger project, the ticket and
-PR relationship, and what this change contributes. Include relevant people,
-timing, and review status concisely; put detailed provenance beside the later
-claims it explains. If separate authored modes have independent entry points,
-give each enough opening context to stand on its own. Lead with what changes for
-the user or system: the capability added, behavior fixed, or constraint changed.
-Use one or two concrete sentences before the itinerary; “we’ll inspect the
-implementation” does not explain what the change does. Prime the reader with the
-sequence of questions the tour will answer and explain why that sequence matters.
-The Intro's generated route lists chapter titles (or scenes when there are no
-chapters). Give those titles meaning, and use the authored opening to explain
-the story they form. Keep reference numbers in navigation lists; use plain titles
-in headings and narration.
-A scene boundary is a topic boundary, not necessarily a commit or PR boundary.
-When the comparison changes, explain why that revision pair answers the next question.
+Lead with what changes for the user or system and why it matters. Use version 5
+`opening: { title, summary, bullets? }` for a short orientation and
+`conclusion: { title, summary, bullets? }` for what the evidence established and
+what remains unresolved. Give each independently authored mode enough context
+to stand alone: place its `opening` and `conclusion` inside `tours.historical`
+or `tours.deconstructed`; independently authored modes do not inherit root bookends.
+Restate an important expected behavior or boundary from its
+existing source when useful; the opening is an explanation, not a new specification.
+Never silently weaken an expectation to match the implementation.
 
-Use version 5 `opening: { title, summary, bullets? }` for this context and
-`conclusion: { title, summary, bullets? }` for an evidence-grounded recap.
-Place bookends inside each independently authored mode when its narrative differs.
-State the expected behavior and its important boundary in the opening, grounded
-in the user request, agreed requirements, or behavior that must be preserved.
-Label intent inferred from the diff. The conclusion says what evidence established
-and what remains unresolved. This is a lightweight change contract expressed in
-existing framing and, where useful, step requirements; it needs no new artifact.
-Never weaken the expectation silently to match the implementation.
-Do not invent a slide kind or metadata keys. Keep source
-anchors for code claims and source links for external context distinct.
+Choose the smallest set of questions that makes the change understandable:
 
-Identify the smallest set of reviewer questions that makes the change understandable. Organize by conceptual dependency rather than filename order. Usually move through:
+- A chapter groups related questions. A scene answers one question; several
+  steps can supply its evidence. Split for a new reasoning task, not simply
+  a new file or viewport. Use no fixed chapter or step count.
+- Give each scene a distinct purpose. Its summary should prepare the reader for
+  the evidence and say what to notice. Meaningful chapter or scene titles form
+  the opening's generated route; do not duplicate that itinerary in prose.
+- A scene boundary need not change revisions. When the comparison changes,
+  explain why the new revisions matter; otherwise explain the new question.
+  Keep reference numbers in navigation and use descriptive titles in narration.
+- Connect the observable outcome to its mechanism and evidence. Explain why
+  focused code matters rather than paraphrasing syntax. Preserve causal links
+  when shortening prose and include boundaries that change the conclusion.
+- Keep tests beside the behavior they support. Distinguish a test's existence
+  from a passing execution, and synthetic stages from real revision history.
+- Add context, connections, and steps only when they add understanding. Keep
+  mechanical files in the complete Files rail unless they affect the argument.
+  Do not repeat the same point across summaries, bullets, and takeaways.
 
-1. motivation, contract, or invariant;
-2. core implementation;
-3. integration or side effects;
-4. failure behavior and proof.
-
-Keep secondary, generated, dependency, and mechanical files in Bygone's complete Files rail unless they alter a reviewer conclusion.
-
-Let the change determine the hierarchy. A chapter is a named conceptual arc containing one or more related scenes; a scene answers one reviewer question or advances one thesis. Do not target a fixed chapter count, and do not create a chapter merely to wrap each scene. Repeated one-scene chapters usually indicate that headings are being generated from a template instead of the change's actual structure.
-
-Scale the structure proportionally:
-
-- A small commit may need one chapter and one scene.
-- A normal pull request often needs one to three chapters with one or more scenes in each.
-- A broad release or long-lived branch may need several chapters, but each boundary must mark a real conceptual transition.
-- Prefer merging adjacent chapters when their scenes form one argument; split a chapter only when its scenes answer materially different reviewer questions.
-
-These are pacing heuristics, not quotas. Preserve asymmetry when one capability deserves substantially more explanation than another.
-
-Use these narrative constraints:
-
-- State one reviewer question or thesis per scene. In its summary, explain why
-  this question comes next, what evidence is about to appear, and what to notice.
-- Before authoring, answer: “What can the reader explain after this scene that
-  they could not explain before it?” An inventory of visited files is not an
-  answer. Give each scene a distinct explanatory job.
-- Split scenes only when the reviewer question changes. Several steps can support
-  one scene; several scenes can examine the same comparison. Do not split merely
-  because the file, panel, or viewport changes. A chapter groups related questions.
-- At a real comparison change, explain why the new revisions matter. At a
-  same-comparison transition, explain the new question instead of implying a new diff.
-- End with supported findings, consequences, and unresolved checks. Do not make
-  a conclusion stronger than the evidence or manufacture evidence for a recap.
-- Give every chapter a coherent multi-scene arc when the material supports one; allow a single-scene chapter only when that scene is independently substantial.
-- Decompose scenes by conceptual need, not a fixed template; do not force every scene to use the same step count.
-- Use as many steps as the argument needs; do not pad or split it to meet a
-  preferred count. Keep tests beside the behavior they support unless they
-  resolve a distinct question that warrants another scene.
-- Explain why focused code matters instead of paraphrasing syntax.
-- Connect the observable outcome to its mechanism and supporting evidence in
-  the main reading path. Preserve the causal links when shortening prose;
-  “ignores layout events” is less useful than explaining why skipping scroll
-  synchronization prevents a layout event from undoing a code reveal.
-- State the important finding in the step title and place its evidence beside
-  the explanation. Include a preserved behavior or material limit when it
-  changes the conclusion. Do not impose repeated claim/cause/proof labels.
-- Keep rationale visible. Do not substitute scope inventories or details
-  disclosures for reasoning, or repeatedly teach the tour hierarchy before
-  explaining the code. Reference numbers belong in lists, not repeated dotted
-  references in prose. Metadata belongs in existing evidence surfaces.
-- Keep summaries, bullets, annotations, and takeaways distinct; bullets that merely restate the summary are a defect.
-- Avoid intent, safety, performance, or runtime claims unsupported by the evidence.
-- Do not imply that the authored tour exhaustively reviews every changed file.
+Support claims about intent, safety, performance, or runtime behavior with
+appropriate evidence. A selected reading path is not an exhaustive code review.
+Do not invent slide kinds or metadata keys; keep code anchors and links to
+external explanations distinct.
 
 ## Author the source
 
@@ -291,14 +236,14 @@ across modes.
   walkthrough scenes for context or proof. A mode-specific deconstructed scene
   may omit `stack` and endpoint `steps`: its stages, not Git history, define the
   explanation panels.
-- If a mode is omitted, v4 derives it from the root chapters by scene identity
+- If a mode is omitted, v4 and v5 derive it from the root chapters by scene identity
   and order. Root walkthroughs and real stacks supply Historical; root
   deconstructed scenes supply Deconstructed. A root deconstructed scene enters
   Historical only when it also has explicit endpoint walkthrough `steps`; a
   real revision `stack` by itself is not that walkthrough. No cross-mode
   correspondence is inferred from filenames or narrative text.
 
-For a root v4 `deconstructed-diff` scene, provide both an explicit real
+For a root v4 or v5 `deconstructed-diff` scene, provide both an explicit real
 revision `stack` and regular endpoint `steps`. The stack is used for the real
 Historical/Final fallback and must have the same base and final endpoints as
 the source range; the synthetic stages remain separate. A
@@ -366,17 +311,9 @@ Use `occurrence` only when repetition is intentional and stable. Treat rename id
 
 ## Validate and repair
 
-For new or revised tours, set the v5 `details.audience` to the intended reader
-and purpose when known. Use the internal review questions in
-[Expectations and reader feedback](references/expectations-and-feedback.md) to
-find and fix concrete weaknesses, without grades or assessment records.
-
-Also read that reference when a reader asks to **Explain this**, **Question this
-change**, or resolve feedback. Investigate the expected behavior, explanation,
-and implementation before choosing a repair. The cause may be code, narrative,
-a design decision, missing evidence, or the viewer. A passing validator verifies
-structure and evidence locations, not comprehension or code correctness.
-Label simulated-reader checks as simulation.
+Use optional v5 `details.audience` when the intended reader and purpose are known.
+Read [Expectations and reader feedback](references/expectations-and-feedback.md)
+for those fields or when handling a captured reader concern.
 
 Always run validation before presenting or handing off:
 
@@ -384,43 +321,17 @@ Always run validation before presenting or handing off:
 bygone tour validate review.bygone --json
 ```
 
-Repair every error. Do not weaken, delete, or redirect an anchor merely to make validation pass. If evidence no longer exists, revise the claim or report the broken premise.
+Repair every error. Do not weaken, delete, or redirect an anchor merely to make
+validation pass. If evidence no longer exists, revise the claim or report the
+broken premise. Validation checks structure and evidence locations, not code
+correctness or comprehension.
 
-After structural validation, check that:
-
-Treat this as a required self-audit, not a claim the validator can prove. For each item, cite concrete evidence you actually opened or mark it not applicable; the hand-off must distinguish verified findings from interpretation.
-
-- the opening slide establishes the problem, project context, and available
-  ticket/PR provenance before the first implementation step;
-- ticket ownership, dates, and actual review claims are traceable to opened
-  sources and scoped to the PR/revision they describe;
-- chapter boundaries follow conceptual transitions rather than a fixed count or one-scene-per-chapter pattern;
-- important production behavior is not hidden in the complete Files rail;
-- tests are connected to the behavior they prove;
-- each scene adds a distinct understanding, and the main path explains how
-  the implementation produces the claimed behavior;
-- the compiled route does not repeat an explanation merely because the file
-  changed or another generated focus step was added;
-- connections express causal, contractual, data-flow, ordering, or proof relationships;
-- binary files and omitted patches are surfaced explicitly;
-- every Historical tour excludes synthetic deconstructed scenes, and every
-  Deconstructed tour contains at least one deconstructed scene;
-- deconstructed stages cover every included change unit exactly once or record
-  an explicit exclusion, contain no unqualified "Stage N" or "Step N"
-  references, and keep comparison stages distinct from navigable tour steps;
-- root deconstructed scenes have the required real stack and endpoint
-  walkthrough evidence, while mode-specific synthetic scenes do not claim
-  that evidence exists;
-- the final step supplies proof or a clear reviewer conclusion.
-
-For a presentation revision, inspect both a small fix and a multi-commit change;
-see `examples/marker-focus.bygone` and `examples/navigation-lab.bygone.yaml`.
-Ask an unfamiliar reader to explain the outcome, mechanism, supporting evidence,
-and remaining uncertainty, and to identify whether a selected transition changed
-the comparison. Record observed confusion separately from source validation and
-navigation checks. Do not claim improved comprehension from fewer words, fewer
-stops, or a passing validator alone. Use concrete reader or viewer observations
-to justify further presentation changes.
+Read the resulting path against its evidence: does each scene establish a useful
+point, do transitions preserve orientation, and does the conclusion stay within
+what was shown? Check the compiled path where generated focus steps or fallback
+modes could introduce repetition or change the intended sequence. Report material
+omissions and checks actually performed; do not require a scored audit or a
+separate reader-review process for every tour.
 
 ## Always print the open command
 
@@ -462,17 +373,10 @@ Compiled manifests contain source snapshots. Do not publish or upload them witho
 
 ## Hand off
 
-Report:
+Provide the tour document path, compiled path if produced, exact range, and open
+command. Briefly report validation, any visual verification, material omissions
+or unresolved claims, and whether artifacts are temporary, uncommitted, committed,
+or pushed. Do not turn the handoff into an inventory of every scene and step.
 
-- the exact base and head OIDs;
-- the **open command** for the primary artifact (`bygone present --tour …`, `bygone review …`, `bygone --git-diff …`, etc.);
-- the source and compiled artifact paths;
-- authored root and Historical/Deconstructed chapter, scene, step, and stage
-  counts, plus compiled counts when generated complete-change or per-mode
-  scenes change them;
-- omitted or unread evidence;
-- ticket/PR context sources used and material unavailable or conflicting context;
-- validation and visual verification performed;
-- whether generated files are temporary, uncommitted, committed, or pushed.
-
-Distinguish syntactic grounding from interpretive correctness: Bygone proves that cited evidence exists at the pinned revision, not that the narrative's interpretation is unquestionably correct.
+Bygone establishes that cited evidence exists at the pinned revision, not that
+the narrative interpretation or implementation is correct.

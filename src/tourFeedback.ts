@@ -53,11 +53,13 @@ export function buildTourFeedbackRequest(intent: TourFeedbackIntent, concern: st
 My concern:
 ${concern.trim() || '(No additional note; start with the captured passage.)'}
 
-Investigate before deciding what needs repair. Check the stated expectation, the explanation, and the implementation against source and relevant tests. The cause may involve implementation, explanation, a design/scope decision, missing evidence, or the viewer. Recover expected behavior from the user request, agreed requirements, or behavior that must be preserved; label expectations inferred from the diff. Do not silently weaken an expectation to match the code. Keep uncertainty explicit; do not explain away a defect or treat disagreement as confusion. Propose the smallest repair within the existing task authorization. If code changes, refresh the tour evidence and reassess affected claims. Close the loop on both behavior and understanding; report what remains unverified.
+Investigate the concern against implementation code, relevant tests, and existing docs, requirements, or PR rationale. Distinguish intended behavior from the tour's claim and the evidence; label inferred intent and unresolved disagreement. Do not silently weaken an expectation to match the code.
+
+Answer the concern, then identify any repair destination: implementation code, maintained documentation, PR explanation, the tour document, or the viewer. Missing evidence may need a check; disputed requirements may need a human decision. More tour prose is not always the remedy, and a clear answer may need no artifact change. Propose the smallest repair within the existing task authorization; this request does not itself authorize implementation edits or shared-system writes. Report what was checked, what remains unverified, and which artifacts actually changed. An agent reply does not update the saved tour document.
 
 Captured tour context (a snapshot, not proof of current workspace state; synthetic panels are not commits):
 ${snapshot}
 
-Use the pr-tour-guide skill when available. Verify the source revision before acting. The location may require the original repository/server or exported HTML file.
+Verify the pinned and current implementation revisions before acting. If authorized implementation changes affect the tour, revisit its claims and refresh evidence for the intended committed range; do not present working-tree edits as committed evidence. Use the pr-tour-guide skill when authoring or repairing a Bygone tour, if available. The location may require the original repository/server or exported HTML file.
 `;
 }

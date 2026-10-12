@@ -30,8 +30,8 @@ palette. UI text uses the system sans-serif font; source code keeps its editor
 font. VS Code supplies its host theme and font through the existing variables.
 
 Desktop Explore uses **History · Compare · Historical tour · Deconstructed
-tour** without requiring an authored document. Missing tour buttons open an
-short, editable prompt referencing the bundled v4 tour skill and the workspace's
+tour** without requiring an authored document. Missing tour buttons open a
+short, editable prompt requesting a v5 tour and referencing the bundled skill and the workspace's
 repository, revisions, and selected paths. Read instructions exposes the Markdown;
 Save an editable copy and Use my copy support user-owned forks. Desktop prompts
 reference a real filesystem path outside the application archive. Browser prompts
