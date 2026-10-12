@@ -28,6 +28,8 @@ grew out of an earlier concept.
 
 - [Tour reasoning and salience](tour-reasoning-and-salience.md) — research-backed
   narrative experiment, full conversation context, and an interactive example.
+- [Tour assessment and feedback](tour-assessment-and-feedback.md) — descriptive
+  tour context, explanation-quality assessment, reader concerns, and calibration.
 - [Workspace identity and sidebar context](workspace-identity-and-sidebar-context.md)
   — one workspace identity, one authored title, and accurate scope across modes.
 - [Tour orientation, scene framing, and conclusions](tour-orientation-and-narrative-framing.md)
