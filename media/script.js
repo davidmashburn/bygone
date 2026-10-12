@@ -629,7 +629,20 @@ function applyMonacoTheme() {
             'editor.foreground': foreground,
             'editorGutter.background': background,
             'editorLineNumber.foreground': lineNumber,
-            'editor.selectionBackground': selection
+            'editor.selectionBackground': selection,
+            // Occurrences include the whole word even when only part is selected.
+            // Outline matches so only the actual selection gets a fill, and diff
+            // colors remain visible underneath. Preserve high-contrast defaults.
+            ...(!isHighContrast ? {
+                'editor.selectionHighlightBackground': '#00000000',
+                'editor.selectionHighlightBorder': isDark ? '#858078' : '#878078',
+                'editor.wordHighlightBackground': '#00000000',
+                'editor.wordHighlightBorder': isDark ? '#858078' : '#878078',
+                'editor.wordHighlightTextBackground': '#00000000',
+                'editor.wordHighlightTextBorder': isDark ? '#858078' : '#878078',
+                'editor.wordHighlightStrongBackground': '#00000000',
+                'editor.wordHighlightStrongBorder': isDark ? '#6b9fbb' : '#397795'
+            } : {})
         }
     });
     monacoInstance.editor.setTheme('bygone');

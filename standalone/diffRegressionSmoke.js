@@ -6,6 +6,7 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const { buildTwoWayDiffModel } = require('../out/diffEngine');
 const { runPanelDensitySmoke } = require('./panelDensitySmoke');
 const { runGutterCopySmoke } = require('./gutterCopySmoke');
+const { runSelectionHighlightSmoke } = require('./selectionHighlightSmoke');
 const { yamlDiffFixture } = require('../test/yamlDiffFixture');
 
 app.whenReady().then(async () => {
@@ -201,6 +202,7 @@ app.whenReady().then(async () => {
             assert.deepEqual(await evaluate(readOnlyOptions), [true, true], 'Read-only host capabilities cannot be toggled away');
         }
         await runGutterCopySmoke({ window, show });
+        await runSelectionHighlightSmoke({ window, show });
         await show({ type: 'showDiff', file1: 'before.txt', file2: 'after.txt', leftContent: 'before word\n', rightContent: 'after word\n' });
         assert.equal(await evaluate(`(() => {
             const editor = ${editors}[0];
