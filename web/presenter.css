@@ -1092,16 +1092,25 @@ body.tour-derived-mode .tour-narrative-resizer {
 .tour-narration-dock #tour-listen {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
     gap: 5px;
     color: var(--tour-accent-bright);
 }
+.tour-narration-dock #tour-listen-label { min-width: 7ch; }
 .tour-narration-dock #tour-listen svg { width: 12px; height: 12px; fill: currentColor; }
 .tour-narration-dock #tour-narration { flex-shrink: 0; }
 .tour-narration-dock #tour-narration-voice { max-width: 150px; }
 .tour-narration-dock .tour-narration-status {
+    flex: 0 0 28ch;
+    width: 28ch;
     min-width: 0;
-    white-space: normal;
-    overflow-wrap: anywhere;
+    padding-inline: 4px;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
 }
 .tour-details { margin-top: 10px; font-size: 12px; }
 .tour-details[open] { max-height: 50vh; overflow-y: auto; padding-right: 6px; }
@@ -1418,6 +1427,7 @@ body.tour-directory-file-open #file-info { display: none; }
     .tour-narrative-toolbar { gap: 6px; }
     .tour-narration-controls select { max-width: 150px; }
     .tour-narration-status { width: 100%; margin-left: 0; text-align: left; }
+    .tour-narration-dock .tour-narration-status { flex-basis: 100%; width: 100%; }
 
     body.tour-mode #container {
         width: 100vw;
