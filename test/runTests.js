@@ -4713,10 +4713,12 @@ async function testPresentHistoryPanelWorkspace() {
     };
     let rendered;
     const history = () => ({ rail: { itemsByTab: { history: state.historyEntries.map((entry, index) => ({ index, label: entry.commit })) } } });
-    const targetImplementation = source.slice(source.indexOf('    function historyRevisionFiles('), source.indexOf('    function ', source.indexOf('    function getCurrentTourFileTarget(') + 20));
-    const workspace = new Function('revisionView', 'state', 'chronologicalComparisonCommits', 'historyRequest', 'buildZoomHistoryState', 'buildTwoWayDiffModel', 'updateTourFileSelection', 'emit',
+    const targetStart = source.indexOf('    function displayedRevisionFiles(');
+    assert.ok(targetStart >= 0, 'The history fixture must include the displayed-file navigation helpers');
+    const targetImplementation = source.slice(targetStart, source.indexOf('    function ', source.indexOf('    function getCurrentTourFileTarget(') + 20));
+    const workspace = new Function('revisionView', 'state', 'chronologicalComparisonCommits', 'historyRequest', 'buildZoomHistoryState', 'buildTwoWayDiffModel', 'updateTourFileSelection', 'emit', 'renderTourFiles',
         `const { revisionFileTarget, revisionRailItems, revisionPanelsView } = revisionView; let evidenceRequest = 0; ${targetImplementation}; ${implementation}; return { historyNeighbor, panelHistoryState, changeHistoryPanels, renderZoomHistoryPanels, getCurrentTourFileTarget };`
-    )(require('../out/revisionView'), state, () => ['a', 'b', 'c'], async (endpoint, input) => endpoint === 'changed-files' ? { paths: ['file.txt', 'z.txt'] } : ({ rightContent: input.commit, path: 'file.txt' }), history, () => ({}), () => {}, (message) => { rendered = message; });
+    )(require('../out/revisionView'), state, () => ['a', 'b', 'c'], async (endpoint, input) => endpoint === 'changed-files' ? { paths: ['file.txt', 'z.txt'], files: state.tour.files } : ({ rightContent: input.commit, path: 'file.txt' }), history, () => ({}), () => {}, (message) => { rendered = message; }, () => {});
     await workspace.renderZoomHistoryPanels();
     assert.deepEqual(rendered.fileNavigation, { canGoPrevious: false, canGoNext: true });
     assert.equal(workspace.getCurrentTourFileTarget(1).path, 'z.txt', 'History arrows skip unchanged tour files');
