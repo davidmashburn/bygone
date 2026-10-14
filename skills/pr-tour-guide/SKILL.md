@@ -9,14 +9,16 @@ Create a guided reading path that connects an explanation of a change to exact
 code evidence. Bygone resolves and displays that evidence; the authoring agent
 is responsible for the explanation and its claims.
 
-This skill owns tour authoring, validation, and presentation. It works standalone;
+This skill covers tour authoring, validation, presentation, and synthetic review
+branches for clean comparisons with or without a tour. It works standalone;
 no writing, review, or orchestration skill is required. Existing code, maintained
 docs, requirements, and PR discussion keep their roles. A tour can summarize and
 link to them, but does not replace them or certify a review.
 
 Honor an explicit request for a tour. When a broader task leaves the medium open,
-a concise explanation or ordinary code links may suffice; no tour is a valid
-outcome. Do not create a tour to compensate for a defect in another artifact.
+a concise explanation, ordinary code links, or a synthetic branch comparison
+may suffice; no tour is a valid outcome. Do not create a tour to compensate
+for a defect in another artifact.
 
 ## Install this skill
 
@@ -58,7 +60,7 @@ npx skills add ./skills/pr-tour-guide -y
 
 ## Install Bygone
 
-This skill requires the `bygone` CLI with `tour context`, `tour schema`, `tour validate`, and `tour compile`. Install only when the user asks or when the task cannot proceed without it.
+This skill uses the `bygone` CLI. Tour authoring requires `tour context`, `tour schema`, `tour validate`, and `tour compile`; a standalone synthetic branch comparison needs only `--git-diff`. Install only when the user asks or when the task cannot proceed without it.
 
 **macOS (desktop app + CLI, recommended):**
 
@@ -101,7 +103,7 @@ Verify tour support before authoring:
 bygone tour schema >/dev/null
 ```
 
-If neither `bygone` nor `node ./bin/bygone.js` exposes the `tour` subcommands, stop, share the install commands above, and report that the toolchain is unavailable rather than guessing.
+If neither `bygone` nor `node ./bin/bygone.js` exposes the `tour` subcommands, report that tour authoring is unavailable rather than guessing. A requested standalone comparison can still proceed when `--git-diff` is supported.
 
 Do not rebuild, commit, push, publish, or open a browser unless the user requests it or the surrounding task clearly requires it.
 
@@ -158,6 +160,47 @@ by implementation and tests. Label intent inferred from the diff. Do not invent
 requirements, rationale, authorship, or approval; disclose material uncertainty.
 If another artifact is deficient, identify that destination instead of hiding
 the gap in tour prose. Tour authoring alone does not authorize editing it.
+
+## Choose a clean comparison, with or without a tour
+
+A synthetic review branch is a first-class option when base-branch merges,
+unrelated commits, or interleaved concerns obscure the change. Use it to keep
+a shared baseline constant across before, author revision, and proposed revision,
+or to decompose a change into cumulative conceptual commits. A standalone
+comparison can complete the task; add a tour when narration would clarify
+relationships the clean diff still leaves difficult to reconstruct.
+
+Keep the real source endpoints and history as provenance. Create clearly named
+local refs in an isolated worktree within the task's authorization, preserving
+the development branch and dirty work. These are synthetic review artifacts,
+not a silent substitution for a hosted review's endpoints or permission to push
+or rewrite its branch. Do not invent implementation changes to fill a panel.
+
+For a normalized comparison, retain unrelated baseline changes in every panel.
+For decomposition, order cumulative commits by dependency and reviewer question.
+Retain required dependencies and integration changes; label reconstructed states
+and do not present the synthetic sequence as the author's actual history.
+
+Verify intended endpoint equivalence with Git tree comparisons, or included-path
+comparisons with explicit exclusions for a scoped view. Record a reconstructed
+baseline's source range and transformation, replay the isolated change, and
+verify that it reproduces the intended endpoint. Inspect conflict resolutions.
+Verify that the final snapshot matches the real head or proposal, and disclose
+intentional differences. Tree equality proves snapshot fidelity, not runtime
+correctness; report untested intermediate states and reuse test results only
+for equivalent code and dependencies.
+
+Open the resulting refs with the needed number of panels:
+
+```sh
+bygone -C <worktree> --read-only --git-diff <before-ref> <author-ref> <proposed-ref>
+```
+
+Print the exact one-line command with real paths and refs. Report provenance
+and whether the artifact is local or pushed. If adding a tour, pin its evidence
+to the synthetic commits and link the real source revisions. These materialized
+Git commits are distinct from the compiler's hunk-based Deconstructed stages;
+do not imply they reproduce historical authorship merely because they have OIDs.
 
 ## Plan the explanation
 
