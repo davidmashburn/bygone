@@ -60,9 +60,19 @@ function normalizeWindowState(value) {
         return null;
     }
 
+    let comparisons;
+    if (value.comparisons !== undefined) {
+        if (!Array.isArray(value.comparisons)) return null;
+        comparisons = value.comparisons.map((comparison) => normalizeWindowState({
+            version: WINDOW_STATE_VERSION, main: comparison, tours: []
+        })?.main);
+        if (comparisons.some((comparison) => !comparison)) return null;
+    }
+
     return {
         version: WINDOW_STATE_VERSION,
         main: mainSource ? { source: mainSource } : null,
+        ...(comparisons ? { comparisons } : {}),
         tours
     };
 }

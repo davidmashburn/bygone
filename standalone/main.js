@@ -32,8 +32,7 @@ const {
     createFileHistorySource,
     createFilesSource,
     createGitRefsSource,
-    isRefreshableSource,
-    sessionSourcesEqual
+    isRefreshableSource
 } = require('./sessionSource.js');
 const { generateCompletion, SUPPORTED_SHELLS } = require('../cli/completions.js');
 const { tokenMatches, tokensFor } = require('../cli/commandSpec.js');
@@ -73,6 +72,7 @@ const gitHistoryService = new GitHistoryService();
 const initialCliArgs = getCliArgs();
 const launchArguments = parseLaunchArgs(initialCliArgs);
 const workspaceSmokeMode = launchArguments.kind === 'smoke-workspace';
+const windowSmokeMode = launchArguments.kind === 'smoke-windows';
 const smokeTestMode = launchArguments.kind === 'smoke'
     || launchArguments.kind === 'smoke-multi'
     || launchArguments.kind === 'smoke-directory'
@@ -81,7 +81,7 @@ const captureOutputPath = launchArguments.capturePath ? path.resolve(launchArgum
 const captureMode = Boolean(captureOutputPath);
 const launchWindowWidth = Number.isFinite(launchArguments.windowWidth) ? launchArguments.windowWidth : 1500;
 const launchWindowHeight = Number.isFinite(launchArguments.windowHeight) ? launchArguments.windowHeight : 960;
-const shouldUseSingleInstanceLock = app.isPackaged && !smokeTestMode && !captureMode;
+const shouldUseSingleInstanceLock = app.isPackaged && !smokeTestMode && !windowSmokeMode && !captureMode;
 const shouldRestoreWindowState = initialCliArgs.length === 0 && !smokeTestMode && !captureMode;
 
 app.setName(APP_NAME);
@@ -93,10 +93,267 @@ const singleInstanceLock = shouldUseSingleInstanceLock
     ? app.requestSingleInstanceLock({ launchArgs: getCliArgs() })
     : true;
 
-let mainWindow;
+const comparisonHosts = new Set();
+let activeComparisonHost;
 let latestTourWindow;
 const tourPresentations = new Map();
 const activeTourServers = new Set();
+let pendingOpenPaths = [];
+let appIsQuitting = false;
+let restoringWindowState = false;
+
+function getActiveComparisonHost() {
+    const focused = BrowserWindow.getFocusedWindow();
+    return [...comparisonHosts].find((host) => host.window() === focused)
+        || activeComparisonHost || initialHost;
+}
+
+const pendingDeepLinks = [];
+let deepLinkQueue = Promise.resolve();
+function enqueueDeepLink(value) {
+    deepLinkQueue = deepLinkQueue.then(() => getActiveComparisonHost().openDeepLink(value)).catch(error => getActiveComparisonHost().showError(`Could not open Bygone link: ${error instanceof Error ? error.message : String(error)}\n\nRestore the required repository or revision, or open the current saved tour manually from File → Open Authored Tour. No replacement evidence was selected.`));
+    return deepLinkQueue;
+}
+function getCliArgs() {
+    return getCliArgsFromArgv(process.argv);
+}
+
+function parseLaunchArgs(args) {
+    const extracted = extractReadOnlyLaunchOption(args);
+    const launchTarget = parseLaunchArgsCore(extracted.args);
+    return extracted.readOnly ? { ...launchTarget, readOnly: true } : launchTarget;
+}
+
+function parseLaunchArgsCore(args) {
+    const { cwd, launchArgs } = normalizeLaunchArgs(args);
+    if (launchArgs.length === 1 && /^bygone:/i.test(launchArgs[0])) return { kind: 'deep-link', url: launchArgs[0] };
+    const includeStaged = launchArgs.some((arg) => tokenMatches('includeStaged', arg));
+    let capturePath = null;
+    let windowWidth = null;
+    let windowHeight = null;
+    let launchIntentVersion = null;
+    const filteredArgs = [];
+
+    for (let index = 0; index < launchArgs.length; index += 1) {
+        const arg = launchArgs[index];
+        if (tokenMatches('includeStaged', arg)) {
+            continue;
+        }
+        if (arg === '--launch-intent-version' && typeof launchArgs[index + 1] === 'string') {
+            launchIntentVersion = Number.parseInt(launchArgs[index + 1], 10);
+            index += 1;
+            continue;
+        }
+        if (arg === '--capture' && typeof launchArgs[index + 1] === 'string') {
+            capturePath = resolveLaunchPath(launchArgs[index + 1], cwd);
+            index += 1;
+            continue;
+        }
+        if (arg === '--window-width' && typeof launchArgs[index + 1] === 'string') {
+            const parsedWidth = Number.parseInt(launchArgs[index + 1], 10);
+            if (Number.isFinite(parsedWidth) && parsedWidth > 0) {
+                windowWidth = parsedWidth;
+            }
+            index += 1;
+            continue;
+        }
+        if (arg === '--window-height' && typeof launchArgs[index + 1] === 'string') {
+            const parsedHeight = Number.parseInt(launchArgs[index + 1], 10);
+            if (Number.isFinite(parsedHeight) && parsedHeight > 0) {
+                windowHeight = parsedHeight;
+            }
+            index += 1;
+            continue;
+        }
+        filteredArgs.push(arg);
+    }
+
+    if (launchIntentVersion !== null && launchIntentVersion !== 1) {
+        return { kind: 'unsupported-launch-intent', version: launchIntentVersion };
+    }
+
+    if (filteredArgs.length === 0) {
+        return isInsideGitRepo(cwd)
+            ? { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath, windowWidth, windowHeight }
+            : { kind: 'blank', capturePath, windowWidth, windowHeight };
+    }
+
+    if (tokenMatches('diff', filteredArgs[0]) && filteredArgs.length < 2) {
+        return { kind: 'blank', capturePath, windowWidth, windowHeight };
+    }
+
+    if (tokenMatches('diff', filteredArgs[0]) && filteredArgs.length >= 2) {
+        if (filteredArgs.length === 2) {
+            return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
+        }
+
+        if (filteredArgs.length === 3) {
+            return { kind: 'diff', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd), capturePath, windowWidth, windowHeight };
+        }
+
+        return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
+    }
+
+    if (tokenMatches('history', filteredArgs[0]) && filteredArgs.length >= 2) {
+        const targetPath = resolveLaunchPath(filteredArgs[1], cwd);
+        return getPathKind(targetPath) === 'directory'
+            ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
+            : { kind: 'history', filePath: targetPath, includeStaged, capturePath, windowWidth, windowHeight };
+    }
+
+    if (tokenMatches('gitDiff', filteredArgs[0]) && filteredArgs.length >= 3) {
+        return { kind: 'git-diff', refs: filteredArgs.slice(1), cwd, capturePath, windowWidth, windowHeight };
+    }
+
+    if (tokenMatches('present', filteredArgs[0])) {
+        return { kind: 'tour', args: filteredArgs.slice(1), cwd, capturePath, windowWidth, windowHeight };
+    }
+
+    if (tokenMatches('branchDiff', filteredArgs[0]) || tokenMatches('review', filteredArgs[0])) {
+        let branch = 'HEAD';
+        let mainRef;
+        for (let i = 1; i < filteredArgs.length; i++) {
+            const arg = filteredArgs[i];
+            if (tokenMatches('branch', arg) && filteredArgs[i + 1]) {
+                branch = filteredArgs[++i];
+            } else if (tokenMatches('base', arg) && filteredArgs[i + 1]) {
+                mainRef = filteredArgs[++i];
+            } else if (tokenMatches('review', filteredArgs[0]) && !arg.startsWith('-')) {
+                branch = arg;
+            }
+        }
+        return { kind: 'branch-diff', branch, mainRef, cwd, capturePath, windowWidth, windowHeight };
+    }
+
+    if (tokenMatches('test', filteredArgs[0])) {
+        return { kind: 'test', capturePath, windowWidth, windowHeight };
+    }
+
+    if (filteredArgs[0] === '--smoke-test') {
+        return { kind: 'smoke', capturePath, windowWidth, windowHeight };
+    }
+    if (filteredArgs[0] === '--smoke-test-windows') return { kind: 'smoke-windows' };
+    if (filteredArgs[0] === '--smoke-test-workspace') return { kind: 'smoke-workspace' };
+
+    if (filteredArgs[0] === '--smoke-test-multi') {
+        return { kind: 'smoke-multi', capturePath, windowWidth, windowHeight };
+    }
+
+    if (filteredArgs[0] === '--smoke-test-directory') {
+        return { kind: 'smoke-directory', capturePath, windowWidth, windowHeight };
+    }
+
+    if (filteredArgs[0] === '--smoke-test-directory-history') {
+        return { kind: 'smoke-directory-history', capturePath, windowWidth, windowHeight };
+    }
+
+    if (filteredArgs.length >= 1 && !filteredArgs[0].startsWith('--')) {
+        const resolvedPaths = filteredArgs.map((candidate) => resolveLaunchPath(candidate, cwd));
+        const tourSelection = classifyAuthoredTourPaths(resolvedPaths);
+        if (tourSelection.kind === 'single') {
+            return { kind: 'tour-document', documentPath: tourSelection.path, capturePath, windowWidth, windowHeight };
+        }
+        if (tourSelection.kind === 'multiple') {
+            return {
+                kind: 'invalid-tour-selection',
+                message: 'Open one authored Bygone presentation at a time.',
+                capturePath,
+                windowWidth,
+                windowHeight
+            };
+        }
+        if (tourSelection.kind === 'mixed') {
+            return {
+                kind: 'invalid-tour-selection',
+                message: 'Open an authored Bygone presentation separately from ordinary files and directories.',
+                capturePath,
+                windowWidth,
+                windowHeight
+            };
+        }
+
+        if (resolvedPaths.length === 1) {
+            const targetPath = resolvedPaths[0];
+            return getPathKind(targetPath) === 'directory'
+                ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
+                : { kind: 'history', filePath: targetPath, includeStaged, capturePath, windowWidth, windowHeight };
+        }
+
+        const kinds = resolvedPaths.map((candidate) => getPathKind(candidate));
+        if (kinds.every((kind) => kind === 'directory')) {
+            return resolvedPaths.length === 2
+                ? { kind: 'directory', leftPath: resolvedPaths[0], rightPath: resolvedPaths[1], capturePath, windowWidth, windowHeight }
+                : { kind: 'multi-directory', paths: resolvedPaths, capturePath, windowWidth, windowHeight };
+        }
+
+        if (kinds.every((kind) => kind === 'file')) {
+            return resolvedPaths.length === 2
+                ? { kind: 'pair', leftPath: resolvedPaths[0], rightPath: resolvedPaths[1], capturePath, windowWidth, windowHeight }
+                : { kind: 'multi-diff', paths: resolvedPaths, capturePath, windowWidth, windowHeight };
+        }
+
+        return resolvedPaths.length === 2
+            ? { kind: 'pair', leftPath: resolvedPaths[0], rightPath: resolvedPaths[1], capturePath, windowWidth, windowHeight }
+            : { kind: 'multi-diff', paths: resolvedPaths, capturePath, windowWidth, windowHeight };
+    }
+
+    return isInsideGitRepo(cwd)
+        ? { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath, windowWidth, windowHeight }
+        : { kind: 'blank', capturePath, windowWidth, windowHeight };
+}
+
+function normalizeLaunchArgs(args) {
+    const launchArgs = [...args];
+    let cwd = process.cwd();
+    const cwdIndex = launchArgs.indexOf('--cwd');
+
+    if (cwdIndex !== -1 && typeof launchArgs[cwdIndex + 1] === 'string') {
+        cwd = path.resolve(launchArgs[cwdIndex + 1]);
+        launchArgs.splice(cwdIndex, 2);
+    }
+
+    const resolved = resolveWorkingDirectory(launchArgs, cwd);
+    return { cwd: resolved.cwd, launchArgs: resolved.args };
+}
+
+function resolveLaunchPath(candidate, cwd) {
+    return path.isAbsolute(candidate) ? candidate : path.resolve(cwd, candidate);
+}
+
+function isInsideGitRepo(cwd) {
+    try {
+        return execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
+            cwd,
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe']
+        }).trim() === 'true';
+    } catch {
+        return false;
+    }
+}
+
+function getPathKind(filePath) {
+    try {
+        const stats = fs.statSync(filePath);
+        if (stats.isDirectory()) {
+            return 'directory';
+        }
+        if (stats.isFile()) {
+            return 'file';
+        }
+    } catch {
+        return 'missing';
+    }
+
+    return 'missing';
+}
+
+const initialHost = createComparisonHost({ primary: true });
+
+// Every comparison owns its session, renderer queue, watchers, and workspace.
+function createComparisonHost({ primary = false } = {}) {
+let mainWindow;
+let windowLoaded;
 let hostReady = false;
 let pendingMessage;
 let pendingLinkFocus;
@@ -105,7 +362,6 @@ let fileWatchers = [];
 let session = createEmptySession();
 let smokeTimeout;
 let directoryHistorySmokeDrilldownStarted = false;
-let pendingOpenPaths = [];
 let historyIncludeStagedPreference = false;
 let historySkipUnchangedPreference = false;
 let captureScheduled = false;
@@ -125,8 +381,6 @@ let repositorySearch = null;
 let lastRepositoryReplacement = null;
 let pendingLaunchPrompt = null;
 let nextLaunchPromptId = 1;
-let appIsQuitting = false;
-let restoringWindowState = false;
 const workspace = createWorkspaceHost({
     getSession: () => session,
     setSession: (next) => { session = next; updateWatchers(); },
@@ -176,16 +430,39 @@ const workspace = createWorkspaceHost({
     }
 }, { resolve: resolveWorkspaceGit, range: resolveWorkspaceRange, history: createWorkspaceHistory });
 
+const host = {
+    window: () => mainWindow,
+    source: () => session.source,
+    session: () => session,
+    ensureMainWindow, openBlankDiff, openDiff, openMultiDiff, openDirectories,
+    openDroppedFiles, openHistory, openDirectoryHistory, openGitRefs, openGitBranchReview,
+    routeLaunchTarget, restoreMainSession, openDeepLink, handleRendererMessage,
+    isTrustedRendererEvent, installApplicationMenu, showError,
+    dispose: () => {
+        repositorySearch?.handle?.cancel();
+        clearWatchers();
+        cleanupGitDiffTempRoots([...trackedGitDiffTempRoots]);
+    }
+};
+
+async function openNewComparison(method, args) {
+    const destination = session.mode === 'empty' ? host : createComparisonHost();
+    await destination.ensureMainWindow();
+    await destination[method](...args);
+    const window = destination.window();
+    if (window && !window.isDestroyed()) {
+        if (window.isMinimized()) window.restore();
+        window.show();
+        window.focus();
+    }
+    return destination;
+}
+
+if (primary) {
 if (!singleInstanceLock) {
     app.quit();
 }
 
-const pendingDeepLinks = [];
-let deepLinkQueue = Promise.resolve();
-function enqueueDeepLink(value) {
-    deepLinkQueue = deepLinkQueue.then(() => openDeepLink(value)).catch(error => showError(`Could not open Bygone link: ${getErrorMessage(error)}\n\nRestore the required repository or revision, or open the current saved tour manually from File → Open Authored Tour. No replacement evidence was selected.`));
-    return deepLinkQueue;
-}
 app.on('open-url', (event, value) => {
     event.preventDefault();
     if (!app.isReady()) pendingDeepLinks.push(value);
@@ -215,31 +492,30 @@ app.on('before-quit', () => {
 });
 
 app.on('will-quit', () => {
-    repositorySearch?.handle?.cancel();
+    for (const host of comparisonHosts) host.dispose();
     for (const server of [...activeTourServers]) {
         closeTourServer(server);
     }
-    cleanupGitDiffTempRoots([...trackedGitDiffTempRoots]);
 });
 
 app.on('activate', async () => {
     if (!BrowserWindow.getAllWindows().some((window) => window.isVisible())) {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.show();
-            mainWindow.focus();
+        const window = getActiveComparisonHost().window();
+        if (window && !window.isDestroyed()) {
+            window.show();
+            window.focus();
             return;
         }
-        createMainWindow();
-        installApplicationMenu();
-        await openBlankDiff();
+        const host = getActiveComparisonHost();
+        host.ensureMainWindow();
+        await host.openBlankDiff();
     }
 });
 
 if (shouldUseSingleInstanceLock) {
     app.on('second-instance', (_event, argv, _workingDirectory, additionalData) => {
         const launchTarget = parseLaunchArgs(getForwardedLaunchArgs(argv, additionalData));
-        void routeLaunchTarget(launchTarget)
-            .then(() => focusLaunchTarget(launchTarget))
+        void getActiveComparisonHost().routeLaunchTarget(launchTarget)
             .catch((error) => showError(`Could not open command-line request: ${getErrorMessage(error)}`));
     });
 }
@@ -257,14 +533,17 @@ app.on('open-file', (event, filePath) => {
 });
 
 ipcMain.on('bygone:renderer-message', (event, message) => {
-    if (!isTrustedRendererEvent(event)) {
+    const host = [...comparisonHosts].find((candidate) => candidate.isTrustedRendererEvent(event));
+    if (!host) {
         return;
     }
 
-    void handleRendererMessage(message).catch((error) => {
+    void host.handleRendererMessage(message).catch((error) => {
         console.error(`Bygone renderer message failed: ${getErrorMessage(error)}`);
     });
 });
+
+}
 
 function isTrustedRendererEvent(event) {
     if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
@@ -322,7 +601,7 @@ async function openWorkspaceTour(uiState, context, kind) {
     }
 }
 
-function createMainWindow({ show = !smokeTestMode && !workspaceSmokeMode } = {}) {
+function createMainWindow({ show = !smokeTestMode && !workspaceSmokeMode && !windowSmokeMode } = {}) {
     mainWindow = new BrowserWindow({
         width: launchWindowWidth,
         height: launchWindowHeight,
@@ -341,6 +620,12 @@ function createMainWindow({ show = !smokeTestMode && !workspaceSmokeMode } = {})
         }
     });
 
+    comparisonHosts.add(host);
+    activeComparisonHost = host;
+    mainWindow.on('focus', () => {
+        activeComparisonHost = host;
+        installApplicationMenu();
+    });
     hostReady = false;
     pendingMessage = undefined;
     const expectedUrl = pathToFileURL(path.join(__dirname, '..', 'standalone', 'index.html')).toString();
@@ -364,7 +649,7 @@ function createMainWindow({ show = !smokeTestMode && !workspaceSmokeMode } = {})
             event.preventDefault();
         }
     });
-    void mainWindow.loadFile(path.join(__dirname, '..', 'standalone', 'index.html'));
+    windowLoaded = mainWindow.loadFile(path.join(__dirname, '..', 'standalone', 'index.html'));
 
     if (smokeTestMode || captureMode) {
         smokeTimeout = setTimeout(() => {
@@ -436,19 +721,25 @@ function createMainWindow({ show = !smokeTestMode && !workspaceSmokeMode } = {})
 
     mainWindow.on('closed', () => {
         workspace.reset();
-        clearWatchers();
+        host.dispose();
+        comparisonHosts.delete(host);
+        if (activeComparisonHost === host) {
+            activeComparisonHost = [...comparisonHosts].at(-1);
+        }
         for (const pending of pendingNavigationRequests.values()) {
             clearTimeout(pending.timeout);
             pending.resolve(null);
         }
         pendingNavigationRequests.clear();
         mainWindow = undefined;
+        windowLoaded = undefined;
         session = createEmptySession();
         closingForSave = false;
         clearTimeout(smokeTimeout);
         smokeTimeout = undefined;
         captureScheduled = false;
         captureRenderReady = false;
+        getActiveComparisonHost().installApplicationMenu();
         if (!appIsQuitting && (process.platform === 'darwin' || BrowserWindow.getAllWindows().length > 0)) {
             persistOpenWindowState();
         }
@@ -460,6 +751,8 @@ function ensureMainWindow() {
         createMainWindow();
         installApplicationMenu();
     }
+    // Finish navigation before synchronous Git materialization can block startup.
+    return windowLoaded;
 }
 
 function loadDesktopTourSource(cwd, sourcePath) {
@@ -610,22 +903,8 @@ function closeTourServer(server) {
     server.close();
 }
 
-function focusLaunchTarget(launchTarget) {
-    if (launchTarget.kind === 'deep-link') return; // The resolved destination already received focus.
-    const targetWindow = launchTarget.kind === 'tour' || launchTarget.kind === 'tour-document'
-        ? latestTourWindow
-        : mainWindow;
-    if (!targetWindow || targetWindow.isDestroyed()) {
-        return;
-    }
-    if (targetWindow.isMinimized()) {
-        targetWindow.restore();
-    }
-    targetWindow.show();
-    targetWindow.focus();
-}
-
 function installApplicationMenu() {
+    if (activeComparisonHost && activeComparisonHost !== host) return;
     const {
         isMultiDiff,
         isTwoWayDiff,
@@ -724,7 +1003,7 @@ function installApplicationMenu() {
                 {
                     label: 'New Blank Comparison',
                     accelerator: 'CmdOrCtrl+N',
-                    click: () => runMenuAction('open a blank comparison', openBlankDiff)
+                    click: () => runMenuAction('open a blank comparison', () => openNewComparison('openBlankDiff', []))
                 },
                 { type: 'separator' },
                 {
@@ -995,7 +1274,7 @@ function installApplicationMenu() {
                 {
                     label: 'Compare Test Fixtures',
                     accelerator: 'CmdOrCtrl+Shift+T',
-                    click: () => { void compareTestFiles(); }
+                    click: () => runMenuAction('open sample files', () => openNewComparison('routeLaunchTarget', [{ kind: 'test' }]))
                 },
                 { role: 'toggleDevTools' }
             ]
@@ -1325,7 +1604,7 @@ async function openInitialLaunchTarget() {
 
 async function restoreOpenWindowState() {
     const savedState = readWindowState(getWindowStatePath());
-    if (!savedState || (!savedState.main && savedState.tours.length === 0)) {
+    if (!savedState || (!savedState.main && !savedState.comparisons?.length && savedState.tours.length === 0)) {
         return false;
     }
 
@@ -1333,12 +1612,24 @@ async function restoreOpenWindowState() {
     restoringWindowState = true;
     try {
         if (savedState.main) {
-            ensureMainWindow();
+            await ensureMainWindow();
             try {
                 await restoreMainSession(savedState.main.source);
             } catch (error) {
                 console.error(`Could not restore the previous Bygone session: ${getErrorMessage(error)}`);
                 await openBlankDiff();
+            }
+            restoredAnyWindow = true;
+        }
+
+        for (const comparison of savedState.comparisons || []) {
+            const destination = createComparisonHost();
+            await destination.ensureMainWindow();
+            try {
+                await destination.restoreMainSession(comparison.source);
+            } catch (error) {
+                console.error(`Could not restore a previous Bygone comparison: ${getErrorMessage(error)}`);
+                await destination.openBlankDiff();
             }
             restoredAnyWindow = true;
         }
@@ -1360,7 +1651,7 @@ async function restoreOpenWindowState() {
 
 async function restoreMainSession(source) {
     if (source.kind === 'blank') {
-        await openBlankDiff();
+        await openBlankDiff(Boolean(source.readOnly));
         return;
     }
 
@@ -1377,13 +1668,11 @@ async function restoreMainSession(source) {
 }
 
 function persistOpenWindowState() {
-    if (restoringWindowState || smokeTestMode || workspaceSmokeMode || !app.isReady()) return;
-    const hasMainWindow = Boolean(mainWindow && !mainWindow.isDestroyed());
-    const mainSource = hasMainWindow && (isRefreshableSource(session.source) || session.source?.kind === 'blank')
-        ? cloneSessionSource(session.source)
-        : hasMainWindow
-            ? { kind: 'blank' }
-            : null;
+    if (restoringWindowState || smokeTestMode || workspaceSmokeMode || windowSmokeMode || !app.isReady()) return;
+    const comparisons = [...comparisonHosts]
+        .filter((candidate) => candidate.window() && !candidate.window().isDestroyed())
+        .map((candidate) => ({ source: isRefreshableSource(candidate.source()) || candidate.source()?.kind === 'blank'
+            ? cloneSessionSource(candidate.source()) : { kind: 'blank' } }));
     const tours = [...tourPresentations.entries()]
         .filter(([window, presentation]) => !window.isDestroyed() && presentation.launch)
         .map(([, presentation]) => presentation.launch);
@@ -1391,7 +1680,8 @@ function persistOpenWindowState() {
     try {
         writeWindowState(getWindowStatePath(), {
             version: 1,
-            main: mainSource ? { source: mainSource } : null,
+            main: comparisons[0] || null,
+            comparisons: comparisons.slice(1),
             tours
         });
     } catch (error) {
@@ -1404,6 +1694,21 @@ function getWindowStatePath() {
 }
 
 async function routeLaunchTarget(launchTarget) {
+    if (launchTarget.kind === 'smoke-windows') {
+        const timeout = setTimeout(() => { console.error('Comparison window smoke timed out.'); app.exit(1); }, 60000);
+        try {
+            await require('./comparisonWindowSmoke.js').runComparisonWindowSmoke({
+                host, hosts: comparisonHosts, dialog, openNewComparison, restoreOpenWindowState
+            });
+            clearTimeout(timeout);
+            app.exit(0);
+        } catch (error) {
+            console.error(error);
+            clearTimeout(timeout);
+            app.exit(1);
+        }
+        return;
+    }
     if (launchTarget.kind === 'deep-link') { await enqueueDeepLink(launchTarget.url); return; }
     if (launchTarget.kind === 'smoke-workspace') {
         ensureMainWindow();
@@ -1439,13 +1744,13 @@ async function routeLaunchTarget(launchTarget) {
         return;
     }
 
-    ensureMainWindow();
-
-    const requestedSource = sourceForLaunchTarget(launchTarget);
-    if (isRefreshableSource(requestedSource) && sessionSourcesEqual(session.source, requestedSource)) {
-        await refreshSession();
+    if (session.mode !== 'empty' && !smokeTestMode && !workspaceSmokeMode) {
+        await openNewComparison('routeLaunchTarget', [launchTarget]);
         return;
     }
+    await ensureMainWindow();
+
+    const requestedSource = sourceForLaunchTarget(launchTarget);
 
     if (launchTarget.kind === 'blank') {
         await openBlankDiff(Boolean(launchTarget.readOnly));
@@ -1553,223 +1858,6 @@ function sourceForLaunchTarget(launchTarget) {
         }
     }
     return null;
-}
-
-function getCliArgs() {
-    return getCliArgsFromArgv(process.argv);
-}
-
-function parseLaunchArgs(args) {
-    const extracted = extractReadOnlyLaunchOption(args);
-    const launchTarget = parseLaunchArgsCore(extracted.args);
-    return extracted.readOnly ? { ...launchTarget, readOnly: true } : launchTarget;
-}
-
-function parseLaunchArgsCore(args) {
-    const { cwd, launchArgs } = normalizeLaunchArgs(args);
-    if (launchArgs.length === 1 && /^bygone:/i.test(launchArgs[0])) return { kind: 'deep-link', url: launchArgs[0] };
-    const includeStaged = launchArgs.some((arg) => tokenMatches('includeStaged', arg));
-    let capturePath = null;
-    let windowWidth = null;
-    let windowHeight = null;
-    let launchIntentVersion = null;
-    const filteredArgs = [];
-
-    for (let index = 0; index < launchArgs.length; index += 1) {
-        const arg = launchArgs[index];
-        if (tokenMatches('includeStaged', arg)) {
-            continue;
-        }
-        if (arg === '--launch-intent-version' && typeof launchArgs[index + 1] === 'string') {
-            launchIntentVersion = Number.parseInt(launchArgs[index + 1], 10);
-            index += 1;
-            continue;
-        }
-        if (arg === '--capture' && typeof launchArgs[index + 1] === 'string') {
-            capturePath = resolveLaunchPath(launchArgs[index + 1], cwd);
-            index += 1;
-            continue;
-        }
-        if (arg === '--window-width' && typeof launchArgs[index + 1] === 'string') {
-            const parsedWidth = Number.parseInt(launchArgs[index + 1], 10);
-            if (Number.isFinite(parsedWidth) && parsedWidth > 0) {
-                windowWidth = parsedWidth;
-            }
-            index += 1;
-            continue;
-        }
-        if (arg === '--window-height' && typeof launchArgs[index + 1] === 'string') {
-            const parsedHeight = Number.parseInt(launchArgs[index + 1], 10);
-            if (Number.isFinite(parsedHeight) && parsedHeight > 0) {
-                windowHeight = parsedHeight;
-            }
-            index += 1;
-            continue;
-        }
-        filteredArgs.push(arg);
-    }
-
-    if (launchIntentVersion !== null && launchIntentVersion !== 1) {
-        return { kind: 'unsupported-launch-intent', version: launchIntentVersion };
-    }
-
-    if (filteredArgs.length === 0) {
-        return isInsideGitRepo(cwd)
-            ? { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath, windowWidth, windowHeight }
-            : { kind: 'blank', capturePath, windowWidth, windowHeight };
-    }
-
-    if (tokenMatches('diff', filteredArgs[0]) && filteredArgs.length < 2) {
-        return { kind: 'blank', capturePath, windowWidth, windowHeight };
-    }
-
-    if (tokenMatches('diff', filteredArgs[0]) && filteredArgs.length >= 2) {
-        if (filteredArgs.length === 2) {
-            return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
-        }
-
-        if (filteredArgs.length === 3) {
-            return { kind: 'diff', leftPath: resolveLaunchPath(filteredArgs[1], cwd), rightPath: resolveLaunchPath(filteredArgs[2], cwd), capturePath, windowWidth, windowHeight };
-        }
-
-        return { kind: 'multi-diff', paths: filteredArgs.slice(1).map((candidate) => resolveLaunchPath(candidate, cwd)), capturePath, windowWidth, windowHeight };
-    }
-
-    if (tokenMatches('history', filteredArgs[0]) && filteredArgs.length >= 2) {
-        const targetPath = resolveLaunchPath(filteredArgs[1], cwd);
-        return getPathKind(targetPath) === 'directory'
-            ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
-            : { kind: 'history', filePath: targetPath, includeStaged, capturePath, windowWidth, windowHeight };
-    }
-
-    if (tokenMatches('gitDiff', filteredArgs[0]) && filteredArgs.length >= 3) {
-        return { kind: 'git-diff', refs: filteredArgs.slice(1), cwd, capturePath, windowWidth, windowHeight };
-    }
-
-    if (tokenMatches('present', filteredArgs[0])) {
-        return { kind: 'tour', args: filteredArgs.slice(1), cwd, capturePath, windowWidth, windowHeight };
-    }
-
-    if (tokenMatches('branchDiff', filteredArgs[0]) || tokenMatches('review', filteredArgs[0])) {
-        let branch = 'HEAD';
-        let mainRef;
-        for (let i = 1; i < filteredArgs.length; i++) {
-            const arg = filteredArgs[i];
-            if (tokenMatches('branch', arg) && filteredArgs[i + 1]) {
-                branch = filteredArgs[++i];
-            } else if (tokenMatches('base', arg) && filteredArgs[i + 1]) {
-                mainRef = filteredArgs[++i];
-            } else if (tokenMatches('review', filteredArgs[0]) && !arg.startsWith('-')) {
-                branch = arg;
-            }
-        }
-        return { kind: 'branch-diff', branch, mainRef, cwd, capturePath, windowWidth, windowHeight };
-    }
-
-    if (tokenMatches('test', filteredArgs[0])) {
-        return { kind: 'test', capturePath, windowWidth, windowHeight };
-    }
-
-    if (filteredArgs[0] === '--smoke-test') {
-        return { kind: 'smoke', capturePath, windowWidth, windowHeight };
-    }
-    if (filteredArgs[0] === '--smoke-test-workspace') return { kind: 'smoke-workspace' };
-
-    if (filteredArgs[0] === '--smoke-test-multi') {
-        return { kind: 'smoke-multi', capturePath, windowWidth, windowHeight };
-    }
-
-    if (filteredArgs[0] === '--smoke-test-directory') {
-        return { kind: 'smoke-directory', capturePath, windowWidth, windowHeight };
-    }
-
-    if (filteredArgs[0] === '--smoke-test-directory-history') {
-        return { kind: 'smoke-directory-history', capturePath, windowWidth, windowHeight };
-    }
-
-    if (filteredArgs.length >= 1 && !filteredArgs[0].startsWith('--')) {
-        const resolvedPaths = filteredArgs.map((candidate) => resolveLaunchPath(candidate, cwd));
-        const tourSelection = classifyAuthoredTourPaths(resolvedPaths);
-        if (tourSelection.kind === 'single') {
-            return { kind: 'tour-document', documentPath: tourSelection.path, capturePath, windowWidth, windowHeight };
-        }
-        if (tourSelection.kind === 'multiple') {
-            return {
-                kind: 'invalid-tour-selection',
-                message: 'Open one authored Bygone presentation at a time.',
-                capturePath,
-                windowWidth,
-                windowHeight
-            };
-        }
-        if (tourSelection.kind === 'mixed') {
-            return {
-                kind: 'invalid-tour-selection',
-                message: 'Open an authored Bygone presentation separately from ordinary files and directories.',
-                capturePath,
-                windowWidth,
-                windowHeight
-            };
-        }
-
-        if (resolvedPaths.length === 1) {
-            const targetPath = resolvedPaths[0];
-            return getPathKind(targetPath) === 'directory'
-                ? { kind: 'directory-history', dirPath: targetPath, includeStaged, capturePath, windowWidth, windowHeight }
-                : { kind: 'history', filePath: targetPath, includeStaged, capturePath, windowWidth, windowHeight };
-        }
-
-        const kinds = resolvedPaths.map((candidate) => getPathKind(candidate));
-        if (kinds.every((kind) => kind === 'directory')) {
-            return resolvedPaths.length === 2
-                ? { kind: 'directory', leftPath: resolvedPaths[0], rightPath: resolvedPaths[1], capturePath, windowWidth, windowHeight }
-                : { kind: 'multi-directory', paths: resolvedPaths, capturePath, windowWidth, windowHeight };
-        }
-
-        if (kinds.every((kind) => kind === 'file')) {
-            return resolvedPaths.length === 2
-                ? { kind: 'pair', leftPath: resolvedPaths[0], rightPath: resolvedPaths[1], capturePath, windowWidth, windowHeight }
-                : { kind: 'multi-diff', paths: resolvedPaths, capturePath, windowWidth, windowHeight };
-        }
-
-        return resolvedPaths.length === 2
-            ? { kind: 'pair', leftPath: resolvedPaths[0], rightPath: resolvedPaths[1], capturePath, windowWidth, windowHeight }
-            : { kind: 'multi-diff', paths: resolvedPaths, capturePath, windowWidth, windowHeight };
-    }
-
-    return isInsideGitRepo(cwd)
-        ? { kind: 'directory-history', dirPath: cwd, includeStaged, capturePath, windowWidth, windowHeight }
-        : { kind: 'blank', capturePath, windowWidth, windowHeight };
-}
-
-function normalizeLaunchArgs(args) {
-    const launchArgs = [...args];
-    let cwd = process.cwd();
-    const cwdIndex = launchArgs.indexOf('--cwd');
-
-    if (cwdIndex !== -1 && typeof launchArgs[cwdIndex + 1] === 'string') {
-        cwd = path.resolve(launchArgs[cwdIndex + 1]);
-        launchArgs.splice(cwdIndex, 2);
-    }
-
-    const resolved = resolveWorkingDirectory(launchArgs, cwd);
-    return { cwd: resolved.cwd, launchArgs: resolved.args };
-}
-
-function resolveLaunchPath(candidate, cwd) {
-    return path.isAbsolute(candidate) ? candidate : path.resolve(cwd, candidate);
-}
-
-function isInsideGitRepo(cwd) {
-    try {
-        return execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
-            cwd,
-            encoding: 'utf8',
-            stdio: ['ignore', 'pipe', 'pipe']
-        }).trim() === 'true';
-    } catch {
-        return false;
-    }
 }
 
 async function routePendingOpenPaths() {
@@ -2059,9 +2147,9 @@ async function openCompareFilesDialog() {
     }
 
     if (filePaths.length === 2 && blankCount === 0) {
-        await openDiff(filePaths[0], filePaths[1]);
+        await openNewComparison('openDiff', [filePaths[0], filePaths[1]]);
     } else {
-        await openMultiDiff(filePaths, { blankCount });
+        await openNewComparison('openMultiDiff', [filePaths, { blankCount }]);
     }
 }
 
@@ -2181,7 +2269,7 @@ async function openGitRefsDialog() {
             await showInfo('Enter at least two Git revisions to compare.');
             return;
         }
-        await openGitRefs(repoRoot, refs);
+        await openNewComparison('openGitRefs', [repoRoot, refs]);
     });
 }
 
@@ -2202,6 +2290,11 @@ async function openDroppedFiles(paths) {
     }
     if (tourSelection.kind === 'mixed') {
         await showInfo('Open an authored Bygone presentation separately from ordinary files and directories.');
+        return;
+    }
+
+    if (session.mode !== 'empty') {
+        await openNewComparison('openDroppedFiles', [normalizedPaths]);
         return;
     }
 
@@ -2257,11 +2350,11 @@ async function openHistoryDialog() {
 
     const targetPath = result.filePaths[0];
     if (getPathKind(targetPath) === 'directory') {
-        await openDirectoryHistory(targetPath, historyIncludeStagedPreference);
+        await openNewComparison('openDirectoryHistory', [targetPath, historyIncludeStagedPreference]);
         return;
     }
 
-    await openHistory(targetPath, historyIncludeStagedPreference);
+    await openNewComparison('openHistory', [targetPath, historyIncludeStagedPreference]);
 }
 
 async function openBranchReviewDialog() {
@@ -2280,7 +2373,7 @@ async function openBranchReviewDialog() {
             { name: 'base', label: 'Base branch or ref (optional)', value: '' }
         ]
     }, async (values) => {
-        await openGitBranchReview(repoRoot, values.head.trim() || 'HEAD', values.base.trim() || undefined);
+        await openNewComparison('openGitBranchReview', [repoRoot, values.head.trim() || 'HEAD', values.base.trim() || undefined]);
     });
 }
 
@@ -2289,7 +2382,7 @@ async function openCompareDirectoriesDialog() {
     if (directoryPaths.length < 2) {
         return;
     }
-    await openDirectories(directoryPaths);
+    await openNewComparison('openDirectories', [directoryPaths]);
 }
 
 async function openDirectories(dirs, options = {}) {
@@ -4485,8 +4578,9 @@ async function sendCurrentMultiDiff() {
 
     refreshSessionWindowTitle();
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
+    if ((smokeTestMode || captureMode) && mainWindow && !mainWindow.isDestroyed()) {
         const inspectMultiDiff = () => {
+            if (!mainWindow || mainWindow.isDestroyed()) return;
             void mainWindow.webContents.executeJavaScript(`(() => ({
                 fileInfo: document.getElementById('file-info')?.textContent,
                 panelCount: document.querySelectorAll('.multi-pane').length,
@@ -4714,8 +4808,9 @@ async function sendCurrentDiff() {
     postOrQueue(message);
     refreshSessionWindowTitle();
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
+    if ((smokeTestMode || captureMode) && mainWindow && !mainWindow.isDestroyed()) {
         setTimeout(() => {
+            if (!mainWindow || mainWindow.isDestroyed()) return;
             void mainWindow.webContents.executeJavaScript(`(() => ({
                 fileInfo: document.getElementById('file-info')?.textContent,
                 file1: document.getElementById('file1-header')?.textContent,
@@ -4816,8 +4911,9 @@ async function sendCurrentHistoryEntry() {
 
     refreshSessionWindowTitle();
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
+    if (captureMode && mainWindow && !mainWindow.isDestroyed()) {
         setTimeout(() => {
+            if (!mainWindow || mainWindow.isDestroyed()) return;
             void mainWindow.webContents.executeJavaScript(`(() => ({
                 fileInfo: document.getElementById('file-info')?.textContent,
                 file1: document.getElementById('file1-header')?.textContent,
@@ -6264,22 +6360,6 @@ function parseGitHistoryRecords(logOutput) {
         });
 }
 
-function getPathKind(filePath) {
-    try {
-        const stats = fs.statSync(filePath);
-        if (stats.isDirectory()) {
-            return 'directory';
-        }
-        if (stats.isFile()) {
-            return 'file';
-        }
-    } catch {
-        return 'missing';
-    }
-
-    return 'missing';
-}
-
 async function showInfo(message) {
     const options = {
         type: 'info',
@@ -6416,6 +6496,10 @@ async function openDeepLink(value) {
         await openTourPresentation(['--tour', documentPath], repoRoot, { mode: link.mode, focus: link.focus });
         return;
     }
+    if (session.mode !== 'empty' && !workspaceSmokeMode) {
+        await openNewComparison('openDeepLink', [value]);
+        return;
+    }
     ensureMainWindow();
     const source = createGitRefsSource(repoRoot, link.revisions, true);
     await openGitRefs(repoRoot, link.revisions, { source });
@@ -6445,4 +6529,7 @@ async function exportTourDialog() {
     if (destination.canceled || !destination.filePath) return;
     const result = exportTour(source.resolvedPath, destination.filePath, packageRoot, { profile: choice.response === 1 ? 'full' : 'minimal', runtime: 'embedded', overwrite: true });
     await dialog.showMessageBox(owner, { type: 'info', message: 'Tour exported', detail: `${result.outputPath}\n${result.summary}` });
+}
+
+return host;
 }

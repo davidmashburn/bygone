@@ -2371,6 +2371,7 @@ async function testComparisonPickerSupportsSingleFilesAndBlankPanels() {
     let confirmations = 0;
     const controller = new Function('deps', `
         const { path, collectComparisonSelection, createFilesSource, dialog, confirmSessionReplacement, openDiff } = deps;
+        const openNewComparison = (method, args) => ({ openDiff, openMultiDiff })[method](...args);
         const mainWindow = null;
         const ensureExploreWindow = () => {};
         const getPathKind = () => 'file';
@@ -2923,6 +2924,14 @@ function testDesktopWindowStatePersistsOnlyRestorableSessions() {
     try {
         writeWindowState(statePath, state);
         assert.deepEqual(readWindowState(statePath), state);
+        const multiple = { ...state, comparisons: [
+            { source: { kind: 'directories', paths: ['/tmp/left', '/tmp/right'] } },
+            { source: { kind: 'blank', readOnly: true } }
+        ] };
+        writeWindowState(statePath, multiple);
+        assert.deepEqual(readWindowState(statePath), multiple);
+        assert.equal(normalizeWindowState({ ...state, comparisons: [{ source: { kind: 'synthetic' } }] }), null);
+        assert.equal(normalizeWindowState({ ...state, comparisons: [null] }), null);
         assert.equal(normalizeWindowState({ version: 1, main: { source: { kind: 'synthetic' } }, tours: [] }), null);
         assert.equal(normalizeWindowState({ version: 1, main: null, tours: [{ args: [42], cwd: '/tmp' }] }), null);
         fs.writeFileSync(statePath, '{broken', 'utf8');
@@ -3490,9 +3499,9 @@ function testMacCliRoutesThroughCentralAppInstance() {
 
     assert.match(cliSource, /path\.join\(installedApp, 'Contents', 'MacOS', executableName\)/);
     assert.doesNotMatch(cliSource, /spawn\('open', \['-W', '-n'/);
-    assert.match(standaloneSource, /app\.isPackaged && !smokeTestMode && !captureMode/);
+    assert.match(standaloneSource, /app\.isPackaged && !smokeTestMode && !windowSmokeMode && !captureMode/);
     assert.match(standaloneSource, /requestSingleInstanceLock\(\{ launchArgs: getCliArgs\(\) \}\)/);
-    assert.match(standaloneSource, /targetWindow\.show\(\);/);
+    assert.match(standaloneSource, /window\.show\(\);/);
     assert.match(standaloneSource, /shellQuote\(process\.execPath\)/);
     assert.doesNotMatch(standaloneSource, /open -W -n -a "Bygone" --args/);
 }
