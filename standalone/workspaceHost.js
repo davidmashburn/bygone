@@ -1,5 +1,6 @@
 /* global module, require */
 const path = require('path');
+const { revisionFileLabel } = require('./fileLabel.js');
 const { revisionFileAction, revisionDirectoryView, revisionPanelsView, revisionRailItems } = require('../out/revisionView.js');
 
 // Owns mode cursors, not editor capabilities. The native host continues to own
@@ -185,7 +186,7 @@ function createWorkspaceHost(host, git) {
             const editable = revision === 'WORKTREE' && !current.source.readOnly && value.exists && !value.reason;
             return {
                 id: `${current.id}-${mode}-${index}`, revision,
-                label: `${selectedPath} @ ${revision === 'EMPTY' ? 'Empty tree' : revision.slice(0, 12)}${value.exists ? '' : ' (absent)'}${value.reason ? ` — ${value.reason}` : ''}`,
+                label: `${revisionFileLabel(selectedPath, revision === 'EMPTY' ? 'Empty tree' : revision.slice(0, 12))}${value.exists ? '' : ' (absent)'}${value.reason ? ` — ${value.reason}` : ''}`,
                 path: path.join(current.context.repoRoot, selectedPath), content: value.content,
                 savedContent: value.content, dirty: false, editable,
                 mutabilityLabel: value.reason || (editable ? undefined : 'Read-only snapshot')

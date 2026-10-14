@@ -41,6 +41,7 @@ const { resolveWorkingDirectory } = require('../cli/workingDirectory.js');
 const { extractReadOnlyLaunchOption, getCliArgsFromArgv, getForwardedLaunchArgs } = require('./launchArgs.js');
 const { readWindowState, writeWindowState } = require('./windowState.js');
 const { createWorkspaceHost } = require('./workspaceHost.js');
+const { revisionFileLabel } = require('./fileLabel.js');
 const { resolveWorkspaceGit, resolveWorkspaceRange } = require('../src/workspaceGit.ts');
 const { createWorkspaceHistory } = require('../src/workspaceHistory.ts');
 const {
@@ -3111,7 +3112,7 @@ async function sendCurrentDirectoryHistoryEntry() {
             const isLast = colIdx === colCount - 1;
             return {
                 id: `dir-hist-col-${colIdx}`,
-                label: `${displayedLabels[colIdx]} / ${relativePath}${exists ? '' : ' (missing)'}`,
+                label: `${revisionFileLabel(relativePath, displayedLabels[colIdx])}${exists ? '' : ' (missing)'}`,
                 path: relativePath,
                 content,
                 editable: false,
@@ -4224,7 +4225,7 @@ function getDirectoryColumns(dirs, columns, review, readOnly = false) {
 
 function getDirectoryFileLabel(label, relativePath, exists, column) {
     const mutabilityLabel = column.editable ? 'Writable file' : (column.mutabilityLabel || 'Read-only snapshot');
-    return `${label} / ${relativePath}${exists ? '' : ' (missing)'} · ${mutabilityLabel}`;
+    return `${revisionFileLabel(relativePath, label)}${exists ? '' : ' (missing)'} · ${mutabilityLabel}`;
 }
 
 async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review = null, columns = null) {
@@ -4240,7 +4241,7 @@ async function openDirectoryEntryMultiPanel(dirs, labels, relativePath, review =
         return {
             id: `panel-${nextMultiPanelId++}`,
             path: filePath,
-            label: `${labels[i]} / ${relativePath}${exists ? '' : ' (missing)'}`,
+            label: `${revisionFileLabel(relativePath, labels[i])}${exists ? '' : ' (missing)'}`,
             content,
             savedContent: content,
             dirty: false,

@@ -244,6 +244,29 @@ test('Compare Files tab opens a scoped file while retaining the comparison revis
     assert.equal(fixture.session, retained);
 });
 
+test('filename-first labels retain distinct paths and revisions through Apply', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const files = ['src/one/item.py', 'src/two/item.py'];
+    git.history().files = files;
+    git.resolve().paths = [{ path: '', type: 'directory' }];
+    const workspace = createWorkspaceHost(fixture.host, git);
+    for (const file of files) {
+        await workspace.handle({ type: 'workspaceOpenFile', relativePath: file });
+        await workspace.handle({ type: 'workspaceReset' });
+        await workspace.handle({ type: 'workspaceApply' });
+        assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: file, revisions: [A, B] });
+        assert.equal(workspace.uiState().selectionApplied, true);
+        for (const [index, panel] of fixture.session.multi.files.entries()) {
+            assert.match(panel.label, /^item\.py @ /);
+            assert.ok(panel.label.endsWith(` · ${file.slice(0, file.lastIndexOf('/'))}`));
+            assert.equal(panel.path, `/repo/${file}`);
+            assert.equal(panel.revision, [A, B][index]);
+            assert.equal(panel.content, `${file}:${panel.revision}`);
+        }
+    }
+});
+
 test('Files rail marks changes against displayed revisions while retaining unchanged files', async () => {
     const fixture = makeHost(nativeSession());
     const git = makeGit();
