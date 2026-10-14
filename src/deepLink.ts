@@ -121,7 +121,7 @@ export function resolveDocumentFocus(tour: ChangeTourManifest, mode: TourLink['m
         const chapter = selected.chapters.find(item => item.id === focus.chapter);
         const sceneIndex = selected.scenes.findIndex(scene => scene.id === chapter?.sceneIds[0]);
         if (!chapter || sceneIndex < 0) throw new Error(`Chapter is unavailable: ${focus.chapter}.`);
-        return { key: `chapter:${chapter.id}`, sceneIndex, stepIndex: 0 };
+        return { key: chapter.summary?.trim() ? `chapter:${chapter.id}` : `scene:${selected.scenes[sceneIndex].id}`, sceneIndex, stepIndex: 0 };
     }
     const sceneIndex = selected.scenes.findIndex(scene => scene.id === focus.scene);
     if (sceneIndex < 0) throw new Error(`Scene is unavailable: ${focus.scene}.`);

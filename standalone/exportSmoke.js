@@ -16,7 +16,7 @@ const { startPresentation } = require('../cli/present');
 app.on('window-all-closed', () => {});
 app.whenReady().then(async () => {
     const timeout = setTimeout(() => { console.error('Export smoke timed out'); app.exit(1); }, 60000);
-    const fixture = exportFixture({ multipleFocuses: true, nestedFiles: true });
+    const fixture = exportFixture({ multipleFocuses: true, nestedFiles: true, chapterSummaries: true });
     fixture.source.details = {
         audience: { codebase: 'maintainer', language: 'advanced', readingDemand: 'specialist', purpose: 'overview', scope: 'Root fixture scope.' }
     };
@@ -148,6 +148,7 @@ app.whenReady().then(async () => {
             await wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]')");
             await evaluate("location.hash = '#location=1&mode=historical&part=chapter&chapter=chapter'");
             await wait("document.activeElement.dataset.readingKey === 'chapter:chapter'");
+            assert.match(await evaluate("document.querySelector('[data-reading-key=\"chapter:chapter\"] .tour-narrative-summary').textContent"), /Preview the changed line and its evidence/);
             await evaluate('history.back()');
             await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]') && document.activeElement.dataset.readingKey === 'title'");
             await evaluate('history.forward()');
@@ -289,6 +290,29 @@ app.whenReady().then(async () => {
             bad.window.destroy();
         }
         const originalSource = fs.readFileSync(fixture.sourcePath, 'utf8');
+        const noPreviewSource = JSON.parse(originalSource);
+        for (const narrative of [noPreviewSource, ...Object.values(noPreviewSource.tours)]) {
+            for (const chapter of narrative.chapters) delete chapter.summary;
+        }
+        fs.writeFileSync(fixture.sourcePath, JSON.stringify(noPreviewSource));
+        const noPreviewOutput = path.join(fixture.root, 'no-preview.html');
+        exportTour(fixture.sourcePath, noPreviewOutput, path.resolve(__dirname, '..'), { profile: 'minimal' });
+        fs.writeFileSync(fixture.sourcePath, originalSource);
+        const skipped = await open(pathToFileURL(noPreviewOutput).href + '#location=1&mode=historical&part=chapter&chapter=chapter');
+        await skipped.wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'scene:scene'");
+        assert.equal(await skipped.evaluate("document.querySelectorAll('.tour-reading-item[data-reading-kind=chapter]').length"), 0, 'Chapters without previews have no reading stops');
+        await skipped.evaluate("document.querySelector('#tour-back').click()");
+        await skipped.wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'title'");
+        await skipped.evaluate("document.querySelector('#tour-next').click()");
+        await skipped.wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'scene:scene'");
+        for (const selector of ['.tour-chapter-link', '.tour-route-chapter-link']) {
+            await skipped.evaluate(`document.querySelector('[data-reading-link=title]').click(); document.querySelector(${JSON.stringify(selector)}).click()`);
+            await skipped.wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'scene:scene'");
+        }
+        await skipped.evaluate("document.querySelector('[data-workspace-mode=deconstructed]').click()");
+        await skipped.wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'title' && document.querySelector('[data-reading-key=\"scene:synthetic\"]')");
+        assert.equal(await skipped.evaluate("document.querySelectorAll('.tour-reading-item[data-reading-kind=chapter]').length"), 0, 'Independent modes also skip chapters without previews');
+        skipped.window.destroy();
         const oneTourSource = JSON.parse(originalSource);
         delete oneTourSource.tours.deconstructed;
         fs.writeFileSync(fixture.sourcePath, JSON.stringify(oneTourSource));

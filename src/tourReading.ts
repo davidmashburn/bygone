@@ -4,7 +4,7 @@ export type TourReadingItem =
     | { kind: 'title'; key: 'title'; authored?: boolean; sceneIndex: 0; stepIndex: 0 }
     | { kind: 'conclusion'; key: 'conclusion'; sceneIndex: -1; stepIndex: 0 }
     | { kind: 'chapter'; key: string; chapterId: string; sceneIndex: number; stepIndex: 0 }
-    | { kind: 'scene'; key: string; sceneIndex: number; stepIndex: 0 }
+    | { kind: 'scene'; key: string; chapterId?: string; sceneIndex: number; stepIndex: 0 }
     | { kind: 'step'; key: string; sceneIndex: number; stepIndex: number };
 
 /**
@@ -14,8 +14,7 @@ export type TourReadingItem =
  * the first scene they contain; they do not become a second ordering axis.
  */
 export function buildTourReadingItems(
-    tour: Pick<ChangeTourManifest, 'scenes' | 'chapters' | 'opening' | 'conclusion'>,
-    includeSingleChapter = false
+    tour: Pick<ChangeTourManifest, 'scenes' | 'chapters' | 'opening' | 'conclusion'>
 ): TourReadingItem[] {
     const items: TourReadingItem[] = [
         { kind: 'title', key: 'title', sceneIndex: 0, stepIndex: 0, ...(tour.opening ? { authored: true } : {}) }
@@ -30,7 +29,8 @@ export function buildTourReadingItems(
     const emittedChapterIds = new Set<string>();
     tour.scenes.forEach((scene, sceneIndex) => {
         const chapterId = chapterBySceneId.get(scene.id);
-        if ((includeSingleChapter || tour.chapters.length > 1) && chapterId && !emittedChapterIds.has(chapterId)) {
+        const chapter = tour.chapters.find(chapter => chapter.id === chapterId);
+        if (chapter?.summary?.trim() && chapterId && !emittedChapterIds.has(chapterId)) {
             items.push({
                 kind: 'chapter',
                 key: `chapter:${chapterId}`,
@@ -44,6 +44,7 @@ export function buildTourReadingItems(
         items.push({
             kind: 'scene',
             key: `scene:${scene.id}`,
+            ...(chapterId ? { chapterId } : {}),
             sceneIndex,
             stepIndex: 0
         });
@@ -113,13 +114,10 @@ export function resolveTourReadingItem(
     }
 
     if (view === 'chapter') {
-        for (let index = sceneItemIndex - 1; index >= 0; index -= 1) {
-            const item = items[index];
-            if (item.kind === 'chapter') return item;
-            if (item.kind === 'title') break;
-        }
-        // A single chapter is intentionally omitted as a redundant level.
-        return items.find((item) => item.kind === 'title') ?? null;
+        const sceneItem = items[sceneItemIndex];
+        if (sceneItem.kind !== 'scene') return null;
+        // Title-only chapters remain headings, so their links open the scene.
+        return items.find(item => item.kind === 'chapter' && item.chapterId === sceneItem.chapterId) ?? sceneItem;
     }
 
     return items.find(

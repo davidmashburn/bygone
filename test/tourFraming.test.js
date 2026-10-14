@@ -69,17 +69,17 @@ test('v5 validates bookends and explicit overview purpose without changing legac
 
 test('bookends are reading locations, searchable and linkable, including image-only guides', () => {
     const tour = { title: 'Tour', opening: passage('Welcome'), conclusion: passage('Recap'),
-        chapters: [{ id: 'c', title: 'Chapter', sceneIds: ['s'] }], scenes: [{ id: 's', kind: 'walkthrough',
+        chapters: [{ id: 'c', title: 'Chapter', summary: 'Preview the images.', sceneIds: ['s'] }], scenes: [{ id: 's', kind: 'walkthrough',
             title: 'Scene', overview: { purpose: 'See the inventory.' }, summary: 'Purpose.', bullets: ['Notice.'], tags: [], takeaway: 'Result.',
             steps: [{ id: 'a', title: 'First', body: 'First evidence.', image: {} }, { id: 'b', title: 'Second', body: 'Second evidence.', image: {} }] }] };
-    const items = buildTourReadingItems(tour, true);
+    const items = buildTourReadingItems(tour);
     assert.equal(items.at(-1).kind, 'conclusion');
     assert.equal(getTourReadingTarget(items, 'step:s:b', 1, true).key, 'conclusion');
     assert.equal(getTourReadingTarget(items, 'step:s:a', -1, true).key, 'title');
     assert.equal(getTourReadingTarget(items, 'conclusion', 1), null);
     assert.equal(resolveTourReadingItem(items, -1, 0, 'conclusion').key, 'conclusion');
     const spoken = items.flatMap(item => buildReadingNarrationUnit(tour, item, { entry: 'continuous' }).segments.map(segment => segment.text));
-    for (const text of ['Welcome summary.', 'See the inventory.', 'First evidence.', 'Second evidence.', 'Result.', 'Recap summary.']) {
+    for (const text of ['Welcome summary.', 'Preview the images.', 'See the inventory.', 'First evidence.', 'Second evidence.', 'Result.', 'Recap summary.']) {
         assert.equal(spoken.filter(value => value === text).length, 1, `${text} is narrated once`);
     }
     const direct = buildReadingNarrationUnit(tour, items.find(item => item.key === 'step:s:b'), { entry: 'playback-start' });
@@ -91,6 +91,7 @@ test('bookends are reading locations, searchable and linkable, including image-o
     assert.equal(resolveDocumentFocus(modeTour, 'historical', { part: 'conclusion' }).key, 'conclusion');
     assert.throws(() => resolveDocumentFocus(modeTour, 'deconstructed', { part: 'conclusion' }), /unavailable/);
     assert.equal(searchTour({ ...tour, files: [] }, 'Recap', 'narrative')[0].readingKey, 'conclusion');
+    assert.equal(searchTour({ ...tour, files: [] }, 'Preview the images', 'narrative')[0].readingKey, 'chapter:c');
 });
 
 test('scene landings and transition identity use actual revisions and distinguish synthetic stages', () => {
@@ -164,7 +165,7 @@ test('the opening route separates topics, files, revision pairs, and constructed
 
 test('route titles keep authored wording without outline numbering', () => {
     const tour = { range: { mergeBaseOid: 'a'.repeat(40), headOid: 'c'.repeat(40), baseRef: 'base', headRef: 'head' },
-        chapters: [{ id: 'c1', title: 'Request', sceneIds: ['s', 't'] }, { id: 'c2', title: 'Review', sceneIds: ['d'] }],
+        chapters: [{ id: 'c1', title: 'Request', summary: 'Trace the request through storage.', sceneIds: ['s', 't'] }, { id: 'c2', title: 'Review', sceneIds: ['d'] }],
         scenes: [
             { id: 's', title: 'Receive', summary: 'Trace the input.', kind: 'walkthrough', steps: [{ id: 'a', title: 'Handler', diff: { path: 'route.ts' } }] },
             { id: 't', title: 'Store', summary: 'Trace persistence.', kind: 'stacked-diff', stack: [
@@ -182,7 +183,7 @@ test('route titles keep authored wording without outline numbering', () => {
     assert.match(route.chapters[0].evidence, /Middle \(bbbbbbb\) → Head \(ccccccc\)/);
     assert.doesNotMatch(route.chapters[1].evidence, /Revisions:/);
     const spoken = buildReadingNarrationUnit(tour, { kind: 'chapter', key: 'chapter:c1', chapterId: 'c1', sceneIndex: 0, stepIndex: 0 }, { entry: 'continuous', segmentLimit: 2000 });
-    assert.equal(spoken.segments.map(segment => segment.text).join(' '), [route.chapters[0].title, ...route.chapters[0].scenes.map(scene => scene.title)].join(' '));
+    assert.equal(spoken.segments.map(segment => segment.text).join(' '), [route.chapters[0].title, route.chapters[0].summary].join(' '));
     tour.scenes[1] = { ...tour.scenes[1], kind: 'deconstructed-diff', panels: tour.scenes[1].stack };
     assert.match(buildTourRoute(tour).chapters[0].evidence, /Constructed stages: Middle → Head/);
     assert.doesNotMatch(buildTourRoute(tour).chapters[0].evidence, /Revisions: Middle/);

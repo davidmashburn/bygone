@@ -222,6 +222,7 @@ export type ChangeTourStoryScene =
 export interface ChangeTourChapter {
     id: string;
     title: string;
+    summary?: string;
     sceneIds: string[];
 }
 
@@ -342,6 +343,7 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
         }
         requireString(candidate.id, `chapters[${index}].id`);
         requireString(candidate.title, `chapters[${index}].title`);
+        validateChapterSummary(candidate.summary, value.version, `chapters[${index}].summary`);
         requireStringArray(candidate.sceneIds, `chapters[${index}].sceneIds`);
         for (const sceneId of candidate.sceneIds) {
             if (!sceneIds.has(sceneId)) {
@@ -450,6 +452,7 @@ function validateModeTours(value: unknown, version: 4 | 5): asserts value is Cha
             }
             requireString(chapter.id, `tours.${mode}.chapters[${index}].id`);
             requireString(chapter.title, `tours.${mode}.chapters[${index}].title`);
+            validateChapterSummary(chapter.summary, version, `tours.${mode}.chapters[${index}].summary`);
             requireStringArray(chapter.sceneIds, `tours.${mode}.chapters[${index}].sceneIds`);
             for (const sceneId of chapter.sceneIds) {
                 if (!sceneIds.has(sceneId)) {
@@ -547,6 +550,7 @@ function validateZoom(value: Record<string, unknown>, version: 2 | 4 | 5, export
         }
         requireString(chapter.id, `zoom.final.chapters[${index}].id`);
         requireString(chapter.title, `zoom.final.chapters[${index}].title`);
+        validateChapterSummary(chapter.summary, version, `zoom.final.chapters[${index}].summary`);
         for (const sceneId of chapter.sceneIds) {
             requireString(sceneId, `zoom.final.chapters[${index}].sceneIds`);
             if (!finalSceneIds.has(sceneId)) throw new Error(`Final tour chapter references unknown scene: ${sceneId}`);
@@ -781,6 +785,14 @@ function validateNarrative(value: Record<string, unknown>, path: string): void {
     requireStringArray(value.bullets, `${path}.bullets`);
     requireStringArray(value.tags, `${path}.tags`);
     requireString(value.takeaway, `${path}.takeaway`);
+}
+
+function validateChapterSummary(value: unknown, version: 1 | 2 | 4 | 5, path: string): void {
+    if (value === undefined) return;
+    if (version < 5) throw new Error(`${path} requires manifest version 5.`);
+    if (typeof value !== 'string' || !value.trim()) {
+        throw new Error(`${path} must be a non-empty string.`);
+    }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

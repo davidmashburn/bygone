@@ -85,6 +85,8 @@ test('local resolution checks exact worktree, containment, commits and lines bef
         assert.equal(resolveLocalDeepLink(serializeDeepLink(tour)).documentPath, fixture.sourcePath);
         const manifest = buildManifestForTourSource(fixture.root, fixture.source);
         assert.equal(resolveDocumentFocus(manifest, 'historical', tour.focus).key, 'step:scene:step');
+        assert.equal(resolveDocumentFocus(manifest, 'historical', { part: 'chapter', chapter: 'chapter' }).key, 'scene:scene');
+        manifest.tours.historical.chapters[0].summary = 'Preview the changed line.';
         assert.equal(resolveDocumentFocus(manifest, 'historical', { part: 'chapter', chapter: 'chapter' }).key, 'chapter:chapter');
         assert.throws(() => resolveDocumentFocus(manifest, 'deconstructed', tour.focus), /unavailable/);
         assert.throws(() => resolveDocumentFocus(manifest, 'historical', { ...tour.focus, step: 'gone' }), /unavailable/);

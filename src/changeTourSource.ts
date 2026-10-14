@@ -130,6 +130,7 @@ export type ChangeTourSourceScene = ChangeTourSourceWalkthroughScene
 export interface ChangeTourSourceChapter {
     id: string;
     title: string;
+    summary?: string;
     scenes: ChangeTourSourceScene[];
 }
 
@@ -306,7 +307,11 @@ function validateSourceChapters(
         }
         requireString(chapter.id, `${chapterPath}.id`);
         requireString(chapter.title, `${chapterPath}.title`);
-        requireOnlyKeys(chapter, ['id', 'title', 'scenes'], chapterPath);
+        if (chapter.summary !== undefined) {
+            if (version < 5) throw new Error(`${chapterPath}.summary requires source version 5.`);
+            requireProse(chapter.summary, `${chapterPath}.summary`);
+        }
+        requireOnlyKeys(chapter, ['id', 'title', 'summary', 'scenes'], chapterPath);
         if (chapterIds.has(chapter.id)) throw new Error(`Duplicate chapter id: ${chapter.id}`);
         chapterIds.add(chapter.id);
         for (const [sceneIndex, scene] of chapter.scenes.entries()) {
@@ -623,6 +628,12 @@ function requireString(value: unknown, path: string): asserts value is string {
 function optionalString(value: unknown, path: string): void {
     if (value !== undefined) {
         requireString(value, path);
+    }
+}
+
+function requireProse(value: unknown, path: string): asserts value is string {
+    if (typeof value !== 'string' || !value.trim()) {
+        throw new Error(`${path} must be a non-empty string.`);
     }
 }
 

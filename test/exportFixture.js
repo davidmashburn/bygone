@@ -4,7 +4,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { buildChangeInventory } = require('../out/changeTour.js');
 
-function exportFixture({ multipleFocuses = false, nestedFiles = false } = {}) {
+function exportFixture({ multipleFocuses = false, nestedFiles = false, chapterSummaries = false } = {}) {
     const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-export-test-')));
     const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: 'pipe' }).trim();
     const write = (name, value) => fs.writeFileSync(path.join(root, name), value);
@@ -30,11 +30,11 @@ function exportFixture({ multipleFocuses = false, nestedFiles = false } = {}) {
     const inventory = buildChangeInventory(root, { baseRef: base, headRef: head });
     const hunks = inventory.files.find(file => file.path === 'app.txt').units.map(unit => unit.id);
     const narrative = { summary: 'Read </script> safely.', bullets: [], tags: [], takeaway: 'Exact evidence' };
-    const chapters = [{ id: 'chapter', title: 'Chapter', scenes: [{ id: 'scene', kind: 'walkthrough', title: 'Scene', ...narrative,
+    const chapters = [{ id: 'chapter', title: 'Chapter', ...(chapterSummaries ? { summary: 'Preview the changed line and its evidence.' } : {}), scenes: [{ id: 'scene', kind: 'walkthrough', title: 'Scene', ...narrative,
         steps: [{ id: 'step', title: 'Step', body: 'Evidence', focus: 'changed' }] }] }];
     const source = { version: 5, title: 'Export <fixture>', range: { base: 'export-base', head: 'export-head' },
         anchors: { changed: { file: 'app.txt', revision: 'head', contains: 'BETA' } }, connections: [], chapters,
-        tours: { historical: { opening: { title: 'Review question', summary: 'Trace the evidence for the changed line.' }, conclusion: { title: 'What we established', summary: 'The changed line is captured in real revisions.' }, chapters }, deconstructed: { chapters: [{ id: 'explain', title: 'Explanation', scenes: [{
+        tours: { historical: { opening: { title: 'Review question', summary: 'Trace the evidence for the changed line.' }, conclusion: { title: 'What we established', summary: 'The changed line is captured in real revisions.' }, chapters }, deconstructed: { chapters: [{ id: 'explain', title: 'Explanation', ...(chapterSummaries ? { summary: 'Preview the change as cumulative explanation stages.' } : {}), scenes: [{
             id: 'synthetic', kind: 'deconstructed-diff', title: 'Stages', ...narrative,
             exclusions: inventory.files.filter(file => file.path !== 'app.txt').map(file => ({ file: file.path, reason: 'Outside this explanation' })),
             stages: [{ id: 'stage', title: 'Change', narration: 'Explain', changes: [{ file: 'app.txt', hunks }] }]

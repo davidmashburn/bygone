@@ -26,7 +26,7 @@ versions are separate; UI fixes do not require rewriting a tour.
 | 2 | Supported | Repository-bound manifests, real revision stacks, and endpoint walkthroughs |
 | 3 | Retired | Remove the top-level `review` block, set source `version: 4`, and recompile |
 | 4 | Supported | Independent authored tours and scene directory overviews; no Review Notes |
-| 5 | Use for new sources | Optional opening and conclusion passages; explicit overview purpose |
+| 5 | Use for new sources | Optional opening, conclusion, and chapter previews; explicit overview purpose |
 | Greater than 5 | Rejected with an upgrade message | Never interpreted as version 5 |
 
 Version 4 removes the `review` field and the separate Review Notes panel.
@@ -144,6 +144,18 @@ order; the presenter does not infer cross-tour mappings.
 See `examples/navigation-lab.bygone.yaml` for both tours in one file, and
 [presentation navigation](./present.md#explore-and-follow-tours) for History and
 Compare.
+
+## Chapter previews
+
+Version 5 chapters may include a nonblank `summary`: one or two sentences
+explaining what comes next and why. It is optional in root chapters and each
+independently authored mode. The compiler preserves it in the corresponding
+compiled chapters and derived modes.
+
+Only chapters with summaries have presentation and narration stops. Chapters
+without summaries remain in the contents; selecting their heading or opening
+a chapter link goes to their first scene. Scene-title links alone do not create
+a chapter introduction. Earlier format versions accept chapters without this field.
 
 ## Scene directory overviews
 

@@ -16,16 +16,20 @@ source evidence while keeping the complete changed-file set available.
 
 The left navigator switches directly among **Tour**, **Files**, and **Commits**;
 only one of those lists is visible at a time. The Tour outline has independently
-collapsible chapters and scenes; selecting a title jumps to that reading stop
+collapsible chapters and scenes; selecting a title jumps to its reading stop
 without changing which sections are expanded.
 
-The reading panel flows continuously through the tour title, chapters, scene
+The reading panel flows continuously through the tour title, chapter previews, scene
 overviews, and steps. Scroll the narrative or use keyboard navigation to move
 through that order; the corresponding code evidence follows. Scrolling the code
 does not advance the narrative. Each scene overview is a distinct stop with its
 supporting points and takeaway. Each step keeps a collapsed **Scene context**
 disclosure above its title and explanation. Expanding that disclosure does not
 move the reading position.
+
+Chapters without an authored `summary` remain navigation headings and are
+skipped as reading and narration stops. Selecting their heading or opening an
+older chapter link takes the reader to the first scene.
 
 A direct link to a step opens that step immediately. The header reports the
 current position as `Scene N of M · Step N of M`, or identifies the overview.
@@ -278,7 +282,8 @@ chapters. Chapters group related questions, scenes explain one question, and
 steps connect claims to evidence. Chapter, scene, and step lists use simple
 numbers for reference; reading headings and narration use plain titles.
 
-Chapter introductions list their scenes. The main explanation keeps the reasons
+Chapter introductions show a brief authored preview and links to their scenes;
+narration reads the preview rather than the list of scene titles. The main explanation keeps the reasons
 for the change beside its evidence. Comparison captions identify the displayed
 revisions or constructed stages; a chapter or scene boundary does not itself
 mean the comparison changed. Intro, chapter, and Conclusion passages fill the

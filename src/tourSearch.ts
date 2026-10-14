@@ -36,6 +36,12 @@ export function searchTour(
             if (preview && passage) matches.push({ kind: 'narrative', sceneIndex: key === 'title' ? 0 : -1, readingKey: key, label: passage.title, preview });
         }
         const chapterTitleByScene = new Map<string, string>();
+        for (const chapter of tour.chapters) {
+            const sceneIndex = tour.scenes.findIndex(scene => chapter.sceneIds.includes(scene.id));
+            if (sceneIndex >= 0 && chapter.summary?.toLocaleLowerCase().includes(needle)) {
+                matches.push({ kind: 'narrative', sceneIndex, readingKey: `chapter:${chapter.id}`, label: chapter.title, preview: chapter.summary });
+            }
+        }
         tour.chapters.forEach((chapter) => chapter.sceneIds.forEach((sceneId) => chapterTitleByScene.set(sceneId, chapter.title)));
         tour.scenes.forEach((scene, sceneIndex) => {
             const sceneText = [

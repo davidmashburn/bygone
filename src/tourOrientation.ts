@@ -107,6 +107,7 @@ export interface TourChapterRoute {
     chapterIndex: number;
     chapterId: string;
     title: string;
+    summary?: string;
     evidence: string;
     scenes: TourRouteEntry[];
 }
@@ -145,6 +146,7 @@ export function buildTourRoute(tour: ChangeTourManifest): { summary: string; cha
         const scope = files.length ? `Focus files: ${files.join(', ')}.` : 'No code steps; this chapter uses discussion or images.';
         const ranges = pairs.map(pair => `${pair.kind === 'synthetic' ? 'Constructed stages' : 'Revisions'}: ${pair.labels.join(' → ')}.`).join(' ');
         return { chapterIndex, chapterId: chapter.id, title: chapter.title,
+            ...(chapter.summary ? { summary: chapter.summary } : {}),
             evidence: `${entries.length} ${entries.length === 1 ? 'scene' : 'scenes'} · ${steps} ${steps === 1 ? 'step' : 'steps'}. ${scope}${ranges ? ` ${ranges}` : ''}`, scenes: entries };
     });
     const stepCount = tour.scenes.reduce((count, scene) => count + ('steps' in scene ? scene.steps.length : 0), 0);

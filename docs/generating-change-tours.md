@@ -155,6 +155,11 @@ Write the opening to explain the problem and the sequence of questions the route
 will answer. Use scene titles that communicate those questions or findings.
 The generated itinerary supplies navigation facts, not the reason the work matters.
 
+Add optional v5 `chapter.summary` only when one or two brief sentences help
+explain what comes next and why. Chapters without previews stay in the contents
+but are skipped as presentation and narration stops; scene-title links are not
+a substitute for preview prose.
+
 A scene answers one reviewer question; steps provide the supporting evidence.
 Multiple scenes may examine the same comparison when each has a different
 question. Merge scenes that merely repeat a question across files.

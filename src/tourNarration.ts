@@ -142,7 +142,7 @@ export function buildReadingNarrationUnit(
     } else if (item.kind === 'chapter') {
         const chapter = buildTourRoute(tour).chapters.find(chapter => chapter.chapterId === item.chapterId)!;
         add('chapter', chapter.title);
-        addScenes(chapter.scenes);
+        add('summary', chapter.summary);
     } else {
         const scene = tour.scenes[item.sceneIndex];
         if (item.kind === 'scene') {

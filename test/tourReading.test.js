@@ -9,7 +9,7 @@ const {
 
 test('image-only guides skip structural stops in both directions without changing code tours', () => {
     const tour = {
-        chapters: [{ id: 'one', sceneIds: ['a'] }, { id: 'two', sceneIds: ['b'] }],
+        chapters: [{ id: 'one', summary: 'Preview one.', sceneIds: ['a'] }, { id: 'two', summary: 'Preview two.', sceneIds: ['b'] }],
         scenes: [scene('a', 'walkthrough', [{ id: 'a1', image: {} }, { id: 'a2', image: {} }]),
             scene('b', 'walkthrough', [{ id: 'b1', image: {} }])]
     };
@@ -34,8 +34,8 @@ function scene(id, kind, steps = undefined) {
 test('builds a continuous order without reordering scenes by chapter', () => {
     const items = buildTourReadingItems({
         chapters: [
-            { id: 'later', title: 'Later', sceneIds: ['second'] },
-            { id: 'earlier', title: 'Earlier', sceneIds: ['first', 'third'] }
+            { id: 'later', title: 'Later', summary: 'Preview Later.', sceneIds: ['second'] },
+            { id: 'earlier', title: 'Earlier', summary: 'Preview Earlier.', sceneIds: ['first', 'third'] }
         ],
         scenes: [
             scene('second', 'discussion'),
@@ -47,16 +47,16 @@ test('builds a continuous order without reordering scenes by chapter', () => {
     assert.deepEqual(items, [
         { kind: 'title', key: 'title', sceneIndex: 0, stepIndex: 0 },
         { kind: 'chapter', key: 'chapter:later', chapterId: 'later', sceneIndex: 0, stepIndex: 0 },
-        { kind: 'scene', key: 'scene:second', sceneIndex: 0, stepIndex: 0 },
+        { kind: 'scene', key: 'scene:second', chapterId: 'later', sceneIndex: 0, stepIndex: 0 },
         { kind: 'chapter', key: 'chapter:earlier', chapterId: 'earlier', sceneIndex: 1, stepIndex: 0 },
-        { kind: 'scene', key: 'scene:first', sceneIndex: 1, stepIndex: 0 },
+        { kind: 'scene', key: 'scene:first', chapterId: 'earlier', sceneIndex: 1, stepIndex: 0 },
         { kind: 'step', key: 'step:first:step-a', sceneIndex: 1, stepIndex: 0 },
         { kind: 'step', key: 'step:first:step-b', sceneIndex: 1, stepIndex: 1 },
-        { kind: 'scene', key: 'scene:third', sceneIndex: 2, stepIndex: 0 }
+        { kind: 'scene', key: 'scene:third', chapterId: 'earlier', sceneIndex: 2, stepIndex: 0 }
     ]);
 });
 
-test('keeps every scene, including non-stepped and zero-step scenes, and suppresses one chapter', () => {
+test('keeps every scene, including non-stepped and zero-step scenes, and skips a chapter without preview prose', () => {
     const items = buildTourReadingItems({
         chapters: [{ id: 'only', title: 'Only chapter', sceneIds: ['discussion', 'empty', 'file'] }],
         scenes: [
@@ -88,8 +88,8 @@ test('moves through adjacent reading items and stops at the ends', () => {
 test('resolves title, chapter, overview, and step positions', () => {
     const items = buildTourReadingItems({
         chapters: [
-            { id: 'one', title: 'One', sceneIds: ['a'] },
-            { id: 'two', title: 'Two', sceneIds: ['b'] }
+            { id: 'one', title: 'One', summary: 'Preview One.', sceneIds: ['a'] },
+            { id: 'two', title: 'Two', summary: 'Preview Two.', sceneIds: ['b'] }
         ],
         scenes: [
             scene('a', 'walkthrough', [{ id: 'a1' }, { id: 'a2' }]),
@@ -103,4 +103,29 @@ test('resolves title, chapter, overview, and step positions', () => {
     assert.equal(resolveTourReadingItem(items, 0, 1)?.key, 'step:a:a2');
     assert.equal(resolveTourReadingItem(items, 1, 0)?.key, 'scene:b');
     assert.equal(resolveTourReadingItem(items, 99, 0), null);
+});
+
+
+test('only authored previews create stops, including single-chapter tours', () => {
+    const tour = {
+        chapters: [
+            { id: 'preview', summary: 'Trace the request.', sceneIds: ['a', 'c'] },
+            { id: 'heading', sceneIds: ['b'] },
+            { id: 'blank', summary: '  ', sceneIds: ['d'] }
+        ],
+        scenes: ['a', 'b', 'c', 'd', 'unassigned'].map(id => scene(id, 'discussion'))
+    };
+    const items = buildTourReadingItems(tour);
+    assert.deepEqual(items.map(item => item.key), [
+        'title', 'chapter:preview', 'scene:a', 'scene:b', 'scene:c', 'scene:d', 'scene:unassigned'
+    ]);
+    assert.equal(getTourReadingTarget(items, 'scene:a', 1).key, 'scene:b');
+    assert.equal(getTourReadingTarget(items, 'scene:c', -1).key, 'scene:b');
+    assert.equal(resolveTourReadingItem(items, 1, 0, 'chapter').key, 'scene:b', 'A skipped chapter cannot land on a previous preview');
+    assert.equal(resolveTourReadingItem(items, 2, 0, 'chapter').key, 'chapter:preview');
+    assert.equal(resolveTourReadingItem(items, 3, 0, 'chapter').key, 'scene:d');
+    assert.equal(resolveTourReadingItem(items, 4, 0, 'chapter').key, 'scene:unassigned');
+    const single = buildTourReadingItems({ chapters: [tour.chapters[0]], scenes: [tour.scenes[0]] });
+    assert.equal(getTourReadingTarget(single, 'title', 1).key, 'chapter:preview');
+    assert.equal(getTourReadingTarget(single, 'scene:a', -1).key, 'chapter:preview');
 });

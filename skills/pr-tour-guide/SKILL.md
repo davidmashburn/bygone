@@ -176,6 +176,10 @@ Choose the smallest set of questions that makes the change understandable:
 - A chapter groups related questions. A scene answers one question; several
   steps can supply its evidence. Split for a new reasoning task, not simply
   a new file or viewport. Use no fixed chapter or step count.
+- Use optional v5 `chapter.summary` for one or two brief sentences that explain
+  what comes next and why. Omit it when no useful preview is needed: chapters
+  without summaries stay in the contents but are skipped as presentation and
+  narration stops. A list of scene titles or links is not a preview.
 - Give each scene a distinct purpose. Its summary should prepare the reader for
   the evidence and say what to notice. Meaningful chapter or scene titles form
   the opening's generated route; do not duplicate that itinerary in prose.
@@ -210,7 +214,7 @@ authored source and its compiled `.tour.json` as Git-backed, non-portable
 artifacts: pin `range.base` and `range.head` to the exact OIDs from the
 context, and keep them with the corresponding repository so Bygone can resolve
 those objects and live history. Versions 1, 2, and 4 remain readable for legacy
-inputs; v5 adds bookends and requires a purpose for explicit directory overviews.
+inputs; v5 adds bookends, optional chapter previews, and requires a purpose for explicit directory overviews.
 Version 3 is retired. The source has no `review` or ad hoc `notes` field.
 
 Set optional `windowTitle` when the tour should appear in the native window

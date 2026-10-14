@@ -3245,7 +3245,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
     function buildReadingDocument() {
         if (readingTour === state.tour) return;
         readingTour = state.tour;
-        readingItems = buildTourReadingItems(state.tour, true);
+        readingItems = buildTourReadingItems(state.tour);
         readingElements.clear();
         const content = document.getElementById('tour-narrative-content');
         const roots = [];
@@ -3306,7 +3306,10 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
                 route.chapters.forEach(chapter => {
                     const section = field(element, 'section', 'tour-route-chapter', '');
                     const heading = field(section, 'h3', '', '');
-                    const button = readingButton('', `Read ${chapter.title}`, () => activateReadingItem(readingItems.find(item => item.kind === 'chapter' && item.chapterId === chapter.chapterId)));
+                    const button = readingButton('', `Read ${chapter.title}`, () => activateReadingItem(
+                        readingItems.find(item => item.kind === 'chapter' && item.chapterId === chapter.chapterId)
+                        || readingItems.find(item => item.kind === 'scene' && item.sceneIndex === chapter.scenes[0]?.sceneIndex)
+                    ));
                     button.className = 'tour-route-link tour-route-chapter-link';
                     field(button, 'span', 'tour-route-number', `${chapter.chapterIndex + 1}. `);
                     field(button, 'span', '', chapter.title, 'route-chapter', chapter.chapterIndex);
@@ -3319,6 +3322,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
             } else if (item.kind === 'chapter') {
                 const chapter = route.chapters.find(chapter => chapter.chapterId === item.chapterId);
                 field(element, 'h2', 'tour-document-chapter', chapter.title, 'chapter');
+                field(element, 'p', 'tour-narrative-summary', chapter.summary, 'summary');
                 renderSceneRoute(element, chapter.scenes);
             } else if (item.kind === 'scene') {
                 element.classList.add('tour-scene-group');

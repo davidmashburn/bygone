@@ -381,8 +381,18 @@ function applySourceChapters(
             finalScenes.push(scene);
             finalSceneIds.push(scene.id);
         }
-        chapters.push({ id: chapter.id, title: chapter.title, sceneIds });
-        finalChapters.push({ id: chapter.id, title: chapter.title, sceneIds: finalSceneIds });
+        chapters.push({
+            id: chapter.id,
+            title: chapter.title,
+            ...(chapter.summary === undefined ? {} : { summary: chapter.summary }),
+            sceneIds
+        });
+        finalChapters.push({
+            id: chapter.id,
+            title: chapter.title,
+            ...(chapter.summary === undefined ? {} : { summary: chapter.summary }),
+            sceneIds: finalSceneIds
+        });
     }
 
     return { scenes, chapters, finalScenes, finalChapters };
@@ -487,7 +497,14 @@ function buildHistoricalFallback(
             scenes.push(scene);
             sceneIds.push(scene.id);
         }
-        if (sceneIds.length > 0) chapters.push({ id: chapter.id, title: chapter.title, sceneIds });
+        if (sceneIds.length > 0) {
+            chapters.push({
+                id: chapter.id,
+                title: chapter.title,
+                ...(chapter.summary === undefined ? {} : { summary: chapter.summary }),
+                sceneIds
+            });
+        }
     }
     return scenes.length > 0 ? { chapters, scenes } : undefined;
 }
