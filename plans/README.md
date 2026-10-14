@@ -26,6 +26,9 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [Consistent source controls in Compare and History](compare-source-controls.md)
+  — contextual source insertion/removal, synchronized directory drill-down,
+  and edge-only History trimming to preserve adjacent revisions.
 - [Tour reasoning and salience](tour-reasoning-and-salience.md) — research-backed
   narrative experiment, full conversation context, and an interactive example.
 - [Tour expectations and feedback](tour-assessment-and-feedback.md) — current

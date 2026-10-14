@@ -4,6 +4,13 @@
 
 Approved for implementation on `main`.
 
+For subsequent work on desktop comparison source controls, follow
+[Consistent source controls in Compare and History](compare-source-controls.md).
+That plan adds contextual source selection and positional Compare order. The
+[shared workspace plan](shared-workspace-tour-discovery-and-history-bridge.md)
+retains explicit draft submission instead of immediate checkbox-to-panel
+mutation. The interaction model below records the earlier design.
+
 ## Goal
 
 Make Compare a direct extension of browsing Git history: select two or more
