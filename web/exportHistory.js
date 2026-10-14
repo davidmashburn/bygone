@@ -42,7 +42,14 @@ export function createExportHistory(data) {
                 const records = commits.map(oid => oid === null ? undefined : graph.snapshots[oid][path]);
                 return records.some(record => JSON.stringify(record) !== JSON.stringify(records[0]));
             });
-            return { paths, ...(input.includeEntries ? {
+            return { paths, ...(input.includeFiles ? {
+                files: graph.paths.filter(path => commits.some(oid => oid !== null && graph.snapshots[oid][path])).map(path => {
+                    const omitted = commits.map(oid => oid === null ? null : graph.snapshots[oid][path]).find(record => record?.omitted);
+                    return { kind: omitted ? 'omitted' : 'text-diff', path,
+                        changeKind: paths.includes(path) ? 'modified' : 'unchanged',
+                        ...(omitted ? { reason: omitted.omitted } : {}) };
+                })
+            } : {}), ...(input.includeEntries ? {
                 entries: buildHistoryDirectoryEntries(paths, commits.map(oid => new Set(oid === null ? []
                     : graph.paths.filter(path => graph.snapshots[oid][path]))))
             } : {}) };

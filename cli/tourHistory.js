@@ -427,9 +427,14 @@ function createTourHistory(manifest) {
                 output.split('\0').filter(Boolean).forEach(file => paths.add(file));
             }
             const changed = [...paths].sort();
-            return { paths: changed, ...(input.includeEntries ? {
-                entries: buildHistoryDirectoryEntries(changed, commits.map(commit => new Set(commit
-                    ? git(root, ['ls-tree', '-r', '--name-only', '-z', commit]).split('\0').filter(Boolean) : [])))
+            const inventories = input.includeEntries || input.includeFiles ? commits.map(commit => new Set(commit
+                ? git(root, ['ls-tree', '-r', '--name-only', '-z', commit]).split('\0').filter(Boolean) : [])) : [];
+            return { paths: changed, ...(input.includeFiles ? {
+                files: [...new Set(inventories.flatMap(inventory => [...inventory]))].sort().map(path => ({
+                    kind: 'text-diff', path, changeKind: paths.has(path) ? 'modified' : 'unchanged'
+                }))
+            } : {}), ...(input.includeEntries ? {
+                entries: buildHistoryDirectoryEntries(changed, inventories)
             } : {}) };
         },
         compareMany(input) {

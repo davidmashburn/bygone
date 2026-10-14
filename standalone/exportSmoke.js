@@ -16,7 +16,7 @@ const { startPresentation } = require('../cli/present');
 app.on('window-all-closed', () => {});
 app.whenReady().then(async () => {
     const timeout = setTimeout(() => { console.error('Export smoke timed out'); app.exit(1); }, 60000);
-    const fixture = exportFixture({ multipleFocuses: true });
+    const fixture = exportFixture({ multipleFocuses: true, nestedFiles: true });
     fixture.source.details = {
         audience: { codebase: 'maintainer', language: 'advanced', readingDemand: 'specialist', purpose: 'overview', scope: 'Root fixture scope.' }
     };
@@ -62,6 +62,9 @@ app.whenReady().then(async () => {
             const { window, evaluate, wait } = await open(fileUrl + hash);
             await wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:scene:step'");
             await wait("document.querySelectorAll('.monaco-editor').length >= 2");
+            assert.equal(await evaluate("getComputedStyle(document.querySelector('#tour-file-filter')).display"), 'none', 'Walkthroughs do not offer an irrelevant file filter');
+            assert.equal(await evaluate("document.querySelector('[data-file-folder=\"nested/deep\"] .tour-file .tour-file-path').textContent"), 'late.txt', 'Files use nested folders and basename labels');
+            assert.equal(await evaluate("document.querySelector('.tour-file[data-file-path=\"binary.dat\"]').disabled"), true, 'Omitted files remain disabled');
             assert.match(await evaluate("document.querySelector('#tour-audience').textContent"), /Check the changed line/);
             assert.equal(await evaluate("document.querySelector('#tour-audience details').open"), false, 'Familiarity stays collapsed');
             assert.ok(!await evaluate("document.querySelector('#tour-audience').textContent.includes('Root fixture')"), 'Historical audience stays independent');
@@ -76,6 +79,7 @@ app.whenReady().then(async () => {
             assert.match(await evaluate('window.feedbackRequest'), /"step": "step"/);
             assert.match(await evaluate('window.feedbackRequest'), /"excerpt": "BETA"/);
             await evaluate("document.querySelector('.tour-feedback-dialog').close(); document.querySelector('[data-reading-link=title]').click()");
+            await wait("!document.querySelector('.tour-feedback-dialog')");
             await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'title'");
             await evaluate("navigator.clipboard.writeText = async () => { throw new Error('denied'); }; document.querySelector('#tour-feedback-explain').click()");
             await wait("document.querySelector('.tour-feedback-dialog[open]')");
@@ -112,6 +116,13 @@ app.whenReady().then(async () => {
             await evaluate("location.hash = '#location=1&mode=deconstructed&part=step&scene=synthetic&step=stage-focus-2'");
             await wait("document.activeElement.dataset.readingKey === 'step:synthetic:stage-focus-2'");
             await wait("document.querySelectorAll('#container .monaco-editor .view-line').length >= 2");
+            assert.equal(await evaluate("document.querySelector('#tour-file-filter-label').textContent"), 'Show unchanged tour files');
+            assert.equal(await evaluate("document.querySelector('.tour-file[data-file-path=\"nested/early.txt\"]').parentElement.hidden"), true, 'The step hides files unchanged in this pair');
+            assert.equal(await evaluate("document.querySelector('[data-file-folder=nested]').parentElement.hidden"), true, 'Empty folders are hidden');
+            await evaluate("document.querySelector('#tour-show-all-files').click()");
+            assert.equal(await evaluate("document.querySelector('.tour-file[data-file-path=\"nested/early.txt\"]').parentElement.hidden"), false, 'Show all reveals unchanged tour files');
+            assert.equal(await evaluate("document.querySelector('[data-file-folder=nested]').parentElement.hidden"), false);
+            await evaluate("document.querySelector('#tour-show-all-files').click()");
             assert.equal(await evaluate("document.querySelector('.tour-reading-item.is-active [data-reading-field=stage-title]').textContent"), 'Stage 1: Change', 'Direct continuation identifies its stage argument');
             assert.equal(await evaluate(`(() => {
                 const editor = window.monaco.editor.getEditors()[0];
@@ -251,6 +262,21 @@ app.whenReady().then(async () => {
                 await wait("document.querySelector('[data-workspace-mode=history][aria-selected=true]')");
                 assert.equal(await evaluate("document.querySelector('[data-tour-navigator=tour]').disabled"), true, 'History disables Tour navigation');
                 assert.equal(await evaluate("document.querySelector('#tour-scene-count').textContent"), '');
+                assert.equal(await evaluate("Boolean(document.querySelector('.tour-file[data-file-path=\"transient.txt\"]'))"), true, 'History includes intermediate-only packaged files outside the endpoint tour inventory');
+                assert.equal(await evaluate("Boolean(document.querySelector('.tour-file[data-file-path=\"nested/untouched.txt\"]'))"), false, 'Full exports do not imply complete repository snapshots');
+                assert.equal(await evaluate("document.querySelector('#tour-file-filter-label').textContent"), 'Show all included files');
+                const comparison = await open(`${fileUrl}?mode=compare&from=${fixture.middle}&to=${fixture.head}`);
+                await comparison.wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && document.querySelector('.tour-file.is-active')");
+                assert.equal(await comparison.evaluate("document.querySelector('.tour-file[data-file-path=\"nested/early.txt\"]').parentElement.hidden"), true, 'Comparison hides a file changed only in earlier revisions');
+                await comparison.evaluate("document.querySelector('[data-tour-navigator=files]').click(); document.querySelector('#tour-show-all-files').click(); document.querySelector('.tour-file[data-file-path=\"nested/early.txt\"]').click()");
+                await comparison.wait("document.querySelector('.tour-file.is-active')?.dataset.filePath === 'nested/early.txt'");
+                assert.equal(await comparison.evaluate("document.querySelector('.tour-file.is-active .tour-file-meta').textContent"), 'Unchanged in this comparison');
+                await comparison.wait("window.monaco.editor.getEditors().filter(editor => editor.getModel()).length >= 2");
+                assert.ok(await comparison.evaluate("window.monaco.editor.getEditors().filter(editor => editor.getModel()).every(editor => editor.getValue() === 'new\\n')"), 'Unchanged files load the selected revisions, not the tour base');
+                fs.writeFileSync(path.join(os.tmpdir(), 'bygone-scope-tour.png'), (await comparison.window.webContents.capturePage()).toPNG());
+                await comparison.window.loadURL(`${fileUrl}?mode=compare&from=${fixture.middle}&to=${fixture.head}&file=nested%2Fearly.txt`);
+                await comparison.wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('.tour-file.is-active')?.dataset.filePath === 'nested/early.txt'");
+                comparison.window.destroy();
             }
             window.destroy();
             // Fail closed on modified evidence, before starting any viewer code.
@@ -356,6 +382,26 @@ app.whenReady().then(async () => {
         const link = parseDeepLink(copiedLink);
         assert.equal(link.tour, pathToFileURL(externalTour).href);
         assert.deepEqual(link.focus, { part: 'step', scene: 'scene', step: 'step' });
+        const inventoryUrl = new URL(presentation.url);
+        inventoryUrl.hash = '';
+        inventoryUrl.searchParams.set('mode', 'compare');
+        inventoryUrl.searchParams.set('commits', `${fixture.middle},${fixture.head}`);
+        const inventoryView = await open(inventoryUrl.href, false);
+        await inventoryView.wait("document.querySelector('.tour-file[data-file-path=\"nested/untouched.txt\"]') && document.querySelector('.tour-file.is-active')");
+        assert.equal(await inventoryView.evaluate("document.querySelector('.tour-file[data-file-path=\"nested/untouched.txt\"]').parentElement.hidden"), true, 'Outside-tour unchanged files are hidden by default');
+        await inventoryView.evaluate("document.querySelector('[data-tour-navigator=files]').click(); document.querySelector('#tour-show-all-files').click(); document.querySelector('.tour-file[data-file-path=\"nested/untouched.txt\"]').click()");
+        await inventoryView.wait("document.querySelector('.tour-file.is-active')?.dataset.filePath === 'nested/untouched.txt' && window.monaco.editor.getEditors().filter(editor => editor.getModel()).every(editor => editor.getValue() === 'outside tour scope\\n')");
+        await inventoryView.evaluate("document.querySelector('[data-workspace-mode=history]').click()");
+        await inventoryView.wait("document.querySelector('[data-workspace-mode=history][aria-selected=true]') && document.querySelector('.tour-file[data-file-path=\"transient.txt\"]')");
+        assert.equal(await inventoryView.evaluate("document.querySelector('#tour-file-filter-label').textContent"), 'Show all files');
+        await inventoryView.evaluate("document.querySelector('[data-tour-navigator=files]').click(); document.querySelector('.tour-file[data-file-path=\"nested/untouched.txt\"]').click()");
+        await inventoryView.wait("document.querySelector('.tour-file.is-active')?.dataset.filePath === 'nested/untouched.txt' && window.monaco.editor.getEditors().filter(editor => editor.getModel()).every(editor => editor.getValue() === 'outside tour scope\\n')");
+        await inventoryView.evaluate("document.querySelector('#tour-show-all-files').click(); document.querySelector('.tour-file[data-file-path=\"transient.txt\"]').click()");
+        await inventoryView.wait("document.querySelector('.tour-file.is-active')?.dataset.filePath === 'transient.txt' && window.monaco.editor.getEditors().filter(editor => editor.getModel()).some(editor => editor.getValue() === 'only in history\\n')");
+        assert.equal(await inventoryView.evaluate("document.querySelector('.tour-file[data-file-path=\"nested/untouched.txt\"]').parentElement.hidden"), true);
+        await inventoryView.evaluate("document.querySelector('[data-workspace-mode=historical]').click()");
+        await inventoryView.wait("document.querySelector('[data-workspace-mode=historical][aria-selected=true]') && !document.querySelector('.tour-file[data-file-path=\"nested/untouched.txt\"]')");
+        inventoryView.window.destroy();
         await live.evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
         await live.wait("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && !document.querySelector('#directory-return-toolbar').hidden");
         await live.evaluate("document.querySelector('#back-to-directory').click()");

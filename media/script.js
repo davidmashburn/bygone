@@ -18,6 +18,7 @@ import {
 } from './renderTransition';
 import { normalizeLanguageId } from '../src/languageSupport';
 import { createWorkspaceControls } from './workspaceControls';
+import { buildFileTree } from './fileTree';
 import './workspaceControls.css';
 
 const host = createHostBridge();
@@ -26,6 +27,8 @@ let workspaceSelection;
 let workspaceTourFrame;
 let workspaceTourUrl;
 let workspaceContent;
+let railFileFilterSession;
+let showAllRailFiles = false;
 
 // Embedded tours keep their read-only host boundary. Relay only a web URL from
 // the currently displayed, known tour frame; the native preview lives above it.
@@ -44,6 +47,10 @@ window.addEventListener('message', (event) => {
 });
 
 function updateWorkspaceControls(state) {
+    if (state.sessionId !== railFileFilterSession) {
+        railFileFilterSession = state.sessionId;
+        showAllRailFiles = false;
+    }
     if (!workspaceControls) {
         const container = document.createElement('div');
         container.id = 'workspace-header';
@@ -62,7 +69,6 @@ function updateWorkspaceControls(state) {
             button.addEventListener('click', () => host.postMessage({ type }));
             workspaceSelection.appendChild(button);
         }
-        container.appendChild(workspaceSelection);
     }
     workspaceControls.update(state);
     workspaceSelection.hidden = !state.canSelectRevisions || ['historical', 'deconstructed'].includes(state.mode);
@@ -157,6 +163,8 @@ let focusedStripWheelDelta = 0;
 let historyRailState = null;
 let activeHistoryRailTabId = null;
 let historyRailKind = null;
+const collapsedRailFolders = new Set();
+const activeRailFilePaths = new Map();
 let navigationRailCollapsed = false;
 let navigationRailWidth = readStoredSidebarWidth(
     NAVIGATION_SIDEBAR_STORAGE_KEY,
@@ -2828,6 +2836,20 @@ function initializeHistoryRail() {
     const rail = getElement('history-rail');
     const showButton = getElement('show-navigation-sidebar');
     dismissHistoryRailOverlays = initializeCommitRailActions(rail);
+    rail.addEventListener('change', (event) => {
+        if (!event.target.matches('[data-rail-show-all-files]')) return;
+        showAllRailFiles = event.target.checked;
+        renderHistoryRail();
+        rail.querySelector('[data-rail-show-all-files]')?.focus({ preventScroll: true });
+    });
+
+    rail.addEventListener('toggle', (event) => {
+        const folder = event.target;
+        if (!(folder instanceof HTMLDetailsElement) || !folder.hasAttribute('data-rail-folder') || !folder.isConnected) return;
+        const key = JSON.stringify([folder.dataset.railFolderTab, folder.dataset.railFolder]);
+        if (folder.open) collapsedRailFolders.delete(key);
+        else collapsedRailFolders.add(key);
+    }, true);
 
     applyNavigationSidebarWidth();
     window.addEventListener('bygone:present-navigator-change', renderHistoryRail);
@@ -2867,7 +2889,9 @@ function initializeHistoryRail() {
         if (target.hasAttribute('data-rail-item')) {
             const tabId = target.getAttribute('data-rail-tab');
             const itemIndex = Number.parseInt(target.getAttribute('data-rail-index') || '', 10);
-            const item = getHistoryRailItems(tabId).find((candidate) => candidate.index === itemIndex || candidate.relativePath === target.getAttribute('data-rail-path'));
+            const path = target.getAttribute('data-rail-path');
+            const item = getHistoryRailItems(tabId).find((candidate) => path !== null
+                ? candidate.relativePath === path : candidate.index === itemIndex);
             if (!item) {
                 return;
             }
@@ -5495,7 +5519,9 @@ function renderHistoryRail() {
     dismissHistoryRailOverlays();
     const rail = getElement('history-rail');
     const previousScroll = rail.querySelector('.history-rail-list')?.scrollTop || 0;
+    const focusedSelectionAction = workspaceSelection?.contains(document.activeElement) ? document.activeElement : null;
     const focused = document.activeElement?.closest('[data-rail-select], [data-rail-item]');
+    const focusedPath = focused?.getAttribute('data-rail-path');
     const focusedIndex = focused?.getAttribute('data-rail-index');
     const focusedKind = focused?.hasAttribute('data-rail-select') ? 'data-rail-select' : 'data-rail-item';
     const container = getElement('container');
@@ -5523,7 +5549,9 @@ function renderHistoryRail() {
     const tabs = historyRailState.tabs || [];
     const activeTabId = activeHistoryRailTabId || historyRailState.activeTabId || tabs[0]?.id || null;
     const activeTab = tabs.find((tab) => tab.id === activeTabId) || tabs[0];
-    const items = activeTab ? (historyRailState.itemsByTab[activeTab.id] || []) : [];
+    const allItems = activeTab ? (historyRailState.itemsByTab[activeTab.id] || []) : [];
+    const filterFiles = Boolean(activeTab?.filterChangedFiles);
+    const items = filterFiles && !showAllRailFiles ? allItems.filter(item => item.changed) : allItems;
 
     rail.hidden = false;
     rail.classList.remove('hidden');
@@ -5542,18 +5570,53 @@ function renderHistoryRail() {
             return `<button class="history-rail-tab${isActive ? ' active' : ''}" type="button" title="Show ${escapeAttr(tab.label)}" data-rail-tab="${escapeAttr(tab.id)}">${escapeHtml(tab.label)}</button>`;
         }),
         '</div>',
+        ...(filterFiles ? [`<label class="file-tree-filter"><input type="checkbox" data-rail-show-all-files${showAllRailFiles ? ' checked' : ''}>Show all files<span>${items.length} / ${allItems.length}</span></label>`] : []),
         '<div class="history-rail-list">',
         ...(items.length > 0
-            ? items.map((item, index) => renderHistoryRailItem(item, activeTab?.id || '', index))
-            : ['<div class="history-rail-empty">No entries</div>']),
+            ? items.every(item => item.kind === 'directory-entry' && typeof item.relativePath === 'string')
+                ? [renderHistoryRailFileTree(items, activeTab.id)]
+                : items.map((item, index) => renderHistoryRailItem(item, activeTab?.id || '', index))
+            : [`<div class="history-rail-empty">${filterFiles && !showAllRailFiles ? 'No changed files' : 'No entries'}</div>`]),
         '</div>',
         ...(presentOwned ? [] : [
             `<div class="history-rail-resizer" role="separator" aria-label="Resize navigation sidebar" title="Resize navigation sidebar (Left/Right; Home/End)" aria-orientation="vertical" aria-valuemin="${NAVIGATION_SIDEBAR_MIN_WIDTH}" aria-valuemax="${maximumNavigationSidebarWidth()}" aria-valuenow="${navigationRailWidth}" tabindex="0" data-rail-resizer></div>`
         ])
     ].join('');
+    if (!presentOwned && historyRailKind === 'history' && activeTab?.id === 'history' && workspaceSelection) {
+        rail.querySelector('.history-rail-list').before(workspaceSelection);
+        if (!workspaceSelection.hidden) focusedSelectionAction?.focus({ preventScroll: true });
+    }
     rail.querySelector('.history-rail-list').scrollTop = previousScroll;
     if (currentMode === MODE_MULTI_WAY) updateFocusedStripControls();
-    if (focusedIndex !== undefined && focusedIndex !== null) rail.querySelector(`button[${focusedKind}][data-rail-index="${focusedIndex}"]`)?.focus({ preventScroll: true });
+    if (focusedPath !== undefined && focusedPath !== null) {
+        [...rail.querySelectorAll('button[data-rail-path]')].find(button => button.dataset.railPath === focusedPath)?.focus({ preventScroll: true });
+    } else if (focusedIndex !== undefined && focusedIndex !== null) rail.querySelector(`button[${focusedKind}][data-rail-index="${focusedIndex}"]`)?.focus({ preventScroll: true });
+}
+
+function renderHistoryRailFileTree(items, tabId) {
+    const root = buildFileTree(items, item => item.relativePath);
+    const activePath = items.find(item => item.active)?.relativePath;
+    const revealActive = activePath !== activeRailFilePaths.get(tabId);
+    activeRailFilePaths.set(tabId, activePath);
+    if (revealActive && activePath) {
+        const parts = activePath.split('/').slice(0, -1);
+        let path = '';
+        for (const part of parts) {
+            path = path ? `${path}/${part}` : part;
+            collapsedRailFolders.delete(JSON.stringify([tabId, path]));
+        }
+    }
+    const render = (node) => '<ul class="file-tree">'
+        + node.folders.map(folder => {
+            const collapsed = collapsedRailFolders.has(JSON.stringify([tabId, folder.path]));
+            return `<li><details data-rail-folder="${escapeAttr(folder.path)}" data-rail-folder-tab="${escapeAttr(tabId)}"${collapsed ? '' : ' open'}>`
+                + `<summary title="${escapeAttr(folder.path)}"><span class="history-rail-label">${escapeHtml(folder.name)}</span></summary>`
+                + render(folder) + '</details></li>';
+        }).join('')
+        + node.files.map(({ item, index, name }) =>
+            `<li>${renderHistoryRailItem({ ...item, label: name }, tabId, index)}</li>`).join('')
+        + '</ul>';
+    return render(root);
 }
 
 function maximumNavigationSidebarWidth() {
@@ -5615,7 +5678,7 @@ function renderHistoryRailItem(item, tabId, index) {
     const metadata = meta || fileMarker ? `<span class="history-rail-metadata">${fileMarker}${meta}</span>` : '';
     return `<div class="history-rail-item${activeClass}${panelClass}${statusClass}${selectable && item.selected ? ' selected' : ''}" ${rowAttrs}${selectionAttrs}${isCommit ? ' data-commit-row' : ''}${item.panelNumber ? ` data-rail-panel="${item.panelNumber}"` : ''}>`
         + tourMarker + (isCommit ? '' : `<span class="history-rail-marker">${escapeHtml(marker)}</span>`)
-        + `<button class="history-rail-entry" type="button" ${selectable ? `role="checkbox" aria-checked="${String(Boolean(item.selected))}"` : ''} aria-label="${action}: ${escapeAttr(item.label)}"${isCommit ? '' : ` title="${action}: ${escapeAttr(item.label)}"`} data-rail-item="true"${selectionAttrs} ${rowAttrs}${kindAttr}${pathAttr}>`
+        + `<button class="history-rail-entry" type="button" ${selectable ? `role="checkbox" aria-checked="${String(Boolean(item.selected))}"` : ''}${item.kind === 'directory-entry' && item.active ? ' aria-current="true"' : ''} aria-label="${action}: ${escapeAttr(item.relativePath || item.label)}"${isCommit ? '' : ` title="${action}: ${escapeAttr(item.relativePath || item.label)}"`} data-rail-item="true"${selectionAttrs} ${rowAttrs}${kindAttr}${pathAttr}>`
         + `<span class="history-rail-text"><span class="history-rail-label">${escapeHtml(item.label)}</span>${metadata}</span>${panelBadge}${selection}`
         + `</button>`
         + (isCommit ? `<button class="history-rail-menu" type="button" title="Commit actions" aria-label="Actions for ${escapeAttr(item.label)}" aria-haspopup="menu" aria-expanded="false" data-rail-menu ${rowAttrs}>⋯</button>` : '')

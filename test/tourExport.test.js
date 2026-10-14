@@ -15,7 +15,7 @@ function hydrate(data) {
 }
 
 test('Minimal captures all authored modes, Full retains bounded history including reverted paths', async () => {
-    const f = exportFixture();
+    const f = exportFixture({ nestedFiles: true });
     try {
         const before = fs.readFileSync(f.sourcePath, 'utf8');
         const minimal = materializeTour(f.sourcePath, 'minimal');
@@ -29,6 +29,7 @@ test('Minimal captures all authored modes, Full retains bounded history includin
         assert.equal(full.history.commits.length, 3);
         assert.ok(!full.history.snapshots[f.outside]);
         assert.ok(full.history.paths.includes('transient.txt'));
+        assert.ok(!full.history.paths.includes('nested/untouched.txt'), 'Exports stay scoped to packaged evidence');
         const { createExportHistory } = await historyModule;
         const history = createExportHistory(hydrate(full));
         const delta = await history('diff', { commit: f.middle, path: 'app.txt' });
@@ -39,7 +40,10 @@ test('Minimal captures all authored modes, Full retains bounded history includin
         await assert.rejects(history('diff', { commit: f.head, path: 'large.txt' }), /2 MiB/);
         await assert.rejects(history('compare-many', { commits: [f.base, f.outside] }), /outside/);
         const comparison = await history('compare-many', { commits: [f.base, f.middle, f.head] });
-        const changed = await history('changed-files', { commits: [f.base, f.middle, f.head] });
+        const changed = await history('changed-files', { commits: [f.base, f.middle, f.head], includeFiles: true });
+        assert.ok(changed.files.some(file => file.path === 'transient.txt'), 'Inventory includes packaged intermediate-only files');
+        assert.ok(changed.files.some(file => file.path === 'binary.dat' && file.kind === 'omitted'));
+        assert.ok(changed.files.every(file => full.history.paths.includes(file.path)));
         assert.deepEqual(changed.paths, comparison.files.map(file => file.path));
         assert.deepEqual((await history('changed-files', { commits: [f.head, f.head] })).paths, []);
         assert.ok(!(await history('changed-files', { commits: [f.base, f.head] })).paths.includes('transient.txt'));

@@ -26,6 +26,7 @@ import { buildTourDirectoryEvidence } from '../src/tourDirectoryEvidence.ts';
 import { TourZoomSession } from '../src/tourZoomSession.ts';
 import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
 import { createWorkspaceControls } from '../media/workspaceControls.js';
+import { buildFileTree } from '../media/fileTree.js';
 import { renderTourProse } from '../media/tourProse.js';
 import { renderTourDetails } from './tourDetails.js';
 import { openTourFeedback } from './tourFeedback.js';
@@ -73,6 +74,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         historyFocus: null,
         historyDiff: null,
         historyChangedFiles: new Set(),
+        historyFiles: null,
         compare: null,
         comparisonFocus: null,
         comparisonCommits: [],
@@ -89,6 +91,10 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         tourSidebarHidden: false,
         tourNarrativeHeight: readStoredTourNarrativeHeight(),
         tourNavigatorTab: 'tour',
+        showAllFiles: false,
+        showAllTourFiles: false,
+        collapsedFileFolders: new Set(),
+        revealedFilePath: null,
         narrationVoiceURI: preferences.getItem(TOUR_NARRATION_VOICE_STORAGE_KEY) || '',
         narrationRate: readStoredNarrationRate(),
         narrationVoices: [],
@@ -553,7 +559,10 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
     function zoomTour(mode) {
         const tour = state.authoredTour;
         if (authoredTours()[mode]) return { ...tour, opening: undefined, conclusion: undefined, details: undefined, ...authoredTours()[mode] };
-        return { ...tour, opening: undefined, conclusion: undefined, details: undefined, scenes: [], chapters: [], files: mode === 'compare' && state.compare ? state.compare.files : tour.files };
+        const files = mode === 'compare' && state.compare
+            ? [...new Map([...(state.compare.inventory || tour.files), ...state.compare.files].map(file => [file.path, file])).values()]
+            : mode === 'history' ? state.historyFiles || tour.files : tour.files;
+        return { ...tour, opening: undefined, conclusion: undefined, details: undefined, scenes: [], chapters: [], files };
     }
 
     function renderZoomControl() {
@@ -741,13 +750,16 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
                 id: `history-${oid || 'empty'}`, commit: oid, content: '', editable: false,
                 label: oid ? oid.slice(0, 7) : 'Empty tree'
             }));
-        const result = await historyRequest('changed-files', { commits: panels.map(panel => panel.commit || null), includeEntries: true });
+        const result = await historyRequest('changed-files', { commits: panels.map(panel => panel.commit || null), includeEntries: true, includeFiles: true });
         if (request !== evidenceRequest || state.zoom.mode !== 'history') return;
         state.historyCommit = commit;
         state.historyPanels = panels;
         state.historyFocus = panels.at(-1).id;
         state.historyPath = null;
         state.historyChangedFiles = new Set(result.paths);
+        state.historyFiles = result.files;
+        state.tour.files = result.files;
+        renderTourFiles();
         state.activeTourFilePath = null;
         updateTourFileSelection();
         emit({ ...revisionDirectoryView(panels.map(panel => panel.label), result.entries),
@@ -805,14 +817,17 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         const currentPanels = state.historyPanels;
         const tour = state.authoredTour;
         const request = evidenceRequest;
-        const result = await historyRequest('changed-files', { commits: currentPanels.map(panel => panel.commit || null) });
+        const result = await historyRequest('changed-files', { commits: currentPanels.map(panel => panel.commit || null), includeFiles: true });
         if (request !== evidenceRequest || currentPanels !== state.historyPanels || tour !== state.authoredTour || state.zoom.mode !== 'history') return;
         state.historyChangedFiles = new Set(result.paths);
+        state.historyFiles = result.files;
+        state.tour.files = result.files;
+        renderTourFiles();
         const panels = state.historyPanels.map((panel) => ({ ...panel, addLeftEnabled: Boolean(historyNeighbor(panel, 'left')), addRightEnabled: Boolean(historyNeighbor(panel, 'right')), removeEnabled: state.historyPanels.length > 2 }));
         const focus = panels.find((panel) => panel.id === state.historyFocus)?.commit;
         state.activeTourFilePath = state.historyPath;
         updateTourFileSelection();
-        emit({ ...revisionPanelsView({ panels, files: historyRevisionFiles(), activePanelId: state.historyFocus,
+        emit({ ...revisionPanelsView({ panels, files: displayedRevisionFiles(), activePanelId: state.historyFocus,
             mutationEnabled: true, canReturnToDirectory: true }, (left, right) => buildTwoWayDiffModel(left.content, right.content)),
             history: panelHistoryState(buildZoomHistoryState(state.historyEntries, state.historyCommit, state.historyDiff), panels.map(panel => panel.commit), focus) });
     }
@@ -876,7 +891,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         state.activeTourFilePath = file.path;
         updateTourFileSelection();
         emit({ ...revisionPanelsView({ panels,
-            files: { paths: state.tour.files.filter(item => item.kind === 'text-diff').map(item => item.path), currentPath: file.path },
+            files: displayedRevisionFiles(),
             activePanelId: focusCommit ? `compare-${focusCommit}` : null,
             mutationEnabled: false, canReturnToDirectory: true
         }, (left, right) => buildTwoWayDiffModel(left.content, right.content)),
@@ -886,24 +901,59 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         return true;
     }
 
+    async function openComparisonFile(file, focusCommit = null) {
+        const request = ++evidenceRequest;
+        if (!file.comparisonPanels) {
+            // Inventory entries load content only when opened, at the displayed revisions.
+            let result;
+            try {
+                result = await historyRequest('compare-many', { commits: state.compare.commits, path: file.path });
+            } catch (error) {
+                if (request !== evidenceRequest) return false;
+                throw error;
+            }
+            if (request !== evidenceRequest || state.zoom?.mode !== 'compare') return false;
+            const index = state.tour.files.findIndex(item => item.path === file.path);
+            const loaded = result.files.find(item => item.path === file.path) || result.files[0];
+            if (!loaded) {
+                document.getElementById('tour-mode-status').textContent = 'This file is absent from the selected revisions.';
+                return false;
+            }
+            file = { ...loaded, path: file.path };
+            state.tour.files[index] = file;
+            updateTourFileSelection();
+            if (file.kind === 'omitted') document.getElementById('tour-mode-status').textContent = file.reason;
+        }
+        return showComparisonFile(file, focusCommit);
+    }
+
     async function showComparison(selection, selectedPath, focusCommit = null) {
         selection = normalizeComparisonSelection(selection);
         const request = ++evidenceRequest;
         const result = await historyRequest('compare-many', selection);
+        const inventory = supportsWorkspaceHistory()
+            ? await historyRequest('changed-files', { commits: selection.commits, includeFiles: true }) : null;
+        const changedPaths = new Set(inventory?.paths || result.files.map(file => file.path));
+        // Comparisons follow renames under their final path; retain those aliases too.
+        for (const file of result.files) {
+            if (file.comparisonPanels?.some(panel => changedPaths.has(panel.path))) changedPaths.add(file.path);
+        }
         if (request !== evidenceRequest || state.zoom.mode !== 'compare') return;
         const files = result.files;
         state.comparisonCommits = selection.commits;
-        state.compare = { ...selection, files, entries: result.entries };
+        state.compare = { ...selection, files, inventory: inventory?.files, entries: result.entries, changedPaths };
         state.tour = zoomTour('compare');
         state.activeSceneIndex = -1;
         state.tourFocusFilePath = null;
         renderTourShell();
         renderZoomControl();
         renderTourSearchResults();
-        const file = files.find((item) => item.kind === 'text-diff' && item.path === selectedPath)
+        const file = state.tour.files.find((item) => item.kind === 'text-diff' && item.path === selectedPath)
             || files.find((item) => item.kind === 'text-diff');
         if (zoomRestore?.view === 'directory') showComparisonDirectory();
-        else if (file) showComparisonFile(file, focusCommit);
+        else if (file) {
+            if (!await openComparisonFile(file, focusCommit)) return;
+        }
         else {
             state.activeTourFilePath = null;
             const panels = selection.commits.map((commit) => ({ id: `compare-${commit}`, commit, path: 'No text changes', content: '', label: commit.slice(0, 7), editable: false }));
@@ -912,6 +962,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
                 history: panelHistoryState(buildComparisonHistoryState(selection), selection.commits, null) });
             state.activeTourFilePath = null;
             zoomRestore = null;
+            updateTourFileSelection();
         }
         document.getElementById('tour-mode-status').textContent = files.length
             ? (file ? '' : 'Changed files cannot be displayed as text. See the file list for details.')
@@ -1087,7 +1138,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
             }
             if (state.zoom?.mode === 'history' && ['openDirectoryEntry', 'returnToDirectory', 'navigateFile'].includes(message.type)) {
                 cancelPendingModeRestore();
-                const files = historyRevisionFiles();
+                const files = displayedRevisionFiles();
                 // The overview includes binary changes too; the backend reports
                 // their display limits when opened, rather than hiding evidence.
                 if (message.type === 'openDirectoryEntry') files.paths = [...state.historyChangedFiles];
@@ -1269,6 +1320,17 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         const tourRate = document.getElementById('tour-narration-rate');
 
         initializeTourSidebar();
+        document.getElementById('tour-show-all-files')?.addEventListener('change', (event) => {
+            if (isNarrativeMode()) state.showAllTourFiles = event.target.checked;
+            else state.showAllFiles = event.target.checked;
+            updateTourFileSelection();
+        });
+        document.getElementById('tour-files')?.addEventListener('toggle', (event) => {
+            const folder = event.target;
+            if (!(folder instanceof HTMLDetailsElement) || !folder.dataset.fileFolder || !folder.isConnected) return;
+            if (folder.open) state.collapsedFileFolders.delete(folder.dataset.fileFolder);
+            else state.collapsedFileFolders.add(folder.dataset.fileFolder);
+        }, true);
         initializeTourNarrativeResizer();
         initializeTourNarrativeLayout();
         initializeNarrationVoices();
@@ -1847,6 +1909,11 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
             state.historyFocus = null;
             state.historyDiff = null;
             state.historyChangedFiles = new Set();
+            state.historyFiles = null;
+            state.showAllFiles = false;
+            state.showAllTourFiles = false;
+            state.collapsedFileFolders = new Set();
+            state.revealedFilePath = null;
             if (state.zoom) state.tour = zoomTour(initialMode);
             state.mode = 'tour';
             document.body.classList.add('tour-mode');
@@ -2064,7 +2131,15 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
             conclusion.dataset.readingLink = 'conclusion';
             scenes.append(conclusion);
         }
-        files.replaceChildren(...tour.files.map((file, index) => {
+        renderTourFiles();
+        setTourNavigatorTab(state.tourNavigatorTab);
+    }
+
+    function renderTourFiles() {
+        const tour = state.tour;
+        const files = document.getElementById('tour-files');
+        document.getElementById('tour-file-count').textContent = String(tour.files.length);
+        files.replaceChildren(renderTourFileTree(buildFileTree(tour.files, file => file.path), (file, index, name) => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = `tour-file${file.kind === 'omitted' ? ' is-omitted' : ''}`;
@@ -2083,17 +2158,47 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
             copy.className = 'tour-file-copy';
             const pathLine = document.createElement('span');
             pathLine.className = 'tour-file-path';
-            pathLine.textContent = file.path;
+            pathLine.textContent = name;
             const meta = document.createElement('span');
             meta.className = 'tour-file-meta';
             meta.textContent = file.kind === 'omitted'
                 ? `Not rendered · ${file.reason}`
-                : `${formatChangeKind(file.changeKind)} · +${file.additions} −${file.deletions}`;
+                : Number.isFinite(file.additions) ? `${formatChangeKind(file.changeKind)} · +${file.additions} −${file.deletions}` : formatChangeKind(file.changeKind);
             copy.append(pathLine, meta);
             button.append(marker, copy);
             return button;
         }));
-        setTourNavigatorTab(state.tourNavigatorTab);
+        const empty = document.createElement('div');
+        empty.className = 'history-rail-empty';
+        empty.dataset.fileTreeEmpty = '';
+        files.append(empty);
+        updateTourFileSelection();
+    }
+
+    function renderTourFileTree(node, renderFile) {
+        const list = document.createElement('ul');
+        list.className = 'file-tree';
+        for (const folder of node.folders) {
+            const row = document.createElement('li');
+            const details = document.createElement('details');
+            details.dataset.fileFolder = folder.path;
+            details.open = !state.collapsedFileFolders.has(folder.path);
+            const summary = document.createElement('summary');
+            const name = document.createElement('span');
+            name.className = 'tour-file-path';
+            name.textContent = folder.name;
+            summary.append(name);
+            summary.title = folder.path;
+            details.append(summary, renderTourFileTree(folder, renderFile));
+            row.append(details);
+            list.append(row);
+        }
+        for (const { item, index, name } of node.files) {
+            const row = document.createElement('li');
+            row.append(renderFile(item, index, name));
+            list.append(row);
+        }
+        return list;
     }
 
     function renderAuthoringCoverage(container, coverage) {
@@ -2475,9 +2580,10 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         return true;
     }
 
-    function historyRevisionFiles() {
+    function displayedRevisionFiles() {
         return { paths: state.tour.files.filter(file => file.kind === 'text-diff').map(file => file.path),
-            currentPath: state.activeTourFilePath, changedPaths: state.historyChangedFiles };
+            currentPath: state.activeTourFilePath,
+            changedPaths: state.zoom?.mode === 'compare' ? state.compare?.changedPaths : state.historyChangedFiles };
     }
 
     function getCurrentTourFileTarget(direction) {
@@ -2486,8 +2592,8 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
             return null;
         }
         const scene = tour.scenes[state.activeSceneIndex];
-        if (state.zoom?.mode === 'history') {
-            const path = revisionFileTarget(historyRevisionFiles(), direction);
+        if (state.zoom?.mode === 'history' || state.zoom?.mode === 'compare') {
+            const path = revisionFileTarget(displayedRevisionFiles(), direction);
             return path ? { fileIndex: tour.files.findIndex(file => file.path === path), path } : null;
         }
         if (state.directoryEvidence) {
@@ -2547,7 +2653,8 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
             return true;
         }
         if (state.zoom?.mode === 'compare') {
-            return showComparisonFile(selected);
+            void openComparisonFile(selected).catch((error) => { document.getElementById('tour-mode-status').textContent = error.message; });
+            return true;
         }
         if (state.directoryEvidence && isNarrativeMode()) return openTourDirectoryFile(selected.path);
         if (!state.zoomSwitching) narrationController.interruptForExploration();
@@ -2641,14 +2748,18 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         renderDirectoryOverviewBreadcrumb();
         const scene = state.tour?.scenes[state.activeSceneIndex];
         const step = isMultiPanelTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
+        const filesByPath = new Map(state.tour?.files.map(file => [file.path, file]));
         document.querySelectorAll('.tour-file').forEach((button) => {
             const filePath = button.dataset.filePath;
             button.classList.toggle('is-active', filePath === state.activeTourFilePath);
             button.classList.toggle('is-tour-focus', !state.directoryEvidence && filePath === state.tourFocusFilePath);
-            button.disabled = Boolean(state.directoryEvidence && !state.directoryEvidence.files.some((file) => file.path === filePath));
             button.classList.remove('is-comparison-changed', 'is-comparison-empty');
             delete button.dataset.comparisonState;
-            const tourFile = state.tour?.files.find((file) => file.path === filePath);
+            const tourFile = filesByPath.get(filePath);
+            button.classList.toggle('is-omitted', tourFile?.kind === 'omitted');
+            button.disabled = tourFile?.kind === 'omitted' || Boolean(state.directoryEvidence && !state.directoryEvidence.files.some((file) => file.path === filePath));
+            if (filePath === state.activeTourFilePath) button.setAttribute('aria-current', 'true');
+            else button.removeAttribute('aria-current');
             const marker = button.querySelector('.tour-file-marker');
             const meta = button.querySelector('.tour-file-meta');
             if (state.directoryEvidence && button.disabled && tourFile?.kind === 'text-diff') {
@@ -2668,6 +2779,17 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
                 if (marker) marker.textContent = changeKindMarker(evidenceFile.changeKind);
                 return;
             }
+            const changedPaths = state.zoom?.mode === 'history' ? state.historyChangedFiles : state.zoom?.mode === 'compare' ? state.compare?.changedPaths : null;
+            if (changedPaths && tourFile?.kind === 'text-diff') {
+                const changed = changedPaths.has(filePath);
+                const label = changed ? 'Changed in this comparison' : 'Unchanged in this comparison';
+                button.classList.add(changed ? 'is-comparison-changed' : 'is-comparison-empty');
+                button.setAttribute('title', `${filePath} · ${label}`);
+                button.setAttribute('aria-label', `${filePath}, ${label}`);
+                if (meta) meta.textContent = label;
+                if (marker) marker.textContent = changed ? 'M' : '○';
+                return;
+            }
             if (step && tourFile?.kind === 'text-diff') {
                 const comparisonFile = getMultiPanelFile(scene, filePath);
                 if (comparisonFile) {
@@ -2681,6 +2803,13 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
                     if (meta) meta.textContent = presentation.label;
                     return;
                 }
+                button.disabled = true;
+                const label = 'Not included in this tour comparison';
+                button.setAttribute('title', `${filePath} · ${label}`);
+                button.setAttribute('aria-label', `${filePath}, ${label}`);
+                if (marker) marker.textContent = '○';
+                if (meta) meta.textContent = label;
+                return;
             }
             if (tourFile) {
                 const title = tourFile.kind === 'omitted'
@@ -2694,7 +2823,44 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
                     : `${formatChangeKind(tourFile.changeKind)} · +${tourFile.additions} −${tourFile.deletions}`;
             }
         });
-        document.querySelector(`.tour-file.is-active`)?.scrollIntoView({ block: 'nearest' });
+        const files = document.getElementById('tour-files');
+        const narrative = isNarrativeMode();
+        const filterAvailable = !narrative || Boolean(step || state.directoryEvidence);
+        const showAll = !filterAvailable || (narrative ? state.showAllTourFiles : state.showAllFiles);
+        let visibleCount = 0;
+        files.querySelectorAll('.tour-file').forEach((button) => {
+            const filePath = button.dataset.filePath;
+            const changed = state.directoryEvidence ? state.directoryEvidence.files.some(file => file.path === filePath)
+                : state.zoom?.mode === 'history' ? state.historyChangedFiles.has(filePath)
+                : state.zoom?.mode === 'compare' ? state.compare?.changedPaths.has(filePath)
+                : step ? button.classList.contains('is-comparison-changed')
+                : true;
+            button.parentElement.hidden = !showAll && !changed;
+            if (!button.parentElement.hidden) visibleCount++;
+        });
+        for (const folder of [...files.querySelectorAll('details[data-file-folder]')].reverse()) {
+            folder.parentElement.hidden = ![...folder.querySelector(':scope > ul').children].some(row => !row.hidden);
+        }
+        files.querySelector('[data-file-tree-empty]').hidden = visibleCount > 0;
+        files.querySelector('[data-file-tree-empty]').textContent = showAll ? 'No files' : 'No changed files';
+        files.setAttribute('aria-label', showAll ? narrative ? 'Tour files' : exportData ? 'Included files' : 'Files in selected revisions' : 'Changed files');
+        const filter = document.getElementById('tour-file-filter');
+        filter.hidden = !filterAvailable;
+        filter.title = narrative ? 'Include tour files unchanged in this step comparison'
+            : exportData ? 'Include unchanged files packaged in this export' : 'Include unchanged files from the selected revisions';
+        document.getElementById('tour-file-filter-label').textContent = narrative ? 'Show unchanged tour files'
+            : exportData ? 'Show all included files' : 'Show all files';
+        document.getElementById('tour-show-all-files').checked = narrative ? state.showAllTourFiles : state.showAllFiles;
+        document.getElementById('tour-visible-file-count').textContent = `${visibleCount} / ${state.tour.files.length}`;
+        const activeFile = files.querySelector('.tour-file.is-active');
+        if (state.revealedFilePath !== state.activeTourFilePath && activeFile && !activeFile.parentElement.hidden) {
+            for (let folder = activeFile.closest('details'); folder; folder = folder.parentElement.closest('details')) {
+                folder.open = true;
+                state.collapsedFileFolders.delete(folder.dataset.fileFolder);
+            }
+            activeFile.scrollIntoView({ block: 'nearest' });
+        }
+        state.revealedFilePath = state.activeTourFilePath;
         const returnButton = document.getElementById('tour-return-focus');
         if (returnButton) {
             const inTourMode = isNarrativeMode();

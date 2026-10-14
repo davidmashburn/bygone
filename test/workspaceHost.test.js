@@ -243,6 +243,22 @@ test('Compare Files tab opens a scoped file while retaining the comparison revis
     assert.equal(fixture.session, retained);
 });
 
+test('Files rail marks changes against displayed revisions while retaining unchanged files', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const compared = [];
+    git.history().changedFiles = revisions => { compared.push(revisions); return ['two.txt']; };
+    const workspace = createWorkspaceHost(fixture.host, git);
+    const rail = workspace.augment(showMessage()).history.rail;
+    assert.equal(rail.tabs.find(tab => tab.id === 'workspace-files').filterChangedFiles, true);
+    assert.deepEqual(rail.itemsByTab['workspace-files'].map(item => [item.relativePath, item.changed]), [['one.txt', false], ['two.txt', true]]);
+    await workspace.handle({ type: 'workspaceClear' });
+    workspace.augment(showMessage());
+    assert.deepEqual(compared.at(-1), [A, B], 'An unapplied draft does not change the file filter');
+    await workspace.handle({ type: 'workspaceOpenFile', relativePath: 'one.txt' });
+    assert.equal(fixture.session.workspaceView.path, 'one.txt', 'An unchanged file can still be opened');
+});
+
 test('history to compare and back preserves the original native session identity', async () => {
     const original = nativeSession();
     const fixture = makeHost(original);

@@ -125,6 +125,16 @@ test('commit comparisons cover whole trees, scoped unchanged files, reverse endp
             range: { headOid: changedCommit, mergeBaseOid: rootCommit }
         });
 
+        const inventory = history.changedFiles({ commits: [rootCommit, changedCommit], includeFiles: true });
+        assert.ok(inventory.files.some(file => file.path === 'same.txt' && file.changeKind === 'unchanged'));
+        assert.ok(!inventory.paths.includes('same.txt'));
+        for (const name of ['old.txt', 'renamed.txt', 'delete-me.txt', 'created.txt', literalPath]) {
+            assert.ok(inventory.files.some(file => file.path === name), `Selected tree union includes ${name}`);
+        }
+        assert.deepEqual(history.changedFiles({ commits: [null, rootCommit], includeFiles: true }).files.map(file => file.path),
+            git('ls-tree', '-r', '--name-only', '-z', rootCommit).split('\0').filter(Boolean).sort());
+        assert.ok(!history.changedFiles({ commits: [changedCommit], includeFiles: true }).files.some(file => file.path === 'delete-me.txt'));
+
         const wholeTree = history.compare({ from: rootCommit, to: changedCommit });
         assert.deepEqual(wholeTree.from, rootCommit);
         assert.deepEqual(wholeTree.to, changedCommit);

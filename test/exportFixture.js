@@ -4,7 +4,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { buildChangeInventory } = require('../out/changeTour.js');
 
-function exportFixture({ multipleFocuses = false } = {}) {
+function exportFixture({ multipleFocuses = false, nestedFiles = false } = {}) {
     const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-export-test-')));
     const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: 'pipe' }).trim();
     const write = (name, value) => fs.writeFileSync(path.join(root, name), value);
@@ -12,13 +12,20 @@ function exportFixture({ multipleFocuses = false } = {}) {
     git('init'); git('config', 'user.name', 'Export test'); git('config', 'user.email', 'test@example.test');
     const appText = (value, tail) => `alpha\n${value}\n${multipleFocuses ? `${'unchanged\n'.repeat(30)}${tail}\n` : ''}`;
     write('old.txt', 'rename me\n'); write('app.txt', appText('beta', 'old tail'));
+    if (nestedFiles) {
+        fs.mkdirSync(path.join(root, 'nested/deep'), { recursive: true });
+        write('nested/early.txt', 'old\n');
+        write('nested/untouched.txt', 'outside tour scope\n');
+    }
     const outside = commit('Outside the export');
     write('base.txt', 'base\n'); const base = commit('Base'); git('branch', 'export-base');
     write('app.txt', appText('intermediate', 'old tail')); write('transient.txt', 'only in history\n');
+    if (nestedFiles) write('nested/early.txt', 'new\n');
     const middle = commit('Intermediate');
     git('mv', 'old.txt', 'new.txt'); git('rm', 'transient.txt');
     write('app.txt', appText('BETA', 'new tail')); write('binary.dat', Buffer.from([0, 1, 2]));
     write('large.txt', 'x'.repeat(2 * 1024 * 1024 + 1));
+    if (nestedFiles) write('nested/deep/late.txt', 'added\n');
     const head = commit('Head'); git('branch', 'export-head');
     const inventory = buildChangeInventory(root, { baseRef: base, headRef: head });
     const hunks = inventory.files.find(file => file.path === 'app.txt').units.map(unit => unit.id);

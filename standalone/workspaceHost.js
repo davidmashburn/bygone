@@ -94,6 +94,7 @@ function createWorkspaceHost(host, git) {
         const changes = new Set(selectedPath ? history.changedCommits(selectedPath) : []);
         const revisions = selectedRevisions();
         const session = host.getSession();
+        const changedFiles = new Set(history.changedFiles(revisions));
         const active = session.multi?.files.find((panel) => panel.id === session.multi.activePanelId)?.revision
             || (session.workspaceView?.path === null ? revisions.at(-1) : null);
         const hasRevisionPanels = Boolean(session.workspaceView || current.source.resolvedRevisions);
@@ -103,14 +104,14 @@ function createWorkspaceHost(host, git) {
             canGoBack: current.mode === 'history', canGoForward: current.mode === 'history',
             positionLabel: current.mode === 'history' ? 'History' : 'Comparison',
             rail: {
-                activeTabId: 'history', tabs: [{ id: 'history', label: 'Commits' }, { id: 'workspace-files', label: 'Files' }],
+                activeTabId: 'history', tabs: [{ id: 'history', label: 'Commits' }, { id: 'workspace-files', label: 'Files', filterChangedFiles: true }],
                 itemsByTab: {
                     history: revisionRailItems(history.entries, {
                         displayed: hasRevisionPanels ? revisions : [], selected: current.draft, active, changed: changes,
                         selectionEnabled: true,
                         missingRevisionLabel: commit => `${commit === 'EMPTY' ? 'Empty tree' : commit.slice(0, 7)} Displayed base revision`
                     }),
-                    'workspace-files': history.files.map((file) => ({ kind: 'directory-entry', workspaceFile: true, relativePath: file, label: file, active: file === selectedPath }))
+                    'workspace-files': history.files.map((file) => ({ kind: 'directory-entry', workspaceFile: true, relativePath: file, label: file, active: file === selectedPath, changed: changedFiles.has(file) }))
                 }
             }
         };
