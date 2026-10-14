@@ -176,6 +176,7 @@ test('a pending instruction selection does not leak into a replacement workspace
     fixture.host.chooseTourSkill = () => new Promise((done) => { resolve = done; });
     const workspace = createWorkspaceHost(fixture.host, makeGit());
     const selection = workspace.handle({ type: 'workspaceSkillChoose' });
+    await Promise.resolve();
     fixture.host.setSession(nativeSession(source({ refs: ['another'] })));
     resolve({ path: '/old-workspace/instructions.md', text: 'Old context' });
     await selection;
@@ -294,6 +295,70 @@ test('selection and Clear update the draft without leaving History mode', async 
     assert.equal(fixture.session, historySession);
     assert.equal(workspace.uiState().mode, 'history');
     assert.equal(workspace.uiState().selectionCount, 0);
+});
+
+test('Apply removes a displayed empty base and keeps exactly the three selected revisions', async () => {
+    const C = 'c'.repeat(40);
+    const original = nativeSession(source({ resolvedRevisions: ['EMPTY', A, B, C] }));
+    const fixture = makeHost(original);
+    const git = makeGit();
+    git.resolve().revisions = ['EMPTY', A, B, C];
+    git.history().entries.unshift({ commit: C, shortCommit: 'ccccccc', summary: 'third', parentCommit: B });
+    const workspace = createWorkspaceHost(fixture.host, git);
+    const rail = workspace.augment(showMessage()).history.rail.itemsByTab.history;
+    const base = rail.find(item => item.commit === 'EMPTY');
+    assert.equal(base.selectionEnabled, true);
+    assert.equal(base.panelNumber, 1);
+    await workspace.handle({ type: 'workspaceReset' });
+    assert.equal(workspace.uiState().selectionCount, 4);
+    assert.equal(workspace.uiState().selectionApplied, true);
+    await workspace.handle({ type: 'toggleHistorySelection', index: base.index });
+    assert.equal(workspace.uiState().selectionCount, 3);
+    assert.equal(workspace.uiState().selectionApplied, false);
+    await workspace.handle({ type: 'workspaceApply' });
+    assert.deepEqual(fixture.session.workspaceView.revisions, [A, B, C]);
+    assert.deepEqual(fixture.session.multi.files.map(file => file.revision), [A, B, C]);
+    assert.equal(workspace.uiState().selectionApplied, true);
+    const displayed = workspace.augment(showMessage()).history.rail.itemsByTab.history.filter(item => item.panelNumber);
+    assert.deepEqual(displayed.map(item => [item.commit, item.panelNumber]), [[C, 3], [B, 2], [A, 1]]);
+});
+
+test('selection and Apply are processed in order during another workspace update', async () => {
+    const fixture = makeHost(nativeSession());
+    const workspace = createWorkspaceHost(fixture.host, makeGit());
+    await workspace.handle({ type: 'workspaceMode', mode: 'history' });
+    let release;
+    let started;
+    const entered = new Promise(resolve => { started = resolve; });
+    fixture.host.capture = () => { started(); return new Promise(resolve => { release = resolve; }); };
+    const refresh = workspace.handle({ type: 'refreshSession' });
+    await entered;
+    const first = workspace.handle({ type: 'toggleHistorySelection', index: 1 });
+    const second = workspace.handle({ type: 'toggleHistorySelection', index: 0 });
+    const apply = workspace.handle({ type: 'workspaceApply' });
+    fixture.host.capture = async () => ({});
+    release({});
+    await Promise.all([refresh, first, second, apply]);
+    assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: 'one.txt', revisions: [A, B] });
+    assert.equal(workspace.uiState().selectionApplied, true);
+});
+
+test('selection menu changes file scope and opens the original base-to-head diff', async () => {
+    const C = 'c'.repeat(40);
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    git.resolve().paths = [{ path: '', type: 'directory' }];
+    git.resolve().revisions = [A, B, C];
+    const workspace = createWorkspaceHost(fixture.host, git);
+    await workspace.handle({ type: 'toggleHistorySelection', index: 1 });
+    await workspace.handle({ type: 'toggleHistorySelection', index: 0 });
+    await workspace.handle({ type: 'workspaceApply' });
+    assert.equal(workspace.uiState().canShowAllFiles, true);
+    await workspace.handle({ type: 'workspaceAllFiles' });
+    assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: null, revisions: [A, B] });
+    assert.equal(workspace.uiState().canShowAllFiles, false);
+    await workspace.handle({ type: 'workspaceFinalDiff' });
+    assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: null, revisions: [A, C] });
 });
 
 test('canceled dirty mode transition is atomic', async () => {

@@ -343,11 +343,37 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
         for (const [check, passed] of Object.entries(linkChecks)) assert.equal(passed, true, `Link preview: ${check}`);
         await runLinkPreviewSmoke(window().webContents);
         await evaluate("document.querySelectorAll('#history-rail [role=checkbox]')[1].click()");
-        await waitFor("document.querySelector('[data-action=workspaceApply]').textContent.includes('(1)')");
+        await waitFor("document.querySelector('[data-selection-count]').textContent === '1 selected'");
+        assert.equal(await evaluate("document.querySelector('[data-action=workspaceApply]').disabled"), true);
         await evaluate("document.querySelectorAll('#history-rail [role=checkbox]')[2].click()");
-        await waitFor("document.querySelector('[data-action=workspaceApply]').textContent.includes('(2)')");
-        await evaluate("document.querySelector('[data-action=workspaceClear]').click()");
-        await waitFor("document.querySelector('[data-action=workspaceApply]').textContent.includes('(0)')");
+        await waitFor("document.querySelector('[data-selection-count]').textContent === '2 selected'");
+        const windowSize = window().getSize();
+        try {
+            window().setSize(720, 600);
+            assert.equal(await evaluate(`(() => {
+                const rail = document.querySelector('#history-rail');
+                const bounds = rail.getBoundingClientRect();
+                const apply = rail.querySelector('[data-action=workspaceApply]');
+                return apply?.textContent === 'Compare' && !apply.disabled
+                    && [...rail.querySelectorAll('.workspace-selection-actions > button, .workspace-selection-more summary')].every(button => {
+                        const rect = button.getBoundingClientRect();
+                        return rect.width > 0 && rect.height > 0 && rect.left >= bounds.left
+                            && rect.right <= Math.min(bounds.right, innerWidth)
+                            && rect.bottom <= rail.querySelector('.history-rail-list').getBoundingClientRect().top;
+                    });
+            })()`), true, 'Selection actions stay visible above the commit list in a narrow window');
+            assert.equal(await evaluate(`(() => {
+                const more = document.querySelector('.workspace-selection-more');
+                more.querySelector('summary').click();
+                const menu = more.querySelector('.workspace-selection-menu').getBoundingClientRect();
+                const rail = document.querySelector('#history-rail').getBoundingClientRect();
+                const visible = more.open && menu.width > 0 && menu.left >= rail.left && menu.right <= rail.right;
+                more.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+                return visible && !more.open && document.activeElement === more.querySelector('summary');
+            })()`), true, 'The overflow menu fits the sidebar and Escape restores focus');
+        } finally { window().setSize(...windowSize); }
+        await evaluate("document.querySelector('.workspace-selection-more summary').click(); document.querySelector('[data-action=workspaceClear]').focus(); document.activeElement.click()");
+        await waitFor("document.querySelector('[data-selection-count]').textContent === '0 selected' && document.activeElement?.matches('.workspace-selection-more summary') && !document.querySelector('.workspace-selection-more').open");
         assert.equal(session().workspaceView.mode, 'history');
         await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
         await waitFor("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && document.querySelectorAll('.multi-pane').length === 2");
@@ -384,6 +410,30 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             assert.equal(session().multi.files[1].content, 'two 3\n', 'Discarded edits cannot return in the retained comparison');
             assert.ok(session().multi.files.every((panel) => !panel.dirty));
         } finally { dialog.showMessageBox = dirtyConfirm; }
+        await evaluate("document.querySelectorAll('#history-rail [role=checkbox]')[1].click()");
+        await waitFor("document.querySelector('[data-selection-count]').textContent === '1 selected'");
+        await evaluate("document.querySelectorAll('#history-rail [role=checkbox]')[2].click()");
+        await waitFor("!document.querySelector('[data-action=workspaceApply]').disabled");
+        await evaluate("document.querySelector('[data-action=workspaceApply]').click()");
+        await waitFor("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && document.querySelectorAll('.multi-pane').length === 2");
+        assert.equal(session().workspaceView.mode, 'compare', 'Apply displays the selected commits');
+        assert.deepEqual(session().workspaceView.revisions, [revisions[2], revisions[3]]);
+        await waitFor("document.querySelector('[data-selection-status]').textContent === 'Selection applied' && document.querySelector('[data-action=workspaceApply]').disabled");
+        await evaluate("document.querySelectorAll('#history-rail [role=checkbox]')[3].click(); document.querySelectorAll('#history-rail [role=checkbox]')[4].click()");
+        await waitFor("document.querySelector('[data-selection-count]').textContent === '4 selected' && !document.querySelector('[data-action=workspaceApply]').disabled");
+        await evaluate("document.querySelector('[data-action=workspaceApply]').click()");
+        await waitFor("document.querySelectorAll('.multi-pane').length === 4 && document.querySelector('[data-selection-status]').textContent === 'Selection applied'");
+        await evaluate("document.querySelectorAll('#history-rail [role=checkbox]')[4].click()");
+        await waitFor("document.querySelector('[data-selection-count]').textContent === '3 selected' && !document.querySelector('[data-action=workspaceApply]').disabled");
+        await evaluate("document.querySelector('[data-action=workspaceApply]').click()");
+        await waitFor("document.querySelectorAll('.multi-pane').length === 3 && document.querySelector('[data-selection-status]').textContent === 'Selection applied'");
+        assert.deepEqual(session().workspaceView.revisions, revisions.slice(1));
+        assert.equal(await evaluate("[...document.querySelectorAll('#history-rail .history-rail-panel-badge')].map(badge => badge.textContent).sort().join(',')"), '1,2,3', 'Apply updates all panel badges and drops the fourth pane');
+        // Restore the two-revision comparison used by the remaining mode tests.
+        await evaluate("document.querySelectorAll('#history-rail [role=checkbox]')[3].click()");
+        await waitFor("document.querySelector('[data-selection-count]').textContent === '2 selected' && !document.querySelector('[data-action=workspaceApply]').disabled");
+        await evaluate("document.querySelector('[data-action=workspaceApply]').click()");
+        await waitFor("document.querySelectorAll('.multi-pane').length === 2 && document.querySelector('[data-selection-status]').textContent === 'Selection applied'");
         const retainedOriginal = session();
         const tourPath = path.join(root, 'smoke.bygone');
         fs.writeFileSync(tourPath, JSON.stringify({ version: 4, title: 'Continuous reading smoke tour',
@@ -571,6 +621,27 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             await assert.rejects(openLink(serializeDeepLink({ ...tourLink, focus: { ...tourLink.focus, step: 'missing' } })), /unavailable/);
             assert.equal(latestTourWindow(), linkedTour, 'Missing sections do not open another window');
         } finally { linkedTour.destroy(); }
+        // Root history supplies an empty-tree base with no commit-list entry.
+        // It must be selectable and disappear when only three commits are applied.
+        await openDefault(root);
+        await waitFor("document.querySelector('.dir-entry[data-is-dir=false]') && document.querySelector('[data-workspace-mode=history][aria-selected=true]')");
+        await evaluate("document.querySelector('[data-rail-menu][data-rail-index=\"4\"]').click(); document.querySelector('.commit-context-menu [role=menuitem]').click()");
+        await waitFor("document.querySelector('[data-rail-select][data-rail-index=\"-1\"]')");
+        assert.deepEqual(session().workspaceView.revisions, ['EMPTY', revisions[0]]);
+        await evaluate("document.querySelector('.dir-entry[data-path=\"one.txt\"]').click()");
+        await waitFor("document.querySelectorAll('.multi-pane').length === 2");
+        await evaluate("document.querySelector('.workspace-selection-more summary').click(); document.querySelector('[data-action=workspaceReset]').click()");
+        await waitFor("document.querySelector('[data-selection-count]').textContent === '2 selected'");
+        await evaluate("document.querySelector('[data-rail-select][data-rail-index=\"2\"]').click(); document.querySelector('[data-rail-select][data-rail-index=\"3\"]').click()");
+        await waitFor("document.querySelector('[data-selection-count]').textContent === '4 selected'");
+        await evaluate("document.querySelector('[data-action=workspaceApply]').click()");
+        await waitFor("document.querySelectorAll('.multi-pane').length === 4 && document.querySelector('[data-selection-status]').textContent === 'Selection applied'");
+        assert.deepEqual(session().workspaceView.revisions, ['EMPTY', ...revisions.slice(0, 3)]);
+        await evaluate("document.querySelector('[data-rail-select][data-rail-index=\"-1\"]').click()");
+        await waitFor("document.querySelector('[data-selection-count]').textContent === '3 selected'");
+        await evaluate("document.querySelector('[data-action=workspaceApply]').click()");
+        await waitFor("document.querySelectorAll('.multi-pane').length === 3 && !document.querySelector('[data-rail-item][data-rail-index=\"-1\"]') && document.querySelector('[data-selection-status]').textContent === 'Selection applied'");
+        assert.deepEqual(session().workspaceView.revisions, revisions.slice(0, 3));
         console.log('Workspace smoke passed: clean/dirty bare launch, changed-files drill-down and return; cold/warm comparison links, exact line focus, semantic tour links and fail-closed recovery; link URL tooltips, hover/context/keyboard previews, blocked-header native previews in workspace/embedded/native tours, native editing context menus with system-action frames, navigation and cleanup, short prompts, native Markdown save/select, protected bundled skill, browser custom instructions/download, preserved drafts, History/Compare round trips, same-window tour, and read-only preservation.');
     } finally {
         fs.rmSync(root, { recursive: true, force: true });

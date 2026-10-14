@@ -2050,10 +2050,25 @@ button.file-header {
 #workspace-header { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; background: var(--vscode-sideBar-background); border-bottom: 1px solid var(--vscode-panel-border); }
 #workspace-header .workspace-controls { flex: 1 1 auto; border-bottom-width: 0; }
 #workspace-view { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
-.workspace-selection-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 10px; }
+.workspace-selection-actions { display: flex; position: relative; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
 .workspace-selection-actions[hidden], #workspace-tour-frame[hidden], #diff-workspace[hidden] { display: none; }
 .workspace-selection-actions button { font: inherit; color: inherit; background: var(--vscode-button-secondaryBackground, #313131); border: 1px solid var(--vscode-panel-border, #3c3c3c); border-radius: 4px; padding: 4px 8px; }
 .workspace-selection-actions button:disabled { opacity: .5; }
+.workspace-selection-actions > button { background: var(--bygone-selection); color: var(--bygone-accent); border-color: color-mix(in srgb, var(--bygone-accent) 35%, transparent); font-weight: 600; }
+.workspace-selection-summary { display: flex; flex: 1 1 80px; min-width: 0; flex-direction: column; gap: 3px; }
+.workspace-selection-summary span, .workspace-selection-scope { font-size: 11px; color: var(--vscode-descriptionForeground); }
+.workspace-selection-scope { flex-basis: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-selection-more summary { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; cursor: pointer; list-style: none; border: 1px solid transparent; border-radius: 4px; font-size: 18px; line-height: 22px; }
+.workspace-selection-more summary:hover, .workspace-selection-more[open] summary { background: var(--bygone-hover); }
+.workspace-selection-more summary:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
+.workspace-selection-more summary::-webkit-details-marker { display: none; }
+.workspace-selection-more { position: relative; }
+.workspace-selection-menu { position: absolute; z-index: 20; top: calc(100% + 4px); right: 0; width: 190px; box-sizing: border-box; padding: 5px; background: var(--vscode-menu-background, #252526); border: 1px solid var(--vscode-menu-border, #454545); border-radius: 5px; box-shadow: 0 4px 12px #0006; }
+.workspace-selection-menu button { display: block; text-align: left; width: 100%; border: 0; background: transparent; }
+.workspace-selection-menu button:hover:enabled { background: var(--vscode-menu-selectionBackground, #094771); }
+.workspace-selection-menu button[hidden] { display: none; }
+.workspace-selection-menu button span { display: block; margin-top: 3px; font-size: 10px; color: var(--vscode-descriptionForeground); }
+.workspace-selection-menu hr { border: 0; border-top: 1px solid var(--vscode-menu-separatorBackground, #454545); margin: 5px; }
 #workspace-tour-frame { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: var(--vscode-editor-background, #1e1e1e); }
 
 .file-tree-filter {

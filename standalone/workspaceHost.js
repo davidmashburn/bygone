@@ -7,7 +7,7 @@ const { revisionFileAction, revisionDirectoryView, revisionPanelsView, revisionR
 function createWorkspaceHost(host, git) {
     let state = null;
     let serial = 0;
-    let busy = false;
+    let actions = Promise.resolve();
 
     function ensure() {
         const current = host.getSession();
@@ -83,6 +83,12 @@ function createWorkspaceHost(host, git) {
             },
             status: current.status,
             selectionCount: current.draft.length,
+            selectionMatchesDisplayed: current.draft.length === revisions.length && revisions.every(revision => current.draft.includes(revision)),
+            selectionApplied: current.mode === 'compare' && Boolean(host.getSession().workspaceView || current.source.resolvedRevisions)
+                && current.draft.length === revisions.length && revisions.every(revision => current.draft.includes(revision)),
+            selectionPath: activePath(),
+            canFinalDiff: context.kind === 'ready' && context.revisions.length >= 2 && context.revisions[0] !== context.revisions.at(-1),
+            canShowAllFiles: current.mode === 'compare' && Boolean(activePath()) && context.kind === 'ready' && context.paths.some(item => item.type === 'directory'),
             canSelectRevisions: context.kind === 'ready' && !current.backendError
         };
     }
@@ -109,6 +115,7 @@ function createWorkspaceHost(host, git) {
                     history: revisionRailItems(history.entries, {
                         displayed: hasRevisionPanels ? revisions : [], selected: current.draft, active, changed: changes,
                         selectionEnabled: true,
+                        missingRevisionSelectionEnabled: true,
                         missingRevisionLabel: commit => `${commit === 'EMPTY' ? 'Empty tree' : commit.slice(0, 7)} Displayed base revision`
                     }),
                     'workspace-files': history.files.map((file) => ({ kind: 'directory-entry', workspaceFile: true, relativePath: file, label: file, active: file === selectedPath, changed: changedFiles.has(file) }))
@@ -277,9 +284,15 @@ function createWorkspaceHost(host, git) {
         const sharedAction = ['toggleHistorySelection', 'selectHistoryEntry', 'compareHistoryEntry'].includes(message.type);
         const derivedAction = derived && ['refreshSession', 'selectHistoryEntry', 'historyBack', 'historyForward', 'openDirectoryEntry', 'returnToDirectory', 'navigateFile', 'multiAddPanel', 'multiRemovePanel', 'historyToggleStaged', 'historyToggleSkipUnchanged'].includes(message.type);
         if (!workspaceAction && !sharedAction && !derivedAction) return false;
-        ensure();
-        if (busy) return true;
-        busy = true;
+        const target = ensure();
+        const action = actions.then(() => ensure() === target ? runAction(message) : true);
+        actions = action.catch(() => {});
+        return action;
+    }
+
+    async function runAction(message) {
+        const current = host.getSession();
+        const derivedAction = Boolean(current.workspaceView) && ['refreshSession', 'selectHistoryEntry', 'historyBack', 'historyForward', 'openDirectoryEntry', 'returnToDirectory', 'navigateFile', 'multiAddPanel', 'multiRemovePanel', 'historyToggleStaged', 'historyToggleSkipUnchanged'].includes(message.type);
         try {
             if (message.type === 'workspaceSkillChoose' || message.type === 'workspaceSkillSave') {
                 const target = state;
@@ -294,7 +307,15 @@ function createWorkspaceHost(host, git) {
             else if (message.type === 'workspaceBack') {
                 if (state.original && await leave()) await install(state.original, 'compare', state.originalNavigation);
             } else if (message.type === 'workspaceClear') { state.draft = []; update(); }
-            else if (message.type === 'workspaceReset') { state.draft = selectedRevisions().filter((revision) => revision !== 'EMPTY'); update(); }
+            else if (message.type === 'workspaceReset') { state.draft = [...selectedRevisions()]; update(); }
+            else if (message.type === 'workspaceFinalDiff' || message.type === 'workspaceAllFiles') {
+                const revisions = message.type === 'workspaceFinalDiff'
+                    ? [state.context.revisions[0], state.context.revisions.at(-1)] : selectedRevisions();
+                if (revisions.length >= 2 && revisions.every(Boolean)) {
+                    const next = makeSession('compare', revisions, null);
+                    if (await leave()) await install(makeSession('compare', next.workspaceView.revisions, null), 'compare');
+                }
+            }
             else if (message.type === 'workspaceApply') {
                 if (state.draft.length >= 2) {
                     const next = makeSession('compare', state.draft, activePath());
@@ -302,11 +323,15 @@ function createWorkspaceHost(host, git) {
                 }
             } else if (message.type === 'toggleHistorySelection') {
                 const entries = backend().entries;
-                const revision = entries[message.index]?.commit;
+                const revision = rail().rail.itemsByTab.history.find(item => item.index === message.index)?.commit;
                 if (revision) {
                     state.draft = state.draft.includes(revision) ? state.draft.filter((item) => item !== revision) : [...state.draft, revision];
                     // Commit-list order is newest first; panes read oldest to newest.
-                    state.draft.sort((a, b) => entries.findIndex((item) => item.commit === b) - entries.findIndex((item) => item.commit === a));
+                    const order = revision => {
+                        const index = entries.findIndex(item => item.commit === revision);
+                        return index < 0 ? entries.length : index;
+                    };
+                    state.draft.sort((a, b) => order(b) - order(a));
                     update();
                 }
             } else if (message.type === 'workspaceOpenFile') {
@@ -408,7 +433,6 @@ function createWorkspaceHost(host, git) {
                 if (await leave()) await install(makeSession(state.mode, next.workspaceView.revisions, next.workspaceView.path), state.mode);
             }
         } catch (error) { state.status = error.message; update(); }
-        finally { busy = false; }
         return true;
     }
 

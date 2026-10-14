@@ -63,18 +63,45 @@ function updateWorkspaceControls(state) {
         workspaceControls = createWorkspaceControls({ container, content: workspaceContent, send: (message) => host.postMessage(message) });
         workspaceSelection = document.createElement('div');
         workspaceSelection.className = 'workspace-selection-actions';
-        for (const [type, label] of [['workspaceApply', 'Compare selected'], ['workspaceClear', 'Clear'], ['workspaceReset', 'Select displayed revisions']]) {
-            const button = document.createElement('button');
-            button.type = 'button'; button.textContent = label; button.dataset.action = type;
-            button.addEventListener('click', () => host.postMessage({ type }));
-            workspaceSelection.appendChild(button);
-        }
+        workspaceSelection.innerHTML = '<div class="workspace-selection-summary"><strong data-selection-count></strong><span data-selection-status aria-live="polite"></span></div>'
+            + '<button type="button" data-action="workspaceApply" title="Compare the selected revisions">Apply</button>'
+            + '<details class="workspace-selection-more"><summary aria-label="Selection actions" title="Selection actions">⋯</summary>'
+            + '<div class="workspace-selection-menu"><button type="button" data-action="workspaceClear" title="Clear the revision selection">Clear selection</button>'
+            + '<button type="button" data-action="workspaceReset" title="Select the revisions currently displayed">Select displayed revisions</button><hr>'
+            + '<button type="button" data-action="workspaceFinalDiff" title="Compare the original base and head across all files">Final diff<span>Base → head · all files</span></button>'
+            + '<button type="button" data-action="workspaceAllFiles" title="Show all files changed between the displayed revisions">Show all changed files</button></div></details>'
+            + '<div class="workspace-selection-scope" data-selection-scope></div>';
+        const more = workspaceSelection.querySelector('details');
+        workspaceSelection.addEventListener('click', event => {
+            const button = event.target.closest('button[data-action]');
+            if (!button || button.disabled) return;
+            if (more.contains(button)) { more.open = false; more.querySelector('summary').focus(); }
+            host.postMessage({ type: button.dataset.action });
+        });
+        document.addEventListener('click', event => { if (!more.contains(event.target)) more.open = false; });
+        more.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && more.open) {
+                event.preventDefault(); more.open = false; more.querySelector('summary').focus();
+            }
+        });
     }
     workspaceControls.update(state);
     workspaceSelection.hidden = !state.canSelectRevisions || ['historical', 'deconstructed'].includes(state.mode);
     const apply = workspaceSelection.querySelector('[data-action="workspaceApply"]');
-    apply.textContent = `Compare selected (${state.selectionCount || 0})`;
-    apply.disabled = state.selectionCount < 2;
+    const count = state.selectionCount || 0;
+    workspaceSelection.querySelector('[data-selection-count]').textContent = `${count} selected`;
+    workspaceSelection.querySelector('[data-selection-status]').textContent = count < 2 ? 'Select 2+ revisions'
+        : state.mode === 'history' ? 'Ready to compare' : state.selectionApplied ? 'Selection applied' : 'Unapplied selection';
+    apply.textContent = state.mode === 'history' ? 'Compare' : 'Apply';
+    apply.title = state.selectionApplied ? 'These revisions are already displayed' : 'Compare the selected revisions';
+    apply.disabled = count < 2 || state.selectionApplied;
+    workspaceSelection.querySelector('[data-action="workspaceClear"]').disabled = !count;
+    workspaceSelection.querySelector('[data-action="workspaceReset"]').disabled = state.selectionMatchesDisplayed;
+    workspaceSelection.querySelector('[data-action="workspaceFinalDiff"]').disabled = !state.canFinalDiff;
+    workspaceSelection.querySelector('[data-action="workspaceAllFiles"]').hidden = !state.canShowAllFiles;
+    const scope = workspaceSelection.querySelector('[data-selection-scope]');
+    scope.textContent = state.selectionPath || 'All changed files';
+    scope.title = state.selectionPath ? `File scope: ${state.selectionPath}` : 'Comparing across all changed files';
 }
 
 function showWorkspaceTour(message) {
