@@ -4596,8 +4596,8 @@ async function sendCurrentMultiDiff() {
             }))()`)
                 .then((snapshot) => {
                     if (smokeTestMode) {
-                        const diffReady = /^1 \/ [1-9]\d*$/.test(snapshot.changePosition)
-                            && snapshot.panelPositions.some((position) => /^1 \/ [1-9]\d*$/.test(position))
+                        const diffReady = /^Change 1 of [1-9]\d*$/.test(snapshot.changePosition)
+                            && snapshot.panelPositions.some((position) => /^Change 1 of [1-9]\d*$/.test(position))
                             && snapshot.decoratedLineCount > 0;
                         if (!diffReady) {
                             setTimeout(inspectMultiDiff, 100);
@@ -4745,8 +4745,8 @@ function pollDirectoryHistoryDrilldownSmoke() {
         diffWorkerUrl: window.__BYGONE_HOST__?.diffWorkerUrl
     }))()`)
         .then((snapshot) => {
-            const ready = /^1 \/ [1-9]\d*$/.test(snapshot.changePosition)
-                && snapshot.panelPositions.some((position) => /^1 \/ [1-9]\d*$/.test(position))
+            const ready = /^Change 1 of [1-9]\d*$/.test(snapshot.changePosition)
+                && snapshot.panelPositions.some((position) => /^Change 1 of [1-9]\d*$/.test(position))
                 && snapshot.decoratedLineCount > 0
                 && snapshot.visibleChangePaneCount === 2;
             if (ready) {
@@ -4832,14 +4832,15 @@ async function sendCurrentDiff() {
                 directoryRailVisible: !document.getElementById('history-rail')?.hidden,
                 directoryRailItemCount: document.querySelectorAll('.history-rail-item').length,
                 directoryReturnVisible: !document.getElementById('directory-return-toolbar')?.hidden,
-                directorySidebarToggleVisible: !document.getElementById('toggle-directory-sidebar')?.hidden,
+                directorySidebarToggleVisible: Boolean(document.getElementById('toggle-directory-sidebar')?.checkVisibility()),
                 directorySidebarToggleWorked: (() => {
-                    const toggle = document.getElementById('toggle-directory-sidebar');
+                    const toggle = document.querySelector('[data-rail-collapse]');
+                    const show = document.getElementById('show-navigation-sidebar');
                     const rail = document.getElementById('history-rail');
-                    if (!toggle || !rail || toggle.hidden) return false;
+                    if (!toggle || !show || !rail || !toggle.checkVisibility()) return false;
                     toggle.click();
-                    const hidden = rail.hidden;
-                    toggle.click();
+                    const hidden = rail.hidden && show.checkVisibility();
+                    show.click();
                     return hidden && !rail.hidden;
                 })(),
                 nextFileEnabled: !document.getElementById('next-file')?.disabled
@@ -6402,7 +6403,7 @@ function finalizeSmokeTest(snapshot) {
             snapshot.fileInfo === 'Comparing test-file-1.js and test-file-2.js'
             && snapshot.file1 === 'test-file-1.js'
             && snapshot.file2 === 'test-file-2.js'
-            && /^1 \/ \d+$/.test(snapshot.changePosition)
+            && /^Change 1 of [1-9]\d*$/.test(snapshot.changePosition)
             && snapshot.pairedLineCount > 0
             && snapshot.oneSidedLineCount > 0
             && snapshot.inlineHighlightCount > 0
@@ -6415,8 +6416,8 @@ function finalizeSmokeTest(snapshot) {
             snapshot.fileInfo === `Comparing ${snapshot.panelCount} files`
             && snapshot.panelCount >= 2
             && snapshot.gutterCount === snapshot.panelCount - 1
-            && /^1 \/ [1-9]\d*$/.test(snapshot.changePosition)
-            && snapshot.panelPositions.some((position) => /^1 \/ [1-9]\d*$/.test(position))
+            && /^Change 1 of [1-9]\d*$/.test(snapshot.changePosition)
+            && snapshot.panelPositions.some((position) => /^Change 1 of [1-9]\d*$/.test(position))
             && snapshot.decoratedLineCount > 0
             && /\/media\/diff\.worker\.js$/.test(snapshot.diffWorkerUrl)
             && snapshot.activeDiffCount === 0
@@ -6428,13 +6429,14 @@ function finalizeSmokeTest(snapshot) {
             && snapshot.directoryRailItemCount === 2
             && snapshot.directoryReturnVisible === true
             && snapshot.directorySidebarToggleVisible === false
+            && snapshot.directorySidebarToggleWorked === true
             && snapshot.nextFileEnabled === true
         )
         || (
             snapshot.directoryHistoryDrilldown === true
             && snapshot.fileInfo === 'Comparing 2 files'
-            && /^1 \/ [1-9]\d*$/.test(snapshot.changePosition)
-            && snapshot.panelPositions.some((position) => /^1 \/ [1-9]\d*$/.test(position))
+            && /^Change 1 of [1-9]\d*$/.test(snapshot.changePosition)
+            && snapshot.panelPositions.some((position) => /^Change 1 of [1-9]\d*$/.test(position))
             && snapshot.decoratedLineCount > 0
             && snapshot.visibleChangePaneCount === 2
             && /\/media\/diff\.worker\.js$/.test(snapshot.diffWorkerUrl)

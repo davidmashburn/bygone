@@ -193,6 +193,7 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             return document.querySelector('.commit-hover-details').hidden;
         })()`);
         assert.equal(canceledCommitHover, true, 'Escape cancels pending commit hovers as well as visible ones');
+        console.log('Workspace smoke: checking toolbar tooltips.');
         const tooltipChecks = await evaluate(`(async () => {
             const tooltip = document.getElementById('bygone-ui-tooltip');
             const toolbar = document.getElementById('directory-tree-toolbar');
@@ -202,7 +203,7 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
                 document.dispatchEvent(new Event('pointerdown', { bubbles: true }));
                 const started = performance.now();
                 const elapsed = await new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => { observer.disconnect(); reject(new Error('Tooltip did not open for ' + button.id)); }, 5000);
+                    const timeout = setTimeout(() => { observer.disconnect(); reject(new Error('Tooltip did not open for ' + button.id + ': ' + JSON.stringify({ visible: button.checkVisibility(), hiddenAncestor: button.closest('[hidden], .hidden')?.id, text: button.dataset.tooltip, focused: document.hasFocus() }))); }, 5000);
                     const observer = new MutationObserver(() => {
                         if (tooltip.hidden) return;
                         observer.disconnect(); clearTimeout(timeout); resolve(performance.now() - started);
@@ -341,6 +342,7 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             return checks;
         })()`);
         for (const [check, passed] of Object.entries(linkChecks)) assert.equal(passed, true, `Link preview: ${check}`);
+        console.log('Workspace smoke: checking native link previews.');
         await runLinkPreviewSmoke(window().webContents);
         await evaluate("document.querySelectorAll('#history-rail [role=checkbox]')[1].click()");
         await waitFor("document.querySelector('[data-selection-count]').textContent === '1 selected'");
@@ -436,17 +438,17 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
         await waitFor("document.querySelectorAll('.multi-pane').length === 2 && document.querySelector('[data-selection-status]').textContent === 'Selection applied'");
         const retainedOriginal = session();
         const tourPath = path.join(root, 'smoke.bygone');
-        fs.writeFileSync(tourPath, JSON.stringify({ version: 4, title: 'Continuous reading smoke tour',
+        fs.writeFileSync(tourPath, JSON.stringify({ version: 5, title: 'Continuous reading smoke tour',
             range: { base: revisions[0], head: revisions[3] },
             anchors: { value: { file: 'one.txt', revision: 'head', contains: 'one' } }, connections: [],
             chapters: [
-                { id: 'chapter-one', title: 'Change setup', scenes: [{ id: 'scene-one', kind: 'walkthrough', title: 'Read the first change',
+                { id: 'chapter-one', title: 'Change setup', summary: 'Establish the initial values and their first change.', scenes: [{ id: 'scene-one', kind: 'walkthrough', title: 'Read the first change',
                     summary: 'The first value changes.', bullets: [], tags: [], takeaway: 'The first committed value.',
                     steps: [
                         { id: 'step-one-a', title: 'First value', body: 'The first committed value.', focus: 'value' },
                         { id: 'step-one-b', title: 'First follow-up', body: 'The first follow-up value.', focus: 'value' }
                     ] }] },
-                { id: 'chapter-two', title: 'Change follow-up', scenes: [{ id: 'scene-two', kind: 'walkthrough', title: 'Read the second change',
+                { id: 'chapter-two', title: 'Change follow-up', summary: 'Follow the values through the next change.', scenes: [{ id: 'scene-two', kind: 'walkthrough', title: 'Read the second change',
                     summary: 'The second value changes.', bullets: [], tags: [], takeaway: 'The second committed value.',
                     steps: [
                         { id: 'step-two-a', title: 'Second value', body: 'The second committed value.', focus: 'value' },
@@ -455,7 +457,9 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             ]
         }));
         const legacyTourPath = path.join(root, 'legacy.bygone');
-        const legacyTourText = JSON.stringify({ ...JSON.parse(fs.readFileSync(tourPath, 'utf8')), version: 3, review: { title: 'Keep original review notes' } });
+        const legacySource = JSON.parse(fs.readFileSync(tourPath, 'utf8'));
+        for (const chapter of legacySource.chapters) delete chapter.summary;
+        const legacyTourText = JSON.stringify({ ...legacySource, version: 3, review: { title: 'Keep original review notes' } });
         fs.writeFileSync(legacyTourPath, legacyTourText);
         const pick = dialog.showOpenDialog;
         const confirm = dialog.showMessageBox;
@@ -473,8 +477,11 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             await openTour();
             assert.equal(fs.readFileSync(legacyTourPath, 'utf8'), legacyTourText);
             assert.equal(require('../cli/tourFile.js').readTourSourceDocument(path.join(root, 'legacy.v4.bygone')).version, 4);
+            assert.equal(confirmations, 2, 'An older tour requires conversion and a scoped comparison requires a tour-context choice');
+            // Exercise chapter navigation with authored v5 previews after checking legacy conversion.
+            dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [tourPath] });
+            await openTour();
         } finally { dialog.showOpenDialog = pick; dialog.showMessageBox = confirm; }
-        assert.equal(confirmations, 2, 'An older tour requires conversion and a scoped comparison requires a tour-context choice');
         await waitFor("document.querySelector('[data-workspace-mode=historical][aria-selected=true]') && document.querySelector('#workspace-tour-frame:not([hidden])')");
         const tourFrame = await new Promise((resolve, reject) => {
             const contents = window().webContents;
@@ -502,9 +509,11 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
                 && shell.backgroundColor === getComputedStyle(document.querySelector('.workspace-controls')).backgroundColor;
         })()`), true, 'Tour navigator uses the common window font and surface');
 
+        console.log('Workspace smoke: checking embedded tour previews.');
         await runLinkPreviewSmoke(tourFrame, { previewRenderer: window().webContents });
         assert.notEqual(await tourFrame.executeJavaScript("window.__BYGONE_HOST__?.environment"), 'standalone');
         assert.equal(await tourFrame.executeJavaScript("typeof window.__BYGONE_HOST__?.getPathForFile"), 'undefined');
+        console.log('Workspace smoke: checking native tour previews and history.');
         const nativeTourWindow = await openTourWindow(tourPath);
         try {
             await nativeTourWindow.webContents.executeJavaScript(`new Promise((resolve, reject) => {
@@ -536,6 +545,7 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
             browserWindow.focus();
             const originalZoom = browserContents.getZoomFactor();
             browserContents.setZoomFactor(1);
+            console.log('Workspace smoke: checking browser tour reading.');
             try { await runTourReadingSmoke({ browserContents, browserWindow }); }
             finally { browserContents.setZoomFactor(originalZoom); }
             await runLinkPreviewSmoke(browserContents, { native: false });
