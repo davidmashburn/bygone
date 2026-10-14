@@ -490,6 +490,8 @@ function appendReplacementCandidate(
     }
     let leftLineNumber = initialLeftLineNumber;
     let rightLineNumber = initialRightLineNumber;
+    const candidateLeftStart = renderedLeftLines.length;
+    const candidateRightStart = renderedRightLines.length;
     let blockKind: DiffBlock['kind'] | undefined;
     let blockReflow = false;
     let blockLeftStart = renderedLeftLines.length;
@@ -550,6 +552,12 @@ function appendReplacementCandidate(
         ));
     }
     flushBlock();
+    if (!aligned.some(row => row.reflow)) {
+        applyWrappedReplacementHighlights(
+            renderedLeftLines.slice(candidateLeftStart),
+            renderedRightLines.slice(candidateRightStart)
+        );
+    }
     return { left: leftLineNumber, right: rightLineNumber };
 }
 
@@ -1459,6 +1467,26 @@ function applyInlineHighlightPair(leftLine: DiffLine, rightLine: DiffLine): void
         leftLine.segments = leftSegments;
         rightLine.segments = rightSegments;
     }
+}
+
+function applyWrappedReplacementHighlights(leftLines: DiffLine[], rightLines: DiffLine[]): void {
+    // A short statement can expand across lines without any physical line being
+    // a credible match. Compare the whole statement for emphasis only; preserve
+    // the conservative rows and scroll mapping established by the line matcher.
+    if (!((leftLines.length === 1 && rightLines.length > 1)
+        || (rightLines.length === 1 && leftLines.length > 1))) return;
+    const length = (lines: DiffLine[]): number => lines.reduce((total, line) => total + line.content.length + 1, -1);
+    if (length(leftLines) > MAX_INLINE_HIGHLIGHT_LINE_LENGTH
+        || length(rightLines) > MAX_INLINE_HIGHLIGHT_LINE_LENGTH) return;
+    const left = leftLines.map(line => line.content).join('\n');
+    const right = rightLines.map(line => line.content).join('\n');
+    const flatten = (text: string): string => text.replace(/\s+/g, ' ').trim();
+    if (!scoreReplacementLinePair(flatten(left), flatten(right)).eligible) return;
+    const { leftSegments, rightSegments } = buildInlineSegments(left, right);
+    const leftParts = splitSegmentsIntoLines(leftSegments);
+    const rightParts = splitSegmentsIntoLines(rightSegments);
+    leftLines.forEach((line, index) => { line.segments = leftParts[index]; });
+    rightLines.forEach((line, index) => { line.segments = rightParts[index]; });
 }
 
 function applyFullLineHighlight(line: DiffLine): void {

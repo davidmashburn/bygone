@@ -144,6 +144,25 @@ app.whenReady().then(async () => {
                 .map(d => [d.range.startColumn, d.range.endColumn]))`);
             assert.deepEqual(ranges, expected, 'Bare identifier edges remain unhighlighted');
         }
+        const conditionBefore = '    if item.ready is None and self.now >= item.cutoff:';
+        const conditionAfter = '    if (\n        item.ready is None\n        and item.cutoff <= self.now\n        <= item.cutoff + GRACE\n    ):';
+        for (const count of [2, 3]) {
+            const contents = [conditionBefore, conditionBefore, conditionAfter];
+            await show(count === 2
+                ? {type: 'showDiff', file1: 'before.py', file2: 'after.py', leftContent: conditionBefore, rightContent: conditionAfter}
+                : {type: 'showMultiDiff', panels: contents.map((content, index) => ({id: `condition-${index}`, label: `condition-${index}.py`, content, editable: false})),
+                    pairs: contents.slice(1).map((content, index) => ({leftIndex: index, rightIndex: index + 1, diffModel: buildTwoWayDiffModel(contents[index], content)}))});
+            const highlights = await evaluate(`(() => {
+                const model = ${editors}[${count - 1}].getModel();
+                return model.getAllDecorations().filter(d => d.options.inlineClassName === 'bygone-inline-blue')
+                    .map(d => ({line: d.range.startLineNumber, text: model.getValueInRange(d.range)}));
+            })()`);
+            assert.ok(highlights.some(h => h.line === 4 && h.text.includes('+ GRACE')), 'Wrapped additions receive word highlights in the final panel');
+            assert.ok(highlights.filter(h => h.line === 2).every(h => !h.text.trim()), 'Shared condition words remain unhighlighted');
+            const painted = await evaluate(`Array.from(${editors}[${count - 1}].getDomNode().querySelectorAll('.bygone-inline-blue'))
+                .some(e => e.textContent.includes('GRACE') && e.getBoundingClientRect().width > 0 && getComputedStyle(e).backgroundColor !== 'rgba(0, 0, 0, 0)')`);
+            assert.equal(painted, true, 'Added condition text has visible inline shading');
+        }
         await show({type: 'showDiff', file1: 'title-before.yaml', file2: 'title-after.yaml',
             leftContent: 'title: Find the right depth without expanding the README',
             rightContent: 'title: Organize the engineering and agent reference'});

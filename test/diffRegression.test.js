@@ -31,6 +31,42 @@ function emphasizedRanges(line) {
     });
 }
 
+test('an edited condition wrapped across lines keeps word highlights in both directions', () => {
+    const before = ['    if item.ready is None and self.now >= item.cutoff:'];
+    const after = ['    if (', '        item.ready is None',
+        '        and item.cutoff <= self.now', '        <= item.cutoff + GRACE', '    ):'];
+    for (const reverse of [false, true]) {
+        const [left, right] = reverse ? [after, before] : [before, after];
+        const model = buildTwoWayDiffModel(left.join('\n'), right.join('\n'));
+        assertPreserved(model, left, right);
+        assert.deepEqual(model.blocks.map(block => block.kind), ['replace']);
+        assert.deepEqual(model.reflows, [], 'Inline emphasis must not introduce reflow scroll anchors');
+        assert.ok(model.rows.every(row => row.left.kind === 'placeholder' || row.right.kind === 'placeholder'),
+            'Inline emphasis must not invent physical line pairs');
+        const wrapped = reverse ? model.leftLines : model.rightLines;
+        const single = (reverse ? model.rightLines : model.leftLines)[0];
+        const emphasized = line => (line.segments || []).filter(s => s.emphasis).map(s => s.text).join('');
+        assert.match(emphasized(wrapped[3]), /\+ GRACE/);
+        assert.match(emphasized(single), />=/);
+        const unchanged = wrapped[1].segments.filter(s => !s.emphasis).map(s => s.text).join('');
+        assert.ok(unchanged.includes('item.ready is None'), 'Shared condition words remain unhighlighted');
+        assert.equal(wrapped[3].segments.filter(s => !s.emphasis).map(s => s.text).join('').trim(), 'item.cutoff');
+    }
+});
+
+test('wrapped inline comparison skips unrelated and oversized replacement blocks', () => {
+    for (const [before, after] of [
+        ['delete obsolete records', 'render fresh widgets\nlaunch colorful rockets'],
+        ['if ready and enabled:', `if (\n${' '.repeat(501)}ready and enabled\n):`]
+    ]) {
+        for (const [left, right] of [[before, after], [after, before]]) {
+            const model = buildTwoWayDiffModel(left, right);
+            assertPreserved(model, left.split('\n'), right.split('\n'));
+            assert.ok([...model.leftLines, ...model.rightLines].every(line => !line.segments));
+        }
+    }
+});
+
 // Brackets specify the product policy, including deliberately broad highlights
 // when two edits surround an unchanged middle. Check both comparison directions.
 for (const [left, right, expectedLeft, expectedRight] of [

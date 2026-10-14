@@ -44,7 +44,10 @@ even when the text has no matching words. One-sided changes stay green. Green
 and blue blocks can still touch; exactly matching lines separate change regions.
 When an unpaired gap contains exactly one line on each side, those lines are
 compared for inline highlighting. Larger ambiguous gaps keep conservative line
-alignment within their blue block.
+alignment within their blue block. A short statement expanded from one line to
+several, or collapsed back to one, is compared as a whole for inline highlights
+when the combined text is similar enough. This preserves the line alignment and
+the inline highlighting length limit.
 
 Bygone matches words first, then uses **edge trimming** inside each replacement:
 leave the longest identical beginning and ending unhighlighted, and highlight
