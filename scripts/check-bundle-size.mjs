@@ -1,15 +1,15 @@
 import { stat } from 'node:fs/promises';
 
 const budgets = [
-    // Includes reader-controlled panel density and model-line anchor preservation.
-    { path: 'media/webview.js', maxBytes: 3_915_000 },
+    // Includes union/focus highlighting, visible-panel preservation, and panel reordering.
+    { path: 'media/webview.js', maxBytes: 4_000_000 },
     { path: 'media/webview.css', maxBytes: 375_000 },
     { path: 'media/editor.worker.js', maxBytes: 320_000 },
-    // Includes whitespace ranges, edited paragraph alignment, and separate scroll anchors.
-    { path: 'media/diff.worker.js', maxBytes: 22_000 },
-    // Includes embedded screenshot evidence and the tour History changed-files overview.
-    { path: 'web/web-host.js', maxBytes: 188_000 },
-    { path: 'web/presenter.css', maxBytes: 39_000 }
+    // Includes whitespace ranges, paragraph alignment, scroll anchors, and inline matching.
+    { path: 'media/diff.worker.js', maxBytes: 24_500 },
+    // Includes tour expectations, reader feedback, and expanded narration controls.
+    { path: 'web/web-host.js', maxBytes: 230_000 },
+    { path: 'web/presenter.css', maxBytes: 46_000 }
 ];
 
 let failed = false;

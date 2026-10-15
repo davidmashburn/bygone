@@ -364,6 +364,7 @@ let closingForSave = false;
 let fileWatchers = [];
 let session = createEmptySession();
 let smokeTimeout;
+let smokeProgress;
 let directoryHistorySmokeDrilldownStarted = false;
 let historyIncludeStagedPreference = false;
 let historySkipUnchangedPreference = false;
@@ -657,6 +658,7 @@ function createMainWindow({ show = !smokeTestMode && !workspaceSmokeMode && !win
     if (smokeTestMode || captureMode) {
         smokeTimeout = setTimeout(() => {
             console.error(`Bygone ${captureMode ? 'capture' : 'smoke test'} timed out before renderer became ready.`);
+            if (smokeProgress) console.error(`Last smoke state: ${JSON.stringify(smokeProgress)}`);
             process.exitCode = 1;
             app.exit(1);
         }, 10000);
@@ -3196,9 +3198,7 @@ async function sendCurrentDirectoryHistoryEntry() {
         && mainWindow
         && !mainWindow.isDestroyed()) {
         directoryHistorySmokeDrilldownStarted = true;
-        setTimeout(() => {
-            void mainWindow.webContents.executeJavaScript(`document.querySelector('.dir-entry[data-is-dir="false"]')?.click()`);
-        }, 250);
+        pollDirectoryHistorySmokeEntry();
     }
     scheduleCaptureIfNeeded();
 }
@@ -4754,6 +4754,24 @@ async function compareDirectoryHistoryTestFiles() {
     await openDirectoryHistory(root, false, { skipConfirm: true, source: { kind: 'synthetic' } });
 }
 
+function pollDirectoryHistorySmokeEntry() {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    void mainWindow.webContents.executeJavaScript(`(() => {
+        const entry = document.querySelector('.dir-entry[data-is-dir="false"]');
+        if (!entry) return false;
+        entry.click();
+        return true;
+    })()`)
+        .then((clicked) => {
+            smokeProgress = { directoryHistoryEntryClicked: clicked };
+            if (!clicked) setTimeout(pollDirectoryHistorySmokeEntry, 100);
+        })
+        .catch((error) => {
+            console.error(`Bygone directory history entry smoke test failed: ${getErrorMessage(error)}`);
+            app.exit(1);
+        });
+}
+
 function pollDirectoryHistoryDrilldownSmoke() {
     if (!mainWindow || mainWindow.isDestroyed()) {
         return;
@@ -4770,6 +4788,7 @@ function pollDirectoryHistoryDrilldownSmoke() {
         diffWorkerUrl: window.__BYGONE_HOST__?.diffWorkerUrl
     }))()`)
         .then((snapshot) => {
+            smokeProgress = snapshot;
             const ready = /^Change 1 of [1-9]\d*$/.test(snapshot.changePosition)
                 && snapshot.panelPositions.some((position) => /^Change 1 of [1-9]\d*$/.test(position))
                 && snapshot.decoratedLineCount > 0

@@ -21,7 +21,8 @@ const allowed = new Set([
 ]);
 const unexpected = files.filter((file) => !allowed.has(file));
 const missing = [...allowed].filter((file) => !files.includes(file));
-const maximumBytes = 5.1 * 1024 * 1024;
+// Includes the current comparison renderer and extension host; keep packaging bounded.
+const maximumBytes = 5.2 * 1024 * 1024;
 const totalBytes = files.reduce((total, file) => total + fs.statSync(path.join(process.cwd(), file)).size, 0);
 if (unexpected.length || missing.length) {
     throw new Error([
@@ -30,6 +31,6 @@ if (unexpected.length || missing.length) {
     ].filter(Boolean).join('\n\n'));
 }
 if (totalBytes > maximumBytes) {
-    throw new Error(`VSIX runtime files exceed the ${(maximumBytes / 1024 / 1024).toFixed(1)} MiB budget: ${(totalBytes / 1024 / 1024).toFixed(1)} MiB`);
+    throw new Error(`VSIX runtime files exceed the ${(maximumBytes / 1024 / 1024).toFixed(2)} MiB budget: ${(totalBytes / 1024 / 1024).toFixed(2)} MiB`);
 }
 process.stdout.write(`VSIX contents verified (${files.length} files, ${(totalBytes / 1024 / 1024).toFixed(1)} MiB).\n`);
