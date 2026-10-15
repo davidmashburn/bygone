@@ -6,21 +6,24 @@ Approved for implementation on main, 2026-10-15.
 
 ## Decision
 
-Show the union of changes from adjacent comparisons by default. Use one blue
-highlight treatment in multi-panel comparisons, including their connectors and
-one-sided boundaries. A middle panel answers “this changed” without encoding
-which neighboring revision caused every highlight. Preserve existing two-way
+Show the union of changes from adjacent comparisons by default. Use the existing
+blue replacement and green one-sided change colors for blocks, connectors, and
+boundaries. Blue union removes pair color distinctions; it does not remove
+change-type colors. A middle panel answers “this changed” without encoding which
+neighboring revision caused every highlight. Preserve existing two-way
 colors and behavior.
 
 Add an easily discoverable **Focus selected pair** toggle, off by default.
 When enabled, only the selected pair's blocks, inline spans, boundaries, and
-connectors are highlighted, still in blue. Switching pairs keeps focus enabled;
-switching focus or pairs preserves scroll position. Change navigation remains
+connectors are highlighted, using that pair's change-type colors. Switching pairs
+keeps focus enabled; switching focus or pairs preserves scroll position. Change navigation remains
 scoped to the selected pair. Keep the existing pair selector and copy semantics.
 
 Compute a real union of overlapping line and word ranges; do not stack opacity,
 extend highlights across unchanged gaps, or change source alignment to achieve
-the effect. Keep each gutter's connectors attached to its own source blocks.
+the effect. When a shared line is one-sided in one pair and replaced in another,
+replacement blue takes precedence; focus reveals each pair’s own classification.
+Keep each gutter's connectors attached to its own source blocks.
 Support more than three panels and the existing visible-panel controls.
 
 ## Why
