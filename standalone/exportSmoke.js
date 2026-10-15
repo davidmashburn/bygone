@@ -468,7 +468,11 @@ app.whenReady().then(async () => {
         assert.equal(await fileLink.evaluate("new URL(location.href).searchParams.get('file')"), 'app.txt');
         fileLink.window.destroy();
         await live.evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
-        await live.wait("document.querySelector('[data-workspace-mode=compare][aria-pressed=true]') && document.querySelectorAll('.multi-pane').length >= 2");
+        await live.wait("document.querySelector('[data-workspace-mode=compare][aria-selected=true]') && (document.querySelectorAll('.multi-pane').length >= 2 || document.querySelector('.dir-entry[data-path=\"app.txt\"]'))");
+        if (await live.evaluate("document.querySelectorAll('.multi-pane').length === 0")) {
+            await live.evaluate("document.querySelector('.dir-entry[data-path=\"app.txt\"]').click()");
+            await live.wait("document.querySelectorAll('.multi-pane').length >= 2");
+        }
         assert.equal(await live.evaluate("document.querySelectorAll('.multi-panel-menu, .multi-pane-select[draggable=true]').length"), 0, 'Live commit comparisons cannot reorder');
         const canonicalCommits = await live.evaluate("new URL(location.href).searchParams.get('commits')");
         const originalOrder = await live.evaluate("[...document.querySelectorAll('.multi-pane')].map(pane => pane.dataset.panelId)");

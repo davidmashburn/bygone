@@ -255,7 +255,7 @@ test('filename-first labels retain distinct paths and revisions through Apply', 
         await workspace.handle({ type: 'workspaceOpenFile', relativePath: file });
         await workspace.handle({ type: 'workspaceReset' });
         await workspace.handle({ type: 'workspaceApply' });
-        assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: file, revisions: [A, B] });
+        assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: file, revisions: [A, B], panelOrder: [A, B] });
         assert.equal(workspace.uiState().selectionApplied, true);
         for (const [index, panel] of fixture.session.multi.files.entries()) {
             assert.match(panel.label, /^item\.py @ /);
@@ -362,7 +362,7 @@ test('selection and Apply are processed in order during another workspace update
     fixture.host.capture = async () => ({});
     release({});
     await Promise.all([refresh, first, second, apply]);
-    assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: 'one.txt', revisions: [A, B] });
+    assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: 'one.txt', revisions: [A, B], panelOrder: [A, B] });
     assert.equal(workspace.uiState().selectionApplied, true);
 });
 
@@ -378,10 +378,10 @@ test('selection menu changes file scope and opens the original base-to-head diff
     await workspace.handle({ type: 'workspaceApply' });
     assert.equal(workspace.uiState().canShowAllFiles, true);
     await workspace.handle({ type: 'workspaceAllFiles' });
-    assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: null, revisions: [A, B] });
+    assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: null, revisions: [A, B], panelOrder: [A, B] });
     assert.equal(workspace.uiState().canShowAllFiles, false);
     await workspace.handle({ type: 'workspaceFinalDiff' });
-    assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: null, revisions: [A, C] });
+    assert.deepEqual(fixture.session.workspaceView, { mode: 'compare', path: null, revisions: [A, C], panelOrder: [A, C] });
 });
 
 test('canceled dirty mode transition is atomic', async () => {

@@ -24,6 +24,14 @@ async function runPanelSwitchSmoke({ browserContents, openMulti }) {
             };
             check();
         })`);
+        // Exercise strip transitions with exactly one visible pair; wider layouts
+        // intentionally draw connectors for every visible adjacent pair.
+        const previousDensity = await evaluate(`(() => {
+            const picker = document.querySelector('[data-multi-visible-count]');
+            const previous = picker.value;
+            picker.value = '2'; picker.dispatchEvent(new Event('change', { bubbles: true }));
+            return previous;
+        })()`);
         const results = await evaluate(`(async () => {
             const canvas = document.getElementById('connection-canvas');
             const context = canvas.getContext('2d');
@@ -81,6 +89,8 @@ async function runPanelSwitchSmoke({ browserContents, openMulti }) {
             }
         }
         console.log('Panel switch smoke passed: forward, backward, interrupted, and immediate connector alignment.');
+        await evaluate(`{ const picker = document.querySelector('[data-multi-visible-count]');
+            picker.value = ${JSON.stringify(previousDensity)}; picker.dispatchEvent(new Event('change', { bubbles: true })); }`);
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }
