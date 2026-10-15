@@ -670,6 +670,56 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
     assert.match(host, /window\.speechSynthesis\.getVoices\(\)/);
     assert.match(host, /TOUR_NARRATION_VOICE_STORAGE_KEY/);
     assert.match(host, /TOUR_NARRATION_RATE_STORAGE_KEY/);
+    const rateOptions = markup.match(/<select id="tour-narration-rate"[\s\S]*?<\/select>/)[0];
+    const rates = [0.75, 1, 1.25, 1.5, 2];
+    assert.deepEqual(
+        [...rateOptions.matchAll(/<option value="([^"]+)">([^<]+)<\/option>/g)].map((match) => [Number(match[1]), match[2]]),
+        rates.map((rate) => [rate, `${rate}×`])
+    );
+    const rateConstants = host.match(/const TOUR_NARRATION_RATE_STORAGE_KEY = [^;]+;/)[0]
+        + host.match(/const NARRATION_RATES = [^;]+;/)[0];
+    const readRate = host.match(/ {4}function readStoredNarrationRate\(\) \{[\s\S]*?\n {4}\}/)[0];
+    const bindRate = host.match(/ {8}if \(tourRate\) \{[\s\S]*?\n {8}\}/)[0];
+    const speechEngine = host.match(/ {4}function createDeviceSpeechEngine\(\) \{[\s\S]*?\n {4}\}/)[0];
+    const stored = new Map();
+    const preferences = {
+        getItem: (key) => stored.get(key) ?? null,
+        setItem: (key, value) => stored.set(key, value)
+    };
+    const state = { narrationRate: 1, narrationVoices: [], narrationVoiceURI: '' };
+    const tourRate = {
+        value: '',
+        addEventListener(event, handler) {
+            assert.equal(event, 'change');
+            this.change = handler;
+        }
+    };
+    const utterances = [];
+    const window = {
+        SpeechSynthesisUtterance: class {
+            constructor(text) { this.text = text; }
+        },
+        speechSynthesis: { speak: (utterance) => utterances.push(utterance) }
+    };
+    const harness = new Function('preferences', 'state', 'tourRate', 'window',
+        `${rateConstants}\n${readRate}\n${bindRate}\n${speechEngine}
+         const deviceNarrationAvailable = true; const exportData = undefined;
+         return { readStoredNarrationRate, engine: createDeviceSpeechEngine() };`
+    )(preferences, state, tourRate, window);
+    assert.equal(tourRate.value, '1');
+    assert.equal(harness.readStoredNarrationRate(), 1);
+    for (const rate of rates) {
+        tourRate.value = String(rate);
+        tourRate.change();
+        assert.equal(state.narrationRate, rate);
+        assert.equal(stored.get('bygone.tourNarrationRate'), String(rate));
+        state.narrationRate = harness.readStoredNarrationRate();
+        assert.equal(state.narrationRate, rate);
+        harness.engine.speak({ speechText: 'Tour narration' }, {});
+        assert.equal(utterances.at(-1).rate, rate);
+    }
+    stored.set('bygone.tourNarrationRate', '3');
+    assert.equal(harness.readStoredNarrationRate(), 1);
     assert.match(host, /renderNarrationField\(field, field\.dataset\.readingText/);
     assert.match(host, /narrated \? 'summary' : null/);
     assert.match(host, /data-narration-segment-id/);

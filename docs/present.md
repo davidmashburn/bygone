@@ -177,7 +177,7 @@ text is spoken so the highlighted sentence remains visible.
 - Existing Previous and Next controls move through the same scene/step order
   used by continuous narration.
 - Choose any device voice exposed by the browser and a speed from 0.75× to
-  1.5×. Bygone stores those preferences locally and returns to the system
+  2×. Bygone stores those preferences locally and returns to the system
   default if a selected voice disappears.
 - The visible sentence is highlighted while it is spoken. Pausing retains a
   distinct paused highlight without moving keyboard focus.

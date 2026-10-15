@@ -54,7 +54,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
     const TOUR_DIFF_MIN_HEIGHT = 180;
     const TOUR_NARRATION_VOICE_STORAGE_KEY = 'bygone.tourNarrationVoice';
     const TOUR_NARRATION_RATE_STORAGE_KEY = 'bygone.tourNarrationRate';
-    const NARRATION_RATES = new Set([0.75, 1, 1.25, 1.5]);
+    const NARRATION_RATES = new Set([0.75, 1, 1.25, 1.5, 2]);
     const deviceNarrationAvailable = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
     const state = {
         mode: 'empty',
