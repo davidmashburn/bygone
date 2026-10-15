@@ -23,6 +23,9 @@ clear enough to discuss as an actionable plan.
 
 ## Current ideas
 
+- [Alternating comparison colors](alternating-comparison-colors.md) — shelved
+  blue/violet ownership colors with horizontal splits; retained for reconsideration.
+
 - [Verified refactor decomposition](verified-refactor-decomposition.md) shows
   a commit as checked formatting, rename, and move stages plus real change.
   Status: it's complicated; the method works on mechanical changes, but real

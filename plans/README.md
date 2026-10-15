@@ -26,6 +26,9 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [Multi-panel highlight union and pair focus](multi-panel-highlight-union.md)
+  — approved blue union default with optional focus on the selected comparison.
+
 - [Consistent source controls in Compare and History](compare-source-controls.md)
   — contextual source insertion/removal, synchronized directory drill-down,
   and edge-only History trimming to preserve adjacent revisions.
