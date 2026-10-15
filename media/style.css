@@ -306,7 +306,8 @@ body.web-host {
     display: block;
 }
 
-#toggle-word-wrap.is-active {
+#toggle-word-wrap.is-active,
+#toggle-pair-focus.is-active {
     border-color: var(--vscode-focusBorder, #007fd4);
     background: var(--vscode-button-secondaryHoverBackground, rgba(0, 127, 212, 0.18));
 }
@@ -1865,6 +1866,11 @@ button.file-header {
     overflow: hidden;
 }
 
+.dir-view .multi-strip-controls { margin-bottom: 8px; }
+.dir-view .multi-strip-controls[hidden],
+.dir-headers > [hidden],
+.dir-rows-container > [hidden] { display: none; }
+
 .dir-headers {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr);
@@ -2083,3 +2089,5 @@ button.file-header {
 .file-tree-filter span:last-child { margin-left: auto; opacity: 0.65; white-space: nowrap; }
 .file-tree-filter[hidden] { display: none; }
 .file-tree [hidden] { display: none; }
+
+#toggle-pair-focus[hidden] { display: none; }

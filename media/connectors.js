@@ -214,9 +214,9 @@
             canvasContext.restore();
         }
 
-        function clipEditorViewport(leftRect, rightRect, containerRect, viewportRect) {
-            const left = Math.max(leftRect.left, viewportRect.left);
-            const right = Math.min(rightRect.right, viewportRect.right);
+        function clipEditorViewport(leftRect, rightRect, containerRect, viewportRect, gutterOnly = false) {
+            const left = Math.max(gutterOnly ? leftRect.right - 2 : leftRect.left, viewportRect.left);
+            const right = Math.min(gutterOnly ? rightRect.left + 2 : rightRect.right, viewportRect.right);
             const top = Math.max(leftRect.top, rightRect.top, viewportRect.top);
             const bottom = Math.min(leftRect.bottom, rightRect.bottom, viewportRect.bottom);
             canvasContext.save();
@@ -235,13 +235,9 @@
             const containerRect = connectionCanvas.getBoundingClientRect();
             const viewportRect = options.getElement('multi-way-diff').getBoundingClientRect();
 
-            const activePair = Number.isInteger(state.activePairIndex)
-                ? state.pairs[state.activePairIndex]
-                : null;
-            if (!activePair) return;
-            if (state.visiblePairIndexes && !state.visiblePairIndexes.includes(state.activePairIndex)) return;
-
-            [activePair].forEach((pair) => {
+            state.pairs.forEach((pair, pairIndex) => {
+                if (state.focusSelectedPair && pairIndex !== state.activePairIndex) return;
+                if (state.visiblePairIndexes && !state.visiblePairIndexes.includes(pairIndex)) return;
                 const leftEditor = state.editors[pair.leftIndex];
                 const rightEditor = state.editors[pair.rightIndex];
                 if (!leftEditor || !rightEditor) {
@@ -256,7 +252,8 @@
                     return;
                 }
 
-                clipEditorViewport(leftRect, rightRect, containerRect, viewportRect);
+                // Monaco owns the union outline inside each pane; canvas owns each pair's gutter.
+                clipEditorViewport(leftRect, rightRect, containerRect, viewportRect, true);
                 (pair.diffModel?.blocks || []).forEach((block) => {
                     drawBlockRegion(
                         block,
@@ -265,7 +262,7 @@
                         leftRect,
                         rightRect,
                         containerRect,
-                        state.activePairIndex,
+                        pairIndex,
                         viewportRect
                     );
                 });
@@ -299,6 +296,7 @@
             canvasContext.clip();
 
             for (let pairIndex = 0; pairIndex < columns.length - 1; pairIndex++) {
+                if (columns[pairIndex].hidden || columns[pairIndex + 1].hidden) continue;
                 const leftRect = columns[pairIndex].getBoundingClientRect();
                 const rightRect = columns[pairIndex + 1].getBoundingClientRect();
 

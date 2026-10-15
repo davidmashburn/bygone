@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { buildTwoWayDiffModel } = require('../out/diffEngine');
+const { runMultiHighlightSmoke } = require('./multiHighlightSmoke');
 const { runPanelDensitySmoke } = require('./panelDensitySmoke');
 const { runGutterCopySmoke } = require('./gutterCopySmoke');
 const { runSelectionHighlightSmoke } = require('./selectionHighlightSmoke');
@@ -196,6 +197,7 @@ app.whenReady().then(async () => {
             await frames();
             assert.equal(await evaluate(`${editors}.every(e => e.getModel().getAllDecorations().some(d => d.options.blockClassName?.startsWith('bygone-active-diff-')))`), true, 'Added and deleted files mark the current change on both sides');
         }
+        await runMultiHighlightSmoke({ window, show });
         await runPanelDensitySmoke({ window, show });
         const mutabilityFixture = {
             type: 'showDiff', file1: 'snapshot.txt', file2: 'worktree.txt',

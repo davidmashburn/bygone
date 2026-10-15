@@ -376,3 +376,61 @@ test('matching context separates one-sided green blocks', () => {
         assert.deepEqual(model.blocks.map(block => block.kind), reverse ? ['insert', 'delete'] : ['delete', 'insert']);
     }
 });
+
+
+test('multi-panel paint unions overlapping spans without shading unchanged gaps', () => {
+    const { unionChangeDecorations } = require('../media/decorationUtils');
+    const inline = (line, start, end) => ({ range: { startLineNumber: line, startColumn: start,
+        endLineNumber: line, endColumn: end }, options: { inlineClassName: 'bygone-inline-blue' } });
+    const line = (start, end, options = { isWholeLine: true, className: 'bygone-paired-line' }) => ({
+        range: { startLineNumber: start, startColumn: 1, endLineNumber: end, endColumn: 100 }, options });
+    const marker = line(3, 4, { blockClassName: 'bygone-active-diff-outline' });
+    const input = [inline(1, 7, 10), inline(1, 3, 6), inline(1, 3, 6), inline(1, 5, 8), inline(1, 4, 5),
+        inline(1, 12, 14), inline(2, 1, 3), inline(2, 3, 4), line(3, 5), line(4, 7), line(8, 8),
+        line(10, 11), marker];
+    const saved = JSON.stringify(input);
+    const output = unionChangeDecorations(input);
+    assert.equal(JSON.stringify(input), saved, 'Union must not mutate pair-owned input');
+    assert.deepEqual(output.filter(d => d.options.inlineClassName).map(d => d.range),
+        [inline(1, 3, 10), inline(1, 12, 14), inline(2, 1, 4)].map(d => d.range));
+    assert.deepEqual(output.filter(d => d.options.isWholeLine).map(d => d.range),
+        [line(3, 8), line(10, 11)].map(d => d.range));
+    assert.ok(output.includes(marker), 'Active change outlines retain their own ranges');
+    const outline = { blockClassName: 'bygone-paired-line-outline', blockDoesNotCollapse: true };
+    assert.deepEqual(unionChangeDecorations([line(2, 5, outline), line(3, 4, outline), line(5, 7, outline)]),
+        [line(2, 7, outline)]);
+    const annotation = inline(1, 3, 6);
+    annotation.options = { inlineClassName: 'tour-highlight' };
+    assert.deepEqual(unionChangeDecorations([annotation, inline(1, 2, 8)]), [annotation, inline(1, 2, 8)]);
+    assert.deepEqual(unionChangeDecorations([]), []);
+});
+
+
+test('multi-panel union preserves green blocks and resolves only replacement overlaps to blue', () => {
+    const { unionChangeDecorations } = require('../media/decorationUtils');
+    const paint = (start, end, color, outline = false) => ({
+        range: { startLineNumber: start, startColumn: 1, endLineNumber: end, endColumn: Number.MAX_SAFE_INTEGER },
+        options: outline ? { blockClassName: `bygone-${color}-line-outline` }
+            : { className: `bygone-${color}-line`, isWholeLine: true }
+    });
+    const input = [paint(2, 8, 'one-sided'), paint(5, 10, 'one-sided'),
+        paint(2, 10, 'one-sided', true), paint(4, 5, 'paired'), paint(8, 8, 'paired'),
+        paint(4, 5, 'paired', true), paint(8, 8, 'paired', true), paint(12, 12, 'one-sided')];
+    const saved = JSON.stringify(input);
+    const output = unionChangeDecorations(input);
+    assert.equal(JSON.stringify(input), saved);
+    for (const outline of [false, true]) {
+        const key = outline ? 'blockClassName' : 'className';
+        const suffix = outline ? '-outline' : '';
+        assert.deepEqual(output.filter(d => d.options[key] === `bygone-one-sided-line${suffix}`),
+            [[2, 3], [6, 7], [9, 10], ...(!outline ? [[12, 12]] : [])].map(([a, b]) => paint(a, b, 'one-sided', outline)));
+        assert.deepEqual(output.filter(d => d.options[key] === `bygone-paired-line${suffix}`),
+            [paint(4, 5, 'paired', outline), paint(8, 8, 'paired', outline)]);
+    }
+    assert.deepEqual(unionChangeDecorations([paint(3, 4, 'one-sided'), paint(2, 6, 'paired')]),
+        [paint(2, 6, 'paired')], 'Fully covered green paint disappears');
+    assert.deepEqual(unionChangeDecorations([paint(2, 3, 'one-sided'), paint(3, 5, 'one-sided')]),
+        [paint(2, 5, 'one-sided')], 'Overlapping green paint is unioned too');
+    assert.deepEqual(unionChangeDecorations([paint(2, 3, 'one-sided'), paint(4, 5, 'paired')]),
+        [paint(2, 3, 'one-sided'), paint(4, 5, 'paired')], 'Touching different colors stay separate');
+});

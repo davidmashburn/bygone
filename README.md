@@ -49,6 +49,19 @@ several, or collapsed back to one, is compared as a whole for inline highlights
 when the combined text is similar enough. This preserves the line alignment and
 the inline highlighting length limit.
 
+Multi-panel comparisons show changes from all adjacent pairs. A shared panel
+shows the union of changed lines and words, with overlaps painted once. A line
+that is one-sided in one pair and replaced in another uses replacement blue;
+connectors in each gutter still describe that pair. **Focus selected pair** is off
+by default. Turn it on to show only the selected pair's highlights and connectors,
+then select another gutter to inspect that comparison with its own block colors.
+Toggling focus preserves your scroll position. Previous/next change always follows the selected pair.
+Directory and file views share the **Visible panels** setting (2, 3, 4, or Fit),
+so opening a file or returning to its directory keeps the chosen density.
+New three-way and four-way comparisons start with 3 and 4 panels selected.
+Those counts stay visible even in tight windows; choose **Fit** for automatic
+width-based adjustment. You can still select a smaller count manually.
+
 Bygone matches words first, then uses **edge trimming** inside each replacement:
 leave the longest identical beginning and ending unhighlighted, and highlight
 the remaining middle. The beginning and ending never overlap. If one complete

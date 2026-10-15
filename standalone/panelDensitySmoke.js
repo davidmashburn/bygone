@@ -30,7 +30,7 @@ async function runPanelDensitySmoke({ window, show }) {
         label: `long-path/to/revisions/panel-${index}.yaml`, editable: index !== 5,
         content: Array.from({ length: 180 }, (_, line) => line === 0 ? `needle revision ${index}`
             : `line_${line}: ${'long wrapped YAML content '.repeat(8)} revision ${index}`).join('\n') }));
-    const render = async items => show({ type: 'showMultiDiff', panels: items, activePanelId: items[0].id,
+    const render = async (items, canReturnToDirectory = false, workspace) => show({ type: 'showMultiDiff', panels: items, activePanelId: items[0].id, canReturnToDirectory, workspace,
         activePairIndex: 0, pairs: items.slice(1).map((panel, index) => ({ leftIndex: index, rightIndex: index + 1,
             diffModel: buildTwoWayDiffModel(items[index].content, panel.content) })) });
     try {
@@ -100,9 +100,9 @@ async function runPanelDensitySmoke({ window, show }) {
         await choose(4);
         window.setSize(1200, 900);
         await settle();
-        assert.equal((await read()).visible.length, 3);
+        assert.equal((await read()).visible.length, 4);
         assert.equal((await read()).choice, '4');
-        assert.match((await read()).fit, /4 selected.*3 fit/);
+        assert.equal((await read()).fit, '');
         window.setSize(1700, 900);
         await settle();
         assert.equal((await read()).visible.length, 4);
@@ -135,10 +135,11 @@ async function runPanelDensitySmoke({ window, show }) {
         const geometry = await evaluate(`(() => {
             const panes = [...document.querySelectorAll('.multi-pane .monaco-editor')].map(e => e.getBoundingClientRect());
             const canvas = document.getElementById('connection-canvas').getBoundingClientRect();
-            return { gradients: window.densityGradients, expected: [panes[1].right - canvas.left - 2, panes[2].left - canvas.left + 2] };
+            return { gradients: window.densityGradients, expected: [0, 1].map(i => [panes[i].right - canvas.left - 2, panes[i + 1].left - canvas.left + 2]) };
         })()`);
         assert.ok(geometry.gradients.length > 0);
-        assert.ok(geometry.gradients.every(xs => xs.every((x, i) => Math.abs(x - geometry.expected[i]) < 1)), JSON.stringify(geometry));
+        assert.ok(geometry.gradients.every(xs => geometry.expected.some(expected => xs.every((x, i) => Math.abs(x - expected[i]) < 1))), JSON.stringify(geometry));
+        assert.ok(geometry.expected.every(expected => geometry.gradients.some(xs => xs.every((x, i) => Math.abs(x - expected[i]) < 1))), 'Both visible pair gutters have connectors');
         await evaluate(`{ const ctx = document.getElementById('connection-canvas').getContext('2d');
             ctx.clearRect = window.densityClear; ctx.createLinearGradient = window.densityGradient; void 0; }`);
 
@@ -156,6 +157,95 @@ async function runPanelDensitySmoke({ window, show }) {
         await render(panels.slice(1));
         assert.equal((await read()).choice, '4');
         assert.equal((await read()).visible.length, 4);
+        // Directory and file views share the density request, including round trips.
+        const directory = async count => show({ type: 'showDirectoryDiff',
+            labels: panels.slice(0, count).map(panel => panel.label), canMutate: false,
+            entries: [{ relativePath: 'sample.md', displayName: 'sample.md', depth: 0,
+                isDirectory: false, status: 'modified', sides: Array(count).fill(true) }] });
+        const directoryVisible = () => evaluate("[...document.querySelectorAll('.dir-column')].filter(p => !p.hidden).map(p => Number(p.dataset.sideIndex))");
+        const chooseDirectory = async value => {
+            await evaluate(`{ const picker = document.querySelector('[data-dir-visible-count]');
+                picker.value = ${JSON.stringify(String(value))}; picker.dispatchEvent(new Event('change', {bubbles:true})); }`);
+            await settle();
+        };
+        await directory(3);
+        await chooseDirectory(3);
+        assert.deepEqual(await directoryVisible(), [0, 1, 2]);
+        await render(panels.slice(0, 3), true);
+        assert.equal((await read()).choice, '3');
+        assert.deepEqual((await read()).visible, [0, 1, 2]);
+        await choose(2);
+        await directory(3);
+        assert.deepEqual(await directoryVisible(), [0, 1]);
+        assert.equal(await evaluate("document.querySelector('[data-dir-visible-count]').value"), '2');
+        await evaluate("document.querySelector('[data-dir-strip-direction=next]').click()");
+        await settle();
+        assert.deepEqual(await directoryVisible(), [1, 2]);
+        await render(panels.slice(0, 3), true);
+        assert.deepEqual((await read()).visible, [1, 2]);
+        assert.equal((await read()).pair, 1);
+        await directory(3);
+        assert.deepEqual(await directoryVisible(), [1, 2]);
+        await directory(6);
+        for (const count of [3, 4, 'fit']) {
+            await chooseDirectory(count);
+            assert.equal((await directoryVisible()).length, count === 'fit' ? 4 : count);
+        }
+        await chooseDirectory(4);
+        await evaluate("document.querySelector('[data-dir-strip-direction=next]').click()");
+        await settle();
+        assert.deepEqual(await directoryVisible(), [1, 2, 3, 4]);
+        await render(panels, true);
+        assert.deepEqual((await read()).visible, [1, 2, 3, 4]);
+        await directory(6);
+        assert.deepEqual(await directoryVisible(), [1, 2, 3, 4]);
+        window.setSize(1200, 900);
+        await settle();
+        assert.equal((await directoryVisible()).length, 4);
+        assert.equal(await evaluate("document.querySelector('[data-dir-strip-fit]').textContent"), '');
+        window.setSize(1700, 900);
+        await settle();
+        assert.equal((await directoryVisible()).length, 4);
+        // New explicit comparisons override a saved two-panel preference even
+        // when tight, while refresh and directory round trips retain manual choices.
+        window.setSize(1000, 900);
+        for (const count of [3, 4]) {
+            await chooseDirectory(2);
+            const items = panels.slice(0, count).map(p => ({ ...p, id: `explicit-${count}-${p.id}` }));
+            await render(items);
+            await settle();
+            assert.equal((await read()).choice, String(count));
+            assert.equal((await read()).visible.length, count);
+            assert.equal(await evaluate("localStorage.getItem('bygone.visiblePanels')"), '2', 'Automatic defaults do not rewrite the saved preference');
+            await choose(2);
+            await render(items);
+            assert.equal((await read()).choice, '2', 'Refreshing the same comparison retains the reader choice');
+            await directory(count);
+            await settle();
+            assert.equal(await evaluate("document.querySelector('[data-dir-visible-count]').value"), String(count));
+            assert.equal((await directoryVisible()).length, count);
+            await render(items, true);
+            assert.equal((await read()).choice, String(count));
+            assert.equal((await read()).visible.length, count);
+            await choose(2);
+            await directory(count);
+            assert.equal(await evaluate("document.querySelector('[data-dir-visible-count]').value"), '2');
+            await render(items, true);
+            assert.equal((await read()).choice, '2');
+        }
+        // A fresh workspace may open directly at a revision file with a directory
+        // return action. Reopening the same inputs must still apply the default.
+        for (const sessionId of ['density-session-one', 'density-session-two']) {
+            await render(panels.slice(0, 3), true, { sessionId, mode: 'compare', history: { enabled: false } });
+            await settle();
+            assert.equal((await read()).choice, '3');
+            await choose(2);
+            await directory(3);
+            assert.equal(await evaluate("document.querySelector('[data-dir-visible-count]').value"), '2');
+        }
+        await directory(2);
+        assert.deepEqual(await directoryVisible(), [0, 1]);
+        assert.equal(await evaluate("document.querySelector('[data-dir-strip-controls]').hidden"), true);
         console.log('Panel density smoke passed: 2/3/4/Fit, stationary groups, end navigation, resize restoration, search, model/selection/edit/undo and wrapped scroll preservation, connectors, shorter scenes and removal.');
     } finally {
         window.setBounds(savedBounds);

@@ -4,11 +4,11 @@ const { computeFocusedStripLayout: layout, readVisiblePanelPreference: read, wri
 
 const base = { panelCount: 7, activePanelIndex: 3, activePairIndex: 2, viewportWidth: 1600 };
 
-test('density boundaries retain readable panes and use the correct gutters', () => {
+test('explicit 3/4 counts stay visible while Fit and two-pane layouts adapt', () => {
     for (const [request, width, count, gutter] of [
         [2, 815, 1, 0], [2, 816, 2, 96], [2, 3000, 2, 96],
-        [3, 935, 2, 96], [3, 936, 3, 48], [3, 3000, 3, 48],
-        [4, 1263, 3, 48], [4, 1264, 4, 48], [4, 655, 1, 0],
+        [3, 935, 3, 48], [3, 936, 3, 48], [3, 3000, 3, 48],
+        [4, 1263, 4, 48], [4, 1264, 4, 48], [4, 655, 4, 48],
         ['fit', 815, 1, 0], ['fit', 816, 2, 96], ['fit', 1175, 2, 96],
         ['fit', 1176, 3, 48], ['fit', 1583, 3, 48], ['fit', 1584, 4, 48],
         ['fit', 1991, 4, 48], ['fit', 1992, 5, 48], ['fit', 2399, 5, 48],
@@ -41,7 +41,7 @@ test('visible comparisons stay stationary and offscreen comparisons move the min
 test('resizing and shorter scenes keep the requested density independently of effective count', () => {
     const request = { ...base, requestedVisibleCount: 4, previousVisibleStart: 1 };
     const narrow = layout({ ...request, viewportWidth: 1000 });
-    assert.deepEqual(narrow.visiblePanelIndexes, [1, 2, 3]);
+    assert.deepEqual(narrow.visiblePanelIndexes, [1, 2, 3, 4]);
     const restored = layout({ ...request, previousVisibleStart: narrow.visibleStart });
     assert.deepEqual(restored.visiblePanelIndexes, [1, 2, 3, 4]);
     for (const count of [1, 2, 3]) {
@@ -51,7 +51,7 @@ test('resizing and shorter scenes keep the requested density independently of ef
         assert.equal(short.visibleStart, 0);
         assert.equal(short.offset, 0);
     }
-    const single = layout({ ...request, viewportWidth: 500 });
+    const single = layout({ ...request, requestedVisibleCount: 'fit', viewportWidth: 500 });
     assert.deepEqual(single.visiblePanelIndexes, [3]);
     assert.deepEqual(single.visiblePairIndexes, []);
 });
@@ -83,4 +83,19 @@ test('optional host storage defaults safely and persists only supported choices'
     assert.equal(read(blocked), 2);
     assert.doesNotThrow(() => write(blocked, 4));
     assert.equal(read(null), 2);
+});
+
+
+test('explicit counts keep positive geometry even below the usual gutter width', () => {
+    for (const requestedVisibleCount of [3, 4]) {
+        for (const viewportWidth of [1, 100, 400, 700]) {
+            const result = layout({ ...base, requestedVisibleCount, viewportWidth });
+            assert.equal(result.effectiveCount, requestedVisibleCount);
+            assert.ok(result.paneWidth > 0);
+            assert.ok(result.gutterWidth >= 0);
+            assert.equal(result.limitedByWidth, false);
+            assert.ok(Math.abs(result.paneWidth * requestedVisibleCount
+                + result.gutterWidth * (requestedVisibleCount - 1) - viewportWidth) < 0.001);
+        }
+    }
 });

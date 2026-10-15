@@ -35,11 +35,14 @@ function computeFocusedStripLayout({
     const pairGutter = Math.max(0, Number.isFinite(gutterWidth) ? gutterWidth : 96);
     const gutterForCount = number => number === 1 ? 0 : number === 2 ? pairGutter : 48;
     let effectiveCount = maximumCount;
-    while (effectiveCount > 1 && width < effectiveCount * minimum + (effectiveCount - 1) * gutterForCount(effectiveCount)) {
+    while (requested !== 3 && requested !== 4 && effectiveCount > 1 && width < effectiveCount * minimum + (effectiveCount - 1) * gutterForCount(effectiveCount)) {
         effectiveCount--;
     }
     const mode = effectiveCount > 1 ? 'pair' : 'panel';
-    const effectiveGutterWidth = gutterForCount(effectiveCount);
+    // Explicit 3/4-pane layouts honor the request even in narrow windows.
+    // Shrink gutters only at extreme widths so editor widths stay positive.
+    const effectiveGutterWidth = Math.min(gutterForCount(effectiveCount),
+        effectiveCount > 1 ? Math.max(0, (width - effectiveCount) / (effectiveCount - 1)) : 0);
     const paneWidth = (width - (effectiveCount - 1) * effectiveGutterWidth) / effectiveCount;
     const panelIndex = clampIndex(activePanelIndex, count);
     const pairIndex = count > 1 ? clampIndex(activePairIndex, count - 1) : 0;

@@ -1,4 +1,4 @@
-import { dedupeDecorations } from './decorationUtils';
+import { dedupeDecorations, unionChangeDecorations } from './decorationUtils';
 import { isCancellationError } from 'monaco-editor/esm/vs/base/common/errors.js';
 import { mapLinePosition, mapMultiPanelLinePositions, scrollTopToModelLinePosition, modelLinePositionToScrollTop } from './scrollMapping';
 import {
@@ -49,6 +49,7 @@ window.addEventListener('message', (event) => {
 function updateWorkspaceControls(state) {
     if (state.sessionId !== railFileFilterSession) {
         railFileFilterSession = state.sessionId;
+        panelDensityComparisonKey = null;
         showAllRailFiles = false;
     }
     if (!workspaceControls) {
@@ -181,11 +182,15 @@ let multiDiffRecomputePending = false;
 let multiPanels = [];
 let activeMultiPanelId = null;
 let activeMultiPairIndex = null;
+let focusSelectedPair = false;
 let multiPanelChangeIndices = new Map();
 let multiPanelMutationEnabled = false;
 let focusedStripLayout = null;
 let pendingMultiLayoutAnchors = null;
 let requestedVisiblePanelCount = readVisiblePanelPreference(safePreferenceStorage());
+let panelDensityComparisonKey = null;
+let directoryStripLayout = null;
+let directoryVisibleStart = 0;
 let focusedStripWheelDelta = 0;
 let historyRailState = null;
 let activeHistoryRailTabId = null;
@@ -237,6 +242,7 @@ const connectorController = window.BygoneConnectors.createConnectorController({
         editors: multiEditors,
         pairs: multiDiffPairs,
         activePairIndex: activeMultiPairIndex,
+        focusSelectedPair,
         visiblePairIndexes: focusedStripLayout?.visiblePairIndexes,
         activeDiffIndex
     }),
@@ -564,6 +570,7 @@ else window.addEventListener('load', initializeRenderer, { once: true });
 
 window.addEventListener('resize', () => {
     applyFocusedStripLayout(false);
+    applyDirectoryStripLayout();
     layoutEditors(workspaceResizeScrollSnapshot?.editors || null);
     restoreWorkspaceResizeScrollSnapshot();
     if (workspaceResizeScrollSnapshot) requestAnimationFrame(restoreWorkspaceResizeScrollSnapshot);
@@ -708,6 +715,7 @@ function isDarkColor(color) {
 
 function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, history, fileNavigation, canReturnToDirectory = false, nextEditableSides = null, comparisonId = null, directoryNavigation = null, comparisonSummary = null, initialChangeIndex = undefined, tourAnnotations = [], sourceInfo = null, readOnlyLabel = null, fileExists = null, renderRequestId = undefined) {
     const diffEpoch = ++twoWayDiffEpoch;
+    if (!canReturnToDirectory) setComparisonPanelDefault('files', [file1, file2]);
     const comparisonKey = comparisonId || `${file1}\u0000${file2}`;
     const comparisonChanged = currentMode !== MODE_TWO_WAY || currentTwoWayComparisonKey !== comparisonKey;
     const nextFileExists = normalizeFileExists(fileExists);
@@ -945,7 +953,20 @@ function formatByteLength(bytes) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// A new explicit comparison starts with all three/four inputs visible. Repeated
+// renders and directory drill-downs retain the reader's selection, without
+// persisting an automatic default over their saved preference.
+function setComparisonPanelDefault(kind, identities, preserveRequested = false) {
+    const key = JSON.stringify([kind, identities]);
+    if (key === panelDensityComparisonKey) return;
+    panelDensityComparisonKey = key;
+    if (!preserveRequested && (identities.length === 3 || identities.length === 4)) requestedVisiblePanelCount = identities.length;
+}
+
 function showDirectoryDiff(leftLabel, rightLabel, entries, labels, history, canMutate = true, review = null, renderRequestId = undefined) {
+    setComparisonPanelDefault('directory', Array.isArray(labels) && labels.length >= 2 ? labels : [leftLabel, rightLabel],
+        panelDensityComparisonKey !== null && currentMode === MODE_MULTI_WAY && !getElement('directory-return-toolbar').hidden);
+    directoryVisibleStart = currentMode === MODE_MULTI_WAY ? focusedStripLayout?.visibleStart || 0 : 0;
     currentMode = 'directory';
     historyMode = false;
     currentDiffModel = null;
@@ -1126,6 +1147,7 @@ function setDirectoryViewMode(mode) {
     getElement('dir-rows').hidden = showOverview;
     getElement('directory-overview-tab').setAttribute('aria-pressed', String(showOverview));
     getElement('directory-files-tab').setAttribute('aria-pressed', String(!showOverview));
+    applyDirectoryStripLayout();
 }
 
 function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = [], renderRequestId = undefined, comparisonSummary = null) {
@@ -1133,6 +1155,12 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
         return;
     }
 
+    if (!canReturnToDirectory || panelDensityComparisonKey === null) setComparisonPanelDefault('files', panels.map(panel => panel.id));
+    const directoryLayout = currentMode === 'directory' && canReturnToDirectory ? directoryStripLayout : null;
+    if (directoryLayout) {
+        nextActivePairIndex = directoryLayout.pairIndex;
+        nextActivePanelId = panels[directoryLayout.panelIndex]?.id || nextActivePanelId;
+    }
     multiDiffEpoch += 1;
     currentMode = MODE_MULTI_WAY;
     currentTourAnnotations = tourAnnotations;
@@ -1147,8 +1175,8 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     multiDiffRecomputePending = false;
     disposeTwoWayEditors();
     const previousFirstPanel = multiPanels[focusedStripLayout?.visibleStart]?.id;
-    const previousStart = panels.findIndex(panel => panel.id === previousFirstPanel);
-    if (focusedStripLayout) focusedStripLayout = previousStart >= 0 ? { ...focusedStripLayout, visibleStart: previousStart } : null;
+    const previousStart = directoryLayout?.visibleStart ?? panels.findIndex(panel => panel.id === previousFirstPanel);
+    if (focusedStripLayout || directoryLayout) focusedStripLayout = previousStart >= 0 ? { ...focusedStripLayout, visibleStart: previousStart } : null;
     disposeMultiEditors(false);
     multiPanels = panels;
     multiDiffPairs = pairs || [];
@@ -2595,6 +2623,7 @@ function applyMultiDiffDecorations(pairs) {
     const decorations = multiEditors.map(() => []);
 
     (pairs || []).forEach((pair, pairIndex) => {
+        if (focusSelectedPair && pairIndex !== activeMultiPairIndex) return;
         const leftDecorations = decorations[pair.leftIndex];
         const rightDecorations = decorations[pair.rightIndex];
         const diffModel = pair.diffModel;
@@ -2645,7 +2674,7 @@ function applyMultiDiffDecorations(pairs) {
     }
 
     multiDecorationIds = multiEditors.map((editor, index) => (
-        editor.deltaDecorations(multiDecorationIds[index] || [], dedupeDecorations(decorations[index]))
+        editor.deltaDecorations(multiDecorationIds[index] || [], unionChangeDecorations(decorations[index]))
     ));
 }
 
@@ -4147,6 +4176,12 @@ function initializeChangeToolbar() {
     getElement('next-change').addEventListener('click', () => navigateDiff(1));
     getElement('refresh-session').addEventListener('click', requestSessionRefresh);
     getElement('toggle-word-wrap').addEventListener('click', toggleWordWrap);
+    getElement('toggle-pair-focus').addEventListener('click', () => {
+        focusSelectedPair = !focusSelectedPair;
+        applyMultiDiffDecorations(multiDiffPairs);
+        updatePairFocusControl();
+        connectorController.scheduleDrawConnections();
+    });
 
     window.addEventListener('keydown', (event) => {
         const findWidgetOwnsEvent = event.target instanceof Element
@@ -4257,6 +4292,17 @@ function hasWordWrapTarget() {
     }
     return currentMode === MODE_MULTI_WAY
         && multiPanels.some((panel) => panel.path || panel.content);
+}
+
+function updatePairFocusControl() {
+    const button = getElement('toggle-pair-focus');
+    button.hidden = currentMode !== MODE_MULTI_WAY || multiPanels.length < 3;
+    button.classList.toggle('is-active', focusSelectedPair);
+    button.setAttribute('aria-pressed', String(focusSelectedPair));
+    button.textContent = `Focus selected pair: ${focusSelectedPair ? 'On' : 'Off'}`;
+    button.title = focusSelectedPair
+        ? 'Showing only the selected pair. Turn off to show all changes.'
+        : 'Showing changes from every adjacent pair. Turn on to focus the selected pair.';
 }
 
 function updateWordWrapControl() {
@@ -4792,6 +4838,7 @@ function setActiveDiffIndex(index, shouldReveal) {
 
 function updateChangeToolbarState() {
     const toolbar = getElement('change-toolbar');
+    updatePairFocusControl();
     updateWordWrapControl();
     postWordWrapState();
     const toolbarCenter = toolbar.querySelector('.change-toolbar-center');
@@ -4937,8 +4984,8 @@ function updateDirectoryEntrySelection() {
         return;
     }
 
-    const activeRow = container.querySelector(`.dir-entry[data-path="${CSS.escape(activeDirectoryEntryPath)}"][data-side-index="0"]`)
-        || container.querySelector(`.dir-entry[data-path="${CSS.escape(activeDirectoryEntryPath)}"][data-side-index="1"]`);
+    const activeRow = [...container.querySelectorAll(`.dir-entry[data-path="${CSS.escape(activeDirectoryEntryPath)}"]`)]
+        .find(row => row.offsetParent !== null);
     activeRow?.scrollIntoView({ block: 'nearest' });
 }
 
@@ -5215,6 +5262,7 @@ function initializeDirectoryViewEvents() {
         }
     });
     container.addEventListener('bygone:directory-layout-change', () => {
+        applyDirectoryStripLayout();
         syncDirectoryColumnsFromActive();
         updateDirectoryEntrySelection();
         connectorController.scheduleDrawConnections();
@@ -5246,7 +5294,19 @@ function initializeDirectoryViewEvents() {
 
     const dirView = getElement(VIEW_IDS.directory);
     if (dirView) {
+        dirView.addEventListener('change', event => {
+            if (!(event.target instanceof HTMLSelectElement) || !event.target.matches('[data-dir-visible-count]')) return;
+            requestedVisiblePanelCount = event.target.value === 'fit' ? 'fit' : Number(event.target.value);
+            writeVisiblePanelPreference(safePreferenceStorage(), requestedVisiblePanelCount);
+            applyDirectoryStripLayout();
+        });
         dirView.addEventListener('click', (event) => {
+            const direction = event.target instanceof Element ? event.target.closest('[data-dir-strip-direction]') : null;
+            if (direction && !direction.disabled) {
+                directoryVisibleStart += direction.dataset.dirStripDirection === 'next' ? 1 : -1;
+                applyDirectoryStripLayout();
+                return;
+            }
             const target = event.target instanceof Element
                 ? event.target.closest('[data-dir-add-side], [data-dir-remove-side]')
                 : null;
@@ -5282,6 +5342,72 @@ function initializeDirectoryViewEvents() {
     }
 }
 
+function applyDirectoryStripLayout() {
+    if (currentMode !== 'directory') return;
+    const view = getElement(VIEW_IDS.directory);
+    const rows = getElement('dir-rows');
+    const headers = view.querySelector('.dir-headers');
+    const columns = getDirectoryColumns();
+    if (!columns.length) return;
+    let controls = view.querySelector('[data-dir-strip-controls]');
+    if (!controls) {
+        controls = document.createElement('div');
+        controls.className = 'multi-strip-controls';
+        controls.setAttribute('data-dir-strip-controls', '');
+        controls.setAttribute('role', 'group');
+        controls.setAttribute('aria-label', 'Directory panel navigation');
+        controls.innerHTML = [
+            '<button class="multi-strip-button" type="button" data-dir-strip-direction="previous" aria-label="Previous directory panel" title="Previous directory panel">‹</button>',
+            '<span class="multi-strip-position" aria-live="polite" data-dir-strip-position></span>',
+            '<button class="multi-strip-button" type="button" data-dir-strip-direction="next" aria-label="Next directory panel" title="Next directory panel">›</button>',
+            '<label class="multi-strip-density">Visible panels <select data-dir-visible-count title="Number of panels to display; Fit adapts to available width"><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="fit">Fit</option></select></label>',
+            '<span class="multi-strip-fit" aria-live="polite" data-dir-strip-fit></span>'
+        ].join('');
+        headers.before(controls);
+    }
+    controls.hidden = columns.length <= 2 || headers.hidden;
+    if (columns.length <= 2) {
+        directoryStripLayout = null;
+        return;
+    }
+    if (headers.hidden) return;
+    const source = columns.find(column => !column.hidden);
+    const anchor = source ? directoryScrollTopToGlobalPosition(source.scrollTop,
+        buildDirectoryScrollMap(source, Number(source.dataset.sideIndex))) : 0;
+    directoryStripLayout = computeFocusedStripLayout({
+        panelCount: columns.length,
+        activePanelIndex: directoryVisibleStart,
+        activePairIndex: directoryVisibleStart,
+        previousVisibleStart: directoryVisibleStart,
+        viewportWidth: Math.max(1, view.clientWidth - 24),
+        requestedVisibleCount: requestedVisiblePanelCount
+    });
+    const visible = directoryStripLayout.visiblePanelIndexes;
+    directoryVisibleStart = visible[0];
+    const gutterWidth = directoryStripLayout?.gutterWidth ?? MULTI_GUTTER_WIDTH;
+    const template = visible.map(() => 'minmax(0, 1fr)').join(` ${gutterWidth}px `);
+    for (const track of [headers, rows]) {
+        track.style.gridTemplateColumns = template;
+        [...track.children].forEach((child, index) => {
+            const panel = Math.floor(index / 2);
+            child.hidden = !visible.includes(panel) || (index % 2 === 1 && !visible.includes(panel + 1));
+        });
+    }
+    suppressDirectoryScrollSync = true;
+    for (const index of visible) {
+        const column = columns[index];
+        column.scrollTop = globalPositionToDirectoryScrollTop(anchor, buildDirectoryScrollMap(column, index), column);
+    }
+    suppressDirectoryScrollSync = false;
+    controls.querySelector('[data-dir-visible-count]').value = String(requestedVisiblePanelCount);
+    controls.querySelector('[data-dir-strip-position]').textContent = `Panels ${visible[0] + 1}–${visible.at(-1) + 1} of ${columns.length}`;
+    controls.querySelector('[data-dir-strip-direction="previous"]').disabled = visible[0] === 0;
+    controls.querySelector('[data-dir-strip-direction="next"]').disabled = visible.at(-1) === columns.length - 1;
+    controls.querySelector('[data-dir-strip-fit]').textContent = directoryStripLayout?.limitedByWidth && requestedVisiblePanelCount !== 'fit'
+        ? `${requestedVisiblePanelCount} selected · ${visible.length} fit` : '';
+    connectorController.scheduleDrawConnections();
+}
+
 function attachDirectoryScrollSync() {
     const container = getElement('dir-rows');
     container.querySelectorAll('.dir-column').forEach((column) => {
@@ -5313,7 +5439,7 @@ function resetDirectoryScrollPositions() {
 }
 
 function syncDirectoryColumnsFromActive() {
-    const columns = getDirectoryColumns();
+    const columns = getDirectoryColumns().filter(column => !column.hidden);
     if (columns.length < 2) {
         return;
     }
@@ -5663,6 +5789,7 @@ function applyNavigationSidebarWidth() {
 
 function resizeDiffWorkspace() {
     applyFocusedStripLayout(false);
+    applyDirectoryStripLayout();
     layoutEditors();
     connectorController.resizeCanvas();
     connectorController.scheduleDrawConnections();

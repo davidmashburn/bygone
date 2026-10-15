@@ -22,6 +22,13 @@ labels and boilerplate, and against unrelated long values.
 `standalone/diffRegressionSmoke.js` checks actual painted whitespace, Monaco
 ranges, worker-computed diffs, two/three-panel scrolling, wrapping, and panel
 switching, and canvas pixels clipped to the editor bounds. It uses an isolated window rather than the installed desktop session.
+`standalone/multiHighlightSmoke.js` checks union paint against both adjacent
+models, exact word/line ownership, single painting of overlaps, both connector
+gutters, focus switching, selected-pair navigation, four panels with an unchanged
+pair, green additions/deletions and connectors, blue-over-green overlap priority,
+and two-way color preservation. Its Markdown is invented. Unit coverage
+also checks partial/nested/touching overlaps, unchanged gaps, annotation isolation,
+and immutable input ranges.
 Monaco must measure wrapped lines before assertions use their pixel geometry.
 
 The approach draws on [Meld's exact text-tag range tests](https://github.com/GNOME/meld/blob/main/test/test_filediff.py)
@@ -32,12 +39,19 @@ from the implementation to make a failure pass.
 
 # Panel density coverage
 
-`focusedStrip.test.js` covers the 2/3/4/Fit width boundaries, minimum movement,
+`focusedStrip.test.js` covers fixed 3/4 counts and adaptive 2/Fit width boundaries, minimum movement,
 uncapped Fit with five or more panels, end clamping, short scenes, and optional preference storage.
 `standalone/panelDensitySmoke.js`, run by `test:diff-renderer`, exercises real
 Monaco resizing, visible versus comparison-wide Find, stable models and
 selections, edits and undo, wrapped scroll anchors, connector endpoints,
-shorter scenes, and panel removal. The workspace smoke separately covers
+shorter scenes, and panel removal.
+Directory density shares the 2/3/4/Fit request with file views; renderer checks
+cover round trips, hidden-column navigation, fixed counts on resize, and
+two-column directories.
+Explicit three/four-input comparisons default to all inputs even at narrow widths;
+renderer coverage checks defaults over a saved two-panel choice, refresh stability,
+and directory drill-down/return preservation after a manual choice.
+The workspace smoke separately covers
 forward, backward, interrupted, and immediate strip transitions.
 
 # Tour presentation coverage
