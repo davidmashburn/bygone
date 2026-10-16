@@ -9,6 +9,7 @@ const { runPanelOrderSmoke } = require('./panelOrderSmoke');
 const { runPanelDensitySmoke } = require('./panelDensitySmoke');
 const { runGutterCopySmoke } = require('./gutterCopySmoke');
 const { runSelectionHighlightSmoke } = require('./selectionHighlightSmoke');
+const { runInitialRevealSmoke } = require('./initialRevealSmoke');
 const { yamlDiffFixture } = require('../test/yamlDiffFixture');
 
 app.whenReady().then(async () => {
@@ -44,10 +45,17 @@ app.whenReady().then(async () => {
         const ready = message(p => p.type === 'ready');
         await window.loadFile(path.resolve(__dirname, 'index.html'));
         await ready;
+        await runInitialRevealSmoke({ window, show });
         const fixture = yamlDiffFixture();
         const leftContent = fixture.before.join('\n');
         const rightContent = fixture.after.join('\n');
+        // Exact alignment is the subject of this large-fixture test. The worker's
+        // 100ms production budget may legitimately choose a fallback on CI.
+        // Small worker-computed fixtures below cover the asynchronous path.
         const diffModel = buildTwoWayDiffModel(leftContent, rightContent, {timeoutMs: 3000});
+        const reverseDiffModel = buildTwoWayDiffModel(rightContent, leftContent, {timeoutMs: 3000});
+        assert.equal(diffModel.quality, 'exact');
+        assert.equal(reverseDiffModel.quality, 'exact');
         const editors = 'window.monaco.editor.getEditors()';
         async function assertWhitespacePaint(side) {
             await evaluate(`${editors}[${side}].revealLineInCenter(163, 1)`);
@@ -100,12 +108,12 @@ app.whenReady().then(async () => {
         }
         for (const count of [2, 3, 2]) {
             if (count === 2) {
-                await show({ type: 'showDiff', file1: 'before.yaml', file2: 'after.yaml', leftContent, rightContent, diffModel: request === 0 ? diffModel : undefined });
+                await show({ type: 'showDiff', file1: 'before.yaml', file2: 'after.yaml', leftContent, rightContent, diffModel });
             } else {
                 const panels = [leftContent, rightContent, leftContent].map((content, index) => ({ id: `panel-${index}`, label: `panel-${index}.yaml`, content, editable: false }));
                 await show({ type: 'showMultiDiff', panels, pairs: [
                     { leftIndex: 0, rightIndex: 1, diffModel },
-                    { leftIndex: 1, rightIndex: 2, diffModel: buildTwoWayDiffModel(rightContent, leftContent, {timeoutMs: 3000}) }
+                    { leftIndex: 1, rightIndex: 2, diffModel: reverseDiffModel }
                 ] });
             }
             assert.equal(await evaluate(`${editors}.length`), count);
@@ -128,7 +136,8 @@ app.whenReady().then(async () => {
             }
             await assertWhitespacePaint(1);
         }
-        await show({ type: 'showDiff', file1: 'after.yaml', file2: 'before.yaml', leftContent: rightContent, rightContent: leftContent });
+        await show({ type: 'showDiff', file1: 'after.yaml', file2: 'before.yaml', leftContent: rightContent, rightContent: leftContent,
+            diffModel: reverseDiffModel });
         await assertWhitespacePaint(0);
         for (const [leftContent, rightContent, expected] of [
             ['freeze', 'freezeSet', [[], [[7, 10]]]],

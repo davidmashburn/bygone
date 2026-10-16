@@ -4779,9 +4779,6 @@ function pollDirectoryHistoryDrilldownSmoke() {
 
     void mainWindow.webContents.executeJavaScript(`(() => {
         const editors = window.monaco?.editor.getEditors() || [];
-        // Hidden CI windows may defer paint after scrolling. Flush the view
-        // without changing the selection or scroll position being tested.
-        editors.forEach((editor) => editor.render(true));
         return {
             directoryHistoryDrilldown: true,
             fileInfo: document.getElementById('file-info')?.textContent,

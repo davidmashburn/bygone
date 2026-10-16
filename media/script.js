@@ -2514,6 +2514,9 @@ function moveFocusedStrip(direction, notifyHost = true) {
 }
 
 function revealFirstMultiPanelChanges() {
+    // Initial navigation supersedes any resize anchor captured before diff work
+    // completed. A queued layout frame must not restore that old top-of-file view.
+    pendingMultiLayoutAnchors = null;
     multiEditors.forEach((editor, panelIndex) => {
         const pair = multiDiffPairs[panelIndex === 0 ? 0 : panelIndex - 1];
         const block = pair?.diffModel?.blocks?.[0];
