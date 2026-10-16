@@ -3012,7 +3012,7 @@ function testReleasePrepInstallsAndGracefullyRestartsLocalArtifacts() {
     assert.match(releaseWorkflow, /tags: \["v\*"\]/);
     assert.match(releaseWorkflow, /id-token: write/);
     assert.match(releaseWorkflow, /environment: npm-publish/);
-    assert.match(releaseWorkflow, /Tag \$GITHUB_REF_NAME does not match package\.json version \$pkg/);
+    assert.match(releaseWorkflow, /Tag \$RELEASE_TAG does not match package\.json version \$pkg/);
     assert.match(releaseWorkflow, /repository\.url is '\$actual', expected '\$expected'/);
     assert.match(releaseWorkflow, /run: npm run release:check/);
     assert.match(releaseWorkflow, /run: npm publish \.\/dist\/npm-package --access public/);
