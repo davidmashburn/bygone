@@ -4777,16 +4777,28 @@ function pollDirectoryHistoryDrilldownSmoke() {
         return;
     }
 
-    void mainWindow.webContents.executeJavaScript(`(() => ({
-        directoryHistoryDrilldown: true,
-        fileInfo: document.getElementById('file-info')?.textContent,
-        changePosition: document.getElementById('change-position')?.textContent,
-        panelPositions: [...document.querySelectorAll('.multi-pane-position')].map((element) => element.textContent),
-        decoratedLineCount: document.querySelectorAll('.bygone-paired-line, .bygone-one-sided-line').length,
-        visibleChangePaneCount: [...document.querySelectorAll('.multi-pane-content .view-lines')]
-            .filter((element) => element.textContent.includes('alpha')).length,
-        diffWorkerUrl: window.__BYGONE_HOST__?.diffWorkerUrl
-    }))()`)
+    void mainWindow.webContents.executeJavaScript(`(() => {
+        const editors = window.monaco?.editor.getEditors() || [];
+        // Hidden CI windows may defer paint after scrolling. Flush the view
+        // without changing the selection or scroll position being tested.
+        editors.forEach((editor) => editor.render(true));
+        return {
+            directoryHistoryDrilldown: true,
+            fileInfo: document.getElementById('file-info')?.textContent,
+            changePosition: document.getElementById('change-position')?.textContent,
+            panelPositions: [...document.querySelectorAll('.multi-pane-position')].map((element) => element.textContent),
+            decoratedLineCount: document.querySelectorAll('.bygone-paired-line, .bygone-one-sided-line').length,
+            visibleChangePaneCount: [...document.querySelectorAll('.multi-pane-content .view-lines')]
+                .filter((element) => element.textContent.includes('alpha')).length,
+            diffWorkerUrl: window.__BYGONE_HOST__?.diffWorkerUrl,
+            editorPositions: editors.map((editor) => ({
+                scrollTop: editor.getScrollTop(),
+                visibleRanges: editor.getVisibleRanges(),
+                height: editor.getLayoutInfo().height,
+                position: editor.getPosition()
+            }))
+        };
+    })()`)
         .then((snapshot) => {
             smokeProgress = snapshot;
             const ready = /^Change 1 of [1-9]\d*$/.test(snapshot.changePosition)
