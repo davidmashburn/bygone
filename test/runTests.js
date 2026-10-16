@@ -3950,14 +3950,14 @@ function testDirectoryDiffHandlesLargeTreeComparisons() {
     assert.equal(entries.find((entry) => entry.relativePath === 'module-0/segment-0/item-0.txt')?.status, 'modified');
 }
 
-function testInlineHighlightsSkipVeryLongLines() {
+function testInlineHighlightsLongLines() {
     const left = `const value = ${'a'.repeat(520)};\n`;
     const right = `const value = ${'a'.repeat(519)}b;\n`;
     const model = buildTwoWayDiffModel(left, right);
 
     assert.equal(model.blocks[0]?.kind, 'replace');
-    assert.equal(model.leftLines[0]?.segments, undefined);
-    assert.equal(model.rightLines[0]?.segments, undefined);
+    assert.deepEqual(model.leftLines[0].segments.filter(s => s.emphasis).map(s => s.text), ['a']);
+    assert.deepEqual(model.rightLines[0].segments.filter(s => s.emphasis).map(s => s.text), ['b']);
 }
 
 function testMergeAcceptsOneSidedChange() {
@@ -5110,7 +5110,7 @@ async function run() {
     testDirectoryDiffKeepsLargeIdenticalFilesSame();
     testDirectoryDiffUsesSameInodeShortcut();
     testDirectoryDiffHandlesLargeTreeComparisons();
-    testInlineHighlightsSkipVeryLongLines();
+    testInlineHighlightsLongLines();
     testMergeAcceptsOneSidedChange();
     testMergeAcceptsMatchingChanges();
     testMergeCreatesConflictForDivergentEdits();

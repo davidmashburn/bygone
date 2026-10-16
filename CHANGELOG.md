@@ -1,7 +1,14 @@
 # Changelog
 
-## 0.9.9
+## 0.10.0
 
+- Restored detailed highlighting for long prose and expanded instructions; unavailable word detail now has a uniform blue fill and an explanatory `≠` marker
+- Made line-ending and final-newline differences visible instead of reporting identical files
+- Unified overlapping multi-panel highlights without stacked fills, with optional focus on the selected comparison pair
+- Added comparison-panel reordering, reliable revision selection, separate windows for new comparisons, and preserved initial change reveal
+- Added file trees and changed-file filters across views, plus single-file and blank-panel comparisons
+- Added portable HTML tour exports, pinned screenshot evidence, clearer tour introductions and navigation, and explanation expectations and reader feedback
+- Added 2x narration playback and stabilized expanded playback controls
 - Improved long-line and rewrapped YAML matching, with independent field-prefix scoring and ambiguity checks
 - Merged touching blue change regions while preserving scroll anchors, and clipped gutter connectors to editor bounds
 - Added desktop section links for tours saved outside their repository
@@ -11,6 +18,9 @@
 - Unified window typography, surfaces, and control colors across tours, History, and Compare
 - Added automatic `+dev.N` versions for uncommitted local rebuilds without consuming release patch numbers
 - Bumped the tour authoring and compiled format to v4 and removed Review Notes; legacy sources offer conversion with review notes preserved in the tour flow
+
+macOS desktop downloads are unsigned and not notarized. If Gatekeeper reports
+the app as damaged, run `xattr -cr /Applications/Bygone.app`, then reopen it.
 
 ## 0.9.8
 

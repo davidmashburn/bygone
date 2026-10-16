@@ -1729,6 +1729,17 @@ button.file-header {
     border-radius: 2px;
 }
 
+.monaco-editor .bygone-uniform-line,
+.monaco-editor .bygone-uniform-line-whole {
+    background: rgba(79, 124, 255, 0.28);
+}
+
+.monaco-editor .bygone-inline-omitted::before {
+    content: '≠';
+    color: var(--vscode-editor-foreground);
+    font-weight: bold;
+}
+
 .monaco-editor .bygone-tour-anchor {
     background: rgba(154, 126, 255, 0.22);
     box-shadow: inset 3px 0 0 #b29dff;

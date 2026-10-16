@@ -33,6 +33,7 @@ function unionChangeDecorations(decorations) {
         const options = decoration.options || {};
         const inline = options.inlineClassName === 'bygone-inline-blue';
         const wholeLine = options.className === 'bygone-paired-line'
+            || options.className === 'bygone-uniform-line'
             || options.blockClassName === 'bygone-paired-line-outline'
             || options.className === 'bygone-one-sided-line'
             || options.blockClassName === 'bygone-one-sided-line-outline';
@@ -71,16 +72,26 @@ function unionChangeDecorations(decorations) {
     // A shared line may be inserted relative to one neighbor and replaced relative
     // to the other. Show replacement blue there, without stacking a green fill or
     // outline underneath. Focus mode naturally restores the selected pair's color.
-    const replacements = result.filter(d => d.options?.className === 'bygone-paired-line')
+    const uniform = result.filter(d => d.options?.className === 'bygone-uniform-line')
+        .map(d => d.range).sort((a, b) => a.startLineNumber - b.startLineNumber);
+    const replacements = result.filter(d => d.options?.className === 'bygone-paired-line'
+        || d.options?.className === 'bygone-uniform-line')
         .map(d => d.range).sort((a, b) => a.startLineNumber - b.startLineNumber);
     const resolved = result.flatMap(decoration => {
         const options = decoration.options || {};
+        // Uniform fallback owns the change fill on this line, including words
+        // highlighted by the other comparison. Pair focus restores its detail.
+        if (options.inlineClassName === 'bygone-inline-blue'
+            && uniform.some(r => r.startLineNumber <= decoration.range.startLineNumber
+                && r.endLineNumber >= decoration.range.endLineNumber)) return [];
+        const covered = options.className === 'bygone-paired-line' ? uniform : replacements;
         if (options.className !== 'bygone-one-sided-line'
+            && options.className !== 'bygone-paired-line'
             && options.blockClassName !== 'bygone-one-sided-line-outline') return [decoration];
         const range = decoration.range;
         const pieces = [];
         let start = range.startLineNumber;
-        for (const blue of replacements) {
+        for (const blue of covered) {
             if (blue.endLineNumber < start) continue;
             if (blue.startLineNumber > range.endLineNumber) break;
             if (blue.startLineNumber > start) pieces.push({ ...decoration, range: {

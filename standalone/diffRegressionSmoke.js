@@ -10,6 +10,7 @@ const { runPanelDensitySmoke } = require('./panelDensitySmoke');
 const { runGutterCopySmoke } = require('./gutterCopySmoke');
 const { runSelectionHighlightSmoke } = require('./selectionHighlightSmoke');
 const { runInitialRevealSmoke } = require('./initialRevealSmoke');
+const { runProseHighlightSmoke } = require('./proseHighlightSmoke');
 const { yamlDiffFixture } = require('../test/yamlDiffFixture');
 
 app.whenReady().then(async () => {
@@ -46,6 +47,7 @@ app.whenReady().then(async () => {
         await window.loadFile(path.resolve(__dirname, 'index.html'));
         await ready;
         await runInitialRevealSmoke({ window, show });
+        await runProseHighlightSmoke({ window, show });
         const fixture = yamlDiffFixture();
         const leftContent = fixture.before.join('\n');
         const rightContent = fixture.after.join('\n');

@@ -1,4 +1,4 @@
-import { dedupeDecorations, unionChangeDecorations } from './decorationUtils';
+import { unionChangeDecorations } from './decorationUtils';
 import { isCancellationError } from 'monaco-editor/esm/vs/base/common/errors.js';
 import { applyComparisonOrder, moveComparisonPanel, movedPanelPairIndex } from '../src/panelOrder';
 import { mapLinePosition, mapMultiPanelLinePositions, scrollTopToModelLinePosition, modelLinePositionToScrollTop } from './scrollMapping';
@@ -857,6 +857,8 @@ function computeTwoWayDiffAsync(leftContent, rightContent, comparisonKey, nextAc
 function updateTwoWayDiffOutcomeStatus(model) {
     if (model.quality === 'fallback') {
         setStatus('Showing simplified diff because exact comparison exceeded the time limit.', true);
+    } else if (model.formattingOnly) {
+        setStatus('Line endings or the final newline differ.', true);
     } else if (!model.hasChanges) {
         setStatus('Files are identical.', true);
     } else {
@@ -2774,8 +2776,8 @@ function applyDiffDecorations(diffModel, tourAnnotations = []) {
         pushTourAnnotationDecoration(target, editor, tourAnnotation);
     }
 
-    leftDecorationIds = leftEditor.deltaDecorations(leftDecorationIds, dedupeDecorations(leftDecorations));
-    rightDecorationIds = rightEditor.deltaDecorations(rightDecorationIds, dedupeDecorations(rightDecorations));
+    leftDecorationIds = leftEditor.deltaDecorations(leftDecorationIds, unionChangeDecorations(leftDecorations));
+    rightDecorationIds = rightEditor.deltaDecorations(rightDecorationIds, unionChangeDecorations(rightDecorations));
 }
 
 function applyMultiDiffDecorations(pairs) {
@@ -2947,6 +2949,22 @@ function addCollapsedBoundaryDecoration(target, anchorIndex, targetLineCount, cl
 
 function addInlineDecorations(target, lines, expectedKind, className) {
     for (const line of lines) {
+        if (line.inlineDetail === 'omitted') {
+            addLineDecorations(target, line.lineNumber - 1, line.lineNumber, 'bygone-uniform-line');
+        }
+        if (line.inlineDetail) {
+            const explanation = line.inlineDetail === 'line-ending'
+                ? 'The line ending or final newline differs.'
+                : 'Changed line; detailed word highlights unavailable.';
+            target.push({
+                range: new monacoInstance.Range(line.lineNumber, 1, line.lineNumber, 1),
+                options: {
+                    linesDecorationsClassName: 'bygone-inline-omitted',
+                    linesDecorationsTooltip: explanation,
+                    hoverMessage: { value: explanation }
+                }
+            });
+        }
         if (!line.segments) {
             continue;
         }

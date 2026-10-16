@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { buildTwoWayDiffModel, scoreReplacementLinePair, alignReplacementLines } = require('../out/diffEngine');
 const { yamlDiffFixture } = require('./yamlDiffFixture');
+const { proseDiffFixture } = require('./proseDiffFixture');
 const { mapLinePosition, mapMultiPanelLinePositions, scrollTopToModelLinePosition, modelLinePositionToScrollTop } = require('../media/scrollMapping');
 
 function assertPreserved(model, left, right) {
@@ -54,16 +55,130 @@ test('an edited condition wrapped across lines keeps word highlights in both dir
     }
 });
 
-test('wrapped inline comparison skips unrelated and oversized replacement blocks', () => {
+test('wrapped inline comparison handles rewrites and explicitly marks oversized replacements', () => {
     for (const [before, after] of [
         ['delete obsolete records', 'render fresh widgets\nlaunch colorful rockets'],
-        ['if ready and enabled:', `if (\n${' '.repeat(501)}ready and enabled\n):`]
+        ['if ready and enabled:', `if (\n${' '.repeat(20_001)}ready and enabled\n):`]
     ]) {
         for (const [left, right] of [[before, after], [after, before]]) {
             const model = buildTwoWayDiffModel(left, right);
             assertPreserved(model, left.split('\n'), right.split('\n'));
+            if (Math.max(left.length, right.length) < 20_000) {
+                assert.ok([...model.leftLines, ...model.rightLines].every(line => line.segments && !line.inlineDetail));
+                continue;
+            }
             assert.ok([...model.leftLines, ...model.rightLines].every(line => !line.segments));
+            for (const block of model.blocks.filter(block => block.kind === 'replace')) {
+                for (const side of ['left', 'right']) {
+                    assert.ok(model[`${side}Lines`].slice(block[`${side}Start`], block[`${side}End`])
+                        .every(line => line.inlineDetail === 'omitted'));
+                }
+            }
         }
+    }
+});
+
+test('small prose documents retain detailed edits through long paragraphs and expanded instructions', () => {
+    const { before, feedback, revision } = proseDiffFixture();
+    assert.ok(before[2].length > 500);
+    for (const [first, second, expected] of [
+        [before, feedback, ['laminated', 'purple', 'replacement parts', 'Monday']],
+        [feedback, revision, ['digital', 'orang', 'Tues']]
+    ]) {
+        for (const reverse of [false, true]) {
+            const [left, right] = reverse ? [second, first] : [first, second];
+            const model = buildTwoWayDiffModel(left.join('\n'), right.join('\n'));
+            assertPreserved(model, left, right);
+            assert.equal(model.hasChanges, true);
+            assert.equal(model.quality, 'exact');
+            assert.ok([...model.leftLines, ...model.rightLines].every(line => !line.inlineDetail),
+                'A small prose document must not omit detailed comparison');
+            const edited = reverse ? model.leftLines : model.rightLines;
+            for (const text of expected) {
+                const line = edited.find(line => line.content.includes(text));
+                const start = line.content.indexOf(text);
+                const ranges = emphasizedRanges(line);
+                for (let index = 0; index < text.length; index++) {
+                    if (/\s/.test(text[index])) continue;
+                    assert.ok(ranges.some(([a, b]) => a <= start + index && b > start + index), `Missing highlight for ${text}`);
+                }
+            }
+            const paragraph = edited[2];
+            assert.ok(paragraph.segments.some(s => !s.emphasis && s.text.includes('neighborhood workshop')),
+                'Shared prose must remain unhighlighted');
+            const instruction = expected.includes('laminated') && edited.find(line => line.content.includes('compare the reserved benches'));
+            if (instruction) {
+                assert.ok(instruction.segments.some(s => s.emphasis && s.text.includes('reserved benches')));
+                assert.ok(instruction.segments.some(s => !s.emphasis && s.text.includes('Check the register')));
+            }
+        }
+    }
+});
+
+test('long sparse edits get word highlights; bounded-out replacements get explicit markers', () => {
+    for (const length of [501, 2001, 9000, 20_001]) {
+        const shared = 'A workshop volunteer checks the equipment. '.repeat(Math.ceil(length / 42)).slice(0, length);
+        const left = `${shared} old label`;
+        const right = `${shared} new label`;
+        for (const pair of [[left, right], [right, left]]) {
+            const model = buildTwoWayDiffModel(...pair);
+            assertPreserved(model, [pair[0]], [pair[1]]);
+            assert.equal(model.hasChanges, true);
+            for (const line of [...model.leftLines, ...model.rightLines]) {
+                if (length > 20_000) {
+                    assert.equal(line.inlineDetail, 'omitted');
+                    assert.equal(line.segments, undefined);
+                } else {
+                    assert.equal(line.inlineDetail, undefined);
+                    assert.deepEqual(emphasizedRanges(line), [[shared.length + 1, shared.length + 4]]);
+                }
+            }
+        }
+    }
+});
+
+test('line-diff timeout preserves change status and exposes omitted word detail', () => {
+    const model = buildTwoWayDiffModel('First task\nSecond task', 'Different task\nAnother task', { timeoutMs: -1 });
+    assert.equal(model.quality, 'fallback');
+    assert.equal(model.hasChanges, true);
+    assert.ok([...model.leftLines, ...model.rightLines].every(line => line.inlineDetail === 'omitted'));
+});
+
+test('word-diff work limits cannot silently erase highlighting', () => {
+    // Below the character cap, but beyond the word edit-distance budget.
+    const left = Array.from({ length: 1100 }, (_, index) => `old${index}`).join(' ');
+    const right = Array.from({ length: 1100 }, (_, index) => `new${index}`).join(' ');
+    const model = buildTwoWayDiffModel(left, right);
+    assertPreserved(model, [left], [right]);
+    assert.equal(model.quality, 'exact', 'The line diff itself still completed');
+    assert.equal(model.hasChanges, true);
+    assert.ok([...model.leftLines, ...model.rightLines].every(line => line.inlineDetail === 'omitted'));
+});
+
+test('a pure insertion does not label the unchanged side as having skipped detail', () => {
+    const model = buildTwoWayDiffModel('Bring paper.', 'Bring blue paper.');
+    assert.deepEqual(emphasizedRanges(model.leftLines[0]), []);
+    assert.equal(model.leftLines[0].inlineDetail, undefined);
+    assert.ok(model.leftLines[0].segments.every(s => s.kind === 'context'));
+});
+
+test('line endings and final newlines cannot be reported as identical', () => {
+    for (const [before, after, changedLines] of [
+        ['First\nLast', 'First\nLast\n', [2]],
+        ['First\nLast\n', 'First\r\nLast\r\n', [1, 2]],
+        ['First\nLast\n', 'First\r\nLast\n', [1]],
+        ['\n', '\r\n', [1]]
+    ]) {
+        for (const pair of [[before, after], [after, before]]) {
+            const model = buildTwoWayDiffModel(...pair);
+            assert.equal(model.hasChanges, true);
+            assert.equal(model.formattingOnly, true);
+            assert.ok(model.blocks.length > 0, 'Formatting-only changes must be navigable');
+            for (const lines of [model.leftLines, model.rightLines]) {
+                assert.deepEqual(lines.filter(line => line.inlineDetail === 'line-ending').map(line => line.lineNumber), changedLines);
+            }
+        }
+        assert.equal(buildTwoWayDiffModel(before, before).hasChanges, false);
     }
 });
 
@@ -364,6 +479,8 @@ test('unrelated multiline edits share a blue block without inventing line matche
         assertPreserved(model, left, right);
         assert.deepEqual(model.blocks, [{kind: 'replace', leftStart: 0, leftEnd: left.length, rightStart: 0, rightEnd: right.length}]);
         assert.ok(model.rows.every(row => row.left.lineNumber === null || row.right.lineNumber === null));
+        assert.ok([...model.leftLines, ...model.rightLines].every(line => line.segments?.some(s => s.emphasis)
+            && !line.inlineDetail), 'Even an unmatched many-to-many rewrite receives exact word comparison');
     }
 });
 
@@ -405,6 +522,32 @@ test('multi-panel paint unions overlapping spans without shading unchanged gaps'
     assert.deepEqual(unionChangeDecorations([]), []);
 });
 
+
+test('uniform fallback replaces other change fills while preserving markers and annotations', () => {
+    const { unionChangeDecorations } = require('../media/decorationUtils');
+    const paint = (start, end, options) => ({ range: { startLineNumber: start, startColumn: 1,
+        endLineNumber: end, endColumn: Number.MAX_SAFE_INTEGER }, options });
+    const uniform = paint(3, 3, { className: 'bygone-uniform-line', isWholeLine: true });
+    const paired = paint(2, 4, { className: 'bygone-paired-line', isWholeLine: true });
+    const green = paint(1, 5, { className: 'bygone-one-sided-line', isWholeLine: true });
+    const word = paint(3, 3, { inlineClassName: 'bygone-inline-blue' });
+    const marker = paint(3, 3, { linesDecorationsClassName: 'bygone-inline-omitted' });
+    const tour = paint(3, 3, { className: 'bygone-tour-anchor' });
+    const input = [paired, green, uniform, uniform, word, marker, tour];
+    const saved = JSON.stringify(input);
+    const output = unionChangeDecorations(input);
+    assert.equal(JSON.stringify(input), saved);
+    for (let line = 1; line <= 5; line++) {
+        const fills = output.filter(d => /bygone-(paired|one-sided|uniform)-line$/.test(d.options.className)
+            && d.range.startLineNumber <= line && d.range.endLineNumber >= line);
+        assert.equal(fills.length, 1, `Line ${line} has one change fill`);
+        assert.equal(fills[0].options.className, line === 3 ? 'bygone-uniform-line'
+            : line === 2 || line === 4 ? 'bygone-paired-line' : 'bygone-one-sided-line');
+    }
+    assert.ok(!output.some(d => d.options.inlineClassName === 'bygone-inline-blue'));
+    assert.ok(output.includes(marker) && output.includes(tour));
+    assert.deepEqual(unionChangeDecorations([paired, word]), [paired, word], 'Pair focus restores precise detail');
+});
 
 test('multi-panel union preserves green blocks and resolves only replacement overlaps to blue', () => {
     const { unionChangeDecorations } = require('../media/decorationUtils');

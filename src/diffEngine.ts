@@ -18,6 +18,7 @@ export interface DiffLine {
     content: string;
     lineNumber: number;
     segments?: DiffSegment[];
+    inlineDetail?: 'omitted' | 'line-ending';
 }
 
 export interface DiffSegment {
@@ -43,6 +44,7 @@ export interface TwoWayDiffModel {
     reflows?: DiffBlock[];
     hasChanges: boolean;
     quality: 'exact' | 'fallback';
+    formattingOnly?: boolean;
 }
 
 export interface ThreeWayMergeModel {
@@ -64,7 +66,7 @@ export interface DiffBuildOptions {
     timeoutMs?: number;
 }
 
-const DEFAULT_MAX_INLINE_HIGHLIGHT_LINE_LENGTH = 500;
+const DEFAULT_MAX_INLINE_HIGHLIGHT_LINE_LENGTH = 20_000;
 const DEFAULT_DIFF_TIMEOUT_MS = 100;
 const MAX_INLINE_HIGHLIGHT_LINE_LENGTH = readPositiveIntegerEnv(
     'BYGONE_MAX_INLINE_HIGHLIGHT_LINE_LENGTH',
@@ -82,6 +84,24 @@ export function buildTwoWayDiffModel(
 
     if (leftContent === rightContent) {
         return buildIdenticalTwoWayDiffModel(leftLines);
+    }
+    if (leftLines.length === rightLines.length && leftLines.every((line, index) => line === rightLines[index])) {
+        // The editors normalize line endings and omit the terminal empty line.
+        // Preserve that coordinate system, but never call different files identical.
+        const model = buildIdenticalTwoWayDiffModel(leftLines);
+        const rawLeft = leftContent.match(/[^\n]*\n|[^\n]+$/g) || [];
+        const rawRight = rightContent.match(/[^\n]*\n|[^\n]+$/g) || [];
+        leftLines.forEach((_, index) => {
+            if (rawLeft[index] === rawRight[index]) return;
+            model.leftLines[index].kind = model.rows[index].left.kind = 'removed';
+            model.rightLines[index].kind = model.rows[index].right.kind = 'added';
+            model.leftLines[index].inlineDetail = model.rightLines[index].inlineDetail = 'line-ending';
+            model.blocks.push(makeDiffBlock('replace', index, index + 1, index, index + 1));
+        });
+        model.blocks = mergeTouchingBlocks(model.blocks);
+        model.hasChanges = true;
+        model.formattingOnly = true;
+        return model;
     }
 
     const interned = internDiffLines(leftLines, rightLines);
@@ -173,7 +193,7 @@ export function buildTwoWayDiffModel(
 
     const hasChanges = rows.some((row) => row.left.kind !== 'context' || row.right.kind !== 'context');
 
-    return {
+    return markUndetailedReplacements({
         rows,
         leftLines: renderedLeftLines,
         rightLines: renderedRightLines,
@@ -181,7 +201,23 @@ export function buildTwoWayDiffModel(
         reflows: blocks.filter(block => block.reflow),
         hasChanges,
         quality: 'exact'
-    };
+    });
+}
+
+// Missing segments must never silently imply that a replacement is unchanged.
+// Exact comparisons can legitimately have no emphasized characters on one side
+// (for example, a pure insertion); those still have explicit context segments.
+function markUndetailedReplacements(model: TwoWayDiffModel): TwoWayDiffModel {
+    for (const block of model.blocks) {
+        if (block.kind !== 'replace') continue;
+        for (const side of ['left', 'right'] as const) {
+            for (let index = block[`${side}Start`]; index < block[`${side}End`]; index++) {
+                const line = model[`${side}Lines`][index];
+                if (line.kind !== 'context' && !line.segments) line.inlineDetail = 'omitted';
+            }
+        }
+    }
+    return model;
 }
 
 // Visual/navigation regions can merge without losing paragraph scroll anchors.
@@ -278,7 +314,7 @@ function buildConservativeTwoWayDiffModel(leftLines: string[], rightLines: strin
         blockKind = 'delete';
     }
 
-    return {
+    return markUndetailedReplacements({
         rows,
         leftLines: renderedLeftLines,
         rightLines: renderedRightLines,
@@ -287,7 +323,7 @@ function buildConservativeTwoWayDiffModel(leftLines: string[], rightLines: strin
             : [makeDiffBlock(blockKind, 0, leftLines.length, 0, rightLines.length)],
         hasChanges: rows.length > 0,
         quality: 'fallback'
-    };
+    });
 }
 
 export function mergeText(baseContent: string, leftContent: string, rightContent: string): ThreeWayMergeModel {
@@ -490,8 +526,13 @@ function appendReplacementCandidate(
     }
     let leftLineNumber = initialLeftLineNumber;
     let rightLineNumber = initialRightLineNumber;
-    const candidateLeftStart = renderedLeftLines.length;
-    const candidateRightStart = renderedRightLines.length;
+    let unmatchedLeft: DiffLine[] = [];
+    let unmatchedRight: DiffLine[] = [];
+    const flushUnmatched = (): void => {
+        applyWrappedReplacementHighlights(unmatchedLeft, unmatchedRight);
+        unmatchedLeft = [];
+        unmatchedRight = [];
+    };
     let blockKind: DiffBlock['kind'] | undefined;
     let blockReflow = false;
     let blockLeftStart = renderedLeftLines.length;
@@ -510,6 +551,9 @@ function appendReplacementCandidate(
     };
 
     for (const { left, right, reflow } of normalized) {
+        // Established pairs are anchors: a word comparison across them could
+        // steal shared words from a different inserted/deleted statement.
+        if (reflow || (left !== undefined && right !== undefined)) flushUnmatched();
         const nextKind: DiffBlock['kind'] = coherentBlock || reflow
             ? 'replace'
             : left !== undefined && right !== undefined
@@ -542,6 +586,10 @@ function appendReplacementCandidate(
             if (renderedLeftLine) applyFullLineHighlight(renderedLeftLine);
             if (renderedRightLine) applyFullLineHighlight(renderedRightLine);
         }
+        if (!reflow && (left === undefined || right === undefined)) {
+            if (renderedLeftLine) unmatchedLeft.push(renderedLeftLine);
+            if (renderedRightLine) unmatchedRight.push(renderedRightLine);
+        }
         rows.push(makeDiffRow(
             left === undefined
                 ? makePlaceholder()
@@ -552,12 +600,7 @@ function appendReplacementCandidate(
         ));
     }
     flushBlock();
-    if (!aligned.some(row => row.reflow)) {
-        applyWrappedReplacementHighlights(
-            renderedLeftLines.slice(candidateLeftStart),
-            renderedRightLines.slice(candidateRightStart)
-        );
-    }
+    flushUnmatched();
     return { left: leftLineNumber, right: rightLineNumber };
 }
 
@@ -669,8 +712,7 @@ export function alignReplacementLines(leftLines: string[], rightLines: string[])
         const whitespace = buildWhitespaceOnlySegments(row.left!, row.right!);
         // Bound the word diff for substantive edits; whitespace-only reflows
         // remain linear even for very large paragraphs.
-        const segments = whitespace || (row.left!.length + row.right!.length <= 20_000
-            ? buildInlineSegments(row.left!, row.right!) : undefined);
+        const segments = whitespace || buildInlineSegments(row.left!, row.right!);
         const leftSegments = segments && splitSegmentsIntoLines(segments.leftSegments);
         const rightSegments = segments && splitSegmentsIntoLines(segments.rightSegments);
         return Array.from({length: Math.max(left.length, right.length)}, (_, index) => ({
@@ -1451,38 +1493,34 @@ function applyInlineHighlightPair(leftLine: DiffLine, rightLine: DiffLine): void
     // Whitespace-only changes need no quadratic diff, even on very long lines.
     const whitespace = buildWhitespaceOnlySegments(leftLine.content, rightLine.content);
     if (whitespace) {
-        if (leftLine.content !== rightLine.content) {
-            leftLine.segments = whitespace.leftSegments;
-            rightLine.segments = whitespace.rightSegments;
-        }
-        return;
-    }
-    if (leftLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH
-        || rightLine.content.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH) {
+        leftLine.segments = whitespace.leftSegments;
+        rightLine.segments = whitespace.rightSegments;
         return;
     }
 
-    const { leftSegments, rightSegments, hasInlineChanges } = buildInlineSegments(leftLine.content, rightLine.content);
-    if (hasInlineChanges) {
-        leftLine.segments = leftSegments;
-        rightLine.segments = rightSegments;
+    const segments = buildInlineSegments(leftLine.content, rightLine.content);
+    if (segments) {
+        leftLine.segments = segments.leftSegments;
+        rightLine.segments = segments.rightSegments;
     }
 }
 
 function applyWrappedReplacementHighlights(leftLines: DiffLine[], rightLines: DiffLine[]): void {
-    // A short statement can expand across lines without any physical line being
-    // a credible match. Compare the whole statement for emphasis only; preserve
+    // Prose or a statement can expand across lines without any physical line
+    // being a credible match. Compare the unmatched gap for emphasis only; preserve
     // the conservative rows and scroll mapping established by the line matcher.
-    if (!((leftLines.length === 1 && rightLines.length > 1)
-        || (rightLines.length === 1 && leftLines.length > 1))) return;
+    if (!leftLines.length || !rightLines.length
+        || (leftLines.length === 1 && rightLines.length === 1)) return;
     const length = (lines: DiffLine[]): number => lines.reduce((total, line) => total + line.content.length + 1, -1);
     if (length(leftLines) > MAX_INLINE_HIGHLIGHT_LINE_LENGTH
         || length(rightLines) > MAX_INLINE_HIGHLIGHT_LINE_LENGTH) return;
     const left = leftLines.map(line => line.content).join('\n');
     const right = rightLines.map(line => line.content).join('\n');
-    const flatten = (text: string): string => text.replace(/\s+/g, ' ').trim();
-    if (!scoreReplacementLinePair(flatten(left), flatten(right)).eligible) return;
-    const { leftSegments, rightSegments } = buildInlineSegments(left, right);
+    // Line similarity decides alignment, not whether real word edits deserve
+    // emphasis. Even a substantial rewrite can be compared exactly in this gap.
+    const segments = buildInlineSegments(left, right);
+    if (!segments) return;
+    const { leftSegments, rightSegments } = segments;
     const leftParts = splitSegmentsIntoLines(leftSegments);
     const rightParts = splitSegmentsIntoLines(rightSegments);
     leftLines.forEach((line, index) => { line.segments = leftParts[index]; });
@@ -1520,8 +1558,10 @@ function trimReplacementEdges(left: string, right: string): Diff.Change<string>[
     ].filter(change => change.value.length > 0);
 }
 
-function edgeTrimmedWordChanges(left: string, right: string): Diff.Change<string>[] {
-    const words = Diff.diffWordsWithSpace(left, right);
+function edgeTrimmedWordChanges(left: string, right: string): Diff.Change<string>[] | undefined {
+    // Bound expensive rewrites by actual edit work, not a paragraph-sized cutoff.
+    const words = Diff.diffWordsWithSpace(left, right, { timeout: DIFF_TIMEOUT_MS, maxEditLength: 2000 });
+    if (!words) return undefined;
     const boundaries = (text: string): Set<number> => new Set([
         ...Array.from(inlineGraphemes.segment(text), part => part.index), text.length
     ]);
@@ -1579,8 +1619,11 @@ function buildInlineSegments(
     leftSegments: DiffSegment[];
     rightSegments: DiffSegment[];
     hasInlineChanges: boolean;
-} {
+} | undefined {
+    if (leftContent.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH
+        || rightContent.length > MAX_INLINE_HIGHLIGHT_LINE_LENGTH) return undefined;
     const changes = edgeTrimmedWordChanges(leftContent, rightContent);
+    if (!changes) return undefined;
     const leftSegments: DiffSegment[] = [];
     const rightSegments: DiffSegment[] = [];
     let hasInlineChanges = false;

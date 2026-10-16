@@ -13,4 +13,5 @@ declare module 'diff' {
     export function diffArrays<T>(oldArr: T[], newArr: T[], options?: DiffOptions): Change<T[]>[] | undefined;
     export function diffChars(oldStr: string, newStr: string): Change<string>[];
     export function diffWordsWithSpace(oldStr: string, newStr: string): Change<string>[];
+    export function diffWordsWithSpace(oldStr: string, newStr: string, options: DiffOptions): Change<string>[] | undefined;
 }
