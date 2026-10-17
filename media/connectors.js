@@ -31,6 +31,7 @@
         let pointer = null;
         let selectedBlock = null;
         let selectedPairIndex = null;
+        const blockIndexes = new WeakMap();
 
         return {
             initializeCanvas,
@@ -143,8 +144,9 @@
             }
 
             const container = options.getElement('diff-container');
-            connectionCanvas.width = container.clientWidth;
-            connectionCanvas.height = container.clientHeight;
+            // Assigning even the same size clears the backing store.
+            if (connectionCanvas.width !== container.clientWidth) connectionCanvas.width = container.clientWidth;
+            if (connectionCanvas.height !== container.clientHeight) connectionCanvas.height = container.clientHeight;
         }
 
         function scheduleDrawConnections() {
@@ -193,13 +195,20 @@
                 return;
             }
 
+            // Scroll events describe model state, which may precede Monaco's DOM
+            // render. Flush pending text, decoration and margin updates before
+            // taking the geometry snapshot used by this canvas frame.
+            leftEditor.render();
+            rightEditor.render();
             const diffBlocks = options.getDiffBlocks();
             const containerRect = connectionCanvas.getBoundingClientRect();
             const leftRect = leftEditor.getDomNode().getBoundingClientRect();
             const rightRect = rightEditor.getDomNode().getBoundingClientRect();
+            const gradients = new Map();
 
-            clipEditorViewport(leftRect, rightRect, containerRect, containerRect);
-            diffBlocks.forEach((block) => {
+            // Monaco owns pane outlines and boundary markers in both modes.
+            clipEditorViewport(leftRect, rightRect, containerRect, containerRect, true);
+            visibleBlocks(diffBlocks, leftEditor, rightEditor).forEach((block) => {
                 drawBlockRegion(
                     block,
                     leftEditor,
@@ -208,7 +217,8 @@
                     rightRect,
                     containerRect,
                     null,
-                    containerRect
+                    containerRect,
+                    gradients
                 );
             });
             canvasContext.restore();
@@ -234,27 +244,33 @@
 
             const containerRect = connectionCanvas.getBoundingClientRect();
             const viewportRect = options.getElement('multi-way-diff').getBoundingClientRect();
+            const editorRects = new Map();
+            const pairs = state.pairs.map((pair, pairIndex) => ({ pair, pairIndex })).filter(({ pairIndex }) =>
+                (!state.focusSelectedPair || pairIndex === state.activePairIndex)
+                && (!state.visiblePairIndexes || state.visiblePairIndexes.includes(pairIndex)));
+            const editors = new Set(pairs.flatMap(({ pair }) => [state.editors[pair.leftIndex], state.editors[pair.rightIndex]]).filter(Boolean));
+            for (const editor of editors) editor.render();
+            for (const editor of editors) editorRects.set(editor, editor.getDomNode().getBoundingClientRect());
 
-            state.pairs.forEach((pair, pairIndex) => {
-                if (state.focusSelectedPair && pairIndex !== state.activePairIndex) return;
-                if (state.visiblePairIndexes && !state.visiblePairIndexes.includes(pairIndex)) return;
+            pairs.forEach(({ pair, pairIndex }) => {
                 const leftEditor = state.editors[pair.leftIndex];
                 const rightEditor = state.editors[pair.rightIndex];
                 if (!leftEditor || !rightEditor) {
                     return;
                 }
 
-                const leftRect = leftEditor.getDomNode().getBoundingClientRect();
-                const rightRect = rightEditor.getDomNode().getBoundingClientRect();
+                const leftRect = editorRects.get(leftEditor);
+                const rightRect = editorRects.get(rightEditor);
                 const leftVisibleWidth = Math.max(0, Math.min(leftRect.right, viewportRect.right) - Math.max(leftRect.left, viewportRect.left));
                 const rightVisibleWidth = Math.max(0, Math.min(rightRect.right, viewportRect.right) - Math.max(rightRect.left, viewportRect.left));
                 if (leftVisibleWidth === 0 || rightVisibleWidth === 0) {
                     return;
                 }
 
+                const gradients = new Map();
                 // Monaco owns the union outline inside each pane; canvas owns each pair's gutter.
                 clipEditorViewport(leftRect, rightRect, containerRect, viewportRect, true);
-                (pair.diffModel?.blocks || []).forEach((block) => {
+                visibleBlocks(pair.diffModel?.blocks || [], leftEditor, rightEditor).forEach((block) => {
                     drawBlockRegion(
                         block,
                         leftEditor,
@@ -263,11 +279,63 @@
                         rightRect,
                         containerRect,
                         pairIndex,
-                        viewportRect
+                        viewportRect,
+                        gradients
                     );
                 });
                 canvasContext.restore();
             });
+        }
+
+        function visibleBlocks(blocks, leftEditor, rightEditor) {
+            const leftRanges = leftEditor.getVisibleRanges();
+            const rightRanges = rightEditor.getVisibleRanges();
+            if (!blocks.length || !leftRanges.length || !rightRanges.length) return blocks;
+
+            let index = blockIndexes.get(blocks);
+            if (!index) {
+                // Prefix ends and suffix starts allow conservative binary searches
+                // even for overlapping ranges. Cache model coordinates only: live
+                // Monaco geometry still accounts for wrapping, folding and resizing.
+                index = { leftEnds: [], rightEnds: [], leftStarts: [], rightStarts: [] };
+                for (const side of ['left', 'right']) {
+                    let end = -Infinity;
+                    let start = Infinity;
+                    for (let i = 0; i < blocks.length; i++) {
+                        end = Math.max(end, blocks[i][`${side}End`]);
+                        index[`${side}Ends`][i] = end;
+                        const j = blocks.length - 1 - i;
+                        start = Math.min(start, blocks[j][`${side}Start`]);
+                        index[`${side}Starts`][j] = start;
+                    }
+                }
+                blockIndexes.set(blocks, index);
+            }
+            // Include neighboring lines for collapsed insertion/deletion markers.
+            // EOF ranges can be clamped by Monaco while an edited diff is pending.
+            const rangeBounds = (ranges, editor) => ({
+                first: ranges[0].startLineNumber - 2,
+                last: ranges[ranges.length - 1].endLineNumber >= editor.getModel().getLineCount()
+                    ? Infinity : ranges[ranges.length - 1].endLineNumber + 1
+            });
+            const left = rangeBounds(leftRanges, leftEditor);
+            const right = rangeBounds(rightRanges, rightEditor);
+            const first = lowerBound(blocks.length, i => index.leftEnds[i] >= left.first || index.rightEnds[i] >= right.first);
+            const end = lowerBound(blocks.length, i => index.leftStarts[i] > left.last && index.rightStarts[i] > right.last);
+            // A connector crossing the viewport must survive even when neither
+            // endpoint is visible. Only discard it when BOTH sides are above/below.
+            return blocks.slice(first, end);
+        }
+
+        function lowerBound(length, predicate) {
+            let lo = 0;
+            let hi = length;
+            while (lo < hi) {
+                const mid = (lo + hi) >>> 1;
+                if (predicate(mid)) hi = mid;
+                else lo = mid + 1;
+            }
+            return lo;
         }
 
         function drawDirectoryConnections() {
@@ -512,7 +580,7 @@
             return Boolean(row) && row.offsetParent !== null;
         }
 
-        function drawBlockRegion(block, leftEditor, rightEditor, leftRect, rightRect, containerRect, pairIndex, viewportRect) {
+        function drawBlockRegion(block, leftEditor, rightEditor, leftRect, rightRect, containerRect, pairIndex, viewportRect, gradients) {
             const leftBounds = getBlockBounds(leftEditor, block.leftStart, block.leftEnd, leftRect, containerRect, true);
             const rightBounds = getBlockBounds(rightEditor, block.rightStart, block.rightEnd, rightRect, containerRect, false);
 
@@ -520,9 +588,20 @@
                 return;
             }
 
+            const top = Math.max(leftRect.top, rightRect.top, viewportRect.top) - containerRect.top;
+            const bottom = Math.min(leftRect.bottom, rightRect.bottom, viewportRect.bottom) - containerRect.top;
+            if (Math.max(leftBounds.bottom, rightBounds.bottom) < top - 2
+                || Math.min(leftBounds.top, rightBounds.top) > bottom + 2) return;
+
             const cpOffset = (rightBounds.x - leftBounds.x) * 0.35;
             const color = BLOCK_COLORS[block.kind] || BLOCK_COLORS.replace;
-            const gradient = canvasContext.createLinearGradient(leftBounds.x, 0, rightBounds.x, 0);
+            let gradient = gradients.get(block.kind);
+            if (!gradient) {
+                gradient = canvasContext.createLinearGradient(leftBounds.x, 0, rightBounds.x, 0);
+                gradient.addColorStop(0, color.leftFill);
+                gradient.addColorStop(1, color.rightFill);
+                gradients.set(block.kind, gradient);
+            }
             const collapsesLeft = block.kind === 'insert';
             const collapsesRight = block.kind === 'delete';
 
@@ -537,9 +616,6 @@
                 rightBounds.top = center;
                 rightBounds.bottom = center;
             }
-
-            gradient.addColorStop(0, color.leftFill);
-            gradient.addColorStop(1, color.rightFill);
 
             const path = new Path2D();
             path.moveTo(leftBounds.x, leftBounds.top);
@@ -556,8 +632,6 @@
             );
             path.closePath();
 
-            const top = Math.max(leftRect.top, rightRect.top, viewportRect.top) - containerRect.top;
-            const bottom = Math.min(leftRect.bottom, rightRect.bottom, viewportRect.bottom) - containerRect.top;
             const left = Math.max(leftRect.right, viewportRect.left) - containerRect.left;
             const right = Math.min(rightRect.left, viewportRect.right) - containerRect.left;
             if (right - left >= 52 && bottom - top >= 24) {
@@ -571,21 +645,7 @@
             canvasContext.fillStyle = gradient;
             canvasContext.fill(path);
 
-            if (block.kind === 'replace') {
-                strokeReplaceBlockOutline(leftBounds, rightBounds, cpOffset, leftRect, rightRect, containerRect, color.stroke);
-                return;
-            }
-
             strokeConnectorEdges(leftBounds, rightBounds, cpOffset, color.stroke);
-            strokeBlockOutline(color.stroke, leftBounds, rightBounds, leftRect, rightRect, containerRect);
-
-            if (collapsesLeft) {
-                drawBoundaryGuide(leftRect, containerRect, leftBounds.top, color.stroke);
-            }
-
-            if (collapsesRight) {
-                drawBoundaryGuide(rightRect, containerRect, rightBounds.top, color.stroke);
-            }
         }
 
         function getBlockBounds(editor, start, end, editorRect, containerRect, useRightEdge) {
@@ -654,26 +714,7 @@
         }
 
         function strokeReplaceBlockOutline(leftBounds, rightBounds, cpOffset, leftRect, rightRect, containerRect, color) {
-            canvasContext.lineWidth = 1.5;
-            canvasContext.strokeStyle = color;
-            canvasContext.beginPath();
-            canvasContext.moveTo(leftBounds.x, leftBounds.top);
-            canvasContext.bezierCurveTo(
-                leftBounds.x + cpOffset, leftBounds.top,
-                rightBounds.x - cpOffset, rightBounds.top,
-                rightBounds.x, rightBounds.top
-            );
-            canvasContext.stroke();
-
-            canvasContext.beginPath();
-            canvasContext.moveTo(rightBounds.x, rightBounds.bottom);
-            canvasContext.bezierCurveTo(
-                rightBounds.x - cpOffset, rightBounds.bottom,
-                leftBounds.x + cpOffset, leftBounds.bottom,
-                leftBounds.x, leftBounds.bottom
-            );
-            canvasContext.stroke();
-
+            strokeConnectorEdges(leftBounds, rightBounds, cpOffset, color);
             strokePaneOutline(leftRect, containerRect, leftBounds.top, leftBounds.bottom, color);
             strokePaneOutline(rightRect, containerRect, rightBounds.top, rightBounds.bottom, color);
         }
@@ -685,11 +726,6 @@
             canvasContext.moveTo(panelRect.left - containerRect.left, y);
             canvasContext.lineTo(panelRect.right - containerRect.left, y);
             canvasContext.stroke();
-        }
-
-        function strokeBlockOutline(color, leftBounds, rightBounds, leftRect, rightRect, containerRect) {
-            strokePaneOutline(leftRect, containerRect, leftBounds.top, leftBounds.bottom, color);
-            strokePaneOutline(rightRect, containerRect, rightBounds.top, rightBounds.bottom, color);
         }
 
         function strokePaneOutline(panelRect, containerRect, top, bottom, color) {

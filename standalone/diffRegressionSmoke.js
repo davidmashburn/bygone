@@ -110,6 +110,95 @@ app.whenReady().then(async () => {
                 assert.ok(Math.abs(positions[index].top - expected) <= 2, JSON.stringify({ request, sourceIndex, sourceLine, index, line, actual: positions[index].top, expected, positions }));
             }
         }
+        async function assertScrollingConnectorFrames() {
+            const lineCount = 1200;
+            const before = Array.from({length: lineCount}, (_, index) => `line ${index + 1}`);
+            const after = before.map((line, index) => index % 4 === 0 ? `changed ${index + 1}` : line);
+            const largeDiffModel = buildTwoWayDiffModel(before.join('\n'), after.join('\n'), {timeoutMs: 3000});
+            assert.equal(largeDiffModel.quality, 'exact');
+            assert.ok(largeDiffModel.blocks.length > 250, 'Scrolling fixture has enough blocks to exercise culling');
+            await show({
+                type: 'showDiff',
+                file1: 'large-before.txt',
+                file2: 'large-after.txt',
+                leftContent: before.join('\n'),
+                rightContent: after.join('\n'),
+                diffModel: largeDiffModel
+            });
+
+            const geometryCalls = await evaluate(`new Promise(resolve => {
+                const editors = ${editors};
+                let calls = 0;
+                const originals = editors.map(editor => ({
+                    top: editor.getTopForLineNumber,
+                    bottom: editor.getBottomForLineNumber
+                }));
+                editors.forEach((editor, index) => {
+                    editor.getTopForLineNumber = (...args) => {
+                        calls++;
+                        return originals[index].top.apply(editor, args);
+                    };
+                    editor.getBottomForLineNumber = (...args) => {
+                        calls++;
+                        return originals[index].bottom.apply(editor, args);
+                    };
+                });
+                editors[0].revealLineInCenter(600, 1);
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    editors.forEach((editor, index) => {
+                        editor.getTopForLineNumber = originals[index].top;
+                        editor.getBottomForLineNumber = originals[index].bottom;
+                    });
+                    resolve(calls);
+                }));
+            })`);
+            assert.ok(geometryCalls < 250, `Connector drawing should measure visible blocks only, measured ${geometryCalls} line bounds`);
+
+            const probe = await evaluate(`new Promise(resolve => {
+                const editors = ${editors};
+                const canvas = document.getElementById('connection-canvas');
+                const context = canvas.getContext('2d');
+                const originalRenders = editors.map(editor => editor.render);
+                const originalFill = context.fill;
+                const result = { pending: false, renderMask: 0, fills: 0, violations: 0 };
+                editors.forEach((editor, index) => {
+                    editor.render = (...args) => {
+                        if (result.pending) result.renderMask |= 1 << index;
+                        return originalRenders[index].apply(editor, args);
+                    };
+                });
+                context.fill = function (...args) {
+                    if (result.pending) {
+                        result.fills++;
+                        if (result.renderMask !== 3) result.violations++;
+                        result.pending = false;
+                    }
+                    return originalFill.apply(this, args);
+                };
+                const lines = [120, 280, 440, 600, 760, 920, 1080];
+                let index = 0;
+                const advance = () => {
+                    if (index === lines.length) {
+                        requestAnimationFrame(() => requestAnimationFrame(() => {
+                            editors.forEach((editor, editorIndex) => {
+                                editor.render = originalRenders[editorIndex];
+                            });
+                            context.fill = originalFill;
+                            resolve({fills: result.fills, violations: result.violations});
+                        }));
+                        return;
+                    }
+                    const editor = editors[index % editors.length];
+                    result.pending = true;
+                    result.renderMask = 0;
+                    editor.setScrollTop(editor.getTopForLineNumber(lines[index++]));
+                    requestAnimationFrame(advance);
+                };
+                requestAnimationFrame(advance);
+            })`);
+            assert.equal(probe.fills, 7, `Every continuous-scroll step should paint a connector frame: ${JSON.stringify(probe)}`);
+            assert.equal(probe.violations, 0, `Connector frames must follow synchronous editor renders: ${JSON.stringify(probe)}`);
+        }
         for (const count of [2, 3, 2]) {
             if (count === 2) {
                 await show({ type: 'showDiff', file1: 'before.yaml', file2: 'after.yaml', leftContent, rightContent, diffModel });
@@ -140,6 +229,7 @@ app.whenReady().then(async () => {
             }
             await assertWhitespacePaint(1);
         }
+        await assertScrollingConnectorFrames();
         await show({ type: 'showDiff', file1: 'after.yaml', file2: 'before.yaml', leftContent: rightContent, rightContent: leftContent,
             diffModel: reverseDiffModel });
         await assertWhitespacePaint(0);
@@ -267,7 +357,7 @@ app.whenReady().then(async () => {
         assert.equal(await evaluate(`${editors}.every(e => e.getOption(window.monaco.editor.EditorOption.occurrencesHighlight) !== 'off')`), true, 'Word highlighting stays enabled');
         await runPanelOrderSmoke({ window, show });
         assert.deepEqual(errors, []);
-        console.log('Diff renderer regression smoke passed: whitespace paint/ranges, long YAML, two/three panels, both scroll directions, wrap on/off, unchanged prefix/suffix, reflow boundaries, panel switching, connector clipping, renamed title pairing.');
+        console.log('Diff renderer regression smoke passed: whitespace paint/ranges, long YAML, two/three panels, both scroll directions, coordinated connector frames, visible-block culling, wrap on/off, unchanged prefix/suffix, reflow boundaries, panel switching, connector clipping, renamed title pairing.');
         clearTimeout(timeout); app.exit(0);
     } catch (error) {
         console.error(error, errors); clearTimeout(timeout); app.exit(1);
