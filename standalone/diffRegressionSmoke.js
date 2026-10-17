@@ -11,6 +11,7 @@ const { runGutterCopySmoke } = require('./gutterCopySmoke');
 const { runSelectionHighlightSmoke } = require('./selectionHighlightSmoke');
 const { runInitialRevealSmoke } = require('./initialRevealSmoke');
 const { runProseHighlightSmoke } = require('./proseHighlightSmoke');
+const { runPythonHighlightSmoke } = require('./pythonHighlightSmoke');
 const { yamlDiffFixture } = require('../test/yamlDiffFixture');
 
 app.whenReady().then(async () => {
@@ -46,6 +47,7 @@ app.whenReady().then(async () => {
         const ready = message(p => p.type === 'ready');
         await window.loadFile(path.resolve(__dirname, 'index.html'));
         await ready;
+        await runPythonHighlightSmoke({ window, show });
         await runInitialRevealSmoke({ window, show });
         await runProseHighlightSmoke({ window, show });
         const fixture = yamlDiffFixture();

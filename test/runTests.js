@@ -1146,6 +1146,7 @@ function testStandaloneMenusExposeProductAreasAndReplace() {
 function testEditorComfortUsesNativeMonacoActionsAndSourceModels() {
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'script.js'), 'utf8');
     const entrySource = fs.readFileSync(path.join(__dirname, '..', 'media', 'webview-entry.js'), 'utf8');
+    const pythonSource = fs.readFileSync(path.join(__dirname, '..', 'media', 'pythonLanguage.js'), 'utf8');
     const languageSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'languageSupport.ts'), 'utf8');
     const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
 
@@ -1157,7 +1158,9 @@ function testEditorComfortUsesNativeMonacoActionsAndSourceModels() {
     assert.match(rendererSource, /folding: true/);
     assert.match(rendererSource, /editor\.onDidChangeHiddenAreas/);
     assert.match(entrySource, /contrib\/multicursor\/browser\/multicursor\.js/);
-    assert.match(entrySource, /basic-languages\/python\/python\.contribution\.js/);
+    assert.match(entrySource, /\.\/pythonLanguage\.js/);
+    assert.match(pythonSource, /registerLanguage\(\{/);
+    assert.match(pythonSource, /basic-languages\/python\/python\.js/);
     assert.match(languageSource, /\['\.bygone', 'yaml'\]/);
     assert.match(standaloneSource, /label: 'Selection'/);
     assert.match(standaloneSource, /label: 'Lines'/);
