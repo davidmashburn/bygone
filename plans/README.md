@@ -68,6 +68,9 @@ grew out of an earlier concept.
 
 ## Deferred plans
 
+- [Lazy-loaded TextMate syntax highlighting](lazy-textmate-highlighting.md) —
+  measured Python feasibility, encoded Monaco provider design, theme handling,
+  and offline delivery without growing the initial renderer bundle.
 - [Color and highlighting design pass](color-and-highlighting-design.md) —
   research, accessible visual roles, overlapping editor states, and reader-tested
   alternatives to the temporary occurrence outlines.
