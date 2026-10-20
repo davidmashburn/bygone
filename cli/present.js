@@ -1,4 +1,4 @@
-const { createReadStream, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } = require('fs');
+const { existsSync, mkdirSync, readFile, readFileSync, realpathSync, writeFileSync } = require('fs');
 const { createServer } = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -178,11 +178,20 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
             respond(response, 404, 'Not found');
             return;
         }
-        response.writeHead(200, {
-            'Content-Type': MIME_TYPES.get(path.extname(targetPath)) || 'application/octet-stream',
-            'Cache-Control': 'no-store'
+        // Electron streams extract ASAR entries to cached temporary files. Those
+        // can disappear during a long-running session; readFile reads the archive
+        // directly and lets us report failures before committing success headers.
+        readFile(targetPath, (error, content) => {
+            if (error) {
+                respond(response, 500, 'Read failed');
+                return;
+            }
+            response.writeHead(200, {
+                'Content-Type': MIME_TYPES.get(path.extname(targetPath)) || 'application/octet-stream',
+                'Cache-Control': 'no-store'
+            });
+            response.end(content);
         });
-        createReadStream(targetPath).on('error', () => respond(response, 500, 'Read failed')).pipe(response);
     });
     const requestedPort = readPort(options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_PORT);
     await new Promise((resolve, reject) => {

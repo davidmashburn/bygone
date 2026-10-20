@@ -56,6 +56,12 @@ forward, backward, interrupted, and immediate strip transitions.
 
 # Tour presentation coverage
 
+Run `npm run test:presentation` for HTTP asset status/byte checks and an Electron
+ASAR regression. The smoke deletes Electron's cached temporary asset extractions,
+confirms the old streaming API fails with `ENOENT`, then checks exact asset bytes
+and narrative/diff rendering in a sandboxed window. It uses an isolated archive
+and Git fixture; it does not replace the installed desktop app.
+
 After compilation, run `node scripts/run-electron.mjs standalone/exportSmoke.js`
 for offline exports, section navigation, and desktop links to tours outside their
 repository. The live fixture also checks sticky scene headings, step-link
