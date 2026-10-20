@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.1
+
+- Fixed desktop tours showing unstyled HTML after temporary asset cleanup during long-running app sessions
+- Made presentation asset read failures return HTTP 500 and added HTTP and Electron ASAR regression coverage
+
 ## 0.10.0
 
 - Restored detailed highlighting for long prose and expanded instructions; unavailable word detail now has a uniform blue fill and an explanatory `≠` marker
