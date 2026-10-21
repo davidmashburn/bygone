@@ -7,6 +7,9 @@ and Git baseline report exist on the uncommitted development branch
 `feat/move-tracking-slice0`; see [slice 0 findings](#slice-0-findings-2026-10-08).
 No UI or dependency selection. Move tracking is also one transform layer in
 the paused [verified refactor decomposition](../ideas/verified-refactor-decomposition.md) idea.
+The separate [symbol inventory idea](../ideas/symbol-change-inventory.md)
+explores AST-based correspondence tools and recorded provenance without
+expanding this plan's initial text-block scope.
 The [research notes](text-block-move-tracking-research.md) compare open-source
 implementations and academic work, with primary-source links and limitations.
 

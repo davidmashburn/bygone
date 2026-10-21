@@ -118,6 +118,10 @@ precision risk of fuzzy similarity.
 
 ## Relationship to existing work
 
+- [Symbol change inventory and provenance](symbol-change-inventory.md) proposes
+  a per-file symbol table, evaluates reusable matching engines, and separates
+  inferred correspondence from recorded operations. It can supply evidence for
+  decomposition without treating a match as proof of unchanged behavior.
 - [Deconstructed diffs](../plans/deconstructed-diffs.md) assign whole Git hunks
   to stages. A hunk mixing a rename with a real change cannot be split, and one
   rename spans many hunks. This idea needs **transform stages**, which generate
