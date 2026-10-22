@@ -23,6 +23,12 @@ clear enough to discuss as an actionable plan.
 
 ## Current ideas
 
+- [Semantic change evidence](semantic-change-evidence.md) — distinguish
+  correspondence, structural hypotheses, replayed transforms, and behavior;
+  connects the symbol inventory and refactor-decomposition research.
+- [Symbol inventory and provenance](symbol-change-inventory.md) — per-file
+  symbol changes, candidate engines, and recorded versus inferred operations.
+
 - [Alternating comparison colors](alternating-comparison-colors.md) — shelved
   blue/violet ownership colors with horizontal splits; retained for reconsideration.
 

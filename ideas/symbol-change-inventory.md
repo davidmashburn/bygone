@@ -6,6 +6,14 @@ Exploring. Research captured 2026-10-20. Tool
 capabilities were checked against upstream documentation; no candidate was
 installed or benchmarked. This is a proposal, not an implementation commitment.
 
+## Further design (2026-10-22)
+
+[Semantic change evidence](semantic-change-evidence.md) develops the evidence
+model, cross-file matching, extraction groups, dependency-context caveats, and
+review behavior. The [bounded experiment](../plans/semantic-correspondence-experiment.md)
+adds a reproducible exact-symbol baseline and a concrete engine evaluation.
+No external engine has yet been benchmarked.
+
 ## Summary
 
 Give reviewers a per-file table answering what happened to each top-level

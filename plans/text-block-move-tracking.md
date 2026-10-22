@@ -13,6 +13,21 @@ expanding this plan's initial text-block scope.
 The [research notes](text-block-move-tracking-research.md) compare open-source
 implementations and academic work, with primary-source links and limitations.
 
+## Research follow-up (2026-10-22)
+
+The slice-zero artifacts are now committed on `research/move-tracking-slice0`
+at `c6907bb`; the historical “uncommitted” wording above describes October 8.
+That research is not integrated into main at `9d56b11`. The feature branch is
+no longer advertised by origin, although a local remote-tracking ref remains;
+use the research branch for reproducible evidence. The new [semantic correspondence experiment](semantic-correspondence-experiment.md)
+examines cross-file symbol inventory independently of this same-file text plan.
+
+For the next UI experiment, use “matching occurrence” for retained-source
+exact matches unless stronger evidence supports “copied.” Test them in an
+optional list, outside automatic move navigation; do not make disputed copy
+provenance a prerequisite for testing exact moves. This revises the presentation
+hypothesis, not slice zero’s stored relation labels or bookkeeping.
+
 ## Goal and recommendation
 
 Explain where a block of text came from and where it went: retained in place,

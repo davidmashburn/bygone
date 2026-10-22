@@ -12,6 +12,17 @@ them, which was not prototyped.
 Evidence comes from the probes in `scripts/change-analysis/` on development
 branch `feat/move-tracking-slice0`, whose README records commands and results.
 
+## Follow-up (2026-10-22)
+
+[Semantic change evidence](semantic-change-evidence.md) separates syntax
+correspondence, replayed transforms, and behavioral claims. In particular,
+“real change only” below is an aspirational label: a defensible UI should say
+“unexplained by these transforms,” because residuals include detector misses
+and mechanical operations can change behavior. The new
+[cross-file experiment](../plans/semantic-correspondence-experiment.md) targets
+the module-split gap before extending automatic decomposition. Original probe
+results below have not been rerun.
+
 ## Summary
 
 Show a large commit as a chain of checkable transforms followed by its real

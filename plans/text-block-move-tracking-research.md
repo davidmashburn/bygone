@@ -9,6 +9,19 @@ papers support the observations below. Recommendations for Bygone are our
 inferences. Tools were not installed or run for this research; mutable upstream
 branches and reported benchmark results must be pinned/reproduced for a spike.
 
+## Follow-up (2026-10-22)
+
+[Semantic change evidence](../ideas/semantic-change-evidence.md) extends the
+architecture beyond text blocks. The [cross-file experiment](semantic-correspondence-experiment.md)
+records a new exact AST probe, pinned Bygone inputs, and a bounded reusable-engine
+evaluation. RefactoringMiner now documents local file-content JSON analysis
+through MCP; see its [pinned documentation](https://github.com/tsantalis/RefactoringMiner/blob/e7b8db328e7d678bc474ebf4b61739b6d6c85b7f/documentation/mcp.md).
+Its validate tool checks detected refactorings against intent; it is not a
+behavioral-equivalence proof. The [PurityChecker documentation](https://github.com/tsantalis/RefactoringMiner/blob/e7b8db328e7d678bc474ebf4b61739b6d6c85b7f/documentation/purity.md)
+limits supported refactoring kinds; do not generalize it to every language
+and edit. Neither interface was executed here. Earlier research below remains
+a dated source review.
+
 ## Open-source approaches
 
 | Project | Verified behavior / technique | What Bygone can borrow | Boundary |
