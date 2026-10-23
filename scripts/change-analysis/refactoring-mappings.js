@@ -85,6 +85,15 @@ function normalizeMappings(before, after, native, options = {}) {
             rejected.push({ mapperId: mapper.id, reason: 'unresolved-container', source: mapper.source, destination: mapper.destination, endpoints });
             continue;
         }
+        if (strand && /\.pyi?$/.test(source.path) !== /\.pyi?$/.test(destination.path)) {
+            const reason = 'incompatible-container-language';
+            issues.push({ mapperId: mapper.id, reason });
+            rejected.push({ mapperId: mapper.id, reason, endpoints: [
+                { side: 'before', path: source.path, start: source.start, symbolId: source.id },
+                { side: 'after', path: destination.path, start: destination.start, symbolId: destination.id }
+            ] });
+            continue;
+        }
         const mappings = [], unmappedBefore = [], unmappedAfter = [];
         for (const mapping of mapper.mappings || []) {
             if (validateSpan(mapping.source, before) && validateSpan(mapping.destination, after)) {

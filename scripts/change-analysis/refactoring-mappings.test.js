@@ -33,6 +33,22 @@ test('JS inventory mappings validate exact full spans and kinds without borrowin
     assert(truncated.unresolved.some(group => group.reason === 'incomplete-analysis'));
 });
 
+test('Strand rejects supplied cross-language inventory mappings in either direction', () => {
+    const python = { 'a.py': 'def price(items):\n    return [item.cost + 1 for item in items]\n' };
+    const javascript = { 'b.js': 'function price(items) { return items.map(item => item.cost + 1); }' };
+    for (const [before, after] of [[python, javascript], [javascript, python]]) {
+        const inventories = { before: inventorySnapshot(before, 'before'), after: inventorySnapshot(after, 'after') };
+        const fullSpan = (entry, files) => ({ ...entry, valid: true, text: files[entry.path].slice(entry.start, entry.end), sha256: entry.digest });
+        const m = { id: 'cross-language', category: 'inventory', origins: ['continuation'],
+            source: fullSpan(inventories.before.entries.find(e => e.name === 'price'), before),
+            destination: fullSpan(inventories.after.entries.find(e => e.name === 'price'), after), mappings: [] };
+        const result = normalizeMappings(before, after, native([m]), { inventories, engineProducer: 'bygone-strand', exactFallback: false });
+        assert.equal(result.relations.length, 0);
+        assert.equal(result.status, 'partial');
+        assert(result.rejected.some(r => r.reason === 'incompatible-container-language'));
+    }
+});
+
 test('edited move exposes complete bytes and context, independent of engine-exact labels', () => {
     const next = code.replace('+ 1', '+ 2'), m = mapper(code, next);
     m.mappings = [{ source: m.source, destination: m.destination, engineExact: true }];

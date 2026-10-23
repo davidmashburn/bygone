@@ -456,7 +456,7 @@ function ancestryData(entries) {
     }
     for (const entry of entries) get(entry);
     for (const value of info.values()) {
-        value.parentUnique = !value.parentEntry || !!info.get(value.parentEntry.id)?.localKey;
+        value.parentUnique = !value.entry.parent || !!(value.parentEntry && info.get(value.parentEntry.id)?.localKey);
     }
     return info;
 }
@@ -470,9 +470,9 @@ function sameFileIdentity(sourceInfo, destinationInfo) {
 }
 
 function parentPair(sourceInfo, destinationInfo, acceptedPairs) {
+    if (!sourceInfo.parentUnique || !destinationInfo.parentUnique) return false;
     if (!sourceInfo.parentEntry && !destinationInfo.parentEntry) return true;
     if (!sourceInfo.parentEntry || !destinationInfo.parentEntry) return false;
-    if (!sourceInfo.parentUnique || !destinationInfo.parentUnique) return false;
     return acceptedPairs.has(`${sourceInfo.parentEntry.id}\u0000${destinationInfo.parentEntry.id}`);
 }
 
@@ -779,7 +779,7 @@ function matchDeclarations(before, after, inventories, limits = {}, python = fal
                     if (!kindCompatible(source, destination)) continue;
                     const sourceInfo = left.info.get(source.id), destinationInfo = right.info.get(destination.id);
                     const parentSupported = parentPair(sourceInfo, destinationInfo, acceptedPairs);
-                    if (sourceInfo.parentEntry || destinationInfo.parentEntry) {
+                    if (source.parent || destination.parent) {
                         if (!parentSupported) continue;
                     }
                     const destinationFeature = right.features.get(destination.id);

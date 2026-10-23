@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-23T22:21:47.443Z",
-  "revision": "d8c77aed02fcb413070912273b2eaf1cb5edc2c6",
+  "generatedAt": "2026-10-23T22:26:23.776Z",
+  "revision": "7b60de72bfc36ae6821d8a8ec823465643f55b33",
   "node": "v26.10.0",
   "corpusSha256": "c7a3e2c10fc0e0334d604826af0b536eed5f1113b01f0cf6b223e678d4b6cd5a",
   "runnerSha256": "f8a2b38c21a0faefe4ca4fe10881164fc15253b70eca393ea99bb9d875ac8d60",
@@ -9,9 +9,9 @@
   "implementationSha256": {
     "symbol-inventory.js": "acd74ef2d85655219937b6cbb375f130883ee6d4367f9fa8fe9697a39b6de756",
     "python-inventory.py": "8ecf5c0bb5f429d668ad937db3e9363e8c644b5e5854bbe95e91944b411694b2",
-    "refactoring-mappings.js": "c9bf1185a0dee56765b9030394dc4b2e9f38ee03d767b1a8e1ad62871085e1a4",
+    "refactoring-mappings.js": "60c7109c6981fa8710fd56b649e8427403f6cebc9762d623b828b5e52e2c6644",
     "run-refactoring-mappings.js": "95b87760f1b9d914e2767bb47ab38cd9a1edd3a5b78ea80131110288bb162cf5",
-    "js-correspondence.js": "901fa048f47878677e4e4c2b6a0c8cbcd71e3607fbb1dcac814181dab43efbba",
+    "js-correspondence.js": "de4a8933b64857889e7a8ca2b6114a54610b9ca910e831068bc77d20dc513af1",
     "run-javascript-mappings.js": "af94a2a39c73a025ef5be074e5a36e4427835577e4d7652279c025b009f791d7",
     "analyze-git.js": "84b718ec40496bfc4d0a834e29f7cd88d7f47c2d3cb83fa78b330f20fc9c4846",
     "../../src/changeCorrespondence.ts": "248cedbb3470724311706bd5b15554024a0bd88588cbd4c0682a561b00e63ad0",
@@ -218,7 +218,7 @@
           }
         }
       },
-      "elapsedMs": 378.4654170000001,
+      "elapsedMs": 440.96174999999994,
       "cases": [
         {
           "id": "control-01",
@@ -4437,7 +4437,7 @@
           }
         }
       },
-      "elapsedMs": 23140.304583999998,
+      "elapsedMs": 23661.91925,
       "cases": [
         {
           "id": "control-01",
@@ -4474,11 +4474,11 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "before": [
+            "after": [
               "src/cart.js",
               "src/billing.js"
             ],
-            "after": [
+            "before": [
               "src/cart.js",
               "src/billing.js"
             ]
@@ -4603,7 +4603,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 865.4513750000001,
+          "engineMs": 1016.5788339999999,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -4644,11 +4644,11 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "before": [
+            "after": [
               "src/cart.js",
               "src/billing.js"
             ],
-            "after": [
+            "before": [
               "src/cart.js",
               "src/billing.js"
             ]
@@ -4773,7 +4773,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 546.041334,
+          "engineMs": 596.8504169999997,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -4943,7 +4943,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 552.5751660000001,
+          "engineMs": 641.685375,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -5041,7 +5041,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 499.48166600000013,
+          "engineMs": 492.2361660000006,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -5139,7 +5139,7 @@
               "src/c.js"
             ]
           },
-          "engineMs": 497.73383400000057,
+          "engineMs": 501.8622920000007,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -5180,10 +5180,10 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "after": [
+            "before": [
               "src/cart.js"
             ],
-            "before": [
+            "after": [
               "src/cart.js"
             ]
           },
@@ -5255,7 +5255,7 @@
               "src/cart.js"
             ]
           },
-          "engineMs": 557.495167,
+          "engineMs": 564.6548329999996,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -5425,7 +5425,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 581.9440420000001,
+          "engineMs": 572.7486669999998,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -5477,8 +5477,8 @@
             }
           ],
           "engineProcessedPaths": {
-            "after": [],
-            "before": []
+            "before": [],
+            "after": []
           },
           "rejected": [],
           "unresolvedReasons": [],
@@ -5511,7 +5511,7 @@
               "new/math.js"
             ]
           },
-          "engineMs": 259.71287500000017,
+          "engineMs": 277.4698749999998,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -5681,7 +5681,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 552.3712499999992,
+          "engineMs": 555.7435839999998,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -5890,11 +5890,11 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "before": [
+            "after": [
               "src/cart.js",
               "src/billing.js"
             ],
-            "after": [
+            "before": [
               "src/cart.js",
               "src/billing.js"
             ]
@@ -6019,7 +6019,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 557.4135830000005,
+          "engineMs": 591.0953340000005,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -6060,11 +6060,11 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "before": [
+            "after": [
               "src/cart.js",
               "src/billing.js"
             ],
-            "after": [
+            "before": [
               "src/cart.js",
               "src/billing.js"
             ]
@@ -6189,7 +6189,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 552.8668340000004,
+          "engineMs": 591.3182079999997,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -6230,11 +6230,11 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "before": [
+            "after": [
               "src/cart.js",
               "src/billing.js"
             ],
-            "after": [
+            "before": [
               "src/cart.js",
               "src/billing.js"
             ]
@@ -6359,7 +6359,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 577.1682920000003,
+          "engineMs": 553.0962920000002,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -6529,7 +6529,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 605.4552080000003,
+          "engineMs": 561.1299159999999,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -6570,11 +6570,11 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "after": [
+            "before": [
               "src/cart.js",
               "src/billing.js"
             ],
-            "before": [
+            "after": [
               "src/cart.js",
               "src/billing.js"
             ]
@@ -6699,7 +6699,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 587.588749999999,
+          "engineMs": 644.3006249999999,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -6740,11 +6740,11 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "after": [
+            "before": [
               "src/cart.js",
               "src/billing.js"
             ],
-            "before": [
+            "after": [
               "src/cart.js",
               "src/billing.js"
             ]
@@ -6869,7 +6869,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 574.0450000000001,
+          "engineMs": 555.3552909999999,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -7039,7 +7039,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 528.2420419999999,
+          "engineMs": 575.4373750000013,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -7226,7 +7226,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 527.7393749999992,
+          "engineMs": 530.9260839999988,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -7267,11 +7267,11 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "before": [
+            "after": [
               "src/cart.js",
               "src/billing.js"
             ],
-            "after": [
+            "before": [
               "src/cart.js",
               "src/billing.js"
             ]
@@ -7396,7 +7396,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 530.5097920000007,
+          "engineMs": 557.3422499999997,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -7512,7 +7512,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 539.6565840000003,
+          "engineMs": 544.5452079999995,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -7553,10 +7553,10 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "after": [
+            "before": [
               "src/diff.d.ts"
             ],
-            "before": [
+            "after": [
               "src/diff.d.ts"
             ]
           },
@@ -7718,7 +7718,7 @@
               "src/diff.d.ts"
             ]
           },
-          "engineMs": 545.6597500000007,
+          "engineMs": 536.0767909999995,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -7785,7 +7785,7 @@
               "src/panelOrder.ts"
             ]
           },
-          "engineMs": 498.3958329999987,
+          "engineMs": 498.266834,
           "parsers": {
             "before": "none",
             "after": "typescript@4.9.5"
@@ -7901,7 +7901,7 @@
               "src/deepLink.ts"
             ]
           },
-          "engineMs": 722.0188330000001,
+          "engineMs": 731.2828750000008,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -7942,10 +7942,10 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "after": [
+            "before": [
               "src/tourFeedback.ts"
             ],
-            "before": [
+            "after": [
               "src/tourFeedback.ts"
             ]
           },
@@ -8017,7 +8017,7 @@
               "src/tourFeedback.ts"
             ]
           },
-          "engineMs": 689.8206250000003,
+          "engineMs": 667.163125000001,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -8058,10 +8058,10 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "after": [],
             "before": [
               "src/tourContentHash.ts"
-            ]
+            ],
+            "after": []
           },
           "rejected": [],
           "unresolvedReasons": [],
@@ -8084,7 +8084,7 @@
             ],
             "after": []
           },
-          "engineMs": 511.88483300000007,
+          "engineMs": 499.45679200000086,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "none"
@@ -8125,10 +8125,10 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "before": [],
             "after": [
               "src/tourContentHash.ts"
-            ]
+            ],
+            "before": []
           },
           "rejected": [],
           "unresolvedReasons": [],
@@ -8151,7 +8151,7 @@
               "src/tourContentHash.ts"
             ]
           },
-          "engineMs": 545.3783750000002,
+          "engineMs": 503.50458300000173,
           "parsers": {
             "before": "none",
             "after": "typescript@4.9.5"
@@ -8192,10 +8192,10 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "after": [
+            "before": [
               "src/tourOrientation.ts"
             ],
-            "before": [
+            "after": [
               "src/tourOrientation.ts"
             ]
           },
@@ -8267,7 +8267,7 @@
               "src/tourOrientation.ts"
             ]
           },
-          "engineMs": 726.9432500000003,
+          "engineMs": 744.4339999999993,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -8383,7 +8383,7 @@
               "src/deepLink.ts"
             ]
           },
-          "engineMs": 729.2514580000006,
+          "engineMs": 705.0530830000025,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -8424,10 +8424,10 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "before": [],
             "after": [
               "src/revisionView.ts"
-            ]
+            ],
+            "before": []
           },
           "rejected": [],
           "unresolvedReasons": [],
@@ -8450,7 +8450,7 @@
               "src/revisionView.ts"
             ]
           },
-          "engineMs": 535.5551659999983,
+          "engineMs": 531.2166250000009,
           "parsers": {
             "before": "none",
             "after": "typescript@4.9.5"
@@ -8517,7 +8517,7 @@
               "src/historyDirectory.ts"
             ]
           },
-          "engineMs": 527.9357500000006,
+          "engineMs": 506.66716599999927,
           "parsers": {
             "before": "none",
             "after": "typescript@4.9.5"
@@ -8569,10 +8569,10 @@
             }
           ],
           "engineProcessedPaths": {
-            "after": [
+            "before": [
               "a.js"
             ],
-            "before": [
+            "after": [
               "a.js"
             ]
           },
@@ -8660,7 +8660,7 @@
               "b.js"
             ]
           },
-          "engineMs": 515.3571249999986,
+          "engineMs": 520.624584000001,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -8701,10 +8701,10 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "before": [
+            "after": [
               "a.js"
             ],
-            "after": [
+            "before": [
               "a.js"
             ]
           },
@@ -8776,7 +8776,7 @@
               "a.js"
             ]
           },
-          "engineMs": 511.028542,
+          "engineMs": 517.7463329999991,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -8828,8 +8828,8 @@
             }
           ],
           "engineProcessedPaths": {
-            "after": [],
-            "before": []
+            "before": [],
+            "after": []
           },
           "rejected": [],
           "unresolvedReasons": [
@@ -8865,7 +8865,7 @@
               "a.js"
             ]
           },
-          "engineMs": 205.80804200000057,
+          "engineMs": 259.6871250000004,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -8956,7 +8956,7 @@
               "c.js"
             ]
           },
-          "engineMs": 543.6958750000013,
+          "engineMs": 510.80504199999996,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -9045,7 +9045,7 @@
               "a.js"
             ]
           },
-          "engineMs": 521.864625000002,
+          "engineMs": 536.6965829999972,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -9268,7 +9268,7 @@
               "d.ts"
             ]
           },
-          "engineMs": 562.1490419999973,
+          "engineMs": 622.6653750000005,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -9384,7 +9384,7 @@
               "a.js"
             ]
           },
-          "engineMs": 524.7520000000004,
+          "engineMs": 567.578125,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -9482,7 +9482,7 @@
               "a.py"
             ]
           },
-          "engineMs": 339.3127910000003,
+          "engineMs": 343.9317919999994,
           "parsers": {
             "before": "cpython@3.14.7",
             "after": "cpython@3.14.7"
@@ -9523,11 +9523,11 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "after": [
-              "b.py"
-            ],
             "before": [
               "a.py"
+            ],
+            "after": [
+              "b.py"
             ]
           },
           "rejected": [
@@ -9580,7 +9580,7 @@
               "b.py"
             ]
           },
-          "engineMs": 348.1744580000013,
+          "engineMs": 335.9994999999981,
           "parsers": {
             "before": "cpython@3.14.7",
             "after": "cpython@3.14.7"
@@ -9678,7 +9678,7 @@
               "b.py"
             ]
           },
-          "engineMs": 342.43254199999865,
+          "engineMs": 384.62175000000207,
           "parsers": {
             "before": "cpython@3.14.7",
             "after": "cpython@3.14.7"
@@ -9757,7 +9757,7 @@
               "a.py"
             ]
           },
-          "engineMs": 342.48654199999874,
+          "engineMs": 340.99283300000025,
           "parsers": {
             "before": "cpython@3.14.7",
             "after": "cpython@3.14.7"
@@ -9870,7 +9870,7 @@
               "types.pyi"
             ]
           },
-          "engineMs": 328.80941600000006,
+          "engineMs": 345.52604099999735,
           "parsers": {
             "before": "cpython@3.14.7",
             "after": "cpython@3.14.7"
@@ -9968,7 +9968,7 @@
               "a.py"
             ]
           },
-          "engineMs": 326.2455000000009,
+          "engineMs": 329.68916700000045,
           "parsers": {
             "before": "cpython@3.14.7",
             "after": "cpython@3.14.7"
@@ -10009,11 +10009,11 @@
           },
           "issues": [],
           "engineProcessedPaths": {
-            "after": [
-              "src/tourDetails.ts"
-            ],
             "before": [
               "src/tourAssessment.ts"
+            ],
+            "after": [
+              "src/tourDetails.ts"
             ]
           },
           "rejected": [
@@ -10084,7 +10084,7 @@
               "src/tourDetails.ts"
             ]
           },
-          "engineMs": 835.6449170000014,
+          "engineMs": 839.424334000003,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -10263,7 +10263,7 @@
           }
         }
       },
-      "elapsedMs": 451.6008750000001,
+      "elapsedMs": 428.14779100000305,
       "cases": [
         {
           "id": "control-01",
@@ -10394,7 +10394,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 9.164749999999913,
+          "engineMs": 7.997541999997338,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -10529,7 +10529,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 1.1974999999983993,
+          "engineMs": 1.349833000000217,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -10664,7 +10664,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.6936669999995502,
+          "engineMs": 0.7509580000005371,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -10793,7 +10793,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.6805410000015399,
+          "engineMs": 0.7700419999964652,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -10922,7 +10922,7 @@
               "src/c.js"
             ]
           },
-          "engineMs": 0.47608300000138115,
+          "engineMs": 0.4215839999997115,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -11004,7 +11004,7 @@
               "src/cart.js"
             ]
           },
-          "engineMs": 0.5270840000011958,
+          "engineMs": 0.36933399999907124,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -11190,7 +11190,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.3985000000029686,
+          "engineMs": 0.43145799999911105,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -11272,7 +11272,7 @@
               "new/math.js"
             ]
           },
-          "engineMs": 0.24808300000222516,
+          "engineMs": 0.41587499999877764,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -11407,7 +11407,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.4714160000003176,
+          "engineMs": 0.5488330000007409,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -11563,7 +11563,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.18637499999749707,
+          "engineMs": 0.17137499999807915,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -11731,7 +11731,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.8481659999997646,
+          "engineMs": 0.6275420000019949,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -11899,7 +11899,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 1.0250830000004498,
+          "engineMs": 0.5743750000001455,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -12034,7 +12034,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.6355829999993148,
+          "engineMs": 0.5955829999984417,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -12169,7 +12169,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.6055830000004789,
+          "engineMs": 0.3932910000003176,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -12389,7 +12389,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.3818749999991269,
+          "engineMs": 0.3178330000009737,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -12592,7 +12592,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.48791699999856064,
+          "engineMs": 0.5098749999997381,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -12795,7 +12795,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.3050829999992857,
+          "engineMs": 0.32995800000207964,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -12930,7 +12930,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.6028329999971902,
+          "engineMs": 0.42300000000250293,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -13133,7 +13133,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.4647499999991851,
+          "engineMs": 0.32866700000158744,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -13215,7 +13215,7 @@
               "src/billing.js"
             ]
           },
-          "engineMs": 0.36137500000040745,
+          "engineMs": 0.2193749999969441,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -13297,7 +13297,7 @@
               "src/diff.d.ts"
             ]
           },
-          "engineMs": 0.39245799999844166,
+          "engineMs": 0.5209160000013071,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -13367,7 +13367,7 @@
               "src/panelOrder.ts"
             ]
           },
-          "engineMs": 0.8712909999994736,
+          "engineMs": 0.8766660000001139,
           "parsers": {
             "before": "none",
             "after": "typescript@4.9.5"
@@ -13654,7 +13654,7 @@
               "src/deepLink.ts"
             ]
           },
-          "engineMs": 15.536917000001267,
+          "engineMs": 14.883958999998868,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -13736,7 +13736,7 @@
               "src/tourFeedback.ts"
             ]
           },
-          "engineMs": 3.2809999999990396,
+          "engineMs": 3.630749999996624,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -13806,7 +13806,7 @@
             ],
             "after": []
           },
-          "engineMs": 0.560750000000553,
+          "engineMs": 0.5232909999976982,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "none"
@@ -13876,7 +13876,7 @@
               "src/tourContentHash.ts"
             ]
           },
-          "engineMs": 0.5373340000005555,
+          "engineMs": 0.39679199999955017,
           "parsers": {
             "before": "none",
             "after": "typescript@4.9.5"
@@ -13976,7 +13976,7 @@
               "src/tourOrientation.ts"
             ]
           },
-          "engineMs": 10.166957999997976,
+          "engineMs": 9.257041000000754,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -14263,7 +14263,7 @@
               "src/deepLink.ts"
             ]
           },
-          "engineMs": 15.170916999999463,
+          "engineMs": 11.812624999998661,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -14333,7 +14333,7 @@
               "src/revisionView.ts"
             ]
           },
-          "engineMs": 2.353624999999738,
+          "engineMs": 4.677167000001646,
           "parsers": {
             "before": "none",
             "after": "typescript@4.9.5"
@@ -14403,7 +14403,7 @@
               "src/historyDirectory.ts"
             ]
           },
-          "engineMs": 0.8586670000004233,
+          "engineMs": 0.8992499999985739,
           "parsers": {
             "before": "none",
             "after": "typescript@4.9.5"
@@ -14708,7 +14708,7 @@
               "b.js"
             ]
           },
-          "engineMs": 1.0761670000028971,
+          "engineMs": 0.4351669999996375,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -14859,7 +14859,7 @@
               "a.js"
             ]
           },
-          "engineMs": 0.4983749999992142,
+          "engineMs": 0.8461250000000291,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -14912,23 +14912,6 @@
           },
           "rejected": [
             {
-              "reason": "weak-coincidence",
-              "endpoints": [
-                {
-                  "side": "before",
-                  "path": "a.js",
-                  "start": 52,
-                  "symbolId": "0f10a6ed439cbed07eb0374ade1387e73da5ebdf23c863398f766884a7c28046"
-                },
-                {
-                  "side": "after",
-                  "path": "a.js",
-                  "start": 71,
-                  "symbolId": "13341aa54dc718f5fe44443800698480b36893e403c4c98dfa4e1e0617908e66"
-                }
-              ]
-            },
-            {
               "reason": "ambiguous-candidates",
               "endpoints": [
                 {
@@ -14942,23 +14925,6 @@
                   "path": "a.js",
                   "start": 0,
                   "symbolId": "dc3f1ba79485fa4317db378cd2cac8232221786c400bea9e92d1413e3b18ce6c"
-                }
-              ]
-            },
-            {
-              "reason": "weak-coincidence",
-              "endpoints": [
-                {
-                  "side": "before",
-                  "path": "a.js",
-                  "start": 52,
-                  "symbolId": "0f10a6ed439cbed07eb0374ade1387e73da5ebdf23c863398f766884a7c28046"
-                },
-                {
-                  "side": "after",
-                  "path": "a.js",
-                  "start": 19,
-                  "symbolId": "e4c4caa736b6b3568edcc57162615690d1c3a1a4bb512ae08f8127e365b10dc6"
                 }
               ]
             },
@@ -14985,159 +14951,6 @@
                 {
                   "side": "before",
                   "path": "a.js",
-                  "start": 71,
-                  "symbolId": "415e667b4069eacba847af4415f8afc1647a53cca4778cd1044308a5f3db0243"
-                },
-                {
-                  "side": "after",
-                  "path": "a.js",
-                  "start": 71,
-                  "symbolId": "13341aa54dc718f5fe44443800698480b36893e403c4c98dfa4e1e0617908e66"
-                }
-              ]
-            },
-            {
-              "reason": "weak-coincidence",
-              "endpoints": [
-                {
-                  "side": "before",
-                  "path": "a.js",
-                  "start": 71,
-                  "symbolId": "415e667b4069eacba847af4415f8afc1647a53cca4778cd1044308a5f3db0243"
-                },
-                {
-                  "side": "after",
-                  "path": "a.js",
-                  "start": 0,
-                  "symbolId": "dc3f1ba79485fa4317db378cd2cac8232221786c400bea9e92d1413e3b18ce6c"
-                }
-              ]
-            },
-            {
-              "reason": "ambiguous-candidates",
-              "endpoints": [
-                {
-                  "side": "before",
-                  "path": "a.js",
-                  "start": 71,
-                  "symbolId": "415e667b4069eacba847af4415f8afc1647a53cca4778cd1044308a5f3db0243"
-                },
-                {
-                  "side": "after",
-                  "path": "a.js",
-                  "start": 19,
-                  "symbolId": "e4c4caa736b6b3568edcc57162615690d1c3a1a4bb512ae08f8127e365b10dc6"
-                }
-              ]
-            },
-            {
-              "reason": "weak-coincidence",
-              "endpoints": [
-                {
-                  "side": "before",
-                  "path": "a.js",
-                  "start": 71,
-                  "symbolId": "415e667b4069eacba847af4415f8afc1647a53cca4778cd1044308a5f3db0243"
-                },
-                {
-                  "side": "after",
-                  "path": "a.js",
-                  "start": 52,
-                  "symbolId": "e6c7af239ccadf30e684e212ebe32366e0cad908ddeaaf5a8f189f6270c1106c"
-                }
-              ]
-            },
-            {
-              "reason": "ambiguous-candidates",
-              "endpoints": [
-                {
-                  "side": "before",
-                  "path": "a.js",
-                  "start": 19,
-                  "symbolId": "9674079154ef8a4931f72fb7a65cd3e0e0cf7a0fc150855372f9be59d3a29ffb"
-                },
-                {
-                  "side": "after",
-                  "path": "a.js",
-                  "start": 71,
-                  "symbolId": "13341aa54dc718f5fe44443800698480b36893e403c4c98dfa4e1e0617908e66"
-                }
-              ]
-            },
-            {
-              "reason": "weak-coincidence",
-              "endpoints": [
-                {
-                  "side": "before",
-                  "path": "a.js",
-                  "start": 19,
-                  "symbolId": "9674079154ef8a4931f72fb7a65cd3e0e0cf7a0fc150855372f9be59d3a29ffb"
-                },
-                {
-                  "side": "after",
-                  "path": "a.js",
-                  "start": 0,
-                  "symbolId": "dc3f1ba79485fa4317db378cd2cac8232221786c400bea9e92d1413e3b18ce6c"
-                }
-              ]
-            },
-            {
-              "reason": "ambiguous-candidates",
-              "endpoints": [
-                {
-                  "side": "before",
-                  "path": "a.js",
-                  "start": 19,
-                  "symbolId": "9674079154ef8a4931f72fb7a65cd3e0e0cf7a0fc150855372f9be59d3a29ffb"
-                },
-                {
-                  "side": "after",
-                  "path": "a.js",
-                  "start": 19,
-                  "symbolId": "e4c4caa736b6b3568edcc57162615690d1c3a1a4bb512ae08f8127e365b10dc6"
-                }
-              ]
-            },
-            {
-              "reason": "weak-coincidence",
-              "endpoints": [
-                {
-                  "side": "before",
-                  "path": "a.js",
-                  "start": 19,
-                  "symbolId": "9674079154ef8a4931f72fb7a65cd3e0e0cf7a0fc150855372f9be59d3a29ffb"
-                },
-                {
-                  "side": "after",
-                  "path": "a.js",
-                  "start": 52,
-                  "symbolId": "e6c7af239ccadf30e684e212ebe32366e0cad908ddeaaf5a8f189f6270c1106c"
-                }
-              ]
-            },
-            {
-              "reason": "weak-coincidence",
-              "endpoints": [
-                {
-                  "side": "before",
-                  "path": "a.js",
-                  "start": 0,
-                  "symbolId": "cac39c233ef4d01c0e241b1e5bd51950c742057512def4ed9300b7a8b5523f24"
-                },
-                {
-                  "side": "after",
-                  "path": "a.js",
-                  "start": 71,
-                  "symbolId": "13341aa54dc718f5fe44443800698480b36893e403c4c98dfa4e1e0617908e66"
-                }
-              ]
-            },
-            {
-              "reason": "ambiguous-candidates",
-              "endpoints": [
-                {
-                  "side": "before",
-                  "path": "a.js",
                   "start": 0,
                   "symbolId": "cac39c233ef4d01c0e241b1e5bd51950c742057512def4ed9300b7a8b5523f24"
                 },
@@ -15146,23 +14959,6 @@
                   "path": "a.js",
                   "start": 0,
                   "symbolId": "dc3f1ba79485fa4317db378cd2cac8232221786c400bea9e92d1413e3b18ce6c"
-                }
-              ]
-            },
-            {
-              "reason": "weak-coincidence",
-              "endpoints": [
-                {
-                  "side": "before",
-                  "path": "a.js",
-                  "start": 0,
-                  "symbolId": "cac39c233ef4d01c0e241b1e5bd51950c742057512def4ed9300b7a8b5523f24"
-                },
-                {
-                  "side": "after",
-                  "path": "a.js",
-                  "start": 19,
-                  "symbolId": "e4c4caa736b6b3568edcc57162615690d1c3a1a4bb512ae08f8127e365b10dc6"
                 }
               ]
             },
@@ -15185,7 +14981,6 @@
             }
           ],
           "unresolvedReasons": [
-            "ambiguous-js-candidates",
             "ambiguous-js-candidates",
             "repeated-exact-occurrences",
             "repeated-exact-occurrences"
@@ -15219,7 +15014,7 @@
               "a.js"
             ]
           },
-          "engineMs": 0.6408329999976559,
+          "engineMs": 0.48666700000103447,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -15373,7 +15168,7 @@
               "c.js"
             ]
           },
-          "engineMs": 0.40949999999793363,
+          "engineMs": 0.2666250000002037,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -15455,7 +15250,7 @@
               "a.js"
             ]
           },
-          "engineMs": 0.4170419999973092,
+          "engineMs": 0.11704200000167475,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -15796,7 +15591,7 @@
               "d.ts"
             ]
           },
-          "engineMs": 0.9535409999989497,
+          "engineMs": 0.5125420000003942,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -15878,7 +15673,7 @@
               "a.js"
             ]
           },
-          "engineMs": 0.44395799999983865,
+          "engineMs": 0.162625000000844,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"
@@ -15960,7 +15755,7 @@
               "a.py"
             ]
           },
-          "engineMs": 74.66283399999884,
+          "engineMs": 56.44050000000061,
           "parsers": {
             "before": "cpython@3.14.7",
             "after": "cpython@3.14.7"
@@ -16042,7 +15837,7 @@
               "b.py"
             ]
           },
-          "engineMs": 57.50575000000026,
+          "engineMs": 56.30045800000153,
           "parsers": {
             "before": "cpython@3.14.7",
             "after": "cpython@3.14.7"
@@ -16124,7 +15919,7 @@
               "b.py"
             ]
           },
-          "engineMs": 56.50304200000028,
+          "engineMs": 55.608374999999796,
           "parsers": {
             "before": "cpython@3.14.7",
             "after": "cpython@3.14.7"
@@ -16206,7 +16001,7 @@
               "a.py"
             ]
           },
-          "engineMs": 56.97049999999945,
+          "engineMs": 55.21287500000108,
           "parsers": {
             "before": "cpython@3.14.7",
             "after": "cpython@3.14.7"
@@ -16302,7 +16097,7 @@
               "types.pyi"
             ]
           },
-          "engineMs": 54.507708000001,
+          "engineMs": 55.38408300000083,
           "parsers": {
             "before": "cpython@3.14.7",
             "after": "cpython@3.14.7"
@@ -16384,7 +16179,7 @@
               "a.py"
             ]
           },
-          "engineMs": 54.00870899999791,
+          "engineMs": 59.562041999997746,
           "parsers": {
             "before": "cpython@3.14.7",
             "after": "cpython@3.14.7"
@@ -16943,7 +16738,7 @@
               "src/tourDetails.ts"
             ]
           },
-          "engineMs": 6.403582999999344,
+          "engineMs": 7.361292000001413,
           "parsers": {
             "before": "typescript@4.9.5",
             "after": "typescript@4.9.5"

@@ -72,6 +72,13 @@ test('Python duplicate parents and trivial cross-file coincidences stay unmatche
     const duplicate = analyzeStrand({ 'a.py': code + code }, { 'b.py': (code + code).replaceAll('outer', 'renamed') });
     assert.equal(duplicate.analysis.relations.length, 0);
     assert(duplicate.analysis.unresolved.some(g => g.reason === 'ambiguous-python-candidates'));
+    const distinct = 'def outer():\n    def left(items):\n        return [item.cost + 1 for item in items]\n'
+        + 'def outer():\n    def right(items):\n        return {item.name: item.cost * 2 for item in items}\n';
+    const distinctDuplicate = analyzeStrand({ 'a.py': distinct }, {
+        'b.py': distinct.replaceAll('outer', 'renamed').replace('+ 1', '+ 3').replace('* 2', '* 4')
+    });
+    assert(distinctDuplicate.native.mappers.every(m => m.source.name === 'outer'));
+    assert(pairs(distinctDuplicate.analysis).every(([name]) => !name.includes('.')));
     const trivial = analyzeStrand({ 'a.py': 'def old():\n    return 1\n' }, { 'b.py': 'def new():\n    return 1\n' });
     assert.equal(trivial.analysis.relations.length, 0);
 });

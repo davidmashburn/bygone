@@ -120,6 +120,15 @@ test('does not anchor nested symbols through duplicate enclosing scopes', () => 
     assert(result.unresolved.some(group => group.reason === 'ambiguous-js-candidates'));
 });
 
+test('distinct children cannot bypass ambiguous duplicate immediate parents', () => {
+    const source = 'function outer() { function left(items) { return items.map(item => item.cost + 1); } }\n'
+        + 'function outer() { function right(items) { return items.filter(item => item.active).map(item => item.cost * 2); } }\n';
+    const { result, inventories } = compare({ 'a.js': source }, {
+        'b.js': source.replaceAll('outer', 'renamed').replace('+ 1', '+ 3').replace('* 2', '* 4')
+    });
+    assert(mapperPairs(result, inventories).every(([name]) => !name.includes('.')));
+});
+
 test('preserves same-file ancestry across member reordering and distinguishes classes', () => {
     const before = {
         'classes.ts': `class Alpha {
