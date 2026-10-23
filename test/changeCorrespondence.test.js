@@ -14,6 +14,101 @@ const hash = value => createHash('sha256').update(value).digest('hex');
 const { correspondenceFixture: fixture } = require('./correspondenceFixture');
 const silent = { write() {} };
 
+test('structured diagnostics round-trip syntax, rejection endpoints, scope and parser failures without changing mappings', () => {
+    const { normalizeMappings } = require('../scripts/change-analysis/refactoring-mappings');
+    const before = { 'a.ts': 'const { value } = config;\nregister(() => 1);\nfunction kept() { return 1; }\n' };
+    const after = { 'a.ts': before['a.ts'] + 'function fresh() { return 2; }\n' };
+    const span = (files, text, name) => ({ path: 'a.ts', name, start: files['a.ts'].indexOf(text),
+        end: files['a.ts'].indexOf(text) + text.length, text, sha256: hash(text), valid: true });
+    const mapper = { id: 'synthetic-rejection', origins: ['continuation'],
+        source: span(before, 'function kept() { return 1; }', 'kept'), destination: span(after, '() => 1', 'anonymous') };
+    const analysis = normalizeMappings(before, after, { status: 'complete', mappers: [mapper] });
+    analysis.scope.excluded = [{ path: 'README.md', reason: 'unsupported-language' }];
+    const f = fixture({ before, after });
+    try {
+        const artifact = importChangeCorrespondence(f.root, { analysis }, f.range);
+        const records = artifact.diagnostics.records;
+        assert.equal(artifact.relations.length, analysis.relations.length);
+        assert.ok(records.some(r => r.reason === 'destructured-binding' && r.locations[0].line === 1));
+        assert.ok(records.some(r => r.reason === 'unmodeled-top-level-statement' && r.locations[0].line === 2));
+        assert.ok(records.some(r => r.category === 'outside' && r.locations[0].path === 'README.md'));
+        const rejection = records.find(r => r.category === 'rejected');
+        assert.equal(rejection.producerId, mapper.id);
+        assert.equal(rejection.locations[0].reason, 'resolved-container');
+        assert.equal(rejection.locations[1].reason, 'container-name-mismatch');
+        assert.equal(rejection.locations[1].line, 2);
+        assert.ok(records.some(r => r.reason === 'no-candidate-supplied' && r.locations[0].symbolId === analysis.inventories.after.entries.find(e => e.name === 'fresh').id));
+        assert.deepEqual(validateChangeCorrespondence(f.root, clone(artifact), f.range), artifact);
+        const issues = clone(analysis);
+        issues.issues.push({ reason: 'invalid-statement-range', mapperId: 'bad-statement', mapping: { source: { path: 'a.ts', start: 99999 }, destination: { path: 'a.ts', start: -1 } } },
+            { reason: 'invalid-unmapped-range', side: 'before', span: { path: 'a.ts', start: 99999 } });
+        const issueRecords = importChangeCorrespondence(f.root, { analysis: issues }, f.range).diagnostics.records.filter(r => r.category === 'problem');
+        assert.deepEqual(issueRecords.map(r => r.locations.map(l => [l.side, l.path, l.start])), [
+            [['before', 'a.ts', undefined], ['after', 'a.ts', undefined]], [['before', 'a.ts', undefined]]
+        ]);
+        const forged = clone(artifact); forged.diagnostics.records.find(r => r.category === 'syntax').locations[0].line = 999;
+        assert.equal(validateChangeCorrespondence(f.root, forged, f.range).diagnostics.records.find(r => r.category === 'syntax').locations[0].line, 1);
+        for (const mutate of [
+            d => { d.records[0].locations[0].start = 99999; },
+            d => { d.records[0].locations[0].path = '../escape'; },
+            d => { d.records[0].locations[0].side = 'other'; },
+            d => { d.records[0].locations[0].symbolId = 'unknown'; },
+            d => { d.records[0].category = 'invented'; },
+            d => { d.records[0].locations = Array(101).fill(d.records[0].locations[0]); }
+        ]) { const invalid = clone(artifact); mutate(invalid.diagnostics); assert.throws(() => validateChangeCorrespondence(f.root, invalid, f.range)); }
+        const legacy = clone(artifact); delete legacy.diagnostics;
+        assert.equal(validateChangeCorrespondence(f.root, legacy, f.range).diagnostics, undefined);
+        const excessive = clone(artifact);
+        excessive.diagnostics.records = Array(401).fill({ category: 'syntax', reason: 'test', locations: Array(100).fill({ path: 'a.ts', side: 'before', start: before['a.ts'].length }) });
+        assert.throws(() => validateChangeCorrespondence(f.root, excessive, f.range), /location budget/);
+    } finally { f.dispose(); }
+    const brokenAfter = { 'a.ts': 'function broken( {' }, broken = fixture({ before, after: brokenAfter });
+    try {
+        const partial = normalizeMappings(before, brokenAfter, { status: 'unavailable', reason: 'test-timeout', mappers: [], truncated: true });
+        const artifact = importChangeCorrespondence(broken.root, { analysis: partial }, broken.range);
+        assert.equal(artifact.status, 'partial');
+        assert.ok(artifact.diagnostics.records.some(r => r.reason === 'parser-diagnostic' && r.message));
+        assert.ok(artifact.diagnostics.records.some(r => r.reason === 'engine-truncated' && r.message.includes('test-timeout')));
+        assert.equal(artifact.relations.length, 0);
+    } finally { broken.dispose(); }
+});
+
+test('Python parser error locations preserve UTF16 columns after astral characters and CRLF', () => {
+    const { normalizeMappings } = require('../scripts/change-analysis/refactoring-mappings');
+    const before = { 'broken.py': 'def kept():\r\n    return 1\r\n' };
+    const after = { 'broken.py': 'label = "📦"; value = / 2\r\n' };
+    const f = fixture({ before, after });
+    try {
+        const analysis = normalizeMappings(before, after, { status: 'unavailable', reason: 'parse-preflight-failed' });
+        const artifact = importChangeCorrespondence(f.root, { analysis }, f.range);
+        const diagnostic = artifact.diagnostics.records.find(r => r.reason === 'parser-diagnostic');
+        assert.equal(diagnostic.locations[0].start, after['broken.py'].indexOf('/'));
+        assert.equal(diagnostic.locations[0].line, 1);
+        assert.equal(diagnostic.locations[0].side, 'after');
+        assert.equal(artifact.relations.length, 0);
+    } finally { f.dispose(); }
+});
+
+test('retained variables remain navigable alongside unresolved competing copy origins', () => {
+    const { normalizeMappings } = require('../scripts/change-analysis/refactoring-mappings');
+    const constant = 'const START_AT = new Date(0);';
+    const before = { 'a.js': constant, 'b.js': constant }, after = { 'a.js': constant, 'c.js': constant };
+    const f = fixture({ before, after });
+    try {
+        const analysis = normalizeMappings(before, after, { status: 'complete', mappers: [] });
+        const artifact = importChangeCorrespondence(f.root, { analysis }, f.range);
+        assert.equal(artifact.relations.length, 1); assert.equal(artifact.unresolved.length, 1);
+        assert(!artifact.unresolved[0].sourceIds.includes(artifact.relations[0].sourceId));
+        assert(!artifact.unresolved[0].destinationIds.includes(artifact.relations[0].destinationId));
+        const unmatched = artifact.diagnostics.records.filter(r => r.category === 'unmatched');
+        assert.equal(unmatched.filter(r => r.reason === 'ambiguous-symbol').length, 2);
+        const context = unmatched.find(r => r.reason === 'repeated-exact-occurrences');
+        assert.equal(context.locations.length, 4);
+        assert(context.locations.some(l => l.symbolId === artifact.relations[0].sourceId));
+        assert.deepEqual(validateChangeCorrespondence(f.root, artifact, f.range), artifact);
+    } finally { f.dispose(); }
+});
+
 test('real split exposes six moved declarations and complete residual validation changes', () => {
     const f = fixture();
     try {

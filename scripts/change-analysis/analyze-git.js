@@ -1,0 +1,103 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const { resolveBranchReviewRange } = require('../../out/gitComparison');
+const { importChangeCorrespondence } = require('../../out/changeCorrespondence');
+const { compileBridge, analyzeWithBridge, LIMITS } = require('./run-refactoring-mappings');
+
+const USAGE = 'npm run correspondence:analyze -- [<head>] --base <base> --output <artifact.json> [--repo <checkout>] [--python <python3>] [--java <jdk/bin/java> --jar <RM-fat.jar> --jar-sha256 <verified digest>]';
+const { isSupportedSource } = require('./symbol-inventory');
+
+function parseArgs(args) {
+    const options = {}, positional = [];
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (['--base', '--output', '--repo', '--java', '--jar', '--jar-sha256', '--python'].includes(arg)) {
+            if (!args[i + 1] || args[i + 1].startsWith('-')) throw new Error(`${arg} requires a value.`);
+            if (options[arg]) throw new Error(`Repeated option: ${arg}`);
+            options[arg] = args[++i];
+        } else if (arg.startsWith('-')) throw new Error(`Unknown option: ${arg}`);
+        else positional.push(arg);
+    }
+    if (positional.length > 1 || !options['--base'] || !options['--output']) throw new Error(USAGE);
+    return { ...options, head: positional[0] || 'HEAD' };
+}
+
+// Read committed blobs, never working-tree bytes. Rename detection is disabled
+// so both names remain in scope even across language/extension changes.
+function readSnapshots(range, limits = LIMITS) {
+    const git = args => execFileSync('git', args, { cwd: range.repoRoot, maxBuffer: 8 * 1024 * 1024 });
+    const paths = git(['diff', '--name-only', '-z', '--no-renames', range.mergeBaseOid, range.headOid, '--'])
+        .toString('utf8').split('\0').filter(Boolean);
+    const selected = paths.filter(p => isSupportedSource(p));
+    if (selected.length > limits.maxFiles) throw new Error(`file-budget: ${selected.length} source paths exceeds ${limits.maxFiles}.`);
+    const before = Object.create(null), after = Object.create(null), excluded = [];
+    let bytes = 0;
+    for (const p of paths.filter(p => !isSupportedSource(p))) excluded.push({ path: p, reason: 'unsupported-language' });
+    for (const [oid, files] of [[range.mergeBaseOid, before], [range.headOid, after]]) {
+        for (const p of selected) {
+            const entry = git(['ls-tree', '-z', oid, '--', `:(literal)${p}`]).toString('utf8');
+            if (!entry) continue; // Added/deleted on this side.
+            const [mode, type, blob] = entry.slice(0, entry.indexOf('\t')).split(' ');
+            if (type !== 'blob' || !['100644', '100755'].includes(mode)) {
+                excluded.push({ path: p, reason: 'non-regular-file', oid }); continue;
+            }
+            const size = Number(git(['cat-file', '-s', blob]).toString('utf8'));
+            if (size > limits.maxFileBytes) throw new Error(`file-byte-budget: ${p}`);
+            bytes += size;
+            if (bytes > limits.maxBytes) throw new Error('comparison-byte-budget');
+            const raw = git(['cat-file', 'blob', blob]), text = raw.toString('utf8');
+            if (!Buffer.from(text, 'utf8').equals(raw) || text.includes('\0')) throw new Error(`non-text-source: ${p}`);
+            files[p] = text;
+        }
+    }
+    return { before, after, excluded };
+}
+
+function analyzeGit(args, cwd = process.cwd(), output = process.stdout) {
+    const options = parseArgs(args);
+    const java = options['--java'] || process.env.MAPPING_JAVA;
+    const jar = options['--jar'] || process.env.MAPPING_JAR;
+    const expectedJarSha256 = options['--jar-sha256'] || process.env.MAPPING_JAR_SHA256;
+    if (!java || !jar || !/^[a-f0-9]{64}$/.test(expectedJarSha256 || '')) {
+        throw new Error('Provide explicit Java, engine jar and verified SHA-256 via --java/--jar/--jar-sha256 or MAPPING_JAVA/MAPPING_JAR/MAPPING_JAR_SHA256.');
+    }
+    const python = options['--python'] || process.env.MAPPING_PYTHON || 'python3';
+    const pythonExecutable = /[\\/]/.test(python) ? path.resolve(cwd, python) : python;
+    const range = resolveBranchReviewRange(path.resolve(cwd, options['--repo'] || '.'), options.head, options['--base']);
+    const snapshots = readSnapshots(range);
+    let config;
+    try {
+        config = compileBridge({ java: path.resolve(cwd, java), jar: path.resolve(cwd, jar), expectedJarSha256, python: pythonExecutable });
+        const result = analyzeWithBridge(snapshots.before, snapshots.after, config);
+        result.analysis.scope.excluded = snapshots.excluded;
+        result.analysis.scope.note = 'Changed JS/TS/Python regular files only. Unchanged files are outside the candidate universe; repository-wide origins were not searched.';
+        const artifact = importChangeCorrespondence(range.repoRoot, result, { baseOid: range.mergeBaseOid, headOid: range.headOid });
+        artifact.limitations.push(`Changed JS/TS/Python regular files only; ${snapshots.excluded.length} changed path/side exclusions. Unchanged files are outside the candidate universe.`,
+            `Engine SHA-256: ${config.jarSha256}; bridge SHA-256: ${config.bridgeSha256}; parser: ${[...new Set([result.analysis.inventories.before.parser, result.analysis.inventories.after.parser])].join('; ')}.`,
+            `Engine status: ${result.analysis.engine.status}; reason: ${result.analysis.engine.reason || 'none'}; limits: ${JSON.stringify(LIMITS)}.`);
+        const diagnostics = ['before', 'after'].flatMap(side => result.analysis.inventories[side].documents
+            .flatMap(d => d.diagnostics.map(diag => `${side}:${d.path}: ${diag.message.slice(0, 300)}`)));
+        if (diagnostics.length) artifact.limitations.push(`Inventory diagnostics (${diagnostics.length}): ${diagnostics.slice(0, 20).join('; ')}`);
+        if ([...Object.keys(snapshots.before), ...Object.keys(snapshots.after)].some(p => /\.pyi$/.test(p))) {
+            artifact.limitations.push('Python .pyi stubs are independently inventoried, but this pinned engine does not parse them. Comparison is partial; only independent exact matches are accepted.');
+        }
+        const destination = path.resolve(cwd, options['--output']);
+        const serialized = JSON.stringify(artifact, null, 2) + '\n';
+        if (Buffer.byteLength(serialized) > 16 * 1024 * 1024) throw new Error('Correspondence file exceeds 16 MiB.');
+        fs.mkdirSync(path.dirname(destination), { recursive: true });
+        // Do not overwrite an existing artifact or source file.
+        fs.writeFileSync(destination, serialized, { flag: 'wx' });
+        output.write(`Wrote ${artifact.relations.length} inferred correspondences (${artifact.status}) to ${destination}\n`);
+        output.write(`Pinned ${range.mergeBaseOid}..${range.headOid}; engine ${result.analysis.engine.status}${result.analysis.engine.reason ? ` (${result.analysis.engine.reason})` : ''}\n`);
+        return artifact;
+    } finally {
+        if (config) fs.rmSync(config.buildDir, { recursive: true, force: true });
+    }
+}
+
+module.exports = { parseArgs, readSnapshots, analyzeGit };
+if (require.main === module) {
+    try { analyzeGit(process.argv.slice(2)); }
+    catch (error) { console.error(error.message); process.exitCode = 1; }
+}

@@ -31,6 +31,8 @@ import { renderTourProse } from '../media/tourProse.js';
 import { renderTourDetails } from './tourDetails.js';
 import { openTourFeedback } from './tourFeedback.js';
 import { captureTourFeedback } from '../src/tourFeedback.ts';
+import { buildCorrespondenceTree } from './correspondenceTree.js';
+import { buildCorrespondenceDiagnostics, diagnosticReason } from './correspondenceDiagnostics.js';
 
 (function initializeWebHost() {
     const imageViewer = createTourImageViewer();
@@ -101,6 +103,8 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         renderedNarrationUnit: null,
         workspacePromptStatus: '',
         correspondence: null,
+        collapsedSymbolNodes: new Set(),
+        activeCorrespondenceId: null,
         historyPrefix: '/history/'
     };
     let workspaceControls = null;
@@ -1916,6 +1920,8 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
                 : [];
             state.tour = parsedTour;
             state.correspondence = correspondence;
+            state.collapsedSymbolNodes = new Set();
+            state.activeCorrespondenceId = null;
             state.authoredTour = parsedTour;
             state.historyPrefix = nextHistoryPrefix;
             state.zoom = new TourZoomSession(initialMode);
@@ -2159,50 +2165,179 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         const list = document.getElementById('correspondence-list');
         list.replaceChildren();
         if (!evidence) return;
-        const entries = new Map([...evidence.symbols.before, ...evidence.symbols.after].map(entry => [entry.id, entry]));
         const query = document.getElementById('correspondence-filter').value.toLowerCase();
         const all = document.getElementById('correspondence-all').checked;
-        const relations = evidence.relations.filter(relation => {
-            const a = entries.get(relation.sourceId), b = entries.get(relation.destinationId);
-            return (all || relation.pathChanged || relation.nameChanged || !relation.rawEqual)
-                && `${a.name} ${b.name} ${a.path} ${b.path}`.toLowerCase().includes(query);
-        });
-        document.getElementById('correspondence-status').textContent = `${evidence.range.baseOid.slice(0, 7)} → ${evidence.range.headOid.slice(0, 7)} · ${evidence.status} analysis · ${relations.length} of ${evidence.relations.length} inferred mappings · ${evidence.unresolved.length} ambiguous groups. Behavior unassessed.`;
-        for (const relation of relations) {
-            const a = entries.get(relation.sourceId), b = entries.get(relation.destinationId);
-            const button = document.createElement('button');
-            button.type = 'button'; button.className = 'tour-file correspondence-item';
-            button.dataset.correspondenceId = relation.id;
-            button.title = `Compare ${a.path}:${a.startLine} with ${b.path}:${b.startLine}`;
-            const title = document.createElement('strong'); title.textContent = a.name === b.name ? a.name : `${a.name} → ${b.name}`;
-            const paths = document.createElement('span'); paths.textContent = `${a.path}:${a.startLine} → ${b.path}:${b.startLine}`;
-            const edits = document.createElement('span'); edits.textContent = relation.rawEqual ? 'Identical declaration text · context may differ' : 'Declaration edited · compare all local changes';
-            button.append(title, paths, edits);
-            button.addEventListener('click', () => {
-                cancelPendingModeRestore();
-                evidenceRequest += 1;
-                document.body.classList.remove('tour-discussion');
-                state.activeTourFilePath = null;
-                lastReadingEvidence = null;
-                updateTourFileSelection();
-                narrationController.interruptForExploration();
-                state.directoryEvidence = null;
-                document.getElementById('correspondence-selection').textContent = `${a.name}: inferred correspondence. Showing complete declarations; line 1 below starts at source lines ${a.startLine} / ${b.startLine}. Use Files for the complete file changes.`;
-                emit({ type: 'showDiff', file1: `${a.path}:${a.startLine} @ ${evidence.range.baseOid.slice(0, 7)}`,
-                    file2: `${b.path}:${b.startLine} @ ${evidence.range.headOid.slice(0, 7)}`,
-                    sourceInfo: { leftPath: a.path, rightPath: b.path },
-                    comparisonId: `correspondence-${relation.id}`, leftContent: a.text, rightContent: b.text,
-                    diffModel: buildTwoWayDiffModel(a.text, b.text), history: null, correspondenceView: true,
-                    editableSides: { left: false, right: false },
-                    comparisonSummary: 'Inferred symbol correspondence · behavior unassessed · complete declaration diff' });
-                list.querySelectorAll('button').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        const tree = buildCorrespondenceTree(evidence, { all, query });
+        document.getElementById('correspondence-status').textContent = `${evidence.range.baseOid.slice(0, 7)} → ${evidence.range.headOid.slice(0, 7)} · ${evidence.status} analysis · ${tree.matchingRelations} of ${evidence.relations.length} inferred mappings · ${tree.matchingUnmatched} unmatched symbols · ${evidence.unresolved.length} ambiguous groups. Behavior unassessed.`;
+        const root = document.createElement('ul'); root.className = 'correspondence-tree';
+        list.append(root);
+        const pending = tree.files.map(node => ({ node, parent: root })).reverse();
+        while (pending.length) {
+            const { node, parent } = pending.pop();
+            const row = document.createElement('li'); row.dataset.symbolKey = node.key;
+            row.classList.toggle('is-context', node.type === 'symbol' && node.context);
+            const heading = document.createElement('div'); heading.className = 'correspondence-heading';
+            const children = document.createElement('ul'); children.id = `symbols-${encodeURIComponent(node.key)}`;
+            const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'correspondence-toggle';
+            const label = node.type === 'file' ? node.path : node.entry.name;
+            const update = () => {
+                toggle.setAttribute('aria-expanded', String(!children.hidden));
+                toggle.setAttribute('aria-label', `${children.hidden ? 'Expand' : 'Collapse'} ${label}`);
+                toggle.textContent = children.hidden ? '▸' : '▾';
+            };
+            children.hidden = !query.trim() && state.collapsedSymbolNodes.has(node.key);
+            toggle.setAttribute('aria-controls', children.id);
+            toggle.addEventListener('click', () => {
+                children.hidden = !children.hidden;
+                if (children.hidden) state.collapsedSymbolNodes.add(node.key);
+                else state.collapsedSymbolNodes.delete(node.key);
+                update();
             });
-            list.append(button);
+            update(); toggle.hidden = !node.children.length;
+            heading.append(toggle); row.append(heading);
+            if (node.type === 'file') {
+                row.classList.add('correspondence-file');
+                const button = document.createElement('button'); button.type = 'button'; button.className = 'correspondence-file-label';
+                button.textContent = node.path; button.title = node.path;
+                button.addEventListener('click', () => toggle.click());
+                heading.append(button);
+            } else {
+                const { before: a, after: b, relation } = node;
+                const button = document.createElement('button');
+                button.type = 'button'; button.className = 'correspondence-item';
+                const selectionId = relation?.id || node.key;
+                button.dataset.correspondenceId = selectionId;
+                button.dataset.sourceReference = String(!!node.sourceReference);
+                button.classList.toggle('is-relocated', !!node.sourceReference || !!relation?.pathChanged);
+                button.setAttribute('aria-pressed', String(state.activeCorrespondenceId === selectionId));
+                const location = entry => `${entry.path}:${entry.startLine}`;
+                button.title = relation ? `Compare ${location(a)} with ${location(b)}` : `Inspect ${location(node.entry)} · no accepted match`;
+                const title = document.createElement('strong'); title.textContent = a && b && a.name !== b.name ? `${a.name} → ${b.name}` : node.entry.name;
+                const paths = document.createElement('span');
+                paths.textContent = relation ? `${location(a)} → ${location(b)}` : `${location(node.entry)} · ${node.side === 'before' ? 'base' : 'head'}`;
+                paths.className = 'correspondence-location';
+                const edits = document.createElement('span');
+                const changes = relation ? [
+                    node.sourceReference ? 'Before location' : '', relation.pathChanged ? 'Moved' : '',
+                    relation.nameChanged ? 'Renamed' : '', !relation.rawEqual ? 'Edited' : '',
+                    node.changed && !relation.pathChanged && !relation.nameChanged && relation.rawEqual ? 'Reparented' : ''
+                ].filter(Boolean) : [node.side === 'before' ? 'Before only' : 'After only', node.ambiguous ? 'Ambiguous' : 'Unmatched'];
+                edits.textContent = `${node.entry.kind} · ${changes.join(' · ') || 'Unchanged text'}${node.context ? ' · ancestor context' : ''}`;
+                button.append(title, paths, edits);
+                button.addEventListener('click', () => {
+                    cancelPendingModeRestore();
+                    evidenceRequest += 1;
+                    document.body.classList.remove('tour-discussion');
+                    state.activeTourFilePath = null;
+                    lastReadingEvidence = null;
+                    updateTourFileSelection();
+                    narrationController.interruptForExploration();
+                    state.directoryEvidence = null;
+                    state.activeCorrespondenceId = selectionId;
+                    document.getElementById('correspondence-selection').textContent = relation
+                        ? `${a.name}: inferred correspondence. Showing complete declarations; line 1 below starts at source lines ${a.startLine} / ${b.startLine}. Use Files for the complete file changes.`
+                        : `${node.entry.name}: ${node.ambiguous ? 'ambiguous' : 'unmatched'} ${node.side} symbol. Only the available declaration is shown; the empty side does not establish an addition or deletion. Use Files for complete context.`;
+                    const left = a?.text || '', right = b?.text || '';
+                    emit({ type: 'showDiff', file1: `${a ? location(a) : 'No accepted match'} @ ${evidence.range.baseOid.slice(0, 7)}`,
+                        file2: `${b ? location(b) : 'No accepted match'} @ ${evidence.range.headOid.slice(0, 7)}`,
+                        sourceInfo: { leftPath: a?.path || node.entry.path, rightPath: b?.path || node.entry.path },
+                        comparisonId: `correspondence-${selectionId}`, leftContent: left, rightContent: right,
+                        diffModel: buildTwoWayDiffModel(left, right), history: null, correspondenceView: true,
+                        editableSides: { left: false, right: false },
+                        comparisonSummary: relation ? 'Inferred symbol correspondence · behavior unassessed · complete declaration diff'
+                            : 'No accepted symbol match · addition/deletion unassessed · complete available declaration' });
+                    list.querySelectorAll('.correspondence-item').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.correspondenceId === selectionId)));
+                });
+                heading.append(button);
+            }
+            parent.append(row);
+            if (node.children.length) {
+                row.append(children);
+                pending.push(...node.children.map(child => ({ node: child, parent: children })).reverse());
+            }
         }
-        const limitations = document.getElementById('correspondence-limitations'); limitations.replaceChildren();
-        const describeOrigin = id => { const entry = entries.get(id); return entry ? `${entry.path}:${entry.startLine} (${entry.name})` : id; };
-        const messages = [...evidence.limitations, ...evidence.unresolved.map(group => `${group.reason}: ${group.sourceIds.map(describeOrigin).join(', ')} → ${group.destinationIds.map(describeOrigin).join(', ')}`)];
-        for (const message of messages) { const p = document.createElement('p'); p.textContent = message; limitations.append(p); }
+        if (!tree.files.length) {
+            const empty = document.createElement('p'); empty.className = 'history-rail-empty';
+            empty.textContent = query.trim() ? 'No symbols match this filter.' : 'No changed or unmatched symbols. Include unchanged local symbols to see all inventoried declarations.';
+            list.append(empty);
+        }
+        renderCorrespondenceDiagnostics(evidence);
+    }
+
+    function openDiagnosticSymbol(id) {
+        document.getElementById('correspondence-filter').value = '';
+        document.getElementById('correspondence-all').checked = true;
+        renderCorrespondences();
+        const relation = state.correspondence.relations.find(r => r.sourceId === id || r.destinationId === id);
+        const buttons = [...document.querySelectorAll('#correspondence-list .correspondence-item')];
+        const target = buttons.find(button => button.parentElement.parentElement.dataset.symbolKey === `after:${id}`
+            || button.parentElement.parentElement.dataset.symbolKey === `before:${id}`)
+            || buttons.find(button => button.dataset.correspondenceId === relation?.id);
+        if (!target) return;
+        let parent = target.closest('li').parentElement;
+        while (parent?.closest('#correspondence-list')) {
+            if (parent.tagName === 'UL' && parent.hidden) parent.previousElementSibling?.querySelector('.correspondence-toggle')?.click();
+            parent = parent.parentElement;
+        }
+        target.click(); target.focus(); target.scrollIntoView({ block: 'nearest' });
+    }
+
+    function renderCorrespondenceDiagnostics(evidence) {
+        const container = document.getElementById('correspondence-limitations');
+        const expanded = new Set([...container.querySelectorAll('details[open]')].map(details => details.dataset.diagnosticCategory));
+        container.replaceChildren();
+        const text = (parent, message) => { const p = document.createElement('p'); p.textContent = message; parent.append(p); };
+        const symbolsById = new Map([...evidence.symbols.before, ...evidence.symbols.after].map(e => [e.id, e]));
+        text(container, 'Categories overlap and use different units. Rejected records are not missing functions; these counts do not measure coverage.');
+        if (!evidence.diagnostics) text(container, 'Detailed diagnostics unavailable. This older artifact retains summaries and inventoried symbols only.');
+        for (const message of evidence.diagnostics?.scope || []) text(container, message);
+        for (const group of buildCorrespondenceDiagnostics(evidence)) {
+            const details = document.createElement('details'); details.dataset.diagnosticCategory = group.category;
+            details.open = expanded.has(group.category);
+            const summary = document.createElement('summary'); summary.textContent = `${group.title} · ${group.count}`;
+            details.append(summary); text(details, group.description);
+            const records = document.createElement('ul'); records.className = 'correspondence-diagnostics';
+            for (const record of group.records) {
+                const row = document.createElement('li');
+                text(row, diagnosticReason(record.reason));
+                const code = document.createElement('code'); code.textContent = record.reason; row.append(code);
+                if (record.producerId) text(row, `Engine record: ${record.producerId}`);
+                if (record.message) text(row, record.message);
+                for (const location of record.locations) {
+                    const symbol = symbolsById.get(location.symbolId);
+                    const file = state.tour?.files.find(f => f.path === location.path && f.kind === 'text-diff');
+                    const label = `${location.side ? `${location.side} @ ${(location.side === 'before' ? evidence.range.baseOid : evidence.range.headOid).slice(0, 7)} · ` : 'changed path · '}${location.path}${location.line ? `:${location.line}` : ''}${symbol ? ` (${symbol.name})` : ''}`;
+                    const link = document.createElement(symbol || file ? 'button' : 'span');
+                    link.textContent = label; link.className = 'correspondence-diagnostic-location';
+                    if (symbol || file) {
+                        link.type = 'button';
+                        link.title = symbol ? 'Inspect symbol (includes unchanged local symbols and clears search)' : 'Inspect complete file context';
+                        link.addEventListener('click', () => {
+                            if (symbol) return openDiagnosticSymbol(symbol.id);
+                            cancelPendingModeRestore(); evidenceRequest += 1;
+                            narrationController.interruptForExploration(); state.directoryEvidence = null; state.activeCorrespondenceId = null;
+                            emitDiffScene(file, [], getTourFileComparisonId(file.path), null,
+                                location.line && location.side ? { revision: location.side === 'before' ? 'base' : 'head', startLine: location.line } : null);
+                            document.getElementById('correspondence-selection').textContent = `Complete file context: ${label}`;
+                            document.querySelectorAll('.correspondence-item').forEach(item => item.setAttribute('aria-pressed', 'false'));
+                        });
+                    } else link.title = 'File context is not available in this comparison.';
+                    row.append(link);
+                    if (location.reason) {
+                        text(row, diagnosticReason(location.reason));
+                        const code = document.createElement('code'); code.textContent = location.reason; row.append(code);
+                    }
+                }
+                records.append(row);
+            }
+            if (group.records.length) details.append(records);
+            container.append(details);
+        }
+        const summaries = document.createElement('details');
+        const summary = document.createElement('summary'); summary.textContent = 'Analysis summaries and provenance';
+        summaries.append(summary);
+        for (const message of evidence.limitations) text(summaries, message);
+        container.append(summaries);
     }
 
     function renderTourFiles() {

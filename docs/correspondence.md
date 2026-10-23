@@ -5,16 +5,54 @@ Bygone's authoring context and presentation viewer. It does not run a matcher
 or model automatically. RefactoringMiner and Java remain optional external
 research tools; neither is a new Bygone runtime dependency.
 
-## Import once for a specific comparison
+## Generate evidence in this checkout
 
-Produce a normalized mapping report with the research adapter on
-`research/move-tracking-slice0` (implementation `cb0edb6`,
-`scripts/change-analysis/refactoring-mappings.md`). Reports may contain one
-`analysis` or a `cases` array. Select a case explicitly when importing a batch:
+The development command inventories changed JS/TS/Python regular files from committed
+Git blobs, runs the bounded research adapter and imports its result into the
+validated viewer format. It uses the review merge base, just like `present`;
+working-tree edits are excluded. No second branch or saved research report is
+required.
+
+Build the pinned external engine following
+[scripts/change-analysis/README.md](../scripts/change-analysis/README.md), then
+supply its verified build digest and JDK explicitly:
+
+```sh
+export MAPPING_JAVA=/absolute/path/to/jdk/bin/java
+export MAPPING_JAR=/absolute/path/to/RefactoringMiner/build/libs/RM-fat.jar
+export MAPPING_JAR_SHA256=<verified-build-sha256>
+npm run correspondence:analyze -- feature --base main \
+  --output /tmp/correspondence.json
+```
+
+Use `--repo /absolute/path/to/checkout` to analyze another repository without
+copying its source into this one. `--java`, `--jar` and `--jar-sha256` override
+the environment. Python comparisons additionally use `--python` or
+`MAPPING_PYTHON` (default `python3`), CPython 3.8+ with syntax support determined
+by that interpreter. Named Python functions/classes/methods include decorators
+and attached terminal comments; lambdas and variable bindings are excluded.
+Python `.pyi` files have inventory/exact matching only and explicitly mark the
+comparison partial because the pinned engine does not parse them.
+
+The output must be a new file. Artifacts contain source text;
+keep private repositories' evidence outside this repository.
+
+Changed files bound the candidate universe: unchanged files, unsupported
+languages, symlinks and submodules are excluded. The artifact records this
+scope, the engine/bridge digests, parser version, limits and failure reason.
+Timeout, truncation or process failure produces explicitly partial evidence;
+only independent exact declarations can survive. Invalid source encoding or
+an input budget violation fails without writing an artifact. A comparison with
+no supported source documents is explicitly unavailable.
+
+## Import an existing report
+
+Normalized reports may contain one `analysis` or a `cases` array. Select a case
+explicitly when importing a batch:
 
 ```sh
 bygone correspondence import mappings.json feature --base main \
-  --case module-split --output /tmp/correspondence.json
+  --case module-split --output /tmp/imported-correspondence.json
 ```
 
 The import resolves the selected review's merge-base/head to immutable commit
@@ -30,7 +68,14 @@ checks do not independently adjudicate the producer's symbol identities,
 parsing, completeness or semantic claims. All mappings remain inferred and
 behavior remains unassessed. Partial analysis suppresses engine-only mappings;
 independent exact-declaration evidence can remain available. Extraction/inline
-groups are counted as limitations but are not navigable in this slice.
+groups expose their endpoints in Analysis details; they are not accepted continuations.
+
+Exact matching first checks unique same-file, same-scope, same-name bindings
+with identical declaration bytes and binding context. Repeated constants in
+different files can therefore retain their local continuations. Cross-scope
+matching still considers all identical occurrences, including retained sources;
+remaining competing origins are reported for variables as well as callables.
+Local evidence does not override a conflicting engine candidate.
 
 ## Use the same artifact in both places
 
@@ -47,9 +92,30 @@ exclude enclosing export/const/let syntax; inspect the complete file for that
 context and for surrounding binding/import changes. The labels identify
 both paths, source lines and revisions. Editor line numbers are relative to
 the declaration slice. The **Files** rail still opens complete file diffs.
-Symbols includes moved, renamed or edited declarations by default; enable
-**Include unchanged local symbols** to see the remaining inferred mappings.
-Open the limitations disclosure to inspect competing origins and scope limits.
+Symbols groups declarations by file and nests classes, methods and functions
+using their source ranges. Expand or collapse branches with the disclosure
+buttons (also keyboard accessible). The default filter includes moved, renamed,
+edited and unmatched declarations; enable **Include unchanged local symbols**
+to see all inventoried declarations. Search retains ancestor paths and opens
+matching branches. Ancestors retained only for context are dimmed.
+Moved or reparented declarations appear at both locations; the old location is
+labeled **Before location** and opens the same before/after comparison. Counts
+include each accepted mapping once. **Before only**, **After only** and
+**Ambiguous** entries have no accepted match; selecting one shows its available
+source slice, without claiming a confirmed addition or deletion.
+Open **Analysis details** for separate counts and expandable records for paths
+outside analysis, syntax not inventoried, rejected engine containers, unmatched
+symbols and competing origins, other relationships, and analysis problems.
+Records retain reported reasons, revision sides and source locations. Links open
+complete file context or inventoried symbols, including unchanged declarations;
+symbol links clear search and enable **Include unchanged local symbols**.
+Ambiguous groups link every competing endpoint without picking an origin.
+Invalid producer ranges retain paths without trusted offsets. A missing candidate
+is distinguished from a rejected candidate; when the producer gives no explanation,
+the viewer says so. Categories overlap, use explicit units and are not a coverage
+percentage. Unchanged files outside a changed-file search are described as a scope
+limit, not enumerated as missing symbols. Older artifacts retain their summaries
+and show **Detailed diagnostics unavailable** rather than zero diagnostic counts.
 The status always names the artifact's pinned base/head, even when exploring
 other history comparisons. An uploaded tour does not inherit this evidence.
 
@@ -65,12 +131,10 @@ and new slices are retained as removal/addition rather than omitting content.
 
 ## Run this checkout's real example
 
-After `npm run compile`, use the saved research report from its worktree:
+With the explicit engine environment above:
 
 ```sh
-node bin/bygone.js correspondence import \
-  /path/to/bygone-move-research/scripts/change-analysis/results/refactoring-mappings-diagnostics-2026-10-22.json \
-  726796b1fe --base '726796b1fe^' --case diagnostic-public-tour-details \
+npm run correspondence:analyze -- 726796b1fe --base '726796b1fe^' \
   --output /tmp/bygone-correspondence.json
 BYGONE_FORCE_BUNDLED=1 node bin/bygone.js present 726796b1fe \
   --base '726796b1fe^' --correspondence /tmp/bygone-correspondence.json
@@ -86,3 +150,8 @@ of an older installed desktop application.
 browser smoke using a portable fixture taken from that real module split.
 This slice does not construct intermediate refactoring stages, hide raw edits,
 add model annotations, or establish reviewer benefit.
+
+`npm run test:correspondence:engine` uses the same explicit engine environment.
+It runs the adapter tests, Git snapshot tests, real JVM timeout/truncation/output
+failure checks, Python ranges/moves/renames and fresh module-split generation accepted by the viewer's
+consumer. Large archived reports and evaluations stay on the research branch.

@@ -49,6 +49,10 @@ export default [
         }
     },
     {
+        files: ['scripts/change-analysis/**/*.js'],
+        languageOptions: { sourceType: 'commonjs', globals: globals.node }
+    },
+    {
         files: ['media/**/*.js', 'web/**/*.js'],
         languageOptions: {
             globals: {
