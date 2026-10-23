@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.2
+
+- Prioritized matching named lines before brackets to preserve block correspondences across nesting and indentation changes
+- Aligned changed indentation highlights to the start of each line while preserving highlights on edited text
+
 ## 0.10.1
 
 - Fixed desktop tours showing unstyled HTML after temporary asset cleanup during long-running app sessions
