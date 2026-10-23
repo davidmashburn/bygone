@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const { implementationIdentity } = require('../../packages/strand/src/identity');
 const { performance } = require('node:perf_hooks');
 const { digest, inventorySnapshot } = require('./symbol-inventory');
 const { normalizeMappings } = require('./refactoring-mappings');
@@ -30,7 +31,7 @@ function analyzeStrand(before, after, config = {}) {
         analysis.status = 'unavailable'; analysis.engine.status = 'unavailable'; analysis.engine.reason = 'no-supported-documents';
     }
     return { analysis, native, engineMs: performance.now() - began,
-        identity: { ...ENGINE, implementationSha256: digest(fs.readFileSync(require.resolve('../../packages/strand/src/js-correspondence'))),
+        identity: { ...ENGINE, implementationSha256: implementationIdentity(),
             pythonFeaturesSha256: digest(fs.readFileSync(require.resolve('../../packages/strand/src/python-inventory.py'))),
             runnerSha256: digest(fs.readFileSync(__filename)) } };
 }

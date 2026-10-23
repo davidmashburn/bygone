@@ -42,3 +42,9 @@ constructors, methods, and single-declarator fields/constants. Local variable
 bindings, anonymous classes/lambdas, initializer blocks, module directives, and
 multi-declarator fields are explicitly excluded. This is syntax-based
 correspondence; overload/type/binding resolution is not provided.
+
+Go supports functions, receiver methods, named types/aliases, interface methods,
+struct fields, and single-name package constants/variables. Receiver identity
+normalizes pointers and generic arguments without resolving types. Receiver
+type renames, local bindings/types, embedded fields, and multi-name specs are
+not inferred.
