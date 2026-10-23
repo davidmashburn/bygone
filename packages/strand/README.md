@@ -36,3 +36,9 @@ and tree disposal. JS/TS and CPython retain their existing frontends. Adapter
 features share the same bounded matching and ambiguity rules. Language and
 explicit receiver/implementation scope identities constrain both inferred and
 independent exact matches.
+
+Java supports named classes, records, interfaces, enums, annotation types,
+constructors, methods, and single-declarator fields/constants. Local variable
+bindings, anonymous classes/lambdas, initializer blocks, module directives, and
+multi-declarator fields are explicitly excluded. This is syntax-based
+correspondence; overload/type/binding resolution is not provided.

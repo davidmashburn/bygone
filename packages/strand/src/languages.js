@@ -1,5 +1,8 @@
 // JS and TS intentionally share a syntax family. Other languages never compete.
-const TREE_SITTER_LANGUAGES = Object.freeze({});
+const TREE_SITTER_LANGUAGES = Object.freeze({
+    java: { adapter: 'java', file: 'tree-sitter-java.wasm', version: '0.23.5', abi: 14,
+        sha256: '4fdeac4ca6ca089f06c6f7e562abcac1733cd465728cc7031ebb73c2019122c4' }
+});
 function languageFor(path) {
     if (/\.(?:[cm]?[jt]s|[jt]sx)$/i.test(path)) return 'javascript';
     if (/\.pyi?$/.test(path)) return 'python';
