@@ -3,8 +3,9 @@ const { createHash } = require('node:crypto');
 const digest = text => createHash('sha256').update(text).digest('hex');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
-const sourceExtensions = /\.(?:[cm]?[jt]s|[jt]sx|pyi?)$/;
-const isSupportedSource = path => sourceExtensions.test(path);
+const { languageFor, isTreeSitterSource } = require('./languages');
+const { treeSitterInventory } = require('./tree-sitter-inventory');
+const isSupportedSource = path => languageFor(path) !== null && (['javascript', 'python'].includes(languageFor(path)) || isTreeSitterSource(path));
 
 function pythonInventory(files, options) {
     const result = spawnSync(options.python || process.env.MAPPING_PYTHON || 'python3',
@@ -33,26 +34,29 @@ function inventorySnapshot(files, side, options = {}) {
     const snapshotId = digest(JSON.stringify(Object.keys(files).sort().map(path => [path, digest(files[path])])));
     const pythonFiles = Object.fromEntries(Object.entries(files).filter(([p]) => /\.pyi?$/.test(p)));
     const python = Object.keys(pythonFiles).length ? pythonInventory(pythonFiles, options) : null;
+    const treeFiles = Object.fromEntries(Object.entries(files).filter(([p]) => isTreeSitterSource(p)));
+    const treeSitter = Object.keys(treeFiles).length ? treeSitterInventory(treeFiles, options) : null;
     const parsers = new Set();
+    if (treeSitter) parsers.add(treeSitter.parser);
     if (python) parsers.add(python.parser);
     for (const path of Object.keys(files).sort()) {
         const text = files[path];
         const document = { path, digest: digest(text), utf16Length: text.length, status: 'complete', diagnostics: [] };
         documents.push(document);
-        if (!sourceExtensions.test(path)) {
+        if (!isSupportedSource(path)) {
             document.status = 'unsupported';
             exclusions.push({ path, reason: 'unsupported-language' });
             continue;
         }
-        if (/\.pyi?$/.test(path)) {
-            const parsed = python.documents[path];
+        if (/\.pyi?$/.test(path) || isTreeSitterSource(path)) {
+            const parsed = isTreeSitterSource(path) ? treeSitter.documents[path] : python.documents[path];
             document.status = parsed.status;
             document.diagnostics = parsed.diagnostics;
             exclusions.push(...parsed.exclusions.map(e => ({ path, ...e })));
             for (const declaration of parsed.entries) {
                 const { start, end, kind, qualifiedName } = declaration;
                 if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start || end > text.length) {
-                    throw new Error('invalid-python-declaration-range');
+                    throw new Error('invalid-declaration-range');
                 }
                 entries.push({ ...declaration, side, path, digest: digest(text.slice(start, end)),
                     engineRanges: [{ start, end }, ...declaration.engineRanges],
@@ -174,7 +178,7 @@ function inventorySnapshot(files, side, options = {}) {
         for (const node of sf.statements) visit(node);
     }
     return { snapshotId, entries, documents, exclusions, parser: [...parsers].sort().join('; ') || 'none',
-        scope: 'JS/TS named declarations, class members, direct nested declarations, and explicit top-level registerType registrations; Python named functions/classes including compound suites; callbacks/lambdas excluded' };
+        scope: 'JS/TS named declarations, class members, direct nested declarations, and explicit top-level registerType registrations; Python named functions/classes including compound suites; callbacks/lambdas excluded; registered Tree-sitter languages use named syntax adapters with explicit exclusions' };
 }
 
 module.exports = { digest, inventorySnapshot, isSupportedSource };

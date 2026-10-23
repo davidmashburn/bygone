@@ -5,6 +5,7 @@
 const ts = require('typescript');
 const { performance } = require('node:perf_hooks');
 const { digest } = require('./symbol-inventory');
+const { languageFor, isInferredSource } = require('./languages');
 
 const JAVASCRIPT_PATH = /\.(?:[cm]?[jt]s|[jt]sx)$/i;
 const DEFAULT_LIMITS = Object.freeze({
@@ -141,10 +142,6 @@ function normalizeLimits(input) {
 
 function isJavaScriptPath(filePath) {
     return typeof filePath === 'string' && JAVASCRIPT_PATH.test(filePath);
-}
-
-function languageFor(filePath) {
-    return /\.py$/.test(filePath) ? 'python' : 'javascript';
 }
 
 function scriptKindFor(filePath) {
@@ -462,7 +459,8 @@ function ancestryData(entries) {
 }
 
 function kindCompatible(source, destination) {
-    return source.kind === destination.kind && languageFor(source.path) === languageFor(destination.path);
+    return source.kind === destination.kind && languageFor(source.path) === languageFor(destination.path)
+        && (source.scopeIdentity || '') === (destination.scopeIdentity || '');
 }
 
 function sameFileIdentity(sourceInfo, destinationInfo) {
@@ -602,7 +600,7 @@ function ambiguityGroups(candidates, ambiguous, entryOrder, budget, rankings) {
         const componentDestinations = [...destinationIds].sort((left, right) => (entryOrder.after.get(left) ?? 0) - (entryOrder.after.get(right) ?? 0));
         budget.record();
         groups.push({
-            reason: languageFor(component[0].source.path) === 'python' ? 'ambiguous-python-candidates' : 'ambiguous-js-candidates',
+            reason: languageFor(component[0].source.path) === 'javascript' ? 'ambiguous-js-candidates' : `ambiguous-${languageFor(component[0].source.path)}-candidates`,
             sources: componentSources,
             destinations: componentDestinations,
             evidence: {
@@ -672,7 +670,7 @@ function rejectedFor(candidate, reason, sourceRunnerUp, destinationRunnerUp) {
 function sourceDocuments(files, inventory, python) {
     const documents = Array.isArray(inventory?.documents) ? inventory.documents : [];
     const byPath = new Map(documents.map(document => [document.path, document]));
-    return Object.keys(files).filter(path => isJavaScriptPath(path) || (python && /\.py$/.test(path))).sort().map(path => ({
+    return Object.keys(files).filter(path => isJavaScriptPath(path) || (python && isInferredSource(path))).sort().map(path => ({
         path,
         status: byPath.get(path)?.status || 'unknown'
     }));
@@ -692,7 +690,7 @@ function prepareSide(files, inventory, side, limits, budget, python) {
     const parsedPaths = [];
     for (const path of complete) {
         budget.check();
-        if (languageFor(path) === 'python') {
+        if (languageFor(path) !== 'javascript') {
             for (const entry of entries.filter(candidate => candidate.path === path)) {
                 features.set(entry.id, pythonFeature(entry, limits, budget));
             }

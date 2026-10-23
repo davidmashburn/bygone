@@ -28,3 +28,11 @@ Python stubs have inventory/exact coverage only. Candidate, token, output and
 wall-clock budgets remain finite. No binding or type resolution, extract/inline,
 or cross-language matches are claimed. The legacy analysis script entry points
 remain compatible. Run `npm run test:strand` from the repository root.
+
+The shared Tree-sitter frontend uses pinned `web-tree-sitter` WebAssembly in a
+bounded Node subprocess. Grammars are local, hash-checked assets; there are no
+runtime downloads or native addons. The subprocess owns async initialization
+and tree disposal. JS/TS and CPython retain their existing frontends. Adapter
+features share the same bounded matching and ambiguity rules. Language and
+explicit receiver/implementation scope identities constrain both inferred and
+independent exact matches.

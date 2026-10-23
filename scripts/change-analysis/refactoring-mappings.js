@@ -1,4 +1,5 @@
 const Diff = require('diff');
+const { languageFor, isInferredSource } = require('../../packages/strand/src/languages');
 const { digest, inventorySnapshot } = require('./symbol-inventory');
 
 function validateSpan(span, files) {
@@ -25,7 +26,7 @@ function normalizeMappings(before, after, native, options = {}) {
     issues.push(...skippedDocuments);
     const engineReliable = native?.status === 'complete' && !native.truncated && !invalidDocuments.length;
     const engineComplete = engineReliable && !skippedDocuments.length;
-    const skippedImplementations = skippedDocuments.filter(d => strand ? /\.(?:[cm]?[jt]s|[jt]sx|py)$/.test(d.path) : !/\.pyi$/.test(d.path));
+    const skippedImplementations = skippedDocuments.filter(d => strand ? isInferredSource(d.path) : !/\.pyi$/.test(d.path));
     const skippedChangedImplementation = skippedImplementations.some(d => before[d.path] !== after[d.path]);
     function localIdentity(entry, side) {
         const scope = [];
@@ -41,7 +42,7 @@ function normalizeMappings(before, after, native, options = {}) {
         if (!engineReliable || skippedChangedImplementation) return false;
         // Stubs have their own inventory/exact coverage, outside this engine's
         // implementation search. Never bind a claimed engine span to a stub.
-        if ([source, destination].some(e => strand ? !/\.(?:[cm]?[jt]s|[jt]sx|py)$/.test(e.path) : /\.pyi$/.test(e.path))) return false;
+        if ([source, destination].some(e => strand ? !isInferredSource(e.path) : /\.pyi$/.test(e.path))) return false;
         if (native.processedPaths && (!native.processedPaths.before?.includes(source.path)
             || !native.processedPaths.after?.includes(destination.path))) return false;
         if (!skippedImplementations.length) return true;
@@ -85,7 +86,8 @@ function normalizeMappings(before, after, native, options = {}) {
             rejected.push({ mapperId: mapper.id, reason: 'unresolved-container', source: mapper.source, destination: mapper.destination, endpoints });
             continue;
         }
-        if (strand && /\.pyi?$/.test(source.path) !== /\.pyi?$/.test(destination.path)) {
+        if (strand && (languageFor(source.path) !== languageFor(destination.path)
+            || (source.scopeIdentity || '') !== (destination.scopeIdentity || ''))) {
             const reason = 'incompatible-container-language';
             issues.push({ mapperId: mapper.id, reason });
             rejected.push({ mapperId: mapper.id, reason, endpoints: [
@@ -123,7 +125,7 @@ function normalizeMappings(before, after, native, options = {}) {
     // Prefer an unchanged binding at its unique file/scope/name identity.
     // Still keep every occurrence as a competitor for cross-scope origins;
     // retaining a declaration does not establish where a copy came from.
-    const key = e => JSON.stringify([e.kind, e.digest, e.declarationContext || '']);
+    const key = e => JSON.stringify([languageFor(e.path), e.scopeIdentity || '', e.kind, e.digest, e.declarationContext || '']);
     const buckets = (entries, identify = key) => {
         const out = new Map();
         for (const entry of entries) {
