@@ -352,6 +352,10 @@ The wrapper scripts are:
 
 ## Commands
 
+- `Bygone: Follow Active Editor`
+- `Bygone: Pin Following File`
+- `Bygone: Resume Following`
+- `Bygone: Refresh Following Comparison`
 - `Bygone: Compare Active File With…`
 - `Bygone: Compare Selected Files`
 - `Bygone: Compare with Selected`
@@ -369,6 +373,34 @@ Two-file comparisons open as independent editor tabs. Trusted local worktree
 panes edit through VS Code documents, so changes participate in dirty state,
 undo, save, and external-document updates. Historical and non-local inputs are
 read-only. Desktop hand-offs are unavailable in remote extension hosts.
+
+## Follow the active VS Code editor
+
+Run **Bygone: Follow Active Editor** to open one read-only comparison beside your
+source editor without moving keyboard focus. Switching source files updates that
+same pane. The left side is the file at HEAD; the right side is your editor buffer,
+including unsaved edits. Edit, undo, and save in the source editor as usual.
+
+**Pin** keeps the current file and baseline commit while buffer edits continue to
+update. **Resume Following** selects the active or last source editor. **Refresh**
+reads HEAD again when following; a pinned comparison retains its baseline. HEAD
+also refreshes on file activation and when the VS Code window regains focus.
+After external Git changes while the window stays focused, use Refresh.
+
+The controls show the repository, relative file path, commit, and saved/unsaved
+state. Clean files say **No changes from HEAD**. Untracked files, files absent at
+the current path in HEAD, and unborn repositories use an explicitly absent
+baseline. Renames are compared at the new path; following does not infer history.
+**View File History** pauses following and opens the history viewer. **Manual
+Compare…** pauses following and compares the source with another selected file.
+Closing the pane stops following. A restored pane starts paused after reload.
+
+Following supports trusted local Git worktrees, including linked worktrees and
+files in multiple repositories. Both versions must be text, at most 128 KiB and
+5,000 lines; Git baselines must be UTF-8. Untitled, remote, virtual, notebook,
+symlink, binary, and oversized files show an unavailable state. Open the source
+file outside a native SCM diff to follow it. Git failures clear the old comparison
+and show an error instead of treating a failed read as an empty baseline.
 
 ## Limitations
 

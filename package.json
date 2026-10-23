@@ -48,7 +48,8 @@
     "onCommand:bygone.openComparisonInDesktop",
     "onCommand:bygone.exploreBranchInDesktop",
     "onCommand:bygone.presentBranchInDesktop",
-    "onCommand:bygone.openTourInDesktop"
+    "onCommand:bygone.openTourInDesktop",
+    "onWebviewPanel:bygone.followPanel"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -126,6 +127,26 @@
       {
         "command": "bygone.openStandaloneDownloads",
         "title": "Install or Open Desktop App",
+        "category": "Bygone"
+      },
+      {
+        "command": "bygone.followActiveEditor",
+        "title": "Follow Active Editor",
+        "category": "Bygone"
+      },
+      {
+        "command": "bygone.pinFollowing",
+        "title": "Pin Following File",
+        "category": "Bygone"
+      },
+      {
+        "command": "bygone.resumeFollowing",
+        "title": "Resume Following",
+        "category": "Bygone"
+      },
+      {
+        "command": "bygone.refreshFollowing",
+        "title": "Refresh Following Comparison",
         "category": "Bygone"
       }
     ],
@@ -222,9 +243,10 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "watch": "tsc -watch -p ./",
-    "test": "npm run compile && node ./test/runTests.js && node --test ./test/presentation.test.js ./test/panelOrder.test.js ./test/revisionView.test.js ./test/devVersion.test.js ./test/focusedStrip.test.js ./test/diffRegression.test.js ./test/deepLink.test.js ./test/tourExport.test.js ./test/tourProse.test.js ./test/tourReading.test.js ./test/chapterSummary.test.js ./test/tourFraming.test.js ./test/tourFeedback.test.js ./test/tourZoomSession.test.js ./test/tourComparison.test.js ./test/tourHistory.test.js ./test/changeTourAuthoredModes.test.js ./test/renderCompleteToken.test.js ./test/tourDirectoryOverview.test.js ./test/tourDirectoryEvidence.test.js ./test/workspace*.test.js",
+    "test": "npm run compile && node ./test/runTests.js && node --test ./test/presentation.test.js ./test/panelOrder.test.js ./test/revisionView.test.js ./test/devVersion.test.js ./test/focusedStrip.test.js ./test/diffRegression.test.js ./test/deepLink.test.js ./test/tourExport.test.js ./test/tourProse.test.js ./test/tourReading.test.js ./test/chapterSummary.test.js ./test/tourFraming.test.js ./test/tourFeedback.test.js ./test/tourZoomSession.test.js ./test/tourComparison.test.js ./test/tourHistory.test.js ./test/changeTourAuthoredModes.test.js ./test/renderCompleteToken.test.js ./test/tourDirectoryOverview.test.js ./test/tourDirectoryEvidence.test.js ./test/workspace*.test.js && node --test test/followBaseline.test.js",
     "test:diff-renderer": "npm run compile && node scripts/run-electron.mjs standalone/diffRegressionSmoke.js",
-    "test:export-smoke": "npm run compile && node scripts/run-electron.mjs standalone/exportSmoke.js && node scripts/run-electron.mjs standalone/tourImageSmoke.js"
+    "test:export-smoke": "npm run compile && node scripts/run-electron.mjs standalone/exportSmoke.js && node scripts/run-electron.mjs standalone/tourImageSmoke.js",
+    "test:following": "npm run compile && node scripts/test-following.mjs"
   },
   "build": {
     "appId": "com.davidmashburn.bygone",
@@ -321,6 +343,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "16.x",
     "@types/vscode": "1.74.0",
+    "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "^4.0.0",
     "electron": "^43.7.6",
     "electron-builder": "^26.15.3",

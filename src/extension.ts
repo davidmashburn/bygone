@@ -2,11 +2,13 @@ import * as vscode from 'vscode';
 import { FileComparator } from './fileComparator';
 import { DiffViewProvider } from './diffViewProvider';
 import { BygoneUriHandler } from './uriHandler';
+import { FollowController } from './followController';
 import { launchDesktop } from './desktopLauncher';
 
 export function activate(context: vscode.ExtensionContext) {
     const fileComparator = new FileComparator();
     const diffViewProvider = new DiffViewProvider(context.extensionUri);
+    const follower = new FollowController(diffViewProvider);
     const uriHandler = new BygoneUriHandler(fileComparator);
     const standaloneDownloadUrl = vscode.Uri.parse('https://github.com/davidmashburn/bygone/releases');
 
@@ -14,10 +16,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         fileComparator,
+        follower,
+        vscode.window.registerWebviewPanelSerializer(FollowController.viewType, follower),
+        registerCommand('bygone.followActiveEditor', () => follower.start()),
+        registerCommand('bygone.pinFollowing', () => follower.pin()),
+        registerCommand('bygone.resumeFollowing', () => follower.start()),
+        registerCommand('bygone.refreshFollowing', () => follower.refresh()),
         diffViewProvider,
         vscode.window.registerWebviewPanelSerializer(DiffViewProvider.viewType, diffViewProvider),
         vscode.window.registerUriHandler(uriHandler),
-        registerCommand('bygone.compareFiles', () => fileComparator.compareActiveFileWith()),
+        registerCommand('bygone.compareFiles', (resource?: vscode.Uri) => fileComparator.compareActiveFileWith(resource)),
         registerCommand('bygone.compareSelectedFiles', (resource?: vscode.Uri, resources?: vscode.Uri[]) => (
             fileComparator.compareSelectedFiles(resources?.length ? resources : resource ? [resource] : [])
         )),
@@ -25,8 +33,8 @@ export function activate(context: vscode.ExtensionContext) {
         registerCommand('bygone.compareMultipleFilesInDesktop', () => pickPathsAndLaunchDesktop('files')),
         registerCommand('bygone.compareWithSelected', (resource?: vscode.Uri) => fileComparator.compareWithSelected(resource)),
         registerCommand('bygone.cancelCompareSelection', () => fileComparator.cancelCompareSelection()),
-        registerCommand('bygone.compareFileHistory', (resource?: vscode.Uri) => fileComparator.compareFileHistory(resource)),
-        registerCommand('bygone.compareActiveFileHistory', (resource?: vscode.Uri) => fileComparator.compareFileHistory(resource)),
+        registerCommand('bygone.compareFileHistory', (resource?: vscode.Uri) => { follower.pause(); return fileComparator.compareFileHistory(resource); }),
+        registerCommand('bygone.compareActiveFileHistory', (resource?: vscode.Uri) => { follower.pause(); return fileComparator.compareFileHistory(resource); }),
         registerCommand('bygone.exploreBranchInDesktop', (resource?: vscode.Uri) => launchDesktop({ kind: 'explore-branch' }, resource)),
         registerCommand('bygone.presentBranchInDesktop', (resource?: vscode.Uri) => launchDesktop({ kind: 'present-branch' }, resource)),
         registerCommand('bygone.openTourInDesktop', async () => {

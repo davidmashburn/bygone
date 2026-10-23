@@ -86,7 +86,15 @@ export interface BranchReviewViewState {
     }>;
 }
 
+export interface FollowViewState {
+    mode: 'following' | 'pinned' | 'paused';
+    status: string;
+    unavailable: boolean;
+    canPin: boolean;
+}
+
 export interface ShowDiffMessage {
+    follow?: FollowViewState;
     type: 'showDiff';
     file1: string;
     file2: string;

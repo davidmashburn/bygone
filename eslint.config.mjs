@@ -6,6 +6,7 @@ export default [
     {
         ignores: [
             'dist/**',
+            '.vscode-test/**',
             'node_modules/**',
             'out/**',
             'media/*.worker.js',

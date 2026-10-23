@@ -106,9 +106,9 @@ export class FileComparator implements vscode.Disposable {
         }
     }
 
-    public async compareActiveFileWith(): Promise<void> {
+    public async compareActiveFileWith(resource?: vscode.Uri): Promise<void> {
         try {
-            const active = vscode.window.activeTextEditor?.document.uri;
+            const active = resource ?? vscode.window.activeTextEditor?.document.uri;
             if (!active || active.scheme !== 'file') {
                 vscode.window.showInformationMessage('Open a local file before comparing it.');
                 return;

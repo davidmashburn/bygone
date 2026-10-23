@@ -2123,3 +2123,9 @@ button.file-header {
 .multi-pane:has(.multi-panel-menu[open]) { z-index: 5; }
 
 .multi-pane-header:has(.multi-panel-menu) { overflow: visible; }
+
+.follow-toolbar { padding: 8px 12px; border-bottom: 1px solid var(--vscode-panel-border, #555); }
+.follow-toolbar button { margin: 2px 4px; color: var(--vscode-button-foreground, #fff); background: var(--vscode-button-background, #2563eb); border: 0; padding: 4px 8px; cursor: pointer; }
+.follow-toolbar button:disabled { opacity: 0.5; cursor: default; }
+.follow-toolbar button:focus-visible { outline: 2px solid var(--vscode-focusBorder, #90caff); outline-offset: 2px; }
+#follow-status { margin: 6px 0; overflow-wrap: anywhere; white-space: pre-wrap; }

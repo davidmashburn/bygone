@@ -74,3 +74,24 @@ revisions, including empty trees, renames, deletions, and staged/working copies.
 Unchanged files remain selectable from Files. The native workspace smoke checks
 Files beside Commits, controls above the left navigator, and scene-title
 expansion without changing the active passage or code evidence.
+
+# VS Code following coverage
+
+`npm test` includes Git-baseline tests for HEAD/index/disk separation, unborn HEAD,
+missing paths versus Git failures, literal filenames, linked worktrees, invalid
+text, size limits, and cancellation.
+
+Run `npm run test:following` for a real VS Code Extension Host and Monaco renderer.
+On headless Linux use `xvfb-run -a npm run test:following` (Xvfb and VS Code's shared
+libraries must be installed). The runner downloads stable VS Code by default;
+set `BYGONE_VSCODE_VERSION` to select another release or
+`BYGONE_VSCODE_EXECUTABLE` to reuse an existing executable.
+
+The runner creates an isolated synthetic Git repository, VS Code user profile,
+and temporary extension bundle. Its test-only entry observes the production
+instances; command registration, controller, Git reader, provider, and renderer
+are the production code. It checks source keyboard focus, renderer buffer contents,
+rapid switches, dirty/save/undo, Pin/Resume/Refresh, unavailable inputs, explicit
+history, the cross-panel refresh race, closure, and paused restoration. It neither
+installs into nor modifies the user's VS Code profile. Temporary fixtures are
+removed when the runner exits normally.

@@ -39,6 +39,11 @@ export interface DirectoryDiffOptions {
     review?: BranchReviewViewState | null;
 }
 
+export interface FollowingView {
+    update(message: Omit<ShowDiffMessage, 'type'>): void;
+    dispose(): void;
+}
+
 interface TwoWayDiffState {
     file1: string;
     file2: string;
@@ -201,6 +206,7 @@ export class DiffViewProvider implements vscode.Disposable {
         this.panels.set(key, state);
         this.activateState(state);
         panel.webview.onDidReceiveMessage((message) => {
+            if (this.panels.get(key) !== state) return;
             this.activateState(state);
             if (isReadyMessage(message)) {
                 this.isReady = true;
@@ -279,8 +285,47 @@ export class DiffViewProvider implements vscode.Disposable {
                 this.activateState(state);
             }
         });
-        panel.webview.html = this.getHtmlForWebview(panel.webview, serialized);
+        panel.webview.html = this.getHtmlForWebview(panel.webview, serialized, key === 'follow');
         return state;
+    }
+
+    public createFollowingView(
+        viewType: string,
+        onAction: (action: string) => void,
+        onClose: () => void,
+        restored?: vscode.WebviewPanel
+    ): FollowingView {
+        const source = vscode.window.activeTextEditor;
+        const panel = restored ?? vscode.window.createWebviewPanel(
+            viewType, 'Bygone: Following',
+            { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+            { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [this.extensionUri] }
+        );
+        const state = this.createPanel(panel.title, 'follow', panel);
+        // Older VS Code preserves the active group but can drop the source's
+        // keyboard focus when creating a webview. Restore it only during the
+        // explicit initial command, never on asynchronous follow updates.
+        if (!restored && source) {
+            void vscode.window.showTextDocument(source.document, { viewColumn: source.viewColumn, preserveFocus: false })
+                .then(undefined, () => undefined); // The source may close before VS Code handles the request.
+        }
+        const listener = panel.webview.onDidReceiveMessage((message: unknown) => {
+            if (typeof message !== 'object' || message === null) return;
+            const action = (message as { type?: unknown; action?: unknown });
+            if (action.type === 'followAction' && typeof action.action === 'string'
+                && ['pin', 'resume', 'refresh', 'history', 'compare'].includes(action.action)) onAction(action.action);
+        });
+        panel.onDidDispose(() => { listener.dispose(); onClose(); });
+        return {
+            update: (message) => {
+                if (this.panels.get(state.key) !== state) return;
+                this.activateState(state);
+                this.currentTwoWayDiff = undefined; // Immutable baseline; controller owns buffer refreshes.
+                panel.title = `Bygone: ${message.follow?.mode === 'pinned' ? 'Pinned' : message.follow?.mode === 'paused' ? 'Paused' : 'Following'}`;
+                this.postOrQueueDiffMessage(message);
+            },
+            dispose: () => panel.dispose()
+        };
     }
 
     public async showDiff(
@@ -312,17 +357,24 @@ export class DiffViewProvider implements vscode.Disposable {
             directoryContext
         };
 
+        const comparison = this.currentTwoWayDiff;
+        const state = this.activeState!;
+        const [leftLanguageId, rightLanguageId] = await Promise.all([
+            this.resolveLanguageId(file1), this.resolveLanguageId(file2)
+        ]);
+        if (!this.isCurrentComparison(state, comparison)) return;
+        this.activateState(state);
         this.postOrQueueDiffMessage({
-            file1: this.currentTwoWayDiff.file1,
-            file2: this.currentTwoWayDiff.file2,
-            comparisonId: this.currentTwoWayDiff.comparisonId,
+            file1: comparison.file1,
+            file2: comparison.file2,
+            comparisonId: comparison.comparisonId,
             leftContent,
             rightContent,
             sourceInfo: {
                 leftPath: file1.path,
                 rightPath: file2.path,
-                leftLanguageId: await this.resolveLanguageId(file1),
-                rightLanguageId: await this.resolveLanguageId(file2)
+                leftLanguageId,
+                rightLanguageId
             },
             diffModel,
             history: null,
@@ -368,17 +420,22 @@ export class DiffViewProvider implements vscode.Disposable {
             comparisonId: `${file.toString()}\u0000${leftLabel}\u0000${rightLabel}`
         };
 
+        const comparison = this.currentTwoWayDiff;
+        const state = this.activeState!;
+        const languageId = await this.resolveLanguageId(file);
+        if (!this.isCurrentComparison(state, comparison)) return;
+        this.activateState(state);
         this.postOrQueueDiffMessage({
             file1: leftLabel,
             file2: rightLabel,
-            comparisonId: this.currentTwoWayDiff.comparisonId,
+            comparisonId: comparison.comparisonId,
             leftContent,
             rightContent,
             sourceInfo: {
                 leftPath: file.path,
                 rightPath: file.path,
-                leftLanguageId: await this.resolveLanguageId(file),
-                rightLanguageId: await this.resolveLanguageId(file)
+                leftLanguageId: languageId,
+                rightLanguageId: languageId
             },
             diffModel,
             history: {
@@ -540,7 +597,7 @@ export class DiffViewProvider implements vscode.Disposable {
         }
     }
 
-    private getHtmlForWebview(webview: vscode.Webview, serialized?: SerializedPanel) {
+    private getHtmlForWebview(webview: vscode.Webview, serialized?: SerializedPanel, following = false) {
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'webview.css'));
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'webview.js'));
         const editorWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'editor.worker.js'));
@@ -559,6 +616,17 @@ export class DiffViewProvider implements vscode.Disposable {
 <body>
     <div id="container">
         <div id="header">
+            ${following ? `<section class="follow-toolbar" aria-label="Following controls">
+                <div><strong id="follow-mode">Paused</strong>
+                    <button id="follow-pin" type="button" title="Keep this file and baseline commit">Pin</button>
+                    <button id="follow-resume" type="button" title="Follow the active source editor">Resume Following</button>
+                    <button id="follow-refresh" type="button" title="Refresh this comparison">Refresh</button>
+                    <button id="follow-history" type="button" title="Pause following and open file history">View File History</button>
+                    <button id="follow-compare" type="button" title="Pause following and compare the source with another file">Manual Compare…</button>
+                </div>
+                <div id="follow-status" role="status" aria-live="polite">Select a source file to follow.</div>
+                <small>HEAD → editor buffer. Refresh after external Git changes; HEAD also refreshes on file activation and window focus.</small>
+            </section>` : ''}
             <div id="file-info" class="header-align-diff">Choose a compare command to render a diff.</div>
             <div id="status-banner" class="status-banner header-align-diff" role="status" aria-live="polite" aria-atomic="true" hidden></div>
             <div id="directory-return-toolbar" class="directory-return-toolbar header-align-diff" hidden>
@@ -732,7 +800,23 @@ export class DiffViewProvider implements vscode.Disposable {
     </div>
     <script nonce="${nonce}">
         const vscodeApi = acquireVsCodeApi();
-        ${serialized ? `vscodeApi.setState(${JSON.stringify(serialized)});` : ''}
+        ${serialized ? `vscodeApi.setState(${JSON.stringify(serialized)});` : following ? 'vscodeApi.setState({ version: 1, kind: "follow" });' : ''}
+        ${following ? `
+        for (const action of ['pin', 'resume', 'refresh', 'history', 'compare']) {
+            document.getElementById('follow-' + action).addEventListener('click', () => {
+                vscodeApi.postMessage({ type: 'followAction', action });
+            });
+        }
+        window.addEventListener('message', (event) => {
+            const state = event.data.follow;
+            if (!state) return;
+            document.getElementById('follow-mode').textContent = state.mode === 'following' ? 'Following' : state.mode === 'pinned' ? 'Pinned' : 'Paused';
+            document.getElementById('follow-status').textContent = state.status;
+            document.getElementById('follow-pin').disabled = !state.canPin || state.mode !== 'following';
+            document.getElementById('follow-resume').disabled = state.mode === 'following';
+            document.getElementById('follow-refresh').disabled = state.mode === 'paused';
+            document.getElementById('diff-workspace').style.display = state.unavailable ? 'none' : '';
+        });` : ''}
         window.__BYGONE_HOST__ = {
             environment: 'vscode',
             editorWorkerUrl: ${JSON.stringify(editorWorkerUri.toString())},
@@ -753,8 +837,10 @@ export class DiffViewProvider implements vscode.Disposable {
     }
 
     private queueDocumentUpdate(state: PanelState, leftContent: string, rightContent: string): void {
+        const comparison = this.activeState === state ? this.currentTwoWayDiff : state.currentTwoWayDiff;
         this.documentUpdateQueue = this.documentUpdateQueue
             .then(() => {
+                if (!this.isCurrentComparison(state, comparison)) return;
                 this.activateState(state);
                 return this.handleRecomputeDiff(leftContent, rightContent);
             })
@@ -762,8 +848,10 @@ export class DiffViewProvider implements vscode.Disposable {
     }
 
     private queueDocumentRefresh(state: PanelState): void {
+        const comparison = this.activeState === state ? this.currentTwoWayDiff : state.currentTwoWayDiff;
         this.documentUpdateQueue = this.documentUpdateQueue
             .then(() => {
+                if (!this.isCurrentComparison(state, comparison)) return;
                 this.activateState(state);
                 return this.refreshCurrentDocumentDiff();
             })
@@ -775,11 +863,13 @@ export class DiffViewProvider implements vscode.Disposable {
             return;
         }
 
+        const state = this.activeState;
+        const comparison = this.currentTwoWayDiff;
         const edit = new vscode.WorkspaceEdit();
         let hasEdits = false;
         for (const [side, content] of [['left', leftContent], ['right', rightContent]] as const) {
-            const uri = side === 'left' ? this.currentTwoWayDiff.leftUri : this.currentTwoWayDiff.rightUri;
-            if (!uri || !this.currentTwoWayDiff.editableSides[side]) {
+            const uri = side === 'left' ? comparison.leftUri : comparison.rightUri;
+            if (!uri || !comparison.editableSides[side]) {
                 continue;
             }
             const document = await vscode.workspace.openTextDocument(uri);
@@ -789,6 +879,7 @@ export class DiffViewProvider implements vscode.Disposable {
             }
         }
 
+        if (!state || !this.isCurrentComparison(state, comparison)) return;
         if (hasEdits) {
             this.applyingDocumentEdit = true;
             try {
@@ -800,34 +891,39 @@ export class DiffViewProvider implements vscode.Disposable {
             }
         }
 
+        if (!this.isCurrentComparison(state, comparison)) return;
+        this.activateState(state);
         await this.refreshCurrentDocumentDiff(leftContent, rightContent);
     }
 
-    private async refreshCurrentDocumentDiff(leftFallback?: string, rightFallback?: string): Promise<void> {
-        if (!this.currentTwoWayDiff) {
-            return;
-        }
-        const leftContent = await this.readCurrentSide('left', leftFallback ?? '');
-        const rightContent = await this.readCurrentSide('right', rightFallback ?? '');
+    private isCurrentComparison(state: PanelState, comparison: TwoWayDiffState | undefined): boolean {
+        return this.panels.get(state.key) === state
+            && (this.activeState === state ? this.currentTwoWayDiff : state.currentTwoWayDiff) === comparison;
+    }
 
+    private async refreshCurrentDocumentDiff(leftFallback?: string, rightFallback?: string): Promise<void> {
+        const comparison = this.currentTwoWayDiff;
+        const state = this.activeState;
+        if (!comparison || !state) return;
+        const leftContent = await this.readCurrentSide('left', leftFallback ?? '', comparison);
+        const rightContent = await this.readCurrentSide('right', rightFallback ?? '', comparison);
+        if (!this.isCurrentComparison(state, comparison)) return;
+        this.activateState(state);
         this.postOrQueueDiffMessage({
-            file1: this.currentTwoWayDiff.file1,
-            file2: this.currentTwoWayDiff.file2,
-            comparisonId: this.currentTwoWayDiff.comparisonId,
-            leftContent,
-            rightContent,
+            file1: comparison.file1,
+            file2: comparison.file2,
+            comparisonId: comparison.comparisonId,
+            leftContent, rightContent,
             diffModel: buildTwoWayDiffModel(leftContent, rightContent),
             history: null,
-            ...toDirectoryMessageContext(this.currentTwoWayDiff.directoryContext),
-            editableSides: this.currentTwoWayDiff.editableSides
+            ...toDirectoryMessageContext(comparison.directoryContext),
+            editableSides: comparison.editableSides
         });
     }
 
-    private async readCurrentSide(side: 'left' | 'right', fallback: string): Promise<string> {
-        const uri = side === 'left' ? this.currentTwoWayDiff?.leftUri : this.currentTwoWayDiff?.rightUri;
-        if (!uri) {
-            return fallback;
-        }
+    private async readCurrentSide(side: 'left' | 'right', fallback: string, comparison: TwoWayDiffState): Promise<string> {
+        const uri = side === 'left' ? comparison.leftUri : comparison.rightUri;
+        if (!uri) return fallback;
         const openDocument = vscode.workspace.textDocuments.find((document) => document.uri.toString() === uri.toString());
         return openDocument?.getText() ?? (await vscode.workspace.openTextDocument(uri)).getText();
     }
