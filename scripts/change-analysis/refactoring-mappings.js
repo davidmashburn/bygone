@@ -20,7 +20,34 @@ function normalizeMappings(before, after, native, options = {}) {
         inventories[side].documents.filter(d => d.status === 'complete' && (/\.pyi$/.test(d.path) || !native.processedPaths[side]?.includes(d.path)))
             .map(d => ({ reason: 'engine-skipped-document', side, path: d.path }))) : [];
     issues.push(...skippedDocuments);
-    const engineComplete = native?.status === 'complete' && !native.truncated && !invalidDocuments.length && !skippedDocuments.length;
+    const engineReliable = native?.status === 'complete' && !native.truncated && !invalidDocuments.length;
+    const engineComplete = engineReliable && !skippedDocuments.length;
+    const skippedImplementations = skippedDocuments.filter(d => !/\.pyi$/.test(d.path));
+    const skippedChangedImplementation = skippedImplementations.some(d => before[d.path] !== after[d.path]);
+    function localIdentity(entry, side) {
+        const scope = [];
+        for (let name = entry.qualifiedName; name;) {
+            const owners = inventories[side].entries.filter(e => e.path === entry.path && e.qualifiedName === name);
+            if (owners.length !== 1) return null;
+            scope.push([owners[0].kind, owners[0].name]);
+            name = owners[0].parent;
+        }
+        return JSON.stringify([entry.path, scope]);
+    }
+    function engineCoversPair(source, destination) {
+        if (!engineReliable || skippedChangedImplementation) return false;
+        // Stubs have their own inventory/exact coverage, outside this engine's
+        // implementation search. Never bind a claimed engine span to a stub.
+        if ([source, destination].some(e => /\.pyi$/.test(e.path))) return false;
+        if (native.processedPaths && (!native.processedPaths.before?.includes(source.path)
+            || !native.processedPaths.after?.includes(destination.path))) return false;
+        if (!skippedImplementations.length) return true;
+        // RM omits byte-identical files. Their declarations can still compete
+        // for cross-file origins, so only a unique retained local identity can
+        // use engine evidence while those implementations are unsearched.
+        const identity = localIdentity(source, 'before');
+        return identity !== null && identity === localIdentity(destination, 'after');
+    }
     function endpoint(span, side, category = 'callable') {
         const files = side === 'before' ? before : after;
         if (!validateSpan(span, files)) return { entry: null, reason: 'invalid-container-range', valid: false };
@@ -69,7 +96,7 @@ function normalizeMappings(before, after, native, options = {}) {
         const kind = mapper.origins.includes('extract') ? 'extract' : mapper.origins.includes('inline') ? 'inline' : 'continuation';
         if (kind !== 'continuation') {
             groups.push({ kind, sourceId: source.id, destinationId: destination.id, evidence,
-                status: engineComplete ? 'inferred' : 'unresolved', behavior: 'unassessed' });
+                status: engineCoversPair(source, destination) ? 'inferred' : 'unresolved', behavior: 'unassessed' });
         } else if (mapper.origins.includes('continuation')) {
             candidates.push({ sourceId: source.id, destinationId: destination.id, evidence: [evidence], producer: 'refactoring-miner' });
         }
@@ -139,7 +166,8 @@ function normalizeMappings(before, after, native, options = {}) {
     }
     const relations = [];
     for (const pair of pairs.values()) {
-        const incomplete = !engineComplete && !pair.producers.has('exact-declaration');
+        const covered = engineCoversPair(byId.get(pair.sourceId), byId.get(pair.destinationId));
+        const incomplete = !pair.producers.has('exact-declaration') && !covered;
         if (incomplete || sourceTargets.get(pair.sourceId).size > 1 || destinationSources.get(pair.destinationId).size > 1) {
             unresolved.push({ reason: incomplete ? 'incomplete-analysis' : 'conflicting-continuations', sources: [pair.sourceId], destinations: [pair.destinationId], evidence: pair.evidence });
             continue;
@@ -148,6 +176,7 @@ function normalizeMappings(before, after, native, options = {}) {
         const a = before[source.path].slice(source.start, source.end), b = after[destination.path].slice(destination.start, destination.end);
         const id = digest(JSON.stringify([comparisonKey, pair.sourceId, pair.destinationId]));
         relations.push({ id, sourceId: source.id, destinationId: destination.id,
+            ...(!engineComplete && covered ? { coverage: 'complete' } : {}),
             pathChanged: source.path !== destination.path, nameChanged: source.name !== destination.name,
             rawEqual: a === b, declarationContextChanged: source.declarationContext !== destination.declarationContext,
             localDiff: Diff.diffLines(a, b, { timeout: 100, maxEditLength: 2000 }) || [{ value: a, removed: true }, { value: b, added: true }], evidence: pair.evidence, producers: [...pair.producers].sort(), behavior: 'unassessed' });

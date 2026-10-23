@@ -168,6 +168,30 @@ test('partial results do not promote engine candidates and ambiguity is retained
     } finally { f.dispose(); }
 });
 
+test('pair coverage survives partial artifact reload without authorizing failed engines', () => {
+    const f = fixture();
+    try {
+        const changedId = importChangeCorrespondence(f.root, source, f.range).relations.find(r => !r.rawEqual).id;
+        const input = clone(source); input.analysis.status = 'partial';
+        const relation = input.analysis.relations.find(r => r.id === changedId);
+        relation.coverage = 'complete';
+        const artifact = importChangeCorrespondence(f.root, input, f.range);
+        assert.equal(artifact.relations.length, 4);
+        const loaded = validateChangeCorrespondence(f.root, clone(artifact), f.range);
+        assert(loaded.relations.some(r => r.id === relation.id && r.coverage === 'complete' && !r.rawEqual));
+        const legacy = clone(artifact); delete legacy.relations.find(r => r.id === relation.id).coverage;
+        assert.equal(validateChangeCorrespondence(f.root, legacy, f.range).relations.length, 3);
+        const unavailable = clone(artifact); unavailable.status = 'unavailable';
+        assert.equal(validateChangeCorrespondence(f.root, unavailable, f.range).relations.length, 3);
+        for (const engine of [{ status: 'unavailable' }, { status: 'complete', truncated: true }]) {
+            input.analysis.engine = engine;
+            assert.throws(() => importChangeCorrespondence(f.root, input, f.range), /Incomplete engine.*relation coverage/);
+        }
+        const malformed = clone(artifact); malformed.relations[0].coverage = 'partial';
+        assert.throws(() => validateChangeCorrespondence(f.root, malformed, f.range), /Invalid correspondence relation coverage/);
+    } finally { f.dispose(); }
+});
+
 test('UTF16 ranges preserve CRLF, emoji and exact declaration boundaries', () => {
     const input = clone(source), prefix = '// 😀 boundary\r\n';
     for (const side of ['before', 'after']) {

@@ -58,6 +58,36 @@ test('real module rewrite retains the removed assessment validation as visible e
     assert(r.evidence.some(e => e.unmappedBefore.some(s => s.text.includes('validateAssessment(value.assessment'))));
 });
 
+test('native local duplicate-body edits survive unchanged omissions through artifact reload', () => {
+    const next = code.replace('+ 1', '+ 2');
+    const before = { 'a.ts': code, 'b.ts': code, 'c.ts': next, 'd.ts': next };
+    const after = { 'a.ts': code, 'b.ts': next, 'c.ts': code, 'd.ts': next };
+    const analysis = analyzeWithBridge(before, after, config).analysis;
+    assert.equal(analysis.status, 'partial');
+    assert.equal(analysis.relations.length, 4);
+    const { correspondenceFixture } = require('../../test/correspondenceFixture');
+    const { importChangeCorrespondence, validateChangeCorrespondence } = require('../../out/changeCorrespondence');
+    const fixture = correspondenceFixture({ before, after });
+    try {
+        const artifact = importChangeCorrespondence(fixture.root, { analysis }, fixture.range);
+        const loaded = validateChangeCorrespondence(fixture.root, JSON.parse(JSON.stringify(artifact)), fixture.range);
+        assert.equal(loaded.status, 'partial');
+        assert.equal(loaded.relations.length, 4);
+        assert.equal(loaded.relations.filter(relation => !relation.rawEqual && relation.coverage === 'complete').length, 2);
+    } finally { fixture.dispose(); }
+});
+
+test('native registration fragments cannot claim newly inventoried registration containers', () => {
+    const fixture = require('./benchmark/frozen-js-ts.json').cases.find(c => c.id === 'mixed-08');
+    const result = analyzeWithBridge(fixture.before, fixture.after, config);
+    for (const side of ['before', 'after']) {
+        const registration = result.analysis.inventories[side].entries.find(entry => entry.name === 'Query');
+        assert(registration);
+        assert(result.analysis[side === 'before' ? 'unmatchedBefore' : 'unmatchedAfter'].includes(registration.id));
+    }
+    assert.equal(result.native.status, 'complete');
+});
+
 
 test('Git command generates a fresh pinned artifact accepted by the feature consumer', () => {
     const { correspondenceFixture } = require('../../test/correspondenceFixture');
@@ -125,15 +155,19 @@ test('Python Git artifacts load with pinned source validation and report stub en
     try {
         const file = path.join(fixture.root, 'python.json');
         fs.writeFileSync(path.join(fixture.root, 'b.py'), 'dirty worktree');
-        // A stub skipped by the engine is
-        // an explicit partial result, not permission to promote edited pairs.
+        // Stub coverage stays partial without suppressing a validated match
+        // between analyzed implementation declarations.
         const stubbed = analyzeGit([fixture.range.headOid, '--base', fixture.range.baseOid, '--output', file,
             '--repo', fixture.root, '--java', config.java, '--jar', config.jar, '--jar-sha256', config.jarSha256], fixture.root, { write() {} });
         const loaded = loadChangeCorrespondence(fixture.root, file, fixture.range);
         assert.equal(loaded.status, 'partial'); assert.equal(stubbed.status, 'partial');
         assert(loaded.symbols.after.some(s => s.name === 'cost'));
+        assert.equal(loaded.relations.length, 1);
+        assert.equal(loaded.relations[0].pathChanged, true);
+        assert.equal(loaded.relations[0].nameChanged, true);
         assert(loaded.limitations.some(l => l.includes('cpython@')));
         assert(loaded.limitations.some(l => l.includes('producer issues')));
+        assert(loaded.limitations.some(l => l.includes('stub declarations accept only independent exact matches')));
     } finally { fixture.dispose(); }
 });
 

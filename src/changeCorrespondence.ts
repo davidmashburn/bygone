@@ -14,6 +14,7 @@ export interface CorrespondenceSymbol {
 }
 export interface CorrespondenceRelation {
     id: string; sourceId: string; destinationId: string; producers: string[];
+    coverage?: 'complete';
     pathChanged: boolean; nameChanged: boolean; rawEqual: boolean;
     behavior: 'unassessed'; localDiff: Array<{ value: string; added?: boolean; removed?: boolean }>;
 }
@@ -145,10 +146,14 @@ export function validateChangeCorrespondence(repoRoot: string, input: unknown, e
         }
         ids.add(id); sources.add(sourceId); destinations.add(destinationId);
         const producers = list(relation.producers, 10).map(string);
-        // Partial searches may omit competitors. Only independent exact evidence survives.
-        if (result.status !== 'complete' && !(producers.includes('exact-declaration') && source.symbol.text === destination.symbol.text)) continue;
+        if (relation.coverage !== undefined && relation.coverage !== 'complete') throw new Error('Invalid correspondence relation coverage.');
+        // A partial comparison can contain a producer-validated, fully searched
+        // pair. Older reports without that claim retain the exact-only guard.
+        const covered = result.status === 'partial' && relation.coverage === 'complete' && producers.includes('refactoring-miner');
+        if (result.status !== 'complete' && !covered && !(producers.includes('exact-declaration') && source.symbol.text === destination.symbol.text)) continue;
         const a = source.symbol, b = destination.symbol;
         result.relations.push({ id, sourceId, destinationId, producers, pathChanged: a.path !== b.path, nameChanged: a.name !== b.name,
+            ...(relation.coverage === 'complete' ? { coverage: 'complete' as const } : {}),
             rawEqual: a.text === b.text, behavior: 'unassessed', localDiff: (diffLines(a.text, b.text, { timeout: 100, maxEditLength: 2000 }) || [{ value: a.text, removed: true }, { value: b.text, added: true }]).map(part => ({ value: part.value,
                 ...(part.added ? { added: true } : {}), ...(part.removed ? { removed: true } : {}) })) });
     }
@@ -217,6 +222,10 @@ export function importChangeCorrespondence(repoRoot: string, input: unknown, ran
         `${list(analysis.unmatchedBefore).length} unmatched before symbols; ${list(analysis.unmatchedAfter).length} unmatched after symbols.`];
     const engine = object(analysis.engine);
     if (analysis.status === 'complete' && (engine.truncated === true || engine.status !== 'complete')) throw new Error('Incomplete engine analysis cannot be complete.');
+    if ((engine.truncated === true || engine.status !== 'complete')
+        && list(analysis.relations).some(value => object(value).coverage === 'complete')) {
+        throw new Error('Incomplete engine analysis cannot claim complete relation coverage.');
+    }
     // Diagnostics are optional for old producer artifacts. Never reconstruct lost
     // details by parsing summary prose or present an absent field as zero records.
     const detailed = ['before', 'after'].every(side => Array.isArray(object(inventories[side]).exclusions)

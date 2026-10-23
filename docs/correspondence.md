@@ -49,7 +49,8 @@ Python comparisons additionally use `--python` or
 by that interpreter. Named Python functions/classes/methods include decorators
 and attached terminal comments; lambdas and variable bindings are excluded.
 Python `.pyi` files have inventory/exact matching only and explicitly mark the
-comparison partial because the pinned engine does not parse them.
+comparison partial because the pinned engine does not parse them. Validated
+matches between analyzed implementation declarations can still be accepted.
 
 The output must be a new file. Artifacts contain source text;
 keep private repositories' evidence outside this repository.
@@ -93,8 +94,17 @@ producer, unmatched counts, syntax exclusions and competing origins.
 Only the selected producer case's supplied scope is checked. Source integrity
 checks do not independently adjudicate the producer's symbol identities,
 parsing, completeness or semantic claims. All mappings remain inferred and
-behavior remains unassessed. Partial analysis suppresses engine-only mappings;
-independent exact-declaration evidence can remain available. Extraction/inline
+behavior remains unassessed. Partial analysis suppresses engine-only mappings
+unless the producer explicitly records complete search coverage for that pair.
+The adapter permits this for analyzed implementations when only stubs are
+skipped, or unique same-file/scope/name continuations when skipped implementation
+files are unchanged. Skipped changed implementations, invalid parsing, engine
+failure and truncation still prevent that claim. Import rejects complete pair
+coverage from a failed or truncated engine; saved artifacts preserve the claim
+and revalidate source bytes and endpoints. This remains producer-supplied search
+evidence, not independently established lineage. Older partial artifacts without
+pair coverage retain the exact-only guard. Independent exact-declaration
+evidence can remain available. Extraction/inline
 groups expose their endpoints in Analysis details; they are not accepted continuations.
 
 Exact matching first checks unique same-file, same-scope, same-name bindings

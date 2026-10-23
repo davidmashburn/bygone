@@ -53,8 +53,9 @@ visible in full files; bindings and lambdas are not Python symbols in this slice
 
 Python `.pyi` stubs have inventory/exact support only: this pinned engine's
 Python file predicate accepts `.py`, not `.pyi`. Their presence marks the
-comparison partial and suppresses engine-only matches. Missing Python, invalid
-syntax, parser timeout or output overflow marks documents invalid and preserves
+comparison partial; engine-only matches can still connect analyzed implementation
+declarations, while stub declarations accept only independent exact matches.
+Missing Python, invalid syntax, parser timeout or output overflow marks documents invalid and preserves
 diagnostics; no inferred or exact pairs are promoted from a failed parse.
 The Python subprocess is bounded to 10 seconds and 16 MiB output per snapshot.
 
@@ -72,6 +73,27 @@ timeout and 1 MiB output limit. Declaration diff effort is bounded and falls
 back to complete removal/addition. The viewer applies additional artifact and
 source budgets. Parse errors, timeout, truncation and process failure remain
 visible; they never turn an engine-only candidate into an accepted match.
+
+Skipped changed implementation files still block engine-only matches. When the
+engine omits byte-identical implementation files, only unique continuations at
+the same file/scope/name identity may use engine evidence; cross-file candidates
+remain unresolved because omitted declarations can compete for their origins.
+Skipped documents remain visible as partial coverage even when a local pair is
+accepted. Every engine-only pair must have both endpoint files in the reported
+processed paths.
+
+The JS/TS inventory also recognizes explicit top-level
+`registerType("Name", { method() {} })` registrations and their direct named
+methods. Dynamic names, arbitrary calls, nested registrations and callback
+properties remain excluded. Identical registrations can use independent exact
+matching; the pinned engine does not supply registration-level candidates for
+the edited move in the difficult-example corpus.
+
+Accepted engine pairs within a partial comparison carry `coverage: "complete"`
+through import and saved-artifact validation. This is a producer claim about
+the pair's search scope, not independent proof of lineage. Failed/truncated
+engines cannot supply that claim; older partial reports without it retain the
+exact-only guard. The comparison and skipped-document diagnostics stay partial.
 
 `run-refactoring-mappings.js` also supports the original manifest interface:
 

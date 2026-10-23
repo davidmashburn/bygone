@@ -95,7 +95,7 @@ function analyzeGit(args, cwd = process.cwd(), output = process.stdout, env = pr
             .flatMap(d => d.diagnostics.map(diag => `${side}:${d.path}: ${diag.message.slice(0, 300)}`)));
         if (diagnostics.length) artifact.limitations.push(`Inventory diagnostics (${diagnostics.length}): ${diagnostics.slice(0, 20).join('; ')}`);
         if ([...Object.keys(snapshots.before), ...Object.keys(snapshots.after)].some(p => /\.pyi$/.test(p))) {
-            artifact.limitations.push('Python .pyi stubs are independently inventoried, but this pinned engine does not parse them. Comparison is partial; only independent exact matches are accepted.');
+            artifact.limitations.push('Python .pyi stubs are independently inventoried, but this pinned engine does not parse them. Comparison is partial; stub declarations accept only independent exact matches. Analyzed implementation declarations may still have inferred engine matches.');
         }
         const destination = path.resolve(cwd, options['--output']);
         const serialized = JSON.stringify(artifact, null, 2) + '\n';

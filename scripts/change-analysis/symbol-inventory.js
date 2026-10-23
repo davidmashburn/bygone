@@ -81,6 +81,22 @@ function inventorySnapshot(files, side, options = {}) {
             return qualifiedName;
         }
         const nameOf = node => node.name?.text ?? node.name?.getText(sf) ?? 'default';
+        const staticMemberName = node => {
+            const name = node.name;
+            if (!name || ts.isComputedPropertyName(name)) return null;
+            if (ts.isIdentifier(name) || ts.isPrivateIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+                return name.text ?? name.getText(sf);
+            }
+            return null;
+        };
+        const registrationOf = node => {
+            if (!ts.isExpressionStatement(node) || !ts.isCallExpression(node.expression)) return null;
+            const call = node.expression;
+            if (!ts.isIdentifier(call.expression) || call.questionDotToken || call.expression.text !== 'registerType' || call.arguments.length !== 2) return null;
+            const [name, options] = call.arguments;
+            if (!ts.isStringLiteral(name) || !name.text || !ts.isObjectLiteralExpression(options)) return null;
+            return { name: name.text, options };
+        };
         function visit(node, parent = null, declarationContext = false) {
             if (ts.isFunctionDeclaration(node)) {
                 const name = add(node, nameOf(node), 'function', parent, true);
@@ -133,6 +149,24 @@ function inventorySnapshot(files, side, options = {}) {
                 }
             } else if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node) || ts.isEmptyStatement(node)) {
                 // Preserved in document bytes and relation context; not symbols.
+            } else if (!parent) {
+                // This is the one intentional call-expression symbol form:
+                // a top-level registerType with a literal identity and object
+                // body. Do not generalize it to arbitrary callbacks/calls.
+                const registration = registrationOf(node);
+                if (registration) {
+                    const qualified = add(node, registration.name, 'registration', null, true);
+                    for (const member of registration.options.properties) {
+                        if (!ts.isMethodDeclaration(member) && !ts.isGetAccessor(member) && !ts.isSetAccessor(member)) continue;
+                        const memberName = staticMemberName(member);
+                        if (!memberName) continue;
+                        const kind = ts.isGetAccessor(member) ? 'getter' : ts.isSetAccessor(member) ? 'setter' : 'method';
+                        const memberQualified = add(member, memberName, kind, qualified, true);
+                        if (member.body) visit(member.body, memberQualified, true);
+                    }
+                } else {
+                    exclusions.push({ path, start: node.getStart(sf), reason: ts.isModuleDeclaration(node) ? 'namespace-members-not-enumerated' : 'unmodeled-top-level-statement' });
+                }
             } else {
                 exclusions.push({ path, start: node.getStart(sf), reason: ts.isModuleDeclaration(node) ? 'namespace-members-not-enumerated' : 'unmodeled-top-level-statement' });
             }
@@ -140,7 +174,7 @@ function inventorySnapshot(files, side, options = {}) {
         for (const node of sf.statements) visit(node);
     }
     return { snapshotId, entries, documents, exclusions, parser: [...parsers].sort().join('; ') || 'none',
-        scope: 'JS/TS named declarations, class members, direct nested declarations; Python named functions/classes including compound suites; callbacks/lambdas excluded' };
+        scope: 'JS/TS named declarations, class members, direct nested declarations, and explicit top-level registerType registrations; Python named functions/classes including compound suites; callbacks/lambdas excluded' };
 }
 
 module.exports = { digest, inventorySnapshot, isSupportedSource };

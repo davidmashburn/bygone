@@ -106,14 +106,60 @@ test('local exact evidence does not override a conflicting engine continuation',
     assert.equal(r.unresolved.filter(g => g.reason === 'conflicting-continuations').length, 2);
 });
 
-test('accepted edited continuations do not leave empty duplicate-origin groups', () => {
+test('unchanged engine omissions allow unique local edited continuations and clear duplicate-origin groups', () => {
     const edited = code.replace('+ 1', '+ 2');
     const r = normalizeMappings({ 'a.ts': code, 'b.ts': code, 'c.ts': edited, 'd.ts': edited },
-        { 'a.ts': code, 'b.ts': edited, 'c.ts': code, 'd.ts': edited }, native([
+        { 'a.ts': code, 'b.ts': edited, 'c.ts': code, 'd.ts': edited }, { ...native([
             mapper(code, edited, 'b.ts', 'b.ts'), mapper(edited, code, 'c.ts', 'c.ts')
-        ]));
+        ]), processedPaths: { before: ['b.ts', 'c.ts'], after: ['b.ts', 'c.ts'] } });
     assert.equal(r.relations.length, 4);
     assert.equal(r.unresolved.length, 0);
+    assert.equal(r.status, 'partial');
+    assert.equal(r.issues.filter(i => i.reason === 'engine-skipped-document').length, 4);
+});
+
+test('skipped changed implementations still block local and cross-file engine candidates', () => {
+    for (const destinationPath of ['a.ts', 'b.ts']) {
+        const edited = code.replace('+ 1', '+ 2');
+        const r = normalizeMappings({ 'a.ts': code, 'other.ts': code }, { [destinationPath]: edited },
+            { ...native([mapper(code, edited, 'a.ts', destinationPath)]), processedPaths: { before: ['a.ts'], after: [destinationPath] } });
+        assert.equal(r.relations.length, 0);
+        assert(r.unresolved.some(g => g.reason === 'incomplete-analysis'));
+    }
+});
+
+test('unchanged omitted implementations remain competitors for edited moves', () => {
+    const edited = code.replace('+ 1', '+ 2');
+    const r = normalizeMappings({ 'a.ts': code, 'retained.ts': code }, { 'b.ts': edited, 'retained.ts': code },
+        { ...native([mapper(code, edited)]), processedPaths: { before: ['a.ts'], after: ['b.ts'] } });
+    assert.equal(r.relations.length, 1);
+    assert.deepEqual(r.relations[0].producers, ['exact-declaration']);
+    assert(r.unresolved.some(g => g.reason === 'incomplete-analysis'));
+});
+
+test('unsearched endpoints and duplicate local identities cannot claim complete engine evidence', () => {
+    const edited = code.replace('+ 1', '+ 2');
+    const unsearched = normalizeMappings({ 'a.ts': code }, { 'a.ts': edited },
+        { ...native([mapper(code, edited, 'a.ts', 'a.ts')]), processedPaths: { before: [], after: ['a.ts'] } });
+    assert.equal(unsearched.relations.length, 0);
+    const r = normalizeMappings({ 'a.ts': code + '\n' + code, 'retained.ts': code },
+        { 'a.ts': edited + '\n' + edited, 'retained.ts': code },
+        { ...native([mapper(code, edited, 'a.ts', 'a.ts')]), processedPaths: { before: ['a.ts'], after: ['a.ts'] } }, { exactFallback: false });
+    assert.equal(r.relations.length, 0);
+    assert(r.unresolved.some(g => g.reason === 'incomplete-analysis'));
+});
+
+test('a unique child cannot bypass a duplicated enclosing identity in a partial search', () => {
+    const inner = 'function inner() { return 1; }', edited = inner.replace('1', '2');
+    const text = `function outer() { ${inner} }\nfunction outer() {}`;
+    const next = text.replace(inner, edited);
+    const innerSpan = (text, declaration) => ({ path: 'a.ts', start: text.indexOf(declaration),
+        end: text.indexOf(declaration) + declaration.length, text: declaration, sha256: digest(declaration), valid: true });
+    const m = { ...mapper(), source: innerSpan(text, inner), destination: innerSpan(next, edited) };
+    const r = normalizeMappings({ 'a.ts': text, 'retained.ts': code }, { 'a.ts': next, 'retained.ts': code },
+        { ...native([m]), processedPaths: { before: ['a.ts'], after: ['a.ts'] } }, { exactFallback: false });
+    assert.equal(r.relations.length, 0);
+    assert(r.unresolved.some(group => group.reason === 'incomplete-analysis'));
 });
 
 test('conflicting engine continuations remain unresolved', () => {
@@ -161,7 +207,7 @@ test('truncation does not promote a partially searched engine candidate', () => 
 });
 
 test('inventory handles classes, arrows, anonymous defaults, overloads and explicit exclusions', () => {
-    const files = { 'a.ts': 'interface I { run(): void }\ntype T = string;\nclass C { run(n: number) { return n; } }\nexport const arrow = (n: number) => n;\nexport default function(n: number) { return n; }\nfunction f(n: string): string;\nfunction f(n: string) { return n; }\nregisterType("Query", {});' };
+    const files = { 'a.ts': 'interface I { run(): void }\ntype T = string;\nclass C { run(n: number) { return n; } }\nexport const arrow = (n: number) => n;\nexport default function(n: number) { return n; }\nfunction f(n: string): string;\nfunction f(n: string) { return n; }\nregisterType("Query", {});\nunknownCallback("Query", () => 1);' };
     const inv = inventorySnapshot(files, 'before');
     assert(inv.entries.some(e => e.kind === 'interface')); assert(inv.entries.some(e => e.kind === 'type'));
     assert(inv.entries.some(e => e.qualifiedName === 'C.run')); assert(inv.entries.some(e => e.name === 'default'));
@@ -261,6 +307,26 @@ test('engine-skipped Python stubs remain explicitly partial with independent exa
     assert.equal(a.status, 'partial'); assert.equal(a.relations.length, 1);
     assert.deepEqual(a.relations[0].producers, ['exact-declaration']);
     assert.equal(a.issues.filter(i => i.reason === 'engine-skipped-document').length, 2);
+});
+
+test('stub omissions preserve edited implementation matches but never promote stub engine candidates', () => {
+    const a = '@register\ndef price(n):\n    return n + 1\n';
+    const b = a.replace('price', 'cost').replace('+ 1', '+ 2');
+    const stub = 'def cost(n: int) -> int: ...\n';
+    const pySpan = (path, text, name) => ({ path, name, start: 0, end: text.trimEnd().length, valid: true,
+        text: text.trimEnd(), sha256: digest(text.trimEnd()) });
+    const m = { ...mapper(), source: pySpan('a.py', a, 'price'), destination: pySpan('b.py', b, 'cost') };
+    const nativeResult = { ...native([m]), processedPaths: { before: ['a.py'], after: ['b.py'] } };
+    const r = normalizeMappings({ 'a.py': a }, { 'b.py': b, 'types.pyi': stub }, nativeResult);
+    assert.equal(r.status, 'partial'); assert.equal(r.relations.length, 1);
+    assert.deepEqual(r.relations[0].producers, ['refactoring-miner']);
+    assert.equal(r.relations[0].pathChanged, true); assert.equal(r.relations[0].nameChanged, true);
+    assert(r.issues.some(i => i.reason === 'engine-skipped-document' && i.path === 'types.pyi'));
+    const toStub = { ...m, destination: pySpan('types.pyi', stub, 'cost') };
+    const rejected = normalizeMappings({ 'a.py': a }, { 'types.pyi': stub },
+        { ...native([toStub]), processedPaths: { before: ['a.py'], after: ['types.pyi'] } });
+    assert.equal(rejected.relations.length, 0);
+    assert(rejected.unresolved.some(g => g.reason === 'incomplete-analysis'));
 });
 
 test('mixed-language snapshots record both parsers without requiring Python for JS-only input', () => {

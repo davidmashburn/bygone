@@ -1,0 +1,1397 @@
+{
+  "version": 1,
+  "base": "9d56b1121d33d0e3ab6b3ec42f51e93e183247ce",
+  "policy": {
+    "tuned": false,
+    "scope": "supplied files",
+    "historicalSelection": "first eligible src JS/TS path per nonmerge commit, descending, <=180 lines, last 60 commits"
+  },
+  "cases": [
+    {
+      "id": "control-01",
+      "group": "control",
+      "split": "development",
+      "before": {
+        "src/cart.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "invoiceTotal",
+          "destinationPath": "src/billing.js",
+          "destinationName": "invoiceTotal",
+          "operation": "move",
+          "edited": false
+        }
+      ],
+      "obligations": [],
+      "notes": ""
+    },
+    {
+      "id": "control-02",
+      "group": "control",
+      "split": "development",
+      "before": {
+        "src/cart.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "export function subtotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "invoiceTotal",
+          "destinationPath": "src/billing.js",
+          "destinationName": "subtotal",
+          "operation": "move-and-rename",
+          "edited": false
+        }
+      ],
+      "obligations": [],
+      "notes": ""
+    },
+    {
+      "id": "control-03",
+      "group": "control",
+      "split": "development",
+      "before": {
+        "src/cart.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "export function invoiceTotal(rows) {\n  let total = 5;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "invoiceTotal",
+          "destinationPath": "src/billing.js",
+          "destinationName": "invoiceTotal",
+          "operation": "move",
+          "edited": true
+        }
+      ],
+      "obligations": [
+        "literal edit visible"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "control-04",
+      "group": "control",
+      "split": "development",
+      "before": {
+        "src/cart.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n"
+      },
+      "after": {
+        "src/cart.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [],
+      "obligations": [
+        "retained source; no automatic move"
+      ],
+      "notes": "Equivalent new occurrence is not proof of copy history."
+    },
+    {
+      "id": "control-05",
+      "group": "control",
+      "split": "development",
+      "before": {
+        "src/a.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n",
+        "src/b.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n"
+      },
+      "after": {
+        "src/c.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n"
+      },
+      "expectedPairs": [],
+      "obligations": [
+        "ambiguous origins; no automatic move"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "control-06",
+      "group": "control",
+      "split": "development",
+      "before": {
+        "src/cart.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n"
+      },
+      "after": {
+        "src/cart.js": "\n\n// inserted header\nexport function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n"
+      },
+      "expectedPairs": [],
+      "obligations": [
+        "line shift is not a move"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "control-07",
+      "group": "control",
+      "split": "development",
+      "before": {
+        "src/cart.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "export function invoiceTotal(rows) { return fetch(\"/invoices\"); }\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [],
+      "obligations": [
+        "unrelated replacement must not become exact move"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "control-08",
+      "group": "control",
+      "split": "development",
+      "before": {
+        "old/math.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n"
+      },
+      "after": {
+        "new/math.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "old/math.js",
+          "sourceName": "invoiceTotal",
+          "destinationPath": "new/math.js",
+          "destinationName": "invoiceTotal",
+          "operation": "file-relocation",
+          "edited": false
+        }
+      ],
+      "obligations": [],
+      "notes": ""
+    },
+    {
+      "id": "control-09",
+      "group": "control",
+      "split": "development",
+      "before": {
+        "src/cart.js": "export const discount = (amount) => amount * 0.8;\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "export const discount = (amount) => amount * 0.8;\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "discount",
+          "destinationPath": "src/billing.js",
+          "destinationName": "discount",
+          "operation": "move",
+          "edited": false
+        }
+      ],
+      "obligations": [],
+      "notes": ""
+    },
+    {
+      "id": "control-10",
+      "group": "control",
+      "split": "development",
+      "before": {
+        "src/cart.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "export function invoiceTotal( {\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [],
+      "obligations": [
+        "parse failure visible; no automatic move"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "mixed-01",
+      "group": "mixed",
+      "split": "development",
+      "before": {
+        "src/cart.js": "export function checkout(rows) {\n let result = 0;\n for (const row of rows) result += row.price * row.quantity;\n save(result);\n return result;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "export function checkout(rows) {\n const result = invoiceTotal(rows);\n save(result);\n return result;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "checkout",
+          "destinationPath": "src/billing.js",
+          "destinationName": "invoiceTotal",
+          "operation": "extract",
+          "edited": false
+        }
+      ],
+      "obligations": [
+        "container continuation and changed call sites retained"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "mixed-02",
+      "group": "mixed",
+      "split": "development",
+      "before": {
+        "src/cart.js": "export function checkout(rows) {\n const result = invoiceTotal(rows);\n save(result);\n return result;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "export function checkout(rows) {\n let result = 0;\n for (const row of rows) result += row.price * row.quantity;\n save(result);\n return result;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/billing.js",
+          "sourceName": "invoiceTotal",
+          "destinationPath": "src/cart.js",
+          "destinationName": "checkout",
+          "operation": "inline",
+          "edited": false
+        }
+      ],
+      "obligations": [
+        "container body edits retained"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "mixed-03",
+      "group": "mixed",
+      "split": "development",
+      "before": {
+        "src/cart.js": "export class PriceBook {\n constructor(rate) { this.rate = rate; }\n price(value) { return value * this.rate; }\n}\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "export class PriceBook {\n constructor(rate) { this.rate = rate; }\n price(value) { return value * this.rate + 1; }\n}\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "PriceBook",
+          "destinationPath": "src/billing.js",
+          "destinationName": "PriceBook",
+          "operation": "move",
+          "edited": true
+        }
+      ],
+      "obligations": [
+        "nested method edit visible",
+        "baseline class extraction unsupported"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "mixed-04",
+      "group": "mixed",
+      "split": "development",
+      "before": {
+        "src/cart.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "// amounts include handling\nexport function amountDue(rows) {\n  let total = 3;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "invoiceTotal",
+          "destinationPath": "src/billing.js",
+          "destinationName": "amountDue",
+          "operation": "move-and-rename",
+          "edited": true
+        }
+      ],
+      "obligations": [
+        "comment and literal edit retained"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "mixed-05",
+      "group": "mixed",
+      "split": "development",
+      "before": {
+        "src/cart.js": "const rate = 1;\nexport function localPrice(value) { return value * rate; }\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "const rate = 2;\nexport function localPrice(value) { return value * rate; }\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "localPrice",
+          "destinationPath": "src/billing.js",
+          "destinationName": "localPrice",
+          "operation": "move",
+          "edited": false
+        }
+      ],
+      "obligations": [
+        "different lexical binding; behavior unassessed"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "mixed-06",
+      "group": "mixed",
+      "split": "held-out",
+      "before": {
+        "src/cart.js": "export function label(value) { return `商品:${value}`; }\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "export function caption(value) { return `品物:${value}`; }\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "label",
+          "destinationPath": "src/billing.js",
+          "destinationName": "caption",
+          "operation": "move-and-rename",
+          "edited": true
+        }
+      ],
+      "obligations": [
+        "Unicode literal edit visible"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "mixed-07",
+      "group": "mixed",
+      "split": "held-out",
+      "before": {
+        "src/cart.js": "export default function (value) { return value / 100; }\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "export default function (value) { return value / 100; }\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "default",
+          "destinationPath": "src/billing.js",
+          "destinationName": "default",
+          "operation": "move",
+          "edited": false
+        }
+      ],
+      "obligations": [
+        "anonymous default coverage explicit"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "mixed-08",
+      "group": "mixed",
+      "split": "held-out",
+      "before": {
+        "src/cart.js": "registerType(\"Query\", { resolve() { return 1; } });\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "registerType(\"Query\", { resolve() { return 2; } });\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "Query",
+          "destinationPath": "src/billing.js",
+          "destinationName": "Query",
+          "operation": "registration-relocation",
+          "edited": true
+        }
+      ],
+      "obligations": [
+        "registration extraction explicit; body edit visible"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "mixed-09",
+      "group": "mixed",
+      "split": "held-out",
+      "before": {
+        "src/cart.js": "import { rate } from \"./rates.js\";\nexport function localPrice(value) { return value * rate; }\n\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/cart.js": "\nexport function originMarker() { return \"origin-only\"; }\n",
+        "src/billing.js": "import { rate } from \"./promotions.js\";\nexport function localPrice(value) { return value * rate; }\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "localPrice",
+          "destinationPath": "src/billing.js",
+          "destinationName": "localPrice",
+          "operation": "move",
+          "edited": false
+        }
+      ],
+      "obligations": [
+        "changed import resolution; behavior unassessed"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "mixed-10",
+      "group": "mixed",
+      "split": "held-out",
+      "before": {
+        "src/unchanged.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n",
+        "src/billing.js": "\nexport function destinationMarker() { return 991; }\n"
+      },
+      "after": {
+        "src/unchanged.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n",
+        "src/billing.js": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}\n\nexport function destinationMarker() { return 991; }\n"
+      },
+      "expectedPairs": [],
+      "obligations": [
+        "scope excludes unchanged origin; no automatic move"
+      ],
+      "notes": "Only src/billing.js is supplied to the detector; full pair is retained as scope evidence.",
+      "excludeUnchanged": true
+    },
+    {
+      "id": "history-01",
+      "group": "history",
+      "split": "development",
+      "before": {
+        "src/diff.d.ts": "declare module 'diff' {\n    export interface Change<T> {\n        value: T;\n        added?: boolean;\n        removed?: boolean;\n    }\n\n    export interface DiffOptions {\n        maxEditLength?: number;\n        timeout?: number;\n    }\n\n    export function diffArrays<T>(oldArr: T[], newArr: T[], options?: DiffOptions): Change<T[]>[] | undefined;\n    export function diffChars(oldStr: string, newStr: string): Change<string>[];\n    export function diffWordsWithSpace(oldStr: string, newStr: string): Change<string>[];\n}\n"
+      },
+      "after": {
+        "src/diff.d.ts": "declare module 'diff' {\n    export interface Change<T> {\n        value: T;\n        added?: boolean;\n        removed?: boolean;\n    }\n\n    export interface DiffOptions {\n        maxEditLength?: number;\n        timeout?: number;\n    }\n\n    export function diffArrays<T>(oldArr: T[], newArr: T[], options?: DiffOptions): Change<T[]>[] | undefined;\n    export function diffChars(oldStr: string, newStr: string): Change<string>[];\n    export function diffWordsWithSpace(oldStr: string, newStr: string): Change<string>[];\n    export function diffWordsWithSpace(oldStr: string, newStr: string, options: DiffOptions): Change<string>[] | undefined;\n}\n"
+      },
+      "source": {
+        "commit": "2c4143b398e712ebd9785fb2fbe8924905bbc754",
+        "parent": "48dc93c47d3942123190bde4a8ecaa05e5ad7518",
+        "file": "src/diff.d.ts"
+      },
+      "expectedPairs": [],
+      "obligations": [
+        "single-file search scope explicit; no cross-file absence claim"
+      ],
+      "notes": "Single-file historical scope: no cross-file recall claim.",
+      "expectedInventory": {
+        "before": [],
+        "after": []
+      },
+      "annotation": "Names and continuations checked against pinned file definitions and diff before engine execution; declarations without bodies excluded from this inventory denominator."
+    },
+    {
+      "id": "history-02",
+      "group": "history",
+      "split": "development",
+      "before": {},
+      "after": {
+        "src/panelOrder.ts": "/** A move is valid only for the exact displayed set/order that initiated it. */\nexport interface PanelMove {\n    panelId: string;\n    targetIndex: number;\n    panelIds: string[];\n}\n\nexport function moveComparisonPanel<T extends { id: string }>(panels: readonly T[], move: PanelMove): T[] | null {\n    if (!Array.isArray(move.panelIds) || move.panelIds.length !== panels.length\n        || !panels.every((panel, index) => panel.id === move.panelIds[index])\n        || new Set(move.panelIds).size !== panels.length\n        || !Number.isInteger(move.targetIndex) || move.targetIndex < 0 || move.targetIndex >= panels.length) return null;\n    const from = panels.findIndex(panel => panel.id === move.panelId);\n    if (from < 0 || from === move.targetIndex) return null;\n    const result = [...panels];\n    result.splice(move.targetIndex, 0, result.splice(from, 1)[0]);\n    return result;\n}\n\n/** Custom order never changes membership or the canonical comparison range. */\nexport function applyComparisonOrder<T>(items: readonly T[], order: unknown, key: (item: T) => string): T[] {\n    if (!Array.isArray(order) || order.length !== items.length || new Set(order).size !== items.length) return [...items];\n    const byKey = new Map(items.map(item => [key(item), item]));\n    return order.every(id => byKey.has(id)) ? order.map(id => byKey.get(id)!) : [...items];\n}\n\nexport function movedPanelPairIndex(panelIds: readonly string[], panelId: string): number | null {\n    return panelIds.length < 2 ? null : Math.min(Math.max(0, panelIds.indexOf(panelId)), panelIds.length - 2);\n}\n"
+      },
+      "source": {
+        "commit": "576f74f9dc237ee4c73955e70e216c9fc6db59ad",
+        "parent": "1b20eda780848724f2c3a04d61fd31ecc4415f30",
+        "file": "src/panelOrder.ts"
+      },
+      "expectedPairs": [],
+      "obligations": [
+        "single-file search scope explicit; no cross-file absence claim"
+      ],
+      "notes": "Single-file historical scope: no cross-file recall claim.",
+      "expectedInventory": {
+        "before": [],
+        "after": [
+          {
+            "path": "src/panelOrder.ts",
+            "name": "moveComparisonPanel",
+            "kind": "function"
+          },
+          {
+            "path": "src/panelOrder.ts",
+            "name": "applyComparisonOrder",
+            "kind": "function"
+          },
+          {
+            "path": "src/panelOrder.ts",
+            "name": "movedPanelPairIndex",
+            "kind": "function"
+          }
+        ]
+      },
+      "annotation": "Names and continuations checked against pinned file definitions and diff before engine execution; declarations without bodies excluded from this inventory denominator."
+    },
+    {
+      "id": "history-03",
+      "group": "history",
+      "split": "development",
+      "before": {
+        "src/deepLink.ts": "import type { ChangeTourManifest, ChangeTourModeTour } from './changeTourManifest';\n\nexport type DocumentFocus =\n    | { part: 'title' }\n    | { part: 'conclusion' }\n    | { part: 'chapter'; chapter: string }\n    | { part: 'scene'; scene: string }\n    | { part: 'step'; scene: string; step: string };\nexport type TourLink = {\n    // tour is a repository-relative path or a local file URL.\n    kind: 'tour'; repo: string; tour: string;\n    mode: 'historical' | 'deconstructed'; focus: DocumentFocus;\n};\nexport type ComparisonLink = {\n    kind: 'compare'; repo: string; revisions: [string, string];\n    file?: string; revision?: string; line?: number;\n};\nexport type DeepLink = TourLink | ComparisonLink;\nconst oidPattern = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;\nconst focusFields = ['part', 'chapter', 'scene', 'step'];\n\nfunction required(params: URLSearchParams, key: string): string {\n    const value = params.get(key);\n    if (!value || value.length > 4096 || /[\\u0000-\\u001f\\u007f]/.test(value)) throw new Error(`Invalid or missing ${key}.`);\n    return value;\n}\nexport function validateRelativePath(value: string): string {\n    if (!value || value.startsWith('/') || value.includes('\\\\') || value.includes('\\0')\n        || value.split('/').some(part => !part || part === '.' || part === '..')) {\n        throw new Error('Expected a repository-relative path without traversal.');\n    }\n    return value;\n}\nfunction validateFields(params: URLSearchParams, allowed: string[], repeated: string[] = []): void {\n    for (const key of params.keys()) {\n        if (!allowed.includes(key)) throw new Error(`Unsupported link field: ${key}.`);\n        if (!repeated.includes(key) && params.getAll(key).length !== 1) throw new Error(`Duplicate link field: ${key}.`);\n    }\n}\nfunction validateLocalFileUrl(value: string): string {\n    const local = new URL(value);\n    if (local.protocol !== 'file:' || local.hostname || local.search || local.hash || local.username || local.password\n        || !local.pathname.startsWith('/')) throw new Error('Links require a local file URL.');\n    return value;\n}\nexport function parseDocumentFocus(params: URLSearchParams): DocumentFocus {\n    const part = required(params, 'part');\n    const fields = (part === 'title' || part === 'conclusion') ? [] : part === 'chapter' ? ['chapter']\n        : part === 'scene' ? ['scene'] : part === 'step' ? ['scene', 'step'] : null;\n    if (!fields) throw new Error(`Unsupported document part: ${part}.`);\n    for (const key of focusFields.filter(key => key !== 'part')) {\n        if (params.has(key) && !fields.includes(key)) throw new Error(`${key} is incompatible with ${part}.`);\n    }\n    return Object.fromEntries([['part', part], ...fields.map(key => [key, required(params, key)])]) as DocumentFocus;\n}\nexport function parseDeepLink(value: string): DeepLink {\n    if (value.length > 16384 || /%(?![\\da-f]{2})/i.test(value)) throw new Error('Invalid or oversized Bygone link.');\n    const url = new URL(value);\n    if (url.protocol !== 'bygone:' || url.hostname !== 'open' || url.pathname !== '/v1'\n        || url.username || url.password || url.port || url.hash) throw new Error('Unsupported Bygone link address or version.');\n    const p = url.searchParams;\n    const kind = required(p, 'kind');\n    const repo = validateLocalFileUrl(required(p, 'repo'));\n    if (kind === 'tour') {\n        validateFields(p, ['kind', 'repo', 'tour', 'mode', ...focusFields]);\n        const mode = required(p, 'mode');\n        if (mode !== 'historical' && mode !== 'deconstructed') throw new Error('Unsupported authored tour mode.');\n        const tour = required(p, 'tour');\n        if (/^[a-z][a-z\\d+.-]*:/i.test(tour)) validateLocalFileUrl(tour);\n        else validateRelativePath(tour);\n        return { kind, repo, tour, mode, focus: parseDocumentFocus(p) };\n    }\n    if (kind !== 'compare') throw new Error('Unsupported Bygone link kind.');\n    validateFields(p, ['kind', 'repo', 'rev', 'file', 'revision', 'line'], ['rev']);\n    const revisions = p.getAll('rev');\n    if (revisions.length !== 2 || revisions.some(oid => !oidPattern.test(oid)) || revisions[0] === revisions[1]) {\n        throw new Error('Comparison links require two distinct full commit IDs in order.');\n    }\n    const file = p.has('file') ? validateRelativePath(required(p, 'file')) : undefined;\n    const revision = p.has('revision') ? required(p, 'revision') : undefined;\n    if (revision && (!file || !revisions.includes(revision))) throw new Error('Code focus requires a file and one of the comparison revisions.');\n    const line = p.has('line') ? Number(required(p, 'line')) : undefined;\n    if (line !== undefined && (!revision || !Number.isSafeInteger(line) || line < 1)) throw new Error('Line focus requires a revision and positive line number.');\n    return { kind, repo, revisions: revisions as [string, string], ...(file ? { file } : {}), ...(revision ? { revision } : {}), ...(line !== undefined ? { line } : {}) };\n}\nexport function serializeDeepLink(link: DeepLink): string {\n    const url = new URL('bygone://open/v1');\n    url.searchParams.set('kind', link.kind);\n    url.searchParams.set('repo', link.repo);\n    if (link.kind === 'tour') {\n        url.searchParams.set('tour', link.tour);\n        url.searchParams.set('mode', link.mode);\n        for (const [key, value] of Object.entries(link.focus)) url.searchParams.set(key, value);\n    } else {\n        for (const revision of link.revisions) url.searchParams.append('rev', revision);\n        for (const key of ['file', 'revision', 'line'] as const) if (link[key] !== undefined) url.searchParams.set(key, String(link[key]));\n    }\n    parseDeepLink(url.href);\n    return url.href;\n}\nexport function authoredModeTour(tour: ChangeTourManifest, mode: TourLink['mode']): ChangeTourModeTour {\n    if (tour.tours) {\n        const result = tour.tours[mode];\n        if (!result) throw new Error(`This tour has no ${mode} mode.`);\n        return result;\n    }\n    const deconstructed = tour.scenes.some(scene => scene.kind === 'deconstructed-diff');\n    if (mode === 'deconstructed' && deconstructed) return tour;\n    if (mode === 'historical' && !deconstructed) return tour;\n    if (mode === 'historical' && tour.zoom?.final.scenes.some(scene => scene.kind === 'walkthrough')) return tour.zoom.final;\n    throw new Error(`This tour has no ${mode} mode.`);\n}\nexport function resolveDocumentFocus(tour: ChangeTourManifest, mode: TourLink['mode'], focus: DocumentFocus): { key: string; sceneIndex: number; stepIndex: number } {\n    const selected = authoredModeTour(tour, mode);\n    if (focus.part === 'title') return { key: 'title', sceneIndex: 0, stepIndex: 0 };\n    if (focus.part === 'conclusion') {\n        if (!selected.conclusion) throw new Error('Conclusion is unavailable in this tour mode.');\n        return { key: 'conclusion', sceneIndex: -1, stepIndex: 0 };\n    }\n    if (focus.part === 'chapter') {\n        const chapter = selected.chapters.find(item => item.id === focus.chapter);\n        const sceneIndex = selected.scenes.findIndex(scene => scene.id === chapter?.sceneIds[0]);\n        if (!chapter || sceneIndex < 0) throw new Error(`Chapter is unavailable: ${focus.chapter}.`);\n        return { key: `chapter:${chapter.id}`, sceneIndex, stepIndex: 0 };\n    }\n    const sceneIndex = selected.scenes.findIndex(scene => scene.id === focus.scene);\n    if (sceneIndex < 0) throw new Error(`Scene is unavailable: ${focus.scene}.`);\n    const scene = selected.scenes[sceneIndex];\n    if (focus.part === 'scene') return { key: `scene:${scene.id}`, sceneIndex, stepIndex: 0 };\n    const stepIndex = 'steps' in scene ? scene.steps.findIndex(step => step.id === focus.step) : -1;\n    if (stepIndex < 0) throw new Error(`Step is unavailable: ${focus.step}.`);\n    return { key: `step:${scene.id}:${focus.step}`, sceneIndex, stepIndex };\n}\nexport function serializeDocumentFragment(mode: TourLink['mode'], focus: DocumentFocus): string {\n    return `#${new URLSearchParams({ location: '1', mode, ...focus })}`;\n}\nexport function parseDocumentFragment(hash: string): Pick<TourLink, 'mode' | 'focus'> | null {\n    if (!hash) return null;\n    if (hash.length > 16384 || /%(?![\\da-f]{2})/i.test(hash)) throw new Error('Oversized tour location.');\n    const p = new URLSearchParams(hash.replace(/^#/, ''));\n    validateFields(p, ['location', 'mode', ...focusFields]);\n    if (p.get('location') !== '1') throw new Error('Unsupported tour location version.');\n    const mode = p.get('mode');\n    if (mode !== 'historical' && mode !== 'deconstructed') throw new Error('Unsupported tour location mode.');\n    return { mode, focus: parseDocumentFocus(p) };\n}\n"
+      },
+      "after": {
+        "src/deepLink.ts": "import type { ChangeTourManifest, ChangeTourModeTour } from './changeTourManifest';\n\nexport type DocumentFocus =\n    | { part: 'title' }\n    | { part: 'conclusion' }\n    | { part: 'chapter'; chapter: string }\n    | { part: 'scene'; scene: string }\n    | { part: 'step'; scene: string; step: string };\nexport type TourLink = {\n    // tour is a repository-relative path or a local file URL.\n    kind: 'tour'; repo: string; tour: string;\n    mode: 'historical' | 'deconstructed'; focus: DocumentFocus;\n};\nexport type ComparisonLink = {\n    kind: 'compare'; repo: string; revisions: [string, string];\n    file?: string; revision?: string; line?: number;\n};\nexport type DeepLink = TourLink | ComparisonLink;\nconst oidPattern = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;\nconst focusFields = ['part', 'chapter', 'scene', 'step'];\n\nfunction required(params: URLSearchParams, key: string): string {\n    const value = params.get(key);\n    if (!value || value.length > 4096 || /[\\u0000-\\u001f\\u007f]/.test(value)) throw new Error(`Invalid or missing ${key}.`);\n    return value;\n}\nexport function validateRelativePath(value: string): string {\n    if (!value || value.startsWith('/') || value.includes('\\\\') || value.includes('\\0')\n        || value.split('/').some(part => !part || part === '.' || part === '..')) {\n        throw new Error('Expected a repository-relative path without traversal.');\n    }\n    return value;\n}\nfunction validateFields(params: URLSearchParams, allowed: string[], repeated: string[] = []): void {\n    for (const key of params.keys()) {\n        if (!allowed.includes(key)) throw new Error(`Unsupported link field: ${key}.`);\n        if (!repeated.includes(key) && params.getAll(key).length !== 1) throw new Error(`Duplicate link field: ${key}.`);\n    }\n}\nfunction validateLocalFileUrl(value: string): string {\n    const local = new URL(value);\n    if (local.protocol !== 'file:' || local.hostname || local.search || local.hash || local.username || local.password\n        || !local.pathname.startsWith('/')) throw new Error('Links require a local file URL.');\n    return value;\n}\nexport function parseDocumentFocus(params: URLSearchParams): DocumentFocus {\n    const part = required(params, 'part');\n    const fields = (part === 'title' || part === 'conclusion') ? [] : part === 'chapter' ? ['chapter']\n        : part === 'scene' ? ['scene'] : part === 'step' ? ['scene', 'step'] : null;\n    if (!fields) throw new Error(`Unsupported document part: ${part}.`);\n    for (const key of focusFields.filter(key => key !== 'part')) {\n        if (params.has(key) && !fields.includes(key)) throw new Error(`${key} is incompatible with ${part}.`);\n    }\n    return Object.fromEntries([['part', part], ...fields.map(key => [key, required(params, key)])]) as DocumentFocus;\n}\nexport function parseDeepLink(value: string): DeepLink {\n    if (value.length > 16384 || /%(?![\\da-f]{2})/i.test(value)) throw new Error('Invalid or oversized Bygone link.');\n    const url = new URL(value);\n    if (url.protocol !== 'bygone:' || url.hostname !== 'open' || url.pathname !== '/v1'\n        || url.username || url.password || url.port || url.hash) throw new Error('Unsupported Bygone link address or version.');\n    const p = url.searchParams;\n    const kind = required(p, 'kind');\n    const repo = validateLocalFileUrl(required(p, 'repo'));\n    if (kind === 'tour') {\n        validateFields(p, ['kind', 'repo', 'tour', 'mode', ...focusFields]);\n        const mode = required(p, 'mode');\n        if (mode !== 'historical' && mode !== 'deconstructed') throw new Error('Unsupported authored tour mode.');\n        const tour = required(p, 'tour');\n        if (/^[a-z][a-z\\d+.-]*:/i.test(tour)) validateLocalFileUrl(tour);\n        else validateRelativePath(tour);\n        return { kind, repo, tour, mode, focus: parseDocumentFocus(p) };\n    }\n    if (kind !== 'compare') throw new Error('Unsupported Bygone link kind.');\n    validateFields(p, ['kind', 'repo', 'rev', 'file', 'revision', 'line'], ['rev']);\n    const revisions = p.getAll('rev');\n    if (revisions.length !== 2 || revisions.some(oid => !oidPattern.test(oid)) || revisions[0] === revisions[1]) {\n        throw new Error('Comparison links require two distinct full commit IDs in order.');\n    }\n    const file = p.has('file') ? validateRelativePath(required(p, 'file')) : undefined;\n    const revision = p.has('revision') ? required(p, 'revision') : undefined;\n    if (revision && (!file || !revisions.includes(revision))) throw new Error('Code focus requires a file and one of the comparison revisions.');\n    const line = p.has('line') ? Number(required(p, 'line')) : undefined;\n    if (line !== undefined && (!revision || !Number.isSafeInteger(line) || line < 1)) throw new Error('Line focus requires a revision and positive line number.');\n    return { kind, repo, revisions: revisions as [string, string], ...(file ? { file } : {}), ...(revision ? { revision } : {}), ...(line !== undefined ? { line } : {}) };\n}\nexport function serializeDeepLink(link: DeepLink): string {\n    const url = new URL('bygone://open/v1');\n    url.searchParams.set('kind', link.kind);\n    url.searchParams.set('repo', link.repo);\n    if (link.kind === 'tour') {\n        url.searchParams.set('tour', link.tour);\n        url.searchParams.set('mode', link.mode);\n        for (const [key, value] of Object.entries(link.focus)) url.searchParams.set(key, value);\n    } else {\n        for (const revision of link.revisions) url.searchParams.append('rev', revision);\n        for (const key of ['file', 'revision', 'line'] as const) if (link[key] !== undefined) url.searchParams.set(key, String(link[key]));\n    }\n    parseDeepLink(url.href);\n    return url.href;\n}\nexport function authoredModeTour(tour: ChangeTourManifest, mode: TourLink['mode']): ChangeTourModeTour {\n    if (tour.tours) {\n        const result = tour.tours[mode];\n        if (!result) throw new Error(`This tour has no ${mode} mode.`);\n        return result;\n    }\n    const deconstructed = tour.scenes.some(scene => scene.kind === 'deconstructed-diff');\n    if (mode === 'deconstructed' && deconstructed) return tour;\n    if (mode === 'historical' && !deconstructed) return tour;\n    if (mode === 'historical' && tour.zoom?.final.scenes.some(scene => scene.kind === 'walkthrough')) return tour.zoom.final;\n    throw new Error(`This tour has no ${mode} mode.`);\n}\nexport function resolveDocumentFocus(tour: ChangeTourManifest, mode: TourLink['mode'], focus: DocumentFocus): { key: string; sceneIndex: number; stepIndex: number } {\n    const selected = authoredModeTour(tour, mode);\n    if (focus.part === 'title') return { key: 'title', sceneIndex: 0, stepIndex: 0 };\n    if (focus.part === 'conclusion') {\n        if (!selected.conclusion) throw new Error('Conclusion is unavailable in this tour mode.');\n        return { key: 'conclusion', sceneIndex: -1, stepIndex: 0 };\n    }\n    if (focus.part === 'chapter') {\n        const chapter = selected.chapters.find(item => item.id === focus.chapter);\n        const sceneIndex = selected.scenes.findIndex(scene => scene.id === chapter?.sceneIds[0]);\n        if (!chapter || sceneIndex < 0) throw new Error(`Chapter is unavailable: ${focus.chapter}.`);\n        return { key: chapter.summary?.trim() ? `chapter:${chapter.id}` : `scene:${selected.scenes[sceneIndex].id}`, sceneIndex, stepIndex: 0 };\n    }\n    const sceneIndex = selected.scenes.findIndex(scene => scene.id === focus.scene);\n    if (sceneIndex < 0) throw new Error(`Scene is unavailable: ${focus.scene}.`);\n    const scene = selected.scenes[sceneIndex];\n    if (focus.part === 'scene') return { key: `scene:${scene.id}`, sceneIndex, stepIndex: 0 };\n    const stepIndex = 'steps' in scene ? scene.steps.findIndex(step => step.id === focus.step) : -1;\n    if (stepIndex < 0) throw new Error(`Step is unavailable: ${focus.step}.`);\n    return { key: `step:${scene.id}:${focus.step}`, sceneIndex, stepIndex };\n}\nexport function serializeDocumentFragment(mode: TourLink['mode'], focus: DocumentFocus): string {\n    return `#${new URLSearchParams({ location: '1', mode, ...focus })}`;\n}\nexport function parseDocumentFragment(hash: string): Pick<TourLink, 'mode' | 'focus'> | null {\n    if (!hash) return null;\n    if (hash.length > 16384 || /%(?![\\da-f]{2})/i.test(hash)) throw new Error('Oversized tour location.');\n    const p = new URLSearchParams(hash.replace(/^#/, ''));\n    validateFields(p, ['location', 'mode', ...focusFields]);\n    if (p.get('location') !== '1') throw new Error('Unsupported tour location version.');\n    const mode = p.get('mode');\n    if (mode !== 'historical' && mode !== 'deconstructed') throw new Error('Unsupported tour location mode.');\n    return { mode, focus: parseDocumentFocus(p) };\n}\n"
+      },
+      "source": {
+        "commit": "034645e4f3763f08612c6314096558b20b900a27",
+        "parent": "2f3ea43ced3a0850c9c67f05ec94e5a2bf12ebb6",
+        "file": "src/deepLink.ts"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "required",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "required",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "validateRelativePath",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "validateRelativePath",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "validateFields",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "validateFields",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "validateLocalFileUrl",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "validateLocalFileUrl",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "parseDocumentFocus",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "parseDocumentFocus",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "parseDeepLink",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "parseDeepLink",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "serializeDeepLink",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "serializeDeepLink",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "authoredModeTour",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "authoredModeTour",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "resolveDocumentFocus",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "resolveDocumentFocus",
+          "operation": "continuation",
+          "edited": true
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "serializeDocumentFragment",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "serializeDocumentFragment",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "parseDocumentFragment",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "parseDocumentFragment",
+          "operation": "continuation",
+          "edited": false
+        }
+      ],
+      "obligations": [
+        "single-file search scope explicit; no cross-file absence claim",
+        "resolveDocumentFocus body edit visible"
+      ],
+      "notes": "Single-file historical scope: no cross-file recall claim.",
+      "expectedInventory": {
+        "before": [
+          {
+            "path": "src/deepLink.ts",
+            "name": "required",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "validateRelativePath",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "validateFields",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "validateLocalFileUrl",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "parseDocumentFocus",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "parseDeepLink",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "serializeDeepLink",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "authoredModeTour",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "resolveDocumentFocus",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "serializeDocumentFragment",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "parseDocumentFragment",
+            "kind": "function"
+          }
+        ],
+        "after": [
+          {
+            "path": "src/deepLink.ts",
+            "name": "required",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "validateRelativePath",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "validateFields",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "validateLocalFileUrl",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "parseDocumentFocus",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "parseDeepLink",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "serializeDeepLink",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "authoredModeTour",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "resolveDocumentFocus",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "serializeDocumentFragment",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "parseDocumentFragment",
+            "kind": "function"
+          }
+        ]
+      },
+      "annotation": "Names and continuations checked against pinned file definitions and diff before engine execution; declarations without bodies excluded from this inventory denominator."
+    },
+    {
+      "id": "history-04",
+      "group": "history",
+      "split": "development",
+      "before": {
+        "src/tourFeedback.ts": "import type { ChangeTourManifest } from './changeTourManifest';\nimport type { TourReadingItem } from './tourReading';\nimport { resolveTourEvidenceContext, type TourEvidenceContext } from './tourOrientation';\n\nexport type TourFeedbackIntent = 'explain' | 'question';\n\n/** A frozen, deliberately small handoff: focused evidence, never whole source files. */\nexport function captureTourFeedback(tour: ChangeTourManifest, item: TourReadingItem, view: {\n    mode: string;\n    location: string;\n    displayedEvidence?: TourEvidenceContext | null;\n    activePairIndex?: number;\n    imageVisible?: boolean;\n}) {\n    const scene = item.kind === 'scene' || item.kind === 'step' ? tour.scenes[item.sceneIndex] : undefined;\n    const step = item.kind === 'step' && scene && 'steps' in scene ? scene.steps[item.stepIndex] : undefined;\n    const chapter = item.kind === 'chapter' ? tour.chapters.find(entry => entry.id === item.chapterId)\n        : scene ? tour.chapters.find(entry => entry.sceneIds.includes(scene.id)) : undefined;\n    const passage = item.kind === 'title' ? tour.opening : item.kind === 'conclusion' ? tour.conclusion\n        : item.kind === 'chapter' ? chapter : step ?? scene;\n    const stageExplanation = scene?.kind === 'deconstructed-diff' && step && 'pairIndex' in step && !step.body\n        ? scene.steps.find(candidate => candidate.pairIndex === step.pairIndex && candidate.body) : undefined;\n    const authoredEvidence = resolveTourEvidenceContext(tour, item, view.mode);\n    const snapshot = {\n        title: tour.title, sourceUrl: tour.sourceUrl, mode: view.mode, location: view.location,\n        range: tour.range, audience: tour.details?.audience,\n        opening: tour.opening,\n        section: { kind: item.kind, chapter: chapter?.id, scene: scene?.id, step: step?.id },\n        passage: passage && Object.fromEntries(Object.entries(passage).filter(([key]) =>\n            ['title', 'summary', 'body', 'bullets', 'takeaway', 'requirement', 'overview'].includes(key))),\n        sceneContext: step && scene ? { title: scene.title, summary: scene.summary, takeaway: scene.takeaway, overview: 'overview' in scene ? scene.overview : undefined } : undefined,\n        sceneRange: scene?.kind === 'deconstructed-diff' ? scene.realRange : undefined,\n        stageExplanation: stageExplanation && { id: stageExplanation.id, title: stageExplanation.title, body: stageExplanation.body },\n        authoredEvidence,\n        displayedEvidence: view.displayedEvidence === undefined\n            ? resolveTourEvidenceContext(tour, item, view.mode, view.activePairIndex) : view.displayedEvidence,\n        focus: step && ('focus' in step ? step.focus : {\n            path: step.file, pairIndex: step.pairIndex, side: step.side,\n            startLine: step.startLine, endLine: step.endLine\n        }),\n        connection: step && 'connection' in step ? step.connection : undefined,\n        image: step && 'image' in step && step.image ? {\n            path: step.image.path, revision: step.image.revision, alt: step.image.alt,\n            displayed: view.imageVisible\n        } : undefined\n    };\n    return JSON.stringify(snapshot, null, 2);\n}\n\nexport function buildTourFeedbackRequest(intent: TourFeedbackIntent, concern: string, snapshot: string): string {\n    return `${intent === 'explain' ? 'Help me understand this tour passage.' : 'Help me evaluate this change.'}\n\nMy concern:\n${concern.trim() || '(No additional note; start with the captured passage.)'}\n\nInvestigate before deciding what needs repair. Check the stated expectation, the explanation, and the implementation against source and relevant tests. The cause may involve implementation, explanation, a design/scope decision, missing evidence, or the viewer. Recover expected behavior from the user request, agreed requirements, or behavior that must be preserved; label expectations inferred from the diff. Do not silently weaken an expectation to match the code. Keep uncertainty explicit; do not explain away a defect or treat disagreement as confusion. Propose the smallest repair within the existing task authorization. If code changes, refresh the tour evidence and reassess affected claims. Close the loop on both behavior and understanding; report what remains unverified.\n\nCaptured tour context (a snapshot, not proof of current workspace state; synthetic panels are not commits):\n${snapshot}\n\nUse the pr-tour-guide skill when available. Verify the source revision before acting. The location may require the original repository/server or exported HTML file.\n`;\n}\n"
+      },
+      "after": {
+        "src/tourFeedback.ts": "import type { ChangeTourManifest } from './changeTourManifest';\nimport type { TourReadingItem } from './tourReading';\nimport { resolveTourEvidenceContext, type TourEvidenceContext } from './tourOrientation';\n\nexport type TourFeedbackIntent = 'explain' | 'question';\n\n/** A frozen, deliberately small handoff: focused evidence, never whole source files. */\nexport function captureTourFeedback(tour: ChangeTourManifest, item: TourReadingItem, view: {\n    mode: string;\n    location: string;\n    displayedEvidence?: TourEvidenceContext | null;\n    activePairIndex?: number;\n    imageVisible?: boolean;\n}) {\n    const scene = item.kind === 'scene' || item.kind === 'step' ? tour.scenes[item.sceneIndex] : undefined;\n    const step = item.kind === 'step' && scene && 'steps' in scene ? scene.steps[item.stepIndex] : undefined;\n    const chapter = item.kind === 'chapter' ? tour.chapters.find(entry => entry.id === item.chapterId)\n        : scene ? tour.chapters.find(entry => entry.sceneIds.includes(scene.id)) : undefined;\n    const passage = item.kind === 'title' ? tour.opening : item.kind === 'conclusion' ? tour.conclusion\n        : item.kind === 'chapter' ? chapter : step ?? scene;\n    const stageExplanation = scene?.kind === 'deconstructed-diff' && step && 'pairIndex' in step && !step.body\n        ? scene.steps.find(candidate => candidate.pairIndex === step.pairIndex && candidate.body) : undefined;\n    const authoredEvidence = resolveTourEvidenceContext(tour, item, view.mode);\n    const snapshot = {\n        title: tour.title, sourceUrl: tour.sourceUrl, mode: view.mode, location: view.location,\n        range: tour.range, audience: tour.details?.audience,\n        opening: tour.opening,\n        section: { kind: item.kind, chapter: chapter?.id, scene: scene?.id, step: step?.id },\n        passage: passage && Object.fromEntries(Object.entries(passage).filter(([key]) =>\n            ['title', 'summary', 'body', 'bullets', 'takeaway', 'requirement', 'overview'].includes(key))),\n        sceneContext: step && scene ? { title: scene.title, summary: scene.summary, takeaway: scene.takeaway, overview: 'overview' in scene ? scene.overview : undefined } : undefined,\n        sceneRange: scene?.kind === 'deconstructed-diff' ? scene.realRange : undefined,\n        stageExplanation: stageExplanation && { id: stageExplanation.id, title: stageExplanation.title, body: stageExplanation.body },\n        authoredEvidence,\n        displayedEvidence: view.displayedEvidence === undefined\n            ? resolveTourEvidenceContext(tour, item, view.mode, view.activePairIndex) : view.displayedEvidence,\n        focus: step && ('focus' in step ? step.focus : {\n            path: step.file, pairIndex: step.pairIndex, side: step.side,\n            startLine: step.startLine, endLine: step.endLine\n        }),\n        connection: step && 'connection' in step ? step.connection : undefined,\n        image: step && 'image' in step && step.image ? {\n            path: step.image.path, revision: step.image.revision, alt: step.image.alt,\n            displayed: view.imageVisible\n        } : undefined\n    };\n    return JSON.stringify(snapshot, null, 2);\n}\n\nexport function buildTourFeedbackRequest(intent: TourFeedbackIntent, concern: string, snapshot: string): string {\n    return `${intent === 'explain' ? 'Help me understand this tour passage.' : 'Help me evaluate this change.'}\n\nMy concern:\n${concern.trim() || '(No additional note; start with the captured passage.)'}\n\nInvestigate the concern against implementation code, relevant tests, and existing docs, requirements, or PR rationale. Distinguish intended behavior from the tour's claim and the evidence; label inferred intent and unresolved disagreement. Do not silently weaken an expectation to match the code.\n\nAnswer the concern, then identify any repair destination: implementation code, maintained documentation, PR explanation, the tour document, or the viewer. Missing evidence may need a check; disputed requirements may need a human decision. More tour prose is not always the remedy, and a clear answer may need no artifact change. Propose the smallest repair within the existing task authorization; this request does not itself authorize implementation edits or shared-system writes. Report what was checked, what remains unverified, and which artifacts actually changed. An agent reply does not update the saved tour document.\n\nCaptured tour context (a snapshot, not proof of current workspace state; synthetic panels are not commits):\n${snapshot}\n\nVerify the pinned and current implementation revisions before acting. If authorized implementation changes affect the tour, revisit its claims and refresh evidence for the intended committed range; do not present working-tree edits as committed evidence. Use the pr-tour-guide skill when authoring or repairing a Bygone tour, if available. The location may require the original repository/server or exported HTML file.\n`;\n}\n"
+      },
+      "source": {
+        "commit": "a9b3deb0d7ba0a885764246f5ce205c536d4766d",
+        "parent": "726796b1feebc3dfd7f396c83179753ef67ee119",
+        "file": "src/tourFeedback.ts"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/tourFeedback.ts",
+          "sourceName": "captureTourFeedback",
+          "destinationPath": "src/tourFeedback.ts",
+          "destinationName": "captureTourFeedback",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/tourFeedback.ts",
+          "sourceName": "buildTourFeedbackRequest",
+          "destinationPath": "src/tourFeedback.ts",
+          "destinationName": "buildTourFeedbackRequest",
+          "operation": "continuation",
+          "edited": true
+        }
+      ],
+      "obligations": [
+        "single-file search scope explicit; no cross-file absence claim",
+        "buildTourFeedbackRequest body edit visible"
+      ],
+      "notes": "Single-file historical scope: no cross-file recall claim.",
+      "expectedInventory": {
+        "before": [
+          {
+            "path": "src/tourFeedback.ts",
+            "name": "captureTourFeedback",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourFeedback.ts",
+            "name": "buildTourFeedbackRequest",
+            "kind": "function"
+          }
+        ],
+        "after": [
+          {
+            "path": "src/tourFeedback.ts",
+            "name": "captureTourFeedback",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourFeedback.ts",
+            "name": "buildTourFeedbackRequest",
+            "kind": "function"
+          }
+        ]
+      },
+      "annotation": "Names and continuations checked against pinned file definitions and diff before engine execution; declarations without bodies excluded from this inventory denominator."
+    },
+    {
+      "id": "history-05",
+      "group": "history",
+      "split": "development",
+      "before": {
+        "src/tourContentHash.ts": "import { createHash } from 'crypto';\nimport type { ChangeTourSource } from './changeTourSource';\n\n/**\n * Hash the authored tour contract while ignoring assessment provenance.\n *\n * Keys are sorted recursively so equivalent JSON objects with different\n * authoring order produce the same fingerprint.  The source is expected to\n * have passed parseChangeTourSource before hashing.\n */\nexport function hashChangeTourSource(source: ChangeTourSource): string {\n    const canonical = canonicalize(source);\n    return createHash('sha256').update(JSON.stringify(canonical), 'utf8').digest('hex');\n}\n\nfunction canonicalize(value: unknown, parentKey?: string): unknown {\n    if (Array.isArray(value)) return value.map((item) => canonicalize(item));\n    if (!isRecord(value)) return value;\n    const result: Record<string, unknown> = {};\n    for (const key of Object.keys(value).sort()) {\n        if (parentKey === 'details' && key === 'assessment') continue;\n        const child = value[key];\n        if (child === undefined) continue;\n        const canonical = canonicalize(child, key);\n        if (key === 'details' && isRecord(canonical) && Object.keys(canonical).length === 0) continue;\n        result[key] = canonical;\n    }\n    return result;\n}\n\nfunction isRecord(value: unknown): value is Record<string, unknown> {\n    return typeof value === 'object' && value !== null && !Array.isArray(value);\n}\n"
+      },
+      "after": {},
+      "source": {
+        "commit": "726796b1feebc3dfd7f396c83179753ef67ee119",
+        "parent": "7bd04dbbb69d4bd2b8da0e0ef885071967676d37",
+        "file": "src/tourContentHash.ts"
+      },
+      "expectedPairs": [],
+      "obligations": [
+        "single-file search scope explicit; no cross-file absence claim"
+      ],
+      "notes": "Single-file historical scope: no cross-file recall claim.",
+      "expectedInventory": {
+        "before": [
+          {
+            "path": "src/tourContentHash.ts",
+            "name": "hashChangeTourSource",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourContentHash.ts",
+            "name": "canonicalize",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourContentHash.ts",
+            "name": "isRecord",
+            "kind": "function"
+          }
+        ],
+        "after": []
+      },
+      "annotation": "Names and continuations checked against pinned file definitions and diff before engine execution; declarations without bodies excluded from this inventory denominator."
+    },
+    {
+      "id": "history-06",
+      "group": "history",
+      "split": "held-out",
+      "before": {},
+      "after": {
+        "src/tourContentHash.ts": "import { createHash } from 'crypto';\nimport type { ChangeTourSource } from './changeTourSource';\n\n/**\n * Hash the authored tour contract while ignoring assessment provenance.\n *\n * Keys are sorted recursively so equivalent JSON objects with different\n * authoring order produce the same fingerprint.  The source is expected to\n * have passed parseChangeTourSource before hashing.\n */\nexport function hashChangeTourSource(source: ChangeTourSource): string {\n    const canonical = canonicalize(source);\n    return createHash('sha256').update(JSON.stringify(canonical), 'utf8').digest('hex');\n}\n\nfunction canonicalize(value: unknown, parentKey?: string): unknown {\n    if (Array.isArray(value)) return value.map((item) => canonicalize(item));\n    if (!isRecord(value)) return value;\n    const result: Record<string, unknown> = {};\n    for (const key of Object.keys(value).sort()) {\n        if (parentKey === 'details' && key === 'assessment') continue;\n        const child = value[key];\n        if (child === undefined) continue;\n        const canonical = canonicalize(child, key);\n        if (key === 'details' && isRecord(canonical) && Object.keys(canonical).length === 0) continue;\n        result[key] = canonical;\n    }\n    return result;\n}\n\nfunction isRecord(value: unknown): value is Record<string, unknown> {\n    return typeof value === 'object' && value !== null && !Array.isArray(value);\n}\n"
+      },
+      "source": {
+        "commit": "7bd04dbbb69d4bd2b8da0e0ef885071967676d37",
+        "parent": "325889c4ea5cc2b737038be2f790696c5c1150ca",
+        "file": "src/tourContentHash.ts"
+      },
+      "expectedPairs": [],
+      "obligations": [
+        "single-file search scope explicit; no cross-file absence claim"
+      ],
+      "notes": "Single-file historical scope: no cross-file recall claim.",
+      "expectedInventory": {
+        "before": [],
+        "after": [
+          {
+            "path": "src/tourContentHash.ts",
+            "name": "hashChangeTourSource",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourContentHash.ts",
+            "name": "canonicalize",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourContentHash.ts",
+            "name": "isRecord",
+            "kind": "function"
+          }
+        ]
+      },
+      "annotation": "Names and continuations checked against pinned file definitions and diff before engine execution; declarations without bodies excluded from this inventory denominator."
+    },
+    {
+      "id": "history-07",
+      "group": "history",
+      "split": "held-out",
+      "before": {
+        "src/tourOrientation.ts": "import type { ChangeTourManifest } from './changeTourManifest';\nimport type { TourReadingItem } from './tourReading';\nimport { buildTourDirectoryEvidence } from './tourDirectoryEvidence';\n\nexport interface TourEvidenceContext {\n    kind: 'real' | 'synthetic';\n    /** Ordered resolved endpoints; labels never participate in equality. */\n    comparisonKey: string;\n    labels: [string, string];\n    scope: string;\n    scopeKey: string;\n    overview: boolean;\n}\n\nexport type TourLanding = 'narrative' | 'overview' | 'preview' | 'evidence';\n\nexport function tourLanding(tour: ChangeTourManifest, item: TourReadingItem): TourLanding {\n    if (item.kind === 'title' || item.kind === 'chapter' || item.kind === 'conclusion') return 'narrative';\n    const scene = tour.scenes[item.sceneIndex];\n    if (!scene || scene.kind === 'discussion') return 'narrative';\n    if (item.kind === 'step' || scene.kind === 'text-diff') return 'evidence';\n    return scene.overview ? 'overview' : 'preview';\n}\n\nexport function resolveTourEvidenceContext(\n    tour: ChangeTourManifest, item: TourReadingItem, documentKey = '', activePairIndex?: number\n): TourEvidenceContext | null {\n    const landing = tourLanding(tour, item);\n    if (landing === 'narrative') return null;\n    const scene = tour.scenes[item.sceneIndex];\n    const overview = landing === 'overview';\n    const step = 'steps' in scene ? scene.steps[item.kind === 'step' ? item.stepIndex : 0] : undefined;\n    let endpoints = [tour.range.mergeBaseOid, tour.range.headOid];\n    let labels: [string, string] = [realLabel(tour.range.baseRef, endpoints[0]), realLabel(tour.range.headRef, endpoints[1])];\n    const kind = scene.kind === 'deconstructed-diff' ? 'synthetic' : 'real';\n    if (scene.kind === 'stacked-diff' || scene.kind === 'deconstructed-diff') {\n        const panels = scene.kind === 'stacked-diff' ? scene.stack : scene.panels;\n        const pair = activePairIndex ?? (step && 'pairIndex' in step ? step.pairIndex : 0);\n        const from = overview ? (scene.overview?.comparison ? panels.findIndex(panel => panel.id === scene.overview?.comparison?.from) : 0) : pair;\n        const to = overview ? (scene.overview?.comparison ? panels.findIndex(panel => panel.id === scene.overview?.comparison?.to) : panels.length - 1) : pair + 1;\n        if (!panels[from] || !panels[to]) throw new Error(`Scene ${scene.id} has unavailable comparison endpoints.`);\n        if (scene.kind === 'stacked-diff') {\n            endpoints = [scene.stack[from].oid, scene.stack[to].oid];\n            labels = [realLabel(panels[from].label, endpoints[0]), realLabel(panels[to].label, endpoints[1])];\n        } else {\n            endpoints = [panels[from].id, panels[to].id];\n            labels = [panels[from].label, panels[to].label];\n        }\n    }\n    const scope = overview ? `Directory: ${('overview' in scene && scene.overview?.path) || '/'} (authored inventory)`\n        : scene.kind === 'text-diff' ? scene.path : step && 'diff' in step ? step.diff.path : step && 'file' in step ? step.file : '';\n    const inventory = overview ? buildTourDirectoryEvidence(tour, scene) : null;\n    return {\n        kind, labels, scope, overview,\n        comparisonKey: JSON.stringify(kind === 'real' ? [kind, ...endpoints]\n            : [kind, documentKey, tour.generatedAt, tour.range.mergeBaseOid, tour.range.headOid, scene.id, ...endpoints]),\n        scopeKey: JSON.stringify([scope, ...(inventory ? [...inventory.files, ...inventory.omitted].map(file => file.path).sort() : [])])\n    };\n}\n\n/** File exploration and search can display the enclosing real range outside a scene. */\nexport function resolveTourRangeEvidenceContext(tour: ChangeTourManifest, path: string): TourEvidenceContext {\n    const endpoints = [tour.range.mergeBaseOid, tour.range.headOid];\n    return {\n        kind: 'real', comparisonKey: JSON.stringify(['real', ...endpoints]),\n        labels: [realLabel(tour.range.baseRef, endpoints[0]), realLabel(tour.range.headRef, endpoints[1])],\n        scope: path, scopeKey: JSON.stringify([path]), overview: false\n    };\n}\n\nexport function describeTourComparison(context: TourEvidenceContext): string {\n    return `${context.kind === 'synthetic' ? 'Explanation stages' : 'Comparison'}: ${context.labels.join(' → ')} · ${context.scope}`;\n}\n\nexport function describeTourTransition(previous: TourEvidenceContext | null, current: TourEvidenceContext): string {\n    if (!previous) return describeTourComparison(current);\n    if (previous.kind !== current.kind) return `${current.kind === 'synthetic' ? 'Switching to explanation stages' : 'Switching to real revisions'}. ${describeTourComparison(current)}`;\n    if (previous.comparisonKey !== current.comparisonKey) return `Comparison changed: ${previous.labels.join(' → ')} to ${current.labels.join(' → ')} · ${current.scope}`;\n    return `Same comparison${previous.scopeKey !== current.scopeKey ? '; scope changed' : ''}: ${current.labels.join(' → ')} · ${current.scope}`;\n}\n\nfunction realLabel(label: string, oid: string): string {\n    return label === oid || label === oid.slice(0, 7) ? oid.slice(0, 7) : `${label} (${oid.slice(0, 7)})`;\n}\n"
+      },
+      "after": {
+        "src/tourOrientation.ts": "import type { ChangeTourManifest } from './changeTourManifest';\nimport type { TourReadingItem } from './tourReading';\nimport { buildTourDirectoryEvidence } from './tourDirectoryEvidence';\n\nexport interface TourEvidenceContext {\n    kind: 'real' | 'synthetic';\n    /** Ordered resolved endpoints; labels never participate in equality. */\n    comparisonKey: string;\n    labels: [string, string];\n    scope: string;\n    scopeKey: string;\n    overview: boolean;\n}\n\nexport type TourLanding = 'narrative' | 'overview' | 'preview' | 'evidence';\n\nexport function tourLanding(tour: ChangeTourManifest, item: TourReadingItem): TourLanding {\n    if (item.kind === 'title' || item.kind === 'chapter' || item.kind === 'conclusion') return 'narrative';\n    const scene = tour.scenes[item.sceneIndex];\n    if (!scene || scene.kind === 'discussion') return 'narrative';\n    if (item.kind === 'step' || scene.kind === 'text-diff') return 'evidence';\n    return scene.overview ? 'overview' : 'preview';\n}\n\nexport function resolveTourEvidenceContext(\n    tour: ChangeTourManifest, item: TourReadingItem, documentKey = '', activePairIndex?: number\n): TourEvidenceContext | null {\n    const landing = tourLanding(tour, item);\n    if (landing === 'narrative') return null;\n    const scene = tour.scenes[item.sceneIndex];\n    const overview = landing === 'overview';\n    const step = 'steps' in scene ? scene.steps[item.kind === 'step' ? item.stepIndex : 0] : undefined;\n    let endpoints = [tour.range.mergeBaseOid, tour.range.headOid];\n    let labels: [string, string] = [realLabel(tour.range.baseRef, endpoints[0]), realLabel(tour.range.headRef, endpoints[1])];\n    const kind = scene.kind === 'deconstructed-diff' ? 'synthetic' : 'real';\n    if (scene.kind === 'stacked-diff' || scene.kind === 'deconstructed-diff') {\n        const panels = scene.kind === 'stacked-diff' ? scene.stack : scene.panels;\n        const pair = activePairIndex ?? (step && 'pairIndex' in step ? step.pairIndex : 0);\n        const from = overview ? (scene.overview?.comparison ? panels.findIndex(panel => panel.id === scene.overview?.comparison?.from) : 0) : pair;\n        const to = overview ? (scene.overview?.comparison ? panels.findIndex(panel => panel.id === scene.overview?.comparison?.to) : panels.length - 1) : pair + 1;\n        if (!panels[from] || !panels[to]) throw new Error(`Scene ${scene.id} has unavailable comparison endpoints.`);\n        if (scene.kind === 'stacked-diff') {\n            endpoints = [scene.stack[from].oid, scene.stack[to].oid];\n            labels = [realLabel(panels[from].label, endpoints[0]), realLabel(panels[to].label, endpoints[1])];\n        } else {\n            endpoints = [panels[from].id, panels[to].id];\n            labels = [panels[from].label, panels[to].label];\n        }\n    }\n    const scope = overview ? `Directory: ${('overview' in scene && scene.overview?.path) || '/'} (authored inventory)`\n        : scene.kind === 'text-diff' ? scene.path : step && 'diff' in step ? step.diff.path : step && 'file' in step ? step.file : '';\n    const inventory = overview ? buildTourDirectoryEvidence(tour, scene) : null;\n    return {\n        kind, labels, scope, overview,\n        comparisonKey: JSON.stringify(kind === 'real' ? [kind, ...endpoints]\n            : [kind, documentKey, tour.generatedAt, tour.range.mergeBaseOid, tour.range.headOid, scene.id, ...endpoints]),\n        scopeKey: JSON.stringify([scope, ...(inventory ? [...inventory.files, ...inventory.omitted].map(file => file.path).sort() : [])])\n    };\n}\n\n/** File exploration and search can display the enclosing real range outside a scene. */\nexport function resolveTourRangeEvidenceContext(tour: ChangeTourManifest, path: string): TourEvidenceContext {\n    const endpoints = [tour.range.mergeBaseOid, tour.range.headOid];\n    return {\n        kind: 'real', comparisonKey: JSON.stringify(['real', ...endpoints]),\n        labels: [realLabel(tour.range.baseRef, endpoints[0]), realLabel(tour.range.headRef, endpoints[1])],\n        scope: path, scopeKey: JSON.stringify([path]), overview: false\n    };\n}\n\nexport function describeTourComparison(context: TourEvidenceContext): string {\n    return `${context.kind === 'synthetic' ? 'Explanation stages' : 'Comparison'}: ${context.labels.join(' → ')} · ${context.scope}`;\n}\n\nexport function describeTourTransition(previous: TourEvidenceContext | null, current: TourEvidenceContext): string {\n    if (!previous) return describeTourComparison(current);\n    if (previous.kind !== current.kind) return `${current.kind === 'synthetic' ? 'Switching to explanation stages' : 'Switching to real revisions'}. ${describeTourComparison(current)}`;\n    if (previous.comparisonKey !== current.comparisonKey) return `${current.kind === 'synthetic' ? 'Explanation stages changed' : 'Revision comparison changed'}: ${previous.labels.join(' → ')} to ${current.labels.join(' → ')} · ${current.scope}`;\n    const movement = previous.scopeKey !== current.scopeKey\n        ? `${previous.overview || current.overview ? 'view' : 'file'} changed from ${previous.scope} to ${current.scope}`\n        : `same ${current.overview ? 'directory view' : 'file'}: ${current.scope}`;\n    return `Same ${current.kind === 'synthetic' ? 'explanation stages' : 'revision comparison'}; ${movement} · ${current.labels.join(' → ')}`;\n}\n\nfunction realLabel(label: string, oid: string): string {\n    return label === oid || label === oid.slice(0, 7) ? oid.slice(0, 7) : `${label} (${oid.slice(0, 7)})`;\n}\n\nexport interface TourRouteEntry {\n    sceneIndex: number;\n    title: string;\n    evidence: string;\n}\n\n/** Describe the authored route without treating scenes as commit or PR boundaries. */\nexport function buildTourRoute(tour: ChangeTourManifest): { summary: string; scenes: TourRouteEntry[] } {\n    return {\n        summary: `${tour.scenes.length} ${tour.scenes.length === 1 ? 'scene' : 'scenes'} in this tour. Scenes organize the explanation; steps point to the evidence. A scene can visit several files or revision pairs. The route below names those changes.`,\n        scenes: tour.scenes.map((scene, sceneIndex) => ({ sceneIndex, title: scene.title, evidence: describeSceneRoute(tour, sceneIndex) }))\n    };\n}\n\nexport function describeSceneRoute(tour: ChangeTourManifest, sceneIndex: number): string {\n    const scene = tour.scenes[sceneIndex];\n    if (scene.kind === 'discussion') return 'Discussion: pause to connect the findings. No code comparison is displayed.';\n    if (scene.kind === 'walkthrough' && scene.steps.every(step => step.image)) {\n        return `${scene.steps.length} images in reading order. Each step explains what to notice in its image.`;\n    }\n    const items: TourReadingItem[] = 'steps' in scene\n        ? scene.steps.flatMap((step, stepIndex) => 'image' in step && step.image ? [] : [{ kind: 'step' as const, key: `step:${scene.id}:${step.id}`, sceneIndex, stepIndex }])\n        : [{ kind: 'scene', key: `scene:${scene.id}`, sceneIndex, stepIndex: 0 }];\n    const imageCount = scene.kind === 'walkthrough' ? scene.steps.filter(step => step.image).length : 0;\n    const contexts = items.map(item => resolveTourEvidenceContext(tour, item)!).filter(Boolean);\n    const files = contexts.map(context => context.scope).filter((path, index, paths) => index === 0 || path !== paths[index - 1]);\n    const pairs = contexts.filter((context, index) => index === 0 || context.comparisonKey !== contexts[index - 1].comparisonKey);\n    const evidence = `${'steps' in scene ? `${scene.steps.length} steps. ` : ''}${files.length === 1 ? 'File' : 'Files in order'}: ${files.join(' → ')}.`;\n    const comparisons = `${scene.kind === 'deconstructed-diff' ? 'Explanation stages (constructed, not commits)' : 'Revisions'}: ${pairs.map(pair => pair.labels.join(' → ')).join('; then ')}.`;\n    const overviewContext = 'overview' in scene && scene.overview\n        ? resolveTourEvidenceContext(tour, { kind: 'scene', key: `scene:${scene.id}`, sceneIndex, stepIndex: 0 }) : null;\n    const overview = overviewContext ? `Starts with a directory overview${overviewContext.comparisonKey !== contexts[0]?.comparisonKey ? ` (${overviewContext.labels.join(' → ')})` : ''}, then follows the evidence. ` : '';\n    return `${overview}${evidence} ${comparisons}${imageCount ? ` Also includes ${imageCount} image ${imageCount === 1 ? 'step' : 'steps'}.` : ''}`;\n}\n\n/** Fixed reading-order cues also work on direct links and in audio playback. */\nexport function describeStepOrientation(tour: ChangeTourManifest, sceneIndex: number, stepIndex: number): string {\n    const scene = tour.scenes[sceneIndex];\n    if (!('steps' in scene)) return '';\n    const step = scene.steps[stepIndex];\n    const prefix = `Step ${stepIndex + 1} of ${scene.steps.length}.`;\n    if ('image' in step && step.image) return `${prefix} Image: ${step.title}.`;\n    const item = { kind: 'step' as const, key: `step:${scene.id}:${step.id}`, sceneIndex, stepIndex };\n    const current = resolveTourEvidenceContext(tour, item)!;\n    const previous = stepIndex > 0 && !(scene.kind === 'walkthrough' && scene.steps[stepIndex - 1].image)\n        ? resolveTourEvidenceContext(tour, { ...item, stepIndex: stepIndex - 1 }) : null;\n    if (!previous) return `${prefix} Evidence in ${current.scope}.`;\n    const pairChanged = previous.comparisonKey !== current.comparisonKey;\n    const fileChanged = previous.scope !== current.scope;\n    const revisions = current.kind === 'synthetic' ? 'explanation stages' : 'revisions';\n    const movement = pairChanged ? `Switch ${revisions} to ${current.labels.join(' → ')}.` : `Keep the same ${revisions}.`;\n    return `${prefix} ${movement} ${fileChanged ? `Move from ${previous.scope} to ${current.scope}.` : `Continue in ${current.scope}.`}`;\n}\n"
+      },
+      "source": {
+        "commit": "a0704c41ded26421330ea6431b4a10188e9ec78e",
+        "parent": "308fad1f5bbe23d1098ad5ae7bc8565cd48ea038",
+        "file": "src/tourOrientation.ts"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/tourOrientation.ts",
+          "sourceName": "tourLanding",
+          "destinationPath": "src/tourOrientation.ts",
+          "destinationName": "tourLanding",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/tourOrientation.ts",
+          "sourceName": "resolveTourEvidenceContext",
+          "destinationPath": "src/tourOrientation.ts",
+          "destinationName": "resolveTourEvidenceContext",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/tourOrientation.ts",
+          "sourceName": "resolveTourRangeEvidenceContext",
+          "destinationPath": "src/tourOrientation.ts",
+          "destinationName": "resolveTourRangeEvidenceContext",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/tourOrientation.ts",
+          "sourceName": "describeTourComparison",
+          "destinationPath": "src/tourOrientation.ts",
+          "destinationName": "describeTourComparison",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/tourOrientation.ts",
+          "sourceName": "describeTourTransition",
+          "destinationPath": "src/tourOrientation.ts",
+          "destinationName": "describeTourTransition",
+          "operation": "continuation",
+          "edited": true
+        },
+        {
+          "sourcePath": "src/tourOrientation.ts",
+          "sourceName": "realLabel",
+          "destinationPath": "src/tourOrientation.ts",
+          "destinationName": "realLabel",
+          "operation": "continuation",
+          "edited": false
+        }
+      ],
+      "obligations": [
+        "single-file search scope explicit; no cross-file absence claim",
+        "describeTourTransition body edit visible"
+      ],
+      "notes": "Single-file historical scope: no cross-file recall claim.",
+      "expectedInventory": {
+        "before": [
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "tourLanding",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "resolveTourEvidenceContext",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "resolveTourRangeEvidenceContext",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "describeTourComparison",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "describeTourTransition",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "realLabel",
+            "kind": "function"
+          }
+        ],
+        "after": [
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "tourLanding",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "resolveTourEvidenceContext",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "resolveTourRangeEvidenceContext",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "describeTourComparison",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "describeTourTransition",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "realLabel",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "buildTourRoute",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "describeSceneRoute",
+            "kind": "function"
+          },
+          {
+            "path": "src/tourOrientation.ts",
+            "name": "describeStepOrientation",
+            "kind": "function"
+          }
+        ]
+      },
+      "annotation": "Names and continuations checked against pinned file definitions and diff before engine execution; declarations without bodies excluded from this inventory denominator."
+    },
+    {
+      "id": "history-08",
+      "group": "history",
+      "split": "held-out",
+      "before": {
+        "src/deepLink.ts": "import type { ChangeTourManifest, ChangeTourModeTour } from './changeTourManifest';\n\nexport type DocumentFocus =\n    | { part: 'title' }\n    | { part: 'chapter'; chapter: string }\n    | { part: 'scene'; scene: string }\n    | { part: 'step'; scene: string; step: string };\nexport type TourLink = {\n    // tour is a repository-relative path or a local file URL.\n    kind: 'tour'; repo: string; tour: string;\n    mode: 'historical' | 'deconstructed'; focus: DocumentFocus;\n};\nexport type ComparisonLink = {\n    kind: 'compare'; repo: string; revisions: [string, string];\n    file?: string; revision?: string; line?: number;\n};\nexport type DeepLink = TourLink | ComparisonLink;\nconst oidPattern = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;\nconst focusFields = ['part', 'chapter', 'scene', 'step'];\n\nfunction required(params: URLSearchParams, key: string): string {\n    const value = params.get(key);\n    if (!value || value.length > 4096 || /[\\u0000-\\u001f\\u007f]/.test(value)) throw new Error(`Invalid or missing ${key}.`);\n    return value;\n}\nexport function validateRelativePath(value: string): string {\n    if (!value || value.startsWith('/') || value.includes('\\\\') || value.includes('\\0')\n        || value.split('/').some(part => !part || part === '.' || part === '..')) {\n        throw new Error('Expected a repository-relative path without traversal.');\n    }\n    return value;\n}\nfunction validateFields(params: URLSearchParams, allowed: string[], repeated: string[] = []): void {\n    for (const key of params.keys()) {\n        if (!allowed.includes(key)) throw new Error(`Unsupported link field: ${key}.`);\n        if (!repeated.includes(key) && params.getAll(key).length !== 1) throw new Error(`Duplicate link field: ${key}.`);\n    }\n}\nfunction validateLocalFileUrl(value: string): string {\n    const local = new URL(value);\n    if (local.protocol !== 'file:' || local.hostname || local.search || local.hash || local.username || local.password\n        || !local.pathname.startsWith('/')) throw new Error('Links require a local file URL.');\n    return value;\n}\nexport function parseDocumentFocus(params: URLSearchParams): DocumentFocus {\n    const part = required(params, 'part');\n    const fields = part === 'title' ? [] : part === 'chapter' ? ['chapter']\n        : part === 'scene' ? ['scene'] : part === 'step' ? ['scene', 'step'] : null;\n    if (!fields) throw new Error(`Unsupported document part: ${part}.`);\n    for (const key of focusFields.filter(key => key !== 'part')) {\n        if (params.has(key) && !fields.includes(key)) throw new Error(`${key} is incompatible with ${part}.`);\n    }\n    return Object.fromEntries([['part', part], ...fields.map(key => [key, required(params, key)])]) as DocumentFocus;\n}\nexport function parseDeepLink(value: string): DeepLink {\n    if (value.length > 16384 || /%(?![\\da-f]{2})/i.test(value)) throw new Error('Invalid or oversized Bygone link.');\n    const url = new URL(value);\n    if (url.protocol !== 'bygone:' || url.hostname !== 'open' || url.pathname !== '/v1'\n        || url.username || url.password || url.port || url.hash) throw new Error('Unsupported Bygone link address or version.');\n    const p = url.searchParams;\n    const kind = required(p, 'kind');\n    const repo = validateLocalFileUrl(required(p, 'repo'));\n    if (kind === 'tour') {\n        validateFields(p, ['kind', 'repo', 'tour', 'mode', ...focusFields]);\n        const mode = required(p, 'mode');\n        if (mode !== 'historical' && mode !== 'deconstructed') throw new Error('Unsupported authored tour mode.');\n        const tour = required(p, 'tour');\n        if (/^[a-z][a-z\\d+.-]*:/i.test(tour)) validateLocalFileUrl(tour);\n        else validateRelativePath(tour);\n        return { kind, repo, tour, mode, focus: parseDocumentFocus(p) };\n    }\n    if (kind !== 'compare') throw new Error('Unsupported Bygone link kind.');\n    validateFields(p, ['kind', 'repo', 'rev', 'file', 'revision', 'line'], ['rev']);\n    const revisions = p.getAll('rev');\n    if (revisions.length !== 2 || revisions.some(oid => !oidPattern.test(oid)) || revisions[0] === revisions[1]) {\n        throw new Error('Comparison links require two distinct full commit IDs in order.');\n    }\n    const file = p.has('file') ? validateRelativePath(required(p, 'file')) : undefined;\n    const revision = p.has('revision') ? required(p, 'revision') : undefined;\n    if (revision && (!file || !revisions.includes(revision))) throw new Error('Code focus requires a file and one of the comparison revisions.');\n    const line = p.has('line') ? Number(required(p, 'line')) : undefined;\n    if (line !== undefined && (!revision || !Number.isSafeInteger(line) || line < 1)) throw new Error('Line focus requires a revision and positive line number.');\n    return { kind, repo, revisions: revisions as [string, string], ...(file ? { file } : {}), ...(revision ? { revision } : {}), ...(line !== undefined ? { line } : {}) };\n}\nexport function serializeDeepLink(link: DeepLink): string {\n    const url = new URL('bygone://open/v1');\n    url.searchParams.set('kind', link.kind);\n    url.searchParams.set('repo', link.repo);\n    if (link.kind === 'tour') {\n        url.searchParams.set('tour', link.tour);\n        url.searchParams.set('mode', link.mode);\n        for (const [key, value] of Object.entries(link.focus)) url.searchParams.set(key, value);\n    } else {\n        for (const revision of link.revisions) url.searchParams.append('rev', revision);\n        for (const key of ['file', 'revision', 'line'] as const) if (link[key] !== undefined) url.searchParams.set(key, String(link[key]));\n    }\n    parseDeepLink(url.href);\n    return url.href;\n}\nexport function authoredModeTour(tour: ChangeTourManifest, mode: TourLink['mode']): ChangeTourModeTour {\n    if (tour.tours) {\n        const result = tour.tours[mode];\n        if (!result) throw new Error(`This tour has no ${mode} mode.`);\n        return result;\n    }\n    const deconstructed = tour.scenes.some(scene => scene.kind === 'deconstructed-diff');\n    if (mode === 'deconstructed' && deconstructed) return tour;\n    if (mode === 'historical' && !deconstructed) return tour;\n    if (mode === 'historical' && tour.zoom?.final.scenes.some(scene => scene.kind === 'walkthrough')) return tour.zoom.final;\n    throw new Error(`This tour has no ${mode} mode.`);\n}\nexport function resolveDocumentFocus(tour: ChangeTourManifest, mode: TourLink['mode'], focus: DocumentFocus): { key: string; sceneIndex: number; stepIndex: number } {\n    const selected = authoredModeTour(tour, mode);\n    if (focus.part === 'title') return { key: 'title', sceneIndex: 0, stepIndex: 0 };\n    if (focus.part === 'chapter') {\n        const chapter = selected.chapters.find(item => item.id === focus.chapter);\n        const sceneIndex = selected.scenes.findIndex(scene => scene.id === chapter?.sceneIds[0]);\n        if (!chapter || sceneIndex < 0) throw new Error(`Chapter is unavailable: ${focus.chapter}.`);\n        return { key: `chapter:${chapter.id}`, sceneIndex, stepIndex: 0 };\n    }\n    const sceneIndex = selected.scenes.findIndex(scene => scene.id === focus.scene);\n    if (sceneIndex < 0) throw new Error(`Scene is unavailable: ${focus.scene}.`);\n    const scene = selected.scenes[sceneIndex];\n    if (focus.part === 'scene') return { key: `scene:${scene.id}`, sceneIndex, stepIndex: 0 };\n    const stepIndex = 'steps' in scene ? scene.steps.findIndex(step => step.id === focus.step) : -1;\n    if (stepIndex < 0) throw new Error(`Step is unavailable: ${focus.step}.`);\n    return { key: `step:${scene.id}:${focus.step}`, sceneIndex, stepIndex };\n}\nexport function serializeDocumentFragment(mode: TourLink['mode'], focus: DocumentFocus): string {\n    return `#${new URLSearchParams({ location: '1', mode, ...focus })}`;\n}\nexport function parseDocumentFragment(hash: string): Pick<TourLink, 'mode' | 'focus'> | null {\n    if (!hash) return null;\n    if (hash.length > 16384 || /%(?![\\da-f]{2})/i.test(hash)) throw new Error('Oversized tour location.');\n    const p = new URLSearchParams(hash.replace(/^#/, ''));\n    validateFields(p, ['location', 'mode', ...focusFields]);\n    if (p.get('location') !== '1') throw new Error('Unsupported tour location version.');\n    const mode = p.get('mode');\n    if (mode !== 'historical' && mode !== 'deconstructed') throw new Error('Unsupported tour location mode.');\n    return { mode, focus: parseDocumentFocus(p) };\n}\n"
+      },
+      "after": {
+        "src/deepLink.ts": "import type { ChangeTourManifest, ChangeTourModeTour } from './changeTourManifest';\n\nexport type DocumentFocus =\n    | { part: 'title' }\n    | { part: 'conclusion' }\n    | { part: 'chapter'; chapter: string }\n    | { part: 'scene'; scene: string }\n    | { part: 'step'; scene: string; step: string };\nexport type TourLink = {\n    // tour is a repository-relative path or a local file URL.\n    kind: 'tour'; repo: string; tour: string;\n    mode: 'historical' | 'deconstructed'; focus: DocumentFocus;\n};\nexport type ComparisonLink = {\n    kind: 'compare'; repo: string; revisions: [string, string];\n    file?: string; revision?: string; line?: number;\n};\nexport type DeepLink = TourLink | ComparisonLink;\nconst oidPattern = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;\nconst focusFields = ['part', 'chapter', 'scene', 'step'];\n\nfunction required(params: URLSearchParams, key: string): string {\n    const value = params.get(key);\n    if (!value || value.length > 4096 || /[\\u0000-\\u001f\\u007f]/.test(value)) throw new Error(`Invalid or missing ${key}.`);\n    return value;\n}\nexport function validateRelativePath(value: string): string {\n    if (!value || value.startsWith('/') || value.includes('\\\\') || value.includes('\\0')\n        || value.split('/').some(part => !part || part === '.' || part === '..')) {\n        throw new Error('Expected a repository-relative path without traversal.');\n    }\n    return value;\n}\nfunction validateFields(params: URLSearchParams, allowed: string[], repeated: string[] = []): void {\n    for (const key of params.keys()) {\n        if (!allowed.includes(key)) throw new Error(`Unsupported link field: ${key}.`);\n        if (!repeated.includes(key) && params.getAll(key).length !== 1) throw new Error(`Duplicate link field: ${key}.`);\n    }\n}\nfunction validateLocalFileUrl(value: string): string {\n    const local = new URL(value);\n    if (local.protocol !== 'file:' || local.hostname || local.search || local.hash || local.username || local.password\n        || !local.pathname.startsWith('/')) throw new Error('Links require a local file URL.');\n    return value;\n}\nexport function parseDocumentFocus(params: URLSearchParams): DocumentFocus {\n    const part = required(params, 'part');\n    const fields = (part === 'title' || part === 'conclusion') ? [] : part === 'chapter' ? ['chapter']\n        : part === 'scene' ? ['scene'] : part === 'step' ? ['scene', 'step'] : null;\n    if (!fields) throw new Error(`Unsupported document part: ${part}.`);\n    for (const key of focusFields.filter(key => key !== 'part')) {\n        if (params.has(key) && !fields.includes(key)) throw new Error(`${key} is incompatible with ${part}.`);\n    }\n    return Object.fromEntries([['part', part], ...fields.map(key => [key, required(params, key)])]) as DocumentFocus;\n}\nexport function parseDeepLink(value: string): DeepLink {\n    if (value.length > 16384 || /%(?![\\da-f]{2})/i.test(value)) throw new Error('Invalid or oversized Bygone link.');\n    const url = new URL(value);\n    if (url.protocol !== 'bygone:' || url.hostname !== 'open' || url.pathname !== '/v1'\n        || url.username || url.password || url.port || url.hash) throw new Error('Unsupported Bygone link address or version.');\n    const p = url.searchParams;\n    const kind = required(p, 'kind');\n    const repo = validateLocalFileUrl(required(p, 'repo'));\n    if (kind === 'tour') {\n        validateFields(p, ['kind', 'repo', 'tour', 'mode', ...focusFields]);\n        const mode = required(p, 'mode');\n        if (mode !== 'historical' && mode !== 'deconstructed') throw new Error('Unsupported authored tour mode.');\n        const tour = required(p, 'tour');\n        if (/^[a-z][a-z\\d+.-]*:/i.test(tour)) validateLocalFileUrl(tour);\n        else validateRelativePath(tour);\n        return { kind, repo, tour, mode, focus: parseDocumentFocus(p) };\n    }\n    if (kind !== 'compare') throw new Error('Unsupported Bygone link kind.');\n    validateFields(p, ['kind', 'repo', 'rev', 'file', 'revision', 'line'], ['rev']);\n    const revisions = p.getAll('rev');\n    if (revisions.length !== 2 || revisions.some(oid => !oidPattern.test(oid)) || revisions[0] === revisions[1]) {\n        throw new Error('Comparison links require two distinct full commit IDs in order.');\n    }\n    const file = p.has('file') ? validateRelativePath(required(p, 'file')) : undefined;\n    const revision = p.has('revision') ? required(p, 'revision') : undefined;\n    if (revision && (!file || !revisions.includes(revision))) throw new Error('Code focus requires a file and one of the comparison revisions.');\n    const line = p.has('line') ? Number(required(p, 'line')) : undefined;\n    if (line !== undefined && (!revision || !Number.isSafeInteger(line) || line < 1)) throw new Error('Line focus requires a revision and positive line number.');\n    return { kind, repo, revisions: revisions as [string, string], ...(file ? { file } : {}), ...(revision ? { revision } : {}), ...(line !== undefined ? { line } : {}) };\n}\nexport function serializeDeepLink(link: DeepLink): string {\n    const url = new URL('bygone://open/v1');\n    url.searchParams.set('kind', link.kind);\n    url.searchParams.set('repo', link.repo);\n    if (link.kind === 'tour') {\n        url.searchParams.set('tour', link.tour);\n        url.searchParams.set('mode', link.mode);\n        for (const [key, value] of Object.entries(link.focus)) url.searchParams.set(key, value);\n    } else {\n        for (const revision of link.revisions) url.searchParams.append('rev', revision);\n        for (const key of ['file', 'revision', 'line'] as const) if (link[key] !== undefined) url.searchParams.set(key, String(link[key]));\n    }\n    parseDeepLink(url.href);\n    return url.href;\n}\nexport function authoredModeTour(tour: ChangeTourManifest, mode: TourLink['mode']): ChangeTourModeTour {\n    if (tour.tours) {\n        const result = tour.tours[mode];\n        if (!result) throw new Error(`This tour has no ${mode} mode.`);\n        return result;\n    }\n    const deconstructed = tour.scenes.some(scene => scene.kind === 'deconstructed-diff');\n    if (mode === 'deconstructed' && deconstructed) return tour;\n    if (mode === 'historical' && !deconstructed) return tour;\n    if (mode === 'historical' && tour.zoom?.final.scenes.some(scene => scene.kind === 'walkthrough')) return tour.zoom.final;\n    throw new Error(`This tour has no ${mode} mode.`);\n}\nexport function resolveDocumentFocus(tour: ChangeTourManifest, mode: TourLink['mode'], focus: DocumentFocus): { key: string; sceneIndex: number; stepIndex: number } {\n    const selected = authoredModeTour(tour, mode);\n    if (focus.part === 'title') return { key: 'title', sceneIndex: 0, stepIndex: 0 };\n    if (focus.part === 'conclusion') {\n        if (!selected.conclusion) throw new Error('Conclusion is unavailable in this tour mode.');\n        return { key: 'conclusion', sceneIndex: -1, stepIndex: 0 };\n    }\n    if (focus.part === 'chapter') {\n        const chapter = selected.chapters.find(item => item.id === focus.chapter);\n        const sceneIndex = selected.scenes.findIndex(scene => scene.id === chapter?.sceneIds[0]);\n        if (!chapter || sceneIndex < 0) throw new Error(`Chapter is unavailable: ${focus.chapter}.`);\n        return { key: `chapter:${chapter.id}`, sceneIndex, stepIndex: 0 };\n    }\n    const sceneIndex = selected.scenes.findIndex(scene => scene.id === focus.scene);\n    if (sceneIndex < 0) throw new Error(`Scene is unavailable: ${focus.scene}.`);\n    const scene = selected.scenes[sceneIndex];\n    if (focus.part === 'scene') return { key: `scene:${scene.id}`, sceneIndex, stepIndex: 0 };\n    const stepIndex = 'steps' in scene ? scene.steps.findIndex(step => step.id === focus.step) : -1;\n    if (stepIndex < 0) throw new Error(`Step is unavailable: ${focus.step}.`);\n    return { key: `step:${scene.id}:${focus.step}`, sceneIndex, stepIndex };\n}\nexport function serializeDocumentFragment(mode: TourLink['mode'], focus: DocumentFocus): string {\n    return `#${new URLSearchParams({ location: '1', mode, ...focus })}`;\n}\nexport function parseDocumentFragment(hash: string): Pick<TourLink, 'mode' | 'focus'> | null {\n    if (!hash) return null;\n    if (hash.length > 16384 || /%(?![\\da-f]{2})/i.test(hash)) throw new Error('Oversized tour location.');\n    const p = new URLSearchParams(hash.replace(/^#/, ''));\n    validateFields(p, ['location', 'mode', ...focusFields]);\n    if (p.get('location') !== '1') throw new Error('Unsupported tour location version.');\n    const mode = p.get('mode');\n    if (mode !== 'historical' && mode !== 'deconstructed') throw new Error('Unsupported tour location mode.');\n    return { mode, focus: parseDocumentFocus(p) };\n}\n"
+      },
+      "source": {
+        "commit": "308fad1f5bbe23d1098ad5ae7bc8565cd48ea038",
+        "parent": "9baacae33be72b88eb66469ad1c2d6805ffef685",
+        "file": "src/deepLink.ts"
+      },
+      "expectedPairs": [
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "required",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "required",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "validateRelativePath",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "validateRelativePath",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "validateFields",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "validateFields",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "validateLocalFileUrl",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "validateLocalFileUrl",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "parseDocumentFocus",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "parseDocumentFocus",
+          "operation": "continuation",
+          "edited": true
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "parseDeepLink",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "parseDeepLink",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "serializeDeepLink",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "serializeDeepLink",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "authoredModeTour",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "authoredModeTour",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "resolveDocumentFocus",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "resolveDocumentFocus",
+          "operation": "continuation",
+          "edited": true
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "serializeDocumentFragment",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "serializeDocumentFragment",
+          "operation": "continuation",
+          "edited": false
+        },
+        {
+          "sourcePath": "src/deepLink.ts",
+          "sourceName": "parseDocumentFragment",
+          "destinationPath": "src/deepLink.ts",
+          "destinationName": "parseDocumentFragment",
+          "operation": "continuation",
+          "edited": false
+        }
+      ],
+      "obligations": [
+        "single-file search scope explicit; no cross-file absence claim",
+        "parseDocumentFocus body edit visible",
+        "resolveDocumentFocus body edit visible"
+      ],
+      "notes": "Single-file historical scope: no cross-file recall claim.",
+      "expectedInventory": {
+        "before": [
+          {
+            "path": "src/deepLink.ts",
+            "name": "required",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "validateRelativePath",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "validateFields",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "validateLocalFileUrl",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "parseDocumentFocus",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "parseDeepLink",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "serializeDeepLink",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "authoredModeTour",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "resolveDocumentFocus",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "serializeDocumentFragment",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "parseDocumentFragment",
+            "kind": "function"
+          }
+        ],
+        "after": [
+          {
+            "path": "src/deepLink.ts",
+            "name": "required",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "validateRelativePath",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "validateFields",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "validateLocalFileUrl",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "parseDocumentFocus",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "parseDeepLink",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "serializeDeepLink",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "authoredModeTour",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "resolveDocumentFocus",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "serializeDocumentFragment",
+            "kind": "function"
+          },
+          {
+            "path": "src/deepLink.ts",
+            "name": "parseDocumentFragment",
+            "kind": "function"
+          }
+        ]
+      },
+      "annotation": "Names and continuations checked against pinned file definitions and diff before engine execution; declarations without bodies excluded from this inventory denominator."
+    },
+    {
+      "id": "history-09",
+      "group": "history",
+      "split": "held-out",
+      "before": {},
+      "after": {
+        "src/revisionView.ts": "import type { DirectoryEntry } from './directoryDiff';\n\n/** View policy shared by desktop workspaces, browser tours, and exported tours.\n * Callers supply already-scoped evidence; this module never reads a repository\n * or grants editing capabilities.\n */\nexport interface RevisionFiles {\n    paths: readonly string[];\n    currentPath: string | null;\n    changedPaths?: ReadonlySet<string>;\n}\n\nexport function revisionFileTarget(files: RevisionFiles, direction: -1 | 1): string | null {\n    if (!files.currentPath || (direction !== -1 && direction !== 1)) return null;\n    const current = files.paths.indexOf(files.currentPath);\n    if (current < 0) return null;\n    for (let index = current + direction; index >= 0 && index < files.paths.length; index += direction) {\n        if (!files.changedPaths || files.changedPaths.has(files.paths[index])) return files.paths[index];\n    }\n    return null;\n}\n\nexport function revisionFileNavigation(files: RevisionFiles) {\n    return { canGoPrevious: revisionFileTarget(files, -1) !== null, canGoNext: revisionFileTarget(files, 1) !== null };\n}\n\n/** null means ignore the action; { path: null } means return to the overview. */\nexport function revisionFileAction(\n    message: { type: string; relativePath?: unknown; direction?: unknown },\n    files: RevisionFiles,\n    canReturnToDirectory: boolean\n): { path: string | null } | null {\n    if (message.type === 'returnToDirectory') return canReturnToDirectory ? { path: null } : null;\n    if (message.type === 'openDirectoryEntry') {\n        return typeof message.relativePath === 'string' && files.paths.includes(message.relativePath)\n            ? { path: message.relativePath } : null;\n    }\n    if (message.type === 'navigateFile' && (message.direction === 'previous' || message.direction === 'next')) {\n        const path = revisionFileTarget(files, message.direction === 'previous' ? -1 : 1);\n        return path === null ? null : { path };\n    }\n    return null;\n}\n\nexport function revisionDirectoryView(labels: string[], entries: DirectoryEntry[]) {\n    return { type: 'showDirectoryDiff' as const, labels, leftLabel: labels[0], rightLabel: labels[labels.length - 1], entries, canMutate: false };\n}\n\nexport function revisionPanelPairs<P, D>(panels: readonly P[], diff?: (left: P, right: P) => D) {\n    return panels.slice(0, -1).map((panel, index) => ({\n        leftIndex: index, rightIndex: index + 1,\n        ...(diff ? { diffModel: diff(panel, panels[index + 1]) } : {})\n    }));\n}\n\nexport function revisionPanelsView<P, D>(options: {\n    panels: P[];\n    files: RevisionFiles;\n    activePanelId?: string | null;\n    activePairIndex?: number;\n    canReturnToDirectory: boolean;\n    mutationEnabled: boolean;\n}, diff?: (left: P, right: P) => D) {\n    const { files, ...view } = options;\n    return { type: 'showMultiDiff' as const, ...view, pairs: revisionPanelPairs(view.panels, diff), fileNavigation: revisionFileNavigation(files) };\n}\n\ninterface CommitEntry {\n    commit: string;\n    shortCommit: string;\n    summary: string;\n    timestamp?: string;\n    author?: string;\n    authorEmail?: string;\n    message?: string;\n    parents?: string[];\n    parentCommit?: string | null;\n}\n\nexport function revisionRailItems(entries: readonly CommitEntry[], options: {\n    displayed?: readonly (string | null | undefined)[];\n    selected: readonly string[];\n    active?: string | null;\n    changed?: ReadonlySet<string>;\n    tourCommits?: ReadonlySet<string>;\n    selectionEnabled: boolean;\n    missingRevisionSelectionEnabled?: boolean;\n    missingRevisionLabel: (commit: string | null) => string;\n}) {\n    const displayed = options.displayed || [];\n    const marker = (commit: string | null) => ({\n        active: commit === options.active,\n        selected: commit !== null && options.selected.includes(commit),\n        panelNumber: displayed.indexOf(commit) + 1 || undefined\n    });\n    const items = entries.map((entry, index) => ({\n        kind: 'history-entry', index, commit: entry.commit as string | null,\n        label: `${entry.shortCommit} ${entry.summary}`.trim(), meta: entry.timestamp || '',\n        summary: entry.summary, timestamp: entry.timestamp, author: entry.author,\n        authorEmail: entry.authorEmail, message: entry.message,\n        parents: entry.parents || (entry.parentCommit ? [entry.parentCommit] : []),\n        selectionEnabled: options.selectionEnabled, ...marker(entry.commit),\n        ...(options.changed ? { changesFile: options.changed.has(entry.commit) } : {}),\n        ...(options.tourCommits ? { inTour: options.tourCommits.has(entry.commit) } : {})\n    }));\n    displayed.forEach((commit, index) => {\n        // Synthetic stages have no Git identity and must not gain commit markers.\n        if (commit === undefined || items.some(item => item.commit === commit)) return;\n        items.push({ kind: 'panel-revision', index: -index - 1, commit,\n            label: options.missingRevisionLabel(commit), meta: '', summary: '', timestamp: undefined,\n            author: undefined, authorEmail: undefined, message: undefined, parents: [],\n            selectionEnabled: Boolean(options.missingRevisionSelectionEnabled), ...marker(commit) });\n    });\n    return items;\n}\n"
+      },
+      "source": {
+        "commit": "ea6262925a268d86557a901208c9625d60c2fcc1",
+        "parent": "9b92fbf8373794ff7f54d3b45c269a24101d9b23",
+        "file": "src/revisionView.ts"
+      },
+      "expectedPairs": [],
+      "obligations": [
+        "single-file search scope explicit; no cross-file absence claim"
+      ],
+      "notes": "Single-file historical scope: no cross-file recall claim.",
+      "expectedInventory": {
+        "before": [],
+        "after": [
+          {
+            "path": "src/revisionView.ts",
+            "name": "revisionFileTarget",
+            "kind": "function"
+          },
+          {
+            "path": "src/revisionView.ts",
+            "name": "revisionFileNavigation",
+            "kind": "function"
+          },
+          {
+            "path": "src/revisionView.ts",
+            "name": "revisionFileAction",
+            "kind": "function"
+          },
+          {
+            "path": "src/revisionView.ts",
+            "name": "revisionDirectoryView",
+            "kind": "function"
+          },
+          {
+            "path": "src/revisionView.ts",
+            "name": "revisionPanelPairs",
+            "kind": "function"
+          },
+          {
+            "path": "src/revisionView.ts",
+            "name": "revisionPanelsView",
+            "kind": "function"
+          },
+          {
+            "path": "src/revisionView.ts",
+            "name": "revisionRailItems",
+            "kind": "function"
+          }
+        ]
+      },
+      "annotation": "Names and continuations checked against pinned file definitions and diff before engine execution; declarations without bodies excluded from this inventory denominator."
+    },
+    {
+      "id": "history-10",
+      "group": "history",
+      "split": "held-out",
+      "before": {},
+      "after": {
+        "src/historyDirectory.ts": "import type { DirectoryEntry } from './directoryDiff';\n\n/** Build a changed-files tree from path inventories without reading file contents. */\nexport function buildHistoryDirectoryEntries(paths: string[], inventories: ReadonlySet<string>[]): DirectoryEntry[] {\n    const rows = new Map<string, DirectoryEntry>();\n    const trees = inventories.map(files => {\n        const tree = new Set(files);\n        for (const file of files) {\n            const parts = file.split('/');\n            for (let depth = 1; depth < parts.length; depth++) tree.add(parts.slice(0, depth).join('/'));\n        }\n        return tree;\n    });\n    for (const file of paths) {\n        const parts = file.split('/');\n        for (let depth = 0; depth < parts.length; depth++) {\n            const relativePath = parts.slice(0, depth + 1).join('/');\n            if (rows.has(relativePath)) continue;\n            const sides = trees.map(tree => tree.has(relativePath));\n            rows.set(relativePath, { relativePath, displayName: parts[depth], depth,\n                isDirectory: depth < parts.length - 1, sides,\n                status: sides.every(Boolean) ? 'modified' : sides.length !== 2 ? 'partial'\n                    : sides[0] ? 'left-only' : 'right-only' });\n        }\n    }\n    return [...rows.values()].sort((a, b) => {\n        const left = a.relativePath.split('/');\n        const right = b.relativePath.split('/');\n        for (let i = 0; i < Math.min(left.length, right.length); i++) {\n            if (left[i] === right[i]) continue;\n            return Number(i < right.length - 1 || b.isDirectory) - Number(i < left.length - 1 || a.isDirectory)\n                || left[i].localeCompare(right[i]);\n        }\n        return left.length - right.length;\n    });\n}\n"
+      },
+      "source": {
+        "commit": "9b92fbf8373794ff7f54d3b45c269a24101d9b23",
+        "parent": "67e8946d3c686184e3945c43f42ad219ab615773",
+        "file": "src/historyDirectory.ts"
+      },
+      "expectedPairs": [],
+      "obligations": [
+        "single-file search scope explicit; no cross-file absence claim"
+      ],
+      "notes": "Single-file historical scope: no cross-file recall claim.",
+      "expectedInventory": {
+        "before": [],
+        "after": [
+          {
+            "path": "src/historyDirectory.ts",
+            "name": "buildHistoryDirectoryEntries",
+            "kind": "function"
+          }
+        ]
+      },
+      "annotation": "Names and continuations checked against pinned file definitions and diff before engine execution; declarations without bodies excluded from this inventory denominator."
+    }
+  ]
+}
