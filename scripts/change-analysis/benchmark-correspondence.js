@@ -5,6 +5,7 @@ const { execFileSync } = require('node:child_process');
 const { cases } = require('./benchmark/cases');
 const { digest } = require('./symbol-inventory');
 const { analyzeWithBridge, compileBridge, LIMITS } = require('./run-refactoring-mappings');
+const { analyzeJavaScript, ENGINE, JAVASCRIPT_LIMITS } = require('./run-javascript-mappings');
 
 const labelKey = e => JSON.stringify([e.path, e.name, e.occurrence ?? null]);
 const pairKey = p => JSON.stringify([labelKey(p.source), labelKey(p.destination), p.kind || 'continuation']);
@@ -91,8 +92,8 @@ function summarize(rows) {
 }
 
 function run(mode, output, env = process.env) {
-    if (!['exact', 'engine', 'both'].includes(mode)) throw new Error('Mode must be exact, engine, or both');
-    const config = mode !== 'exact' ? compileBridge({ java: env.MAPPING_JAVA, jar: env.MAPPING_JAR,
+    if (!['exact', 'engine', 'both', ENGINE.producer, 'all'].includes(mode)) throw new Error(`Mode must be exact, engine, both, ${ENGINE.producer}, or all`);
+    const config = ['engine', 'both', 'all'].includes(mode) ? compileBridge({ java: env.MAPPING_JAVA, jar: env.MAPPING_JAR,
         expectedJarSha256: env.MAPPING_JAR_SHA256, python: env.MAPPING_PYTHON }) : null;
     try {
         const report = { version: 1, generatedAt: new Date().toISOString(),
@@ -100,13 +101,13 @@ function run(mode, output, env = process.env) {
             node: process.version, corpusSha256: digest(JSON.stringify(cases)),
             runnerSha256: digest(fs.readFileSync(__filename)), labelsSha256: digest(fs.readFileSync(path.join(__dirname, 'benchmark/cases.js'))),
             implementationSha256: Object.fromEntries(['symbol-inventory.js', 'python-inventory.py', 'refactoring-mappings.js',
-                'run-refactoring-mappings.js', 'analyze-git.js', '../../src/changeCorrespondence.ts',
+                'run-refactoring-mappings.js', 'js-correspondence.js', 'run-javascript-mappings.js', 'analyze-git.js', '../../src/changeCorrespondence.ts',
                 '../../test/fixtures/correspondence-module-split.json'].map(name => [name, digest(fs.readFileSync(path.join(__dirname, name)))])),
             frozenCorpusSha256: digest(fs.readFileSync(path.join(__dirname, 'benchmark/frozen-js-ts.json'))),
-            engineIdentity: config && { jarSha256: config.jarSha256, bridgeSha256: config.bridgeSha256 }, limits: LIMITS,
+            engineIdentity: config && { jarSha256: config.jarSha256, bridgeSha256: config.bridgeSha256 }, limits: LIMITS, javascriptEngine: { ...ENGINE, limits: JAVASCRIPT_LIMITS },
             scope: 'Explicitly labeled declarations; pairs touching a labeled endpoint are scored. Others are counted as ignored. Extract/inline groups are separate.',
             modes: {} };
-        for (const selected of mode === 'both' ? ['exact', 'engine'] : [mode]) {
+        for (const selected of mode === 'all' ? ['exact', 'engine', ENGINE.producer] : mode === 'both' ? ['exact', 'engine'] : [mode]) {
             const began = performance.now(), rows = [];
             for (const c of cases) {
                 let { before, after } = c;
@@ -116,7 +117,8 @@ function run(mode, output, env = process.env) {
                     const right = Object.fromEntries(Object.entries(after).filter(([p]) => changed(p)));
                     before = left; after = right;
                 }
-                const result = analyzeWithBridge(before, after, selected === 'engine' ? config : { python: env.MAPPING_PYTHON });
+                const result = selected === ENGINE.producer ? analyzeJavaScript(before, after, { python: env.MAPPING_PYTHON })
+                    : analyzeWithBridge(before, after, selected === 'engine' ? config : { python: env.MAPPING_PYTHON });
                 rows.push({ ...scoreCase(c, result.analysis), nativeStatus: result.native?.status, nativeReason: result.native?.reason,
                     inputPaths: { before: Object.keys(before), after: Object.keys(after) }, engineMs: result.engineMs,
                     parsers: { before: result.analysis.inventories?.before?.parser, after: result.analysis.inventories?.after?.parser } });
@@ -132,7 +134,7 @@ function run(mode, output, env = process.env) {
 module.exports = { scoreCase, summarize, run };
 if (require.main === module) {
     const [mode, output] = process.argv.slice(2);
-    if (!mode || !output) throw new Error('Usage: node scripts/change-analysis/benchmark-correspondence.js <exact|engine|both> <new-output.json>');
+    if (!mode || !output) throw new Error(`Usage: node scripts/change-analysis/benchmark-correspondence.js <exact|engine|both|${ENGINE.producer}|all> <new-output.json>`);
     const report = run(mode, output);
     console.log(JSON.stringify(Object.fromEntries(Object.entries(report.modes).map(([name, result]) => [name, result.totals])), null, 2));
     console.log(`Report: ${output}`);

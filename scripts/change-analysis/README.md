@@ -1,5 +1,12 @@
 # Local correspondence engine
 
+[Bygone Strand](javascript-engine.md) is the local JavaScript correspondence
+producer. Select it with `--engine bygone-strand` to infer JS/TS edited
+continuations, moves and renames without Java. The default and optional
+RefactoringMiner path described below remain available.
+
+## Optional RefactoringMiner adapter
+
 This development-only adapter uses the multi-language engine in
 [RefactoringMiner](https://github.com/tsantalis/RefactoringMiner),
 source commit `e7b8db328e7d678bc474ebf4b61739b6d6c85b7f`. Obtain that source

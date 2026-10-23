@@ -12,6 +12,27 @@ function mapper(a = code, b = code.replace('+ 1', '+ 2'), sourcePath = 'a.ts', d
 }
 const native = mappers => ({ status: 'complete', truncated: false, mappers });
 
+test('JS inventory mappings validate exact full spans and kinds without borrowing native RM boundaries', () => {
+    const before = { 'a.ts': 'const START_AT = new Date(0);' }, after = { 'a.ts': 'let START_AT = new Date(0);' };
+    const inventories = { before: inventorySnapshot(before, 'before'), after: inventorySnapshot(after, 'after') };
+    const fullSpan = (entry, files) => ({ ...entry, valid: true, text: files[entry.path].slice(entry.start, entry.end), sha256: entry.digest });
+    const m = { id: 'js-1', category: 'inventory', origins: ['continuation'],
+        source: fullSpan(inventories.before.entries[0], before), destination: fullSpan(inventories.after.entries[0], after),
+        mappings: [], match: { strategy: 'scoped-structure', score: 1 } };
+    const options = { inventories, engineProducer: 'bygone-strand' };
+    const result = normalizeMappings(before, after, native([m]), options);
+    assert.equal(result.relations.length, 1);
+    assert.deepEqual(result.relations[0].producers, ['bygone-strand']);
+    assert.equal(result.relations[0].declarationContextChanged, true);
+    assert.equal(result.relations[0].evidence[0].match.strategy, 'scoped-structure');
+    assert.equal(normalizeMappings(before, after, native([m]), { inventories }).relations.length, 0);
+    const wrongKind = { ...m, destination: { ...m.destination, kind: 'function' } };
+    assert.equal(normalizeMappings(before, after, native([wrongKind]), options).relations.length, 0);
+    const truncated = normalizeMappings(before, after, { ...native([m]), truncated: true }, options);
+    assert.equal(truncated.relations.length, 0);
+    assert(truncated.unresolved.some(group => group.reason === 'incomplete-analysis'));
+});
+
 test('edited move exposes complete bytes and context, independent of engine-exact labels', () => {
     const next = code.replace('+ 1', '+ 2'), m = mapper(code, next);
     m.mappings = [{ source: m.source, destination: m.destination, engineExact: true }];

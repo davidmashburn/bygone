@@ -2,8 +2,41 @@
 
 This benchmark measures missed and incorrect accepted symbol correspondences in
 44 comparisons. It compares the current exact-only mode with the optional
-RefactoringMiner engine **plus Bygone's inventory and validation rules**. It does
-not evaluate a new JavaScript replacement for RefactoringMiner.
+RefactoringMiner engine **plus Bygone's inventory and validation rules**, and
+Bygone Strand, the original compact JavaScript correspondence engine.
+
+## Bygone Strand v1
+
+The [three-mode report](results-strand-2026-10-23.json) uses the same 44
+comparisons and unchanged source labels. Report JS/TS separately from Python:
+Strand does not infer Python correspondences and uses exact matching there.
+
+| JS/TS continuations | Exact only | RefactoringMiner + validation | Bygone Strand |
+| --- | ---: | ---: | ---: |
+| Expected | 108 | 108 | 108 |
+| Correct | 84 | 104 | 106 |
+| Missed | 24 | 4 | 2 |
+| Incorrect accepted | 0 | 0 | 0 |
+| Recall | 77.8% | 96.3% | 98.1% |
+| Targeted correct / expected | 27 / 46 | 44 / 46 | 46 / 46 |
+
+Strand recovers the edited `mixed-08` registration and `const-to-let` declaration
+context change. Its two misses are the invalid-syntax context expectations in
+`control-10`; failed inventory parsing still prevents matching. Python results
+are 1/8 exact-only, 8/8 with RefactoringMiner, and 1/8 in Strand mode. Across
+both languages those totals are 85/116, 112/116 and 107/116 respectively.
+
+Extraction/inline groups remain separate: 0/2 for exact-only, 1/2 with
+RefactoringMiner and 0/2 for Strand, which does not implement them. No incorrect
+accepted continuation or group was observed in the labeled scope. Unlabeled
+pairs remain counted as ignored. These are development examples, including
+negative controls, not a blind test or evidence of general precision. High
+confidence applies to these measured counts; independent unseen labeled cases
+could change the assessment of the matcher.
+
+Strand uses the existing TypeScript dependency and requires no Java process.
+It is explicitly selected with `--engine bygone-strand`; defaults are unchanged.
+See [its contract](../javascript-engine.md) for scope, ambiguity and limits.
 
 ## After the inventory/validation fix
 

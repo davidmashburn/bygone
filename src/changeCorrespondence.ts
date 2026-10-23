@@ -149,7 +149,8 @@ export function validateChangeCorrespondence(repoRoot: string, input: unknown, e
         if (relation.coverage !== undefined && relation.coverage !== 'complete') throw new Error('Invalid correspondence relation coverage.');
         // A partial comparison can contain a producer-validated, fully searched
         // pair. Older reports without that claim retain the exact-only guard.
-        const covered = result.status === 'partial' && relation.coverage === 'complete' && producers.includes('refactoring-miner');
+        const covered = result.status === 'partial' && relation.coverage === 'complete'
+            && producers.some(producer => ['refactoring-miner', 'bygone-strand'].includes(producer));
         if (result.status !== 'complete' && !covered && !(producers.includes('exact-declaration') && source.symbol.text === destination.symbol.text)) continue;
         const a = source.symbol, b = destination.symbol;
         result.relations.push({ id, sourceId, destinationId, producers, pathChanged: a.path !== b.path, nameChanged: a.name !== b.name,
@@ -217,7 +218,7 @@ export function importChangeCorrespondence(repoRoot: string, input: unknown, ran
         'Symbol slices can exclude enclosing export/const/let syntax and surrounding bindings/imports; inspect complete file diffs for that context.',
         'Analysis covers only the supplied documents and inventoried declarations; unmatched does not mean repository-wide absence.',
         `${list(analysis.groups).length} extraction/inline groups are not accepted continuations.`,
-        `${list(analysis.rejected).length} producer containers were rejected; ${list(analysis.issues).length} producer issues.`,
+        `${list(analysis.rejected).length} producer candidates were rejected; ${list(analysis.issues).length} producer issues.`,
         `${list(before.exclusions || []).length + list(after.exclusions || []).length} inventoried syntax exclusions (for example unsupported declaration forms).`,
         `${list(analysis.unmatchedBefore).length} unmatched before symbols; ${list(analysis.unmatchedAfter).length} unmatched after symbols.`];
     const engine = object(analysis.engine);
@@ -280,7 +281,7 @@ export function importChangeCorrespondence(repoRoot: string, input: unknown, ran
         }
         for (const raw of list(analysis.unresolved)) {
             const group = object(raw);
-            if (group.reason !== 'repeated-exact-occurrences' || group.competingSources === undefined) continue;
+            if (!['repeated-exact-occurrences', 'ambiguous-js-candidates'].includes(String(group.reason)) || group.competingSources === undefined) continue;
             const locations: CorrespondenceDiagnostic['locations'] = [];
             for (const side of ['before', 'after'] as const) {
                 for (const id of list(side === 'before' ? group.competingSources : group.competingDestinations)) {
@@ -290,7 +291,7 @@ export function importChangeCorrespondence(repoRoot: string, input: unknown, ran
                 }
             }
             add('unmatched', { reason: group.reason,
-                message: 'Competing exact origins; retained local continuations are included as reference points, not unresolved bindings.' }, locations);
+                message: 'Competing origins; retained local continuations are included as reference points, not unresolved bindings.' }, locations);
         }
         for (const raw of list(analysis.unmatchedDiagnostics || [])) {
             const record = object(raw), side = record.side;
@@ -307,7 +308,8 @@ export function importChangeCorrespondence(repoRoot: string, input: unknown, ran
             add('outside', record, location(record, side, false));
         }
     }
-    const artifact = { version: 1, range, producer: 'RefactoringMiner research mapping adapter v1', status: analysis.status,
+    const producer = engine.producer === 'bygone-strand' ? 'Bygone Strand correspondence engine v1' : 'RefactoringMiner research mapping adapter v1';
+    const artifact = { version: 1, range, producer, status: analysis.status,
         documents: { before: before.documents, after: after.documents }, symbols: { before: before.entries, after: after.entries },
         relations: analysis.relations, unresolved, limitations,
         ...(detailed ? { diagnostics: { version: 1, scope: [String(object(analysis.scope || {}).note || 'Supplied documents only; repository-wide origins were not searched.')], records } } : {}) };

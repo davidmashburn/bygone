@@ -10,6 +10,8 @@ function validateSpan(span, files) {
 }
 
 function normalizeMappings(before, after, native, options = {}) {
+    const producer = options.engineProducer || 'refactoring-miner';
+    const javascript = producer === 'bygone-strand';
     const inventories = options.inventories || { before: inventorySnapshot(before, 'before', options), after: inventorySnapshot(after, 'after', options) };
     const allEntries = [...inventories.before.entries, ...inventories.after.entries];
     const byId = new Map(allEntries.map(e => [e.id, e]));
@@ -17,12 +19,13 @@ function normalizeMappings(before, after, native, options = {}) {
     const issues = [], rejected = [], candidates = [], groups = [];
     const invalidDocuments = [...inventories.before.documents, ...inventories.after.documents].filter(d => d.status === 'invalid');
     const skippedDocuments = native?.processedPaths ? ['before', 'after'].flatMap(side =>
-        inventories[side].documents.filter(d => d.status === 'complete' && (/\.pyi$/.test(d.path) || !native.processedPaths[side]?.includes(d.path)))
+        inventories[side].documents.filter(d => (d.status === 'complete' || (javascript && d.status === 'unsupported'))
+            && (/\.pyi$/.test(d.path) || !native.processedPaths[side]?.includes(d.path)))
             .map(d => ({ reason: 'engine-skipped-document', side, path: d.path }))) : [];
     issues.push(...skippedDocuments);
     const engineReliable = native?.status === 'complete' && !native.truncated && !invalidDocuments.length;
     const engineComplete = engineReliable && !skippedDocuments.length;
-    const skippedImplementations = skippedDocuments.filter(d => !/\.pyi$/.test(d.path));
+    const skippedImplementations = skippedDocuments.filter(d => javascript ? /\.(?:[cm]?[jt]s|[jt]sx)$/.test(d.path) : !/\.pyi$/.test(d.path));
     const skippedChangedImplementation = skippedImplementations.some(d => before[d.path] !== after[d.path]);
     function localIdentity(entry, side) {
         const scope = [];
@@ -38,7 +41,7 @@ function normalizeMappings(before, after, native, options = {}) {
         if (!engineReliable || skippedChangedImplementation) return false;
         // Stubs have their own inventory/exact coverage, outside this engine's
         // implementation search. Never bind a claimed engine span to a stub.
-        if ([source, destination].some(e => /\.pyi$/.test(e.path))) return false;
+        if ([source, destination].some(e => javascript ? !/\.(?:[cm]?[jt]s|[jt]sx)$/.test(e.path) : /\.pyi$/.test(e.path))) return false;
         if (native.processedPaths && (!native.processedPaths.before?.includes(source.path)
             || !native.processedPaths.after?.includes(destination.path))) return false;
         if (!skippedImplementations.length) return true;
@@ -51,6 +54,12 @@ function normalizeMappings(before, after, native, options = {}) {
     function endpoint(span, side, category = 'callable') {
         const files = side === 'before' ? before : after;
         if (!validateSpan(span, files)) return { entry: null, reason: 'invalid-container-range', valid: false };
+        if (javascript && category === 'inventory') {
+            const entries = inventories[side].entries.filter(e => e.path === span.path && e.start === span.start
+                && e.end === span.end && e.kind === span.kind && e.name === span.name);
+            return { entry: entries.length === 1 ? entries[0] : null, valid: true,
+                reason: entries.length === 1 ? 'resolved-container' : 'container-boundary-mismatch' };
+        }
         const eligible = inventories[side].entries.filter(e => e.path === span.path
             && (category === 'callable' ? e.callable : ['class', 'interface', 'type', 'enum'].includes(e.kind)));
         const named = eligible.filter(e => {
@@ -92,13 +101,14 @@ function normalizeMappings(before, after, native, options = {}) {
             }
         }
         const evidence = { mapperId: mapper.id, source: mapper.source, destination: mapper.destination,
-            mappings, unmappedBefore, unmappedAfter, origins: mapper.origins };
+            mappings, unmappedBefore, unmappedAfter, origins: mapper.origins,
+            ...(javascript ? { producer, match: mapper.match } : {}) };
         const kind = mapper.origins.includes('extract') ? 'extract' : mapper.origins.includes('inline') ? 'inline' : 'continuation';
         if (kind !== 'continuation') {
             groups.push({ kind, sourceId: source.id, destinationId: destination.id, evidence,
                 status: engineCoversPair(source, destination) ? 'inferred' : 'unresolved', behavior: 'unassessed' });
         } else if (mapper.origins.includes('continuation')) {
-            candidates.push({ sourceId: source.id, destinationId: destination.id, evidence: [evidence], producer: 'refactoring-miner' });
+            candidates.push({ sourceId: source.id, destinationId: destination.id, evidence: [evidence], producer });
         }
     }
     // Prefer an unchanged binding at its unique file/scope/name identity.
@@ -128,7 +138,16 @@ function normalizeMappings(before, after, native, options = {}) {
         });
     };
     const old = buckets(inventories.before.entries), current = buckets(inventories.after.entries);
-    const unresolved = [];
+    const unresolved = javascript ? (native?.unresolved || []).map(group => ({ ...group,
+        sources: group.sources.filter(id => byId.has(id) && byId.get(id).side === 'before'),
+        destinations: group.destinations.filter(id => byId.has(id) && byId.get(id).side === 'after') })) : [];
+    if (javascript) for (const record of native?.rejectedCandidates || []) {
+        const source = byId.get(record.sourceId), destination = byId.get(record.destinationId);
+        if (!source || !destination) continue;
+        rejected.push({ reason: record.reason, message: `Candidate score: ${record.score ?? 'unavailable'}; correspondence was not accepted.`,
+            endpoints: [{ side: 'before', path: source.path, start: source.start, symbolId: source.id },
+                { side: 'after', path: destination.path, start: destination.start, symbolId: destination.id }] });
+    }
     if (options.exactFallback !== false && !invalidDocuments.length) {
         const scopedOld = scopedBuckets(inventories.before.entries), scopedCurrent = scopedBuckets(inventories.after.entries);
         for (const [identity, sources] of scopedOld) {
@@ -184,7 +203,7 @@ function normalizeMappings(before, after, native, options = {}) {
     const pairedBefore = new Set(relations.map(r => r.sourceId)), pairedAfter = new Set(relations.map(r => r.destinationId));
     for (let index = unresolved.length - 1; index >= 0; index--) {
         const group = unresolved[index];
-        if (group.reason !== 'repeated-exact-occurrences') continue;
+        if (!['repeated-exact-occurrences', 'ambiguous-js-candidates'].includes(group.reason)) continue;
         // A retained local continuation is resolved, but remains a possible
         // origin of an unmatched copy. Keep that context outside its endpoints.
         group.competingSources = group.sources; group.competingDestinations = group.destinations;
@@ -205,7 +224,8 @@ function normalizeMappings(before, after, native, options = {}) {
         inventories, relations, groups, unresolved, rejected, issues, unmatchedDiagnostics,
         unmatchedBefore: inventories.before.entries.filter(e => !pairedBefore.has(e.id)).map(e => e.id),
         unmatchedAfter: inventories.after.entries.filter(e => !pairedAfter.has(e.id)).map(e => e.id),
-        engine: { status: native?.status || 'unavailable', reason: native?.reason, truncated: !!native?.truncated } };
+        engine: { ...(javascript ? { name: 'Bygone Strand', producer, version: 1 } : {}),
+            status: native?.status || 'unavailable', reason: native?.reason, truncated: !!native?.truncated } };
 }
 
 module.exports = { normalizeMappings, validateSpan };
