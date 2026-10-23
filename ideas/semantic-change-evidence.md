@@ -20,6 +20,16 @@ useful cross-file examples. Neither measures reviewer benefit or broad accuracy.
 A hand-labeled sample showing few useful cross-file relationships, or a tool
 that cannot expose reliable ranges, would change this recommendation.
 
+## First engine evaluation (2026-10-22)
+
+The [experiment follow-up](../plans/semantic-correspondence-experiment.md#engine-evaluation-follow-up-2026-10-22)
+now records a real pinned-engine run. RefactoringMiner adds useful edited
+cross-file matches, but its success status does not reveal every parse failure
+and its JSON refactoring events do not enumerate all function continuations
+under module moves. Evaluate its richer mapping API behind an independent
+inventory before designing automatic semantic filtering. The fixed corpus,
+separate real-history diagnostic, and remaining gates are recorded in the plan.
+
 ## Four questions hidden inside “semantic diff”
 
 | Question | Output | What the evidence establishes |

@@ -25,6 +25,46 @@ The separate `research/2026-10-09-inline-highlighting` ref at
 `e2b3ad02efee826a86e1ba76021e5c5ab6b0c418` concerns fine-grained highlighting;
 its work does not establish symbol matching or semantic equivalence.
 
+## Engine evaluation follow-up (2026-10-22)
+
+The local research checkout now contains a pinned RefactoringMiner build
+experiment. Source artifacts on `research/move-tracking-slice0`:
+`scripts/change-analysis/semantic-engine-findings.md`, the fixed
+`semantic-corpus/manifest.json`, native `results/semantic-eval-2026-10-22.json`,
+and normalized results, committed at `3f8fa0258e1a7bce1f3f4afd7bba892d41284e31`.
+Read the [engine findings](https://github.com/davidmashburn/bygone/blob/3f8fa0258e1a7bce1f3f4afd7bba892d41284e31/scripts/change-analysis/semantic-engine-findings.md)
+for the native responses, source checks, and reproduction commands.
+
+Thirty fixed comparisons ran twice, with ten held out before execution and no
+threshold tuning. Engine output supports 11 of 14 authored cross-file
+relationships, the exact baseline supports 6, and their union supports 12.
+There were no extra move groups against these labels. Twenty-three declaration
+endpoints resolve through an independent parser; ten local diffs reconstruct
+both endpoint texts exactly. Historical cases in this corpus are restricted
+single-file snapshots, so the score does not measure real-history move recall.
+
+Warm second-pass p95 was 62 ms on an M1; peak JVM resident memory was 237 MiB.
+These tiny inputs do not validate the proposed 50-file performance target.
+The engine returned `ok` without warnings on malformed syntax and zero end
+columns in emitted locations. Preserve an independent parse/completeness
+signal and recover ranges from pinned source; do not trust the raw status as
+“analysis complete.”
+
+Two separate, post-score diagnostics refine the recommendation. A corrected
+cross-file extraction with its import and aligned locals was recognized. On
+the real `726796b1fe` rewrite (seven changed src TS paths, 259 kB of input), the
+engine took 2.40 seconds and reported module/type movement and parameter
+removals, rather than enumerating every corresponding function. The documented
+MCP refactoring list is therefore insufficient as the inventory itself.
+
+Decision: continue with the **richer mapping API plus independent inventory**,
+using that real rewrite as the next mixed-edit case. Confidence is medium in
+this next step and low in general accuracy/reviewer benefit. More public
+cross-file adjudication, statement-mapping validation, Python coverage, larger
+inputs, and a reviewer task remain open. No product adapter or semantic hiding
+is approved by these results. The original plan below remains the experiment
+contract and records the earlier baseline.
+
 ## What was measured now
 
 The exact AST baseline extracts only top-level named JS/TS function declarations

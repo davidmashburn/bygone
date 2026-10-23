@@ -12,7 +12,8 @@ installed or benchmarked. This is a proposal, not an implementation commitment.
 model, cross-file matching, extraction groups, dependency-context caveats, and
 review behavior. The [bounded experiment](../plans/semantic-correspondence-experiment.md)
 adds a reproducible exact-symbol baseline and a concrete engine evaluation.
-No external engine has yet been benchmarked.
+The plan now records a pinned RefactoringMiner evaluation. Its refactoring
+event list is useful but does not replace an independent symbol inventory.
 
 ## Summary
 
