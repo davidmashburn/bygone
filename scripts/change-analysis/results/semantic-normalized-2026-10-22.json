@@ -1,0 +1,1491 @@
+{
+  "manifestSha256": "845dfeaf2cfe6bcc59ab6df23b404afcdb915c175cde74241488c0f299fd42f0",
+  "engineRevision": "e7b8db328e7d678bc474ebf4b61739b6d6c85b7f",
+  "coordinateContract": "zero-based UTF-16 half-open offsets independently recovered from pinned source; native hints retained",
+  "cases": [
+    {
+      "id": "control-01",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": [
+        {
+          "type": "Move Method",
+          "description": "Move Method\tpublic invoiceTotal(rows) from class cart to public invoiceTotal(rows) from class billing",
+          "endpoints": {
+            "before": [
+              {
+                "path": "src/cart.js",
+                "name": "invoiceTotal",
+                "kind": "function",
+                "start": 0,
+                "end": 132,
+                "startLine": 1,
+                "endLine": 5,
+                "textDigest": "3d5c228446718fb7181fd73b6c7800a52647869387f5e8c1dadc7de54f5cd994",
+                "text": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}",
+                "native": {
+                  "filePath": "src/cart.js",
+                  "startLine": 1,
+                  "endLine": 5,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "original method declaration",
+                  "codeElement": "public invoiceTotal(rows)"
+                }
+              }
+            ],
+            "after": [
+              {
+                "path": "src/billing.js",
+                "name": "invoiceTotal",
+                "kind": "function",
+                "start": 0,
+                "end": 132,
+                "startLine": 1,
+                "endLine": 5,
+                "textDigest": "3d5c228446718fb7181fd73b6c7800a52647869387f5e8c1dadc7de54f5cd994",
+                "text": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}",
+                "native": {
+                  "filePath": "src/billing.js",
+                  "startLine": 1,
+                  "endLine": 5,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "moved method declaration",
+                  "codeElement": "public invoiceTotal(rows)"
+                }
+              }
+            ]
+          },
+          "unresolved": [],
+          "comparisons": [
+            {
+              "source": {
+                "path": "src/cart.js",
+                "name": "invoiceTotal"
+              },
+              "destination": {
+                "path": "src/billing.js",
+                "name": "invoiceTotal"
+              },
+              "rawEqual": true,
+              "changes": [
+                {
+                  "value": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}",
+                  "count": 5
+                }
+              ]
+            }
+          ],
+          "behavior": "unassessed"
+        }
+      ]
+    },
+    {
+      "id": "control-02",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": [
+        {
+          "type": "Move And Rename Method",
+          "description": "Move And Rename Method\tpublic invoiceTotal(rows) from class cart to public subtotal(rows) from class billing",
+          "endpoints": {
+            "before": [
+              {
+                "path": "src/cart.js",
+                "name": "invoiceTotal",
+                "kind": "function",
+                "start": 0,
+                "end": 132,
+                "startLine": 1,
+                "endLine": 5,
+                "textDigest": "3d5c228446718fb7181fd73b6c7800a52647869387f5e8c1dadc7de54f5cd994",
+                "text": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}",
+                "native": {
+                  "filePath": "src/cart.js",
+                  "startLine": 1,
+                  "endLine": 5,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "original method declaration",
+                  "codeElement": "public invoiceTotal(rows)"
+                }
+              }
+            ],
+            "after": [
+              {
+                "path": "src/billing.js",
+                "name": "subtotal",
+                "kind": "function",
+                "start": 0,
+                "end": 128,
+                "startLine": 1,
+                "endLine": 5,
+                "textDigest": "8dbd6b0f6e53837d4ddb47a29d392220e95e0b0524720872c9d7c99317acae71",
+                "text": "export function subtotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}",
+                "native": {
+                  "filePath": "src/billing.js",
+                  "startLine": 1,
+                  "endLine": 5,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "moved method declaration",
+                  "codeElement": "public subtotal(rows)"
+                }
+              }
+            ]
+          },
+          "unresolved": [],
+          "comparisons": [
+            {
+              "source": {
+                "path": "src/cart.js",
+                "name": "invoiceTotal"
+              },
+              "destination": {
+                "path": "src/billing.js",
+                "name": "subtotal"
+              },
+              "rawEqual": false,
+              "changes": [
+                {
+                  "count": 1,
+                  "removed": true,
+                  "value": "export function invoiceTotal(rows) {\n"
+                },
+                {
+                  "count": 1,
+                  "added": true,
+                  "value": "export function subtotal(rows) {\n"
+                },
+                {
+                  "count": 4,
+                  "value": "  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}"
+                }
+              ]
+            }
+          ],
+          "behavior": "unassessed"
+        }
+      ]
+    },
+    {
+      "id": "control-03",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": [
+        {
+          "type": "Move Method",
+          "description": "Move Method\tpublic invoiceTotal(rows) from class cart to public invoiceTotal(rows) from class billing",
+          "endpoints": {
+            "before": [
+              {
+                "path": "src/cart.js",
+                "name": "invoiceTotal",
+                "kind": "function",
+                "start": 0,
+                "end": 132,
+                "startLine": 1,
+                "endLine": 5,
+                "textDigest": "3d5c228446718fb7181fd73b6c7800a52647869387f5e8c1dadc7de54f5cd994",
+                "text": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}",
+                "native": {
+                  "filePath": "src/cart.js",
+                  "startLine": 1,
+                  "endLine": 5,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "original method declaration",
+                  "codeElement": "public invoiceTotal(rows)"
+                }
+              }
+            ],
+            "after": [
+              {
+                "path": "src/billing.js",
+                "name": "invoiceTotal",
+                "kind": "function",
+                "start": 0,
+                "end": 132,
+                "startLine": 1,
+                "endLine": 5,
+                "textDigest": "f5122661068f7345962134ea218f369ed3373f23bca385d1c237ef75f939bd03",
+                "text": "export function invoiceTotal(rows) {\n  let total = 5;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}",
+                "native": {
+                  "filePath": "src/billing.js",
+                  "startLine": 1,
+                  "endLine": 5,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "moved method declaration",
+                  "codeElement": "public invoiceTotal(rows)"
+                }
+              }
+            ]
+          },
+          "unresolved": [],
+          "comparisons": [
+            {
+              "source": {
+                "path": "src/cart.js",
+                "name": "invoiceTotal"
+              },
+              "destination": {
+                "path": "src/billing.js",
+                "name": "invoiceTotal"
+              },
+              "rawEqual": false,
+              "changes": [
+                {
+                  "count": 1,
+                  "value": "export function invoiceTotal(rows) {\n"
+                },
+                {
+                  "count": 1,
+                  "removed": true,
+                  "value": "  let total = 0;\n"
+                },
+                {
+                  "count": 1,
+                  "added": true,
+                  "value": "  let total = 5;\n"
+                },
+                {
+                  "count": 3,
+                  "value": "  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}"
+                }
+              ]
+            }
+          ],
+          "behavior": "unassessed"
+        }
+      ]
+    },
+    {
+      "id": "control-04",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "control-05",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "control-06",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "control-07",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "control-08",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "control-09",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": [
+        {
+          "type": "Move Method",
+          "description": "Move Method\tpublic discount(amount) from class cart to public discount(amount) from class billing",
+          "endpoints": {
+            "before": [
+              {
+                "path": "src/cart.js",
+                "name": "discount",
+                "kind": "function",
+                "start": 13,
+                "end": 48,
+                "startLine": 1,
+                "endLine": 1,
+                "textDigest": "2f3285e97933ce724cfffd98344e48c49cc0a8a7777628ef3e7eab4d17655db7",
+                "text": "discount = (amount) => amount * 0.8",
+                "native": {
+                  "filePath": "src/cart.js",
+                  "startLine": 1,
+                  "endLine": 1,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "original method declaration",
+                  "codeElement": "public discount(amount)"
+                }
+              }
+            ],
+            "after": [
+              {
+                "path": "src/billing.js",
+                "name": "discount",
+                "kind": "function",
+                "start": 13,
+                "end": 48,
+                "startLine": 1,
+                "endLine": 1,
+                "textDigest": "2f3285e97933ce724cfffd98344e48c49cc0a8a7777628ef3e7eab4d17655db7",
+                "text": "discount = (amount) => amount * 0.8",
+                "native": {
+                  "filePath": "src/billing.js",
+                  "startLine": 1,
+                  "endLine": 1,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "moved method declaration",
+                  "codeElement": "public discount(amount)"
+                }
+              }
+            ]
+          },
+          "unresolved": [],
+          "comparisons": [
+            {
+              "source": {
+                "path": "src/cart.js",
+                "name": "discount"
+              },
+              "destination": {
+                "path": "src/billing.js",
+                "name": "discount"
+              },
+              "rawEqual": true,
+              "changes": [
+                {
+                  "value": "discount = (amount) => amount * 0.8",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "behavior": "unassessed"
+        }
+      ]
+    },
+    {
+      "id": "control-10",
+      "status": "partial",
+      "engineStatus": "ok",
+      "parseErrors": [
+        {
+          "file": "src/billing.js",
+          "parseErrors": 4
+        }
+      ],
+      "groups": []
+    },
+    {
+      "id": "mixed-01",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "mixed-02",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": [
+        {
+          "type": "Move And Inline Method",
+          "description": "Move And Inline Method\tpublic invoiceTotal(rows) moved from class billing to class cart & inlined to public checkout(rows)",
+          "endpoints": {
+            "before": [
+              {
+                "path": "src/billing.js",
+                "name": "invoiceTotal",
+                "kind": "function",
+                "start": 0,
+                "end": 132,
+                "startLine": 1,
+                "endLine": 5,
+                "textDigest": "3d5c228446718fb7181fd73b6c7800a52647869387f5e8c1dadc7de54f5cd994",
+                "text": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}",
+                "native": {
+                  "filePath": "src/billing.js",
+                  "startLine": 1,
+                  "endLine": 5,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "inlined method declaration",
+                  "codeElement": "public invoiceTotal(rows)"
+                }
+              },
+              {
+                "path": "src/cart.js",
+                "name": "checkout",
+                "kind": "function",
+                "start": 0,
+                "end": 101,
+                "startLine": 1,
+                "endLine": 5,
+                "textDigest": "03b44cd21d88db8298e63f988fd59daae5e0a3d7bcdca206b59d347b6a9661e9",
+                "text": "export function checkout(rows) {\n const result = invoiceTotal(rows);\n save(result);\n return result;\n}",
+                "native": {
+                  "filePath": "src/cart.js",
+                  "startLine": 1,
+                  "endLine": 5,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "target method declaration before inline",
+                  "codeElement": "public checkout(rows)"
+                }
+              }
+            ],
+            "after": [
+              {
+                "path": "src/cart.js",
+                "name": "checkout",
+                "kind": "function",
+                "start": 0,
+                "end": 143,
+                "startLine": 1,
+                "endLine": 6,
+                "textDigest": "bc6593c232eef4c2c558322bc83d605991f7124a727e2f6ce9fe9c3b125c2edd",
+                "text": "export function checkout(rows) {\n let result = 0;\n for (const row of rows) result += row.price * row.quantity;\n save(result);\n return result;\n}",
+                "native": {
+                  "filePath": "src/cart.js",
+                  "startLine": 1,
+                  "endLine": 6,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "target method declaration after inline",
+                  "codeElement": "public checkout(rows)"
+                }
+              }
+            ]
+          },
+          "unresolved": [],
+          "comparisons": [],
+          "behavior": "unassessed"
+        }
+      ]
+    },
+    {
+      "id": "mixed-03",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": [
+        {
+          "type": "Move Class",
+          "description": "Move Class\tcart.PriceBook moved to billing.PriceBook",
+          "endpoints": {
+            "before": [
+              {
+                "path": "src/cart.js",
+                "name": "PriceBook",
+                "kind": "class",
+                "start": 0,
+                "end": 111,
+                "startLine": 1,
+                "endLine": 4,
+                "textDigest": "5a0846f65eb02df5de0c13ca127352808f8c7b6fc1639598dd733379e08bf6cc",
+                "text": "export class PriceBook {\n constructor(rate) { this.rate = rate; }\n price(value) { return value * this.rate; }\n}",
+                "native": {
+                  "filePath": "src/cart.js",
+                  "startLine": 1,
+                  "endLine": 4,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "TYPE_DECLARATION",
+                  "description": "original type declaration",
+                  "codeElement": "cart.PriceBook"
+                }
+              }
+            ],
+            "after": [
+              {
+                "path": "src/billing.js",
+                "name": "PriceBook",
+                "kind": "class",
+                "start": 0,
+                "end": 115,
+                "startLine": 1,
+                "endLine": 4,
+                "textDigest": "332314d06661348da2c551a617de2d96df18e8aee4c202df9ec4895d99e71074",
+                "text": "export class PriceBook {\n constructor(rate) { this.rate = rate; }\n price(value) { return value * this.rate + 1; }\n}",
+                "native": {
+                  "filePath": "src/billing.js",
+                  "startLine": 1,
+                  "endLine": 4,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "TYPE_DECLARATION",
+                  "description": "moved type declaration",
+                  "codeElement": "billing.PriceBook"
+                }
+              }
+            ]
+          },
+          "unresolved": [],
+          "comparisons": [
+            {
+              "source": {
+                "path": "src/cart.js",
+                "name": "PriceBook"
+              },
+              "destination": {
+                "path": "src/billing.js",
+                "name": "PriceBook"
+              },
+              "rawEqual": false,
+              "changes": [
+                {
+                  "count": 2,
+                  "value": "export class PriceBook {\n constructor(rate) { this.rate = rate; }\n"
+                },
+                {
+                  "count": 1,
+                  "removed": true,
+                  "value": " price(value) { return value * this.rate; }\n"
+                },
+                {
+                  "count": 1,
+                  "added": true,
+                  "value": " price(value) { return value * this.rate + 1; }\n"
+                },
+                {
+                  "count": 1,
+                  "value": "}"
+                }
+              ]
+            }
+          ],
+          "behavior": "unassessed"
+        }
+      ]
+    },
+    {
+      "id": "mixed-04",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": [
+        {
+          "type": "Move And Rename Method",
+          "description": "Move And Rename Method\tpublic invoiceTotal(rows) from class cart to public amountDue(rows) from class billing",
+          "endpoints": {
+            "before": [
+              {
+                "path": "src/cart.js",
+                "name": "invoiceTotal",
+                "kind": "function",
+                "start": 0,
+                "end": 132,
+                "startLine": 1,
+                "endLine": 5,
+                "textDigest": "3d5c228446718fb7181fd73b6c7800a52647869387f5e8c1dadc7de54f5cd994",
+                "text": "export function invoiceTotal(rows) {\n  let total = 0;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}",
+                "native": {
+                  "filePath": "src/cart.js",
+                  "startLine": 1,
+                  "endLine": 5,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "original method declaration",
+                  "codeElement": "public invoiceTotal(rows)"
+                }
+              }
+            ],
+            "after": [
+              {
+                "path": "src/billing.js",
+                "name": "amountDue",
+                "kind": "function",
+                "start": 28,
+                "end": 157,
+                "startLine": 2,
+                "endLine": 6,
+                "textDigest": "0330a14b33f4187a7cf19c1263ee4ebef08228696d830ed9602ec84711c7f8a3",
+                "text": "export function amountDue(rows) {\n  let total = 3;\n  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}",
+                "native": {
+                  "filePath": "src/billing.js",
+                  "startLine": 2,
+                  "endLine": 6,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "moved method declaration",
+                  "codeElement": "public amountDue(rows)"
+                }
+              }
+            ]
+          },
+          "unresolved": [],
+          "comparisons": [
+            {
+              "source": {
+                "path": "src/cart.js",
+                "name": "invoiceTotal"
+              },
+              "destination": {
+                "path": "src/billing.js",
+                "name": "amountDue"
+              },
+              "rawEqual": false,
+              "changes": [
+                {
+                  "count": 2,
+                  "removed": true,
+                  "value": "export function invoiceTotal(rows) {\n  let total = 0;\n"
+                },
+                {
+                  "count": 2,
+                  "added": true,
+                  "value": "export function amountDue(rows) {\n  let total = 3;\n"
+                },
+                {
+                  "count": 3,
+                  "value": "  for (const row of rows) total += row.price * row.quantity;\n  return total;\n}"
+                }
+              ]
+            }
+          ],
+          "behavior": "unassessed"
+        }
+      ]
+    },
+    {
+      "id": "mixed-05",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": [
+        {
+          "type": "Move Method",
+          "description": "Move Method\tpublic localPrice(value) from class cart to public localPrice(value) from class billing",
+          "endpoints": {
+            "before": [
+              {
+                "path": "src/cart.js",
+                "name": "localPrice",
+                "kind": "function",
+                "start": 16,
+                "end": 74,
+                "startLine": 2,
+                "endLine": 2,
+                "textDigest": "25d20ba3965e4d32dcacc3e945e562ca80dca5f3d0876542421b664c5683a644",
+                "text": "export function localPrice(value) { return value * rate; }",
+                "native": {
+                  "filePath": "src/cart.js",
+                  "startLine": 2,
+                  "endLine": 2,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "original method declaration",
+                  "codeElement": "public localPrice(value)"
+                }
+              }
+            ],
+            "after": [
+              {
+                "path": "src/billing.js",
+                "name": "localPrice",
+                "kind": "function",
+                "start": 16,
+                "end": 74,
+                "startLine": 2,
+                "endLine": 2,
+                "textDigest": "25d20ba3965e4d32dcacc3e945e562ca80dca5f3d0876542421b664c5683a644",
+                "text": "export function localPrice(value) { return value * rate; }",
+                "native": {
+                  "filePath": "src/billing.js",
+                  "startLine": 2,
+                  "endLine": 2,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "moved method declaration",
+                  "codeElement": "public localPrice(value)"
+                }
+              }
+            ]
+          },
+          "unresolved": [],
+          "comparisons": [
+            {
+              "source": {
+                "path": "src/cart.js",
+                "name": "localPrice"
+              },
+              "destination": {
+                "path": "src/billing.js",
+                "name": "localPrice"
+              },
+              "rawEqual": true,
+              "changes": [
+                {
+                  "value": "export function localPrice(value) { return value * rate; }",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "behavior": "unassessed"
+        }
+      ]
+    },
+    {
+      "id": "mixed-06",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": [
+        {
+          "type": "Move And Rename Method",
+          "description": "Move And Rename Method\tpublic label(value) from class cart to public caption(value) from class billing",
+          "endpoints": {
+            "before": [
+              {
+                "path": "src/cart.js",
+                "name": "label",
+                "kind": "function",
+                "start": 0,
+                "end": 54,
+                "startLine": 1,
+                "endLine": 1,
+                "textDigest": "30ccc8802e9181381e5eb363336e703bc6d6e60c53e63cad645018cf779c2d7d",
+                "text": "export function label(value) { return `商品:${value}`; }",
+                "native": {
+                  "filePath": "src/cart.js",
+                  "startLine": 1,
+                  "endLine": 1,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "original method declaration",
+                  "codeElement": "public label(value)"
+                }
+              }
+            ],
+            "after": [
+              {
+                "path": "src/billing.js",
+                "name": "caption",
+                "kind": "function",
+                "start": 0,
+                "end": 56,
+                "startLine": 1,
+                "endLine": 1,
+                "textDigest": "11f2138228eaeb179167a47843597f5c0357b25b48cddd4338fc5eff6b5fe0a2",
+                "text": "export function caption(value) { return `品物:${value}`; }",
+                "native": {
+                  "filePath": "src/billing.js",
+                  "startLine": 1,
+                  "endLine": 1,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "moved method declaration",
+                  "codeElement": "public caption(value)"
+                }
+              }
+            ]
+          },
+          "unresolved": [],
+          "comparisons": [
+            {
+              "source": {
+                "path": "src/cart.js",
+                "name": "label"
+              },
+              "destination": {
+                "path": "src/billing.js",
+                "name": "caption"
+              },
+              "rawEqual": false,
+              "changes": [
+                {
+                  "count": 1,
+                  "removed": true,
+                  "value": "export function label(value) { return `商品:${value}`; }"
+                },
+                {
+                  "count": 1,
+                  "added": true,
+                  "value": "export function caption(value) { return `品物:${value}`; }"
+                }
+              ]
+            }
+          ],
+          "behavior": "unassessed"
+        }
+      ]
+    },
+    {
+      "id": "mixed-07",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": [
+        {
+          "type": "Move Method",
+          "description": "Move Method\tpublic (value) from class cart to public (value) from class billing",
+          "endpoints": {
+            "before": [
+              {
+                "path": "src/cart.js",
+                "name": "default",
+                "kind": "function",
+                "start": 0,
+                "end": 55,
+                "startLine": 1,
+                "endLine": 1,
+                "textDigest": "63f2db1bf43c7e1a894eff86beeeb6e0ab4abb2dbbc7e34799c20d18296a0c4f",
+                "text": "export default function (value) { return value / 100; }",
+                "native": {
+                  "filePath": "src/cart.js",
+                  "startLine": 1,
+                  "endLine": 1,
+                  "startColumn": 16,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "original method declaration",
+                  "codeElement": "public (value)"
+                }
+              }
+            ],
+            "after": [
+              {
+                "path": "src/billing.js",
+                "name": "default",
+                "kind": "function",
+                "start": 0,
+                "end": 55,
+                "startLine": 1,
+                "endLine": 1,
+                "textDigest": "63f2db1bf43c7e1a894eff86beeeb6e0ab4abb2dbbc7e34799c20d18296a0c4f",
+                "text": "export default function (value) { return value / 100; }",
+                "native": {
+                  "filePath": "src/billing.js",
+                  "startLine": 1,
+                  "endLine": 1,
+                  "startColumn": 16,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "moved method declaration",
+                  "codeElement": "public (value)"
+                }
+              }
+            ]
+          },
+          "unresolved": [],
+          "comparisons": [
+            {
+              "source": {
+                "path": "src/cart.js",
+                "name": "default"
+              },
+              "destination": {
+                "path": "src/billing.js",
+                "name": "default"
+              },
+              "rawEqual": true,
+              "changes": [
+                {
+                  "value": "export default function (value) { return value / 100; }",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "behavior": "unassessed"
+        }
+      ]
+    },
+    {
+      "id": "mixed-08",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "mixed-09",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": [
+        {
+          "type": "Move Method",
+          "description": "Move Method\tpublic localPrice(value) from class cart to public localPrice(value) from class billing",
+          "endpoints": {
+            "before": [
+              {
+                "path": "src/cart.js",
+                "name": "localPrice",
+                "kind": "function",
+                "start": 35,
+                "end": 93,
+                "startLine": 2,
+                "endLine": 2,
+                "textDigest": "25d20ba3965e4d32dcacc3e945e562ca80dca5f3d0876542421b664c5683a644",
+                "text": "export function localPrice(value) { return value * rate; }",
+                "native": {
+                  "filePath": "src/cart.js",
+                  "startLine": 2,
+                  "endLine": 2,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "original method declaration",
+                  "codeElement": "public localPrice(value)"
+                }
+              }
+            ],
+            "after": [
+              {
+                "path": "src/billing.js",
+                "name": "localPrice",
+                "kind": "function",
+                "start": 40,
+                "end": 98,
+                "startLine": 2,
+                "endLine": 2,
+                "textDigest": "25d20ba3965e4d32dcacc3e945e562ca80dca5f3d0876542421b664c5683a644",
+                "text": "export function localPrice(value) { return value * rate; }",
+                "native": {
+                  "filePath": "src/billing.js",
+                  "startLine": 2,
+                  "endLine": 2,
+                  "startColumn": 8,
+                  "endColumn": 0,
+                  "codeElementType": "METHOD_DECLARATION",
+                  "description": "moved method declaration",
+                  "codeElement": "public localPrice(value)"
+                }
+              }
+            ]
+          },
+          "unresolved": [],
+          "comparisons": [
+            {
+              "source": {
+                "path": "src/cart.js",
+                "name": "localPrice"
+              },
+              "destination": {
+                "path": "src/billing.js",
+                "name": "localPrice"
+              },
+              "rawEqual": true,
+              "changes": [
+                {
+                  "value": "export function localPrice(value) { return value * rate; }",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "behavior": "unassessed"
+        }
+      ]
+    },
+    {
+      "id": "mixed-10",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "history-01",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "history-02",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "history-03",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "history-04",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "history-05",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "history-06",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "history-07",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "history-08",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "history-09",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    },
+    {
+      "id": "history-10",
+      "status": "complete",
+      "engineStatus": "ok",
+      "parseErrors": [],
+      "groups": []
+    }
+  ],
+  "score": {
+    "cases": [
+      {
+        "id": "control-01",
+        "split": "development",
+        "expected": 1,
+        "engineFound": 1,
+        "baselineFound": 1,
+        "unionFound": 1,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "control-02",
+        "split": "development",
+        "expected": 1,
+        "engineFound": 1,
+        "baselineFound": 1,
+        "unionFound": 1,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "control-03",
+        "split": "development",
+        "expected": 1,
+        "engineFound": 1,
+        "baselineFound": 0,
+        "unionFound": 1,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "control-04",
+        "split": "development",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "control-05",
+        "split": "development",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "control-06",
+        "split": "development",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "control-07",
+        "split": "development",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "control-08",
+        "split": "development",
+        "expected": 1,
+        "engineFound": 0,
+        "baselineFound": 1,
+        "unionFound": 1,
+        "engineExtraGroups": 0,
+        "missed": [
+          {
+            "sourcePath": "old/math.js",
+            "sourceName": "invoiceTotal",
+            "destinationPath": "new/math.js",
+            "destinationName": "invoiceTotal",
+            "operation": "file-relocation",
+            "edited": false
+          }
+        ],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "control-09",
+        "split": "development",
+        "expected": 1,
+        "engineFound": 1,
+        "baselineFound": 1,
+        "unionFound": 1,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "control-10",
+        "split": "development",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "mixed-01",
+        "split": "development",
+        "expected": 1,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [
+          {
+            "sourcePath": "src/cart.js",
+            "sourceName": "checkout",
+            "destinationPath": "src/billing.js",
+            "destinationName": "invoiceTotal",
+            "operation": "extract",
+            "edited": false
+          }
+        ],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "mixed-02",
+        "split": "development",
+        "expected": 1,
+        "engineFound": 1,
+        "baselineFound": 0,
+        "unionFound": 1,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "mixed-03",
+        "split": "development",
+        "expected": 1,
+        "engineFound": 1,
+        "baselineFound": 0,
+        "unionFound": 1,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "mixed-04",
+        "split": "development",
+        "expected": 1,
+        "engineFound": 1,
+        "baselineFound": 0,
+        "unionFound": 1,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "mixed-05",
+        "split": "development",
+        "expected": 1,
+        "engineFound": 1,
+        "baselineFound": 1,
+        "unionFound": 1,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "mixed-06",
+        "split": "held-out",
+        "expected": 1,
+        "engineFound": 1,
+        "baselineFound": 0,
+        "unionFound": 1,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "mixed-07",
+        "split": "held-out",
+        "expected": 1,
+        "engineFound": 1,
+        "baselineFound": 0,
+        "unionFound": 1,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "mixed-08",
+        "split": "held-out",
+        "expected": 1,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [
+          {
+            "sourcePath": "src/cart.js",
+            "sourceName": "Query",
+            "destinationPath": "src/billing.js",
+            "destinationName": "Query",
+            "operation": "registration-relocation",
+            "edited": true
+          }
+        ],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "mixed-09",
+        "split": "held-out",
+        "expected": 1,
+        "engineFound": 1,
+        "baselineFound": 1,
+        "unionFound": 1,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "mixed-10",
+        "split": "held-out",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "history-01",
+        "split": "development",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "history-02",
+        "split": "development",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "history-03",
+        "split": "development",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "history-04",
+        "split": "development",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "history-05",
+        "split": "development",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "history-06",
+        "split": "held-out",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "history-07",
+        "split": "held-out",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "history-08",
+        "split": "held-out",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "history-09",
+        "split": "held-out",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      },
+      {
+        "id": "history-10",
+        "split": "held-out",
+        "expected": 0,
+        "engineFound": 0,
+        "baselineFound": 0,
+        "unionFound": 0,
+        "engineExtraGroups": 0,
+        "missed": [],
+        "extras": [],
+        "normalizationUnresolved": 0
+      }
+    ],
+    "totals": {
+      "expected": 14,
+      "engineFound": 11,
+      "baselineFound": 6,
+      "unionFound": 12,
+      "engineExtraGroups": 0
+    }
+  }
+}

@@ -1,0 +1,482 @@
+{
+  "manifestSha256": "845dfeaf2cfe6bcc59ab6df23b404afcdb915c175cde74241488c0f299fd42f0",
+  "cases": [
+    {
+      "id": "control-01",
+      "split": "development",
+      "expected": 1,
+      "found": 1,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": []
+    },
+    {
+      "id": "control-02",
+      "split": "development",
+      "expected": 1,
+      "found": 1,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": []
+    },
+    {
+      "id": "control-03",
+      "split": "development",
+      "expected": 1,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "invoiceTotal",
+          "destinationPath": "src/billing.js",
+          "destinationName": "invoiceTotal",
+          "operation": "move",
+          "edited": true
+        }
+      ],
+      "extraLinks": []
+    },
+    {
+      "id": "control-04",
+      "split": "development",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": []
+    },
+    {
+      "id": "control-05",
+      "split": "development",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": []
+    },
+    {
+      "id": "control-06",
+      "split": "development",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": []
+    },
+    {
+      "id": "control-07",
+      "split": "development",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": []
+    },
+    {
+      "id": "control-08",
+      "split": "development",
+      "expected": 1,
+      "found": 1,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": []
+    },
+    {
+      "id": "control-09",
+      "split": "development",
+      "expected": 1,
+      "found": 1,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": []
+    },
+    {
+      "id": "control-10",
+      "split": "development",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "partial",
+      "missed": [],
+      "extraLinks": []
+    },
+    {
+      "id": "mixed-01",
+      "split": "development",
+      "expected": 1,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "checkout",
+          "destinationPath": "src/billing.js",
+          "destinationName": "invoiceTotal",
+          "operation": "extract",
+          "edited": false
+        }
+      ],
+      "extraLinks": []
+    },
+    {
+      "id": "mixed-02",
+      "split": "development",
+      "expected": 1,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [
+        {
+          "sourcePath": "src/billing.js",
+          "sourceName": "invoiceTotal",
+          "destinationPath": "src/cart.js",
+          "destinationName": "checkout",
+          "operation": "inline",
+          "edited": false
+        }
+      ],
+      "extraLinks": []
+    },
+    {
+      "id": "mixed-03",
+      "split": "development",
+      "expected": 1,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "PriceBook",
+          "destinationPath": "src/billing.js",
+          "destinationName": "PriceBook",
+          "operation": "move",
+          "edited": true
+        }
+      ],
+      "extraLinks": []
+    },
+    {
+      "id": "mixed-04",
+      "split": "development",
+      "expected": 1,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "invoiceTotal",
+          "destinationPath": "src/billing.js",
+          "destinationName": "amountDue",
+          "operation": "move-and-rename",
+          "edited": true
+        }
+      ],
+      "extraLinks": []
+    },
+    {
+      "id": "mixed-05",
+      "split": "development",
+      "expected": 1,
+      "found": 1,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": []
+    },
+    {
+      "id": "mixed-06",
+      "split": "held-out",
+      "expected": 1,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "label",
+          "destinationPath": "src/billing.js",
+          "destinationName": "caption",
+          "operation": "move-and-rename",
+          "edited": true
+        }
+      ],
+      "extraLinks": []
+    },
+    {
+      "id": "mixed-07",
+      "split": "held-out",
+      "expected": 1,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "default",
+          "destinationPath": "src/billing.js",
+          "destinationName": "default",
+          "operation": "move",
+          "edited": false
+        }
+      ],
+      "extraLinks": []
+    },
+    {
+      "id": "mixed-08",
+      "split": "held-out",
+      "expected": 1,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [
+        {
+          "sourcePath": "src/cart.js",
+          "sourceName": "Query",
+          "destinationPath": "src/billing.js",
+          "destinationName": "Query",
+          "operation": "registration-relocation",
+          "edited": true
+        }
+      ],
+      "extraLinks": []
+    },
+    {
+      "id": "mixed-09",
+      "split": "held-out",
+      "expected": 1,
+      "found": 1,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": []
+    },
+    {
+      "id": "mixed-10",
+      "split": "held-out",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": []
+    },
+    {
+      "id": "history-01",
+      "split": "development",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": [],
+      "inventory": {
+        "before": {
+          "expected": 0,
+          "found": 0
+        },
+        "after": {
+          "expected": 0,
+          "found": 0
+        }
+      }
+    },
+    {
+      "id": "history-02",
+      "split": "development",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": [],
+      "inventory": {
+        "before": {
+          "expected": 0,
+          "found": 0
+        },
+        "after": {
+          "expected": 3,
+          "found": 3
+        }
+      }
+    },
+    {
+      "id": "history-03",
+      "split": "development",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": [],
+      "inventory": {
+        "before": {
+          "expected": 11,
+          "found": 11
+        },
+        "after": {
+          "expected": 11,
+          "found": 11
+        }
+      }
+    },
+    {
+      "id": "history-04",
+      "split": "development",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": [],
+      "inventory": {
+        "before": {
+          "expected": 2,
+          "found": 2
+        },
+        "after": {
+          "expected": 2,
+          "found": 2
+        }
+      }
+    },
+    {
+      "id": "history-05",
+      "split": "development",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": [],
+      "inventory": {
+        "before": {
+          "expected": 3,
+          "found": 3
+        },
+        "after": {
+          "expected": 0,
+          "found": 0
+        }
+      }
+    },
+    {
+      "id": "history-06",
+      "split": "held-out",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": [],
+      "inventory": {
+        "before": {
+          "expected": 0,
+          "found": 0
+        },
+        "after": {
+          "expected": 3,
+          "found": 3
+        }
+      }
+    },
+    {
+      "id": "history-07",
+      "split": "held-out",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": [],
+      "inventory": {
+        "before": {
+          "expected": 6,
+          "found": 6
+        },
+        "after": {
+          "expected": 9,
+          "found": 9
+        }
+      }
+    },
+    {
+      "id": "history-08",
+      "split": "held-out",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": [],
+      "inventory": {
+        "before": {
+          "expected": 11,
+          "found": 11
+        },
+        "after": {
+          "expected": 11,
+          "found": 11
+        }
+      }
+    },
+    {
+      "id": "history-09",
+      "split": "held-out",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": [],
+      "inventory": {
+        "before": {
+          "expected": 0,
+          "found": 0
+        },
+        "after": {
+          "expected": 7,
+          "found": 7
+        }
+      }
+    },
+    {
+      "id": "history-10",
+      "split": "held-out",
+      "expected": 0,
+      "found": 0,
+      "extra": 0,
+      "status": "complete",
+      "missed": [],
+      "extraLinks": [],
+      "inventory": {
+        "before": {
+          "expected": 0,
+          "found": 0
+        },
+        "after": {
+          "expected": 1,
+          "found": 1
+        }
+      }
+    }
+  ],
+  "behaviorCounterexample": {
+    "caseId": "mixed-05",
+    "before": 10,
+    "after": 20
+  }
+}

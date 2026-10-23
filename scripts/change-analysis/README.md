@@ -49,3 +49,26 @@ repositories): `refactor` subjects 3% explained, `mechanical` subjects 7%,
 whole added or deleted files, and 1–11% of modified-file lines are explained.
 Subject labels are an unreliable sample, and line-weighted totals are dominated
 by large commits.
+
+## Cross-file symbol baseline (2026-10-22)
+
+Read [findings and reproduction](symbol-correspondence-findings.md) before
+interpreting the [saved Bygone report](results/symbol-probe-bygone-2026-10-22.json).
+`symbol-probe.js <repo> [ref] [commits]` uses the installed TypeScript parser
+(no compiled `out/` required). `node symbol-probe.test.js` runs the 13 policy
+scenarios. Set `NODE_PATH` if using dependencies from a separate checkout.
+It inventories only top-level named JS/TS functions and function variables,
+reports equivalent syntax separately from raw equality, and never claims
+behavior preservation. The exact baseline is a comparator for a future reusable
+engine evaluation, not a new product matcher.
+
+## Pinned engine evaluation (2026-10-22)
+
+[RefactoringMiner findings](semantic-engine-findings.md) compare the fixed
+[30-case corpus](semantic-corpus/README.md) against the exact probe, with native
+MCP responses, normalized declaration groups, source checks, and timing/memory.
+The separate diagnostics test corrected extraction and the real tour-details
+rewrite without changing the frozen score. Run `check-semantic-corpus.js`,
+`run-semantic-eval.js <java> <jar>`, `normalize-semantic-eval.js`, and
+`check-semantic-results.js`, with `NODE_PATH` if needed. These scripts do not
+require compiled product output and are not part of `npm test`.
