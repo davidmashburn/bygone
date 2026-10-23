@@ -49,7 +49,7 @@ export default [
         }
     },
     {
-        files: ['scripts/change-analysis/**/*.js'],
+        files: ['scripts/change-analysis/**/*.js', 'packages/strand/**/*.js'],
         languageOptions: { sourceType: 'commonjs', globals: globals.node }
     },
     {

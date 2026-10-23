@@ -229,7 +229,8 @@
     "correspondence:benchmark": "node scripts/change-analysis/benchmark-correspondence.js",
     "correspondence:analyze": "npm run compile && node scripts/change-analysis/analyze-git.js",
     "test:correspondence:analysis": "npm run compile && node --test ./scripts/change-analysis/python-strand.test.js ./scripts/change-analysis/python-features.test.js ./scripts/change-analysis/js-correspondence.test.js ./scripts/change-analysis/javascript-integration.test.js scripts/change-analysis/benchmark-correspondence.test.js scripts/change-analysis/registration-inventory.test.js scripts/change-analysis/refactoring-mappings.test.js scripts/change-analysis/analyze-git.test.js",
-    "test:correspondence:engine": "npm run compile && node --test ./scripts/change-analysis/python-strand.test.js ./scripts/change-analysis/python-features.test.js ./scripts/change-analysis/js-correspondence.test.js ./scripts/change-analysis/javascript-integration.test.js scripts/change-analysis/benchmark-correspondence.test.js scripts/change-analysis/registration-inventory.test.js scripts/change-analysis/refactoring-mappings.test.js scripts/change-analysis/analyze-git.test.js scripts/change-analysis/refactoring-mappings.integration.test.js"
+    "test:correspondence:engine": "npm run compile && node --test ./scripts/change-analysis/python-strand.test.js ./scripts/change-analysis/python-features.test.js ./scripts/change-analysis/js-correspondence.test.js ./scripts/change-analysis/javascript-integration.test.js scripts/change-analysis/benchmark-correspondence.test.js scripts/change-analysis/registration-inventory.test.js scripts/change-analysis/refactoring-mappings.test.js scripts/change-analysis/analyze-git.test.js scripts/change-analysis/refactoring-mappings.integration.test.js",
+    "test:strand": "npm test --workspace bygone-strand"
   },
   "build": {
     "appId": "com.davidmashburn.bygone",
@@ -344,5 +345,8 @@
   "overrides": {
     "dompurify": "^3.4.12",
     "js-yaml": "^4.3.0"
-  }
+  },
+  "workspaces": [
+    "packages/strand"
+  ]
 }

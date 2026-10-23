@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const { performance } = require('node:perf_hooks');
 const { digest, inventorySnapshot } = require('./symbol-inventory');
 const { normalizeMappings } = require('./refactoring-mappings');
-const { inputProblem, LIMITS } = require('./run-refactoring-mappings');
+const { inputProblem, LIMITS } = require('../../packages/strand/src/input');
 const { matchStrand, DEFAULT_LIMITS } = require('./js-correspondence');
 const JAVASCRIPT_LIMITS = Object.freeze({ ...LIMITS, ...DEFAULT_LIMITS });
 
@@ -30,8 +30,8 @@ function analyzeStrand(before, after, config = {}) {
         analysis.status = 'unavailable'; analysis.engine.status = 'unavailable'; analysis.engine.reason = 'no-supported-documents';
     }
     return { analysis, native, engineMs: performance.now() - began,
-        identity: { ...ENGINE, implementationSha256: digest(fs.readFileSync(require.resolve('./js-correspondence'))),
-            pythonFeaturesSha256: digest(fs.readFileSync(require.resolve('./python-inventory.py'))),
+        identity: { ...ENGINE, implementationSha256: digest(fs.readFileSync(require.resolve('../../packages/strand/src/js-correspondence'))),
+            pythonFeaturesSha256: digest(fs.readFileSync(require.resolve('../../packages/strand/src/python-inventory.py'))),
             runnerSha256: digest(fs.readFileSync(__filename)) } };
 }
 

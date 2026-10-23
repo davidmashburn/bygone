@@ -1,0 +1,23 @@
+{
+  "name": "bygone-strand",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bounded, evidence-producing source declaration correspondence",
+  "license": "MIT",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "src",
+    "README.md",
+    "LICENSE.txt"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "typescript": "4.9.5"
+  }
+}
