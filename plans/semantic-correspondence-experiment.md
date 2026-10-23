@@ -65,6 +65,51 @@ inputs, and a reviewer task remain open. No product adapter or semantic hiding
 is approved by these results. The original plan below remains the experiment
 contract and records the earlier baseline.
 
+## Mapping adapter implemented (2026-10-22)
+
+A research adapter is committed on `research/move-tracking-slice0` at
+`cb0edb6`: `scripts/change-analysis/refactoring-mappings.md` documents the
+Java API bridge, independent JS/TS inventory, normalization, and bounded runner.
+It uses the same pinned jar and introduces no shipped dependency.
+
+The real `726796b1fe` example now has all six module-moved function
+continuations, including the edited `validateChangeTourDetails`. Its removed
+assessment validation remains visible both as unmapped old source and in the
+full declaration diff. Class/type mappings are normalized against actual
+language declarations rather than shown as generic engine classes/modules.
+
+Validation: 13 unit and 4 integration checks passed, including actual timeout,
+export-limit and output-overflow failures. Thirty fixed plus two diagnostic
+comparisons reconcile; 239 local diffs reconstruct both endpoints and 1,991
+attached fragment mappings resolve to source slices. Those checks establish
+byte/range integrity, not broad correspondence accuracy. Existing MCP results
+remain frozen. More public adjudication, Python support, reviewer benefit, and
+product integration remain outside the completed adapter slice.
+
+## RefModel-style prompt test (2026-10-22)
+
+The research checkout now also contains `scripts/change-analysis/refmodel-findings.md`,
+frozen prompt protocols, runners, source validators, and raw/scored answers.
+Following the user's model preference, the primary follow-up uses authenticated
+Codex with gpt-6.1-sol at medium reasoning: 32 comparisons, two arms, 64 completed
+calls, no task tool use. A preliminary GPT-OSS pass remains separately recorded.
+
+The grounded arm passed source/shape checks on 30/32 answers. It explicitly
+surfaced the removed assessment validation in the real module split, which the
+plain catalog-label answer omitted. That answer still failed other citation
+checks: useful observations do not make an entire model response acceptable.
+Both variants spotted several synthetic literal/binding/import changes.
+
+RefModel's class-based catalog inconsistently covers module-level functions and
+omits extraction and class-movement labels needed here. Keep language-neutral
+symbol correspondence and complete local edits as the underlying model; attach
+model hypotheses and explanations as checked annotations. Confidence is medium
+in that research direction, low in reviewer benefit over the adapter alone.
+The experiment changed both evidence and prompting, used one run per variant,
+and has no independent/blinded adjudication or reviewer task. No product
+integration or semantic hiding follows from these results. These additions
+are committed in research commit `cb0edb6`.
+
 ## What was measured now
 
 The exact AST baseline extracts only top-level named JS/TS function declarations
