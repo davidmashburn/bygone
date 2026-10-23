@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { correspondenceFixture } = require('../../test/correspondenceFixture');
 const { resolveBranchReviewRange } = require('../../out/gitComparison');
-const { readSnapshots, parseArgs } = require('./analyze-git');
+const { readSnapshots, parseArgs, analyzeGit } = require('./analyze-git');
+const { loadChangeCorrespondence } = require('../../out/changeCorrespondence');
 const { LIMITS } = require('./run-refactoring-mappings');
 
 test('Git snapshots preserve committed bytes across renames, additions, deletion and dirty edits', () => {
@@ -41,4 +42,44 @@ test('development command requires an explicit comparison and output', () => {
     assert.throws(() => parseArgs(['HEAD', '--base', 'main', '--output']), /requires a value/);
     assert.throws(() => parseArgs(['--base', 'main', '--output', 'a', '--unknown']), /Unknown option/);
     assert.equal(parseArgs(['--base', 'main', '--output', 'a']).head, 'HEAD');
+    assert.throws(() => parseArgs(['--base', 'main', '--output', 'a', '--exact-only', '--java', 'java']), /cannot be combined/);
+    assert.throws(() => parseArgs(['--base', 'main', '--output', 'a', '--exact-only', '--exact-only']), /Repeated option/);
+});
+
+test('Git analysis without Java writes a consumable partial artifact and does not guess edited moves', () => {
+    const code = 'export function price(n) { return n + 1; }\n';
+    const fixture = correspondenceFixture({ before: { 'a.ts': code, 'edited.ts': code },
+        after: { 'a.ts': '// shifted\n' + code, 'moved.ts': code.replace('+ 1', '+ 2') } });
+    const file = path.join(fixture.root, 'exact.json');
+    const args = [fixture.range.headOid, '--base', fixture.range.baseOid, '--repo', fixture.root, '--output', file];
+    let message = '';
+    try {
+        const generated = analyzeGit(args, fixture.root, { write(text) { message += text; } }, {});
+        const artifact = loadChangeCorrespondence(fixture.root, file, fixture.range);
+        assert.equal(artifact.status, 'partial');
+        assert.equal(generated.relations.length, 1);
+        assert.equal(artifact.relations.length, 1);
+        assert(artifact.relations[0].rawEqual);
+        assert(artifact.limitations.some(s => s.includes('engine-not-configured')));
+        assert(artifact.limitations.some(s => s.includes('unmatched symbols do not prove')));
+        assert(!artifact.limitations.some(s => s.includes('Engine SHA-256:')));
+        assert.match(message, /Exact-only coverage/);
+        assert.throws(() => analyzeGit(args, fixture.root, { write() {} }, {}), /EEXIST/);
+    } finally { fixture.dispose(); }
+});
+
+test('explicit exact-only ignores ambient Java configuration; incomplete configuration fails without output', () => {
+    const fixture = correspondenceFixture({ before: { 'a.js': 'const a = 1;' }, after: { 'a.js': '// shifted\nconst a = 1;' } });
+    const file = path.join(fixture.root, 'exact.json');
+    const args = ['--base', fixture.range.baseOid, '--output', file];
+    try {
+        for (const env of [{ MAPPING_JAVA: '/missing/java' }, { MAPPING_JAR: '/missing/engine.jar' },
+            { MAPPING_JAR_SHA256: '0'.repeat(64) }, { MAPPING_JAVA: '/missing/java', MAPPING_JAR: '/missing/engine.jar', MAPPING_JAR_SHA256: 'invalid' }]) {
+            assert.throws(() => analyzeGit(args, fixture.root, { write() {} }, env), /Incomplete Java engine configuration/);
+            assert(!fs.existsSync(file));
+        }
+        const artifact = analyzeGit([...args, '--exact-only'], fixture.root, { write() {} }, { MAPPING_JAVA: '/missing/java' });
+        assert.equal(artifact.relations.length, 1);
+        assert.equal(artifact.status, 'partial');
+    } finally { fixture.dispose(); }
 });

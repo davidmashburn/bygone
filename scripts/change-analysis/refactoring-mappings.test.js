@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { digest, inventorySnapshot } = require('./symbol-inventory');
 const { normalizeMappings } = require('./refactoring-mappings');
-const { analyzeWithBridge } = require('./run-refactoring-mappings');
+const { analyzeWithBridge, compileBridge } = require('./run-refactoring-mappings');
 const code = 'export function price(n) { return n + 1; }';
 function span(path, text, name = 'price', start = 7) {
     return { path, start, end: text.length, valid: true, name, text: text.slice(start), sha256: digest(text.slice(start)) };
@@ -31,6 +31,20 @@ test('unavailable engine preserves independently enumerated symbols', () => {
     assert.equal(r.analysis.status, 'partial');
     assert.equal(r.native.reason, 'engine-not-configured');
     assert.equal(r.analysis.unmatchedBefore.length, 1);
+});
+
+test('explicit engine setup verifies bytes before execution and diagnoses a missing JDK', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const os = require('node:os');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-toolchain-test-'));
+    const jar = path.join(root, 'engine.jar');
+    fs.writeFileSync(jar, 'not an executable jar');
+    const java = path.join(root, 'missing', 'java');
+    try {
+        assert.throws(() => compileBridge({ java, jar, expectedJarSha256: '0'.repeat(64) }), /engine-jar-digest-mismatch/);
+        assert.throws(() => compileBridge({ java, jar, expectedJarSha256: digest(fs.readFileSync(jar)) }), /java-toolchain-unavailable:.*JDK 21\+.*ENOENT/);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test('duplicate origins remain unresolved while a unique retained binding can continue', () => {

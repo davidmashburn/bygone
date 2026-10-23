@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added experimental JS/TS and Python symbol evidence with declaration diffs, symbol trees, analysis diagnostics, and shared Files/Symbols navigation
+- Added pinned symbol tour stops and full-file context in live presentations and portable exports
+- Made Java analysis optional: exact-only generation records partial coverage, while the external RefactoringMiner backend enables broader inference
+- Updated DOMPurify and fast-uri to resolve dependency advisories
+
 ## 0.10.2
 
 - Prioritized matching named lines before brackets to preserve block correspondences across nesting and indentation changes

@@ -5,7 +5,14 @@ This development-only adapter uses the multi-language engine in
 source commit `e7b8db328e7d678bc474ebf4b61739b6d6c85b7f`. Obtain that source
 separately; Bygone does not download the engine or install Java.
 
-Use a JDK 21 with both `java` and its sibling `javac`. In the pinned engine
+The Git command works without Java: it inventories declarations and accepts only
+unambiguous byte-identical matches, recording partial coverage and the missing
+engine. `--exact-only` ignores ambient engine configuration. Edited/renamed
+symbols can remain unmatched; unmatched is not proof of an addition or removal.
+Java is an optional external analysis backend, not an npm optional dependency
+or a dependency of the viewer, desktop app, VS Code extension or saved tours.
+
+Use a JDK 21+ with both `java` and its sibling `javac` (tested with JDK 21). In the pinned engine
 checkout, build the fat jar with an explicit JDK:
 
 ```sh
@@ -18,6 +25,10 @@ Verify the source checkout and build before supplying that jar's digest as
 between builds because the jar includes build metadata. Bygone verifies the
 supplied digest before compiling or executing the bridge; it cannot infer a
 jar's source provenance from that digest. No global JDK is selected implicitly.
+Both executables are checked before bridge compilation. Incomplete configuration,
+unsupported/missing toolchains and bad checksums fail explicitly; they do not
+silently produce exact-only coverage. Runtime analysis failures still preserve
+independent inventory/exact evidence and record the failure.
 
 The Git command and environment setup are documented in
 [docs/correspondence.md](../../docs/correspondence.md). TypeScript and `diff`
@@ -74,3 +85,12 @@ The Git command is preferable for ordinary comparisons because it pins and
 validates the artifact directly against Git. Raw reports can be imported
 with `bygone correspondence import`. Research corpora, archived reports,
 evaluation code and legacy move experiments are not required here.
+
+## Checks
+
+`npm test` includes the analysis unit and Git artifact tests without Java.
+`npm run test:correspondence:analysis` runs those tests alone (Python inventory
+tests use `python3`). `npm run test:correspondence:engine` additionally runs the
+real-engine integration tests and requires all three `MAPPING_JAVA`,
+`MAPPING_JAR` and `MAPPING_JAR_SHA256` settings. It fails when they are absent;
+an explicitly requested integration check is never silently skipped.

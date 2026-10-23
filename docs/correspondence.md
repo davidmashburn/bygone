@@ -8,12 +8,25 @@ research tools; neither is a new Bygone runtime dependency.
 ## Generate evidence in this checkout
 
 The development command inventories changed JS/TS/Python regular files from committed
-Git blobs, runs the bounded research adapter and imports its result into the
+Git blobs, runs the bounded analysis adapter and imports its result into the
 validated viewer format. It uses the review merge base, just like `present`;
 working-tree edits are excluded. No second branch or saved research report is
 required.
 
-Build the pinned external engine following
+Start without Java:
+
+```sh
+npm run correspondence:analyze -- feature --base main \
+  --output /tmp/correspondence.json
+```
+
+With no Java engine configuration, this inventories symbols and pairs only
+unambiguous declarations with identical bytes. It records partial coverage:
+edited or renamed declarations can remain unmatched, so unmatched does not
+prove an addition or removal. Use `--exact-only` to choose this mode even when
+Java engine environment variables are set.
+
+For broader inference, build the pinned external engine following
 [scripts/change-analysis/README.md](../scripts/change-analysis/README.md), then
 supply its verified build digest and JDK explicitly:
 
@@ -27,7 +40,11 @@ npm run correspondence:analyze -- feature --base main \
 
 Use `--repo /absolute/path/to/checkout` to analyze another repository without
 copying its source into this one. `--java`, `--jar` and `--jar-sha256` override
-the environment. Python comparisons additionally use `--python` or
+the environment. Supply all three engine settings together; incomplete settings,
+unavailable/incompatible toolchains and digest mismatches fail instead of silently
+switching modes. The adapter needs a JDK 21+ with sibling `java` and `javac`
+(verified with JDK 21). `--exact-only` cannot be combined with Java engine flags.
+Python comparisons additionally use `--python` or
 `MAPPING_PYTHON` (default `python3`), CPython 3.8+ with syntax support determined
 by that interpreter. Named Python functions/classes/methods include decorators
 and attached terminal comments; lambdas and variable bindings are excluded.
@@ -40,10 +57,20 @@ keep private repositories' evidence outside this repository.
 Changed files bound the candidate universe: unchanged files, unsupported
 languages, symlinks and submodules are excluded. The artifact records this
 scope, the engine/bridge digests, parser version, limits and failure reason.
+Engine/bridge digests are present only when that engine is configured.
 Timeout, truncation or process failure produces explicitly partial evidence;
 only independent exact declarations can survive. Invalid source encoding or
 an input budget violation fails without writing an artifact. A comparison with
 no supported source documents is explicitly unavailable.
+
+Generation currently runs from a source checkout with development dependencies.
+Java and RefactoringMiner are explicit external tools, not npm
+`optionalDependencies`: npm does not install their toolchain, and Bygone does not
+bundle or download them. Python is needed only to generate Python inventories.
+Viewing/importing saved evidence and opening symbol tour stops needs neither
+Java nor Python. This keeps engine size, native parser support and runtime updates
+outside the viewer's installation path; optional does not imply reduced evidence
+is equivalent to a complete engine result.
 
 ## Import an existing report
 

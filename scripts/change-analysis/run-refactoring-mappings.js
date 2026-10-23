@@ -28,14 +28,23 @@ function compileBridge(config) {
     const jar = fs.readFileSync(config.jar);
     const jarSha256 = createHash('sha256').update(jar).digest('hex');
     if (jarSha256 !== (config.expectedJarSha256 || PINNED_JAR_SHA256)) throw new Error('engine-jar-digest-mismatch: provide the verified build digest explicitly');
-    const buildDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-mapping-bridge-'));
     const javac = path.join(path.dirname(config.java), process.platform === 'win32' ? 'javac.exe' : 'javac');
+    const versions = [config.java, javac].map(executable => {
+        const result = spawnSync(executable, ['-version'], { encoding: 'utf8', timeout: 10000, maxBuffer: 1048576, windowsHide: true });
+        const major = Number(`${result.stdout || ''}\n${result.stderr || ''}`.match(/(?:version\s+"|javac\s+)(\d+)/)?.[1]);
+        if (result.error || result.status !== 0 || !major || major < 21) {
+            throw new Error(`java-toolchain-unavailable: use an explicit JDK 21+ with sibling java and javac; ${path.basename(executable)} version check failed${result.error ? ` (${result.error.code})` : ''}. Use --exact-only to analyze without Java.`);
+        }
+        return major;
+    });
+    if (versions[0] !== versions[1]) throw new Error('java-toolchain-mismatch: java and sibling javac must have the same major version.');
+    const buildDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-mapping-bridge-'));
     const compiled = spawnSync(javac, ['-proc:none', '-cp', config.jar, '-d', buildDir, BRIDGE], {
         encoding: 'utf8', timeout: 30000, maxBuffer: 1048576
     });
     if (compiled.error || compiled.status !== 0) {
         fs.rmSync(buildDir, { recursive: true, force: true });
-        throw new Error(`bridge-compile-failed: ${compiled.error?.message || compiled.stderr}`);
+        throw new Error(`bridge-compile-failed: verify the pinned engine build and JDK 21+; ${compiled.error?.message || compiled.stderr}`);
     }
     return { ...config, buildDir, jarSha256, bridgeSha256: digest(fs.readFileSync(BRIDGE, 'utf8')) };
 }

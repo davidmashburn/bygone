@@ -5,14 +5,17 @@ const { resolveBranchReviewRange } = require('../../out/gitComparison');
 const { importChangeCorrespondence } = require('../../out/changeCorrespondence');
 const { compileBridge, analyzeWithBridge, LIMITS } = require('./run-refactoring-mappings');
 
-const USAGE = 'npm run correspondence:analyze -- [<head>] --base <base> --output <artifact.json> [--repo <checkout>] [--python <python3>] [--java <jdk/bin/java> --jar <RM-fat.jar> --jar-sha256 <verified digest>]';
+const USAGE = 'npm run correspondence:analyze -- [<head>] --base <base> --output <artifact.json> [--repo <checkout>] [--python <python3>] [--exact-only | --java <jdk/bin/java> --jar <RM-fat.jar> --jar-sha256 <verified digest>]';
 const { isSupportedSource } = require('./symbol-inventory');
 
 function parseArgs(args) {
     const options = {}, positional = [];
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
-        if (['--base', '--output', '--repo', '--java', '--jar', '--jar-sha256', '--python'].includes(arg)) {
+        if (arg === '--exact-only') {
+            if (options[arg]) throw new Error(`Repeated option: ${arg}`);
+            options[arg] = true;
+        } else if (['--base', '--output', '--repo', '--java', '--jar', '--jar-sha256', '--python'].includes(arg)) {
             if (!args[i + 1] || args[i + 1].startsWith('-')) throw new Error(`${arg} requires a value.`);
             if (options[arg]) throw new Error(`Repeated option: ${arg}`);
             options[arg] = args[++i];
@@ -20,7 +23,22 @@ function parseArgs(args) {
         else positional.push(arg);
     }
     if (positional.length > 1 || !options['--base'] || !options['--output']) throw new Error(USAGE);
+    if (options['--exact-only'] && ['--java', '--jar', '--jar-sha256'].some(key => options[key])) {
+        throw new Error('--exact-only cannot be combined with Java engine options.');
+    }
     return { ...options, head: positional[0] || 'HEAD' };
+}
+
+function engineOptions(options, cwd, env) {
+    if (options['--exact-only']) return null; // Deliberately ignore ambient engine configuration.
+    const java = options['--java'] || env.MAPPING_JAVA;
+    const jar = options['--jar'] || env.MAPPING_JAR;
+    const expectedJarSha256 = options['--jar-sha256'] || env.MAPPING_JAR_SHA256;
+    if (!java && !jar && !expectedJarSha256) return null;
+    if (!java || !jar || !/^[a-f0-9]{64}$/.test(expectedJarSha256 || '')) {
+        throw new Error('Incomplete Java engine configuration: provide --java/--jar/--jar-sha256 or MAPPING_JAVA/MAPPING_JAR/MAPPING_JAR_SHA256 together, or use --exact-only.');
+    }
+    return { java: path.resolve(cwd, java), jar: path.resolve(cwd, jar), expectedJarSha256 };
 }
 
 // Read committed blobs, never working-tree bytes. Rename detection is disabled
@@ -54,28 +72,25 @@ function readSnapshots(range, limits = LIMITS) {
     return { before, after, excluded };
 }
 
-function analyzeGit(args, cwd = process.cwd(), output = process.stdout) {
+function analyzeGit(args, cwd = process.cwd(), output = process.stdout, env = process.env) {
     const options = parseArgs(args);
-    const java = options['--java'] || process.env.MAPPING_JAVA;
-    const jar = options['--jar'] || process.env.MAPPING_JAR;
-    const expectedJarSha256 = options['--jar-sha256'] || process.env.MAPPING_JAR_SHA256;
-    if (!java || !jar || !/^[a-f0-9]{64}$/.test(expectedJarSha256 || '')) {
-        throw new Error('Provide explicit Java, engine jar and verified SHA-256 via --java/--jar/--jar-sha256 or MAPPING_JAVA/MAPPING_JAR/MAPPING_JAR_SHA256.');
-    }
-    const python = options['--python'] || process.env.MAPPING_PYTHON || 'python3';
+    const engine = engineOptions(options, cwd, env);
+    const python = options['--python'] || env.MAPPING_PYTHON || 'python3';
     const pythonExecutable = /[\\/]/.test(python) ? path.resolve(cwd, python) : python;
     const range = resolveBranchReviewRange(path.resolve(cwd, options['--repo'] || '.'), options.head, options['--base']);
     const snapshots = readSnapshots(range);
     let config;
     try {
-        config = compileBridge({ java: path.resolve(cwd, java), jar: path.resolve(cwd, jar), expectedJarSha256, python: pythonExecutable });
-        const result = analyzeWithBridge(snapshots.before, snapshots.after, config);
+        if (engine) config = compileBridge(engine);
+        const result = analyzeWithBridge(snapshots.before, snapshots.after, { ...config, python: pythonExecutable });
         result.analysis.scope.excluded = snapshots.excluded;
         result.analysis.scope.note = 'Changed JS/TS/Python regular files only. Unchanged files are outside the candidate universe; repository-wide origins were not searched.';
         const artifact = importChangeCorrespondence(range.repoRoot, result, { baseOid: range.mergeBaseOid, headOid: range.headOid });
         artifact.limitations.push(`Changed JS/TS/Python regular files only; ${snapshots.excluded.length} changed path/side exclusions. Unchanged files are outside the candidate universe.`,
-            `Engine SHA-256: ${config.jarSha256}; bridge SHA-256: ${config.bridgeSha256}; parser: ${[...new Set([result.analysis.inventories.before.parser, result.analysis.inventories.after.parser])].join('; ')}.`,
+            `Parser: ${[...new Set([result.analysis.inventories.before.parser, result.analysis.inventories.after.parser])].join('; ')}.`,
             `Engine status: ${result.analysis.engine.status}; reason: ${result.analysis.engine.reason || 'none'}; limits: ${JSON.stringify(LIMITS)}.`);
+        if (config) artifact.limitations.push(`Engine SHA-256: ${config.jarSha256}; bridge SHA-256: ${config.bridgeSha256}.`);
+        else artifact.limitations.push('Java engine not configured: inventory and unambiguous byte-identical declaration matching only. Edited or renamed declarations are not paired; unmatched symbols do not prove additions or removals.');
         const diagnostics = ['before', 'after'].flatMap(side => result.analysis.inventories[side].documents
             .flatMap(d => d.diagnostics.map(diag => `${side}:${d.path}: ${diag.message.slice(0, 300)}`)));
         if (diagnostics.length) artifact.limitations.push(`Inventory diagnostics (${diagnostics.length}): ${diagnostics.slice(0, 20).join('; ')}`);
@@ -90,6 +105,7 @@ function analyzeGit(args, cwd = process.cwd(), output = process.stdout) {
         fs.writeFileSync(destination, serialized, { flag: 'wx' });
         output.write(`Wrote ${artifact.relations.length} inferred correspondences (${artifact.status}) to ${destination}\n`);
         output.write(`Pinned ${range.mergeBaseOid}..${range.headOid}; engine ${result.analysis.engine.status}${result.analysis.engine.reason ? ` (${result.analysis.engine.reason})` : ''}\n`);
+        if (!config) output.write('Exact-only coverage: edited/renamed declarations may remain unmatched. Configure the optional Java engine for broader inference.\n');
         return artifact;
     } finally {
         if (config) fs.rmSync(config.buildDir, { recursive: true, force: true });
