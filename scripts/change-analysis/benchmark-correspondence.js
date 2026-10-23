@@ -3,6 +3,7 @@ const path = require('node:path');
 const { performance } = require('node:perf_hooks');
 const { execFileSync } = require('node:child_process');
 const { cases } = require('./benchmark/cases');
+const { implementationIdentity } = require('../../packages/strand/src/identity');
 const { digest } = require('./symbol-inventory');
 const { analyzeWithBridge, compileBridge, LIMITS } = require('./run-refactoring-mappings');
 const { analyzeStrand, ENGINE, JAVASCRIPT_LIMITS } = require('./run-javascript-mappings');
@@ -98,7 +99,7 @@ function run(mode, output, env = process.env) {
     try {
         const report = { version: 1, generatedAt: new Date().toISOString(),
             revision: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: __dirname, encoding: 'utf8' }).trim(),
-            node: process.version, corpusSha256: digest(JSON.stringify(cases)),
+            node: process.version, strandImplementationSha256: implementationIdentity(), corpusSha256: digest(JSON.stringify(cases)),
             runnerSha256: digest(fs.readFileSync(__filename)), labelsSha256: digest(fs.readFileSync(path.join(__dirname, 'benchmark/cases.js'))),
             implementationSha256: Object.fromEntries(['symbol-inventory.js', '../../packages/strand/src/python-inventory.py', 'refactoring-mappings.js',
                 'run-refactoring-mappings.js', '../../packages/strand/src/js-correspondence.js', '../../packages/strand/src/symbol-inventory.js',
