@@ -1,3 +1,4 @@
+import { loadChangeCorrespondence, ChangeCorrespondence } from './changeCorrespondence';
 import { execFileSync } from 'child_process';
 import type { BranchCommit, GitChangeKind } from './gitComparison';
 import { resolveBranchReviewRange, resolveReviewPathPair } from './gitComparison';
@@ -41,6 +42,7 @@ export interface ChangeTourContextFile {
 }
 
 export interface ChangeTourContext {
+    correspondence?: ChangeCorrespondence;
     version: typeof CHANGE_TOUR_CONTEXT_VERSION;
     generatedAt: string;
     range: {
@@ -69,6 +71,7 @@ export interface ChangeTourContext {
 }
 
 export interface BuildChangeTourContextOptions {
+    correspondencePath?: string;
     headRef?: string;
     baseRef?: string;
     generatedAt?: string;
@@ -103,6 +106,7 @@ export function buildChangeTourContext(
     for (const file of files) filesByRole[file.role] += 1;
     return {
         version: CHANGE_TOUR_CONTEXT_VERSION,
+        ...(options.correspondencePath ? { correspondence: loadChangeCorrespondence(range.repoRoot, options.correspondencePath, { baseOid: range.mergeBaseOid, headOid: range.headOid }) } : {}),
         generatedAt: options.generatedAt || new Date().toISOString(),
         range: {
             baseRef: range.baseRef,

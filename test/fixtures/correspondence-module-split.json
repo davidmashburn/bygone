@@ -1,0 +1,212 @@
+{
+  "provenance": "Bygone 726796b1fe, six function mappings selected from the pinned research adapter; inventory is intentionally restricted to these six declarations.",
+  "before": {
+    "src/tourAssessment.ts": "/**\n * Browser-safe authored-tour assessment contracts and rubric metadata.\n *\n * This module deliberately has no filesystem, Git, or Node dependencies so\n * the presentation host can share the same vocabulary as the compiler.\n */\n\nexport const TOUR_ASSESSMENT_RATING_KEYS = [\n    'purpose',\n    'orientation',\n    'reasoning',\n    'evidence',\n    'clarity',\n    'economy',\n    'completeness'\n] as const;\n\nexport const TOUR_ASSESSMENT_RUBRIC_KEYS = TOUR_ASSESSMENT_RATING_KEYS;\n\nexport const TOUR_ASSESSMENT_RUBRIC = Object.freeze([\n    { key: 'purpose', label: 'Purpose & salience', criterion: 'Does the reader know what changes, why it matters, and what each scene contributes?' },\n    { key: 'orientation', label: 'Orientation', criterion: 'Can the reader identify the comparison, their place, and changes of scope?' },\n    { key: 'reasoning', label: 'Reasoning', criterion: 'Does the explanation connect the trigger, mechanism, outcome, and material tradeoffs?' },\n    { key: 'evidence', label: 'Evidence fidelity', criterion: 'Does the displayed evidence support the claims, with uncertainty made explicit?' },\n    { key: 'clarity', label: 'Clarity & audience fit', criterion: 'Can the intended reader follow without hidden prerequisites or unexplained terms?' },\n    { key: 'economy', label: 'Economy', criterion: 'Does each passage add understanding without repetition or lost causal links?' },\n    { key: 'completeness', label: 'Completeness for purpose', criterion: 'Are essential behavior, boundaries, risks, and omissions covered for this purpose?' }\n] as const);\n\nexport const TOUR_ASSESSMENT_SCORE_VALUES = [0, 1, 2, 3] as const;\n\nexport const TOUR_ASSESSMENT_METHODS = [\n    'self-review',\n    'simulated-reader',\n    'human-reader'\n] as const;\n\nexport type ChangeTourAssessmentRatingKey = typeof TOUR_ASSESSMENT_RATING_KEYS[number];\nexport type ChangeTourAssessmentScore = typeof TOUR_ASSESSMENT_SCORE_VALUES[number];\nexport type ChangeTourAssessmentMethod = typeof TOUR_ASSESSMENT_METHODS[number];\nexport type ChangeTourAudienceCodebase = 'none' | 'some' | 'maintainer';\nexport type ChangeTourAudienceLanguage = 'none' | 'basic' | 'fluent' | 'advanced';\nexport type ChangeTourAudienceReadingDemand = 'general' | 'technical' | 'specialist';\nexport type ChangeTourAudiencePurpose = 'overview' | 'explanation' | 'review';\n\nexport interface ChangeTourAudience {\n    codebase: ChangeTourAudienceCodebase;\n    language: ChangeTourAudienceLanguage;\n    domain?: string[];\n    readingDemand: ChangeTourAudienceReadingDemand;\n    purpose: ChangeTourAudiencePurpose;\n    scope: string;\n    estimatedMinutes?: number;\n}\n\nexport interface ChangeTourAssessmentRating {\n    score: ChangeTourAssessmentScore;\n    reason: string;\n    references: string[];\n}\n\nexport type ChangeTourAssessmentRatings = Partial<\n    Record<ChangeTourAssessmentRatingKey, ChangeTourAssessmentRating>\n>;\n\nexport interface ChangeTourAssessment {\n    reviewer: string;\n    method: ChangeTourAssessmentMethod;\n    assessedAt: string;\n    contentHash: string;\n    ratings: ChangeTourAssessmentRatings;\n    blockers?: string[];\n}\n\nexport interface ChangeTourDetails {\n    audience?: ChangeTourAudience;\n    assessment?: ChangeTourAssessment;\n}\n\nexport interface ChangeTourDetailsValidationContext {\n    /** Scene ids, step references, and any available framing references. */\n    referenceIds: ReadonlySet<string>;\n}\n\nexport function validateChangeTourDetails(\n    value: unknown,\n    path: string,\n    context: ChangeTourDetailsValidationContext\n): asserts value is ChangeTourDetails | undefined {\n    if (value === undefined) return;\n    if (!isRecord(value)) throw new Error(`${path} must be an object.`);\n    requireOnlyKeys(value, ['audience', 'assessment'], path);\n    validateAudience(value.audience, `${path}.audience`);\n    validateAssessment(value.assessment, `${path}.assessment`, context.referenceIds);\n}\n\nfunction validateAudience(value: unknown, path: string): void {\n    if (value === undefined) return;\n    if (!isRecord(value)) throw new Error(`${path} must be an object.`);\n    requireOnlyKeys(value, [\n        'codebase', 'language', 'domain', 'readingDemand', 'purpose', 'scope', 'estimatedMinutes'\n    ], path);\n    if (typeof value.codebase !== 'string'\n        || !['none', 'some', 'maintainer'].includes(value.codebase)) {\n        throw new Error(`${path}.codebase must be none, some, or maintainer.`);\n    }\n    if (typeof value.language !== 'string'\n        || !['none', 'basic', 'fluent', 'advanced'].includes(value.language)) {\n        throw new Error(`${path}.language must be none, basic, fluent, or advanced.`);\n    }\n    if (value.domain !== undefined) requireStringArray(value.domain, `${path}.domain`);\n    if (typeof value.readingDemand !== 'string'\n        || !['general', 'technical', 'specialist'].includes(value.readingDemand)) {\n        throw new Error(`${path}.readingDemand must be general, technical, or specialist.`);\n    }\n    if (typeof value.purpose !== 'string'\n        || !['overview', 'explanation', 'review'].includes(value.purpose)) {\n        throw new Error(`${path}.purpose must be overview, explanation, or review.`);\n    }\n    requireString(value.scope, `${path}.scope`);\n    if (value.estimatedMinutes !== undefined\n        && (typeof value.estimatedMinutes !== 'number'\n            || !Number.isFinite(value.estimatedMinutes)\n            || value.estimatedMinutes <= 0)) {\n        throw new Error(`${path}.estimatedMinutes must be a finite positive number.`);\n    }\n}\n\nfunction validateAssessment(value: unknown, path: string, referenceIds: ReadonlySet<string>): void {\n    if (value === undefined) return;\n    if (!isRecord(value)) throw new Error(`${path} must be an object.`);\n    requireOnlyKeys(value, ['reviewer', 'method', 'assessedAt', 'contentHash', 'ratings', 'blockers'], path);\n    requireString(value.reviewer, `${path}.reviewer`);\n    if (!TOUR_ASSESSMENT_METHODS.includes(value.method as ChangeTourAssessmentMethod)) {\n        throw new Error(`${path}.method must be self-review, simulated-reader, or human-reader.`);\n    }\n    validateIsoTimestamp(value.assessedAt, `${path}.assessedAt`);\n    validateContentHash(value.contentHash, `${path}.contentHash`);\n    if (!isRecord(value.ratings)) throw new Error(`${path}.ratings must be an object.`);\n    requireOnlyKeys(value.ratings, [...TOUR_ASSESSMENT_RATING_KEYS], `${path}.ratings`);\n    for (const [key, rating] of Object.entries(value.ratings)) {\n        const ratingPath = `${path}.ratings.${key}`;\n        if (!isRecord(rating)) throw new Error(`${ratingPath} must be an object.`);\n        requireOnlyKeys(rating, ['score', 'reason', 'references'], ratingPath);\n        if (!TOUR_ASSESSMENT_SCORE_VALUES.includes(rating.score as ChangeTourAssessmentScore)) {\n            throw new Error(`${ratingPath}.score must be one of 0, 1, 2, or 3.`);\n        }\n        requireString(rating.reason, `${ratingPath}.reason`);\n        if (!Array.isArray(rating.references) || rating.references.length === 0 || rating.references.some((reference) => typeof reference !== 'string')) {\n            throw new Error(`${ratingPath}.references must be a non-empty array of strings.`);\n        }\n        for (const reference of rating.references) {\n            if (!referenceIds.has(reference)) {\n                throw new Error(`${ratingPath}.references contains an unknown scene or step reference, or an ambiguous unqualified ID (use scene/step): ${reference}.`);\n            }\n        }\n    }\n    if (value.blockers !== undefined) requireStringArray(value.blockers, `${path}.blockers`);\n}\n\nfunction validateIsoTimestamp(value: unknown, path: string): asserts value is string {\n    if (typeof value !== 'string'\n        || !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(value)\n        || !Number.isFinite(Date.parse(value))\n        // Check the authored calendar date independently of its timezone offset.\n        || new Date(`${value.slice(0, 10)}T00:00:00Z`).toISOString().slice(0, 10) !== value.slice(0, 10)) {\n        throw new Error(`${path} must be an ISO timestamp.`);\n    }\n}\n\nfunction validateContentHash(value: unknown, path: string): asserts value is string {\n    if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) {\n        throw new Error(`${path} must be a lowercase SHA-256 hash.`);\n    }\n}\n\nfunction isRecord(value: unknown): value is Record<string, unknown> {\n    return typeof value === 'object' && value !== null && !Array.isArray(value);\n}\n\nfunction requireString(value: unknown, path: string): asserts value is string {\n    if (typeof value !== 'string' || value.trim().length === 0) {\n        throw new Error(`${path} must be a non-empty string.`);\n    }\n}\n\nfunction requireStringArray(value: unknown, path: string): asserts value is string[] {\n    if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || item.trim().length === 0)) {\n        throw new Error(`${path} must be an array of strings.`);\n    }\n}\n\nfunction requireOnlyKeys(value: Record<string, unknown>, allowed: string[], path: string): void {\n    const unexpected = Object.keys(value).filter((key) => !allowed.includes(key));\n    if (unexpected.length > 0) {\n        throw new Error(`${path} contains unknown field${unexpected.length === 1 ? '' : 's'}: ${unexpected.join(', ')}`);\n    }\n}\n"
+  },
+  "after": {
+    "src/tourDetails.ts": "/** Browser-safe audience details shared by source and manifest validation. */\n\nexport type ChangeTourAudienceCodebase = 'none' | 'some' | 'maintainer';\nexport type ChangeTourAudienceLanguage = 'none' | 'basic' | 'fluent' | 'advanced';\nexport type ChangeTourAudienceReadingDemand = 'general' | 'technical' | 'specialist';\nexport type ChangeTourAudiencePurpose = 'overview' | 'explanation' | 'review';\n\nexport interface ChangeTourAudience {\n    codebase: ChangeTourAudienceCodebase;\n    language: ChangeTourAudienceLanguage;\n    domain?: string[];\n    readingDemand: ChangeTourAudienceReadingDemand;\n    purpose: ChangeTourAudiencePurpose;\n    scope: string;\n    estimatedMinutes?: number;\n}\n\nexport interface ChangeTourDetails {\n    audience?: ChangeTourAudience;\n}\n\nexport function validateChangeTourDetails(\n    value: unknown,\n    path: string\n): asserts value is ChangeTourDetails | undefined {\n    if (value === undefined) return;\n    if (!isRecord(value)) throw new Error(`${path} must be an object.`);\n    requireOnlyKeys(value, ['audience'], path);\n    validateAudience(value.audience, `${path}.audience`);\n}\n\nfunction validateAudience(value: unknown, path: string): void {\n    if (value === undefined) return;\n    if (!isRecord(value)) throw new Error(`${path} must be an object.`);\n    requireOnlyKeys(value, [\n        'codebase', 'language', 'domain', 'readingDemand', 'purpose', 'scope', 'estimatedMinutes'\n    ], path);\n    if (typeof value.codebase !== 'string'\n        || !['none', 'some', 'maintainer'].includes(value.codebase)) {\n        throw new Error(`${path}.codebase must be none, some, or maintainer.`);\n    }\n    if (typeof value.language !== 'string'\n        || !['none', 'basic', 'fluent', 'advanced'].includes(value.language)) {\n        throw new Error(`${path}.language must be none, basic, fluent, or advanced.`);\n    }\n    if (value.domain !== undefined) requireStringArray(value.domain, `${path}.domain`);\n    if (typeof value.readingDemand !== 'string'\n        || !['general', 'technical', 'specialist'].includes(value.readingDemand)) {\n        throw new Error(`${path}.readingDemand must be general, technical, or specialist.`);\n    }\n    if (typeof value.purpose !== 'string'\n        || !['overview', 'explanation', 'review'].includes(value.purpose)) {\n        throw new Error(`${path}.purpose must be overview, explanation, or review.`);\n    }\n    requireString(value.scope, `${path}.scope`);\n    if (value.estimatedMinutes !== undefined\n        && (typeof value.estimatedMinutes !== 'number'\n            || !Number.isFinite(value.estimatedMinutes)\n            || value.estimatedMinutes <= 0)) {\n        throw new Error(`${path}.estimatedMinutes must be a finite positive number.`);\n    }\n}\n\nfunction isRecord(value: unknown): value is Record<string, unknown> {\n    return typeof value === 'object' && value !== null && !Array.isArray(value);\n}\n\nfunction requireString(value: unknown, path: string): asserts value is string {\n    if (typeof value !== 'string' || value.trim().length === 0) {\n        throw new Error(`${path} must be a non-empty string.`);\n    }\n}\n\nfunction requireStringArray(value: unknown, path: string): asserts value is string[] {\n    if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || item.trim().length === 0)) {\n        throw new Error(`${path} must be an array of strings.`);\n    }\n}\n\nfunction requireOnlyKeys(value: Record<string, unknown>, allowed: string[], path: string): void {\n    const unexpected = Object.keys(value).filter((key) => !allowed.includes(key));\n    if (unexpected.length > 0) {\n        throw new Error(`${path} contains unknown field${unexpected.length === 1 ? '' : 's'}: ${unexpected.join(', ')}`);\n    }\n}\n"
+  },
+  "analysis": {
+    "version": 1,
+    "status": "complete",
+    "engine": {
+      "status": "complete",
+      "truncated": false
+    },
+    "groups": [],
+    "rejected": [],
+    "issues": [],
+    "unresolved": [],
+    "unmatchedBefore": [],
+    "unmatchedAfter": [],
+    "inventories": {
+      "before": {
+        "documents": [
+          {
+            "path": "src/tourAssessment.ts",
+            "digest": "ff78f00b22f5a8975e6821c22717e22f4758c9c554cb5d91cd2bb2c6d5408cc1",
+            "utf16Length": 9320,
+            "status": "complete",
+            "diagnostics": []
+          }
+        ],
+        "entries": [
+          {
+            "id": "44d1577476c138008ed80795ba95010e883f8d8b16bd0a51279fce9b7f8d551c",
+            "path": "src/tourAssessment.ts",
+            "name": "validateChangeTourDetails",
+            "kind": "function",
+            "start": 3392,
+            "end": 3890,
+            "digest": "5f7fe19b2558f204c5e7e9a369a7ad73dc8f83498622ae7b6019f2973c7f4060"
+          },
+          {
+            "id": "e4273996ca128e29a144b173e507559649c7e17629e4d8a0c7dd0b232b4a51f3",
+            "path": "src/tourAssessment.ts",
+            "name": "validateAudience",
+            "kind": "function",
+            "start": 3892,
+            "end": 5499,
+            "digest": "45a0fc1f6cdd8dcfe38bd63b1ca15c19976a7c88ed3585059cddd74763efb802"
+          },
+          {
+            "id": "c0f371b90b0ff6a6a87748677097f599abe2f2ce73bb61df2cc820e2be2187e9",
+            "path": "src/tourAssessment.ts",
+            "name": "isRecord",
+            "kind": "function",
+            "start": 8331,
+            "end": 8483,
+            "digest": "d1ff0f371d5d24f75a6d6a6a266a762da705fba902c74cc65bbd6287e95a3d05"
+          },
+          {
+            "id": "ba3e58149ceec3babe172394e58d3004ac466228d00801e6be78cd2f43c1a762",
+            "path": "src/tourAssessment.ts",
+            "name": "requireString",
+            "kind": "function",
+            "start": 8485,
+            "end": 8702,
+            "digest": "0046244886b4f77620fc95012bce5835fcbc3198eaff8f467a08c81e20b2627b"
+          },
+          {
+            "id": "53395d15b93a8474619402c2284f8f3dc5c0b9e33e5be3d4136e42453a639a9c",
+            "path": "src/tourAssessment.ts",
+            "name": "requireStringArray",
+            "kind": "function",
+            "start": 8704,
+            "end": 8974,
+            "digest": "ec13cf201ab84a2cffe89615ec7c26588be03d9ed19709d5c21863d396639304"
+          },
+          {
+            "id": "ca5751dcc30d576bf21b31551f03f72f95f620ad505b21fa739cf16c5782fb1f",
+            "path": "src/tourAssessment.ts",
+            "name": "requireOnlyKeys",
+            "kind": "function",
+            "start": 8976,
+            "end": 9319,
+            "digest": "96ff0394c94ea67bacd913a42e14033fb6a875eca72473ffdef933920b4324ac"
+          }
+        ]
+      },
+      "after": {
+        "documents": [
+          {
+            "path": "src/tourDetails.ts",
+            "digest": "2df399c494ae1e0fb6c32f0eefc3668f1d8aec4aaf226b4dbc54fa3dc8dd65d5",
+            "utf16Length": 3716,
+            "status": "complete",
+            "diagnostics": []
+          }
+        ],
+        "entries": [
+          {
+            "id": "146f00dd92e927c306da119fb42da28c98ba657089f1fc8e60dbb45a8ef1d77b",
+            "path": "src/tourDetails.ts",
+            "name": "validateChangeTourDetails",
+            "kind": "function",
+            "start": 767,
+            "end": 1116,
+            "digest": "f098135e9c5ecdd9b0febd310c7e66ef4a06ae78fbafd9da7ad13f6bf5a42bad"
+          },
+          {
+            "id": "b6c186a6034accc79dc2075431d9dc394b46aec60d07005f156ad3c6c1de7a8c",
+            "path": "src/tourDetails.ts",
+            "name": "validateAudience",
+            "kind": "function",
+            "start": 1118,
+            "end": 2725,
+            "digest": "45a0fc1f6cdd8dcfe38bd63b1ca15c19976a7c88ed3585059cddd74763efb802"
+          },
+          {
+            "id": "ecf71c163038cba193a3b58b2a4793d87416f28674b67a3266ff78e7ade4080b",
+            "path": "src/tourDetails.ts",
+            "name": "isRecord",
+            "kind": "function",
+            "start": 2727,
+            "end": 2879,
+            "digest": "d1ff0f371d5d24f75a6d6a6a266a762da705fba902c74cc65bbd6287e95a3d05"
+          },
+          {
+            "id": "245dfb162aebdfccbf3a723f552c2e1f1b88b414441138cfda9a4bc976208633",
+            "path": "src/tourDetails.ts",
+            "name": "requireString",
+            "kind": "function",
+            "start": 2881,
+            "end": 3098,
+            "digest": "0046244886b4f77620fc95012bce5835fcbc3198eaff8f467a08c81e20b2627b"
+          },
+          {
+            "id": "6dd3353d1169a416e09edea7cea868bddd4c003de47c0c920288b4d1aa427ad2",
+            "path": "src/tourDetails.ts",
+            "name": "requireStringArray",
+            "kind": "function",
+            "start": 3100,
+            "end": 3370,
+            "digest": "ec13cf201ab84a2cffe89615ec7c26588be03d9ed19709d5c21863d396639304"
+          },
+          {
+            "id": "5a9d8254a3f5ca49fb14b2cbeaf4615440497708c68df7baeaeb7b05857d979c",
+            "path": "src/tourDetails.ts",
+            "name": "requireOnlyKeys",
+            "kind": "function",
+            "start": 3372,
+            "end": 3715,
+            "digest": "96ff0394c94ea67bacd913a42e14033fb6a875eca72473ffdef933920b4324ac"
+          }
+        ]
+      }
+    },
+    "relations": [
+      {
+        "id": "3f52f0fe6108ffb72c169ca4d8fe0ef1212e299f343d88fb0a37948ac1f89a68",
+        "sourceId": "e4273996ca128e29a144b173e507559649c7e17629e4d8a0c7dd0b232b4a51f3",
+        "destinationId": "b6c186a6034accc79dc2075431d9dc394b46aec60d07005f156ad3c6c1de7a8c",
+        "producers": [
+          "exact-declaration",
+          "refactoring-miner"
+        ]
+      },
+      {
+        "id": "358e5239d8a699495e668c5187da01b8a6aaf0d0a9137a9600e78fe94fd4c139",
+        "sourceId": "c0f371b90b0ff6a6a87748677097f599abe2f2ce73bb61df2cc820e2be2187e9",
+        "destinationId": "ecf71c163038cba193a3b58b2a4793d87416f28674b67a3266ff78e7ade4080b",
+        "producers": [
+          "refactoring-miner"
+        ]
+      },
+      {
+        "id": "afcd68f05f10bee31dced021ccf72b9a7d4e4c01cb63df06c0757dbbcf856ebf",
+        "sourceId": "ba3e58149ceec3babe172394e58d3004ac466228d00801e6be78cd2f43c1a762",
+        "destinationId": "245dfb162aebdfccbf3a723f552c2e1f1b88b414441138cfda9a4bc976208633",
+        "producers": [
+          "exact-declaration",
+          "refactoring-miner"
+        ]
+      },
+      {
+        "id": "da4f5ae28683c29fd4c2cece2c19298a4ed1f145d66ddfd0bf273e4e07912526",
+        "sourceId": "53395d15b93a8474619402c2284f8f3dc5c0b9e33e5be3d4136e42453a639a9c",
+        "destinationId": "6dd3353d1169a416e09edea7cea868bddd4c003de47c0c920288b4d1aa427ad2",
+        "producers": [
+          "exact-declaration",
+          "refactoring-miner"
+        ]
+      },
+      {
+        "id": "b5b1783100c94be299741194dad177d4bea7086c76a3b9c1c615961e3ba918bf",
+        "sourceId": "ca5751dcc30d576bf21b31551f03f72f95f620ad505b21fa739cf16c5782fb1f",
+        "destinationId": "5a9d8254a3f5ca49fb14b2cbeaf4615440497708c68df7baeaeb7b05857d979c",
+        "producers": [
+          "refactoring-miner"
+        ]
+      },
+      {
+        "id": "e16021e1a0b373f4f930b657bf6ef7c9d0c010a4c93e4a6271b845591e0bbdd5",
+        "sourceId": "44d1577476c138008ed80795ba95010e883f8d8b16bd0a51279fce9b7f8d551c",
+        "destinationId": "146f00dd92e927c306da119fb42da28c98ba657089f1fc8e60dbb45a8ef1d77b",
+        "producers": [
+          "refactoring-miner"
+        ]
+      }
+    ]
+  }
+}

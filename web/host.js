@@ -100,6 +100,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         narrationVoices: [],
         renderedNarrationUnit: null,
         workspacePromptStatus: '',
+        correspondence: null,
         historyPrefix: '/history/'
     };
     let workspaceControls = null;
@@ -161,7 +162,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         if (message.type === 'showDiff' || message.type === 'showMultiDiff' || message.type === 'showDirectoryDiff') {
             imageViewer.clear();
             message = { ...message, renderRequestId: ++renderRequestId };
-            if (state.mode === 'tour') {
+            if (state.mode === 'tour' && !message.correspondenceView) {
                 state.displayedPanels = message.type === 'showMultiDiff' ? message.panels
                     : state.zoom?.mode === 'history' ? state.historyPanels : twoWayCommitPanels();
                 if (!message.history) message.history = sharedCommitHistory();
@@ -1337,6 +1338,8 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
         initializeTourNarrativeResizer();
         initializeTourNarrativeLayout();
         initializeNarrationVoices();
+        document.getElementById('correspondence-filter')?.addEventListener('input', renderCorrespondences);
+        document.getElementById('correspondence-all')?.addEventListener('change', renderCorrespondences);
         document.getElementById('tour-navigator-tabs')?.addEventListener('click', (event) => {
             const button = event.target instanceof Element ? event.target.closest('[data-tour-navigator]') : null;
             if (button?.dataset.tourNavigator) setTourNavigatorTab(button.dataset.tourNavigator);
@@ -1889,6 +1892,16 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
                 payload = await response.json();
             }
             const parsedTour = parseChangeTourManifest(payload, { exported: Boolean(exportData) });
+            // This sidecar belongs only to the root pinned comparison, never an uploaded tour.
+            let correspondence = null;
+            if (!exportData && new URLSearchParams(window.location.search).has('correspondence') && manifestUrl === '/tour.json') {
+                const response = await fetch('/correspondence.json', { cache: 'no-store' });
+                if (!response.ok) throw new Error(`Correspondence request failed (${response.status}).`);
+                correspondence = await response.json();
+                if (correspondence.range.baseOid !== parsedTour.range.mergeBaseOid || correspondence.range.headOid !== parsedTour.range.headOid) {
+                    throw new Error('Correspondence revisions do not match this view.');
+                }
+            }
             const requestedDocumentLocation = parseDocumentFragment(window.location.hash);
             if (requestedDocumentLocation) resolveDocumentFocus(parsedTour, requestedDocumentLocation.mode, requestedDocumentLocation.focus);
             const tours = authoredTours(parsedTour);
@@ -1902,6 +1915,7 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
                 )).entries
                 : [];
             state.tour = parsedTour;
+            state.correspondence = correspondence;
             state.authoredTour = parsedTour;
             state.historyPrefix = nextHistoryPrefix;
             state.zoom = new TourZoomSession(initialMode);
@@ -2135,7 +2149,60 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
             scenes.append(conclusion);
         }
         renderTourFiles();
+        renderCorrespondences();
         setTourNavigatorTab(state.tourNavigatorTab);
+    }
+
+    function renderCorrespondences() {
+        const evidence = state.correspondence;
+        document.getElementById('correspondence-tab').hidden = !evidence;
+        const list = document.getElementById('correspondence-list');
+        list.replaceChildren();
+        if (!evidence) return;
+        const entries = new Map([...evidence.symbols.before, ...evidence.symbols.after].map(entry => [entry.id, entry]));
+        const query = document.getElementById('correspondence-filter').value.toLowerCase();
+        const all = document.getElementById('correspondence-all').checked;
+        const relations = evidence.relations.filter(relation => {
+            const a = entries.get(relation.sourceId), b = entries.get(relation.destinationId);
+            return (all || relation.pathChanged || relation.nameChanged || !relation.rawEqual)
+                && `${a.name} ${b.name} ${a.path} ${b.path}`.toLowerCase().includes(query);
+        });
+        document.getElementById('correspondence-status').textContent = `${evidence.range.baseOid.slice(0, 7)} → ${evidence.range.headOid.slice(0, 7)} · ${evidence.status} analysis · ${relations.length} of ${evidence.relations.length} inferred mappings · ${evidence.unresolved.length} ambiguous groups. Behavior unassessed.`;
+        for (const relation of relations) {
+            const a = entries.get(relation.sourceId), b = entries.get(relation.destinationId);
+            const button = document.createElement('button');
+            button.type = 'button'; button.className = 'tour-file correspondence-item';
+            button.dataset.correspondenceId = relation.id;
+            button.title = `Compare ${a.path}:${a.startLine} with ${b.path}:${b.startLine}`;
+            const title = document.createElement('strong'); title.textContent = a.name === b.name ? a.name : `${a.name} → ${b.name}`;
+            const paths = document.createElement('span'); paths.textContent = `${a.path}:${a.startLine} → ${b.path}:${b.startLine}`;
+            const edits = document.createElement('span'); edits.textContent = relation.rawEqual ? 'Identical declaration text · context may differ' : 'Declaration edited · compare all local changes';
+            button.append(title, paths, edits);
+            button.addEventListener('click', () => {
+                cancelPendingModeRestore();
+                evidenceRequest += 1;
+                document.body.classList.remove('tour-discussion');
+                state.activeTourFilePath = null;
+                lastReadingEvidence = null;
+                updateTourFileSelection();
+                narrationController.interruptForExploration();
+                state.directoryEvidence = null;
+                document.getElementById('correspondence-selection').textContent = `${a.name}: inferred correspondence. Showing complete declarations; line 1 below starts at source lines ${a.startLine} / ${b.startLine}. Use Files for the complete file changes.`;
+                emit({ type: 'showDiff', file1: `${a.path}:${a.startLine} @ ${evidence.range.baseOid.slice(0, 7)}`,
+                    file2: `${b.path}:${b.startLine} @ ${evidence.range.headOid.slice(0, 7)}`,
+                    sourceInfo: { leftPath: a.path, rightPath: b.path },
+                    comparisonId: `correspondence-${relation.id}`, leftContent: a.text, rightContent: b.text,
+                    diffModel: buildTwoWayDiffModel(a.text, b.text), history: null, correspondenceView: true,
+                    editableSides: { left: false, right: false },
+                    comparisonSummary: 'Inferred symbol correspondence · behavior unassessed · complete declaration diff' });
+                list.querySelectorAll('button').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+            });
+            list.append(button);
+        }
+        const limitations = document.getElementById('correspondence-limitations'); limitations.replaceChildren();
+        const describeOrigin = id => { const entry = entries.get(id); return entry ? `${entry.path}:${entry.startLine} (${entry.name})` : id; };
+        const messages = [...evidence.limitations, ...evidence.unresolved.map(group => `${group.reason}: ${group.sourceIds.map(describeOrigin).join(', ')} → ${group.destinationIds.map(describeOrigin).join(', ')}`)];
+        for (const message of messages) { const p = document.createElement('p'); p.textContent = message; limitations.append(p); }
     }
 
     function renderTourFiles() {
@@ -2711,7 +2778,8 @@ import { captureTourFeedback } from '../src/tourFeedback.ts';
     }
 
     function setTourNavigatorTab(tab) {
-        if (!['tour', 'files', 'commits'].includes(tab)) return;
+        if (!['tour', 'files', 'commits', 'symbols'].includes(tab)) return;
+        if (tab === 'symbols' && !state.correspondence) tab = 'files';
         const tourAvailable = isNarrativeMode() && Boolean(state.tour?.scenes.length);
         if (tab === 'tour' && !tourAvailable) tab = 'commits';
         state.tourNavigatorTab = tab;

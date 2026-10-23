@@ -13,10 +13,11 @@ const CLI_SPEC = Object.freeze({
         'bygone --read-only <desktop-arguments...>',
         'bygone review [<head>] [--base <base>]',
         'bygone -C <directory> <command-or-path> [...]',
-        'bygone present [<head>] [--base <base>] [--tour <file.bygone>]',
+        'bygone present [<head>] [--base <base>] [--tour <file.bygone>] [--correspondence <artifact.json>]',
         'bygone tour validate <file.bygone> [--json]',
         'bygone tour compile <file.bygone> [--output <tour.json>]',
-        'bygone tour context [<head>] [--base <base>] [--output <context.json>]',
+        'bygone tour context [<head>] [--base <base>] [--output <context.json>] [--correspondence <artifact.json>]',
+        'bygone correspondence import <report.json> [<head>] [--base <base>] [--case <id>] --output <artifact.json>',
         'bygone tour coverage <file.bygone> [--json] [--minimum-coverage <0-100>]',
         'bygone tour export <file.bygone> --output <tour.html> [--profile minimal|full] [--runtime embedded|cdn]',
         'bygone <bygone://open/v1?...>',
@@ -32,6 +33,10 @@ const CLI_SPEC = Object.freeze({
             tokens: ['review'],
             description: 'Review a committed branch against its merge base',
             argument: 'git-ref'
+        },
+        {
+            id: 'correspondence', kind: 'command', tokens: ['correspondence'],
+            description: 'Import externally produced symbol correspondence evidence', argument: 'path'
         },
         {
             id: 'completion',
@@ -109,6 +114,10 @@ const CLI_SPEC = Object.freeze({
             tokens: ['--tour'],
             description: 'Use an authored .bygone presentation',
             argument: 'path'
+        },
+        {
+            id: 'correspondenceEvidence', kind: 'option', tokens: ['--correspondence'],
+            description: 'Use pinned symbol evidence in present or tour context', argument: 'path'
         },
         {
             id: 'readOnly',

@@ -35,7 +35,7 @@ function generateZshCompletion() {
     const reviewOptions = entriesByIds(['base', 'help'])
         .flatMap((entry) => entry.tokens.map((token) => `        '${token}:${escapeSingleQuoted(entry.description)}'`))
         .join('\n');
-    const presentOptions = entriesByIds(['base', 'tour', 'help'])
+    const presentOptions = entriesByIds(['base', 'tour', 'correspondenceEvidence', 'help'])
         .flatMap((entry) => entry.tokens.map((token) => `        '${token}:${escapeSingleQuoted(entry.description)}'`))
         .join('\n');
     const legacyOptions = entriesByIds(['branch', 'base', 'help'])
@@ -93,10 +93,10 @@ ${historyOptions}
             elif [[ "$words[3]" == "context" ]]; then
                 if [[ "$previous" == ${shellAlternation(tokensFor('base'))} ]]; then
                     _bygone_git_refs
-                elif [[ "$previous" == "--output" || "$previous" == "-o" ]]; then
+                elif [[ "$previous" == "--output" || "$previous" == "-o" || "$previous" == "--correspondence" ]]; then
                     _files
                 else
-                    compadd -- --base --output -o --max-patch-bytes --max-total-patch-bytes
+                    compadd -- --base --output -o --max-patch-bytes --max-total-patch-bytes --correspondence
                     _bygone_git_refs
                 fi
             elif [[ "$words[3]" == "coverage" || "$words[3]" == "validate" || "$words[3]" == "compile" ]]; then
@@ -112,7 +112,7 @@ ${historyOptions}
             fi
             ;;
         present)
-            if [[ "$previous" == ${shellAlternation(tokensFor('tour'))} ]]; then
+            if [[ "$previous" == ${shellAlternation(tokensFor('tour'))} || "$previous" == "--correspondence" ]]; then
                 _files -g '*.bygone' -g '*.bygone.yaml'
             elif [[ "$previous" == ${shellAlternation(tokensFor('base'))} ]]; then
                 _bygone_git_refs
@@ -152,7 +152,7 @@ compdef _bygone bygone
 function generateBashCompletion() {
     const rootTokens = completionEntries().flatMap((entry) => entry.tokens).join(' ');
     const reviewTokens = entriesByIds(['base', 'help']).flatMap((entry) => entry.tokens).join(' ');
-    const presentTokens = entriesByIds(['base', 'tour', 'help']).flatMap((entry) => entry.tokens).join(' ');
+    const presentTokens = entriesByIds(['base', 'tour', 'correspondenceEvidence', 'help']).flatMap((entry) => entry.tokens).join(' ');
     const legacyTokens = entriesByIds(['branch', 'base', 'help']).flatMap((entry) => entry.tokens).join(' ');
     const historyTokens = entriesByIds(['includeStaged', 'help']).flatMap((entry) => entry.tokens).join(' ');
     const baseTokens = tokensFor('base').join('|');
@@ -188,11 +188,11 @@ _bygone() {
                 refs="$(_bygone_git_refs)"
                 if [[ "$prev" =~ ^(${baseTokens})$ ]]; then
                     COMPREPLY=( $(compgen -W "$refs" -- "$cur") )
-                elif [[ "$prev" == "--output" || "$prev" == "-o" ]]; then
+                elif [[ "$prev" == "--output" || "$prev" == "-o" || "$prev" == "--correspondence" ]]; then
                     COMPREPLY=( $(compgen -f -- "$cur") )
                     compopt -o filenames 2>/dev/null || true
                 else
-                    COMPREPLY=( $(compgen -W '--base --output -o --max-patch-bytes --max-total-patch-bytes '"$refs" -- "$cur") )
+                    COMPREPLY=( $(compgen -W '--base --output -o --max-patch-bytes --max-total-patch-bytes --correspondence '"$refs" -- "$cur") )
                 fi
             else
                 COMPREPLY=( $(compgen -W '--json --output -o' -- "$cur") $(compgen -f -- "$cur") )
@@ -209,7 +209,7 @@ _bygone() {
             ;;
         present)
             refs="$(_bygone_git_refs)"
-            if [[ "$prev" == "--tour" ]]; then
+            if [[ "$prev" == "--tour" || "$prev" == "--correspondence" ]]; then
                 COMPREPLY=( $(compgen -f -- "$cur") )
                 compopt -o filenames 2>/dev/null || true
             elif [[ "$prev" =~ ^(${baseTokens})$ ]]; then
@@ -274,6 +274,7 @@ function generateFishCompletion() {
         "complete -c bygone -n '__fish_seen_subcommand_from review' -a '(__bygone_git_refs)' -d 'Git ref'",
         `complete -c bygone -n '__fish_seen_subcommand_from present' ${fishTokens(tokensFor('base'))} -r -a '(__bygone_git_refs)' -d '${escapeSingleQuoted(getCliEntry('base').description)}'`,
         `complete -c bygone -n '__fish_seen_subcommand_from present' ${fishTokens(tokensFor('tour'))} -r -d '${escapeSingleQuoted(getCliEntry('tour').description)}'`,
+        `complete -c bygone ${fishTokens(tokensFor('correspondenceEvidence'))} -r -d 'Use pinned symbol correspondence evidence'`,
         "complete -c bygone -n '__fish_seen_subcommand_from present' -a '(__bygone_git_refs)' -d 'Git ref'",
         `complete -c bygone -n 'string match -q "*--branch-diff*" -- (commandline -opc)' ${fishTokens(tokensFor('branch'))} -r -a '(__bygone_git_refs)' -d '${escapeSingleQuoted(getCliEntry('branch').description)}'`,
         `complete -c bygone -n 'string match -q "*--branch-diff*" -- (commandline -opc)' ${fishTokens(tokensFor('base'))} -r -a '(__bygone_git_refs)' -d '${escapeSingleQuoted(getCliEntry('base').description)}'`,

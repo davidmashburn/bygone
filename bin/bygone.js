@@ -40,7 +40,14 @@ if (tokenMatches('completion', args[0])) {
     process.exit(0);
 }
 
-if (tokenMatches('tourCommand', args[0])) {
+if (args[0] === 'correspondence') {
+    try {
+        require('../cli/correspondence').importCorrespondenceCommand(args.slice(1), cliCwd);
+    } catch (error) {
+        process.stderr.write(`Could not import correspondence: ${error.message}\n`);
+        process.exitCode = 1;
+    }
+} else if (tokenMatches('tourCommand', args[0])) {
     try {
         runTourCommand(args.slice(1), cliCwd, packageRoot);
     } catch (error) {

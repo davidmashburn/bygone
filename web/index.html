@@ -31,6 +31,7 @@
         <nav id="tour-navigator-tabs" class="tour-navigator-tabs" aria-label="Tour navigator">
             <button type="button" data-tour-navigator="tour" aria-controls="tour-navigator-tour" aria-selected="true" title="Browse tour scenes">Tour <span id="tour-scene-count" class="tour-rail-count"></span></button>
             <button type="button" data-tour-navigator="files" aria-controls="tour-navigator-files" aria-selected="false" title="Browse changed files">Files <span id="tour-file-count" class="tour-rail-count"></span></button>
+            <button id="correspondence-tab" type="button" title="Explore inferred symbol mappings across the pinned comparison" data-tour-navigator="symbols" aria-controls="tour-navigator-symbols" aria-selected="false" hidden>Symbols</button>
             <button type="button" data-tour-navigator="commits" aria-controls="tour-navigator-commits" aria-selected="false" title="Browse revisions">Commits</button>
         </nav>
         <div class="tour-navigator-content">
@@ -62,6 +63,14 @@
                 </header>
                 <label id="tour-file-filter" class="file-tree-filter"><input id="tour-show-all-files" type="checkbox"><span id="tour-file-filter-label">Show all files</span><span id="tour-visible-file-count"></span></label>
                 <nav id="tour-files" class="tour-files" aria-label="Changed files"></nav>
+            </section>
+            <section id="tour-navigator-symbols" class="tour-navigator-panel" data-tour-navigator-panel="symbols" hidden>
+                <p id="correspondence-status" role="status"></p>
+                <label>Find a symbol <input id="correspondence-filter" type="search" placeholder="Name or path"></label>
+                <label><input id="correspondence-all" type="checkbox"> Include unchanged local symbols</label>
+                <p id="correspondence-selection" aria-live="polite"></p>
+                <nav id="correspondence-list" aria-label="Inferred symbol correspondences"></nav>
+                <details><summary>Analysis limitations and ambiguous origins</summary><div id="correspondence-limitations"></div></details>
             </section>
             <section id="tour-navigator-commits" class="tour-navigator-panel" data-tour-navigator-panel="commits" hidden>
                 <div id="tour-history-controls" class="tour-evidence-controls" hidden>

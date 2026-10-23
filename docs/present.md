@@ -289,3 +289,6 @@ revisions or constructed stages; a chapter or scene boundary does not itself
 mean the comparison changed. Intro, chapter, and Conclusion passages fill the
 reading area. Exploring Files restores the prose/code split, and “Return to
 passage” restores the full-height passage.
+
+For experimental revision-pinned symbol evidence in authoring context and the
+viewer, see [symbol correspondence](correspondence.md).

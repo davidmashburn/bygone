@@ -1579,3 +1579,14 @@ body.tour-bookend.tour-discussion #tour-narrative-resizer { display: none; }
 
 .tour-route-chapter { margin-top: 1.5em; }
 .tour-route-chapter > .tour-route { margin-top: 1em; padding-left: 1em; border-left: 2px solid var(--tour-border); }
+
+/* Optional, revision-pinned symbol correspondence exploration. */
+#tour-navigator-symbols { padding: 12px; overflow: auto; }
+#tour-navigator-symbols label { display: block; margin: 8px 0; }
+#correspondence-filter { width: 100%; box-sizing: border-box; }
+.correspondence-item { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; text-align: left; padding: 10px; }
+.correspondence-item span { font-size: 12px; overflow-wrap: anywhere; opacity: .8; }
+.correspondence-item[aria-pressed="true"] { outline: 1px solid var(--vscode-focusBorder, #58a6ff); }
+#correspondence-status, #correspondence-selection, #correspondence-limitations { font-size: 12px; overflow-wrap: anywhere; }
+
+.tour-navigator-tabs:has(#correspondence-tab:not([hidden])) { grid-template-columns: repeat(4, minmax(0, 1fr)); }

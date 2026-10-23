@@ -3,6 +3,7 @@ const { createServer } = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
 const { buildChangeTourManifest, parseChangeTourStory } = require('../out/changeTour.js');
+const { loadChangeCorrespondence } = require('../out/changeCorrespondence');
 const { buildTourAuthoringCoverage, buildTourCoverageReport } = require('../out/tourCoverage.js');
 const { buildTourWindowTitle } = require('../out/windowTitle.js');
 const { tokenMatches } = require('./commandSpec.js');
@@ -22,7 +23,7 @@ const MIME_TYPES = new Map([
 ]);
 
 async function startPresentation(args, cwd, packageRoot, options = {}) {
-    const { headRef, baseRef, tourPath, explicitHeadRef } = parsePresentArgs(args);
+    const { headRef, baseRef, tourPath, explicitHeadRef, correspondencePath } = parsePresentArgs(args);
     const story = !options.ignoreEnvironment && process.env.BYGONE_TOUR_STORY
         ? parseChangeTourStory(JSON.parse(readFileSync(path.resolve(cwd, process.env.BYGONE_TOUR_STORY), 'utf8')))
         : undefined;
@@ -48,6 +49,8 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         const contained = relative && relative !== '..' && !relative.startsWith('../') && !path.isAbsolute(relative);
         manifest.localSource = { repo: pathToFileURL(root).href, tour: contained ? relative : pathToFileURL(documentPath).href };
     }
+    const correspondence = correspondencePath ? loadChangeCorrespondence(builtManifest.repository?.root || cwd,
+        path.resolve(cwd, correspondencePath), { baseOid: manifest.range.mergeBaseOid, headOid: manifest.range.headOid }) : null;
     const history = createTourHistory(manifest);
     const serializedManifest = `${JSON.stringify(manifest, null, 2)}\n`;
     const outputPath = options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_OUTPUT;
@@ -67,6 +70,10 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
 
     const server = createServer((request, response) => {
         const requestUrl = new URL(request.url || '/', 'http://127.0.0.1');
+        if (requestUrl.pathname === '/correspondence.json') {
+            if (request.method !== 'GET') return respondJson(response, 405, { error: 'Method not allowed' });
+            return respondJson(response, correspondence ? 200 : 404, correspondence || { error: 'No correspondence supplied' });
+        }
         if (requestUrl.pathname === '/tour/open') {
             if (request.method !== 'POST') return respondJson(response, 405, { error: 'Method not allowed' });
             if (!isSameOriginLoopbackRequest(request)) return respondJson(response, 403, { error: 'Forbidden' });
@@ -203,7 +210,7 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         server.close();
         throw new Error('Could not determine the presentation server address.');
     }
-    const url = `http://127.0.0.1:${address.port}/?manifest=/tour.json${options.location ? serializeDocumentFragment(options.location.mode, options.location.focus) : ''}`;
+    const url = `http://127.0.0.1:${address.port}/?manifest=/tour.json${correspondence ? '&correspondence=1' : ''}${options.location ? serializeDocumentFragment(options.location.mode, options.location.focus) : ''}`;
     if (options.announce !== false) {
         process.stdout.write(`Bygone change tour running at ${url}\n`);
         process.stdout.write('Press Ctrl+C to stop.\n');
@@ -225,6 +232,7 @@ function parsePresentArgs(args) {
     let explicitHeadRef;
     let baseRef;
     let tourPath;
+    let correspondencePath;
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index];
         if (tokenMatches('base', arg)) {
@@ -232,6 +240,11 @@ function parsePresentArgs(args) {
                 throw new Error(`${arg} requires a Git ref.`);
             }
             baseRef = args[++index];
+            continue;
+        }
+        if (arg === '--correspondence') {
+            if (!args[index + 1] || args[index + 1].startsWith('-')) throw new Error('--correspondence requires a file path.');
+            correspondencePath = args[++index];
             continue;
         }
         if (tokenMatches('tour', arg)) {
@@ -248,7 +261,7 @@ function parsePresentArgs(args) {
         headRef = arg;
         explicitHeadRef = arg;
     }
-    return { headRef, baseRef, tourPath, explicitHeadRef };
+    return { headRef, baseRef, tourPath, explicitHeadRef, ...(correspondencePath ? { correspondencePath } : {}) };
 }
 
 function resolveAssetPath(packageRoot, requestPath) {
