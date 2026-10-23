@@ -3,16 +3,18 @@ const { createHash } = require('node:crypto');
 const digest = text => createHash('sha256').update(text).digest('hex');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
+const { LIMITS, inputProblem, boundedProcessOptions } = require('./input');
 const { languageFor, isTreeSitterSource } = require('./languages');
 const { treeSitterInventory } = require('./tree-sitter-inventory');
 const isSupportedSource = path => languageFor(path) !== null && (['javascript', 'python'].includes(languageFor(path)) || isTreeSitterSource(path));
 
 function pythonInventory(files, options) {
-    const result = spawnSync(options.python || process.env.MAPPING_PYTHON || 'python3',
+    const processOptions = boundedProcessOptions(options, 'pythonTimeoutMs', 'pythonMaxOutputBytes', 10000);
+    const result = processOptions ? spawnSync(options.python || process.env.MAPPING_PYTHON || 'python3',
         ['-I', '-S', path.join(__dirname, 'python-inventory.py'), ...(options.strandFeatures ? ['--strand-features'] : [])], {
             input: JSON.stringify(files), encoding: 'utf8', windowsHide: true,
-            timeout: options.pythonTimeoutMs || 10000, maxBuffer: options.pythonMaxOutputBytes || 16777216
-        });
+            ...processOptions
+        }) : { error: { code: 'invalid-python-parser-options' } };
     let reason;
     if (result.error) reason = result.error.code === 'ETIMEDOUT' ? 'python-parser-timeout' : 'python-parser-process: ' + result.error.code;
     else if (result.status !== 0) reason = 'python-parser-exit-' + result.status;
@@ -30,6 +32,8 @@ function pythonInventory(files, options) {
 // Inventory is independent of the external matcher. Coordinates always index
 // the exact caller-supplied string (UTF-16, zero-based, half-open).
 function inventorySnapshot(files, side, options = {}) {
+    const problem = inputProblem(files, {}, LIMITS);
+    if (problem) throw new TypeError(problem);
     const entries = [], documents = [], exclusions = [];
     const snapshotId = digest(JSON.stringify(Object.keys(files).sort().map(path => [path, digest(files[path])])));
     const pythonFiles = Object.fromEntries(Object.entries(files).filter(([p]) => /\.pyi?$/.test(p)));

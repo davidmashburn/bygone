@@ -66,3 +66,11 @@ test('Mojo pinned enum and parameterized alias syntax retains nested ownership',
         ['Result.ready', 'method'], ['Vector', 'type']
     ]);
 });
+
+test('Mojo excludes callable-local aliases and type containers with their members', () => {
+    const text = 'def outer():\n    alias Price = Int\n    comptime Vector[T: AnyType] = List[T]\n    struct Local:\n        var value: Int\n    trait LocalTrait:\n        def hidden(self):\n            pass\n    __enum LocalEnum:\n        case ready\n    def nested():\n        return 1\n    return nested()\n';
+    const inv = inventorySnapshot({ 'a.mojo': text }, 'before');
+    assert.equal(inv.documents[0].status, 'complete');
+    assert.deepEqual(inv.entries.map(e => e.qualifiedName), ['outer', 'outer.nested']);
+    assert.equal(inv.exclusions.filter(e => e.reason === 'mojo-local-bindings').length, 5);
+});

@@ -62,6 +62,7 @@ function specDescription(node, parent, kind, multipleReason, body) {
 
 function describe(node, { parent } = {}) {
     if (!node) return null;
+    if (fieldChildren(node, 'name').some(name => name.text === '_')) return skip('go-blank-identifier');
 
     if (node.type === 'function_declaration') {
         const nameNode = field(node, 'name');

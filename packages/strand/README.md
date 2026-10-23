@@ -18,6 +18,13 @@ const evidence = matchStrand(before, after, inventories);
 `inventorySnapshot(files, side, options)` returns exact UTF-16, half-open ranges,
 source digests, parser diagnostics, and syntax exclusions. Python currently uses
 an isolated CPython subprocess (`python3` or `options.python`).
+Invalid or over-budget snapshot maps throw a `TypeError` with the input reason.
+Input ceilings are 50 paths, 1 MiB per file, and 4 MiB total per comparison;
+configured analysis input limits can lower these ceilings. Parser timeout/output overrides
+must be positive safe integers and are capped at their defaults (30 seconds for
+Tree-sitter, 10 seconds for Python, 16 MiB output). Invalid parser options mark
+affected documents unavailable with diagnostics. The public matcher also checks
+the combined snapshot input budget before computing candidates.
 `matchStrand(before, after, inventories, limits)` returns one-to-one candidate
 mappers, ambiguous groups, rejection diagnostics, processed paths and status.
 Its output is evidence, not proof of behavior preservation or a validated Bygone
@@ -46,8 +53,8 @@ correspondence; overload/type/binding resolution is not provided.
 Go supports functions, receiver methods, named types/aliases, interface methods,
 struct fields, and single-name package constants/variables. Receiver identity
 normalizes pointers and generic arguments without resolving types. Receiver
-type renames, local bindings/types, embedded fields, and multi-name specs are
-not inferred.
+type renames are not inferred. Blank identifiers, local bindings/types, embedded
+fields, and multi-name specs are excluded.
 
 Rust supports functions, modules, structs, enums, traits, impl blocks and their
 methods/associated types, type aliases, constants and statics. Outer attributes
@@ -60,8 +67,9 @@ resolution is performed.
 Mojo support is experimental and pinned to a community grammar. It supports
 `.mojo` and `.🔥`, current `def` functions, generic structs, traits, experimental `__enum`,
 methods, decorators, aliases (including parameterized `comptime`) and simple module/struct bindings. The pinned
-grammar does not cover legacy `fn` syntax. Local/destructured bindings,
-lambdas and Python-style `class` recovery productions are excluded. A parse
+grammar does not cover legacy `fn` syntax. Callable-local aliases/types,
+local/destructured bindings, lambdas and Python-style `class` recovery productions are excluded.
+Named nested functions are inventoried under their callable owner. A parse
 error makes the whole document unavailable for correspondence. Grammar
 acceptance is not a Mojo compiler check; compiler versions and real-world
 syntax beyond the synthetic fixtures have not been qualified.

@@ -13,3 +13,20 @@ test('package consumes source maps without Bygone or Git', () => {
     assert.equal(result.mappers[0].source.name, 'total');
     assert.equal(result.mappers[0].destination.name, 'count');
 });
+
+test('public inventory rejects invalid maps and enforces input ceilings before parsing', () => {
+    for (const files of [null, [], { 'a.js': null }]) assert.throws(() => inventorySnapshot(files, 'before'), TypeError);
+    const files = Object.fromEntries(Array.from({ length: 51 }, (_, i) => [`${i}.js`, 'function value() {}']));
+    assert.throws(() => inventorySnapshot(files, 'before'), /file-budget/);
+    assert.equal(inputProblem(files, {}, { ...LIMITS, maxFiles: 1000 }), 'file-budget');
+    assert.throws(() => inventorySnapshot({ 'a.js': 'é'.repeat(LIMITS.maxFileBytes / 2 + 1) }, 'before'), /file-byte-budget/);
+    const total = Object.fromEntries(Array.from({ length: 5 }, (_, i) => [`${i}.js`, ' '.repeat(LIMITS.maxFileBytes)]));
+    assert.throws(() => inventorySnapshot(total, 'before'), /comparison-byte-budget/);
+});
+
+test('public matcher enforces combined snapshot input budgets', () => {
+    const files = Object.fromEntries(Array.from({ length: 3 }, (_, i) => [`${i}.js`, ' '.repeat(LIMITS.maxFileBytes)]));
+    const result = matchStrand(files, files, { before: { entries: [] }, after: { entries: [] } }, { maxBytes: 100000000 });
+    assert.equal(result.status, 'unavailable');
+    assert.equal(result.reason, 'comparison-byte-budget');
+});

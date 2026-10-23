@@ -5,6 +5,10 @@ function describe(node, context) {
         const description = definition && describe(definition, context);
         return description?.kind ? { ...description, children: definition.namedChildren } : description;
     }
+    if (context.parent?.callable && ['class_definition', 'trait_definition', 'enum_definition',
+        'type_alias_statement', 'parameterized_alias_statement'].includes(node.type)) {
+        return { skip: true, reason: 'mojo-local-bindings' };
+    }
     if (node.type === 'class_definition') {
         // This grammar also accepts Python-style class for error recovery.
         // Do not present that recovery production as a supported Mojo struct.

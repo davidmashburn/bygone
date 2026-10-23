@@ -6,6 +6,7 @@ const ts = require('typescript');
 const { performance } = require('node:perf_hooks');
 const { digest } = require('./symbol-inventory');
 const { languageFor, isInferredSource } = require('./languages');
+const { inputProblem, LIMITS } = require('./input');
 
 const JAVASCRIPT_PATH = /\.(?:[cm]?[jt]s|[jt]sx)$/i;
 const DEFAULT_LIMITS = Object.freeze({
@@ -722,6 +723,8 @@ function matchDeclarations(before, after, inventories, limits = {}, python = fal
         || Object.values(after).some(value => typeof value !== 'string')) {
         return result('unavailable', { before: [], after: [] }, { reason: 'invalid-input' });
     }
+    const problem = inputProblem(before, after, LIMITS);
+    if (problem) return result('unavailable', { before: [], after: [] }, { reason: problem });
     if (!inventories?.before || !inventories?.after || !Array.isArray(inventories.before.entries)
         || !Array.isArray(inventories.after.entries)) {
         return result('unavailable', { before: [], after: [] }, { reason: 'invalid-inventories' });

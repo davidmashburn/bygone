@@ -1,11 +1,13 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
+const { boundedProcessOptions } = require('./input');
 function treeSitterInventory(files, options) {
-    const result = spawnSync(process.execPath, [path.join(__dirname, 'tree-sitter-worker.js')], {
+    const processOptions = boundedProcessOptions(options, 'treeSitterTimeoutMs', 'treeSitterMaxOutputBytes', 30000);
+    const result = processOptions ? spawnSync(process.execPath, [path.join(__dirname, 'tree-sitter-worker.js')], {
         input: JSON.stringify({ files, strandFeatures: options.strandFeatures === true }), encoding: 'utf8', windowsHide: true,
-        timeout: options.treeSitterTimeoutMs || 30000, maxBuffer: options.treeSitterMaxOutputBytes || 16777216
-    });
-    let reason = result.error?.code === 'ETIMEDOUT' ? 'tree-sitter-parser-timeout'
+        ...processOptions
+    }) : { error: { code: 'invalid-tree-sitter-parser-options' } };
+    let reason = !processOptions ? 'invalid-tree-sitter-parser-options' : result.error?.code === 'ETIMEDOUT' ? 'tree-sitter-parser-timeout'
         : result.error ? 'tree-sitter-parser-process' : result.status !== 0 ? 'tree-sitter-parser-exit' : 'invalid-tree-sitter-output';
     if (!result.error && result.status === 0) {
         try {

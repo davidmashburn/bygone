@@ -1,8 +1,9 @@
 # Local correspondence engine
 
 [Bygone Strand](javascript-engine.md) is the local correspondence
-producer. Select it with `--engine bygone-strand` to infer JS/TS/Python edited
-continuations, moves and renames without Java. The default and optional
+producer. Select it with `--engine bygone-strand` to infer edited continuations,
+moves and renames in JS/TS, Python, Java, Go, Rust, and experimental Mojo without
+a Java runtime. The default and optional
 RefactoringMiner path described below remain available.
 
 ## Optional RefactoringMiner adapter

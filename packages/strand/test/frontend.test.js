@@ -53,3 +53,24 @@ test('corrupted grammar bytes are rejected before loading', () => {
     `], { cwd: require('node:path').join(__dirname, '..'), encoding: 'utf8', timeout: 10000 });
     assert.equal(result.status, 0, result.stderr);
 });
+
+test('invalid parser resource overrides fail closed and excessive values are capped', () => {
+    const { boundedProcessOptions, LIMITS } = require('../src/input');
+    for (const [extension, text, prefix] of [
+        ['java', 'class Item { int value() { return 9; } }', 'treeSitter'],
+        ['py', 'def value():\n    return 9\n', 'python']
+    ]) {
+        for (const key of [`${prefix}TimeoutMs`, `${prefix}MaxOutputBytes`]) {
+            for (const value of [-1, 0, 1.5, NaN, Infinity, '100', null]) {
+                const files = { [`a.${extension}`]: text };
+                const result = analyzeStrand(files, files, { [key]: value });
+                assert.equal(result.native.reason, 'parse-preflight-failed', `${key}: ${value}`);
+                assert.equal(result.analysis.relations.length, 0);
+                assert.match(result.analysis.inventories.before.documents[0].diagnostics[0].message, /invalid-.*parser-options/);
+            }
+        }
+    }
+    assert.deepEqual(boundedProcessOptions({ treeSitterTimeoutMs: Number.MAX_SAFE_INTEGER,
+        treeSitterMaxOutputBytes: Number.MAX_SAFE_INTEGER }, 'treeSitterTimeoutMs', 'treeSitterMaxOutputBytes', 30000),
+    { timeout: 30000, maxBuffer: LIMITS.maxOutputBytes });
+});

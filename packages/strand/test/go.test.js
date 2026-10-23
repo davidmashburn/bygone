@@ -170,3 +170,13 @@ test('Go has no cross-language matches and duplicate copies remain ambiguous', (
     assert.equal(duplicate.analysis.relations.length, 0);
     assert(duplicate.native.unresolved.some(group => group.reason === 'ambiguous-go-candidates'));
 });
+
+test('Go blank identifiers are exclusions rather than named symbols or matches', () => {
+    const text = 'package tally\nconst _ = 9\nvar _ = 2\ntype _ struct{}\nfunc _() {}\ntype Named struct { _ int }\n';
+    const inv = inventorySnapshot({ 'a.go': text }, 'before');
+    assert.equal(inv.documents[0].status, 'complete');
+    assert.deepEqual(inv.entries.map(e => e.name), ['Named']);
+    assert.equal(inv.exclusions.filter(e => e.reason === 'go-blank-identifier').length, 5);
+    const result = analyzeStrand({ 'a.go': 'package tally\nconst _ = 9\n' }, { 'b.go': 'package tally\nconst _ = 10\n' });
+    assert.equal(result.analysis.relations.length, 0);
+});
