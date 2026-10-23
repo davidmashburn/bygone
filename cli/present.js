@@ -63,7 +63,6 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
 
     const tourWindowTitle = buildTourWindowTitle(manifest, 'Bygone');
     const presenterIndexPath = path.join(packageRoot, 'web', 'index.html');
-    let presenterIndexTemplate;
     // Uploaded documents remain immutable, scoped to this existing repository,
     // and addressed independently so opening one cannot mutate another tab.
     const uploadedTours = new Map();
@@ -166,18 +165,20 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
             return;
         }
         if (requestUrl.pathname === '/' || requestUrl.pathname === '/index.html') {
-            if (!presenterIndexTemplate) {
-                presenterIndexTemplate = readFileSync(presenterIndexPath, 'utf8');
-            }
-            const html = presenterIndexTemplate.replace(
-                /<title>Bygone Tour<\/title>/,
-                `<title>${escapeHtml(tourWindowTitle)}</title>`
-            );
-            response.writeHead(200, {
-                'Content-Type': 'text/html; charset=utf-8',
-                'Cache-Control': 'no-store'
+            // Read HTML like the runtime assets so a rebuild cannot leave a
+            // running presentation serving old controls with new JavaScript.
+            readFile(presenterIndexPath, 'utf8', (error, template) => {
+                if (error) { respond(response, 500, 'Read failed'); return; }
+                const html = template.replace(
+                    /<title>Bygone Tour<\/title>/,
+                    `<title>${escapeHtml(tourWindowTitle)}</title>`
+                );
+                response.writeHead(200, {
+                    'Content-Type': 'text/html; charset=utf-8',
+                    'Cache-Control': 'no-store'
+                });
+                response.end(html);
             });
-            response.end(html);
             return;
         }
         const targetPath = resolveAssetPath(packageRoot, requestUrl.pathname);

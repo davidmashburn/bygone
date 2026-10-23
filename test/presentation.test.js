@@ -21,6 +21,16 @@ test('presentation serves asset bytes and reports read failures before sending s
         fs.mkdirSync(path.join(packageRoot, 'web/unreadable.css'));
         presentation = await startPresentation(['--tour', fixture.sourcePath], fixture.root, packageRoot,
             { announce: false, open: false, ignoreEnvironment: true });
+        const initialPage = await fetch(presentation.url);
+        assert.equal(initialPage.headers.get('cache-control'), 'no-store');
+        assert.doesNotMatch(await initialPage.text(), /correspondence-unmatched/);
+        fs.writeFileSync(path.join(packageRoot, 'web/index.html'), '<title>Bygone Tour</title><input id="correspondence-unmatched" type="checkbox" checked>');
+        const rebuiltPage = await fetch(presentation.url);
+        assert.match(await rebuiltPage.text(), /id="correspondence-unmatched"/);
+        fs.unlinkSync(path.join(packageRoot, 'web/index.html'));
+        const missingPage = await fetch(presentation.url);
+        assert.equal(missingPage.status, 500);
+        assert.equal(await missingPage.text(), 'Read failed');
         const asset = await fetch(new URL('/media/webview.js', presentation.url));
         assert.equal(asset.status, 200);
         assert.match(asset.headers.get('content-type'), /application\/javascript/);

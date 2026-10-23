@@ -79,6 +79,27 @@ app.whenReady().then(async () => {
         })()`);
         assert.ok(hierarchy.context); assert.equal(hierarchy.ambiguous, 3); assert.equal(hierarchy.moves, 2);
         assert.match(hierarchy.status, /3 of 6 inferred mappings/); assert.match(hierarchy.status, /4 unmatched symbols/);
+        const unmatchedFilter = await evaluate(`(() => {
+            const addedRemoved=document.getElementById('correspondence-unmatched');
+            const all=document.getElementById('correspondence-all');
+            const result={defaultChecked:addedRemoved.checked};
+            addedRemoved.click();
+            result.filtered=document.getElementById('correspondence-status').textContent;
+            result.beforeOnly=!!document.querySelector('[data-symbol-key="before:before-prior_only"]');
+            result.afterOnly=!!document.querySelector('[data-symbol-key="after:after-fresh_only"]');
+            result.ambiguous=!!document.querySelector('[data-symbol-key="before:before-uncertain"]');
+            all.click();
+            result.withUnchanged=document.getElementById('correspondence-status').textContent;
+            all.click(); addedRemoved.click();
+            result.restored=document.getElementById('correspondence-status').textContent;
+            return result;
+        })()`);
+        assert.ok(unmatchedFilter.defaultChecked);
+        assert.match(unmatchedFilter.filtered, /3 of 6 inferred mappings · 0 unmatched symbols/);
+        assert.equal(unmatchedFilter.beforeOnly, false); assert.equal(unmatchedFilter.afterOnly, false);
+        assert.equal(unmatchedFilter.ambiguous, false);
+        assert.match(unmatchedFilter.withUnchanged, /6 of 6 inferred mappings · 0 unmatched symbols/);
+        assert.match(unmatchedFilter.restored, /4 unmatched symbols/);
         // Native keyboard activation must expand/collapse without opening a diff.
         await evaluate(`document.querySelector('[data-symbol-key="after:after-Work"] > .correspondence-heading > .correspondence-toggle').focus()`);
         window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
@@ -130,10 +151,12 @@ app.whenReady().then(async () => {
             result.unchanged=window.__symbolSmokeMessages.at(-1);
             result.all=document.getElementById('correspondence-all').checked;
             result.search=filter.value; result.focused=document.activeElement.dataset.correspondenceId;
+            document.getElementById('correspondence-unmatched').click();
             const unmatched=container.querySelector('[data-diagnostic-category="unmatched"]'); unmatched.open=true;
             const competing=unmatched.querySelector('li:last-child');
             result.competitors=competing.querySelectorAll('button').length;
             competing.querySelector('button').click(); result.ambiguous=window.__symbolSmokeMessages.at(-1);
+            result.includeUnmatched=document.getElementById('correspondence-unmatched').checked;
             result.syntaxStillOpen=container.querySelector('[data-diagnostic-category="syntax"]').open;
             return result;
         })()`);
@@ -147,6 +170,19 @@ app.whenReady().then(async () => {
         assert.ok(diagnostics.all); assert.equal(diagnostics.search, ''); assert.equal(diagnostics.focused, 'relation-kept');
         assert.equal(diagnostics.competitors, 2); assert.match(diagnostics.ambiguous.leftContent, /def uncertain/);
         assert.equal(diagnostics.ambiguous.rightContent, ''); assert.ok(diagnostics.syntaxStillOpen);
+        assert.ok(diagnostics.includeUnmatched);
+        const oldPage = await evaluate(`(() => {
+            document.getElementById('correspondence-unmatched').remove();
+            const filter=document.getElementById('correspondence-filter');
+            filter.value='prior_only'; filter.dispatchEvent(new Event('input'));
+            const status=document.getElementById('correspondence-status').textContent;
+            const before=window.__symbolSmokeMessages.length;
+            document.querySelector('[data-diagnostic-category="unmatched"] li:last-child button').click();
+            return {status, opened:window.__symbolSmokeMessages.length-before, selected:window.__symbolSmokeMessages.at(-1)};
+        })()`);
+        assert.match(oldPage.status, /0 of 6 inferred mappings · 1 unmatched symbols/);
+        assert.equal(oldPage.opened, 1);
+        assert.match(oldPage.selected.leftContent, /def uncertain/);
         console.log('Correspondence browser smoke passed: symbol tree, complete slices, keyboard/search, diagnostic categories, legacy fallback, full-file locations, unchanged endpoint and ambiguous-origin navigation.');
     } finally {
         clearTimeout(timeout); if (window) window.destroy();

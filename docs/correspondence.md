@@ -95,8 +95,11 @@ the declaration slice. The **Files** rail still opens complete file diffs.
 Symbols groups declarations by file and nests classes, methods and functions
 using their source ranges. Expand or collapse branches with the disclosure
 buttons (also keyboard accessible). The default filter includes moved, renamed,
-edited and unmatched declarations; enable **Include unchanged local symbols**
-to see all inventoried declarations. Search retains ancestor paths and opens
+edited and unmatched declarations. **Include added or removed local symbols**
+is checked by default; uncheck it to hide before-only and after-only declarations
+without accepted matches, including ambiguous endpoints. These are not confirmed
+additions or deletions. Enable **Include unchanged local symbols** to also show
+unchanged matched declarations. Search retains ancestor paths and opens
 matching branches. Ancestors retained only for context are dimmed.
 Moved or reparented declarations appear at both locations; the old location is
 labeled **Before location** and opens the same before/after comparison. Counts
@@ -108,7 +111,7 @@ outside analysis, syntax not inventoried, rejected engine containers, unmatched
 symbols and competing origins, other relationships, and analysis problems.
 Records retain reported reasons, revision sides and source locations. Links open
 complete file context or inventoried symbols, including unchanged declarations;
-symbol links clear search and enable **Include unchanged local symbols**.
+symbol links clear search and enable both include options.
 Ambiguous groups link every competing endpoint without picking an origin.
 Invalid producer ranges retain paths without trusted offsets. A missing candidate
 is distinguished from a rejected candidate; when the producer gives no explanation,

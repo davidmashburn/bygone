@@ -1,5 +1,5 @@
 // Source containment defines hierarchy; accepted relations only join revisions.
-export function buildCorrespondenceTree(evidence, { all = false, query = '' } = {}) {
+export function buildCorrespondenceTree(evidence, { all = false, includeUnmatched = true, query = '' } = {}) {
     const files = new Map(), before = new Map(), after = new Map();
     const sources = new Map(evidence.relations.map(r => [r.sourceId, r]));
     const destinations = new Map(evidence.relations.map(r => [r.destinationId, r]));
@@ -81,6 +81,7 @@ export function buildCorrespondenceTree(evidence, { all = false, query = '' } = 
     for (const node of ordered.reverse()) {
         node.children = node.children.filter(child => child.visible);
         const ownMatch = node.type === 'symbol' && (all || node.changed)
+            && (node.relation || includeUnmatched)
             && `${node.before?.name || ''} ${node.after?.name || ''} ${node.entry.path} ${node.before?.path || ''} ${node.after?.path || ''}`.toLowerCase().includes(needle);
         node.visible = ownMatch || node.children.length > 0;
         node.context = !ownMatch;

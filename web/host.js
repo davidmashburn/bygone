@@ -1344,6 +1344,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         initializeNarrationVoices();
         document.getElementById('correspondence-filter')?.addEventListener('input', renderCorrespondences);
         document.getElementById('correspondence-all')?.addEventListener('change', renderCorrespondences);
+        document.getElementById('correspondence-unmatched')?.addEventListener('change', renderCorrespondences);
         document.getElementById('tour-navigator-tabs')?.addEventListener('click', (event) => {
             const button = event.target instanceof Element ? event.target.closest('[data-tour-navigator]') : null;
             if (button?.dataset.tourNavigator) setTourNavigatorTab(button.dataset.tourNavigator);
@@ -2167,7 +2168,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         if (!evidence) return;
         const query = document.getElementById('correspondence-filter').value.toLowerCase();
         const all = document.getElementById('correspondence-all').checked;
-        const tree = buildCorrespondenceTree(evidence, { all, query });
+        const includeUnmatched = document.getElementById('correspondence-unmatched')?.checked ?? true;
+        const tree = buildCorrespondenceTree(evidence, { all, includeUnmatched, query });
         document.getElementById('correspondence-status').textContent = `${evidence.range.baseOid.slice(0, 7)} → ${evidence.range.headOid.slice(0, 7)} · ${evidence.status} analysis · ${tree.matchingRelations} of ${evidence.relations.length} inferred mappings · ${tree.matchingUnmatched} unmatched symbols · ${evidence.unresolved.length} ambiguous groups. Behavior unassessed.`;
         const root = document.createElement('ul'); root.className = 'correspondence-tree';
         list.append(root);
@@ -2258,7 +2260,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         }
         if (!tree.files.length) {
             const empty = document.createElement('p'); empty.className = 'history-rail-empty';
-            empty.textContent = query.trim() ? 'No symbols match this filter.' : 'No changed or unmatched symbols. Include unchanged local symbols to see all inventoried declarations.';
+            empty.textContent = query.trim() ? 'No symbols match this filter.' : 'No symbols match the current filters. Enable the include options to see more inventoried declarations.';
             list.append(empty);
         }
         renderCorrespondenceDiagnostics(evidence);
@@ -2267,6 +2269,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     function openDiagnosticSymbol(id) {
         document.getElementById('correspondence-filter').value = '';
         document.getElementById('correspondence-all').checked = true;
+        const unmatchedFilter = document.getElementById('correspondence-unmatched');
+        if (unmatchedFilter) unmatchedFilter.checked = true;
         renderCorrespondences();
         const relation = state.correspondence.relations.find(r => r.sourceId === id || r.destinationId === id);
         const buttons = [...document.querySelectorAll('#correspondence-list .correspondence-item')];
@@ -2311,7 +2315,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                     link.textContent = label; link.className = 'correspondence-diagnostic-location';
                     if (symbol || file) {
                         link.type = 'button';
-                        link.title = symbol ? 'Inspect symbol (includes unchanged local symbols and clears search)' : 'Inspect complete file context';
+                        link.title = symbol ? 'Inspect symbol (enables both include options and clears search)' : 'Inspect complete file context';
                         link.addEventListener('click', () => {
                             if (symbol) return openDiagnosticSymbol(symbol.id);
                             cancelPendingModeRestore(); evidenceRequest += 1;
