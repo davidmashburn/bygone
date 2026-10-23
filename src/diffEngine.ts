@@ -104,19 +104,10 @@ export function buildTwoWayDiffModel(
         return model;
     }
 
-    const interned = internDiffLines(leftLines, rightLines);
-    const internedChanges = Diff.diffArrays(interned.left, interned.right, {
-        timeout: options.timeoutMs ?? DIFF_TIMEOUT_MS
-    });
-
-    if (!internedChanges) {
+    const changes = diffAnchoredLines(leftLines, rightLines, options.timeoutMs ?? DIFF_TIMEOUT_MS);
+    if (!changes) {
         return buildConservativeTwoWayDiffModel(leftLines, rightLines);
     }
-
-    const changes = internedChanges.map((change) => ({
-        ...change,
-        value: change.value.map((lineId) => interned.lines[lineId])
-    }));
 
     const rows: DiffRow[] = [];
     const renderedLeftLines: DiffLine[] = [];
@@ -251,6 +242,51 @@ function mergeTouchingBlocks(blocks: DiffBlock[]): DiffBlock[] {
         } else merged.push(block);
     }
     return merged;
+}
+
+function diffAnchoredLines(leftLines: string[], rightLines: string[], timeoutMs: number): Diff.Change<string[]>[] | undefined {
+    const deadline = Date.now() + timeoutMs;
+    const namedLines = (lines: string[]) => lines.flatMap((line, index) => {
+        const key = normalizeMatchingContent(line);
+        return isInformativeLine(key) ? [{ key, index }] : [];
+    });
+    const leftNames = namedLines(leftLines);
+    const rightNames = namedLines(rightLines);
+    // Establish meaningful correspondences before punctuation can partition the diff.
+    const namedChanges = Diff.diffArrays(leftNames.map(line => line.key), rightNames.map(line => line.key), {
+        timeout: deadline - Date.now()
+    });
+    if (!namedChanges) return undefined;
+
+    const changes: Diff.Change<string[]>[] = [];
+    let leftStart = 0;
+    let rightStart = 0;
+    const appendGap = (leftEnd: number, rightEnd: number): boolean => {
+        if (leftStart === leftEnd && rightStart === rightEnd) return true;
+        const interned = internDiffLines(leftLines.slice(leftStart, leftEnd), rightLines.slice(rightStart, rightEnd));
+        const gap = Diff.diffArrays(interned.left, interned.right, { timeout: deadline - Date.now() });
+        if (!gap) return false;
+        changes.push(...gap.map(change => ({ ...change, value: change.value.map(id => interned.lines[id]) })));
+        return true;
+    };
+    let leftName = 0;
+    let rightName = 0;
+    for (const change of namedChanges) {
+        if (change.removed) { leftName += change.value.length; continue; }
+        if (change.added) { rightName += change.value.length; continue; }
+        for (let index = 0; index < change.value.length; index++) {
+            const leftIndex = leftNames[leftName++].index;
+            const rightIndex = rightNames[rightName++].index;
+            if (!appendGap(leftIndex, rightIndex)) return undefined;
+            const left = leftLines[leftIndex];
+            const right = rightLines[rightIndex];
+            if (left === right) changes.push({ value: [left] });
+            else changes.push({ removed: true, value: [left] }, { added: true, value: [right] });
+            leftStart = leftIndex + 1;
+            rightStart = rightIndex + 1;
+        }
+    }
+    return appendGap(leftLines.length, rightLines.length) ? changes : undefined;
 }
 
 function internDiffLines(leftLines: string[], rightLines: string[]): {
@@ -1663,8 +1699,8 @@ function buildInlineSegments(
     }
 
     return {
-        leftSegments,
-        rightSegments,
+        leftSegments: normalizeIndentationHighlights(leftSegments),
+        rightSegments: normalizeIndentationHighlights(rightSegments),
         hasInlineChanges
     };
 }
@@ -1705,7 +1741,43 @@ function buildWhitespaceOnlySegments(left: string, right: string): {
         append(leftSegments, 'context', part.slice(part.length - suffix));
         append(rightSegments, 'context', other.slice(other.length - suffix));
     });
-    return { leftSegments, rightSegments };
+    return {
+        leftSegments: normalizeIndentationHighlights(leftSegments),
+        rightSegments: normalizeIndentationHighlights(rightSegments)
+    };
+}
+
+function normalizeIndentationHighlights(segments: DiffSegment[]): DiffSegment[] {
+    // Word diffs prefer common prefixes. Display changed indentation at column 1
+    // on every physical line, including wrapped edits with substantive changes.
+    const result: DiffSegment[] = [];
+    splitSegmentsIntoLines(segments).forEach((line, index) => {
+        if (index > 0) result.push({ kind: 'context', text: '\n', emphasis: false });
+        const content = line.map(segment => segment.text).join('');
+        const indentLength = content.match(/^[\t ]*/u)![0].length;
+        let offset = 0;
+        let emphasized = 0;
+        let kind: DiffSegment['kind'] = 'context';
+        for (const segment of line) {
+            if (offset >= indentLength) break;
+            if (segment.emphasis) {
+                emphasized += Math.min(segment.text.length, indentLength - offset);
+                kind = segment.kind;
+            }
+            offset += segment.text.length;
+        }
+        if (emphasized) result.push({ kind, text: content.slice(0, emphasized), emphasis: true });
+        if (indentLength > emphasized) {
+            result.push({ kind: 'context', text: content.slice(emphasized, indentLength), emphasis: false });
+        }
+        offset = 0;
+        for (const segment of line) {
+            const start = Math.max(0, indentLength - offset);
+            if (start < segment.text.length) result.push({ ...segment, text: segment.text.slice(start) });
+            offset += segment.text.length;
+        }
+    });
+    return result;
 }
 
 function splitSegmentsIntoLines(segments: DiffSegment[]): DiffSegment[][] {

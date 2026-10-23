@@ -32,6 +32,105 @@ function emphasizedRanges(line) {
     });
 }
 
+test('named blocks anchor before matching braces across indentation and nesting changes', () => {
+    // Synthetic configuration: no application code is needed to reproduce the ambiguity.
+    const before = [
+        'const plan = [',
+        '  {',
+        '    filter: {',
+        '      alternatives: [',
+        '        { enabled: true },',
+        '      ],',
+        '    },',
+        '  },',
+        '  {',
+        '    render: {',
+        '      items: {',
+        '        unique: [',
+        '          {',
+        '            combine: [',
+        '              source.primary,',
+        '              source.secondary,',
+        '            ],',
+        '          },',
+        '          selected,',
+        '        ],',
+        '      },',
+        '    },',
+        '  },',
+        '];'
+    ];
+    const after = [
+        'const plan = [',
+        '  { filter: { enabled: true } },',
+        '  {',
+        '  render: {',
+        '    items: {',
+        '      combine: [',
+        '        defaults,',
+        '        {',
+        '          unique: [',
+        '            {',
+        '              combine: [',
+        '                source.primary,',
+        '                source.secondary,',
+        '              ],',
+        '            },',
+        '            selected,',
+        '          ],',
+        '        },',
+        '      ],',
+        '    },',
+        '  },',
+        '  },',
+        '];'
+    ];
+    const pairs = [[10, 4], [11, 5], [12, 9], [14, 11], [15, 12], [16, 13], [19, 16]];
+    for (const reverse of [false, true]) {
+        const [left, right] = reverse ? [after, before] : [before, after];
+        const model = buildTwoWayDiffModel(left.join('\n'), right.join('\n'));
+        assertPreserved(model, left, right);
+        assert.equal(model.quality, 'exact');
+        for (const [a, b] of pairs) {
+            const [leftNumber, rightNumber] = reverse ? [b, a] : [a, b];
+            assert.equal(model.rows.find(row => row.left.lineNumber === leftNumber).right.lineNumber, rightNumber);
+            assert.equal(mapLinePosition(leftNumber - 1, 'left', model), rightNumber - 1);
+        }
+    }
+});
+
+test('indentation highlights start at column one alongside substantive and wrapped edits', () => {
+    for (const [before, after] of [
+        [['    return original;'], ['      return updated;']],
+        [['\treturn original;'], ['\t\treturn updated;']],
+        [['    title: old'], ['  title: new']],
+        [['    if ready and active:'], ['    if (', '        ready', '        and enabled', '    ):']],
+        [['  body: alpha beta gamma'], ['    body: alpha beta', '      CHANGED gamma']],
+        [['  silver birds', '  quiet forests'], ['    amber boats', '    lively towns', '    glowing lanterns']],
+        [['    first second'], ['      first', '      second']]
+    ]) {
+        for (const [left, right] of [[before, after], [after, before]]) {
+            const model = buildTwoWayDiffModel(left.join('\n'), right.join('\n'));
+            assertPreserved(model, left, right);
+            let highlightedIndentation = 0;
+            for (const line of [...model.leftLines, ...model.rightLines]) {
+                const indentLength = line.content.match(/^[\t ]*/)[0].length;
+                const ranges = emphasizedRanges(line).filter(([start]) => start < indentLength);
+                if (ranges.length) {
+                    assert.equal(ranges[0][0], 0, JSON.stringify(line));
+                    assert.equal(ranges.length, 1, 'Changed indentation is a contiguous prefix');
+                    highlightedIndentation++;
+                }
+            }
+            assert.ok(highlightedIndentation, 'Exercise an actual indentation edit');
+            const changedText = [...model.leftLines, ...model.rightLines]
+                .flatMap(line => (line.segments || []).filter(segment => segment.emphasis))
+                .map(segment => segment.text).join('');
+            if (before[0].includes('original')) assert.match(changedText, /original|updated/);
+        }
+    }
+});
+
 test('an edited condition wrapped across lines keeps word highlights in both directions', () => {
     const before = ['    if item.ready is None and self.now >= item.cutoff:'];
     const after = ['    if (', '        item.ready is None',

@@ -50,6 +50,19 @@ app.whenReady().then(async () => {
         await runPythonHighlightSmoke({ window, show });
         await runInitialRevealSmoke({ window, show });
         await runProseHighlightSmoke({ window, show });
+        for (const reverse of [false, true]) {
+            const pair = ['    return original;', '      return updated;'];
+            if (reverse) pair.reverse();
+            await show({ type: 'showDiff', file1: 'indent-before.js', file2: 'indent-after.js',
+                leftContent: pair[0], rightContent: pair[1] });
+            const side = reverse ? 0 : 1;
+            const ranges = await evaluate(`window.monaco.editor.getEditors()[${side}].getModel()
+                .getAllDecorations().filter(d => d.options.inlineClassName === 'bygone-inline-blue')
+                .map(d => [d.range.startColumn, d.range.endColumn])`);
+            assert.ok(ranges.some(([start, end]) => start === 1 && end === 3),
+                `Edited indentation starts at column one: ${JSON.stringify(ranges)}`);
+            assert.ok(ranges.some(([start]) => start > 3), 'Substantive edits retain their own highlights');
+        }
         const fixture = yamlDiffFixture();
         const leftContent = fixture.before.join('\n');
         const rightContent = fixture.after.join('\n');
