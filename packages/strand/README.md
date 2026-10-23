@@ -74,6 +74,42 @@ error makes the whole document unavailable for correspondence. Grammar
 acceptance is not a Mojo compiler check; compiler versions and real-world
 syntax beyond the synthetic fixtures have not been qualified.
 
+C# supports `.cs` block/file-scoped namespaces, named classes/structs/interfaces/
+records/enums/delegates, constructors, methods, properties, enum members and
+single-declarator fields. Attributes stay in declaration ranges. Namespace
+identity is strict; repeated namespace regions can leave moved descendants
+ambiguous. Compiler overload/partial-type resolution is absent.
+Events, indexers, operators/conversions, destructors, local functions/bindings,
+anonymous syntax, top-level statements and preprocessor conditionals are excluded.
+
+Ruby supports `.rb` named classes/modules, constants, top-level private Object
+methods, instance methods, and `self` singleton methods (including
+`class << self`). Instance and singleton scopes remain distinct. Reopened classes are separate inventory declarations;
+no runtime class merging or method lookup is attempted. Dynamic receivers,
+metaprogrammed definitions, anonymous blocks and callable-local declarations/
+bindings are excluded.
+
+PHP supports `.php` named bracketed/unbracketed namespaces, classes/interfaces/
+traits/enums, functions/methods, enum cases, and single-name properties/constants.
+Anonymous classes/closures, promoted or hooked properties, multiple properties/
+constants, callable-local declarations and anonymous global namespace blocks
+are excluded. Namespace identity is strict, and repeated namespace regions can
+leave moved descendants ambiguous. No autoload, trait composition or binding resolution is
+performed.
+
+C supports `.c` functions/prototypes, named structs/unions/enums and their
+fields/enumerators, typedefs, and single-name globals. Local bindings/types,
+multiple declarators, complex function pointers and standalone anonymous
+aggregates are excluded. Aggregates inside typedefs are retained in the typedef
+slice without separately inventoried fields. All preprocessor subtrees, including
+conditional branches, are excluded: macros are not expanded. Ambiguous `.h` headers are not assigned to
+C or C++. Field/enumerator owner identities stay strict across owner renames.
+
+Lua supports `.lua` named global/local functions, nested named functions, and
+static dot/colon table methods. Local/global and dot/colon identities are distinct;
+member ownership must stay the same. Assignment bindings, anonymous functions
+and dynamic receivers are excluded; table assignments are not resolved.
+
 Adding another Tree-sitter language requires a pinned grammar/hash/license, a
 small declaration adapter, and tests for ranges, edited matches, owner isolation,
 invalid input and ambiguity. The shared matcher and Bygone artifact format stay

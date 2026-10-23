@@ -12,8 +12,9 @@ npm run correspondence:analyze -- feature --base main --engine bygone-strand \
   --output /tmp/correspondence-js.json
 ```
 
-The generator uses the existing checkout's TypeScript and `diff` dependencies.
-It installs no runtime or package. Existing saved artifacts and consumers have
+The generator uses the private `bygone-strand` workspace package and the
+checkout's `diff` dependency. Tree-sitter grammars and their licenses ship as
+pinned, hash-checked WASM assets; generation performs no runtime downloads. Existing saved artifacts and consumers have
 no matcher runtime requirement. Java remains an optional alternative producer.
 
 ## Scope and evidence
@@ -31,6 +32,11 @@ when needed; only Python generation needs the interpreter. Decorators remain in
 the declaration slice and in header evidence. Literal/operator spellings remain
 in token evidence. Assignments, imports and lambdas retain their existing inventory
 exclusions. Python `.pyi` stubs retain inventory/exact matching only.
+
+Java, Go, Rust, C#, Ruby, PHP, C and Lua use the shared bounded Tree-sitter
+frontend; Mojo uses the same frontend with an experimental community grammar.
+See the [package coverage and exclusions](../../packages/strand/README.md) for
+each adapter's declarations, file extensions and ownership constraints.
 
 The matcher compares structural/token features, preserving literal/operator
 differences. Strong unique local identities anchor same-scope edits; cross-file
@@ -51,7 +57,7 @@ imports and surrounding context.
 
 The candidate universe contains supplied changed files, including retained
 declarations within those files. Unchanged repository files are outside that
-universe. JS/TS and Python candidates never compete across languages. Mixed
+universe. Candidates never compete across languages. Mixed
 comparisons can be complete when both searches finish; supplied stubs and
 unsupported documents explicitly leave partial coverage. A failed parse, exhausted
 budget or engine failure prevents promotion of inferred edited pairs.

@@ -7,7 +7,7 @@ research tools; neither is a new Bygone runtime dependency.
 
 ## Generate evidence in this checkout
 
-The development command inventories changed JS/TS, Python, Java, Go, Rust and
+The development command inventories changed JS/TS, Python, Java, Go, Rust, C#, Ruby, PHP, C, Lua and
 Mojo regular files from committed
 Git blobs, runs the bounded analysis adapter and imports its result into the
 validated viewer format. It uses the review merge base, just like `present`;
@@ -36,7 +36,7 @@ npm run correspondence:analyze -- feature --base main --engine bygone-strand \
 
 Bygone Strand is an original declaration matcher in the private
 [`bygone-strand` workspace package](../packages/strand/README.md). It supports
-JS/TS, Python, Java, Go, Rust and experimental Mojo. TypeScript and isolated
+JS/TS, Python, Java, Go, Rust, C#, Ruby, PHP, C, Lua and experimental Mojo. TypeScript and isolated
 CPython parsers retain their existing behavior; the other languages share a
 bounded Tree-sitter WASM frontend with pinned, locally shipped grammars. Scoped
 declaration identities and syntax/token similarity infer edited continuations,

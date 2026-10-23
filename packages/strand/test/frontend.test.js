@@ -9,11 +9,15 @@ test('shared frontend validates snapshot input and handles empty input', async (
     assert.deepEqual(Object.keys((await parseSnapshots({})).documents), []);
 });
 
-test('language domains include future adapters and prevent exact cross-language matches', () => {
-    assert.deepEqual(['a.java', 'a.go', 'a.rs', 'a.mojo', 'a.🔥'].map(languageFor), ['java', 'go', 'rust', 'mojo', 'mojo']);
+test('language domains include registered adapters and prevent exact cross-language matches', () => {
+    assert.deepEqual(['a.java', 'a.go', 'a.rs', 'a.mojo', 'a.🔥', 'a.cs', 'a.rb', 'a.php', 'a.c', 'a.lua'].map(languageFor),
+        ['java', 'go', 'rust', 'mojo', 'mojo', 'csharp', 'ruby', 'php', 'c', 'lua']);
     const result = analyzeStrand({ 'a.js': 'function price(items) { return items.length + 1; }' },
         { 'a.py': 'def price(items):\n    return len(items) + 1\n' });
     assert.equal(result.analysis.relations.length, 0);
+    const shared = 'interface Cart { int price(int x); }';
+    const identical = analyzeStrand({ 'a.java': shared }, { 'a.cs': shared });
+    assert.equal(identical.analysis.relations.length, 0);
 });
 
 test('parser timeout fails closed without exact or inferred relations', () => {
@@ -73,4 +77,18 @@ test('invalid parser resource overrides fail closed and excessive values are cap
     assert.deepEqual(boundedProcessOptions({ treeSitterTimeoutMs: Number.MAX_SAFE_INTEGER,
         treeSitterMaxOutputBytes: Number.MAX_SAFE_INTEGER }, 'treeSitterTimeoutMs', 'treeSitterMaxOutputBytes', 30000),
     { timeout: 30000, maxBuffer: LIMITS.maxOutputBytes });
+});
+
+test('short namespace anchors retain competition when multiple files share the same namespace', () => {
+    for (const [ext, prefix, declaration] of [
+        ['cs', 'namespace Shop;\n', 'class Cart { int price(int x) { return x * 9 + 1; } }'],
+        ['php', '<?php namespace Shop;\n', 'function price($x) { return $x * 9 + 1; }']
+    ]) {
+        const a = prefix + declaration;
+        const b = a.replaceAll('Cart', 'Basket').replaceAll('price', 'count').replace('* 9', '* 3');
+        const result = analyzeStrand({ [`old/a.${ext}`]: a, [`old/b.${ext}`]: b },
+            { [`new/a.${ext}`]: a.replace('+ 1', '+ 2'), [`new/b.${ext}`]: b.replace('+ 1', '+ 2') });
+        assert.equal(result.analysis.relations.length, 0, ext);
+        assert(result.native.unresolved.length > 0, ext);
+    }
 });

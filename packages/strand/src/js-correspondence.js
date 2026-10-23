@@ -502,6 +502,12 @@ function candidateScore(sourceFeature, destinationFeature, sourceInfo, destinati
 
 function candidateIsSubstantive(candidate, sourceFeature, destinationFeature) {
     if (candidate.localIdentity) return true;
+    // File-scoped namespace headers can contain only a keyword and delimiter.
+    // Exact, same-name headers may anchor descendants after a file move; they
+    // still pass the ordinary ownership, competition and ambiguity checks.
+    if (candidate.source.kind === 'namespace' && candidate.sameName
+        && typeof candidate.source.digest === 'string'
+        && candidate.source.digest === candidate.destination.digest) return true;
     if (sourceFeature.meaningfulBodyCount >= 4 && destinationFeature.meaningfulBodyCount >= 4) return true;
     const complexKind = ['class', 'registration', 'interface', 'type', 'enum'].includes(candidate.source.kind);
     if (complexKind && sourceFeature.meaningfulFullCount >= 5 && destinationFeature.meaningfulFullCount >= 5) return true;

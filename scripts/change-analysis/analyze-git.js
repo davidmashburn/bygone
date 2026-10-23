@@ -97,7 +97,7 @@ function analyzeGit(args, cwd = process.cwd(), output = process.stdout, env = pr
             `Parser: ${[...new Set([result.analysis.inventories.before.parser, result.analysis.inventories.after.parser])].join('; ')}.`,
             `Engine status: ${result.analysis.engine.status}; reason: ${result.analysis.engine.reason || 'none'}; limits: ${JSON.stringify(javascript ? JAVASCRIPT_LIMITS : LIMITS)}.`);
         if (config) artifact.limitations.push(`Engine SHA-256: ${config.jarSha256}; bridge SHA-256: ${config.bridgeSha256}.`);
-        else if (javascript) artifact.limitations.push(`${ENGINE.name} v${ENGINE.version}: JS/TS/Python/Java/Go/Rust/Mojo declaration correspondence; Mojo is experimental (pinned community grammar); Python .pyi stubs have inventory/exact matching only. Extraction/inline, binding resolution and behavior preservation are not assessed.`,
+        else if (javascript) artifact.limitations.push(`${ENGINE.name} v${ENGINE.version}: JS/TS/Python/Java/Go/Rust/C#/Ruby/PHP/C/Lua/Mojo declaration correspondence; Mojo is experimental (pinned community grammar); Python .pyi stubs have inventory/exact matching only. Extraction/inline, binding resolution and behavior preservation are not assessed.`,
             `Engine implementation SHA-256: ${result.identity.implementationSha256}; Python features SHA-256: ${result.identity.pythonFeaturesSha256}; runner SHA-256: ${result.identity.runnerSha256}.`);
         else artifact.limitations.push('Java engine not configured: inventory and unambiguous byte-identical declaration matching only. Edited or renamed declarations are not paired; unmatched symbols do not prove additions or removals.');
         const diagnostics = ['before', 'after'].flatMap(side => result.analysis.inventories[side].documents
@@ -114,7 +114,7 @@ function analyzeGit(args, cwd = process.cwd(), output = process.stdout, env = pr
         fs.writeFileSync(destination, serialized, { flag: 'wx' });
         output.write(`Wrote ${artifact.relations.length} inferred correspondences (${artifact.status}) to ${destination}\n`);
         output.write(`Pinned ${range.mergeBaseOid}..${range.headOid}; engine ${result.analysis.engine.status}${result.analysis.engine.reason ? ` (${result.analysis.engine.reason})` : ''}\n`);
-        if (javascript) output.write(`${ENGINE.name} v${ENGINE.version}: inferred JS/TS/Python/Java/Go/Rust/Mojo declaration correspondence; behavior unassessed.\n`);
+        if (javascript) output.write(`${ENGINE.name} v${ENGINE.version}: inferred JS/TS/Python/Java/Go/Rust/C#/Ruby/PHP/C/Lua/Mojo declaration correspondence; behavior unassessed.\n`);
         else if (!config) output.write('Exact-only coverage: edited/renamed declarations may remain unmatched. Configure the optional Java engine for broader inference.\n');
         return artifact;
     } finally {
