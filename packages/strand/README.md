@@ -56,3 +56,17 @@ conservative: receiver/trait renames are not inferred across owners. Fields,
 enum variants, closures, macro definitions and expansions are not inventoried
 as separate symbols; macro/closure exclusions are reported. No crate or name
 resolution is performed.
+
+Mojo support is experimental and pinned to a community grammar. It supports
+`.mojo` and `.🔥`, current `def` functions, generic structs, traits, experimental `__enum`,
+methods, decorators, aliases (including parameterized `comptime`) and simple module/struct bindings. The pinned
+grammar does not cover legacy `fn` syntax. Local/destructured bindings,
+lambdas and Python-style `class` recovery productions are excluded. A parse
+error makes the whole document unavailable for correspondence. Grammar
+acceptance is not a Mojo compiler check; compiler versions and real-world
+syntax beyond the synthetic fixtures have not been qualified.
+
+Adding another Tree-sitter language requires a pinned grammar/hash/license, a
+small declaration adapter, and tests for ranges, edited matches, owner isolation,
+invalid input and ambiguity. The shared matcher and Bygone artifact format stay
+the same; a grammar alone does not define trustworthy declaration ownership.

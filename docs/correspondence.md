@@ -7,7 +7,8 @@ research tools; neither is a new Bygone runtime dependency.
 
 ## Generate evidence in this checkout
 
-The development command inventories changed JS/TS/Python regular files from committed
+The development command inventories changed JS/TS, Python, Java, Go, Rust and
+Mojo regular files from committed
 Git blobs, runs the bounded analysis adapter and imports its result into the
 validated viewer format. It uses the review merge base, just like `present`;
 working-tree edits are excluded. No second branch or saved research report is
@@ -30,13 +31,16 @@ To use the local Strand correspondence engine:
 
 ```sh
 npm run correspondence:analyze -- feature --base main --engine bygone-strand \
-  --output /tmp/correspondence-js.json
+  --output /tmp/correspondence-strand.json
 ```
 
-Bygone Strand is an original, compact JS/TS/Python declaration matcher. It uses the
-existing TypeScript and isolated Python parsers, scoped declaration identities
-and syntax/token similarity to infer edited continuations, moves and renames. It has no Java
-requirement. The explicit selection ignores ambient Java configuration and
+Bygone Strand is an original declaration matcher in the private
+[`bygone-strand` workspace package](../packages/strand/README.md). It supports
+JS/TS, Python, Java, Go, Rust and experimental Mojo. TypeScript and isolated
+CPython parsers retain their existing behavior; the other languages share a
+bounded Tree-sitter WASM frontend with pinned, locally shipped grammars. Scoped
+declaration identities and syntax/token similarity infer edited continuations,
+moves and renames. Strand requires no JVM, native addon or runtime downloads. The explicit selection ignores ambient Java configuration and
 cannot be combined with `--exact-only` or Java flags. The default mode is
 unchanged. See [the engine contract](../scripts/change-analysis/javascript-engine.md)
 for evidence, ambiguity and resource limits.
@@ -46,6 +50,14 @@ binding resolution, editing history and behavior preservation are unassessed.
 Python functions, async functions, classes, methods and nested declarations
 support inferred edits and moves. Decorators and complete source diffs remain
 visible. Python `.pyi` stubs retain inventory/exact matching only.
+
+Go receiver and Rust impl/trait identities are conservative: receiver/type
+renames are not inferred across owners. Mojo (`.mojo`/`.🔥`) uses a pinned
+community grammar and remains experimental; legacy `fn` syntax is unsupported.
+See the [package coverage and exclusions](../packages/strand/README.md) and
+[grammar provenance](../packages/strand/src/grammars/README.md) for exact scope.
+Parser errors/timeouts fail closed, and duplicate origins remain ambiguous.
+`npm run test:strand` runs package and artifact integration checks.
 
 For broader inference, build the pinned external engine following
 [scripts/change-analysis/README.md](../scripts/change-analysis/README.md), then

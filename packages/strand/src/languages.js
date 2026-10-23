@@ -4,6 +4,8 @@ const TREE_SITTER_LANGUAGES = Object.freeze({
         sha256: '9504573f352b20be7f2f1911754d710622aedc15afff16d5ed8fb5645681aee7' },
     rust: { adapter: 'rust', file: 'tree-sitter-rust.wasm', version: '0.24.0', abi: 14,
         sha256: 'f65f354215611fd94ad34134b3427eb3d58cbb745df7b6509ba722184db73d57' },
+    mojo: { adapter: 'mojo', file: 'tree-sitter-mojo.wasm', version: 'e5905c480b9ebbeb4195032805781a5e535547f7', abi: 15, experimental: true,
+        sha256: 'b5bdf5a4e16caced273927cec4ebfa4991c737f02e04a50487a61f08139c26f2' },
     java: { adapter: 'java', file: 'tree-sitter-java.wasm', version: '0.23.5', abi: 14,
         sha256: '4fdeac4ca6ca089f06c6f7e562abcac1733cd465728cc7031ebb73c2019122c4' }
 });

@@ -62,3 +62,4 @@ media/**
 !media/bygone-screenshot.png
 out/**
 !out/extension.js
+packages/**
