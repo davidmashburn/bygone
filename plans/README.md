@@ -29,6 +29,9 @@ grew out of an earlier concept.
 - [Cross-file symbol correspondence experiment](semantic-correspondence-experiment.md)
   — exact AST baseline, held-out corpus, engine adapter, and review gates.
 
+- [Symbols language support](symbol-language-support.md) — Python first, then
+  all pinned RefactoringMiner languages, then broader parser/matcher coverage.
+
 - [Multi-panel highlight union and pair focus](multi-panel-highlight-union.md)
   — approved blue union default with optional focus on the selected comparison.
 

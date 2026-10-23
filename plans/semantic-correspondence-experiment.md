@@ -1,5 +1,10 @@
 # Cross-file symbol correspondence experiment
 
+The approved [language rollout](symbol-language-support.md) extends the
+implemented adapter: Python first, then the remaining pinned RefactoringMiner
+languages, then languages requiring another correspondence producer. It records
+the current feature integration, scope, and per-language acceptance gates.
+
 ## Intent and evidence baseline
 
 Draft research plan, 2026-10-22. Decide whether a reviewable cross-file symbol
