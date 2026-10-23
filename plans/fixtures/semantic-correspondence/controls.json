@@ -1,0 +1,637 @@
+{
+  "format": "bygone-research-controls-v1",
+  "scope": "complete supplied file snapshots; not repository-wide",
+  "coordinateConvention": "zero-based half-open UTF-16 and UTF-8 byte offsets; one-based inclusive lines; declaration excludes leading trivia",
+  "support": "Top-level named function declarations and single-variable function arrows. Other executable declaration forms are exclusions.",
+  "cases": [
+    {
+      "id": "exact-cross-file",
+      "partition": "development-control",
+      "before": {
+        "old.ts": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }\n"
+      },
+      "after": {
+        "new.ts": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }\n"
+      },
+      "expectedInventory": [
+        {
+          "side": "before",
+          "path": "old.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }"
+        },
+        {
+          "side": "after",
+          "path": "new.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }"
+        }
+      ],
+      "expectedExactPairs": [
+        [
+          "old.ts#total",
+          "new.ts#total"
+        ]
+      ],
+      "expectedUnsupported": [],
+      "reviewNote": "Exact declaration correspondence within scope; behavior unassessed.",
+      "expectedStructuralGroups": []
+    },
+    {
+      "id": "move-with-operator-edit",
+      "partition": "development-control",
+      "before": {
+        "old.ts": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }\n"
+      },
+      "after": {
+        "new.ts": "export function total(values: number[]) { return values.reduce((a, b) => a - b, 0); }\n"
+      },
+      "expectedInventory": [
+        {
+          "side": "before",
+          "path": "old.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }"
+        },
+        {
+          "side": "after",
+          "path": "new.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a - b, 0); }"
+        }
+      ],
+      "expectedExactPairs": [],
+      "expectedUnsupported": [],
+      "reviewNote": "Authored movement plus an operator change. Exact baseline must abstain; subtraction must remain visible.",
+      "expectedStructuralGroups": [
+        {
+          "kind": "authored-move-with-edit",
+          "before": [
+            "old.ts#total"
+          ],
+          "after": [
+            "new.ts#total"
+          ],
+          "evidence": "Synthetic fixture construction; not an inferred operation."
+        }
+      ]
+    },
+    {
+      "id": "move-rename-format",
+      "partition": "development-control",
+      "before": {
+        "old.ts": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }\n"
+      },
+      "after": {
+        "new.ts": "export function sum(values: number[]) {\n  return values.reduce((a, b) => a + b, 0);\n}\n"
+      },
+      "expectedInventory": [
+        {
+          "side": "before",
+          "path": "old.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }"
+        },
+        {
+          "side": "after",
+          "path": "new.ts",
+          "name": "sum",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            3
+          ],
+          "declaration": "export function sum(values: number[]) {\n  return values.reduce((a, b) => a + b, 0);\n}"
+        }
+      ],
+      "expectedExactPairs": [
+        [
+          "old.ts#total",
+          "new.ts#sum"
+        ]
+      ],
+      "expectedUnsupported": [],
+      "reviewNote": "Authored movement and declaration rename plus a layout change. Count a missed exact relationship if printer canonicalization retains the layout distinction; do not tune this away silently.",
+      "expectedStructuralGroups": []
+    },
+    {
+      "id": "retained-source-copy",
+      "partition": "development-control",
+      "before": {
+        "old.ts": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }\n"
+      },
+      "after": {
+        "old.ts": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }\n",
+        "new.ts": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }\n"
+      },
+      "expectedInventory": [
+        {
+          "side": "before",
+          "path": "old.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }"
+        },
+        {
+          "side": "after",
+          "path": "old.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }"
+        },
+        {
+          "side": "after",
+          "path": "new.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }"
+        }
+      ],
+      "expectedExactPairs": [],
+      "expectedUnsupported": [],
+      "reviewNote": "Retained source competes with new occurrence. Do not infer a move or observed copy operation.",
+      "expectedStructuralGroups": []
+    },
+    {
+      "id": "retained-duplicate-origin",
+      "partition": "development-control",
+      "before": {
+        "a.ts": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }\n",
+        "b.ts": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }\n"
+      },
+      "after": {
+        "a.ts": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }\n",
+        "c.ts": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }\n"
+      },
+      "expectedInventory": [
+        {
+          "side": "before",
+          "path": "a.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }"
+        },
+        {
+          "side": "before",
+          "path": "b.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }"
+        },
+        {
+          "side": "after",
+          "path": "a.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }"
+        },
+        {
+          "side": "after",
+          "path": "c.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }"
+        }
+      ],
+      "expectedExactPairs": [],
+      "expectedUnsupported": [],
+      "reviewNote": "Pairing a.ts locally must not manufacture a globally unique origin for c.ts.",
+      "expectedStructuralGroups": []
+    },
+    {
+      "id": "same-name-replacement",
+      "partition": "development-control",
+      "before": {
+        "a.ts": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }\n"
+      },
+      "after": {
+        "a.ts": "export function total(values: number[]) { throw new Error(\"unavailable\"); }\n"
+      },
+      "expectedInventory": [
+        {
+          "side": "before",
+          "path": "a.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            85
+          ],
+          "bytes": [
+            0,
+            85
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { return values.reduce((a, b) => a + b, 0); }"
+        },
+        {
+          "side": "after",
+          "path": "a.ts",
+          "name": "total",
+          "kind": "function",
+          "utf16": [
+            0,
+            75
+          ],
+          "bytes": [
+            0,
+            75
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function total(values: number[]) { throw new Error(\"unavailable\"); }"
+        }
+      ],
+      "expectedExactPairs": [],
+      "expectedUnsupported": [],
+      "reviewNote": "Path/name gives a tentative continuation only; body replacement remains unassessed.",
+      "expectedStructuralGroups": []
+    },
+    {
+      "id": "equal-body-different-binding",
+      "partition": "development-control",
+      "before": {
+        "prices.ts": "const rate = 1;\nexport function cost() { return rate; }\n"
+      },
+      "after": {
+        "billing.ts": "const rate = 2;\nexport function cost() { return rate; }\n"
+      },
+      "expectedInventory": [
+        {
+          "side": "before",
+          "path": "prices.ts",
+          "name": "cost",
+          "kind": "function",
+          "utf16": [
+            16,
+            55
+          ],
+          "bytes": [
+            16,
+            55
+          ],
+          "lines": [
+            2,
+            2
+          ],
+          "declaration": "export function cost() { return rate; }"
+        },
+        {
+          "side": "after",
+          "path": "billing.ts",
+          "name": "cost",
+          "kind": "function",
+          "utf16": [
+            16,
+            55
+          ],
+          "bytes": [
+            16,
+            55
+          ],
+          "lines": [
+            2,
+            2
+          ],
+          "declaration": "export function cost() { return rate; }"
+        }
+      ],
+      "expectedExactPairs": [
+        [
+          "prices.ts#cost",
+          "billing.ts#cost"
+        ]
+      ],
+      "expectedUnsupported": [],
+      "reviewNote": "Exact declaration match despite different free-variable binding. Both module contexts are required; never claim equivalence.",
+      "expectedStructuralGroups": []
+    },
+    {
+      "id": "arrow-unicode-crlf",
+      "partition": "development-control",
+      "before": {
+        "a.ts": "// 🧭 café\r\nexport const label = (name: string) => `Hello ${name}`;\r\n"
+      },
+      "after": {
+        "b.ts": "// 🧭 café\r\nexport const label = (name: string) => `Hello ${name}`;\r\n"
+      },
+      "expectedInventory": [
+        {
+          "side": "before",
+          "path": "a.ts",
+          "name": "label",
+          "kind": "arrow",
+          "utf16": [
+            12,
+            67
+          ],
+          "bytes": [
+            15,
+            70
+          ],
+          "lines": [
+            2,
+            2
+          ],
+          "declaration": "export const label = (name: string) => `Hello ${name}`;"
+        },
+        {
+          "side": "after",
+          "path": "b.ts",
+          "name": "label",
+          "kind": "arrow",
+          "utf16": [
+            12,
+            67
+          ],
+          "bytes": [
+            15,
+            70
+          ],
+          "lines": [
+            2,
+            2
+          ],
+          "declaration": "export const label = (name: string) => `Hello ${name}`;"
+        }
+      ],
+      "expectedExactPairs": [
+        [
+          "a.ts#label",
+          "b.ts#label"
+        ]
+      ],
+      "expectedUnsupported": [],
+      "reviewNote": "Offsets must slice exactly after a surrogate pair, multibyte UTF-8 characters, and CRLF.",
+      "expectedStructuralGroups": []
+    },
+    {
+      "id": "extract-helper",
+      "partition": "development-control",
+      "before": {
+        "a.ts": "export function checkout(price: number) { return price + price * 0.2; }\n"
+      },
+      "after": {
+        "a.ts": "export function checkout(price: number) { return price + tax(price); }\n",
+        "tax.ts": "export function tax(price: number) { return price * 0.2; }\n"
+      },
+      "expectedInventory": [
+        {
+          "side": "before",
+          "path": "a.ts",
+          "name": "checkout",
+          "kind": "function",
+          "utf16": [
+            0,
+            71
+          ],
+          "bytes": [
+            0,
+            71
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function checkout(price: number) { return price + price * 0.2; }"
+        },
+        {
+          "side": "after",
+          "path": "a.ts",
+          "name": "checkout",
+          "kind": "function",
+          "utf16": [
+            0,
+            70
+          ],
+          "bytes": [
+            0,
+            70
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function checkout(price: number) { return price + tax(price); }"
+        },
+        {
+          "side": "after",
+          "path": "tax.ts",
+          "name": "tax",
+          "kind": "function",
+          "utf16": [
+            0,
+            58
+          ],
+          "bytes": [
+            0,
+            58
+          ],
+          "lines": [
+            1,
+            1
+          ],
+          "declaration": "export function tax(price: number) { return price * 0.2; }"
+        }
+      ],
+      "expectedExactPairs": [],
+      "expectedUnsupported": [],
+      "reviewNote": "Authored extraction relates old container, edited continuation, helper, and callsite. Exact pairs alone cannot establish it.",
+      "expectedStructuralGroups": [
+        {
+          "kind": "authored-extraction",
+          "before": [
+            "a.ts#checkout"
+          ],
+          "after": [
+            "a.ts#checkout",
+            "tax.ts#tax"
+          ],
+          "callsite": "tax(price)",
+          "evidence": "Synthetic fixture construction; exact baseline does not evaluate extraction."
+        }
+      ]
+    },
+    {
+      "id": "parse-and-coverage-failure",
+      "partition": "development-control",
+      "before": {
+        "broken.ts": "export function broken( {\n"
+      },
+      "after": {
+        "ledger.ts": "export class Ledger { total() { return 1; } }\nexport default () => 1;\n"
+      },
+      "expectedInventory": [],
+      "expectedExactPairs": [],
+      "expectedUnsupported": [
+        "before:broken.ts:parse-error",
+        "after:ledger.ts:class",
+        "after:ledger.ts:anonymous-default"
+      ],
+      "reviewNote": "Parse failure and unsupported class/default declarations are explicit exclusions, never absent/deleted symbols.",
+      "expectedStructuralGroups": []
+    }
+  ]
+}

@@ -26,9 +26,21 @@ The [experiment follow-up](../plans/semantic-correspondence-experiment.md#engine
 now records a real pinned-engine run. RefactoringMiner adds useful edited
 cross-file matches, but its success status does not reveal every parse failure
 and its JSON refactoring events do not enumerate all function continuations
-under module moves. Evaluate its richer mapping API behind an independent
-inventory before designing automatic semantic filtering. The fixed corpus,
+under module moves. The research mapping adapter now exposes richer evidence
+behind an independent inventory; validate its correspondence accuracy before
+designing automatic semantic filtering. The fixed corpus,
 separate real-history diagnostic, and remaining gates are recorded in the plan.
+
+The [reproducible development controls](../plans/fixtures/semantic-correspondence/README.md)
+now pin ten synthetic comparisons and three exact declaration relocations in
+one public commit. They expose a rename-plus-format miss in a small AST-printing
+baseline and confirm that equal declaration bytes can coexist with changed
+bindings. Retained helpers remain competing origins. This supports the evidence
+separation below, with **high confidence for these constructed cases**; it does
+not yet establish general matching accuracy or reviewer benefit. The earlier
+60-comparison probe is now present at research commit `cb0edb6`; the local
+controls reproduce only the selected historical example, not those aggregate
+measurements.
 
 ## Four questions hidden inside “semantic diff”
 

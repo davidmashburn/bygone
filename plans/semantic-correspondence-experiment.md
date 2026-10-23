@@ -14,13 +14,21 @@ Inspected implementation: `main` at
 wired into that worker. `src/deconstructedChange.ts` assigns hunks, rejects
 renamed files without path-transition units, and checks final content/existence.
 A correspondence artifact does not itself add transform stages to that model.
-The main checkout's pre-existing `package-lock.json` edit was not used as input.
+The reproduction below reads pinned Git snapshots, not development worktree edits.
 
 Historical research baseline: `research/move-tracking-slice0` at
-`c6907bb9df516d8e5ddb250d52fc26d2e186a3cd`. New local
-probe and results: `scripts/change-analysis/symbol-probe.js`,
-`symbol-probe.test.js`, and `results/symbol-probe-bygone-2026-10-22.json` on
-that branch. Read the accompanying `symbol-correspondence-findings.md` first.
+`c6907bb9df516d8e5ddb250d52fc26d2e186a3cd`. The earlier notes referenced
+`scripts/change-analysis/symbol-probe.js`, `symbol-probe.test.js`,
+`results/symbol-probe-bygone-2026-10-22.json`, and
+`symbol-correspondence-findings.md`. After fetching on 2026-10-22, none was
+present in the local research worktree or the remote branch at that revision.
+Those artifacts are now present in fetched research commit `cb0edb6` as of
+2026-10-23. Their reported aggregate measurements below have not been rerun in
+this planning worktree; the local controls independently reproduce one example.
+The new [development controls and pinned historical labels](fixtures/semantic-correspondence/README.md)
+include their own checker and saved output on this planning branch. Matcher
+prototypes and product implementation still belong in development/research
+history, separate from the orphan planning branch.
 The separate `research/2026-10-09-inline-highlighting` ref at
 `e2b3ad02efee826a86e1ba76021e5c5ab6b0c418` concerns fine-grained highlighting;
 its work does not establish symbol matching or semantic equivalence.
@@ -110,32 +118,60 @@ and has no independent/blinded adjudication or reviewer task. No product
 integration or semantic hiding follows from these results. These additions
 are committed in research commit `cb0edb6`.
 
-## What was measured now
+## Earlier reported measurements
 
-The exact AST baseline extracts only top-level named JS/TS function declarations
-and function variables from complete changed-file snapshots, including added
+The earlier report describes an exact AST baseline extracting top-level named
+JS/TS function declarations and function variables from complete changed-file snapshots, including added
 and deleted files. It pairs unique path/kind/name entries tentatively, then
 requires globally unique declaration syntax (excluding only the declared name)
 for remaining correspondences. Copies remain unresolved.
 
-On 60 non-merge commits ending at the pinned main revision, it inventoried
+It reports 60 non-merge commits ending at the pinned main revision, with
 8,419 before and 8,305 after **occurrences across comparisons**, not distinct
 repository symbols. It paired 8,200; 234 pairs had changed declaration bytes or context,
 including three exact cross-file pairs in commit `726796b1fe`. Six destination
 occurrences had repeated/retained equivalent syntax. These are volume findings,
 not measured precision or recall. The 13 synthetic scenarios check conservative
 abstention, parse failures, duplicates, arrows, changed bodies, and identical
-bodies under different bindings. No candidate engine was run.
+bodies under different bindings. This initial baseline did not run a candidate
+engine. The recovered probe/output make these totals and six destinations
+checkable; they have not been independently rerun during this rebase.
+
+## Reproduced development evidence
+
+The [saved observation](fixtures/semantic-correspondence/observation-2026-10-22.json)
+uses Node v26.10.0 and TypeScript 4.9.5. Ten authored controls check all 22
+supported declaration endpoints, Unicode/CRLF coordinates, retained duplicate
+competitors, body edits, changed bindings, and extraction/parse exclusions.
+They are development data, not the held-out partition.
+
+A small AST-printing baseline emits three of four labeled exact relationships
+with no false links in these controls. It misses the rename-plus-format case:
+the printer preserves a block-layout distinction. It abstains on edited moves
+and extraction; those are separate relationships with no recall estimate yet.
+Exact declaration matches still include the changed-binding counterexample,
+so all output links explicitly leave behavior unassessed.
+
+The public comparison `7bd04dbb` → `726796b1` reproduces the three reported
+byte-identical relocations: `validateAudience`, `requireString`, and
+`requireStringArray`, from `src/tourAssessment.ts` to `src/tourDetails.ts`.
+Its 17 changed JS/TS paths contain 317 before and 308 after supported declarations.
+`isRecord` and `requireOnlyKeys` retain competing origins and remain ambiguous.
+This selected commit reproduces a known example; it does not validate the
+earlier 60-comparison totals or establish broad accuracy.
 
 ## Bounded next slice
 
 Inputs: a manifest of pinned before/after files and expected inventory entries,
 plus adjudicated relationships. Outputs: engine-native output, normalized
 occurrences/relationships with source evidence, failure reasons, and a scorecard.
-Keep this in the research branch until the product decision is made.
+Keep matcher development in the research branch until the product decision is
+made. Keep the hand-label fixtures, checker, and observations alongside this plan
+so the evidence can be reproduced after the research worktree is gone.
 
-Build 30 hand-checked comparisons: 10 synthetic controls, 10 public historical
-comparisons sampled independently of detector success, and 10 difficult cases
+Complete 30 hand-checked comparisons: the 10 synthetic controls now captured,
+10 public historical comparisons sampled independently of detector success,
+and 10 difficult cases
 with mixed edits. Tag overlapping features rather than selecting only commits
 whose subjects claim a refactor. Reserve 10 comparisons as held-out data before
 tuning. Include at least:
@@ -149,18 +185,59 @@ tuning. Include at least:
 - Same text under changed imports/bindings; documentation edit; unsupported
   syntax; invalid parse; unchanged-file origin outside changed-file scope.
 
-The small probe's 13 scenarios can seed controls but cannot serve as independent
-test data. Extend equivalent cases to Python before claiming cross-language
+The recovered probe's 13 scenarios are separate from the new controls.
+The selected reproduction commit also does not fill an independently sampled
+historical slot. Extend equivalent cases to Python before claiming cross-language
 support. Use public or newly authored fixtures; do not copy private corpora.
 
 ## Candidate evaluation and adapter boundary
 
+The interface probes below record the earlier MCP boundary and remain useful
+regression inputs. The research adapter described above now implements the
+richer export and independent inventory; the proposed checks here must be
+reconciled with that implementation rather than treated as missing work.
+
 Run the exact baseline first, then a **pinned** RefactoringMiner build. As of
 2026-10-22, upstream HEAD was `e7b8db328e7d678bc474ebf4b61739b6d6c85b7f`.
 Its [MCP documentation](https://github.com/tsantalis/RefactoringMiner/blob/e7b8db328e7d678bc474ebf4b61739b6d6c85b7f/documentation/mcp.md)
-describes local file-content analysis and JSON results; this establishes a
-candidate interface, not tested compatibility or accuracy. A language-specific
-API adapter may be necessary for full statement mappings and coordinates.
+describes local file-content analysis and JSON results. Source inspection now
+confirms that `analyzeFileContents` accepts separate path-to-content maps for
+both sides, so complete added/deleted files can be supplied together. This is
+interface evidence, not measured JS/TS matching accuracy.
+
+There is a concrete output limitation: the pinned
+[MCP result](https://github.com/tsantalis/RefactoringMiner/blob/e7b8db328e7d678bc474ebf4b61739b6d6c85b7f/src/main/java/org/refactoringminer/mcp/McpAnalysisResult.java)
+contains refactoring records, counts, and warnings, rather than the complete
+inventory or AST mapping graph. Its
+[location records](https://github.com/tsantalis/RefactoringMiner/blob/e7b8db328e7d678bc474ebf4b61739b6d6c85b7f/src/main/java/org/refactoringminer/mcp/McpRefactoringResult.java)
+expose paths, lines, columns, and code-element metadata, not normalized byte and
+UTF-16 offsets. A successful MCP call alone cannot fill the planned artifact.
+
+The [archived engine smoke](fixtures/semantic-correspondence/engine/README.md)
+now executes this multi-file path under Linux x86_64 Docker emulation. Three
+changed JS/TS files produced a rename record and three AST diffs. A two-file
+module relocation produced no refactoring record or moved AST diff. This does
+not establish a matching failure: the source prunes identical files, including
+renamed paths, before model construction. Both this case and the anonymous
+export case report one file per side despite receiving two. Engine file counts
+are therefore not an input coverage ledger. Preserve original snapshots and
+independent inventory before passing defensive map copies to the engine; retain
+duplicate competitors even when its preprocessing chooses a path match.
+
+The rename record has `startColumn: 8` and `endColumn: 0` on the same line;
+its coordinates are not yet usable as verified source slices. The native
+Linux-arm64 image builds but actual parsing fails for a missing SWC4J native
+library. Linux/amd64 emulation works; native macOS-arm64 parsing was not tested.
+The successful Docker builds skip upstream tests.
+
+For the full mapping benchmark, test a local Java adapter over
+`ProjectASTDiff.getDiffSet()` and
+`getMoveDiffSet()`, retaining each `ASTDiff`'s paths and `getAllMappings()`.
+These APIs exist at the pin; their JS/TS outputs and coordinate fidelity remain
+to be measured. Preserve independent inventory extraction when the engine
+reports no refactorings. Confidence is **high** in this interface limitation
+from the pinned result records; a successful export of the required complete
+graph and inventory would change the adapter requirement.
 
 Retain the native tool result, but expose a Bygone-owned comparison artifact.
 Do not make Java classes, temporary WebDiff URLs, or mutable engine IDs part of
@@ -210,9 +287,17 @@ analysis action before designing incremental background indexing.
 
 ## Handoff
 
-First reproduce the saved exact baseline and hand-label the three cross-file
-pairs plus the six unresolved destinations. Build the manifest next, then run
-the candidate adapter. Defer persistent history identity, arbitrary repository
-clone search, move-aware application, and transform-stage serialization. No
-production tests, renderer smoke checks, or upstream-engine execution were
-performed for this planning document.
+The three cross-file pairs are now pinned and hand-checked; the ten development
+controls and their checker are reproducible. The original probe/output are
+recovered at research commit `cb0edb6`; their aggregate totals were not rerun
+during this rebase. The pinned MCP smoke artifacts remain supplementary
+development evidence, separate from the fixed research corpus.
+
+The richer mapping adapter, independent inventory, and range-integrity checks
+are now implemented in research. Next independently adjudicate more public
+cross-file and mixed-edit cases, reconcile these supplementary controls with
+the adapter, and assess reviewer benefit before product integration. Preserve
+the fixed held-out split and report each corpus separately.
+Defer persistent history identity, arbitrary repository clone search, move-aware
+application, and transform-stage serialization. Product tests and renderer smoke
+checks were skipped because this work changes planning fixtures only.

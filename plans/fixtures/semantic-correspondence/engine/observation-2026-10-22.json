@@ -1,0 +1,117 @@
+{
+  "date": "2026-10-22",
+  "engine": "RefactoringMiner",
+  "revision": "e7b8db328e7d678bc474ebf4b61739b6d6c85b7f",
+  "runtime": {
+    "host": "macOS arm64",
+    "docker": "29.8.1",
+    "containerPlatform": "linux/amd64 under emulation",
+    "java": "OpenJDK 17 from pinned upstream Dockerfile",
+    "imageId": "sha256:e1e30e4aab194eaaef99ef1d8ac2416f98c73a7591141253aedc832777346c02",
+    "fullGradleTestsRun": false
+  },
+  "artifacts": {
+    "multifile.request.jsonl": {
+      "sha256": "0d2c67b60a138a798a54c0643d7ecdc09857452b48f2ba199a1ed38169aedd14",
+      "originalFilename": "mcp-multifile-jsonl-request-20261022.log"
+    },
+    "multifile.output.log": {
+      "sha256": "c8505f97dbbbde01c06525cec4fdce3e2802ecf5760f13d1cf77a0b2f7fc742f",
+      "originalFilename": "mcp-multifile-amd64-20261022-run3.log"
+    },
+    "anonymous.request.jsonl": {
+      "sha256": "cfc98c085a3bb5aed02198c06d8c54ddd66c1885030f6ccd2fb31784ab407382",
+      "originalFilename": "mcp-anonymous-jsonl-request-20261022.log"
+    },
+    "anonymous.output.log": {
+      "sha256": "b0f4ce6fa89895ead226c450e624245785e4137a864af88e166a556720faad21",
+      "originalFilename": "mcp-anonymous-amd64-20261022.log"
+    }
+  },
+  "cases": [
+    {
+      "requestFile": "multifile.request.jsonl",
+      "responseFile": "multifile.output.log",
+      "requestId": 2,
+      "suppliedFilesBefore": 3,
+      "suppliedFilesAfter": 3,
+      "result": {
+        "status": "ok",
+        "summary": "1 refactorings, 3 AST diffs, 0 moved AST diffs across 3 before files and 3 after files.",
+        "refactoringCount": 1,
+        "astDiffCount": 3,
+        "moveAstDiffCount": 0,
+        "filesBefore": 3,
+        "filesAfter": 3,
+        "refactorings": [
+          {
+            "type": "Rename Method",
+            "description": "Rename Method\tpublic add(left number, right number) : number renamed to public sum(left number, right number) : number in class math",
+            "leftSideLocations": [
+              {
+                "filePath": "src/math.ts",
+                "startLine": 1,
+                "endLine": 1,
+                "startColumn": 8,
+                "endColumn": 0,
+                "codeElementType": "METHOD_DECLARATION",
+                "description": "original method declaration",
+                "codeElement": "public add(left number, right number) : number"
+              }
+            ],
+            "rightSideLocations": [
+              {
+                "filePath": "src/math.ts",
+                "startLine": 1,
+                "endLine": 1,
+                "startColumn": 8,
+                "endColumn": 0,
+                "codeElementType": "METHOD_DECLARATION",
+                "description": "renamed method declaration",
+                "codeElement": "public sum(left number, right number) : number"
+              }
+            ]
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "requestFile": "multifile.request.jsonl",
+      "responseFile": "multifile.output.log",
+      "requestId": 3,
+      "suppliedFilesBefore": 2,
+      "suppliedFilesAfter": 2,
+      "result": {
+        "status": "ok",
+        "summary": "0 refactorings, 1 AST diffs, 0 moved AST diffs across 1 before files and 1 after files.",
+        "refactoringCount": 0,
+        "astDiffCount": 1,
+        "moveAstDiffCount": 0,
+        "filesBefore": 1,
+        "filesAfter": 1,
+        "refactorings": [],
+        "warnings": []
+      }
+    },
+    {
+      "requestFile": "anonymous.request.jsonl",
+      "responseFile": "anonymous.output.log",
+      "requestId": 2,
+      "suppliedFilesBefore": 2,
+      "suppliedFilesAfter": 2,
+      "result": {
+        "status": "ok",
+        "summary": "0 refactorings, 1 AST diffs, 0 moved AST diffs across 1 before files and 1 after files.",
+        "refactoringCount": 0,
+        "astDiffCount": 1,
+        "moveAstDiffCount": 0,
+        "filesBefore": 1,
+        "filesAfter": 1,
+        "refactorings": [],
+        "warnings": []
+      }
+    }
+  ],
+  "interpretation": "Smoke evidence only. Reported file counts are post-pruning, not supplied input coverage. Zero refactorings or moved AST diffs does not mean no correspondence. No equivalence or general accuracy claim."
+}

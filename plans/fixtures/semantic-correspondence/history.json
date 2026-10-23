@@ -1,0 +1,111 @@
+{
+  "format": "bygone-research-history-labels-v1",
+  "repository": "https://github.com/davidmashburn/bygone",
+  "base": "7bd04dbbb69d4bd2b8da0e0ef885071967676d37",
+  "head": "726796b1feebc3dfd7f396c83179753ef67ee119",
+  "selection": "Selected because earlier notes reported exact relocations here; not independent accuracy data.",
+  "expectedExactPairs": [
+    [
+      "src/tourAssessment.ts#validateAudience",
+      "src/tourDetails.ts#validateAudience"
+    ],
+    [
+      "src/tourAssessment.ts#requireString",
+      "src/tourDetails.ts#requireString"
+    ],
+    [
+      "src/tourAssessment.ts#requireStringArray",
+      "src/tourDetails.ts#requireStringArray"
+    ]
+  ],
+  "expectedEndpoints": [
+    {
+      "side": "before",
+      "path": "src/tourAssessment.ts",
+      "name": "validateAudience",
+      "lines": [
+        97,
+        127
+      ],
+      "declarationSha256": "45a0fc1f6cdd8dcfe38bd63b1ca15c19976a7c88ed3585059cddd74763efb802"
+    },
+    {
+      "side": "before",
+      "path": "src/tourAssessment.ts",
+      "name": "requireString",
+      "lines": [
+        181,
+        185
+      ],
+      "declarationSha256": "0046244886b4f77620fc95012bce5835fcbc3198eaff8f467a08c81e20b2627b"
+    },
+    {
+      "side": "before",
+      "path": "src/tourAssessment.ts",
+      "name": "requireStringArray",
+      "lines": [
+        187,
+        191
+      ],
+      "declarationSha256": "ec13cf201ab84a2cffe89615ec7c26588be03d9ed19709d5c21863d396639304"
+    },
+    {
+      "side": "after",
+      "path": "src/tourDetails.ts",
+      "name": "validateAudience",
+      "lines": [
+        32,
+        62
+      ],
+      "declarationSha256": "45a0fc1f6cdd8dcfe38bd63b1ca15c19976a7c88ed3585059cddd74763efb802"
+    },
+    {
+      "side": "after",
+      "path": "src/tourDetails.ts",
+      "name": "requireString",
+      "lines": [
+        68,
+        72
+      ],
+      "declarationSha256": "0046244886b4f77620fc95012bce5835fcbc3198eaff8f467a08c81e20b2627b"
+    },
+    {
+      "side": "after",
+      "path": "src/tourDetails.ts",
+      "name": "requireStringArray",
+      "lines": [
+        74,
+        78
+      ],
+      "declarationSha256": "ec13cf201ab84a2cffe89615ec7c26588be03d9ed19709d5c21863d396639304"
+    }
+  ],
+  "expectedAmbiguities": [
+    {
+      "name": "isRecord",
+      "before": [
+        "src/changeTourManifest.ts#isRecord",
+        "src/changeTourSource.ts#isRecord",
+        "src/tourAssessment.ts#isRecord",
+        "src/tourContentHash.ts#isRecord"
+      ],
+      "after": [
+        "src/changeTourManifest.ts#isRecord",
+        "src/changeTourSource.ts#isRecord",
+        "src/tourDetails.ts#isRecord"
+      ]
+    },
+    {
+      "name": "requireOnlyKeys",
+      "before": [
+        "src/changeTourSource.ts#requireOnlyKeys",
+        "src/tourAssessment.ts#requireOnlyKeys"
+      ],
+      "after": [
+        "src/changeTourSource.ts#requireOnlyKeys",
+        "src/tourDetails.ts#requireOnlyKeys"
+      ]
+    }
+  ],
+  "reviewNote": "Exact declaration correspondence is scoped syntax evidence. validateAudience calls helpers whose module bindings must be reviewed. Repeated helper implementations do not identify a unique origin; no operation or behavioral-equivalence claim is labeled."
+}

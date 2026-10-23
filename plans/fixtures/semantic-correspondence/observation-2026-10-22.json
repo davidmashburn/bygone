@@ -1,0 +1,284 @@
+{
+  "format": "bygone-research-observation-v1",
+  "runtime": {
+    "node": "v26.10.0",
+    "typescript": "4.9.5",
+    "platform": "darwin",
+    "architecture": "arm64"
+  },
+  "inputs": {
+    "controlsSha256": "6e7c669495ba3ec7aba508120cd5278acd7bf318f0880253cd2cb9da1b0f8a88",
+    "historySha256": "f47012c0a7e4cb469a178b0c8c850b2d03bd12ff89114e8f5827f17d450f4c84",
+    "checkerSha256": "8571d7567933dda27375c1c650cfb9559e45785d220b1553616bb542ef75714b"
+  },
+  "controls": [
+    {
+      "id": "exact-cross-file",
+      "declarations": 2,
+      "exact": [
+        {
+          "endpoints": [
+            "old.ts#total",
+            "new.ts#total"
+          ],
+          "syntaxHash": "18afb688952344789f749944f6bc17a6da365592664d4c5df206a34ef78f4b80",
+          "declarationBytesEqual": true,
+          "behavior": "unassessed"
+        }
+      ],
+      "missedExactRelationships": [],
+      "falseLinks": 0,
+      "ambiguousGroups": 0,
+      "exclusions": [],
+      "checks": "passed"
+    },
+    {
+      "id": "move-with-operator-edit",
+      "declarations": 2,
+      "exact": [],
+      "missedExactRelationships": [],
+      "falseLinks": 0,
+      "ambiguousGroups": 0,
+      "exclusions": [],
+      "checks": "passed"
+    },
+    {
+      "id": "move-rename-format",
+      "declarations": 2,
+      "exact": [],
+      "missedExactRelationships": [
+        [
+          "old.ts#total",
+          "new.ts#sum"
+        ]
+      ],
+      "falseLinks": 0,
+      "ambiguousGroups": 0,
+      "exclusions": [],
+      "checks": "passed"
+    },
+    {
+      "id": "retained-source-copy",
+      "declarations": 3,
+      "exact": [],
+      "missedExactRelationships": [],
+      "falseLinks": 0,
+      "ambiguousGroups": 1,
+      "exclusions": [],
+      "checks": "passed"
+    },
+    {
+      "id": "retained-duplicate-origin",
+      "declarations": 4,
+      "exact": [],
+      "missedExactRelationships": [],
+      "falseLinks": 0,
+      "ambiguousGroups": 1,
+      "exclusions": [],
+      "checks": "passed"
+    },
+    {
+      "id": "same-name-replacement",
+      "declarations": 2,
+      "exact": [],
+      "missedExactRelationships": [],
+      "falseLinks": 0,
+      "ambiguousGroups": 0,
+      "exclusions": [],
+      "checks": "passed"
+    },
+    {
+      "id": "equal-body-different-binding",
+      "declarations": 2,
+      "exact": [
+        {
+          "endpoints": [
+            "prices.ts#cost",
+            "billing.ts#cost"
+          ],
+          "syntaxHash": "0f853f4dc7ff0ae6422693cc5619d95fbb7e0a2077b074017f9b458f0c4da99d",
+          "declarationBytesEqual": true,
+          "behavior": "unassessed"
+        }
+      ],
+      "missedExactRelationships": [],
+      "falseLinks": 0,
+      "ambiguousGroups": 0,
+      "exclusions": [],
+      "checks": "passed"
+    },
+    {
+      "id": "arrow-unicode-crlf",
+      "declarations": 2,
+      "exact": [
+        {
+          "endpoints": [
+            "a.ts#label",
+            "b.ts#label"
+          ],
+          "syntaxHash": "cd0b2cb77c2e55711fc2b5b9217ff8934a87309591b125d62d4bfef9ed0978ed",
+          "declarationBytesEqual": true,
+          "behavior": "unassessed"
+        }
+      ],
+      "missedExactRelationships": [],
+      "falseLinks": 0,
+      "ambiguousGroups": 0,
+      "exclusions": [],
+      "checks": "passed"
+    },
+    {
+      "id": "extract-helper",
+      "declarations": 3,
+      "exact": [],
+      "missedExactRelationships": [],
+      "falseLinks": 0,
+      "ambiguousGroups": 0,
+      "exclusions": [],
+      "checks": "passed"
+    },
+    {
+      "id": "parse-and-coverage-failure",
+      "declarations": 0,
+      "exact": [],
+      "missedExactRelationships": [],
+      "falseLinks": 0,
+      "ambiguousGroups": 0,
+      "exclusions": [
+        "after:ledger.ts:anonymous-default",
+        "after:ledger.ts:class",
+        "before:broken.ts:parse-error"
+      ],
+      "checks": "passed"
+    }
+  ],
+  "historical": {
+    "base": "7bd04dbbb69d4bd2b8da0e0ef885071967676d37",
+    "head": "726796b1feebc3dfd7f396c83179753ef67ee119",
+    "sourceFiles": 17,
+    "beforeOccurrences": 317,
+    "afterOccurrences": 308,
+    "exact": [
+      {
+        "endpoints": [
+          "src/tourAssessment.ts#requireString",
+          "src/tourDetails.ts#requireString"
+        ],
+        "syntaxHash": "d624af08bff8a7ea0360dfc9ff2a5e8ed4094d17bbb4817c872eafdaf200c54a",
+        "declarationBytesEqual": true,
+        "behavior": "unassessed"
+      },
+      {
+        "endpoints": [
+          "src/tourAssessment.ts#requireStringArray",
+          "src/tourDetails.ts#requireStringArray"
+        ],
+        "syntaxHash": "c1f759e871dd024065106abf1ae3cc7dfd9d55642822108383abb69a4ea19f79",
+        "declarationBytesEqual": true,
+        "behavior": "unassessed"
+      },
+      {
+        "endpoints": [
+          "src/tourAssessment.ts#validateAudience",
+          "src/tourDetails.ts#validateAudience"
+        ],
+        "syntaxHash": "73060503e7567f5ab617128fa433bb8a03ee2584062b8837f922a51ee7632faf",
+        "declarationBytesEqual": true,
+        "behavior": "unassessed"
+      }
+    ],
+    "ambiguous": [
+      {
+        "syntaxHash": "eec2a844f8e7d1b7d60543ffade9c707123a868b9a9e5a9234219c389eee713c",
+        "before": [
+          "src/changeTourManifest.ts#validateNarrative",
+          "src/changeTourSource.ts#validateNarrative"
+        ],
+        "after": [
+          "src/changeTourManifest.ts#validateNarrative",
+          "src/changeTourSource.ts#validateNarrative"
+        ]
+      },
+      {
+        "syntaxHash": "597b7ded8ceb6bee7bbbfdf1ee6ed569efa2f019bc0fc4254170b43964141c55",
+        "before": [
+          "src/changeTourManifest.ts#isRecord",
+          "src/changeTourSource.ts#isRecord",
+          "src/tourAssessment.ts#isRecord",
+          "src/tourContentHash.ts#isRecord"
+        ],
+        "after": [
+          "src/changeTourManifest.ts#isRecord",
+          "src/changeTourSource.ts#isRecord",
+          "src/tourDetails.ts#isRecord"
+        ]
+      },
+      {
+        "syntaxHash": "2e782b06538a72375f09d9b2345cf39cec7c1e3635f124b428ac31d77bd22142",
+        "before": [
+          "src/changeTourManifest.ts#requireStringArray",
+          "src/changeTourSource.ts#requireStringArray"
+        ],
+        "after": [
+          "src/changeTourManifest.ts#requireStringArray",
+          "src/changeTourSource.ts#requireStringArray"
+        ]
+      },
+      {
+        "syntaxHash": "1c60bea5b96333d40687202ed1e7bea8ae99beaa8539a719f3f62584938c19b9",
+        "before": [
+          "src/changeTourSource.ts#requireOnlyKeys",
+          "src/tourAssessment.ts#requireOnlyKeys"
+        ],
+        "after": [
+          "src/changeTourSource.ts#requireOnlyKeys",
+          "src/tourDetails.ts#requireOnlyKeys"
+        ]
+      }
+    ],
+    "exclusions": [],
+    "files": {
+      "before": {
+        "cli/tour.js": "be942a6e2f77aa8c96c6a5707531f4b55f6fd4a3c5c3d7430758592614d34d71",
+        "media/workspaceControls.js": "391b7638725c809ab9453fa03f01ae5da330cb75c7a1858b20034c06ea28618f",
+        "src/changeTour.ts": "98d828a61ee4a85fd7091fa120460dbd498de5cfc016005d505692187de1b7ce",
+        "src/changeTourManifest.ts": "7bce4a59fc8e5ba23bff7f73e4029c22391fa3d30a1dce68bc77500f98d81767",
+        "src/changeTourSource.ts": "be9813ce317b811910777458fa86e59a19e0cc38c712fa2b95ec2acdde4c26c9",
+        "src/tourAssessment.ts": "ff78f00b22f5a8975e6821c22717e22f4758c9c554cb5d91cd2bb2c6d5408cc1",
+        "src/tourContentHash.ts": "8c7b3efdb8c0de103df91c9cde905e4d135216a8e5268cc0ce58dc9c82029dd2",
+        "src/tourFeedback.ts": "2a77d900026e1a3be1695a9f9ab2e1dc052a9f69d5aefefeceba977c6b9a20a1",
+        "standalone/exportSmoke.js": "370764ce66b268a396bf347aa4a8fe23e2ee549b088c8421116302fd54a985b6",
+        "standalone/main.js": "a2820b571dc60c8017eda6ef5fd9d1fee6dfdd3062ed919890f8af69a9e70e96",
+        "standalone/workspaceSmoke.js": "af8f72765fca3030a61feff0468c83004e0d219fcdf309e71e4da4ed175e09c9",
+        "test/changeTourAuthoredModes.test.js": "e249d005fc38028388e387be90a518e05925088ed0cb3094f6fa8d513bf3fa45",
+        "test/tourFeedback.test.js": "a4ece0e0c16adce91d38c92b27a63805be3050312150e0fa5ab74e3cd6bc19d6",
+        "web/host.js": "b21cf9511685eec840c8964f25051a9f8dafa071164411446053f42b46ed5024",
+        "web/tourAssessment.js": "5b13c88989a61a92496a4420d218f192ea2bfa4c27b3d7ae9e4134122d5f918e"
+      },
+      "after": {
+        "cli/tour.js": "1a3b4ab2adbdccc3c0c0f489fd9cd9605d764dc15f824c2d688a306a1ea2a2bd",
+        "media/workspaceControls.js": "eae84f2878e39b53196504b861cdda209e0bb01b1196e9a177397bf62ed5f372",
+        "src/changeTour.ts": "45b1d27c08fb7aedc11f094bc5182dc982e7bdb5245653c305b35220c6872672",
+        "src/changeTourManifest.ts": "bba00381ad1ad08c91b4e42e066dcb96f12d240fb74e4e6ff1ae8ec6c9b8c7a1",
+        "src/changeTourSource.ts": "3a421fcdb9caf4c5bc7bcdd155a7f1a596b59899d3b5380a8e3ce9c5d7819bc2",
+        "src/tourDetails.ts": "2df399c494ae1e0fb6c32f0eefc3668f1d8aec4aaf226b4dbc54fa3dc8dd65d5",
+        "src/tourFeedback.ts": "39b63aff9d4affb6c935fb69392c125dffbdd1c6d3ae53f3e4cca55ddb46279b",
+        "standalone/exportSmoke.js": "79b8bf08ef34c362b3d45841b94505b13308c795db87ec6604bbf69c1b3fd103",
+        "standalone/main.js": "7dbf081bb42be2d5595a307d5e8629c5f7dc748322e7563a8b84aaa317716371",
+        "standalone/workspaceSmoke.js": "b407bb08abd6d70e01d5a6a7bdb0d16ca9dc06ee03235444fce5023434797950",
+        "test/changeTourAuthoredModes.test.js": "3d917e8a5f02b556b84d65d5e526588e12034e5762271ef1335bc6bad05039e9",
+        "test/tourFeedback.test.js": "77ac9b158d7470c4f6e6e633d220961600a3c1d8e1c7c9815e671422f8abbec8",
+        "web/host.js": "7a9560a9b5a1e5d7e1726f206fe4fe649b446da9ded79802aa13e369b72efee4",
+        "web/tourDetails.js": "94aa955172ce9db4f2ae41f9f7a514f60ed1372227a59e9b117c18cae82d70b8"
+      }
+    }
+  },
+  "limitations": [
+    "Development controls, not held-out data.",
+    "One selected historical comparison, not a representative sample.",
+    "Only supported top-level declarations are inventoried.",
+    "No bindings, operation history, or behavior analysis.",
+    "Syntax equality excludes the declaration name and comments, and preserves literal token spelling.",
+    "No candidate-engine accuracy, latency, memory, or reviewer-benefit measurements."
+  ]
+}
