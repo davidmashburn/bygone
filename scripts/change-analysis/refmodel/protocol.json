@@ -1,0 +1,379 @@
+{
+  "version": 1,
+  "upstreamRevision": "82f35b406c77e7ce18a0cf7739dc135e76fb3c44",
+  "sourceSha256": "3b84046c41c1e52f40c31903f50ed62ff431cd9715f7878a6e607ef8af00bb8d",
+  "definitionsSha256": "8065581b7ca039b5144f3ebc1adf7992a4bd189a427991446dd100b0e1d43abc",
+  "manifestSha256": "845dfeaf2cfe6bcc59ab6df23b404afcdb915c175cde74241488c0f299fd42f0",
+  "diagnosticsSha256": "08263c4a615ef7aaec30932c46c16467e990543383198402034cde1644442c51",
+  "backend": "http://localhost:11434/api/generate",
+  "requestedModel": "gpt-oss:120b-cloud",
+  "resolvedModel": "gpt-oss:120b",
+  "modelMetadata": {
+    "name": "gpt-oss:120b-cloud",
+    "model": "gpt-oss:120b-cloud",
+    "remote_model": "gpt-oss:120b",
+    "remote_host": "https://ollama.com:443",
+    "modified_at": "2025-10-21T01:55:47.209313994-04:00",
+    "size": 384,
+    "digest": "569662207105c69bb0eca2f79a3fdf8691ad6301def477a5ec66f8e8bae237e3",
+    "details": {
+      "parent_model": "",
+      "format": "",
+      "family": "gptoss",
+      "families": [
+        "gptoss"
+      ],
+      "parameter_size": "116.8B",
+      "quantization_level": "MXFP4",
+      "context_length": 131072,
+      "embedding_length": 2880
+    },
+    "capabilities": [
+      "completion",
+      "tools",
+      "thinking"
+    ]
+  },
+  "settings": {
+    "temperature": 0.6,
+    "num_predict": 4096,
+    "seed": 42
+  },
+  "think": "low",
+  "timeoutSeconds": 180,
+  "maxPromptCharacters": 100000,
+  "maxRequests": 64,
+  "arms": [
+    "upstream",
+    "grounded"
+  ],
+  "scopeNote": "Only fixture-supplied files. No expected labels, manual obligations, prior findings or scoring data are sent to the model.",
+  "cases": [
+    {
+      "id": "control-01",
+      "expectedLabels": [
+        "Move Method"
+      ],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "control-02",
+      "expectedLabels": [
+        "Move Method",
+        "Rename Method"
+      ],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "control-03",
+      "expectedLabels": [
+        "Move Method"
+      ],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [
+        "initial accumulator changes from 0 to 5"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "control-04",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [
+        "source retained; move provenance unsupported"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "control-05",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [
+        "two indistinguishable old origins; source identity unresolved"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "control-06",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "control-07",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [
+        "unrelated implementation replacement; no accepted move"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "control-08",
+      "expectedLabels": [
+        "Move Method"
+      ],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "control-09",
+      "expectedLabels": [
+        "Move Method"
+      ],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "control-10",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [
+        "malformed code or inability to complete analysis"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "mixed-01",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [],
+      "taxonomyExcluded": true
+    },
+    {
+      "id": "mixed-02",
+      "expectedLabels": [
+        "Inline Method"
+      ],
+      "allowedAdditionalLabels": [
+        "Move Method"
+      ],
+      "strictNegative": false,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "mixed-03",
+      "expectedLabels": [
+        "Move Class"
+      ],
+      "allowedAdditionalLabels": [
+        "Move Method"
+      ],
+      "strictNegative": false,
+      "manualObligations": [
+        "price gains +1"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "mixed-04",
+      "expectedLabels": [
+        "Move Method",
+        "Rename Method"
+      ],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [
+        "initial accumulator changes from 0 to 3"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "mixed-05",
+      "expectedLabels": [
+        "Move Method"
+      ],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [
+        "rate binding changes from 1 to 2; identical function body does not preserve behavior"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "mixed-06",
+      "expectedLabels": [
+        "Move Method",
+        "Rename Method"
+      ],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [
+        "Unicode literal changes from \u5546\u54c1 to \u54c1\u7269"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "mixed-07",
+      "expectedLabels": [
+        "Move Method"
+      ],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "mixed-08",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [
+        "resolver return literal changes from 1 to 2; registration outside catalog"
+      ],
+      "taxonomyExcluded": true
+    },
+    {
+      "id": "mixed-09",
+      "expectedLabels": [
+        "Move Method"
+      ],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [
+        "rate import changes from rates to promotions; behavior unassessed"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "mixed-10",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [
+        "unchanged origin is outside supplied scope; new content alone cannot establish movement"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "history-01",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "history-02",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "history-03",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [
+        "chapter summary controls returned focus key"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "history-04",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [
+        "feedback request text changes"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "history-05",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "history-06",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "history-07",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [
+        "transition description logic changes"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "history-08",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [
+        "conclusion focus and validation added"
+      ],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "history-09",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "history-10",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": true,
+      "manualObligations": [],
+      "taxonomyExcluded": false
+    },
+    {
+      "id": "diagnostic-imported-extraction",
+      "expectedLabels": [],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [],
+      "taxonomyExcluded": true
+    },
+    {
+      "id": "diagnostic-public-tour-details",
+      "expectedLabels": [
+        "Move Method",
+        "Remove Method Parameter"
+      ],
+      "allowedAdditionalLabels": [],
+      "strictNegative": false,
+      "manualObligations": [
+        "assessment validation is removed from validateChangeTourDetails"
+      ],
+      "taxonomyExcluded": false
+    }
+  ],
+  "groundedInstructionsSha256": "ed7cddd6a0d2424797f9c23ee05f2dd25b455cdd269b5027217866f659d7ac94",
+  "evidenceSha256": "e1b6308882b6d751566554fdb79c29f88b7f71df96c1fa5b06c565013a607520"
+}

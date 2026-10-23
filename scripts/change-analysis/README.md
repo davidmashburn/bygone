@@ -72,3 +72,21 @@ rewrite without changing the frozen score. Run `check-semantic-corpus.js`,
 `run-semantic-eval.js <java> <jar>`, `normalize-semantic-eval.js`, and
 `check-semantic-results.js`, with `NODE_PATH` if needed. These scripts do not
 require compiled product output and are not part of `npm test`.
+
+## Richer mapping adapter
+
+[Implementation and reproduction](refactoring-mappings.md) describes the
+original Java API bridge, independent JS/TS inventory, validated source spans,
+full local edits, exact fallback, and grouped extraction/inline evidence.
+It recovers function continuations beneath module moves and exposes the removed
+validation in the public tour-details rewrite. Explicit JDK/jar paths are
+required; this does not install a product dependency or global MCP server.
+
+## RefModel-style model hypotheses
+
+[Experiment and reproduction](refmodel/README.md) compares the pinned upstream
+prompt with an evidence-constrained variant on the same 32 comparisons, using
+authenticated Codex following the user's model preference.
+[Findings](refmodel-findings.md) distinguish source-valid outputs, inferred
+operations, residual edits, and catalog limitations; they are not a product
+matcher or a population precision estimate.

@@ -1,0 +1,1288 @@
+{
+  "version": 1,
+  "protocolSha256": "bfab260351b242de503a1c6523c13463a48c04079d7289aa981f6f9f601e60b1",
+  "requestedModel": "gpt-6.1-sol",
+  "cliVersion": "codex-cli 0.163.0",
+  "runs": [
+    {
+      "caseId": "control-01",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "ad7fd5ec4081a049fc71216ada9237a393c0395a00371180af82229e33fbb749",
+      "promptCharacters": 3242,
+      "usage": {
+        "input_tokens": 21259,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 38,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method** — `invoiceTotal(rows)` moved from `src/cart.js` to `src/billing.js`, preserving its name, parameters, and implementation."
+      },
+      "status": "complete",
+      "elapsedSeconds": 6.5719040420081
+    },
+    {
+      "caseId": "control-01",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "f11f27cdc5a00bc2278485356339e2d7a9858b730f8de4f30908bbbf87e5a85f",
+      "promptCharacters": 5605,
+      "usage": {
+        "input_tokens": 21825,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 350,
+        "reasoning_output_tokens": 142
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\"operations\":[],\"additionalEdits\":[{\"evidence\":[{\"side\":\"before\",\"path\":\"src/cart.js\",\"quote\":\"export function invoiceTotal(rows) {\\n  let total = 0;\\n  for (const row of rows) total += row.price * row.quantity;\\n  return total;\\n}\",\"symbolId\":\"b1\"},{\"side\":\"after\",\"path\":\"src/billing.js\",\"quote\":\"export function invoiceTotal(rows) {\\n  let total = 0;\\n  for (const row of rows) total += row.price * row.quantity;\\n  return total;\\n}\",\"symbolId\":\"a0\"}],\"explanation\":\"The exported invoiceTotal function relocates from cart.js to billing.js with identical declaration text. No literal, condition, validation, parameter, or import edits are shown.\"}],\"uncertainties\":[\"This module-level function relocation falls outside the catalog's class-based Move Method definition; no class endpoints are supplied.\"],\"behavior\":\"unassessed\"}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 18.044515374989714
+    },
+    {
+      "caseId": "control-02",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "fdf1bba65f62959e95b96e883cd9a142c1b030607bbcd32781b217e6fb042488",
+      "promptCharacters": 5598,
+      "usage": {
+        "input_tokens": 21823,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 516,
+        "reasoning_output_tokens": 85
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Rename Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"b1\",\n          \"quote\": \"export function invoiceTotal(rows) {\\n  let total = 0;\\n  for (const row of rows) total += row.price * row.quantity;\\n  return total;\\n}\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"export function subtotal(rows) {\\n  let total = 0;\\n  for (const row of rows) total += row.price * row.quantity;\\n  return total;\\n}\"\n        }\n      ],\n      \"explanation\": \"The correspondence and identical parameter list and body support an inferred rename from invoiceTotal to subtotal, applying the catalog's method terminology to a standalone function.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"b1\",\n          \"quote\": \"export function invoiceTotal(rows)\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"export function subtotal(rows)\"\n        }\n      ],\n      \"explanation\": \"The exported declaration also changes modules, from src/cart.js to src/billing.js, changing its export location. No consumer imports are supplied.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The relocation is between modules, not classes, so it does not satisfy the catalog's class-based Move Method definition.\",\n    \"The inferred correspondence does not prove edit history or compatibility for consumers outside the supplied scope.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 22.894478457979858
+    },
+    {
+      "caseId": "control-02",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "c70f4bfdc2caea1cb37c4aa4b7f9b50d00a9faeb406f9c6ec29403708ca9d8b0",
+      "promptCharacters": 3238,
+      "usage": {
+        "input_tokens": 21258,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 53,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method**\n- **Rename Method**\n\nThe function moved from `src/cart.js` to `src/billing.js` and was renamed from `invoiceTotal` to `subtotal`. Its parameter and body remain unchanged, preserving its behavior."
+      },
+      "status": "complete",
+      "elapsedSeconds": 7.811906082992209
+    },
+    {
+      "caseId": "control-03",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "1ada6944eb7cd260e1b5a4462f13fdfef4f9c9ddce5dded62571ebf7a58a8b80",
+      "promptCharacters": 3242,
+      "usage": {
+        "input_tokens": 21257,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 56,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method** — `invoiceTotal(rows)` moved from `src/cart.js` to `src/billing.js`. Its initial `total` also changed from `0` to `5`, altering behavior; that change is not a listed refactoring."
+      },
+      "status": "complete",
+      "elapsedSeconds": 5.810031999979401
+    },
+    {
+      "caseId": "control-03",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "c91efa336348d1243c2cd22504ac8100ed5c4dc9a8d4e34acc590cb07d756c75",
+      "promptCharacters": 5606,
+      "usage": {
+        "input_tokens": 21825,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 362,
+        "reasoning_output_tokens": 137
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\"operations\":[{\"type\":\"Move Method\",\"sourceIds\":[\"b1\"],\"destinationIds\":[\"a0\"],\"evidence\":[{\"side\":\"before\",\"path\":\"src/cart.js\",\"quote\":\"export function invoiceTotal(rows) {\",\"symbolId\":\"b1\"},{\"side\":\"after\",\"path\":\"src/billing.js\",\"quote\":\"export function invoiceTotal(rows) {\",\"symbolId\":\"a0\"}],\"explanation\":\"The inferred correspondence relocates invoiceTotal from cart.js to billing.js, with a separate literal edit.\"}],\"additionalEdits\":[{\"evidence\":[{\"side\":\"before\",\"path\":\"src/cart.js\",\"quote\":\"let total = 0;\",\"symbolId\":\"b1\"},{\"side\":\"after\",\"path\":\"src/billing.js\",\"quote\":\"let total = 5;\",\"symbolId\":\"a0\"}],\"explanation\":\"The initial total changes from 0 to 5.\"}],\"uncertainties\":[\"Move Method is applied to a top-level function relocated between modules rather than between classes; the correspondence does not prove historical movement.\"],\"behavior\":\"unassessed\"}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 29.34712220801157
+    },
+    {
+      "caseId": "control-04",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "bd0dba9b3d434f90341637fd9ea19ba11b6d598360381b1b4f1835e723253505",
+      "promptCharacters": 5622,
+      "usage": {
+        "input_tokens": 21840,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 320,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"b0\",\n          \"quote\": \"export function invoiceTotal(rows)\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"a2\",\n          \"quote\": \"export function invoiceTotal(rows)\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"export function invoiceTotal(rows)\"\n        }\n      ],\n      \"explanation\": \"Billing adds an identical invoiceTotal declaration while the cart declaration remains unchanged. Duplicate text establishes neither a move nor a recorded copy.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"symbolId\": \"a1\",\n          \"quote\": \"export function destinationMarker() { return 991; }\"\n        }\n      ],\n      \"explanation\": \"Billing adds the exported destinationMarker function returning the literal 991; no counterpart was found in the supplied before scope.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The correspondence of b0 to a0 or a2 is unresolved because both after declarations are exact matches; textual identity does not prove provenance.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 15.700404250004794
+    },
+    {
+      "caseId": "control-04",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "609477b460f4c69c4c99e5618535303595dd11812d24e26b28eb899a2813af22",
+      "promptCharacters": 3301,
+      "usage": {
+        "input_tokens": 20016,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 89,
+        "reasoning_output_tokens": 30
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- None of the listed refactorings apply.\n\n`invoiceTotal` was copied into `src/billing.js` and remains unchanged in `src/cart.js`, so this is not a Move Method. Adding `destinationMarker` does not match any listed refactoring."
+      },
+      "status": "complete",
+      "elapsedSeconds": 7.186695125012193
+    },
+    {
+      "caseId": "control-05",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "2d9cab0aa9aa262d293515b4fc71786c87414eb49f97198783827ab24a6191e7",
+      "promptCharacters": 3110,
+      "usage": {
+        "input_tokens": 21233,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 89,
+        "reasoning_output_tokens": 44
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method** – The unchanged `invoiceTotal(rows)` function is relocated from `src/a.js` and `src/b.js` to `src/c.js`, leaving one shared implementation."
+      },
+      "status": "complete",
+      "elapsedSeconds": 11.07914470799733
+    },
+    {
+      "caseId": "control-05",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "3306983507b6779960e7738e39937a7826fc4c7c69ff78987501e5000b515716",
+      "promptCharacters": 5050,
+      "usage": {
+        "input_tokens": 20416,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 304,
+        "reasoning_output_tokens": 41
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/a.js\",\n          \"quote\": \"export function invoiceTotal(rows)\",\n          \"symbolId\": \"b0\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/b.js\",\n          \"quote\": \"export function invoiceTotal(rows)\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/c.js\",\n          \"quote\": \"export function invoiceTotal(rows)\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The supplied scope changes from two identical exported function declarations in src/a.js and src/b.js to one identical declaration in src/c.js. No signature, body, or literal changes are present.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Both b0 and b1 are equally supported potential origins of a0; the evidence does not establish a move or copy from either.\",\n    \"A standalone function's relocation between files is outside the supplied Move Method catalog definition.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 14.114733916998375
+    },
+    {
+      "caseId": "control-06",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "a24db5beb75739a432167819c7eb4918f3dd54deecaef7ba25b7027a93fc27c4",
+      "promptCharacters": 5173,
+      "usage": {
+        "input_tokens": 20441,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 70,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\"operations\":[],\"additionalEdits\":[{\"evidence\":[{\"side\":\"after\",\"path\":\"src/cart.js\",\"quote\":\"\\n\\n// inserted header\\n\"}],\"explanation\":\"Added two leading blank lines and a header comment; both function declarations remain identical.\"}],\"uncertainties\":[],\"behavior\":\"unassessed\"}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 6.949208416015608
+    },
+    {
+      "caseId": "control-06",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "4dacc69ab99b3c988722724842a8e9d155c8d5eb88134ab1297f22f108a16903",
+      "promptCharacters": 3108,
+      "usage": {
+        "input_tokens": 21221,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 34,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- None of the listed refactorings apply.\n\nThe transformation only adds blank lines and the comment `// inserted header`; all executable code remains unchanged."
+      },
+      "status": "complete",
+      "elapsedSeconds": 8.549121374991955
+    },
+    {
+      "caseId": "control-07",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "f21682b851031593a749644dcbd45d9123e79787645da70837a9457216fc82ff",
+      "promptCharacters": 3173,
+      "usage": {
+        "input_tokens": 21236,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 180,
+        "reasoning_output_tokens": 124
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method**\n\n  `invoiceTotal(rows)` moved from `src/cart.js` to `src/billing.js`. Its body also changed from calculating a total to calling `fetch(\"/invoices\")`, so the transformation does not preserve behavior."
+      },
+      "status": "complete",
+      "elapsedSeconds": 18.755432917008875
+    },
+    {
+      "caseId": "control-07",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "8b268c83e29135372762c22c34bb3b694a12c87cff04ddaccfb728e411e24948",
+      "promptCharacters": 5483,
+      "usage": {
+        "input_tokens": 21787,
+        "cached_input_tokens": 7168,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 310,
+        "reasoning_output_tokens": 37
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\n  let total = 0;\\n  for (const row of rows) total += row.price * row.quantity;\\n  return total;\\n}\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function invoiceTotal(rows) { return fetch(\\\"/invoices\\\"); }\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The cart declaration disappears and billing gains a same-named declaration. Numeric accumulation over row prices and quantities is replaced by returning fetch(\\\"/invoices\\\"). The rows parameter remains but is unused; fetch is referenced without an import in the supplied file.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The shared name and signature suggest a possible relocation, but the entirely replaced body and lack of a correspondence hint do not establish Move Method; the declarations are also standalone functions rather than class methods.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 15.644024666020414
+    },
+    {
+      "caseId": "control-08",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "ddae96f0202c8b765ae14bcd6fa37dcf8df937db37efaa4a8e0dd109bd424ba6",
+      "promptCharacters": 4768,
+      "usage": {
+        "input_tokens": 20325,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 91,
+        "reasoning_output_tokens": 29
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\"operations\":[],\"additionalEdits\":[],\"uncertainties\":[\"invoiceTotal is identical at old/math.js and new/math.js. This supports a file-path relocation, which is outside the supplied catalog; it does not establish a move between classes.\"],\"behavior\":\"unassessed\"}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 8.260053500009235
+    },
+    {
+      "caseId": "control-08",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "3698e0ce0d92c089400ff1d0e5b4ba735b3d715867e3b9c1b05aa0dbe0e31bf3",
+      "promptCharacters": 2960,
+      "usage": {
+        "input_tokens": 21181,
+        "cached_input_tokens": 17664,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 68,
+        "reasoning_output_tokens": 23
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- No listed refactorings applied.\n\nThe function’s name, parameters, body, and behavior are identical. Only the file path changes from `old/math.js` to `new/math.js`."
+      },
+      "status": "complete",
+      "elapsedSeconds": 9.379717208998045
+    },
+    {
+      "caseId": "control-09",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "184d29b1125da59de743c4faaeec5a2dba38e77e1553a91b63ef9135c6e10cec",
+      "promptCharacters": 3068,
+      "usage": {
+        "input_tokens": 19952,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 47,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method** – The exported arrow function `discount` moved from `src/cart.js` to `src/billing.js`, preserving its name, parameter, and behavior (`amount * 0.8`)."
+      },
+      "status": "complete",
+      "elapsedSeconds": 7.34428979200311
+    },
+    {
+      "caseId": "control-09",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "ac64b554bde72d472d4c56556b18e492736fc97b02bf51d96ffd9da0855ecdde",
+      "promptCharacters": 5431,
+      "usage": {
+        "input_tokens": 21771,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 185,
+        "reasoning_output_tokens": 30
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\"operations\":[],\"additionalEdits\":[{\"evidence\":[{\"side\":\"before\",\"path\":\"src/cart.js\",\"quote\":\"discount = (amount) => amount * 0.8;\",\"symbolId\":\"b1\"},{\"side\":\"after\",\"path\":\"src/billing.js\",\"quote\":\"discount = (amount) => amount * 0.8;\",\"symbolId\":\"a0\"}],\"explanation\":\"The exported discount function relocates from cart.js to billing.js with its name, parameter and body unchanged. Its exporting module changes.\"}],\"uncertainties\":[\"The catalog has no module-level function relocation operation; Move Method requires relocation between classes. Correspondence supports the mapping but does not prove history.\"],\"behavior\":\"unassessed\"}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 10.609929582977202
+    },
+    {
+      "caseId": "control-10",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "59572652b15bbb1b5332cb2d9b6842c61611aa4f40531be652455b707348be86",
+      "promptCharacters": 5497,
+      "usage": {
+        "input_tokens": 20542,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 185,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\"operations\":[],\"additionalEdits\":[{\"evidence\":[{\"side\":\"before\",\"path\":\"src/cart.js\",\"quote\":\"export function invoiceTotal(rows) {\\n  let total = 0;\\n  for (const row of rows) total += row.price * row.quantity;\\n  return total;\\n}\",\"symbolId\":\"b1\"},{\"side\":\"after\",\"path\":\"src/billing.js\",\"quote\":\"export function invoiceTotal( {\"}],\"explanation\":\"The complete invoiceTotal declaration disappears from cart.js; billing.js contains only a malformed declaration prefix without its parameters or calculation body. This does not establish a completed move.\"}],\"uncertainties\":[\"After src/billing.js has parse diagnostics, so a completed refactoring analysis is unsupported.\",\"The missing after inventory entry for destinationMarker does not establish removal: its source text remains in the invalid file.\"],\"behavior\":\"unassessed\"}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 11.328662375017302
+    },
+    {
+      "caseId": "control-10",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "b47c16f55e6f141ed106916d6e3ff8ea7423842816a136c43b3c4e88edfa1c94",
+      "promptCharacters": 3135,
+      "usage": {
+        "input_tokens": 21223,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 167,
+        "reasoning_output_tokens": 106
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method**\n\n  `invoiceTotal` is removed from `src/cart.js` and appears in `src/billing.js`. However, its destination declaration is truncated and its body is missing, so this is an attempted move rather than a valid, completed refactoring."
+      },
+      "status": "complete",
+      "elapsedSeconds": 12.918197332997806
+    },
+    {
+      "caseId": "mixed-01",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "004de6c16d73e8d38e9201d36fae4047958b9b557f9edf5a8578b7752b4dc5ea",
+      "promptCharacters": 3361,
+      "usage": {
+        "input_tokens": 21284,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 156,
+        "reasoning_output_tokens": 96
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- None of the listed refactorings apply.\n\nThe totaling logic was extracted from `checkout` into the new `invoiceTotal(rows)` function. No existing method was relocated, so this is not Move Method. The applicable extraction refactoring is absent from the supplied list."
+      },
+      "status": "complete",
+      "elapsedSeconds": 12.745754500007024
+    },
+    {
+      "caseId": "mixed-01",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "8bdc35ce083e1538a26914820fa4d26fd8fb3798b7fc5c6005f7d6686b559159",
+      "promptCharacters": 5819,
+      "usage": {
+        "input_tokens": 20624,
+        "cached_input_tokens": 16384,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 455,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"let result = 0;\\n for (const row of rows) result += row.price * row.quantity;\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"const result = invoiceTotal(rows);\",\n          \"symbolId\": \"a2\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\n  let total = 0;\\n  for (const row of rows) total += row.price * row.quantity;\\n  return total;\\n}\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The accumulation is extracted into the new exported invoiceTotal function, with accumulator result renamed total. checkout retains save and return, but its result binding changes from let to const initialized by a call. Extract Method is outside the supplied catalog; this is not a move of checkout.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function checkout(rows) {\\n const result = invoiceTotal(rows);\\n save(result);\\n return result;\\n}\",\n          \"symbolId\": \"a2\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function invoiceTotal(rows)\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"checkout introduces an invoiceTotal reference, but the supplied cart.js contains no import or local declaration binding that name to the new billing.js export.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Extract Method is not in the catalog.\",\n    \"The supplied scope does not establish how checkout's invoiceTotal reference resolves at runtime.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 16.17192833297304
+    },
+    {
+      "caseId": "mixed-02",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "dc21efed1fb9b4122799df8b1b99f750fc0afce8ec4fd63e2e2898c5199e9b6e",
+      "promptCharacters": 5767,
+      "usage": {
+        "input_tokens": 21864,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 509,
+        "reasoning_output_tokens": 72
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Inline Method\",\n      \"sourceIds\": [\"b0\"],\n      \"destinationIds\": [\"a1\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/billing.js\",\n          \"symbolId\": \"b0\",\n          \"quote\": \"let total = 0;\\n  for (const row of rows) total += row.price * row.quantity;\\n  return total;\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"b2\",\n          \"quote\": \"const result = invoiceTotal(rows);\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"a1\",\n          \"quote\": \"let result = 0;\\n for (const row of rows) result += row.price * row.quantity;\"\n        }\n      ],\n      \"explanation\": \"checkout replaces the invoiceTotal call with its accumulation body, adapting total to result. invoiceTotal has no after counterpart in the supplied scope. This inference is supported by the source, although no correspondence hint links these endpoints.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"b2\",\n          \"quote\": \"const result = invoiceTotal(rows);\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"a1\",\n          \"quote\": \"let result = 0;\"\n        }\n      ],\n      \"explanation\": \"The result binding changes from const initialized by a call to let initialized with zero and subsequently updated by the loop.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The inline mapping is inferred from source similarity and call replacement; it does not prove transformation history or behavioral equivalence.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 17.104957582982024
+    },
+    {
+      "caseId": "mixed-02",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "7c799f327162e0de1328d418a10b0796d2b5cbb3912a9470258dc58e96f033e0",
+      "promptCharacters": 3361,
+      "usage": {
+        "input_tokens": 21284,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 52,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Inline Method** — The call to `invoiceTotal(rows)` in `checkout` is replaced with its calculation body, using `result` as the accumulator. The `invoiceTotal` function is removed from `src/billing.js`."
+      },
+      "status": "complete",
+      "elapsedSeconds": 8.815252208005404
+    },
+    {
+      "caseId": "mixed-03",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "5726d395edbc0c8a81520121cbb9eb88f867d29b3d151caf8749da912801a6e8",
+      "promptCharacters": 3202,
+      "usage": {
+        "input_tokens": 19983,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 112,
+        "reasoning_output_tokens": 42
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- None of the listed refactorings apply.\n\n`PriceBook` moves from `src/cart.js` to `src/billing.js`, but its methods and field remain in the same class. Also, `price(value)` changes behavior by adding `1` to its result. Neither change matches a listed refactoring."
+      },
+      "status": "complete",
+      "elapsedSeconds": 9.32591037498787
+    },
+    {
+      "caseId": "mixed-03",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "8ca14270a3ba2af321a49ba60f3073dea6d672d1da9c5e10179726bb3f2f2bd2",
+      "promptCharacters": 6061,
+      "usage": {
+        "input_tokens": 21958,
+        "cached_input_tokens": 17664,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 253,
+        "reasoning_output_tokens": 43
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"price(value) { return value * this.rate; }\",\n          \"symbolId\": \"b3\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"price(value) { return value * this.rate + 1; }\",\n          \"symbolId\": \"a2\"\n        }\n      ],\n      \"explanation\": \"PriceBook.price adds the literal 1 to the computed result.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The supplied scope supports relocation of PriceBook from src/cart.js to src/billing.js, but class relocation is outside the catalog. Its methods remain in PriceBook, so this does not establish Move Method.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 11.448584874975495
+    },
+    {
+      "caseId": "mixed-04",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "cf3c98a2ca317b9d21f41ea43fe6c439b0892e64fd3cafdb32083e91bea062fd",
+      "promptCharacters": 5631,
+      "usage": {
+        "input_tokens": 20570,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 689,
+        "reasoning_output_tokens": 121
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Move Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"b1\",\n          \"quote\": \"for (const row of rows) total += row.price * row.quantity;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"for (const row of rows) total += row.price * row.quantity;\"\n        }\n      ],\n      \"explanation\": \"The correspondence and shared accumulation logic support relocation from cart.js to billing.js, alongside a rename and initialization edit.\"\n    },\n    {\n      \"type\": \"Rename Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"b1\",\n          \"quote\": \"export function invoiceTotal(rows)\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"export function amountDue(rows)\"\n        }\n      ],\n      \"explanation\": \"The mapped function changes its exported name from invoiceTotal to amountDue. The separate initialization change prevents claiming behavioral equivalence.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"b1\",\n          \"quote\": \"let total = 0;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"let total = 3;\"\n        }\n      ],\n      \"explanation\": \"The initial total changes from 0 to 3.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"// amounts include handling\"\n        }\n      ],\n      \"explanation\": \"A comment describing handling is added above amountDue.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Move Method and Rename Method are applied to top-level JavaScript functions rather than class methods.\",\n    \"The mapping supports an inferred correspondence, not proof of edit history; callers outside the supplied files were not provided.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 25.46884079099982
+    },
+    {
+      "caseId": "mixed-04",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "8f77bfa7fd39e1a2c3d70dae0269449807579783c8f55911fcf4970cc76e61b4",
+      "promptCharacters": 3268,
+      "usage": {
+        "input_tokens": 21263,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 134,
+        "reasoning_output_tokens": 62
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method**\n- **Rename Method**\n\n`invoiceTotal(rows)` moved from `src/cart.js` to `src/billing.js` and was renamed to `amountDue(rows)`.\n\nThe initialization also changed from `0` to `3`, altering behavior; that change is not a refactoring from the supplied list."
+      },
+      "status": "complete",
+      "elapsedSeconds": 10.465884665987687
+    },
+    {
+      "caseId": "mixed-05",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "f33e8cb5bbf92e63ed54ad152ba62858fc7398f2e731e9cb599317c21c94bdf0",
+      "promptCharacters": 3120,
+      "usage": {
+        "input_tokens": 19960,
+        "cached_input_tokens": 16384,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 116,
+        "reasoning_output_tokens": 37
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method** – `localPrice(value)` moved from `src/cart.js` to `src/billing.js`.\n- **Move Field** – The module-level constant `rate` moved from `src/cart.js` to `src/billing.js`; its initializer also changed from `1` to `2`, altering `localPrice`’s behavior."
+      },
+      "status": "complete",
+      "elapsedSeconds": 8.606505542004015
+    },
+    {
+      "caseId": "mixed-05",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "c17dec1b42ba05e116fc0dedb83c854264333af9dbcc9dd30b014cbf9fc0c3e8",
+      "promptCharacters": 5642,
+      "usage": {
+        "input_tokens": 21838,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 502,
+        "reasoning_output_tokens": 158
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"b2\",\n          \"quote\": \"export function localPrice(value) { return value * rate; }\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"symbolId\": \"a1\",\n          \"quote\": \"export function localPrice(value) { return value * rate; }\"\n        }\n      ],\n      \"explanation\": \"The identical exported function changes modules, and its rate reference now resolves in src/billing.js.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"b1\",\n          \"quote\": \"rate = 1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"rate = 2\"\n        }\n      ],\n      \"explanation\": \"The module-level rate declaration changes location and initializer from 1 to 2; the identical function body does not eliminate this residual edit.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The catalog's Move Method and Move Field operations require class members; these declarations are a top-level function and module constant.\",\n    \"The rate declarations have no correspondence hint; their relationship is inferred from their names and use.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 22.41671658400446
+    },
+    {
+      "caseId": "mixed-06",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "35f37ebbde76dcfff2923fe3220cc4d59c62135d807c17792448aab54902bcbf",
+      "promptCharacters": 5420,
+      "usage": {
+        "input_tokens": 20513,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 328,
+        "reasoning_output_tokens": 85
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"b1\",\n          \"quote\": \"export function label(value) { return `商品:${value}`; }\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"export function caption(value) { return `品物:${value}`; }\"\n        }\n      ],\n      \"explanation\": \"The inferred correspondence changes the exported name from label to caption, the containing file from src/cart.js to src/billing.js, and the template literal prefix from 商品: to 品物:. The parameter and interpolation remain unchanged.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The correspondence suggests relocation and renaming but does not prove history. Move Method requires class endpoints; these declarations are module-level functions. The changed literal also prevents establishing a behavior-preserving Rename Method.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 38.36572162498487
+    },
+    {
+      "caseId": "mixed-06",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "72fc2ba5a8248354d3e4f677dcf85d1fbb99d6fdf55011f2245125182d319b9f",
+      "promptCharacters": 3080,
+      "usage": {
+        "input_tokens": 21210,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 120,
+        "reasoning_output_tokens": 49
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method**\n- **Rename Method**\n\nThe function moves from `src/cart.js` to `src/billing.js` and is renamed from `label(value)` to `caption(value)`. Its returned prefix also changes from `商品:` to `品物:`, so the transformation is not entirely behavior-preserving."
+      },
+      "status": "complete",
+      "elapsedSeconds": 10.463331250008196
+    },
+    {
+      "caseId": "mixed-07",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "ec5af62d9d452c7259e1bc2a8dfe06ffe43e46915985f4c201dc463d4d9a85ac",
+      "promptCharacters": 3080,
+      "usage": {
+        "input_tokens": 19948,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 49,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method** – The default-exported function `(value) { return value / 100; }` moved from `src/cart.js` to `src/billing.js` without changes to its parameters or behavior."
+      },
+      "status": "complete",
+      "elapsedSeconds": 7.731331082992256
+    },
+    {
+      "caseId": "mixed-07",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "e52a900ee6fafb5d4850fa68a9cc44cb9798df8addf25214c37ec91063d6ce06",
+      "promptCharacters": 5421,
+      "usage": {
+        "input_tokens": 21769,
+        "cached_input_tokens": 17664,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 328,
+        "reasoning_output_tokens": 83
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export default function (value) { return value / 100; }\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export default function (value) { return value / 100; }\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The identical anonymous default-exported function changes module location from cart.js to billing.js, removing the default export from cart.js and adding it to billing.js. Its parameter and body are unchanged.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The catalog has no Move Function operation; Move Method requires relocation between classes, which these module-level declarations do not establish.\",\n    \"The exact correspondence supports inferred relocation, not proof of edit history; consumers outside the supplied files were not assessed.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 17.106797542015556
+    },
+    {
+      "caseId": "mixed-08",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "fdf1ddfd6b6efe81cfce00074abbcb8d3f932e9d89c6c02f3c211728a4a49c31",
+      "promptCharacters": 5346,
+      "usage": {
+        "input_tokens": 21750,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 195,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"registerType(\\\"Query\\\", { resolve() { return 1; } });\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"registerType(\\\"Query\\\", { resolve() { return 2; } });\"\n        }\n      ],\n      \"explanation\": \"The Query registration changes location from cart.js to billing.js, and its resolve callback's return literal changes from 1 to 2.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The registration and callback are not inventoried symbols; their apparent relocation does not establish a catalog Move Method between classes or prove historical origin.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 11.029445541003952
+    },
+    {
+      "caseId": "mixed-08",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "3e8828f4b4a0fe1c98197c39d7e5699e5a8c19906e4e1e34524a71c731ef3c85",
+      "promptCharacters": 3076,
+      "usage": {
+        "input_tokens": 21211,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 63,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method** – The `resolve()` method in the `registerType(\"Query\", ...)` registration moved from `src/cart.js` to `src/billing.js`. Its return value also changed from `1` to `2`; that behavior change is not a listed refactoring."
+      },
+      "status": "complete",
+      "elapsedSeconds": 17.936226999998325
+    },
+    {
+      "caseId": "mixed-09",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "6468205c539ed4b4c031a8c3cda099c95b0222959a6a4f1d9da2c965362d4b7b",
+      "promptCharacters": 3167,
+      "usage": {
+        "input_tokens": 21230,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 70,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method**\n\n  `localPrice(value)` moved from `src/cart.js` to `src/billing.js`, retaining its name, parameter, and body. Its `rate` import now references `./promotions.js` instead of `./rates.js`; this import change does not correspond to another listed refactoring."
+      },
+      "status": "complete",
+      "elapsedSeconds": 8.204816917015705
+    },
+    {
+      "caseId": "mixed-09",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "3161beb6bc1d39ebaf262b109bd2ac94c6f47bfe3f9047d48df0cc03eca6de92",
+      "promptCharacters": 5527,
+      "usage": {
+        "input_tokens": 21800,
+        "cached_input_tokens": 17664,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 412,
+        "reasoning_output_tokens": 57
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Move Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function localPrice(value) { return value * rate; }\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function localPrice(value) { return value * rate; }\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"localPrice relocates between modules with identical declaration text; Move Method describes this module-level function relocation.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"import { rate } from \\\"./rates.js\\\";\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"import { rate } from \\\"./promotions.js\\\";\"\n        }\n      ],\n      \"explanation\": \"The relocated function's rate binding comes from ./promotions.js instead of ./rates.js, despite its unchanged body.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The catalog describes Move Method between classes; these endpoints are module-level functions.\",\n    \"The imported modules are outside the supplied scope; equivalence of their rate exports is unknown.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 19.60512245897553
+    },
+    {
+      "caseId": "mixed-10",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "71bfb6a8422c7f09413653eb2f907387edf749bc58975bd128174ef69921c6d3",
+      "promptCharacters": 4864,
+      "usage": {
+        "input_tokens": 21605,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 160,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\n  let total = 0;\\n  for (const row of rows) total += row.price * row.quantity;\\n  return total;\\n}\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"Adds exported invoiceTotal(rows), which starts at 0 and sums row.price * row.quantity without explicit validation. No counterpart was found in the supplied before scope.\"\n    }\n  ],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 8.52879933299846
+    },
+    {
+      "caseId": "mixed-10",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "f31f677ad432ccbd75b13af144910c0fe2363c7d9499431b9d7017abef0b2ab3",
+      "promptCharacters": 2938,
+      "usage": {
+        "input_tokens": 19908,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 45,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- No listed refactoring applies.\n\nThe transformation adds a new `invoiceTotal(rows)` function. The existing `destinationMarker()` remains unchanged. Adding a new function is not among the predefined refactorings."
+      },
+      "status": "complete",
+      "elapsedSeconds": 6.317268457991304
+    },
+    {
+      "caseId": "history-01",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "7d68ba84e2d91e2b13c15de6748b45da04ec12d44bfa1a1f7b147acf00110261",
+      "promptCharacters": 3881,
+      "usage": {
+        "input_tokens": 21408,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 40,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Add Method Parameter** – Added a `diffWordsWithSpace` overload with a third parameter, `options: DiffOptions`. The original two-parameter signature remains available."
+      },
+      "status": "complete",
+      "elapsedSeconds": 8.160638125002151
+    },
+    {
+      "caseId": "history-01",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "3e65e81e7c372ffe3975f98add1f425f8b297e20fb67803ba1626effcddc1e68",
+      "promptCharacters": 5638,
+      "usage": {
+        "input_tokens": 21802,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 256,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/diff.d.ts\",\n          \"quote\": \"export function diffWordsWithSpace(oldStr: string, newStr: string): Change<string>[];\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/diff.d.ts\",\n          \"quote\": \"export function diffWordsWithSpace(oldStr: string, newStr: string): Change<string>[];\\n    export function diffWordsWithSpace(oldStr: string, newStr: string, options: DiffOptions): Change<string>[] | undefined;\"\n        }\n      ],\n      \"explanation\": \"Adds an overload accepting a required third parameter, options: DiffOptions, with a return type that includes undefined. The existing two-parameter declaration remains unchanged; this is not a parameter addition to that declaration.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Namespace members are excluded from the empty symbol inventory, so no operation endpoints are available.\",\n    \"Only declarations are supplied; runtime implementation and handling of options are not shown.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 17.9953357919876
+    },
+    {
+      "caseId": "history-02",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "48ac2e53100e288fcc8165351d5f4810ea525f7617044e749be7c232a3e77fb5",
+      "promptCharacters": 6275,
+      "usage": {
+        "input_tokens": 20717,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 716,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/panelOrder.ts\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"export interface PanelMove {\\n    panelId: string;\\n    targetIndex: number;\\n    panelIds: string[];\\n}\"\n        }\n      ],\n      \"explanation\": \"Adds the PanelMove interface describing a panel, destination index, and displayed panel order.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/panelOrder.ts\",\n          \"symbolId\": \"a1\",\n          \"quote\": \"if (!Array.isArray(move.panelIds) || move.panelIds.length !== panels.length\\n        || !panels.every((panel, index) => panel.id === move.panelIds[index])\\n        || new Set(move.panelIds).size !== panels.length\\n        || !Number.isInteger(move.targetIndex) || move.targetIndex < 0 || move.targetIndex >= panels.length) return null;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/panelOrder.ts\",\n          \"symbolId\": \"a1\",\n          \"quote\": \"const from = panels.findIndex(panel => panel.id === move.panelId);\\n    if (from < 0 || from === move.targetIndex) return null;\\n    const result = [...panels];\\n    result.splice(move.targetIndex, 0, result.splice(from, 1)[0]);\\n    return result;\"\n        }\n      ],\n      \"explanation\": \"Adds panel movement with exact displayed-order, uniqueness, and integer index validation. Missing panels and unchanged positions return null; accepted moves reorder a copied array.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/panelOrder.ts\",\n          \"symbolId\": \"a2\",\n          \"quote\": \"if (!Array.isArray(order) || order.length !== items.length || new Set(order).size !== items.length) return [...items];\\n    const byKey = new Map(items.map(item => [key(item), item]));\\n    return order.every(id => byKey.has(id)) ? order.map(id => byKey.get(id)!) : [...items];\"\n        }\n      ],\n      \"explanation\": \"Adds custom ordering using a key-to-item map. Invalid array shape, length, uniqueness, or unknown keys falls back to a copy of the original items.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/panelOrder.ts\",\n          \"symbolId\": \"a3\",\n          \"quote\": \"return panelIds.length < 2 ? null : Math.min(Math.max(0, panelIds.indexOf(panelId)), panelIds.length - 2);\"\n        }\n      ],\n      \"explanation\": \"Adds pair-index calculation: fewer than two panels returns null; otherwise the located index is clamped between zero and length minus two, including a missing panel ID mapping to zero.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The supplied before scope is empty, so no refactoring origin or counterpart can be established; repository-wide absence is unknown.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 21.73599600000307
+    },
+    {
+      "caseId": "history-02",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "293cbb3a1e0342680f707a5878103d1217887391dea9001cb0760da077809159",
+      "promptCharacters": 4270,
+      "usage": {
+        "input_tokens": 20255,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 48,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- No listed refactoring can be identified.\n\nThe original version is empty. The transformed version adds a new interface and functions, but provides no existing code demonstrating extraction, movement, renaming, or another listed refactoring."
+      },
+      "status": "complete",
+      "elapsedSeconds": 6.737950457987608
+    },
+    {
+      "caseId": "history-03",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "0cc6277cce3d670626e0b56ae6f64929794621aca4ce9193d34923e81ef3e7a5",
+      "promptCharacters": 20360,
+      "usage": {
+        "input_tokens": 25902,
+        "cached_input_tokens": 17664,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 85,
+        "reasoning_output_tokens": 26
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- None of the listed refactorings apply.\n\nThe only change is behavioral: chapter focus now returns a `scene:…` key when the chapter’s summary is absent, empty, or whitespace-only; otherwise, it retains the `chapter:…` key."
+      },
+      "status": "complete",
+      "elapsedSeconds": 9.999056417000247
+    },
+    {
+      "caseId": "history-03",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "3c2110cd020001586f13cef8ce6c0acd31ec60d0e8d65c09e24ba631a6d75793",
+      "promptCharacters": 26631,
+      "usage": {
+        "input_tokens": 26482,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 221,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"return { key: `chapter:${chapter.id}`, sceneIndex, stepIndex: 0 };\",\n          \"symbolId\": \"b14\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"return { key: chapter.summary?.trim() ? `chapter:${chapter.id}` : `scene:${selected.scenes[sceneIndex].id}`, sceneIndex, stepIndex: 0 };\",\n          \"symbolId\": \"a14\"\n        }\n      ],\n      \"explanation\": \"Chapter focus now selects the chapter key only when chapter.summary?.trim() is truthy; otherwise it selects the first chapter scene's key. Previously it always selected the chapter key.\"\n    }\n  ],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 8.307521834009094
+    },
+    {
+      "caseId": "history-04",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "e0411666c44cbe30f3b0f7bf76425f4e73f0d110500acbc030ff70629f896c93",
+      "promptCharacters": 14820,
+      "usage": {
+        "input_tokens": 23940,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 839,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"b2\",\n          \"quote\": \"Investigate before deciding what needs repair. Check the stated expectation, the explanation, and the implementation against source and relevant tests.\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"a2\",\n          \"quote\": \"Investigate the concern against implementation code, relevant tests, and existing docs, requirements, or PR rationale. Distinguish intended behavior from the tour's claim and the evidence; label inferred intent and unresolved disagreement.\"\n        }\n      ],\n      \"explanation\": \"Changes the returned prompt literal to broaden investigation sources and distinguish intended behavior, tour claims, evidence, and unresolved disagreement.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"b2\",\n          \"quote\": \"Propose the smallest repair within the existing task authorization.\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"a2\",\n          \"quote\": \"Answer the concern, then identify any repair destination: implementation code, maintained documentation, PR explanation, the tour document, or the viewer.\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"a2\",\n          \"quote\": \"Propose the smallest repair within the existing task authorization; this request does not itself authorize implementation edits or shared-system writes.\"\n        }\n      ],\n      \"explanation\": \"Adds explicit repair destinations, permits an answer without artifact changes, and clarifies that the generated request grants no implementation or shared-system write authorization.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"b2\",\n          \"quote\": \"Close the loop on both behavior and understanding; report what remains unverified.\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"a2\",\n          \"quote\": \"Report what was checked, what remains unverified, and which artifacts actually changed. An agent reply does not update the saved tour document.\"\n        }\n      ],\n      \"explanation\": \"Revises the prompt's reporting requirements to include checks and actual artifact changes, and clarifies that a reply does not modify the saved tour.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"b2\",\n          \"quote\": \"If code changes, refresh the tour evidence and reassess affected claims.\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"b2\",\n          \"quote\": \"Use the pr-tour-guide skill when available. Verify the source revision before acting.\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"a2\",\n          \"quote\": \"Verify the pinned and current implementation revisions before acting. If authorized implementation changes affect the tour, revisit its claims and refresh evidence for the intended committed range; do not present working-tree edits as committed evidence. Use the pr-tour-guide skill when authoring or repairing a Bygone tour, if available.\"\n        }\n      ],\n      \"explanation\": \"Rewrites revision and evidence instructions to distinguish pinned, current, committed, and working-tree states, and narrows skill use to tour authoring or repair.\"\n    }\n  ],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 24.57334324999829
+    },
+    {
+      "caseId": "history-04",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "7b5de8705eca45a875188ca459b47639a29679300212d4387f124d634c1f8193",
+      "promptCharacters": 12295,
+      "usage": {
+        "input_tokens": 23287,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 37,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- No listed refactoring applies.\n\nOnly the text returned by `buildTourFeedbackRequest` changed. Method signatures, names, fields, and code structure remain unchanged."
+      },
+      "status": "complete",
+      "elapsedSeconds": 6.208956833987031
+    },
+    {
+      "caseId": "history-05",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "98ca6a012ddce3c988aa8181dfac66030ed5a197a18c3cd762b2c4ee71623664",
+      "promptCharacters": 4103,
+      "usage": {
+        "input_tokens": 21442,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 96,
+        "reasoning_output_tokens": 48
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- None of the listed refactorings apply.\n\nThe transformed version removes the entire `src/tourContentHash.ts` file and its functions. File or function deletion is not among the predefined refactorings."
+      },
+      "status": "complete",
+      "elapsedSeconds": 8.28426529202261
+    },
+    {
+      "caseId": "history-05",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "31e80add89f9710ab9e06cf8c10821de334f24ab90f4ba7ddc30797e694fc098",
+      "promptCharacters": 6016,
+      "usage": {
+        "input_tokens": 21875,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 357,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"quote\": \"export function hashChangeTourSource(source: ChangeTourSource): string {\\n    const canonical = canonicalize(source);\\n    return createHash('sha256').update(JSON.stringify(canonical), 'utf8').digest('hex');\\n}\",\n          \"symbolId\": \"b0\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"quote\": \"if (parentKey === 'details' && key === 'assessment') continue;\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"quote\": \"return typeof value === 'object' && value !== null && !Array.isArray(value);\",\n          \"symbolId\": \"b2\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"quote\": \"import { createHash } from 'crypto';\\nimport type { ChangeTourSource } from './changeTourSource';\"\n        }\n      ],\n      \"explanation\": \"The supplied after scope is empty. The hashing function, canonicalization helper, record predicate, and both imports have no supplied counterparts; no catalog operation is supported.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The empty after scope does not establish repository-wide deletion or rule out relocation outside the supplied files.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 12.983486167009687
+    },
+    {
+      "caseId": "history-06",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "58f4ea702bfe19c9a2a3a3eae47007a8e416a041d3576dae3029e4723280fdde",
+      "promptCharacters": 6016,
+      "usage": {
+        "input_tokens": 20619,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 585,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"quote\": \"import { createHash } from 'crypto';\\nimport type { ChangeTourSource } from './changeTourSource';\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"export function hashChangeTourSource(source: ChangeTourSource): string {\\n    const canonical = canonicalize(source);\\n    return createHash('sha256').update(JSON.stringify(canonical), 'utf8').digest('hex');\\n}\"\n        }\n      ],\n      \"explanation\": \"Adds imports and an exported function that canonicalizes the supplied source and hashes its JSON representation using SHA-256, UTF-8 input, and hexadecimal output.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"symbolId\": \"a1\",\n          \"quote\": \"if (Array.isArray(value)) return value.map((item) => canonicalize(item));\\n    if (!isRecord(value)) return value;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"symbolId\": \"a1\",\n          \"quote\": \"for (const key of Object.keys(value).sort()) {\\n        if (parentKey === 'details' && key === 'assessment') continue;\\n        const child = value[key];\\n        if (child === undefined) continue;\\n        const canonical = canonicalize(child, key);\\n        if (key === 'details' && isRecord(canonical) && Object.keys(canonical).length === 0) continue;\\n        result[key] = canonical;\\n    }\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"symbolId\": \"a2\",\n          \"quote\": \"return typeof value === 'object' && value !== null && !Array.isArray(value);\"\n        }\n      ],\n      \"explanation\": \"Adds recursive canonicalization with sorted object keys and preserved array order. It omits undefined properties, assessment properties in objects reached under a details key, and empty canonical details objects. The record guard excludes null and arrays.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The supplied before scope is empty; no origin or refactoring counterpart can be established.\",\n    \"Parsing before hashing is documented as an expectation but is not enforced by the supplied function.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 18.686756875016727
+    },
+    {
+      "caseId": "history-06",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "04e481fda7a2a37474765ba9689e67fce4649e5854e42c4973b028f347ec9b25",
+      "promptCharacters": 4103,
+      "usage": {
+        "input_tokens": 21444,
+        "cached_input_tokens": 17664,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 44,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- None of the listed refactorings apply.\n\nThe original version is empty. The transformed version adds a new file and functions; no existing code is modified or relocated to demonstrate any listed refactoring."
+      },
+      "status": "complete",
+      "elapsedSeconds": 8.14258533300017
+    },
+    {
+      "caseId": "history-07",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "49edb9dc867a2ae8f0fd6a9ba3045f56e780222aca67f20c5d203f1d20932d08",
+      "promptCharacters": 17773,
+      "usage": {
+        "input_tokens": 25053,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 113,
+        "reasoning_output_tokens": 40
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- None of the listed refactoring types apply.\n\nThe transformation changes the text and logic in `describeTourTransition` and adds new functions and the `TourRouteEntry` interface. No existing methods, fields, classes, or parameters are renamed, moved, extracted, inlined, or otherwise transformed in a way covered by the list."
+      },
+      "status": "complete",
+      "elapsedSeconds": 9.6961967079842
+    },
+    {
+      "caseId": "history-07",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "63cffee5a0c4ce2a7b49a2ebe02e986a86f9ca60f40f7dfd45c933d4659a9ddd",
+      "promptCharacters": 22264,
+      "usage": {
+        "input_tokens": 25009,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1512,
+        "reasoning_output_tokens": 40
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"b6\",\n          \"quote\": \"return `Comparison changed: ${previous.labels.join(' → ')} to ${current.labels.join(' → ')} · ${current.scope}`;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a6\",\n          \"quote\": \"return `${current.kind === 'synthetic' ? 'Explanation stages changed' : 'Revision comparison changed'}: ${previous.labels.join(' → ')} to ${current.labels.join(' → ')} · ${current.scope}`;\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"b6\",\n          \"quote\": \"return `Same comparison${previous.scopeKey !== current.scopeKey ? '; scope changed' : ''}: ${current.labels.join(' → ')} · ${current.scope}`;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a6\",\n          \"quote\": \"const movement = previous.scopeKey !== current.scopeKey\\n        ? `${previous.overview || current.overview ? 'view' : 'file'} changed from ${previous.scope} to ${current.scope}`\\n        : `same ${current.overview ? 'directory view' : 'file'}: ${current.scope}`;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a6\",\n          \"quote\": \"return `Same ${current.kind === 'synthetic' ? 'explanation stages' : 'revision comparison'}; ${movement} · ${current.labels.join(' → ')}`;\"\n        }\n      ],\n      \"explanation\": \"Changes transition text to distinguish synthetic stages from real revisions. Adds a movement binding and overview-dependent wording, includes previous and current scopes when scopeKey changes, and reorders the output.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a8\",\n          \"quote\": \"export interface TourRouteEntry {\\n    sceneIndex: number;\\n    title: string;\\n    evidence: string;\\n}\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a9\",\n          \"quote\": \"summary: `${tour.scenes.length} ${tour.scenes.length === 1 ? 'scene' : 'scenes'} in this tour. Scenes organize the explanation; steps point to the evidence. A scene can visit several files or revision pairs. The route below names those changes.`,\\n        scenes: tour.scenes.map((scene, sceneIndex) => ({ sceneIndex, title: scene.title, evidence: describeSceneRoute(tour, sceneIndex) }))\"\n        }\n      ],\n      \"explanation\": \"Adds an exported route-entry interface and route builder that returns a scene-count summary and ordered scene descriptions. No counterpart was found in the supplied before scope.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a10\",\n          \"quote\": \"if (scene.kind === 'discussion') return 'Discussion: pause to connect the findings. No code comparison is displayed.';\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a10\",\n          \"quote\": \"if (scene.kind === 'walkthrough' && scene.steps.every(step => step.image))\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a10\",\n          \"quote\": \"const files = contexts.map(context => context.scope).filter((path, index, paths) => index === 0 || path !== paths[index - 1]);\\n    const pairs = contexts.filter((context, index) => index === 0 || context.comparisonKey !== contexts[index - 1].comparisonKey);\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a10\",\n          \"quote\": \"return `${overview}${evidence} ${comparisons}${imageCount ? ` Also includes ${imageCount} image ${imageCount === 1 ? 'step' : 'steps'}.` : ''}`;\"\n        }\n      ],\n      \"explanation\": \"Adds scene-route descriptions with discussion and image-only branches. Other scenes resolve evidence contexts, collapse consecutive repeated files and comparisons, and describe overview, step, revision, and image information. No counterpart was found in the supplied before scope.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a11\",\n          \"quote\": \"if (!('steps' in scene)) return '';\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a11\",\n          \"quote\": \"if ('image' in step && step.image) return `${prefix} Image: ${step.title}.`;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a11\",\n          \"quote\": \"const previous = stepIndex > 0 && !(scene.kind === 'walkthrough' && scene.steps[stepIndex - 1].image)\\n        ? resolveTourEvidenceContext(tour, { ...item, stepIndex: stepIndex - 1 }) : null;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a11\",\n          \"quote\": \"const pairChanged = previous.comparisonKey !== current.comparisonKey;\\n    const fileChanged = previous.scope !== current.scope;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"symbolId\": \"a11\",\n          \"quote\": \"return `${prefix} ${movement} ${fileChanged ? `Move from ${previous.scope} to ${current.scope}.` : `Continue in ${current.scope}.`}`;\"\n        }\n      ],\n      \"explanation\": \"Adds step-orientation text with step counts, image titles, initial evidence locations, and comparison/file movement cues. Previous image steps suppress comparison with the preceding step. No counterpart was found in the supplied before scope.\"\n    }\n  ],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 39.113352167012636
+    },
+    {
+      "caseId": "history-08",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "47f8d7c2fe121525d5398050cf45c776bd86ca7e9f790dc0249eb69c8081098d",
+      "promptCharacters": 26285,
+      "usage": {
+        "input_tokens": 26379,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 537,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"| { part: 'title' }\",\n          \"symbolId\": \"b0\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"| { part: 'title' }\\n    | { part: 'conclusion' }\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"Adds a conclusion variant to DocumentFocus.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"const fields = part === 'title' ? [] : part === 'chapter' ? ['chapter']\",\n          \"symbolId\": \"b10\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"const fields = (part === 'title' || part === 'conclusion') ? [] : part === 'chapter' ? ['chapter']\",\n          \"symbolId\": \"a10\"\n        }\n      ],\n      \"explanation\": \"Extends parsing validation to accept conclusion with no chapter, scene, or step fields.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"if (focus.part === 'title') return { key: 'title', sceneIndex: 0, stepIndex: 0 };\\n    if (focus.part === 'chapter') {\",\n          \"symbolId\": \"b14\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"if (focus.part === 'conclusion') {\\n        if (!selected.conclusion) throw new Error('Conclusion is unavailable in this tour mode.');\\n        return { key: 'conclusion', sceneIndex: -1, stepIndex: 0 };\\n    }\",\n          \"symbolId\": \"a14\"\n        }\n      ],\n      \"explanation\": \"Adds conclusion resolution, checks its availability in the selected mode, and returns key 'conclusion' with sceneIndex -1 and stepIndex 0.\"\n    }\n  ],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 16.074794790998567
+    },
+    {
+      "caseId": "history-08",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "5f166f69363817f346d0053e9299153c2b89dedbba7c75da49a8a883dcf092db",
+      "promptCharacters": 20017,
+      "usage": {
+        "input_tokens": 24543,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 93,
+        "reasoning_output_tokens": 39
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- None of the listed refactorings apply.\n\nThe changes add a `conclusion` variant to `DocumentFocus`, accept it during parsing, and resolve it when a conclusion exists. This extends functionality rather than performing any listed refactoring."
+      },
+      "status": "complete",
+      "elapsedSeconds": 10.344033792003756
+    },
+    {
+      "caseId": "history-09",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "4d9ed04c0c16995d27ccd6350aadb4732beb419eb64c6e8ca953cd771ad08d30",
+      "promptCharacters": 7986,
+      "usage": {
+        "input_tokens": 21173,
+        "cached_input_tokens": 16384,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 51,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- No identifiable refactorings from the supplied list.\n\nThe original version is empty (`{}`), so no existing methods, fields, classes, or interfaces can be compared. The added module alone does not establish any listed refactoring."
+      },
+      "status": "complete",
+      "elapsedSeconds": 7.052274250017945
+    },
+    {
+      "caseId": "history-09",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "a2454629c594394c8a5c667968224e00ee8f808471eab90a7fd159a460fc63dd",
+      "promptCharacters": 10844,
+      "usage": {
+        "input_tokens": 23173,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1350,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"quote\": \"import type { DirectoryEntry } from './directoryDiff';\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"changedPaths?: ReadonlySet<string>;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a7\",\n          \"quote\": \"parentCommit?: string | null;\"\n        }\n      ],\n      \"explanation\": \"Adds a module with a DirectoryEntry type import and interfaces for revision files and commit metadata.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a1\",\n          \"quote\": \"if (!files.currentPath || (direction !== -1 && direction !== 1)) return null;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a1\",\n          \"quote\": \"if (!files.changedPaths || files.changedPaths.has(files.paths[index])) return files.paths[index];\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a2\",\n          \"quote\": \"return { canGoPrevious: revisionFileTarget(files, -1) !== null, canGoNext: revisionFileTarget(files, 1) !== null };\"\n        }\n      ],\n      \"explanation\": \"Adds directional file lookup with current-path validation and optional changed-path filtering, plus navigation availability flags.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a3\",\n          \"quote\": \"if (message.type === 'returnToDirectory') return canReturnToDirectory ? { path: null } : null;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a3\",\n          \"quote\": \"typeof message.relativePath === 'string' && files.paths.includes(message.relativePath)\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a3\",\n          \"quote\": \"message.type === 'navigateFile' && (message.direction === 'previous' || message.direction === 'next')\"\n        }\n      ],\n      \"explanation\": \"Adds action handling that gates overview returns, validates requested file membership, and accepts only previous/next navigation directions.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a4\",\n          \"quote\": \"return { type: 'showDirectoryDiff' as const, labels, leftLabel: labels[0], rightLabel: labels[labels.length - 1], entries, canMutate: false };\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a5\",\n          \"quote\": \"...(diff ? { diffModel: diff(panel, panels[index + 1]) } : {})\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a6\",\n          \"quote\": \"const { files, ...view } = options;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a6\",\n          \"quote\": \"return { type: 'showMultiDiff' as const, ...view, pairs: revisionPanelPairs(view.panels, diff), fileNavigation: revisionFileNavigation(files) };\"\n        }\n      ],\n      \"explanation\": \"Adds directory and panel view constructors, adjacent panel pairing, optional diff computation, and file navigation. Directory views explicitly disable mutation; panel views forward supplied options.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a9\",\n          \"quote\": \"panelNumber: displayed.indexOf(commit) + 1 || undefined\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a8\",\n          \"quote\": \"parents: entry.parents || (entry.parentCommit ? [entry.parentCommit] : []),\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a8\",\n          \"quote\": \"...(options.changed ? { changesFile: options.changed.has(entry.commit) } : {}),\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a8\",\n          \"quote\": \"...(options.tourCommits ? { inTour: options.tourCommits.has(entry.commit) } : {})\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a8\",\n          \"quote\": \"if (commit === undefined || items.some(item => item.commit === commit)) return;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/revisionView.ts\",\n          \"symbolId\": \"a8\",\n          \"quote\": \"selectionEnabled: Boolean(options.missingRevisionSelectionEnabled), ...marker(commit)\"\n        }\n      ],\n      \"explanation\": \"Adds rail item construction with selection, active and panel markers, parent fallback, optional change/tour flags, and synthetic entries for missing displayed revisions. Undefined revisions and already represented commits are skipped.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The supplied before scope is empty, so no catalog refactoring has supported source endpoints; origins outside this scope are unknown.\",\n    \"Runtime behavior and the imported DirectoryEntry definition were not verified.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 38.21568229200784
+    },
+    {
+      "caseId": "history-10",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "f3d43cf34a41b7a253bd04ff6f052eaffeee00aed2cc3d0fb770fbb079356d16",
+      "promptCharacters": 6176,
+      "usage": {
+        "input_tokens": 21912,
+        "cached_input_tokens": 17664,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 322,
+        "reasoning_output_tokens": 0
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/historyDirectory.ts\",\n          \"quote\": \"import type { DirectoryEntry } from './directoryDiff';\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/historyDirectory.ts\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"export function buildHistoryDirectoryEntries(paths: string[], inventories: ReadonlySet<string>[]): DirectoryEntry[]\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/historyDirectory.ts\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"status: sides.every(Boolean) ? 'modified' : sides.length !== 2 ? 'partial'\\n                    : sides[0] ? 'left-only' : 'right-only'\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/historyDirectory.ts\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"return [...rows.values()].sort((a, b) => {\"\n        }\n      ],\n      \"explanation\": \"Adds a type import and an exported function that builds directory entries from paths and inventories, assigns presence-based status literals, and sorts the resulting tree.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The supplied before scope is empty; no origin or counterpart for the added function can be established.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 31.227031917020213
+    },
+    {
+      "caseId": "history-10",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "b8ba55d0b41d717cd45a83abe8d5b01d3c4094ee3705449068a26d354b8d1f1e",
+      "promptCharacters": 4460,
+      "usage": {
+        "input_tokens": 20283,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 107,
+        "reasoning_output_tokens": 52
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- None of the listed refactorings apply.\n\nThe original version is empty. The transformed version adds `buildHistoryDirectoryEntries` in a new file; no existing code is shown being renamed, moved, extracted, or otherwise refactored."
+      },
+      "status": "complete",
+      "elapsedSeconds": 19.784849999996368
+    },
+    {
+      "caseId": "diagnostic-imported-extraction",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "b708d312afa0e25cb2b0979bbba5659ec2cb38b0e8d54b6076c6e2f08f9c81cc",
+      "promptCharacters": 3281,
+      "usage": {
+        "input_tokens": 20003,
+        "cached_input_tokens": 16384,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 154,
+        "reasoning_output_tokens": 101
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- None of the listed refactorings apply.\n\nThe total-calculation code was extracted from `checkout` into the new `invoiceTotal` function in `billing.js`. No existing method was relocated, so this is not Move Method."
+      },
+      "status": "complete",
+      "elapsedSeconds": 12.994275834003929
+    },
+    {
+      "caseId": "diagnostic-imported-extraction",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "7d8af07f21e17cf5546edf513341f418c8bed3ee44d17d282453951a66f4c482",
+      "promptCharacters": 5561,
+      "usage": {
+        "input_tokens": 20542,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 431,
+        "reasoning_output_tokens": 74
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"b1\",\n          \"quote\": \"let result = 0;\\n for (const row of rows) result += row.price * row.quantity;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"symbolId\": \"a0\",\n          \"quote\": \"export function invoiceTotal(rows) {\\n let result = 0;\\n for (const row of rows) result += row.price * row.quantity;\\n return result;\\n}\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"symbolId\": \"a2\",\n          \"quote\": \"const result = invoiceTotal(rows);\"\n        }\n      ],\n      \"explanation\": \"The total calculation is extracted from checkout into the new invoiceTotal function. checkout replaces its mutable result binding and loop with a const binding initialized by the call; save and return remain in checkout.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"import { invoiceTotal } from \\\"./billing.js\\\";\"\n        }\n      ],\n      \"explanation\": \"Adds a named import binding for the extracted function.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The evidence supports function extraction, which is outside the supplied catalog; checkout remains, so this is not a whole-method move.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 59.234191250026925
+    },
+    {
+      "caseId": "diagnostic-public-tour-details",
+      "arm": "grounded",
+      "mode": "diff",
+      "promptSha256": "6832554bbc4921411451b4d4df47f8a98c47e2047a54544db0126db0abc48fe9",
+      "promptCharacters": 79815,
+      "usage": {
+        "input_tokens": 41995,
+        "cached_input_tokens": 17664,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2618,
+        "reasoning_output_tokens": 162
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Remove Method Parameter\",\n      \"sourceIds\": [\"b9\"],\n      \"destinationIds\": [\"a9\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTour.ts\",\n          \"symbolId\": \"b9\",\n          \"quote\": \"headOid: string,\\n    sourceContentHash?: string\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTour.ts\",\n          \"symbolId\": \"a9\",\n          \"quote\": \"headOid: string\\n): ChangeTourTours | undefined\"\n        }\n      ],\n      \"explanation\": \"buildAuthoredModeTours loses its optional sourceContentHash parameter; its caller also drops that argument. Hash-related body removals are separate edits.\"\n    },\n    {\n      \"type\": \"Remove Method Parameter\",\n      \"sourceIds\": [\"b154\"],\n      \"destinationIds\": [\"a137\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourAssessment.ts\",\n          \"symbolId\": \"b154\",\n          \"quote\": \"path: string,\\n    context: ChangeTourDetailsValidationContext\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourDetails.ts\",\n          \"symbolId\": \"a137\",\n          \"quote\": \"value: unknown,\\n    path: string\\n): asserts value is ChangeTourDetails | undefined\"\n        }\n      ],\n      \"explanation\": \"The corresponding validateChangeTourDetails declaration loses its validation context parameter while changing modules. Its validation changes are separate edits.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourAssessment.ts\",\n          \"symbolId\": \"b155\",\n          \"quote\": \"function validateAudience(value: unknown, path: string): void {\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourDetails.ts\",\n          \"symbolId\": \"a138\",\n          \"quote\": \"function validateAudience(value: unknown, path: string): void {\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTourSource.ts\",\n          \"quote\": \"import { validateChangeTourDetails, type ChangeTourDetails } from './tourAssessment';\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTourSource.ts\",\n          \"quote\": \"import { validateChangeTourDetails, type ChangeTourDetails } from './tourDetails';\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTourManifest.ts\",\n          \"quote\": \"import { validateChangeTourDetails, type ChangeTourDetails } from './tourAssessment';\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTourManifest.ts\",\n          \"quote\": \"import { validateChangeTourDetails, type ChangeTourDetails } from './tourDetails';\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"} from './tourAssessment';\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"} from './tourDetails';\"\n        }\n      ],\n      \"explanation\": \"Audience types, their validator, and supporting helpers correspond across tourAssessment.ts and tourDetails.ts. Source and manifest imports, and the audience/details re-exports, switch modules. Matching text supports correspondence, not historical proof of relocation.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourAssessment.ts\",\n          \"symbolId\": \"b152\",\n          \"quote\": \"assessment?: ChangeTourAssessment;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourDetails.ts\",\n          \"symbolId\": \"a136\",\n          \"quote\": \"export interface ChangeTourDetails {\\n    audience?: ChangeTourAudience;\\n}\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourAssessment.ts\",\n          \"symbolId\": \"b154\",\n          \"quote\": \"requireOnlyKeys(value, ['audience', 'assessment'], path);\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourDetails.ts\",\n          \"symbolId\": \"a137\",\n          \"quote\": \"requireOnlyKeys(value, ['audience'], path);\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourAssessment.ts\",\n          \"symbolId\": \"b154\",\n          \"quote\": \"validateAssessment(value.assessment, `${path}.assessment`, context.referenceIds);\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"ChangeTourAssessmentRatings,\\n    ChangeTourAssessmentScore,\"\n        }\n      ],\n      \"explanation\": \"Assessment contracts, rubric constants, assessment/timestamp/hash validators, and assessment re-exports are removed in the supplied scope. Details now permits only audience: the allowed-key literal changes and assessment validation disappears.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTour.ts\",\n          \"symbolId\": \"b6\",\n          \"quote\": \"const sourceContentHash = source && source.version >= 5 ? hashChangeTourSource(source) : undefined;\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTour.ts\",\n          \"symbolId\": \"b9\",\n          \"quote\": \"...(sourceContentHash !== undefined ? { contentHash: sourceContentHash } : {})\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTourManifest.ts\",\n          \"symbolId\": \"b69\",\n          \"quote\": \"contentHash?: string;\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTourManifest.ts\",\n          \"symbolId\": \"b70\",\n          \"quote\": \"validateContentHash(value.contentHash, value.version, 'contentHash');\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTourManifest.ts\",\n          \"symbolId\": \"b72\",\n          \"quote\": \"validateContentHash(tour.contentHash, version, `tours.${mode}.contentHash`);\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"symbolId\": \"b163\",\n          \"quote\": \"return createHash('sha256').update(JSON.stringify(canonical), 'utf8').digest('hex');\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"import { hashChangeTourSource } from './tourContentHash';\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"export { hashChangeTourSource } from './tourContentHash';\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTour.ts\",\n          \"symbolId\": \"a6\",\n          \"quote\": \"...(source?.details !== undefined ? { details: source.details } : {}),\"\n        }\n      ],\n      \"explanation\": \"The source hash binding, its version condition, root/mode hash emission, contentHash interface properties and validation calls are removed. The hashing module, crypto import, hash import and re-export have no counterparts in the supplied after scope.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTourManifest.ts\",\n          \"symbolId\": \"b70\",\n          \"quote\": \"referenceIds: collectManifestDetailReferences(value.scenes, value)\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTourManifest.ts\",\n          \"symbolId\": \"a70\",\n          \"quote\": \"validateChangeTourDetails(value.details, 'details');\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTourSource.ts\",\n          \"symbolId\": \"b114\",\n          \"quote\": \"referenceIds: collectSourceDetailReferences(value.chapters, value)\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTourSource.ts\",\n          \"symbolId\": \"a111\",\n          \"quote\": \"validateChangeTourDetails(value.details, 'details');\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTourManifest.ts\",\n          \"symbolId\": \"b72\",\n          \"quote\": \"referenceIds: collectManifestDetailReferences(tour.scenes, tour)\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTourManifest.ts\",\n          \"symbolId\": \"a72\",\n          \"quote\": \"validateChangeTourDetails(tour.details, `tours.${mode}.details`);\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTourSource.ts\",\n          \"symbolId\": \"b114\",\n          \"quote\": \"referenceIds: collectSourceDetailReferences(tour.chapters, tour)\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTourSource.ts\",\n          \"symbolId\": \"a111\",\n          \"quote\": \"validateChangeTourDetails(tour.details, `${path}.details`);\"\n        }\n      ],\n      \"explanation\": \"Root and mode validation callers stop constructing reference contexts. Both reference collectors and their nested add bindings are removed, alongside assessment reference checking.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"b167\",\n          \"quote\": \"contentHash: tour.contentHash, range: tour.range, audience: tour.details?.audience,\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"a144\",\n          \"quote\": \"range: tour.range, audience: tour.details?.audience,\\n        opening: tour.opening,\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"b168\",\n          \"quote\": \"The cause may involve implementation, explanation, a design/scope decision, missing evidence, or the viewer. Keep uncertainty explicit;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"symbolId\": \"a145\",\n          \"quote\": \"Recover expected behavior from the user request, agreed requirements, or behavior that must be preserved; label expectations inferred from the diff. Do not silently weaken an expectation to match the code.\"\n        }\n      ],\n      \"explanation\": \"Feedback snapshots replace the contentHash property with opening. The request text gains explicit instructions about recovering expectations and avoiding silently weakened expectations.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Cross-module relocation of free functions and types is outside the catalog's class-based move operations.\",\n    \"The identical isRecord body also occurs in retained modules and the removed hashing module; text alone does not uniquely establish a139's origin.\",\n    \"Correspondences are inferred mappings, not proof of history or equivalence. Only supplied scope was considered; no execution or tests were performed.\"\n  ],\n  \"behavior\": \"unassessed\"\n}"
+      },
+      "status": "complete",
+      "elapsedSeconds": 72.23580658299034
+    },
+    {
+      "caseId": "diagnostic-public-tour-details",
+      "arm": "upstream",
+      "mode": "diff",
+      "promptSha256": "a77be7d88bd09a89ef8dc17bf9c3f3ff3e8cd3cd40910c892f1e51867917ddc8",
+      "promptCharacters": 31846,
+      "usage": {
+        "input_tokens": 28065,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 151,
+        "reasoning_output_tokens": 38
+      },
+      "toolItemTypes": [],
+      "response": {
+        "response": "- **Move Method**\n- **Remove Method Parameter**\n\n**Move Method:** `validateChangeTourDetails`, `validateAudience`, `isRecord`, `requireString`, `requireStringArray`, and `requireOnlyKeys` move from `tourAssessment.ts` to `tourDetails.ts`, with imports updated accordingly.\n\n**Remove Method Parameter:** `buildAuthoredModeTours` loses its `sourceContentHash` parameter, and `validateChangeTourDetails` loses its validation `context` parameter. Their callers are updated to omit those arguments."
+      },
+      "status": "complete",
+      "elapsedSeconds": 29.359134292026283
+    }
+  ]
+}

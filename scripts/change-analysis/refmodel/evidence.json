@@ -1,0 +1,6619 @@
+{
+  "control-01": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 190
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 185
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a0",
+        "rawEqual": true
+      },
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "control-02": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 190
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "subtotal",
+          "kind": "function",
+          "start": 0,
+          "end": 128
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 130,
+          "end": 181
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a0",
+        "rawEqual": false
+      },
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "control-03": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 190
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 185
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a0",
+        "rawEqual": false
+      },
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "control-04": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/cart.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 190
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 185
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "a3",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 190
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a3",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [
+      {
+        "reason": "repeated-exact-occurrences",
+        "sources": [
+          "b0"
+        ],
+        "destinations": [
+          "a0",
+          "a2"
+        ]
+      }
+    ],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "control-05": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/a.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "b1",
+          "path": "src/b.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/c.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        }
+      ]
+    },
+    "correspondences": [],
+    "groups": [],
+    "unresolved": [
+      {
+        "reason": "repeated-exact-occurrences",
+        "sources": [
+          "b0",
+          "b1"
+        ],
+        "destinations": [
+          "a0"
+        ]
+      }
+    ],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/a.js",
+        "src/b.js"
+      ],
+      "after": [
+        "src/c.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "control-06": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/cart.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 190
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/cart.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 21,
+          "end": 153
+        },
+        {
+          "id": "a1",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 155,
+          "end": 211
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b0",
+        "destination": "a0",
+        "rawEqual": true
+      },
+      {
+        "source": "b1",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js"
+      ],
+      "after": [
+        "src/cart.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "control-07": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 190
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 65
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 67,
+          "end": 118
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "control-08": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "old/math.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "new/math.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b0",
+        "destination": "a0",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "old/math.js"
+      ],
+      "after": [
+        "new/math.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "control-09": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "discount",
+          "kind": "function-variable",
+          "start": 13,
+          "end": 48
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 51,
+          "end": 107
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "discount",
+          "kind": "function-variable",
+          "start": 13,
+          "end": 48
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 51,
+          "end": 102
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a1",
+        "rawEqual": true
+      },
+      {
+        "source": "b1",
+        "destination": "a0",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "control-10": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 190
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": [
+        {
+          "path": "src/billing.js",
+          "digest": "63b9f6f490666c825e6aef159d784a4fb54fb7860b3b0bb92fa600888b3193a0",
+          "utf16Length": 84,
+          "status": "invalid",
+          "diagnostics": [
+            {
+              "start": 39,
+              "length": 8,
+              "message": "':' expected."
+            },
+            {
+              "start": 48,
+              "length": 17,
+              "message": "':' expected."
+            },
+            {
+              "start": 65,
+              "length": 1,
+              "message": "',' expected."
+            },
+            {
+              "start": 68,
+              "length": 1,
+              "message": "'=>' expected."
+            }
+          ]
+        }
+      ]
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "mixed-01": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "checkout",
+          "kind": "function",
+          "start": 0,
+          "end": 143
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 145,
+          "end": 201
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 185
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "checkout",
+          "kind": "function",
+          "start": 0,
+          "end": 101
+        },
+        {
+          "id": "a3",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 103,
+          "end": 159
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a2",
+        "rawEqual": false
+      },
+      {
+        "source": "b2",
+        "destination": "a3",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "mixed-02": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "b1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 185
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "checkout",
+          "kind": "function",
+          "start": 0,
+          "end": 101
+        },
+        {
+          "id": "b3",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 103,
+          "end": 159
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "a1",
+          "path": "src/cart.js",
+          "name": "checkout",
+          "kind": "function",
+          "start": 0,
+          "end": 143
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 145,
+          "end": 201
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a0",
+        "rawEqual": true
+      },
+      {
+        "source": "b3",
+        "destination": "a2",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "mixed-03": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "PriceBook",
+          "kind": "class",
+          "start": 0,
+          "end": 111
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "PriceBook.constructor",
+          "kind": "constructor",
+          "start": 26,
+          "end": 65
+        },
+        {
+          "id": "b3",
+          "path": "src/cart.js",
+          "name": "PriceBook.price",
+          "kind": "method",
+          "start": 67,
+          "end": 109
+        },
+        {
+          "id": "b4",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 113,
+          "end": 169
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "PriceBook",
+          "kind": "class",
+          "start": 0,
+          "end": 115
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "PriceBook.constructor",
+          "kind": "constructor",
+          "start": 26,
+          "end": 65
+        },
+        {
+          "id": "a2",
+          "path": "src/billing.js",
+          "name": "PriceBook.price",
+          "kind": "method",
+          "start": 67,
+          "end": 113
+        },
+        {
+          "id": "a3",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 117,
+          "end": 168
+        },
+        {
+          "id": "a4",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b4",
+        "destination": "a4",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a3",
+        "rawEqual": true
+      },
+      {
+        "source": "b2",
+        "destination": "a1",
+        "rawEqual": true
+      },
+      {
+        "source": "b3",
+        "destination": "a2",
+        "rawEqual": false
+      },
+      {
+        "source": "b1",
+        "destination": "a0",
+        "rawEqual": false
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "mixed-04": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 190
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "amountDue",
+          "kind": "function",
+          "start": 28,
+          "end": 157
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 159,
+          "end": 210
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a0",
+        "rawEqual": false
+      },
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "mixed-05": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "rate",
+          "kind": "variable",
+          "start": 6,
+          "end": 14
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "localPrice",
+          "kind": "function",
+          "start": 16,
+          "end": 74
+        },
+        {
+          "id": "b3",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 76,
+          "end": 132
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "rate",
+          "kind": "variable",
+          "start": 6,
+          "end": 14
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "localPrice",
+          "kind": "function",
+          "start": 16,
+          "end": 74
+        },
+        {
+          "id": "a2",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 76,
+          "end": 127
+        },
+        {
+          "id": "a3",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b2",
+        "destination": "a1",
+        "rawEqual": true
+      },
+      {
+        "source": "b3",
+        "destination": "a3",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a2",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "mixed-06": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "label",
+          "kind": "function",
+          "start": 0,
+          "end": 54
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 56,
+          "end": 112
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "caption",
+          "kind": "function",
+          "start": 0,
+          "end": 56
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 58,
+          "end": 109
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a0",
+        "rawEqual": false
+      },
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "mixed-07": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "default",
+          "kind": "function",
+          "start": 0,
+          "end": 55
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 57,
+          "end": 113
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "default",
+          "kind": "function",
+          "start": 0,
+          "end": 55
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 57,
+          "end": 108
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a0",
+        "rawEqual": true
+      },
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "mixed-08": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 53,
+          "end": 109
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 53,
+          "end": 104
+        },
+        {
+          "id": "a1",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a1",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a0",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [
+        {
+          "path": "src/cart.js",
+          "start": 0,
+          "reason": "unmodeled-top-level-statement"
+        }
+      ],
+      "after": [
+        {
+          "path": "src/billing.js",
+          "start": 0,
+          "reason": "unmodeled-top-level-statement"
+        }
+      ]
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "mixed-09": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "localPrice",
+          "kind": "function",
+          "start": 35,
+          "end": 93
+        },
+        {
+          "id": "b2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 95,
+          "end": 151
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "localPrice",
+          "kind": "function",
+          "start": 40,
+          "end": 98
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 100,
+          "end": 151
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "originMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 57
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a0",
+        "rawEqual": true
+      },
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "mixed-10": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 1,
+          "end": 52
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 134,
+          "end": 185
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b0",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/billing.js"
+      ],
+      "after": [
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "history-01": {
+    "inventory": {
+      "before": [],
+      "after": []
+    },
+    "correspondences": [],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [
+        {
+          "path": "src/diff.d.ts",
+          "start": 0,
+          "reason": "namespace-members-not-enumerated"
+        }
+      ],
+      "after": [
+        {
+          "path": "src/diff.d.ts",
+          "start": 0,
+          "reason": "namespace-members-not-enumerated"
+        }
+      ]
+    },
+    "scope": {
+      "before": [
+        "src/diff.d.ts"
+      ],
+      "after": [
+        "src/diff.d.ts"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "history-02": {
+    "inventory": {
+      "before": [],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/panelOrder.ts",
+          "name": "PanelMove",
+          "kind": "interface",
+          "start": 81,
+          "end": 181
+        },
+        {
+          "id": "a1",
+          "path": "src/panelOrder.ts",
+          "name": "moveComparisonPanel",
+          "kind": "function",
+          "start": 183,
+          "end": 885
+        },
+        {
+          "id": "a2",
+          "path": "src/panelOrder.ts",
+          "name": "applyComparisonOrder",
+          "kind": "function",
+          "start": 967,
+          "end": 1358
+        },
+        {
+          "id": "a3",
+          "path": "src/panelOrder.ts",
+          "name": "movedPanelPairIndex",
+          "kind": "function",
+          "start": 1360,
+          "end": 1571
+        }
+      ]
+    },
+    "correspondences": [],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [],
+      "after": [
+        "src/panelOrder.ts"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "history-03": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/deepLink.ts",
+          "name": "DocumentFocus",
+          "kind": "type",
+          "start": 85,
+          "end": 300
+        },
+        {
+          "id": "b1",
+          "path": "src/deepLink.ts",
+          "name": "TourLink",
+          "kind": "type",
+          "start": 301,
+          "end": 501
+        },
+        {
+          "id": "b2",
+          "path": "src/deepLink.ts",
+          "name": "ComparisonLink",
+          "kind": "type",
+          "start": 502,
+          "end": 652
+        },
+        {
+          "id": "b3",
+          "path": "src/deepLink.ts",
+          "name": "DeepLink",
+          "kind": "type",
+          "start": 653,
+          "end": 702
+        },
+        {
+          "id": "b4",
+          "path": "src/deepLink.ts",
+          "name": "oidPattern",
+          "kind": "variable",
+          "start": 709,
+          "end": 755
+        },
+        {
+          "id": "b5",
+          "path": "src/deepLink.ts",
+          "name": "focusFields",
+          "kind": "variable",
+          "start": 763,
+          "end": 813
+        },
+        {
+          "id": "b6",
+          "path": "src/deepLink.ts",
+          "name": "required",
+          "kind": "function",
+          "start": 816,
+          "end": 1061
+        },
+        {
+          "id": "b7",
+          "path": "src/deepLink.ts",
+          "name": "validateRelativePath",
+          "kind": "function",
+          "start": 1062,
+          "end": 1404
+        },
+        {
+          "id": "b8",
+          "path": "src/deepLink.ts",
+          "name": "validateFields",
+          "kind": "function",
+          "start": 1405,
+          "end": 1762
+        },
+        {
+          "id": "b9",
+          "path": "src/deepLink.ts",
+          "name": "validateLocalFileUrl",
+          "kind": "function",
+          "start": 1763,
+          "end": 2086
+        },
+        {
+          "id": "b10",
+          "path": "src/deepLink.ts",
+          "name": "parseDocumentFocus",
+          "kind": "function",
+          "start": 2087,
+          "end": 2771
+        },
+        {
+          "id": "b11",
+          "path": "src/deepLink.ts",
+          "name": "parseDeepLink",
+          "kind": "function",
+          "start": 2772,
+          "end": 4960
+        },
+        {
+          "id": "b12",
+          "path": "src/deepLink.ts",
+          "name": "serializeDeepLink",
+          "kind": "function",
+          "start": 4961,
+          "end": 5682
+        },
+        {
+          "id": "b13",
+          "path": "src/deepLink.ts",
+          "name": "authoredModeTour",
+          "kind": "function",
+          "start": 5683,
+          "end": 6350
+        },
+        {
+          "id": "b14",
+          "path": "src/deepLink.ts",
+          "name": "resolveDocumentFocus",
+          "kind": "function",
+          "start": 6351,
+          "end": 7834
+        },
+        {
+          "id": "b15",
+          "path": "src/deepLink.ts",
+          "name": "serializeDocumentFragment",
+          "kind": "function",
+          "start": 7835,
+          "end": 8007
+        },
+        {
+          "id": "b16",
+          "path": "src/deepLink.ts",
+          "name": "parseDocumentFragment",
+          "kind": "function",
+          "start": 8008,
+          "end": 8643
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/deepLink.ts",
+          "name": "DocumentFocus",
+          "kind": "type",
+          "start": 85,
+          "end": 300
+        },
+        {
+          "id": "a1",
+          "path": "src/deepLink.ts",
+          "name": "TourLink",
+          "kind": "type",
+          "start": 301,
+          "end": 501
+        },
+        {
+          "id": "a2",
+          "path": "src/deepLink.ts",
+          "name": "ComparisonLink",
+          "kind": "type",
+          "start": 502,
+          "end": 652
+        },
+        {
+          "id": "a3",
+          "path": "src/deepLink.ts",
+          "name": "DeepLink",
+          "kind": "type",
+          "start": 653,
+          "end": 702
+        },
+        {
+          "id": "a4",
+          "path": "src/deepLink.ts",
+          "name": "oidPattern",
+          "kind": "variable",
+          "start": 709,
+          "end": 755
+        },
+        {
+          "id": "a5",
+          "path": "src/deepLink.ts",
+          "name": "focusFields",
+          "kind": "variable",
+          "start": 763,
+          "end": 813
+        },
+        {
+          "id": "a6",
+          "path": "src/deepLink.ts",
+          "name": "required",
+          "kind": "function",
+          "start": 816,
+          "end": 1061
+        },
+        {
+          "id": "a7",
+          "path": "src/deepLink.ts",
+          "name": "validateRelativePath",
+          "kind": "function",
+          "start": 1062,
+          "end": 1404
+        },
+        {
+          "id": "a8",
+          "path": "src/deepLink.ts",
+          "name": "validateFields",
+          "kind": "function",
+          "start": 1405,
+          "end": 1762
+        },
+        {
+          "id": "a9",
+          "path": "src/deepLink.ts",
+          "name": "validateLocalFileUrl",
+          "kind": "function",
+          "start": 1763,
+          "end": 2086
+        },
+        {
+          "id": "a10",
+          "path": "src/deepLink.ts",
+          "name": "parseDocumentFocus",
+          "kind": "function",
+          "start": 2087,
+          "end": 2771
+        },
+        {
+          "id": "a11",
+          "path": "src/deepLink.ts",
+          "name": "parseDeepLink",
+          "kind": "function",
+          "start": 2772,
+          "end": 4960
+        },
+        {
+          "id": "a12",
+          "path": "src/deepLink.ts",
+          "name": "serializeDeepLink",
+          "kind": "function",
+          "start": 4961,
+          "end": 5682
+        },
+        {
+          "id": "a13",
+          "path": "src/deepLink.ts",
+          "name": "authoredModeTour",
+          "kind": "function",
+          "start": 5683,
+          "end": 6350
+        },
+        {
+          "id": "a14",
+          "path": "src/deepLink.ts",
+          "name": "resolveDocumentFocus",
+          "kind": "function",
+          "start": 6351,
+          "end": 7904
+        },
+        {
+          "id": "a15",
+          "path": "src/deepLink.ts",
+          "name": "serializeDocumentFragment",
+          "kind": "function",
+          "start": 7905,
+          "end": 8077
+        },
+        {
+          "id": "a16",
+          "path": "src/deepLink.ts",
+          "name": "parseDocumentFragment",
+          "kind": "function",
+          "start": 8078,
+          "end": 8713
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b6",
+        "destination": "a6",
+        "rawEqual": true
+      },
+      {
+        "source": "b7",
+        "destination": "a7",
+        "rawEqual": true
+      },
+      {
+        "source": "b8",
+        "destination": "a8",
+        "rawEqual": true
+      },
+      {
+        "source": "b9",
+        "destination": "a9",
+        "rawEqual": true
+      },
+      {
+        "source": "b10",
+        "destination": "a10",
+        "rawEqual": true
+      },
+      {
+        "source": "b11",
+        "destination": "a11",
+        "rawEqual": true
+      },
+      {
+        "source": "b12",
+        "destination": "a12",
+        "rawEqual": true
+      },
+      {
+        "source": "b13",
+        "destination": "a13",
+        "rawEqual": true
+      },
+      {
+        "source": "b14",
+        "destination": "a14",
+        "rawEqual": false
+      },
+      {
+        "source": "b15",
+        "destination": "a15",
+        "rawEqual": true
+      },
+      {
+        "source": "b16",
+        "destination": "a16",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a0",
+        "rawEqual": true
+      },
+      {
+        "source": "b1",
+        "destination": "a1",
+        "rawEqual": true
+      },
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b3",
+        "destination": "a3",
+        "rawEqual": true
+      },
+      {
+        "source": "b4",
+        "destination": "a4",
+        "rawEqual": true
+      },
+      {
+        "source": "b5",
+        "destination": "a5",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/deepLink.ts"
+      ],
+      "after": [
+        "src/deepLink.ts"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "history-04": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/tourFeedback.ts",
+          "name": "TourFeedbackIntent",
+          "kind": "type",
+          "start": 209,
+          "end": 265
+        },
+        {
+          "id": "b1",
+          "path": "src/tourFeedback.ts",
+          "name": "captureTourFeedback",
+          "kind": "function",
+          "start": 356,
+          "end": 3141
+        },
+        {
+          "id": "b2",
+          "path": "src/tourFeedback.ts",
+          "name": "buildTourFeedbackRequest",
+          "kind": "function",
+          "start": 3143,
+          "end": 4535
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/tourFeedback.ts",
+          "name": "TourFeedbackIntent",
+          "kind": "type",
+          "start": 209,
+          "end": 265
+        },
+        {
+          "id": "a1",
+          "path": "src/tourFeedback.ts",
+          "name": "captureTourFeedback",
+          "kind": "function",
+          "start": 356,
+          "end": 3141
+        },
+        {
+          "id": "a2",
+          "path": "src/tourFeedback.ts",
+          "name": "buildTourFeedbackRequest",
+          "kind": "function",
+          "start": 3143,
+          "end": 4930
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a1",
+        "rawEqual": true
+      },
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": false
+      },
+      {
+        "source": "b0",
+        "destination": "a0",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/tourFeedback.ts"
+      ],
+      "after": [
+        "src/tourFeedback.ts"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "history-05": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/tourContentHash.ts",
+          "name": "hashChangeTourSource",
+          "kind": "function",
+          "start": 384,
+          "end": 591
+        },
+        {
+          "id": "b1",
+          "path": "src/tourContentHash.ts",
+          "name": "canonicalize",
+          "kind": "function",
+          "start": 593,
+          "end": 1241
+        },
+        {
+          "id": "b2",
+          "path": "src/tourContentHash.ts",
+          "name": "isRecord",
+          "kind": "function",
+          "start": 1243,
+          "end": 1395
+        }
+      ],
+      "after": []
+    },
+    "correspondences": [],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/tourContentHash.ts"
+      ],
+      "after": [],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "history-06": {
+    "inventory": {
+      "before": [],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/tourContentHash.ts",
+          "name": "hashChangeTourSource",
+          "kind": "function",
+          "start": 384,
+          "end": 591
+        },
+        {
+          "id": "a1",
+          "path": "src/tourContentHash.ts",
+          "name": "canonicalize",
+          "kind": "function",
+          "start": 593,
+          "end": 1241
+        },
+        {
+          "id": "a2",
+          "path": "src/tourContentHash.ts",
+          "name": "isRecord",
+          "kind": "function",
+          "start": 1243,
+          "end": 1395
+        }
+      ]
+    },
+    "correspondences": [],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [],
+      "after": [
+        "src/tourContentHash.ts"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "history-07": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/tourOrientation.ts",
+          "name": "TourEvidenceContext",
+          "kind": "interface",
+          "start": 189,
+          "end": 459
+        },
+        {
+          "id": "b1",
+          "path": "src/tourOrientation.ts",
+          "name": "TourLanding",
+          "kind": "type",
+          "start": 461,
+          "end": 537
+        },
+        {
+          "id": "b2",
+          "path": "src/tourOrientation.ts",
+          "name": "tourLanding",
+          "kind": "function",
+          "start": 539,
+          "end": 986
+        },
+        {
+          "id": "b3",
+          "path": "src/tourOrientation.ts",
+          "name": "resolveTourEvidenceContext",
+          "kind": "function",
+          "start": 988,
+          "end": 3515
+        },
+        {
+          "id": "b4",
+          "path": "src/tourOrientation.ts",
+          "name": "resolveTourRangeEvidenceContext",
+          "kind": "function",
+          "start": 3606,
+          "end": 4063
+        },
+        {
+          "id": "b5",
+          "path": "src/tourOrientation.ts",
+          "name": "describeTourComparison",
+          "kind": "function",
+          "start": 4065,
+          "end": 4279
+        },
+        {
+          "id": "b6",
+          "path": "src/tourOrientation.ts",
+          "name": "describeTourTransition",
+          "kind": "function",
+          "start": 4281,
+          "end": 4961
+        },
+        {
+          "id": "b7",
+          "path": "src/tourOrientation.ts",
+          "name": "realLabel",
+          "kind": "function",
+          "start": 4963,
+          "end": 5128
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/tourOrientation.ts",
+          "name": "TourEvidenceContext",
+          "kind": "interface",
+          "start": 189,
+          "end": 459
+        },
+        {
+          "id": "a1",
+          "path": "src/tourOrientation.ts",
+          "name": "TourLanding",
+          "kind": "type",
+          "start": 461,
+          "end": 537
+        },
+        {
+          "id": "a2",
+          "path": "src/tourOrientation.ts",
+          "name": "tourLanding",
+          "kind": "function",
+          "start": 539,
+          "end": 986
+        },
+        {
+          "id": "a3",
+          "path": "src/tourOrientation.ts",
+          "name": "resolveTourEvidenceContext",
+          "kind": "function",
+          "start": 988,
+          "end": 3515
+        },
+        {
+          "id": "a4",
+          "path": "src/tourOrientation.ts",
+          "name": "resolveTourRangeEvidenceContext",
+          "kind": "function",
+          "start": 3606,
+          "end": 4063
+        },
+        {
+          "id": "a5",
+          "path": "src/tourOrientation.ts",
+          "name": "describeTourComparison",
+          "kind": "function",
+          "start": 4065,
+          "end": 4279
+        },
+        {
+          "id": "a6",
+          "path": "src/tourOrientation.ts",
+          "name": "describeTourTransition",
+          "kind": "function",
+          "start": 4281,
+          "end": 5300
+        },
+        {
+          "id": "a7",
+          "path": "src/tourOrientation.ts",
+          "name": "realLabel",
+          "kind": "function",
+          "start": 5302,
+          "end": 5467
+        },
+        {
+          "id": "a8",
+          "path": "src/tourOrientation.ts",
+          "name": "TourRouteEntry",
+          "kind": "interface",
+          "start": 5469,
+          "end": 5569
+        },
+        {
+          "id": "a9",
+          "path": "src/tourOrientation.ts",
+          "name": "buildTourRoute",
+          "kind": "function",
+          "start": 5658,
+          "end": 6181
+        },
+        {
+          "id": "a10",
+          "path": "src/tourOrientation.ts",
+          "name": "describeSceneRoute",
+          "kind": "function",
+          "start": 6183,
+          "end": 8326
+        },
+        {
+          "id": "a11",
+          "path": "src/tourOrientation.ts",
+          "name": "describeStepOrientation",
+          "kind": "function",
+          "start": 8409,
+          "end": 9712
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b3",
+        "destination": "a3",
+        "rawEqual": true
+      },
+      {
+        "source": "b4",
+        "destination": "a4",
+        "rawEqual": true
+      },
+      {
+        "source": "b5",
+        "destination": "a5",
+        "rawEqual": true
+      },
+      {
+        "source": "b6",
+        "destination": "a6",
+        "rawEqual": false
+      },
+      {
+        "source": "b7",
+        "destination": "a7",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a0",
+        "rawEqual": true
+      },
+      {
+        "source": "b1",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/tourOrientation.ts"
+      ],
+      "after": [
+        "src/tourOrientation.ts"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "history-08": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/deepLink.ts",
+          "name": "DocumentFocus",
+          "kind": "type",
+          "start": 85,
+          "end": 271
+        },
+        {
+          "id": "b1",
+          "path": "src/deepLink.ts",
+          "name": "TourLink",
+          "kind": "type",
+          "start": 272,
+          "end": 472
+        },
+        {
+          "id": "b2",
+          "path": "src/deepLink.ts",
+          "name": "ComparisonLink",
+          "kind": "type",
+          "start": 473,
+          "end": 623
+        },
+        {
+          "id": "b3",
+          "path": "src/deepLink.ts",
+          "name": "DeepLink",
+          "kind": "type",
+          "start": 624,
+          "end": 673
+        },
+        {
+          "id": "b4",
+          "path": "src/deepLink.ts",
+          "name": "oidPattern",
+          "kind": "variable",
+          "start": 680,
+          "end": 726
+        },
+        {
+          "id": "b5",
+          "path": "src/deepLink.ts",
+          "name": "focusFields",
+          "kind": "variable",
+          "start": 734,
+          "end": 784
+        },
+        {
+          "id": "b6",
+          "path": "src/deepLink.ts",
+          "name": "required",
+          "kind": "function",
+          "start": 787,
+          "end": 1032
+        },
+        {
+          "id": "b7",
+          "path": "src/deepLink.ts",
+          "name": "validateRelativePath",
+          "kind": "function",
+          "start": 1033,
+          "end": 1375
+        },
+        {
+          "id": "b8",
+          "path": "src/deepLink.ts",
+          "name": "validateFields",
+          "kind": "function",
+          "start": 1376,
+          "end": 1733
+        },
+        {
+          "id": "b9",
+          "path": "src/deepLink.ts",
+          "name": "validateLocalFileUrl",
+          "kind": "function",
+          "start": 1734,
+          "end": 2057
+        },
+        {
+          "id": "b10",
+          "path": "src/deepLink.ts",
+          "name": "parseDocumentFocus",
+          "kind": "function",
+          "start": 2058,
+          "end": 2715
+        },
+        {
+          "id": "b11",
+          "path": "src/deepLink.ts",
+          "name": "parseDeepLink",
+          "kind": "function",
+          "start": 2716,
+          "end": 4904
+        },
+        {
+          "id": "b12",
+          "path": "src/deepLink.ts",
+          "name": "serializeDeepLink",
+          "kind": "function",
+          "start": 4905,
+          "end": 5626
+        },
+        {
+          "id": "b13",
+          "path": "src/deepLink.ts",
+          "name": "authoredModeTour",
+          "kind": "function",
+          "start": 5627,
+          "end": 6294
+        },
+        {
+          "id": "b14",
+          "path": "src/deepLink.ts",
+          "name": "resolveDocumentFocus",
+          "kind": "function",
+          "start": 6295,
+          "end": 7566
+        },
+        {
+          "id": "b15",
+          "path": "src/deepLink.ts",
+          "name": "serializeDocumentFragment",
+          "kind": "function",
+          "start": 7567,
+          "end": 7739
+        },
+        {
+          "id": "b16",
+          "path": "src/deepLink.ts",
+          "name": "parseDocumentFragment",
+          "kind": "function",
+          "start": 7740,
+          "end": 8375
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/deepLink.ts",
+          "name": "DocumentFocus",
+          "kind": "type",
+          "start": 85,
+          "end": 300
+        },
+        {
+          "id": "a1",
+          "path": "src/deepLink.ts",
+          "name": "TourLink",
+          "kind": "type",
+          "start": 301,
+          "end": 501
+        },
+        {
+          "id": "a2",
+          "path": "src/deepLink.ts",
+          "name": "ComparisonLink",
+          "kind": "type",
+          "start": 502,
+          "end": 652
+        },
+        {
+          "id": "a3",
+          "path": "src/deepLink.ts",
+          "name": "DeepLink",
+          "kind": "type",
+          "start": 653,
+          "end": 702
+        },
+        {
+          "id": "a4",
+          "path": "src/deepLink.ts",
+          "name": "oidPattern",
+          "kind": "variable",
+          "start": 709,
+          "end": 755
+        },
+        {
+          "id": "a5",
+          "path": "src/deepLink.ts",
+          "name": "focusFields",
+          "kind": "variable",
+          "start": 763,
+          "end": 813
+        },
+        {
+          "id": "a6",
+          "path": "src/deepLink.ts",
+          "name": "required",
+          "kind": "function",
+          "start": 816,
+          "end": 1061
+        },
+        {
+          "id": "a7",
+          "path": "src/deepLink.ts",
+          "name": "validateRelativePath",
+          "kind": "function",
+          "start": 1062,
+          "end": 1404
+        },
+        {
+          "id": "a8",
+          "path": "src/deepLink.ts",
+          "name": "validateFields",
+          "kind": "function",
+          "start": 1405,
+          "end": 1762
+        },
+        {
+          "id": "a9",
+          "path": "src/deepLink.ts",
+          "name": "validateLocalFileUrl",
+          "kind": "function",
+          "start": 1763,
+          "end": 2086
+        },
+        {
+          "id": "a10",
+          "path": "src/deepLink.ts",
+          "name": "parseDocumentFocus",
+          "kind": "function",
+          "start": 2087,
+          "end": 2771
+        },
+        {
+          "id": "a11",
+          "path": "src/deepLink.ts",
+          "name": "parseDeepLink",
+          "kind": "function",
+          "start": 2772,
+          "end": 4960
+        },
+        {
+          "id": "a12",
+          "path": "src/deepLink.ts",
+          "name": "serializeDeepLink",
+          "kind": "function",
+          "start": 4961,
+          "end": 5682
+        },
+        {
+          "id": "a13",
+          "path": "src/deepLink.ts",
+          "name": "authoredModeTour",
+          "kind": "function",
+          "start": 5683,
+          "end": 6350
+        },
+        {
+          "id": "a14",
+          "path": "src/deepLink.ts",
+          "name": "resolveDocumentFocus",
+          "kind": "function",
+          "start": 6351,
+          "end": 7834
+        },
+        {
+          "id": "a15",
+          "path": "src/deepLink.ts",
+          "name": "serializeDocumentFragment",
+          "kind": "function",
+          "start": 7835,
+          "end": 8007
+        },
+        {
+          "id": "a16",
+          "path": "src/deepLink.ts",
+          "name": "parseDocumentFragment",
+          "kind": "function",
+          "start": 8008,
+          "end": 8643
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b6",
+        "destination": "a6",
+        "rawEqual": true
+      },
+      {
+        "source": "b7",
+        "destination": "a7",
+        "rawEqual": true
+      },
+      {
+        "source": "b8",
+        "destination": "a8",
+        "rawEqual": true
+      },
+      {
+        "source": "b9",
+        "destination": "a9",
+        "rawEqual": true
+      },
+      {
+        "source": "b10",
+        "destination": "a10",
+        "rawEqual": false
+      },
+      {
+        "source": "b11",
+        "destination": "a11",
+        "rawEqual": true
+      },
+      {
+        "source": "b12",
+        "destination": "a12",
+        "rawEqual": true
+      },
+      {
+        "source": "b13",
+        "destination": "a13",
+        "rawEqual": true
+      },
+      {
+        "source": "b14",
+        "destination": "a14",
+        "rawEqual": false
+      },
+      {
+        "source": "b15",
+        "destination": "a15",
+        "rawEqual": true
+      },
+      {
+        "source": "b16",
+        "destination": "a16",
+        "rawEqual": true
+      },
+      {
+        "source": "b0",
+        "destination": "a0",
+        "rawEqual": false
+      },
+      {
+        "source": "b1",
+        "destination": "a1",
+        "rawEqual": true
+      },
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b3",
+        "destination": "a3",
+        "rawEqual": true
+      },
+      {
+        "source": "b4",
+        "destination": "a4",
+        "rawEqual": true
+      },
+      {
+        "source": "b5",
+        "destination": "a5",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/deepLink.ts"
+      ],
+      "after": [
+        "src/deepLink.ts"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "history-09": {
+    "inventory": {
+      "before": [],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/revisionView.ts",
+          "name": "RevisionFiles",
+          "kind": "interface",
+          "start": 256,
+          "end": 392
+        },
+        {
+          "id": "a1",
+          "path": "src/revisionView.ts",
+          "name": "revisionFileTarget",
+          "kind": "function",
+          "start": 394,
+          "end": 899
+        },
+        {
+          "id": "a2",
+          "path": "src/revisionView.ts",
+          "name": "revisionFileNavigation",
+          "kind": "function",
+          "start": 901,
+          "end": 1085
+        },
+        {
+          "id": "a3",
+          "path": "src/revisionView.ts",
+          "name": "revisionFileAction",
+          "kind": "function",
+          "start": 1169,
+          "end": 1962
+        },
+        {
+          "id": "a4",
+          "path": "src/revisionView.ts",
+          "name": "revisionDirectoryView",
+          "kind": "function",
+          "start": 1964,
+          "end": 2197
+        },
+        {
+          "id": "a5",
+          "path": "src/revisionView.ts",
+          "name": "revisionPanelPairs",
+          "kind": "function",
+          "start": 2199,
+          "end": 2483
+        },
+        {
+          "id": "a6",
+          "path": "src/revisionView.ts",
+          "name": "revisionPanelsView",
+          "kind": "function",
+          "start": 2485,
+          "end": 2938
+        },
+        {
+          "id": "a7",
+          "path": "src/revisionView.ts",
+          "name": "CommitEntry",
+          "kind": "interface",
+          "start": 2940,
+          "end": 3182
+        },
+        {
+          "id": "a8",
+          "path": "src/revisionView.ts",
+          "name": "revisionRailItems",
+          "kind": "function",
+          "start": 3184,
+          "end": 5199
+        },
+        {
+          "id": "a9",
+          "path": "src/revisionView.ts",
+          "name": "revisionRailItems.marker",
+          "kind": "function-variable",
+          "start": 3654,
+          "end": 3878
+        }
+      ]
+    },
+    "correspondences": [],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": [
+        {
+          "path": "src/revisionView.ts",
+          "start": 2758,
+          "reason": "destructured-binding"
+        }
+      ]
+    },
+    "scope": {
+      "before": [],
+      "after": [
+        "src/revisionView.ts"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "history-10": {
+    "inventory": {
+      "before": [],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/historyDirectory.ts",
+          "name": "buildHistoryDirectoryEntries",
+          "kind": "function",
+          "start": 143,
+          "end": 1748
+        }
+      ]
+    },
+    "correspondences": [],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [],
+      "after": [
+        "src/historyDirectory.ts"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "diagnostic-imported-extraction": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 0,
+          "end": 51
+        },
+        {
+          "id": "b1",
+          "path": "src/cart.js",
+          "name": "checkout",
+          "kind": "function",
+          "start": 0,
+          "end": 143
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/billing.js",
+          "name": "invoiceTotal",
+          "kind": "function",
+          "start": 0,
+          "end": 132
+        },
+        {
+          "id": "a1",
+          "path": "src/billing.js",
+          "name": "destinationMarker",
+          "kind": "function",
+          "start": 133,
+          "end": 184
+        },
+        {
+          "id": "a2",
+          "path": "src/cart.js",
+          "name": "checkout",
+          "kind": "function",
+          "start": 45,
+          "end": 146
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b1",
+        "destination": "a2",
+        "rawEqual": false
+      },
+      {
+        "source": "b0",
+        "destination": "a1",
+        "rawEqual": true
+      }
+    ],
+    "groups": [
+      {
+        "kind": "extract",
+        "source": "b1",
+        "destination": "a0",
+        "status": "inferred"
+      }
+    ],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [],
+      "after": []
+    },
+    "scope": {
+      "before": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "after": [
+        "src/cart.js",
+        "src/billing.js"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  },
+  "diagnostic-public-tour-details": {
+    "inventory": {
+      "before": [
+        {
+          "id": "b0",
+          "path": "src/changeTour.ts",
+          "name": "DEFAULT_MAX_TOUR_FILE_BYTES",
+          "kind": "variable",
+          "start": 2777,
+          "end": 2822
+        },
+        {
+          "id": "b1",
+          "path": "src/changeTour.ts",
+          "name": "DEFAULT_MAX_TOUR_LINE_BYTES",
+          "kind": "variable",
+          "start": 2830,
+          "end": 2869
+        },
+        {
+          "id": "b2",
+          "path": "src/changeTour.ts",
+          "name": "DEFAULT_MAX_STACK_CONTENT_BYTES",
+          "kind": "variable",
+          "start": 2877,
+          "end": 2926
+        },
+        {
+          "id": "b3",
+          "path": "src/changeTour.ts",
+          "name": "BuildChangeTourOptions",
+          "kind": "interface",
+          "start": 2929,
+          "end": 3200
+        },
+        {
+          "id": "b4",
+          "path": "src/changeTour.ts",
+          "name": "ChapterDefinition",
+          "kind": "interface",
+          "start": 3202,
+          "end": 3290
+        },
+        {
+          "id": "b5",
+          "path": "src/changeTour.ts",
+          "name": "CHAPTERS",
+          "kind": "variable",
+          "start": 3298,
+          "end": 3757
+        },
+        {
+          "id": "b6",
+          "path": "src/changeTour.ts",
+          "name": "buildChangeTourManifest",
+          "kind": "function",
+          "start": 3760,
+          "end": 14184
+        },
+        {
+          "id": "b7",
+          "path": "src/changeTour.ts",
+          "name": "CompiledSourceTour",
+          "kind": "interface",
+          "start": 14186,
+          "end": 14360
+        },
+        {
+          "id": "b8",
+          "path": "src/changeTour.ts",
+          "name": "applySourceChapters",
+          "kind": "function",
+          "start": 14362,
+          "end": 18388
+        },
+        {
+          "id": "b9",
+          "path": "src/changeTour.ts",
+          "name": "buildAuthoredModeTours",
+          "kind": "function",
+          "start": 18692,
+          "end": 21690
+        },
+        {
+          "id": "b10",
+          "path": "src/changeTour.ts",
+          "name": "validateHistoricalStackEndpoints",
+          "kind": "function",
+          "start": 21692,
+          "end": 22163
+        },
+        {
+          "id": "b11",
+          "path": "src/changeTour.ts",
+          "name": "buildHistoricalFallback",
+          "kind": "function",
+          "start": 22165,
+          "end": 23415
+        },
+        {
+          "id": "b12",
+          "path": "src/changeTour.ts",
+          "name": "compileSceneOverview",
+          "kind": "function",
+          "start": 23417,
+          "end": 23921
+        },
+        {
+          "id": "b13",
+          "path": "src/changeTour.ts",
+          "name": "buildWalkthroughManifestScene",
+          "kind": "function",
+          "start": 23923,
+          "end": 25623
+        },
+        {
+          "id": "b14",
+          "path": "src/changeTour.ts",
+          "name": "buildDeconstructedManifestScene",
+          "kind": "function",
+          "start": 25625,
+          "end": 29845
+        },
+        {
+          "id": "b15",
+          "path": "src/changeTour.ts",
+          "name": "buildDeconstructedFocusSteps",
+          "kind": "function",
+          "start": 29847,
+          "end": 32215
+        },
+        {
+          "id": "b16",
+          "path": "src/changeTour.ts",
+          "name": "claimDeconstructedStageId",
+          "kind": "function",
+          "start": 32217,
+          "end": 32348
+        },
+        {
+          "id": "b17",
+          "path": "src/changeTour.ts",
+          "name": "claimDeconstructedFocusId",
+          "kind": "function",
+          "start": 32350,
+          "end": 32713
+        },
+        {
+          "id": "b18",
+          "path": "src/changeTour.ts",
+          "name": "buildStackedScene",
+          "kind": "function",
+          "start": 32715,
+          "end": 37189
+        },
+        {
+          "id": "b19",
+          "path": "src/changeTour.ts",
+          "name": "gitBlobExists",
+          "kind": "function",
+          "start": 37191,
+          "end": 37517
+        },
+        {
+          "id": "b20",
+          "path": "src/changeTour.ts",
+          "name": "runGitText",
+          "kind": "function",
+          "start": 37519,
+          "end": 37729
+        },
+        {
+          "id": "b21",
+          "path": "src/changeTour.ts",
+          "name": "resolveAnchor",
+          "kind": "function",
+          "start": 37731,
+          "end": 38799
+        },
+        {
+          "id": "b22",
+          "path": "src/changeTour.ts",
+          "name": "requireResolvedAnchor",
+          "kind": "function",
+          "start": 38801,
+          "end": 39062
+        },
+        {
+          "id": "b23",
+          "path": "src/changeTour.ts",
+          "name": "applyStory",
+          "kind": "function",
+          "start": 39064,
+          "end": 41171
+        },
+        {
+          "id": "b24",
+          "path": "src/changeTour.ts",
+          "name": "applyStory.addScene",
+          "kind": "function-variable",
+          "start": 39538,
+          "end": 39947
+        },
+        {
+          "id": "b25",
+          "path": "src/changeTour.ts",
+          "name": "buildChapters",
+          "kind": "function",
+          "start": 41173,
+          "end": 41846
+        },
+        {
+          "id": "b26",
+          "path": "src/changeTour.ts",
+          "name": "chapterForPath",
+          "kind": "function",
+          "start": 41848,
+          "end": 42421
+        },
+        {
+          "id": "b27",
+          "path": "src/changeTour.ts",
+          "name": "buildGeneratedTourLanding",
+          "kind": "function",
+          "start": 42423,
+          "end": 44069
+        },
+        {
+          "id": "b28",
+          "path": "src/changeTour.ts",
+          "name": "findDeclarationNames",
+          "kind": "function",
+          "start": 44071,
+          "end": 44554
+        },
+        {
+          "id": "b29",
+          "path": "src/changeTour.ts",
+          "name": "buildSceneNote",
+          "kind": "function",
+          "start": 44556,
+          "end": 44834
+        },
+        {
+          "id": "b30",
+          "path": "src/changeTour.ts",
+          "name": "buildOmittedFile",
+          "kind": "function",
+          "start": 44836,
+          "end": 45315
+        },
+        {
+          "id": "b31",
+          "path": "src/changeTour.ts",
+          "name": "formatChangeKind",
+          "kind": "function",
+          "start": 45317,
+          "end": 45451
+        },
+        {
+          "id": "b32",
+          "path": "src/changeTour.ts",
+          "name": "GitTextResult",
+          "kind": "type",
+          "start": 45453,
+          "end": 45561
+        },
+        {
+          "id": "b33",
+          "path": "src/changeTour.ts",
+          "name": "readGitText",
+          "kind": "function",
+          "start": 45563,
+          "end": 46497
+        },
+        {
+          "id": "b34",
+          "path": "src/changeTour.ts",
+          "name": "hasLineLongerThan",
+          "kind": "function",
+          "start": 46499,
+          "end": 46857
+        },
+        {
+          "id": "b35",
+          "path": "src/changeTour.ts",
+          "name": "readGitLineStats",
+          "kind": "function",
+          "start": 46859,
+          "end": 47710
+        },
+        {
+          "id": "b36",
+          "path": "src/changeTour.ts",
+          "name": "pinTourSource",
+          "kind": "function",
+          "start": 47712,
+          "end": 48859
+        },
+        {
+          "id": "b37",
+          "path": "src/changeTour.ts",
+          "name": "pinTourSource.pin",
+          "kind": "function-variable",
+          "start": 47962,
+          "end": 48229
+        },
+        {
+          "id": "b38",
+          "path": "src/changeTour.ts",
+          "name": "compileTourImage",
+          "kind": "function",
+          "start": 48861,
+          "end": 49787
+        },
+        {
+          "id": "b39",
+          "path": "src/changeTourManifest.ts",
+          "name": "CHANGE_TOUR_MANIFEST_VERSION",
+          "kind": "variable",
+          "start": 464,
+          "end": 505
+        },
+        {
+          "id": "b40",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourMode",
+          "kind": "type",
+          "start": 508,
+          "end": 587
+        },
+        {
+          "id": "b41",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourModeId",
+          "kind": "type",
+          "start": 670,
+          "end": 756
+        },
+        {
+          "id": "b42",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourZoom",
+          "kind": "interface",
+          "start": 758,
+          "end": 1180
+        },
+        {
+          "id": "b43",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourNarrative",
+          "kind": "interface",
+          "start": 1182,
+          "end": 1308
+        },
+        {
+          "id": "b44",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourSceneOverview",
+          "kind": "interface",
+          "start": 1310,
+          "end": 1475
+        },
+        {
+          "id": "b45",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourSceneOverviewComparison",
+          "kind": "interface",
+          "start": 1477,
+          "end": 1565
+        },
+        {
+          "id": "b46",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourDiffScene",
+          "kind": "interface",
+          "start": 1567,
+          "end": 1944
+        },
+        {
+          "id": "b47",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourOmittedFile",
+          "kind": "interface",
+          "start": 1946,
+          "end": 2186
+        },
+        {
+          "id": "b48",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourFile",
+          "kind": "type",
+          "start": 2188,
+          "end": 2261
+        },
+        {
+          "id": "b49",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourDiscussionScene",
+          "kind": "interface",
+          "start": 2263,
+          "end": 2396
+        },
+        {
+          "id": "b50",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourResolvedAnchor",
+          "kind": "interface",
+          "start": 2398,
+          "end": 2573
+        },
+        {
+          "id": "b51",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourResolvedConnection",
+          "kind": "interface",
+          "start": 2575,
+          "end": 2729
+        },
+        {
+          "id": "b52",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourWalkthroughStep",
+          "kind": "interface",
+          "start": 2731,
+          "end": 3071
+        },
+        {
+          "id": "b53",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourWalkthroughScene",
+          "kind": "interface",
+          "start": 3073,
+          "end": 3288
+        },
+        {
+          "id": "b54",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStackPanel",
+          "kind": "interface",
+          "start": 3290,
+          "end": 3400
+        },
+        {
+          "id": "b55",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStackFilePanel",
+          "kind": "interface",
+          "start": 3402,
+          "end": 3543
+        },
+        {
+          "id": "b56",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStackFile",
+          "kind": "interface",
+          "start": 3545,
+          "end": 3643
+        },
+        {
+          "id": "b57",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStackStep",
+          "kind": "interface",
+          "start": 3645,
+          "end": 3853
+        },
+        {
+          "id": "b58",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStackedScene",
+          "kind": "interface",
+          "start": 3855,
+          "end": 4130
+        },
+        {
+          "id": "b59",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourVirtualPanel",
+          "kind": "interface",
+          "start": 4132,
+          "end": 4264
+        },
+        {
+          "id": "b60",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourDeconstructedStep",
+          "kind": "interface",
+          "start": 4266,
+          "end": 4470
+        },
+        {
+          "id": "b61",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourDeconstructedScene",
+          "kind": "interface",
+          "start": 4472,
+          "end": 4936
+        },
+        {
+          "id": "b62",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourScene",
+          "kind": "type",
+          "start": 4938,
+          "end": 5117
+        },
+        {
+          "id": "b63",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStory",
+          "kind": "interface",
+          "start": 5119,
+          "end": 5235
+        },
+        {
+          "id": "b64",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStoryScene",
+          "kind": "type",
+          "start": 5237,
+          "end": 5616
+        },
+        {
+          "id": "b65",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourChapter",
+          "kind": "interface",
+          "start": 5618,
+          "end": 5715
+        },
+        {
+          "id": "b66",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourModeTour",
+          "kind": "interface",
+          "start": 5717,
+          "end": 5982
+        },
+        {
+          "id": "b67",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourTours",
+          "kind": "interface",
+          "start": 5984,
+          "end": 6097
+        },
+        {
+          "id": "b68",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourAuthoringCoverage",
+          "kind": "interface",
+          "start": 6099,
+          "end": 6525
+        },
+        {
+          "id": "b69",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourManifest",
+          "kind": "interface",
+          "start": 6527,
+          "end": 7659
+        },
+        {
+          "id": "b70",
+          "path": "src/changeTourManifest.ts",
+          "name": "parseChangeTourManifest",
+          "kind": "function",
+          "start": 7661,
+          "end": 12438
+        },
+        {
+          "id": "b71",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateAuthoringCoverage",
+          "kind": "function",
+          "start": 12440,
+          "end": 14470
+        },
+        {
+          "id": "b72",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateModeTours",
+          "kind": "function",
+          "start": 14472,
+          "end": 17299
+        },
+        {
+          "id": "b73",
+          "path": "src/changeTourManifest.ts",
+          "name": "collectManifestDetailReferences",
+          "kind": "function",
+          "start": 17301,
+          "end": 18262
+        },
+        {
+          "id": "b74",
+          "path": "src/changeTourManifest.ts",
+          "name": "collectManifestDetailReferences.add",
+          "kind": "function-variable",
+          "start": 17473,
+          "end": 17544
+        },
+        {
+          "id": "b75",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateContentHash",
+          "kind": "function",
+          "start": 18264,
+          "end": 18619
+        },
+        {
+          "id": "b76",
+          "path": "src/changeTourManifest.ts",
+          "name": "parseChangeTourStory",
+          "kind": "function",
+          "start": 18621,
+          "end": 20072
+        },
+        {
+          "id": "b77",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateZoom",
+          "kind": "function",
+          "start": 20074,
+          "end": 23991
+        },
+        {
+          "id": "b78",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateScene",
+          "kind": "function",
+          "start": 23993,
+          "end": 28218
+        },
+        {
+          "id": "b79",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateStackedScene",
+          "kind": "function",
+          "start": 28220,
+          "end": 28947
+        },
+        {
+          "id": "b80",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateDeconstructedScene",
+          "kind": "function",
+          "start": 28949,
+          "end": 32777
+        },
+        {
+          "id": "b81",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateMultiPanelFiles",
+          "kind": "function",
+          "start": 32779,
+          "end": 34075
+        },
+        {
+          "id": "b82",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateMultiPanelSteps",
+          "kind": "function",
+          "start": 34077,
+          "end": 35554
+        },
+        {
+          "id": "b83",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateTourFile",
+          "kind": "function",
+          "start": 35556,
+          "end": 36354
+        },
+        {
+          "id": "b84",
+          "path": "src/changeTourManifest.ts",
+          "name": "collectLegacyTourFiles",
+          "kind": "function",
+          "start": 36356,
+          "end": 36978
+        },
+        {
+          "id": "b85",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateResolvedAnchor",
+          "kind": "function",
+          "start": 36980,
+          "end": 37602
+        },
+        {
+          "id": "b86",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateNarrative",
+          "kind": "function",
+          "start": 37604,
+          "end": 37904
+        },
+        {
+          "id": "b87",
+          "path": "src/changeTourManifest.ts",
+          "name": "isRecord",
+          "kind": "function",
+          "start": 37906,
+          "end": 38058
+        },
+        {
+          "id": "b88",
+          "path": "src/changeTourManifest.ts",
+          "name": "requireString",
+          "kind": "function",
+          "start": 38060,
+          "end": 38238
+        },
+        {
+          "id": "b89",
+          "path": "src/changeTourManifest.ts",
+          "name": "requireStringArray",
+          "kind": "function",
+          "start": 38240,
+          "end": 38482
+        },
+        {
+          "id": "b90",
+          "path": "src/changeTourManifest.ts",
+          "name": "requireNonNegativeInteger",
+          "kind": "function",
+          "start": 38484,
+          "end": 38708
+        },
+        {
+          "id": "b91",
+          "path": "src/changeTourManifest.ts",
+          "name": "requirePercentage",
+          "kind": "function",
+          "start": 38710,
+          "end": 38961
+        },
+        {
+          "id": "b92",
+          "path": "src/changeTourManifest.ts",
+          "name": "requirePositiveInteger",
+          "kind": "function",
+          "start": 38963,
+          "end": 39164
+        },
+        {
+          "id": "b93",
+          "path": "src/changeTourSource.ts",
+          "name": "CHANGE_TOUR_SOURCE_VERSION",
+          "kind": "variable",
+          "start": 344,
+          "end": 383
+        },
+        {
+          "id": "b94",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceAnchor",
+          "kind": "interface",
+          "start": 386,
+          "end": 525
+        },
+        {
+          "id": "b95",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceConnection",
+          "kind": "interface",
+          "start": 527,
+          "end": 643
+        },
+        {
+          "id": "b96",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourStepRequirement",
+          "kind": "interface",
+          "start": 645,
+          "end": 824
+        },
+        {
+          "id": "b97",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceStep",
+          "kind": "interface",
+          "start": 826,
+          "end": 1096
+        },
+        {
+          "id": "b98",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourCoverageExclusion",
+          "kind": "interface",
+          "start": 1098,
+          "end": 1206
+        },
+        {
+          "id": "b99",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceSceneOverview",
+          "kind": "interface",
+          "start": 1208,
+          "end": 1385
+        },
+        {
+          "id": "b100",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceSceneOverviewComparison",
+          "kind": "interface",
+          "start": 1387,
+          "end": 1481
+        },
+        {
+          "id": "b101",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceWalkthroughScene",
+          "kind": "interface",
+          "start": 1483,
+          "end": 1706
+        },
+        {
+          "id": "b102",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceStackEntry",
+          "kind": "interface",
+          "start": 1708,
+          "end": 1808
+        },
+        {
+          "id": "b103",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceStackStep",
+          "kind": "interface",
+          "start": 1810,
+          "end": 2014
+        },
+        {
+          "id": "b104",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceStackedScene",
+          "kind": "interface",
+          "start": 2016,
+          "end": 2303
+        },
+        {
+          "id": "b105",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceDeconstructedChange",
+          "kind": "interface",
+          "start": 2305,
+          "end": 2400
+        },
+        {
+          "id": "b106",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceDeconstructedStage",
+          "kind": "interface",
+          "start": 2402,
+          "end": 2567
+        },
+        {
+          "id": "b107",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceDeconstructedExclusion",
+          "kind": "interface",
+          "start": 2569,
+          "end": 2688
+        },
+        {
+          "id": "b108",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceDeconstructedScene",
+          "kind": "interface",
+          "start": 2690,
+          "end": 3299
+        },
+        {
+          "id": "b109",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceScene",
+          "kind": "type",
+          "start": 3301,
+          "end": 3446
+        },
+        {
+          "id": "b110",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceChapter",
+          "kind": "interface",
+          "start": 3448,
+          "end": 3564
+        },
+        {
+          "id": "b111",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceTour",
+          "kind": "interface",
+          "start": 3787,
+          "end": 3928
+        },
+        {
+          "id": "b112",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceTours",
+          "kind": "interface",
+          "start": 3930,
+          "end": 4053
+        },
+        {
+          "id": "b113",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSource",
+          "kind": "interface",
+          "start": 4055,
+          "end": 4584
+        },
+        {
+          "id": "b114",
+          "path": "src/changeTourSource.ts",
+          "name": "parseChangeTourSource",
+          "kind": "function",
+          "start": 4586,
+          "end": 11227
+        },
+        {
+          "id": "b115",
+          "path": "src/changeTourSource.ts",
+          "name": "collectSourceDetailReferences",
+          "kind": "function",
+          "start": 11229,
+          "end": 12687
+        },
+        {
+          "id": "b116",
+          "path": "src/changeTourSource.ts",
+          "name": "collectSourceDetailReferences.add",
+          "kind": "function-variable",
+          "start": 11401,
+          "end": 11472
+        },
+        {
+          "id": "b117",
+          "path": "src/changeTourSource.ts",
+          "name": "SourceTourValidationMode",
+          "kind": "type",
+          "start": 12689,
+          "end": 12761
+        },
+        {
+          "id": "b118",
+          "path": "src/changeTourSource.ts",
+          "name": "validateSourceChapters",
+          "kind": "function",
+          "start": 12763,
+          "end": 17535
+        },
+        {
+          "id": "b119",
+          "path": "src/changeTourSource.ts",
+          "name": "stackedOverviewEndpointIds",
+          "kind": "function",
+          "start": 17537,
+          "end": 17896
+        },
+        {
+          "id": "b120",
+          "path": "src/changeTourSource.ts",
+          "name": "deconstructedOverviewEndpointIds",
+          "kind": "function",
+          "start": 17898,
+          "end": 18352
+        },
+        {
+          "id": "b121",
+          "path": "src/changeTourSource.ts",
+          "name": "validateDeconstructedScene",
+          "kind": "function",
+          "start": 18354,
+          "end": 20253
+        },
+        {
+          "id": "b122",
+          "path": "src/changeTourSource.ts",
+          "name": "validateWalkthroughSteps",
+          "kind": "function",
+          "start": 20255,
+          "end": 22033
+        },
+        {
+          "id": "b123",
+          "path": "src/changeTourSource.ts",
+          "name": "validateDeconstructedSelection",
+          "kind": "function",
+          "start": 22035,
+          "end": 22641
+        },
+        {
+          "id": "b124",
+          "path": "src/changeTourSource.ts",
+          "name": "validateRealStack",
+          "kind": "function",
+          "start": 22643,
+          "end": 23463
+        },
+        {
+          "id": "b125",
+          "path": "src/changeTourSource.ts",
+          "name": "validateStackedScene",
+          "kind": "function",
+          "start": 23465,
+          "end": 26514
+        },
+        {
+          "id": "b126",
+          "path": "src/changeTourSource.ts",
+          "name": "validateStepRequirement",
+          "kind": "function",
+          "start": 26516,
+          "end": 27290
+        },
+        {
+          "id": "b127",
+          "path": "src/changeTourSource.ts",
+          "name": "SceneOverviewValidationOptions",
+          "kind": "interface",
+          "start": 27292,
+          "end": 27411
+        },
+        {
+          "id": "b128",
+          "path": "src/changeTourSource.ts",
+          "name": "validateSceneOverview",
+          "kind": "function",
+          "start": 27413,
+          "end": 29091
+        },
+        {
+          "id": "b129",
+          "path": "src/changeTourSource.ts",
+          "name": "validateDirectoryOverviewPath",
+          "kind": "function",
+          "start": 29093,
+          "end": 29660
+        },
+        {
+          "id": "b130",
+          "path": "src/changeTourSource.ts",
+          "name": "validateNarrative",
+          "kind": "function",
+          "start": 29662,
+          "end": 29962
+        },
+        {
+          "id": "b131",
+          "path": "src/changeTourSource.ts",
+          "name": "isRecord",
+          "kind": "function",
+          "start": 29964,
+          "end": 30116
+        },
+        {
+          "id": "b132",
+          "path": "src/changeTourSource.ts",
+          "name": "requireString",
+          "kind": "function",
+          "start": 30118,
+          "end": 30328
+        },
+        {
+          "id": "b133",
+          "path": "src/changeTourSource.ts",
+          "name": "optionalString",
+          "kind": "function",
+          "start": 30330,
+          "end": 30466
+        },
+        {
+          "id": "b134",
+          "path": "src/changeTourSource.ts",
+          "name": "requireStringArray",
+          "kind": "function",
+          "start": 30468,
+          "end": 30710
+        },
+        {
+          "id": "b135",
+          "path": "src/changeTourSource.ts",
+          "name": "requireOnlyKeys",
+          "kind": "function",
+          "start": 30712,
+          "end": 31055
+        },
+        {
+          "id": "b136",
+          "path": "src/tourAssessment.ts",
+          "name": "TOUR_ASSESSMENT_RATING_KEYS",
+          "kind": "variable",
+          "start": 245,
+          "end": 403
+        },
+        {
+          "id": "b137",
+          "path": "src/tourAssessment.ts",
+          "name": "TOUR_ASSESSMENT_RUBRIC_KEYS",
+          "kind": "variable",
+          "start": 419,
+          "end": 476
+        },
+        {
+          "id": "b138",
+          "path": "src/tourAssessment.ts",
+          "name": "TOUR_ASSESSMENT_RUBRIC",
+          "kind": "variable",
+          "start": 492,
+          "end": 1573
+        },
+        {
+          "id": "b139",
+          "path": "src/tourAssessment.ts",
+          "name": "TOUR_ASSESSMENT_SCORE_VALUES",
+          "kind": "variable",
+          "start": 1589,
+          "end": 1641
+        },
+        {
+          "id": "b140",
+          "path": "src/tourAssessment.ts",
+          "name": "TOUR_ASSESSMENT_METHODS",
+          "kind": "variable",
+          "start": 1657,
+          "end": 1757
+        },
+        {
+          "id": "b141",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourAssessmentRatingKey",
+          "kind": "type",
+          "start": 1760,
+          "end": 1847
+        },
+        {
+          "id": "b142",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourAssessmentScore",
+          "kind": "type",
+          "start": 1848,
+          "end": 1932
+        },
+        {
+          "id": "b143",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourAssessmentMethod",
+          "kind": "type",
+          "start": 1933,
+          "end": 2013
+        },
+        {
+          "id": "b144",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourAudienceCodebase",
+          "kind": "type",
+          "start": 2014,
+          "end": 2086
+        },
+        {
+          "id": "b145",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourAudienceLanguage",
+          "kind": "type",
+          "start": 2087,
+          "end": 2169
+        },
+        {
+          "id": "b146",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourAudienceReadingDemand",
+          "kind": "type",
+          "start": 2170,
+          "end": 2255
+        },
+        {
+          "id": "b147",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourAudiencePurpose",
+          "kind": "type",
+          "start": 2256,
+          "end": 2334
+        },
+        {
+          "id": "b148",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourAudience",
+          "kind": "interface",
+          "start": 2336,
+          "end": 2624
+        },
+        {
+          "id": "b149",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourAssessmentRating",
+          "kind": "interface",
+          "start": 2626,
+          "end": 2757
+        },
+        {
+          "id": "b150",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourAssessmentRatings",
+          "kind": "type",
+          "start": 2759,
+          "end": 2882
+        },
+        {
+          "id": "b151",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourAssessment",
+          "kind": "interface",
+          "start": 2884,
+          "end": 3103
+        },
+        {
+          "id": "b152",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourDetails",
+          "kind": "interface",
+          "start": 3105,
+          "end": 3217
+        },
+        {
+          "id": "b153",
+          "path": "src/tourAssessment.ts",
+          "name": "ChangeTourDetailsValidationContext",
+          "kind": "interface",
+          "start": 3219,
+          "end": 3390
+        },
+        {
+          "id": "b154",
+          "path": "src/tourAssessment.ts",
+          "name": "validateChangeTourDetails",
+          "kind": "function",
+          "start": 3392,
+          "end": 3890
+        },
+        {
+          "id": "b155",
+          "path": "src/tourAssessment.ts",
+          "name": "validateAudience",
+          "kind": "function",
+          "start": 3892,
+          "end": 5499
+        },
+        {
+          "id": "b156",
+          "path": "src/tourAssessment.ts",
+          "name": "validateAssessment",
+          "kind": "function",
+          "start": 5501,
+          "end": 7570
+        },
+        {
+          "id": "b157",
+          "path": "src/tourAssessment.ts",
+          "name": "validateIsoTimestamp",
+          "kind": "function",
+          "start": 7572,
+          "end": 8094
+        },
+        {
+          "id": "b158",
+          "path": "src/tourAssessment.ts",
+          "name": "validateContentHash",
+          "kind": "function",
+          "start": 8096,
+          "end": 8329
+        },
+        {
+          "id": "b159",
+          "path": "src/tourAssessment.ts",
+          "name": "isRecord",
+          "kind": "function",
+          "start": 8331,
+          "end": 8483
+        },
+        {
+          "id": "b160",
+          "path": "src/tourAssessment.ts",
+          "name": "requireString",
+          "kind": "function",
+          "start": 8485,
+          "end": 8702
+        },
+        {
+          "id": "b161",
+          "path": "src/tourAssessment.ts",
+          "name": "requireStringArray",
+          "kind": "function",
+          "start": 8704,
+          "end": 8974
+        },
+        {
+          "id": "b162",
+          "path": "src/tourAssessment.ts",
+          "name": "requireOnlyKeys",
+          "kind": "function",
+          "start": 8976,
+          "end": 9319
+        },
+        {
+          "id": "b163",
+          "path": "src/tourContentHash.ts",
+          "name": "hashChangeTourSource",
+          "kind": "function",
+          "start": 384,
+          "end": 591
+        },
+        {
+          "id": "b164",
+          "path": "src/tourContentHash.ts",
+          "name": "canonicalize",
+          "kind": "function",
+          "start": 593,
+          "end": 1241
+        },
+        {
+          "id": "b165",
+          "path": "src/tourContentHash.ts",
+          "name": "isRecord",
+          "kind": "function",
+          "start": 1243,
+          "end": 1395
+        },
+        {
+          "id": "b166",
+          "path": "src/tourFeedback.ts",
+          "name": "TourFeedbackIntent",
+          "kind": "type",
+          "start": 209,
+          "end": 265
+        },
+        {
+          "id": "b167",
+          "path": "src/tourFeedback.ts",
+          "name": "captureTourFeedback",
+          "kind": "function",
+          "start": 356,
+          "end": 3141
+        },
+        {
+          "id": "b168",
+          "path": "src/tourFeedback.ts",
+          "name": "buildTourFeedbackRequest",
+          "kind": "function",
+          "start": 3143,
+          "end": 4329
+        }
+      ],
+      "after": [
+        {
+          "id": "a0",
+          "path": "src/changeTour.ts",
+          "name": "DEFAULT_MAX_TOUR_FILE_BYTES",
+          "kind": "variable",
+          "start": 2277,
+          "end": 2322
+        },
+        {
+          "id": "a1",
+          "path": "src/changeTour.ts",
+          "name": "DEFAULT_MAX_TOUR_LINE_BYTES",
+          "kind": "variable",
+          "start": 2330,
+          "end": 2369
+        },
+        {
+          "id": "a2",
+          "path": "src/changeTour.ts",
+          "name": "DEFAULT_MAX_STACK_CONTENT_BYTES",
+          "kind": "variable",
+          "start": 2377,
+          "end": 2426
+        },
+        {
+          "id": "a3",
+          "path": "src/changeTour.ts",
+          "name": "BuildChangeTourOptions",
+          "kind": "interface",
+          "start": 2429,
+          "end": 2700
+        },
+        {
+          "id": "a4",
+          "path": "src/changeTour.ts",
+          "name": "ChapterDefinition",
+          "kind": "interface",
+          "start": 2702,
+          "end": 2790
+        },
+        {
+          "id": "a5",
+          "path": "src/changeTour.ts",
+          "name": "CHAPTERS",
+          "kind": "variable",
+          "start": 2798,
+          "end": 3257
+        },
+        {
+          "id": "a6",
+          "path": "src/changeTour.ts",
+          "name": "buildChangeTourManifest",
+          "kind": "function",
+          "start": 3260,
+          "end": 13462
+        },
+        {
+          "id": "a7",
+          "path": "src/changeTour.ts",
+          "name": "CompiledSourceTour",
+          "kind": "interface",
+          "start": 13464,
+          "end": 13638
+        },
+        {
+          "id": "a8",
+          "path": "src/changeTour.ts",
+          "name": "applySourceChapters",
+          "kind": "function",
+          "start": 13640,
+          "end": 17666
+        },
+        {
+          "id": "a9",
+          "path": "src/changeTour.ts",
+          "name": "buildAuthoredModeTours",
+          "kind": "function",
+          "start": 17970,
+          "end": 20568
+        },
+        {
+          "id": "a10",
+          "path": "src/changeTour.ts",
+          "name": "validateHistoricalStackEndpoints",
+          "kind": "function",
+          "start": 20570,
+          "end": 21041
+        },
+        {
+          "id": "a11",
+          "path": "src/changeTour.ts",
+          "name": "buildHistoricalFallback",
+          "kind": "function",
+          "start": 21043,
+          "end": 22293
+        },
+        {
+          "id": "a12",
+          "path": "src/changeTour.ts",
+          "name": "compileSceneOverview",
+          "kind": "function",
+          "start": 22295,
+          "end": 22799
+        },
+        {
+          "id": "a13",
+          "path": "src/changeTour.ts",
+          "name": "buildWalkthroughManifestScene",
+          "kind": "function",
+          "start": 22801,
+          "end": 24501
+        },
+        {
+          "id": "a14",
+          "path": "src/changeTour.ts",
+          "name": "buildDeconstructedManifestScene",
+          "kind": "function",
+          "start": 24503,
+          "end": 28723
+        },
+        {
+          "id": "a15",
+          "path": "src/changeTour.ts",
+          "name": "buildDeconstructedFocusSteps",
+          "kind": "function",
+          "start": 28725,
+          "end": 31093
+        },
+        {
+          "id": "a16",
+          "path": "src/changeTour.ts",
+          "name": "claimDeconstructedStageId",
+          "kind": "function",
+          "start": 31095,
+          "end": 31226
+        },
+        {
+          "id": "a17",
+          "path": "src/changeTour.ts",
+          "name": "claimDeconstructedFocusId",
+          "kind": "function",
+          "start": 31228,
+          "end": 31591
+        },
+        {
+          "id": "a18",
+          "path": "src/changeTour.ts",
+          "name": "buildStackedScene",
+          "kind": "function",
+          "start": 31593,
+          "end": 36067
+        },
+        {
+          "id": "a19",
+          "path": "src/changeTour.ts",
+          "name": "gitBlobExists",
+          "kind": "function",
+          "start": 36069,
+          "end": 36395
+        },
+        {
+          "id": "a20",
+          "path": "src/changeTour.ts",
+          "name": "runGitText",
+          "kind": "function",
+          "start": 36397,
+          "end": 36607
+        },
+        {
+          "id": "a21",
+          "path": "src/changeTour.ts",
+          "name": "resolveAnchor",
+          "kind": "function",
+          "start": 36609,
+          "end": 37677
+        },
+        {
+          "id": "a22",
+          "path": "src/changeTour.ts",
+          "name": "requireResolvedAnchor",
+          "kind": "function",
+          "start": 37679,
+          "end": 37940
+        },
+        {
+          "id": "a23",
+          "path": "src/changeTour.ts",
+          "name": "applyStory",
+          "kind": "function",
+          "start": 37942,
+          "end": 40049
+        },
+        {
+          "id": "a24",
+          "path": "src/changeTour.ts",
+          "name": "applyStory.addScene",
+          "kind": "function-variable",
+          "start": 38416,
+          "end": 38825
+        },
+        {
+          "id": "a25",
+          "path": "src/changeTour.ts",
+          "name": "buildChapters",
+          "kind": "function",
+          "start": 40051,
+          "end": 40724
+        },
+        {
+          "id": "a26",
+          "path": "src/changeTour.ts",
+          "name": "chapterForPath",
+          "kind": "function",
+          "start": 40726,
+          "end": 41299
+        },
+        {
+          "id": "a27",
+          "path": "src/changeTour.ts",
+          "name": "buildGeneratedTourLanding",
+          "kind": "function",
+          "start": 41301,
+          "end": 42947
+        },
+        {
+          "id": "a28",
+          "path": "src/changeTour.ts",
+          "name": "findDeclarationNames",
+          "kind": "function",
+          "start": 42949,
+          "end": 43432
+        },
+        {
+          "id": "a29",
+          "path": "src/changeTour.ts",
+          "name": "buildSceneNote",
+          "kind": "function",
+          "start": 43434,
+          "end": 43712
+        },
+        {
+          "id": "a30",
+          "path": "src/changeTour.ts",
+          "name": "buildOmittedFile",
+          "kind": "function",
+          "start": 43714,
+          "end": 44193
+        },
+        {
+          "id": "a31",
+          "path": "src/changeTour.ts",
+          "name": "formatChangeKind",
+          "kind": "function",
+          "start": 44195,
+          "end": 44329
+        },
+        {
+          "id": "a32",
+          "path": "src/changeTour.ts",
+          "name": "GitTextResult",
+          "kind": "type",
+          "start": 44331,
+          "end": 44439
+        },
+        {
+          "id": "a33",
+          "path": "src/changeTour.ts",
+          "name": "readGitText",
+          "kind": "function",
+          "start": 44441,
+          "end": 45375
+        },
+        {
+          "id": "a34",
+          "path": "src/changeTour.ts",
+          "name": "hasLineLongerThan",
+          "kind": "function",
+          "start": 45377,
+          "end": 45735
+        },
+        {
+          "id": "a35",
+          "path": "src/changeTour.ts",
+          "name": "readGitLineStats",
+          "kind": "function",
+          "start": 45737,
+          "end": 46588
+        },
+        {
+          "id": "a36",
+          "path": "src/changeTour.ts",
+          "name": "pinTourSource",
+          "kind": "function",
+          "start": 46590,
+          "end": 47737
+        },
+        {
+          "id": "a37",
+          "path": "src/changeTour.ts",
+          "name": "pinTourSource.pin",
+          "kind": "function-variable",
+          "start": 46840,
+          "end": 47107
+        },
+        {
+          "id": "a38",
+          "path": "src/changeTour.ts",
+          "name": "compileTourImage",
+          "kind": "function",
+          "start": 47739,
+          "end": 48665
+        },
+        {
+          "id": "a39",
+          "path": "src/changeTourManifest.ts",
+          "name": "CHANGE_TOUR_MANIFEST_VERSION",
+          "kind": "variable",
+          "start": 461,
+          "end": 502
+        },
+        {
+          "id": "a40",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourMode",
+          "kind": "type",
+          "start": 505,
+          "end": 584
+        },
+        {
+          "id": "a41",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourModeId",
+          "kind": "type",
+          "start": 667,
+          "end": 753
+        },
+        {
+          "id": "a42",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourZoom",
+          "kind": "interface",
+          "start": 755,
+          "end": 1177
+        },
+        {
+          "id": "a43",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourNarrative",
+          "kind": "interface",
+          "start": 1179,
+          "end": 1305
+        },
+        {
+          "id": "a44",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourSceneOverview",
+          "kind": "interface",
+          "start": 1307,
+          "end": 1472
+        },
+        {
+          "id": "a45",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourSceneOverviewComparison",
+          "kind": "interface",
+          "start": 1474,
+          "end": 1562
+        },
+        {
+          "id": "a46",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourDiffScene",
+          "kind": "interface",
+          "start": 1564,
+          "end": 1941
+        },
+        {
+          "id": "a47",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourOmittedFile",
+          "kind": "interface",
+          "start": 1943,
+          "end": 2183
+        },
+        {
+          "id": "a48",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourFile",
+          "kind": "type",
+          "start": 2185,
+          "end": 2258
+        },
+        {
+          "id": "a49",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourDiscussionScene",
+          "kind": "interface",
+          "start": 2260,
+          "end": 2393
+        },
+        {
+          "id": "a50",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourResolvedAnchor",
+          "kind": "interface",
+          "start": 2395,
+          "end": 2570
+        },
+        {
+          "id": "a51",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourResolvedConnection",
+          "kind": "interface",
+          "start": 2572,
+          "end": 2726
+        },
+        {
+          "id": "a52",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourWalkthroughStep",
+          "kind": "interface",
+          "start": 2728,
+          "end": 3068
+        },
+        {
+          "id": "a53",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourWalkthroughScene",
+          "kind": "interface",
+          "start": 3070,
+          "end": 3285
+        },
+        {
+          "id": "a54",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStackPanel",
+          "kind": "interface",
+          "start": 3287,
+          "end": 3397
+        },
+        {
+          "id": "a55",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStackFilePanel",
+          "kind": "interface",
+          "start": 3399,
+          "end": 3540
+        },
+        {
+          "id": "a56",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStackFile",
+          "kind": "interface",
+          "start": 3542,
+          "end": 3640
+        },
+        {
+          "id": "a57",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStackStep",
+          "kind": "interface",
+          "start": 3642,
+          "end": 3850
+        },
+        {
+          "id": "a58",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStackedScene",
+          "kind": "interface",
+          "start": 3852,
+          "end": 4127
+        },
+        {
+          "id": "a59",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourVirtualPanel",
+          "kind": "interface",
+          "start": 4129,
+          "end": 4261
+        },
+        {
+          "id": "a60",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourDeconstructedStep",
+          "kind": "interface",
+          "start": 4263,
+          "end": 4467
+        },
+        {
+          "id": "a61",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourDeconstructedScene",
+          "kind": "interface",
+          "start": 4469,
+          "end": 4933
+        },
+        {
+          "id": "a62",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourScene",
+          "kind": "type",
+          "start": 4935,
+          "end": 5114
+        },
+        {
+          "id": "a63",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStory",
+          "kind": "interface",
+          "start": 5116,
+          "end": 5232
+        },
+        {
+          "id": "a64",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourStoryScene",
+          "kind": "type",
+          "start": 5234,
+          "end": 5613
+        },
+        {
+          "id": "a65",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourChapter",
+          "kind": "interface",
+          "start": 5615,
+          "end": 5712
+        },
+        {
+          "id": "a66",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourModeTour",
+          "kind": "interface",
+          "start": 5714,
+          "end": 5878
+        },
+        {
+          "id": "a67",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourTours",
+          "kind": "interface",
+          "start": 5880,
+          "end": 5993
+        },
+        {
+          "id": "a68",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourAuthoringCoverage",
+          "kind": "interface",
+          "start": 5995,
+          "end": 6421
+        },
+        {
+          "id": "a69",
+          "path": "src/changeTourManifest.ts",
+          "name": "ChangeTourManifest",
+          "kind": "interface",
+          "start": 6423,
+          "end": 7454
+        },
+        {
+          "id": "a70",
+          "path": "src/changeTourManifest.ts",
+          "name": "parseChangeTourManifest",
+          "kind": "function",
+          "start": 7456,
+          "end": 12067
+        },
+        {
+          "id": "a71",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateAuthoringCoverage",
+          "kind": "function",
+          "start": 12069,
+          "end": 14099
+        },
+        {
+          "id": "a72",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateModeTours",
+          "kind": "function",
+          "start": 14101,
+          "end": 16745
+        },
+        {
+          "id": "a73",
+          "path": "src/changeTourManifest.ts",
+          "name": "parseChangeTourStory",
+          "kind": "function",
+          "start": 16747,
+          "end": 18198
+        },
+        {
+          "id": "a74",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateZoom",
+          "kind": "function",
+          "start": 18200,
+          "end": 22117
+        },
+        {
+          "id": "a75",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateScene",
+          "kind": "function",
+          "start": 22119,
+          "end": 26344
+        },
+        {
+          "id": "a76",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateStackedScene",
+          "kind": "function",
+          "start": 26346,
+          "end": 27073
+        },
+        {
+          "id": "a77",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateDeconstructedScene",
+          "kind": "function",
+          "start": 27075,
+          "end": 30903
+        },
+        {
+          "id": "a78",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateMultiPanelFiles",
+          "kind": "function",
+          "start": 30905,
+          "end": 32201
+        },
+        {
+          "id": "a79",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateMultiPanelSteps",
+          "kind": "function",
+          "start": 32203,
+          "end": 33680
+        },
+        {
+          "id": "a80",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateTourFile",
+          "kind": "function",
+          "start": 33682,
+          "end": 34480
+        },
+        {
+          "id": "a81",
+          "path": "src/changeTourManifest.ts",
+          "name": "collectLegacyTourFiles",
+          "kind": "function",
+          "start": 34482,
+          "end": 35104
+        },
+        {
+          "id": "a82",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateResolvedAnchor",
+          "kind": "function",
+          "start": 35106,
+          "end": 35728
+        },
+        {
+          "id": "a83",
+          "path": "src/changeTourManifest.ts",
+          "name": "validateNarrative",
+          "kind": "function",
+          "start": 35730,
+          "end": 36030
+        },
+        {
+          "id": "a84",
+          "path": "src/changeTourManifest.ts",
+          "name": "isRecord",
+          "kind": "function",
+          "start": 36032,
+          "end": 36184
+        },
+        {
+          "id": "a85",
+          "path": "src/changeTourManifest.ts",
+          "name": "requireString",
+          "kind": "function",
+          "start": 36186,
+          "end": 36364
+        },
+        {
+          "id": "a86",
+          "path": "src/changeTourManifest.ts",
+          "name": "requireStringArray",
+          "kind": "function",
+          "start": 36366,
+          "end": 36608
+        },
+        {
+          "id": "a87",
+          "path": "src/changeTourManifest.ts",
+          "name": "requireNonNegativeInteger",
+          "kind": "function",
+          "start": 36610,
+          "end": 36834
+        },
+        {
+          "id": "a88",
+          "path": "src/changeTourManifest.ts",
+          "name": "requirePercentage",
+          "kind": "function",
+          "start": 36836,
+          "end": 37087
+        },
+        {
+          "id": "a89",
+          "path": "src/changeTourManifest.ts",
+          "name": "requirePositiveInteger",
+          "kind": "function",
+          "start": 37089,
+          "end": 37290
+        },
+        {
+          "id": "a90",
+          "path": "src/changeTourSource.ts",
+          "name": "CHANGE_TOUR_SOURCE_VERSION",
+          "kind": "variable",
+          "start": 341,
+          "end": 380
+        },
+        {
+          "id": "a91",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceAnchor",
+          "kind": "interface",
+          "start": 383,
+          "end": 522
+        },
+        {
+          "id": "a92",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceConnection",
+          "kind": "interface",
+          "start": 524,
+          "end": 640
+        },
+        {
+          "id": "a93",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourStepRequirement",
+          "kind": "interface",
+          "start": 642,
+          "end": 821
+        },
+        {
+          "id": "a94",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceStep",
+          "kind": "interface",
+          "start": 823,
+          "end": 1093
+        },
+        {
+          "id": "a95",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourCoverageExclusion",
+          "kind": "interface",
+          "start": 1095,
+          "end": 1203
+        },
+        {
+          "id": "a96",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceSceneOverview",
+          "kind": "interface",
+          "start": 1205,
+          "end": 1382
+        },
+        {
+          "id": "a97",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceSceneOverviewComparison",
+          "kind": "interface",
+          "start": 1384,
+          "end": 1478
+        },
+        {
+          "id": "a98",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceWalkthroughScene",
+          "kind": "interface",
+          "start": 1480,
+          "end": 1703
+        },
+        {
+          "id": "a99",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceStackEntry",
+          "kind": "interface",
+          "start": 1705,
+          "end": 1805
+        },
+        {
+          "id": "a100",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceStackStep",
+          "kind": "interface",
+          "start": 1807,
+          "end": 2011
+        },
+        {
+          "id": "a101",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceStackedScene",
+          "kind": "interface",
+          "start": 2013,
+          "end": 2300
+        },
+        {
+          "id": "a102",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceDeconstructedChange",
+          "kind": "interface",
+          "start": 2302,
+          "end": 2397
+        },
+        {
+          "id": "a103",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceDeconstructedStage",
+          "kind": "interface",
+          "start": 2399,
+          "end": 2564
+        },
+        {
+          "id": "a104",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceDeconstructedExclusion",
+          "kind": "interface",
+          "start": 2566,
+          "end": 2685
+        },
+        {
+          "id": "a105",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceDeconstructedScene",
+          "kind": "interface",
+          "start": 2687,
+          "end": 3296
+        },
+        {
+          "id": "a106",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceScene",
+          "kind": "type",
+          "start": 3298,
+          "end": 3443
+        },
+        {
+          "id": "a107",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceChapter",
+          "kind": "interface",
+          "start": 3445,
+          "end": 3561
+        },
+        {
+          "id": "a108",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceTour",
+          "kind": "interface",
+          "start": 3784,
+          "end": 3925
+        },
+        {
+          "id": "a109",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSourceTours",
+          "kind": "interface",
+          "start": 3927,
+          "end": 4050
+        },
+        {
+          "id": "a110",
+          "path": "src/changeTourSource.ts",
+          "name": "ChangeTourSource",
+          "kind": "interface",
+          "start": 4052,
+          "end": 4581
+        },
+        {
+          "id": "a111",
+          "path": "src/changeTourSource.ts",
+          "name": "parseChangeTourSource",
+          "kind": "function",
+          "start": 4583,
+          "end": 11026
+        },
+        {
+          "id": "a112",
+          "path": "src/changeTourSource.ts",
+          "name": "SourceTourValidationMode",
+          "kind": "type",
+          "start": 11028,
+          "end": 11100
+        },
+        {
+          "id": "a113",
+          "path": "src/changeTourSource.ts",
+          "name": "validateSourceChapters",
+          "kind": "function",
+          "start": 11102,
+          "end": 15874
+        },
+        {
+          "id": "a114",
+          "path": "src/changeTourSource.ts",
+          "name": "stackedOverviewEndpointIds",
+          "kind": "function",
+          "start": 15876,
+          "end": 16235
+        },
+        {
+          "id": "a115",
+          "path": "src/changeTourSource.ts",
+          "name": "deconstructedOverviewEndpointIds",
+          "kind": "function",
+          "start": 16237,
+          "end": 16691
+        },
+        {
+          "id": "a116",
+          "path": "src/changeTourSource.ts",
+          "name": "validateDeconstructedScene",
+          "kind": "function",
+          "start": 16693,
+          "end": 18592
+        },
+        {
+          "id": "a117",
+          "path": "src/changeTourSource.ts",
+          "name": "validateWalkthroughSteps",
+          "kind": "function",
+          "start": 18594,
+          "end": 20372
+        },
+        {
+          "id": "a118",
+          "path": "src/changeTourSource.ts",
+          "name": "validateDeconstructedSelection",
+          "kind": "function",
+          "start": 20374,
+          "end": 20980
+        },
+        {
+          "id": "a119",
+          "path": "src/changeTourSource.ts",
+          "name": "validateRealStack",
+          "kind": "function",
+          "start": 20982,
+          "end": 21802
+        },
+        {
+          "id": "a120",
+          "path": "src/changeTourSource.ts",
+          "name": "validateStackedScene",
+          "kind": "function",
+          "start": 21804,
+          "end": 24853
+        },
+        {
+          "id": "a121",
+          "path": "src/changeTourSource.ts",
+          "name": "validateStepRequirement",
+          "kind": "function",
+          "start": 24855,
+          "end": 25629
+        },
+        {
+          "id": "a122",
+          "path": "src/changeTourSource.ts",
+          "name": "SceneOverviewValidationOptions",
+          "kind": "interface",
+          "start": 25631,
+          "end": 25750
+        },
+        {
+          "id": "a123",
+          "path": "src/changeTourSource.ts",
+          "name": "validateSceneOverview",
+          "kind": "function",
+          "start": 25752,
+          "end": 27430
+        },
+        {
+          "id": "a124",
+          "path": "src/changeTourSource.ts",
+          "name": "validateDirectoryOverviewPath",
+          "kind": "function",
+          "start": 27432,
+          "end": 27999
+        },
+        {
+          "id": "a125",
+          "path": "src/changeTourSource.ts",
+          "name": "validateNarrative",
+          "kind": "function",
+          "start": 28001,
+          "end": 28301
+        },
+        {
+          "id": "a126",
+          "path": "src/changeTourSource.ts",
+          "name": "isRecord",
+          "kind": "function",
+          "start": 28303,
+          "end": 28455
+        },
+        {
+          "id": "a127",
+          "path": "src/changeTourSource.ts",
+          "name": "requireString",
+          "kind": "function",
+          "start": 28457,
+          "end": 28667
+        },
+        {
+          "id": "a128",
+          "path": "src/changeTourSource.ts",
+          "name": "optionalString",
+          "kind": "function",
+          "start": 28669,
+          "end": 28805
+        },
+        {
+          "id": "a129",
+          "path": "src/changeTourSource.ts",
+          "name": "requireStringArray",
+          "kind": "function",
+          "start": 28807,
+          "end": 29049
+        },
+        {
+          "id": "a130",
+          "path": "src/changeTourSource.ts",
+          "name": "requireOnlyKeys",
+          "kind": "function",
+          "start": 29051,
+          "end": 29394
+        },
+        {
+          "id": "a131",
+          "path": "src/tourDetails.ts",
+          "name": "ChangeTourAudienceCodebase",
+          "kind": "type",
+          "start": 80,
+          "end": 152
+        },
+        {
+          "id": "a132",
+          "path": "src/tourDetails.ts",
+          "name": "ChangeTourAudienceLanguage",
+          "kind": "type",
+          "start": 153,
+          "end": 235
+        },
+        {
+          "id": "a133",
+          "path": "src/tourDetails.ts",
+          "name": "ChangeTourAudienceReadingDemand",
+          "kind": "type",
+          "start": 236,
+          "end": 321
+        },
+        {
+          "id": "a134",
+          "path": "src/tourDetails.ts",
+          "name": "ChangeTourAudiencePurpose",
+          "kind": "type",
+          "start": 322,
+          "end": 400
+        },
+        {
+          "id": "a135",
+          "path": "src/tourDetails.ts",
+          "name": "ChangeTourAudience",
+          "kind": "interface",
+          "start": 402,
+          "end": 690
+        },
+        {
+          "id": "a136",
+          "path": "src/tourDetails.ts",
+          "name": "ChangeTourDetails",
+          "kind": "interface",
+          "start": 692,
+          "end": 765
+        },
+        {
+          "id": "a137",
+          "path": "src/tourDetails.ts",
+          "name": "validateChangeTourDetails",
+          "kind": "function",
+          "start": 767,
+          "end": 1116
+        },
+        {
+          "id": "a138",
+          "path": "src/tourDetails.ts",
+          "name": "validateAudience",
+          "kind": "function",
+          "start": 1118,
+          "end": 2725
+        },
+        {
+          "id": "a139",
+          "path": "src/tourDetails.ts",
+          "name": "isRecord",
+          "kind": "function",
+          "start": 2727,
+          "end": 2879
+        },
+        {
+          "id": "a140",
+          "path": "src/tourDetails.ts",
+          "name": "requireString",
+          "kind": "function",
+          "start": 2881,
+          "end": 3098
+        },
+        {
+          "id": "a141",
+          "path": "src/tourDetails.ts",
+          "name": "requireStringArray",
+          "kind": "function",
+          "start": 3100,
+          "end": 3370
+        },
+        {
+          "id": "a142",
+          "path": "src/tourDetails.ts",
+          "name": "requireOnlyKeys",
+          "kind": "function",
+          "start": 3372,
+          "end": 3715
+        },
+        {
+          "id": "a143",
+          "path": "src/tourFeedback.ts",
+          "name": "TourFeedbackIntent",
+          "kind": "type",
+          "start": 209,
+          "end": 265
+        },
+        {
+          "id": "a144",
+          "path": "src/tourFeedback.ts",
+          "name": "captureTourFeedback",
+          "kind": "function",
+          "start": 356,
+          "end": 3141
+        },
+        {
+          "id": "a145",
+          "path": "src/tourFeedback.ts",
+          "name": "buildTourFeedbackRequest",
+          "kind": "function",
+          "start": 3143,
+          "end": 4535
+        }
+      ]
+    },
+    "correspondences": [
+      {
+        "source": "b6",
+        "destination": "a6",
+        "rawEqual": false
+      },
+      {
+        "source": "b8",
+        "destination": "a8",
+        "rawEqual": true
+      },
+      {
+        "source": "b10",
+        "destination": "a10",
+        "rawEqual": true
+      },
+      {
+        "source": "b11",
+        "destination": "a11",
+        "rawEqual": true
+      },
+      {
+        "source": "b12",
+        "destination": "a12",
+        "rawEqual": true
+      },
+      {
+        "source": "b13",
+        "destination": "a13",
+        "rawEqual": true
+      },
+      {
+        "source": "b14",
+        "destination": "a14",
+        "rawEqual": true
+      },
+      {
+        "source": "b15",
+        "destination": "a15",
+        "rawEqual": true
+      },
+      {
+        "source": "b16",
+        "destination": "a16",
+        "rawEqual": true
+      },
+      {
+        "source": "b17",
+        "destination": "a17",
+        "rawEqual": true
+      },
+      {
+        "source": "b18",
+        "destination": "a18",
+        "rawEqual": true
+      },
+      {
+        "source": "b19",
+        "destination": "a19",
+        "rawEqual": true
+      },
+      {
+        "source": "b20",
+        "destination": "a20",
+        "rawEqual": true
+      },
+      {
+        "source": "b21",
+        "destination": "a21",
+        "rawEqual": true
+      },
+      {
+        "source": "b22",
+        "destination": "a22",
+        "rawEqual": true
+      },
+      {
+        "source": "b23",
+        "destination": "a23",
+        "rawEqual": true
+      },
+      {
+        "source": "b25",
+        "destination": "a25",
+        "rawEqual": true
+      },
+      {
+        "source": "b26",
+        "destination": "a26",
+        "rawEqual": true
+      },
+      {
+        "source": "b27",
+        "destination": "a27",
+        "rawEqual": true
+      },
+      {
+        "source": "b28",
+        "destination": "a28",
+        "rawEqual": true
+      },
+      {
+        "source": "b29",
+        "destination": "a29",
+        "rawEqual": true
+      },
+      {
+        "source": "b30",
+        "destination": "a30",
+        "rawEqual": true
+      },
+      {
+        "source": "b31",
+        "destination": "a31",
+        "rawEqual": true
+      },
+      {
+        "source": "b33",
+        "destination": "a33",
+        "rawEqual": true
+      },
+      {
+        "source": "b34",
+        "destination": "a34",
+        "rawEqual": true
+      },
+      {
+        "source": "b35",
+        "destination": "a35",
+        "rawEqual": true
+      },
+      {
+        "source": "b36",
+        "destination": "a36",
+        "rawEqual": true
+      },
+      {
+        "source": "b38",
+        "destination": "a38",
+        "rawEqual": true
+      },
+      {
+        "source": "b9",
+        "destination": "a9",
+        "rawEqual": false
+      },
+      {
+        "source": "b70",
+        "destination": "a70",
+        "rawEqual": false
+      },
+      {
+        "source": "b71",
+        "destination": "a71",
+        "rawEqual": true
+      },
+      {
+        "source": "b72",
+        "destination": "a72",
+        "rawEqual": false
+      },
+      {
+        "source": "b76",
+        "destination": "a73",
+        "rawEqual": true
+      },
+      {
+        "source": "b77",
+        "destination": "a74",
+        "rawEqual": true
+      },
+      {
+        "source": "b78",
+        "destination": "a75",
+        "rawEqual": true
+      },
+      {
+        "source": "b79",
+        "destination": "a76",
+        "rawEqual": true
+      },
+      {
+        "source": "b80",
+        "destination": "a77",
+        "rawEqual": true
+      },
+      {
+        "source": "b81",
+        "destination": "a78",
+        "rawEqual": true
+      },
+      {
+        "source": "b82",
+        "destination": "a79",
+        "rawEqual": true
+      },
+      {
+        "source": "b83",
+        "destination": "a80",
+        "rawEqual": true
+      },
+      {
+        "source": "b84",
+        "destination": "a81",
+        "rawEqual": true
+      },
+      {
+        "source": "b85",
+        "destination": "a82",
+        "rawEqual": true
+      },
+      {
+        "source": "b86",
+        "destination": "a83",
+        "rawEqual": true
+      },
+      {
+        "source": "b87",
+        "destination": "a84",
+        "rawEqual": true
+      },
+      {
+        "source": "b88",
+        "destination": "a85",
+        "rawEqual": true
+      },
+      {
+        "source": "b89",
+        "destination": "a86",
+        "rawEqual": true
+      },
+      {
+        "source": "b90",
+        "destination": "a87",
+        "rawEqual": true
+      },
+      {
+        "source": "b91",
+        "destination": "a88",
+        "rawEqual": true
+      },
+      {
+        "source": "b92",
+        "destination": "a89",
+        "rawEqual": true
+      },
+      {
+        "source": "b114",
+        "destination": "a111",
+        "rawEqual": false
+      },
+      {
+        "source": "b118",
+        "destination": "a113",
+        "rawEqual": true
+      },
+      {
+        "source": "b119",
+        "destination": "a114",
+        "rawEqual": true
+      },
+      {
+        "source": "b120",
+        "destination": "a115",
+        "rawEqual": true
+      },
+      {
+        "source": "b121",
+        "destination": "a116",
+        "rawEqual": true
+      },
+      {
+        "source": "b122",
+        "destination": "a117",
+        "rawEqual": true
+      },
+      {
+        "source": "b123",
+        "destination": "a118",
+        "rawEqual": true
+      },
+      {
+        "source": "b124",
+        "destination": "a119",
+        "rawEqual": true
+      },
+      {
+        "source": "b125",
+        "destination": "a120",
+        "rawEqual": true
+      },
+      {
+        "source": "b126",
+        "destination": "a121",
+        "rawEqual": true
+      },
+      {
+        "source": "b128",
+        "destination": "a123",
+        "rawEqual": true
+      },
+      {
+        "source": "b129",
+        "destination": "a124",
+        "rawEqual": true
+      },
+      {
+        "source": "b130",
+        "destination": "a125",
+        "rawEqual": true
+      },
+      {
+        "source": "b131",
+        "destination": "a126",
+        "rawEqual": true
+      },
+      {
+        "source": "b132",
+        "destination": "a127",
+        "rawEqual": true
+      },
+      {
+        "source": "b133",
+        "destination": "a128",
+        "rawEqual": true
+      },
+      {
+        "source": "b134",
+        "destination": "a129",
+        "rawEqual": true
+      },
+      {
+        "source": "b135",
+        "destination": "a130",
+        "rawEqual": true
+      },
+      {
+        "source": "b167",
+        "destination": "a144",
+        "rawEqual": false
+      },
+      {
+        "source": "b168",
+        "destination": "a145",
+        "rawEqual": false
+      },
+      {
+        "source": "b155",
+        "destination": "a138",
+        "rawEqual": true
+      },
+      {
+        "source": "b159",
+        "destination": "a139",
+        "rawEqual": true
+      },
+      {
+        "source": "b160",
+        "destination": "a140",
+        "rawEqual": true
+      },
+      {
+        "source": "b161",
+        "destination": "a141",
+        "rawEqual": true
+      },
+      {
+        "source": "b162",
+        "destination": "a142",
+        "rawEqual": true
+      },
+      {
+        "source": "b154",
+        "destination": "a137",
+        "rawEqual": false
+      },
+      {
+        "source": "b3",
+        "destination": "a3",
+        "rawEqual": true
+      },
+      {
+        "source": "b4",
+        "destination": "a4",
+        "rawEqual": true
+      },
+      {
+        "source": "b7",
+        "destination": "a7",
+        "rawEqual": true
+      },
+      {
+        "source": "b32",
+        "destination": "a32",
+        "rawEqual": true
+      },
+      {
+        "source": "b40",
+        "destination": "a40",
+        "rawEqual": true
+      },
+      {
+        "source": "b41",
+        "destination": "a41",
+        "rawEqual": true
+      },
+      {
+        "source": "b42",
+        "destination": "a42",
+        "rawEqual": true
+      },
+      {
+        "source": "b43",
+        "destination": "a43",
+        "rawEqual": true
+      },
+      {
+        "source": "b44",
+        "destination": "a44",
+        "rawEqual": true
+      },
+      {
+        "source": "b45",
+        "destination": "a45",
+        "rawEqual": true
+      },
+      {
+        "source": "b46",
+        "destination": "a46",
+        "rawEqual": true
+      },
+      {
+        "source": "b47",
+        "destination": "a47",
+        "rawEqual": true
+      },
+      {
+        "source": "b48",
+        "destination": "a48",
+        "rawEqual": true
+      },
+      {
+        "source": "b49",
+        "destination": "a49",
+        "rawEqual": true
+      },
+      {
+        "source": "b50",
+        "destination": "a50",
+        "rawEqual": true
+      },
+      {
+        "source": "b51",
+        "destination": "a51",
+        "rawEqual": true
+      },
+      {
+        "source": "b52",
+        "destination": "a52",
+        "rawEqual": true
+      },
+      {
+        "source": "b53",
+        "destination": "a53",
+        "rawEqual": true
+      },
+      {
+        "source": "b54",
+        "destination": "a54",
+        "rawEqual": true
+      },
+      {
+        "source": "b55",
+        "destination": "a55",
+        "rawEqual": true
+      },
+      {
+        "source": "b56",
+        "destination": "a56",
+        "rawEqual": true
+      },
+      {
+        "source": "b57",
+        "destination": "a57",
+        "rawEqual": true
+      },
+      {
+        "source": "b58",
+        "destination": "a58",
+        "rawEqual": true
+      },
+      {
+        "source": "b59",
+        "destination": "a59",
+        "rawEqual": true
+      },
+      {
+        "source": "b60",
+        "destination": "a60",
+        "rawEqual": true
+      },
+      {
+        "source": "b61",
+        "destination": "a61",
+        "rawEqual": true
+      },
+      {
+        "source": "b62",
+        "destination": "a62",
+        "rawEqual": true
+      },
+      {
+        "source": "b63",
+        "destination": "a63",
+        "rawEqual": true
+      },
+      {
+        "source": "b64",
+        "destination": "a64",
+        "rawEqual": true
+      },
+      {
+        "source": "b65",
+        "destination": "a65",
+        "rawEqual": true
+      },
+      {
+        "source": "b66",
+        "destination": "a66",
+        "rawEqual": false
+      },
+      {
+        "source": "b67",
+        "destination": "a67",
+        "rawEqual": true
+      },
+      {
+        "source": "b68",
+        "destination": "a68",
+        "rawEqual": true
+      },
+      {
+        "source": "b69",
+        "destination": "a69",
+        "rawEqual": false
+      },
+      {
+        "source": "b94",
+        "destination": "a91",
+        "rawEqual": true
+      },
+      {
+        "source": "b95",
+        "destination": "a92",
+        "rawEqual": true
+      },
+      {
+        "source": "b96",
+        "destination": "a93",
+        "rawEqual": true
+      },
+      {
+        "source": "b97",
+        "destination": "a94",
+        "rawEqual": true
+      },
+      {
+        "source": "b98",
+        "destination": "a95",
+        "rawEqual": true
+      },
+      {
+        "source": "b99",
+        "destination": "a96",
+        "rawEqual": true
+      },
+      {
+        "source": "b100",
+        "destination": "a97",
+        "rawEqual": true
+      },
+      {
+        "source": "b101",
+        "destination": "a98",
+        "rawEqual": true
+      },
+      {
+        "source": "b102",
+        "destination": "a99",
+        "rawEqual": true
+      },
+      {
+        "source": "b103",
+        "destination": "a100",
+        "rawEqual": true
+      },
+      {
+        "source": "b104",
+        "destination": "a101",
+        "rawEqual": true
+      },
+      {
+        "source": "b105",
+        "destination": "a102",
+        "rawEqual": true
+      },
+      {
+        "source": "b106",
+        "destination": "a103",
+        "rawEqual": true
+      },
+      {
+        "source": "b107",
+        "destination": "a104",
+        "rawEqual": true
+      },
+      {
+        "source": "b108",
+        "destination": "a105",
+        "rawEqual": true
+      },
+      {
+        "source": "b109",
+        "destination": "a106",
+        "rawEqual": true
+      },
+      {
+        "source": "b110",
+        "destination": "a107",
+        "rawEqual": true
+      },
+      {
+        "source": "b111",
+        "destination": "a108",
+        "rawEqual": true
+      },
+      {
+        "source": "b112",
+        "destination": "a109",
+        "rawEqual": true
+      },
+      {
+        "source": "b113",
+        "destination": "a110",
+        "rawEqual": true
+      },
+      {
+        "source": "b117",
+        "destination": "a112",
+        "rawEqual": true
+      },
+      {
+        "source": "b127",
+        "destination": "a122",
+        "rawEqual": true
+      },
+      {
+        "source": "b166",
+        "destination": "a143",
+        "rawEqual": true
+      },
+      {
+        "source": "b144",
+        "destination": "a131",
+        "rawEqual": true
+      },
+      {
+        "source": "b145",
+        "destination": "a132",
+        "rawEqual": true
+      },
+      {
+        "source": "b146",
+        "destination": "a133",
+        "rawEqual": true
+      },
+      {
+        "source": "b147",
+        "destination": "a134",
+        "rawEqual": true
+      },
+      {
+        "source": "b148",
+        "destination": "a135",
+        "rawEqual": true
+      },
+      {
+        "source": "b152",
+        "destination": "a136",
+        "rawEqual": false
+      },
+      {
+        "source": "b0",
+        "destination": "a0",
+        "rawEqual": true
+      },
+      {
+        "source": "b1",
+        "destination": "a1",
+        "rawEqual": true
+      },
+      {
+        "source": "b2",
+        "destination": "a2",
+        "rawEqual": true
+      },
+      {
+        "source": "b5",
+        "destination": "a5",
+        "rawEqual": true
+      },
+      {
+        "source": "b24",
+        "destination": "a24",
+        "rawEqual": true
+      },
+      {
+        "source": "b37",
+        "destination": "a37",
+        "rawEqual": true
+      },
+      {
+        "source": "b39",
+        "destination": "a39",
+        "rawEqual": true
+      },
+      {
+        "source": "b93",
+        "destination": "a90",
+        "rawEqual": true
+      }
+    ],
+    "groups": [],
+    "unresolved": [],
+    "parseDiagnostics": {
+      "before": [],
+      "after": []
+    },
+    "exclusions": {
+      "before": [
+        {
+          "path": "src/changeTour.ts",
+          "start": 47430,
+          "reason": "destructured-binding"
+        }
+      ],
+      "after": [
+        {
+          "path": "src/changeTour.ts",
+          "start": 46308,
+          "reason": "destructured-binding"
+        }
+      ]
+    },
+    "scope": {
+      "before": [
+        "src/changeTour.ts",
+        "src/changeTourManifest.ts",
+        "src/changeTourSource.ts",
+        "src/tourAssessment.ts",
+        "src/tourContentHash.ts",
+        "src/tourFeedback.ts"
+      ],
+      "after": [
+        "src/changeTour.ts",
+        "src/changeTourManifest.ts",
+        "src/changeTourSource.ts",
+        "src/tourDetails.ts",
+        "src/tourFeedback.ts"
+      ],
+      "note": "Only these supplied files were searched. Callback expressions and registration statements are not inventoried as symbols."
+    }
+  }
+}

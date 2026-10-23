@@ -1,0 +1,1864 @@
+{
+  "version": 1,
+  "protocolSha256": "582b8a8ae8701626fe48d40052e6ffee81ec19cea96c2e52cc81e07fd5fd1312",
+  "runs": [
+    {
+      "caseId": "control-01",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "ad7fd5ec4081a049fc71216ada9237a393c0395a00371180af82229e33fbb749",
+      "promptCharacters": 3242,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:26.700284325Z",
+        "response": "- **Move Method**\n\n**Justification:**  \nThe function `invoiceTotal(rows)` originally resided in `src/cart.js`. In the transformed version it has been removed from `cart.js` and added to `src/billing.js` with its implementation unchanged. This relocation of a whole method from one module/class to another matches the definition of the **Move Method** refactoring. No other listed refactorings are evident in the code changes.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 682670680,
+        "prompt_eval_count": 801,
+        "prompt_eval_cached_count": 48,
+        "eval_count": 151
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.9543622910277918
+    },
+    {
+      "caseId": "control-01",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "f11f27cdc5a00bc2278485356339e2d7a9858b730f8de4f30908bbbf87e5a85f",
+      "promptCharacters": 5605,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:28.154079357Z",
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Move Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\\\n  let total = 0;\\\\n  for (const row of rows) total += row.price * row.quantity;\\\\n  return total;\\\\n}\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\\\n  let total = 0;\\\\n  for (const row of rows) total += row.price * row.quantity;\\\\n  return total;\\\\n}\"\n        }\n      ],\n      \"explanation\": \"The function invoiceTotal was defined in src/cart.js before and appears with identical source code in src/billing.js after, indicating a move of the method.\"\n    }\n  ],\n  \"additionalEdits\": [],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1219573242,
+        "prompt_eval_count": 1369,
+        "prompt_eval_cached_count": 48,
+        "eval_count": 377
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.422255415993277
+    },
+    {
+      "caseId": "control-02",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "fdf1bba65f62959e95b96e883cd9a142c1b030607bbcd32781b217e6fb042488",
+      "promptCharacters": 5598,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:30.155764377Z",
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Rename Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\\\n  let total = 0;\\\\n  for (const row of rows) total += row.price * row.quantity;\\\\n  return total;\\\\n}\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function subtotal(rows) {\\\\n  let total = 0;\\\\n  for (const row of rows) total += row.price * row.quantity;\\\\n  return total;\\\\n}\"\n        }\n      ],\n      \"explanation\": \"The function computing the total was renamed from invoiceTotal to subtotal and its implementation remained the same.\"\n    },\n    {\n      \"type\": \"Move Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\\\n  let total = 0;\\\\n  for (const row of rows) total += row.price * row.quantity;\\\\n  return total;\\\\n}\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function subtotal(rows) {\\\\n  let total = 0;\\\\n  for (const row of rows) total += row.price * row.quantity;\\\\n  return total;\\\\n}\"\n        }\n      ],\n      \"explanation\": \"The function was relocated from src/cart.js to src/billing.js.\"\n    }\n  ],\n  \"additionalEdits\": [],\n  \"uncertainties\": [\n    \"Whether the change should be modeled as a single Rename + Move operation or two separate operations.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1930047007,
+        "prompt_eval_count": 1367,
+        "prompt_eval_cached_count": 976,
+        "eval_count": 672
+      },
+      "status": "complete",
+      "elapsedSeconds": 2.0495773750008084
+    },
+    {
+      "caseId": "control-02",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "c70f4bfdc2caea1cb37c4aa4b7f9b50d00a9faeb406f9c6ec29403708ca9d8b0",
+      "promptCharacters": 3238,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:30.995701052Z",
+        "response": "- **Move Method**\n- **Rename Method**\n\n**Justification**\n\n1. **Move Method** – The function that calculated the total (`invoiceTotal`) was removed from `src/cart.js` and appears in `src/billing.js` (now as `subtotal`). This is a relocation of an existing method to a different module/file.\n\n2. **Rename Method** – In the new location the function is called `subtotal` instead of its original name `invoiceTotal`, indicating a rename while preserving its implementation.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 712350122,
+        "prompt_eval_count": 800,
+        "prompt_eval_cached_count": 208,
+        "eval_count": 157
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.8297327499894891
+    },
+    {
+      "caseId": "control-03",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "1ada6944eb7cd260e1b5a4462f13fdfef4f9c9ddce5dded62571ebf7a58a8b80",
+      "promptCharacters": 3242,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:32.164611372Z",
+        "response": "- **Move Method**\n\n**Justification:**  \nThe function `invoiceTotal` originally resided in `src/cart.js`. In the transformed version it has been removed from `cart.js` and added to `src/billing.js` with the same implementation (aside from an unrelated change to the initial `total` value). This relocation of a whole method from one module/file to another matches the definition of the *Move Method* refactoring. No other listed refactorings (e.g., parameter changes, renaming, extracting classes, etc.) are evident in the diff.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1060112359,
+        "prompt_eval_count": 801,
+        "prompt_eval_cached_count": 224,
+        "eval_count": 255
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.2215580420161132
+    },
+    {
+      "caseId": "control-03",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "c91efa336348d1243c2cd22504ac8100ed5c4dc9a8d4e34acc590cb07d756c75",
+      "promptCharacters": 5606,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:34.050128986Z",
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Move Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\\\n  let total = 0;\\\\n  for (const row of rows) total += row.price * row.quantity;\\\\n  return total;\\\\n}\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\\\n  let total = 5;\\\\n  for (const row of rows) total += row.price * row.quantity;\\\\n  return total;\\\\n}\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The function invoiceTotal was removed from src/cart.js (b1) and added to src/billing.js (a0). The correspondence table links b1 → a0, indicating a move.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"let total = 0;\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"let total = 5;\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The initializer of the local variable total changed from the literal 0 to the literal 5.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Whether the literal change constitutes a Replace Magic Number with Constant refactoring (no constant introduced).\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1717957563,
+        "prompt_eval_count": 1369,
+        "prompt_eval_cached_count": 976,
+        "eval_count": 630
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.8396902910026256
+    },
+    {
+      "caseId": "control-04",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "bd0dba9b3d434f90341637fd9ea19ba11b6d598360381b1b4f1835e723253505",
+      "promptCharacters": 5622,
+      "inputPaths": {
+        "before": [
+          "src/cart.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:34.806171775Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [],\n  \"uncertainties\": [\n    \"Function invoiceTotal appears unchanged in both src/cart.js and src/billing.js after transformation, making it unclear whether a move or copy occurred.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 632190970,
+        "prompt_eval_count": 1378,
+        "prompt_eval_cached_count": 896,
+        "eval_count": 147
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.7815263330121525
+    },
+    {
+      "caseId": "control-04",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "609477b460f4c69c4c99e5618535303595dd11812d24e26b28eb899a2813af22",
+      "promptCharacters": 3301,
+      "inputPaths": {
+        "before": [
+          "src/cart.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:36.181749801Z",
+        "response": "- **No refactoring from the provided list applies.**\n\n**Justification:**  \nThe transformation adds a new file (`src/billing.js`) that contains a copy of the existing `invoiceTotal` function and introduces a new, unrelated `destinationMarker` function. None of the listed refactorings (e.g., Move Method, Extract Class, Rename Method, etc.) describe copying a function to a new module while leaving the original unchanged or simply adding a new function. Therefore, the observed changes do not correspond to any of the specified refactoring types.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1227842518,
+        "prompt_eval_count": 819,
+        "prompt_eval_cached_count": 144,
+        "eval_count": 322
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.2973293749964796
+    },
+    {
+      "caseId": "control-05",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "2d9cab0aa9aa262d293515b4fc71786c87414eb49f97198783827ab24a6191e7",
+      "promptCharacters": 3110,
+      "inputPaths": {
+        "before": [
+          "src/a.js",
+          "src/b.js"
+        ],
+        "after": [
+          "src/c.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:36.934164332Z",
+        "response": "- **Move Method**\n\nThe `invoiceTotal` function, originally defined in `src/a.js` and `src/b.js`, now exists only in `src/c.js`. The method’s implementation is unchanged, but its location has been shifted from the original files to a new file, which corresponds to the *Move Method* refactoring.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 679739859,
+        "prompt_eval_count": 775,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 160
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.7476335000246763
+    },
+    {
+      "caseId": "control-05",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "3306983507b6779960e7738e39937a7826fc4c7c69ff78987501e5000b515716",
+      "promptCharacters": 5050,
+      "inputPaths": {
+        "before": [
+          "src/a.js",
+          "src/b.js"
+        ],
+        "after": [
+          "src/c.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:37.725310157Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [],\n  \"uncertainties\": [\n    \"Two identical functions (invoiceTotal) were present in src/a.js and src/b.js before, and a single copy appears in src/c.js after; the exact refactoring (e.g., move, merge, or delete‑duplicate) is unclear.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 728932533,
+        "prompt_eval_count": 1221,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 177
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.7918239579885267
+    },
+    {
+      "caseId": "control-06",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "a24db5beb75739a432167819c7eb4918f3dd54deecaef7ba25b7027a93fc27c4",
+      "promptCharacters": 5173,
+      "inputPaths": {
+        "before": [
+          "src/cart.js"
+        ],
+        "after": [
+          "src/cart.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:38.327012844Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"// inserted header\"\n        }\n      ],\n      \"explanation\": \"A comment line was added at the top of the file.\"\n    }\n  ],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 534456557,
+        "prompt_eval_count": 1244,
+        "prompt_eval_cached_count": 912,
+        "eval_count": 147
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.6752904580207542
+    },
+    {
+      "caseId": "control-06",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "4dacc69ab99b3c988722724842a8e9d155c8d5eb88134ab1297f22f108a16903",
+      "promptCharacters": 3108,
+      "inputPaths": {
+        "before": [
+          "src/cart.js"
+        ],
+        "after": [
+          "src/cart.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:39.176686023Z",
+        "response": "- **(None)**  \n\n**Justification:**  \nThe transformed file only adds a comment line (`// inserted header`) and some extra blank lines. No method signatures, names, class structures, parameters, or field accesses have been altered. Therefore, none of the listed refactoring types apply to this change.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 705032031,
+        "prompt_eval_count": 763,
+        "prompt_eval_cached_count": 160,
+        "eval_count": 144
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.8112352919997647
+    },
+    {
+      "caseId": "control-07",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "f21682b851031593a749644dcbd45d9123e79787645da70837a9457216fc82ff",
+      "promptCharacters": 3173,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:40.600838193Z",
+        "response": "- **Move Method**\n\n**Justification:**  \nThe function `invoiceTotal` that originally resided in `src/cart.js` has been removed from that file and re‑implemented in `src/billing.js`. Its location has changed from one module (class/file) to another, which corresponds to the *Move Method* refactoring. The other functions (`originMarker` and `destinationMarker`) remain unchanged, indicating that only the method’s placement was altered.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1306940209,
+        "prompt_eval_count": 778,
+        "prompt_eval_cached_count": 208,
+        "eval_count": 304
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.4393999579770025
+    },
+    {
+      "caseId": "control-07",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "8b268c83e29135372762c22c34bb3b694a12c87cff04ddaccfb728e411e24948",
+      "promptCharacters": 5483,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:42.414798824Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\\\n  let total = 0;\\\\n  for (const row of rows) total += row.price * row.quantity;\\\\n  return total;\\\\n}\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function invoiceTotal(rows) { return fetch(\\\"/invoices\\\"); }\"\n        }\n      ],\n      \"explanation\": \"The `invoiceTotal` function was removed from `src/cart.js` and a new `invoiceTotal` with a different implementation was added to `src/billing.js`.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function destinationMarker() { return 991; }\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function destinationMarker() { return 991; }\"\n        }\n      ],\n      \"explanation\": \"`destinationMarker` remained unchanged in both location and implementation.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function originMarker() { return \\\"origin-only\\\"; }\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function originMarker() { return \\\"origin-only\\\"; }\"\n        }\n      ],\n      \"explanation\": \"`originMarker` remained unchanged in both location and implementation.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Whether the removal of the original `invoiceTotal` and addition of a new one constitutes a move operation despite body change.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1685978073,
+        "prompt_eval_count": 1331,
+        "prompt_eval_cached_count": 976,
+        "eval_count": 657
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.9376906660036184
+    },
+    {
+      "caseId": "control-08",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "ddae96f0202c8b765ae14bcd6fa37dcf8df937db37efaa4a8e0dd109bd424ba6",
+      "promptCharacters": 4768,
+      "inputPaths": {
+        "before": [
+          "old/math.js"
+        ],
+        "after": [
+          "new/math.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:43.004129619Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 339717535,
+        "prompt_eval_count": 1126,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 64
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.5113613749854267
+    },
+    {
+      "caseId": "control-08",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "3698e0ce0d92c089400ff1d0e5b4ba735b3d715867e3b9c1b05aa0dbe0e31bf3",
+      "promptCharacters": 2960,
+      "inputPaths": {
+        "before": [
+          "old/math.js"
+        ],
+        "after": [
+          "new/math.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:43.804426692Z",
+        "response": "- *(no refactoring applied)*  \n\nThe original `invoiceTotal` function in **old/math.js** is identical to the one in **new/math.js**—the code, signature, and behavior are unchanged. Consequently, none of the listed refactoring types were performed.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 622647166,
+        "prompt_eval_count": 727,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 118
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.7144133750116453
+    },
+    {
+      "caseId": "control-09",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "184d29b1125da59de743c4faaeec5a2dba38e77e1553a91b63ef9135c6e10cec",
+      "promptCharacters": 3068,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:44.565751281Z",
+        "response": "- **Move Method**\n\n**Justification:**  \nThe `discount` function, originally defined in `src/cart.js`, has been removed from that file and added to `src/billing.js`. Its implementation (`(amount) => amount * 0.8`) is unchanged, indicating that the method was relocated to a more appropriate module without modification. No other code elements were added, removed, or renamed.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 655068889,
+        "prompt_eval_count": 753,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 173
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.7373305830114987
+    },
+    {
+      "caseId": "control-09",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "ac64b554bde72d472d4c56556b18e492736fc97b02bf51d96ffd9da0855ecdde",
+      "promptCharacters": 5431,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:45.960412193Z",
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Move Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export const discount = (amount) => amount * 0.8;\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export const discount = (amount) => amount * 0.8;\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The `discount` function-variable is declared in `src/cart.js` before the change and appears identically in `src/billing.js` after the change, indicating a move of the method.\"\n    }\n  ],\n  \"additionalEdits\": [],\n  \"uncertainties\": [\n    \"Whether the catalog label should be \\\"Move Method\\\" or \\\"Move Field\\\" for a const function expression.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1316852083,
+        "prompt_eval_count": 1315,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 451
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.4091076659969985
+    },
+    {
+      "caseId": "control-10",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "59572652b15bbb1b5332cb2d9b6842c61611aa4f40531be652455b707348be86",
+      "promptCharacters": 5497,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:46.823851272Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [],\n  \"uncertainties\": [\n    \"invoiceTotal function present before but missing after – likely removed\",\n    \"destinationMarker function present before but missing after – likely removed\",\n    \"billing.js after version has syntax errors, preventing reliable mapping\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 775120816,
+        "prompt_eval_count": 1347,
+        "prompt_eval_cached_count": 976,
+        "eval_count": 160
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.9215294999885373
+    },
+    {
+      "caseId": "control-10",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "b47c16f55e6f141ed106916d6e3ff8ea7423842816a136c43b3c4e88edfa1c94",
+      "promptCharacters": 3135,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:47.82607165Z",
+        "response": "- **Move Method**\n\n**Justification:**  \nThe `invoiceTotal` function, originally defined in `src/cart.js`, is no longer present there in the transformed version. Instead, a fragment of its declaration appears in `src/billing.js` (`export function invoiceTotal(`). This indicates that the method was relocated from the `cart` module to the `billing` module, which matches the definition of the **Move Method** refactoring. No other listed refactorings (e.g., renaming, parameter changes, class‑level moves) are evident from the provided diff.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 858091457,
+        "prompt_eval_count": 767,
+        "prompt_eval_cached_count": 208,
+        "eval_count": 229
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.0195502080023289
+    },
+    {
+      "caseId": "mixed-01",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "004de6c16d73e8d38e9201d36fae4047958b9b557f9edf5a8578b7752b4dc5ea",
+      "promptCharacters": 3361,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:48.8585452Z",
+        "response": "- **Move Method**\n\n**Justification:**  \nThe logic that computes the total (`let result = 0; … result += row.price * row.quantity;`) was originally inside `checkout` in *src/cart.js*. In the transformed version this computation is extracted into a new function `invoiceTotal(rows)` placed in *src/billing.js*, and `checkout` now delegates to it (`const result = invoiceTotal(rows);`). This relocation of the method’s implementation from one module to another matches the definition of the **Move Method** refactoring.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 869658574,
+        "prompt_eval_count": 826,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 217
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.0329899999778718
+    },
+    {
+      "caseId": "mixed-01",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "8bdc35ce083e1538a26914820fa4d26fd8fb3798b7fc5c6005f7d6686b559159",
+      "promptCharacters": 5819,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:50.387891609Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"let result = 0;\\n  for (const row of rows) result += row.price * row.quantity;\\n  save(result);\\n  return result;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"const result = invoiceTotal(rows);\\n  save(result);\\n  return result;\"\n        }\n      ],\n      \"explanation\": \"The body of `checkout` was rewritten to delegate the summation logic to a new function `invoiceTotal`.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\n  let total = 0;\\n  for (const row of rows) total += row.price * row.quantity;\\n  return total;\\n}\"\n        }\n      ],\n      \"explanation\": \"A new function `invoiceTotal` was introduced in `billing.js` containing the loop that computes the total.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The change resembles an Extract Method refactoring, but this operation is not listed in the provided catalog.\",\n    \"It is unclear whether `invoiceTotal` was moved from `checkout` or newly created.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1360053706,
+        "prompt_eval_count": 1425,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 463
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.5247693340061232
+    },
+    {
+      "caseId": "mixed-02",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "dc21efed1fb9b4122799df8b1b99f750fc0afce8ec4fd63e2e2898c5199e9b6e",
+      "promptCharacters": 5767,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:52.070604905Z",
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Inline Method\",\n      \"sourceIds\": [\"b0\"],\n      \"destinationIds\": [\"a1\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\n  let total = 0;\\n  for (const row of rows) total += row.price * row.quantity;\\n  return total;\\n}\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"let result = 0;\\n for (const row of rows) result += row.price * row.quantity;\"\n        }\n      ],\n      \"explanation\": \"The body of `invoiceTotal` was removed and its logic was duplicated inside `checkout`, replacing the call to `invoiceTotal` with the loop that computes the total.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"const result = invoiceTotal(rows);\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"let result = 0;\"\n        }\n      ],\n      \"explanation\": \"The declaration of `result` changed from `const` with an immediate call to `invoiceTotal` to a mutable `let` initialized to zero before the inlined loop.\"\n    }\n  ],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1513137831,
+        "prompt_eval_count": 1410,
+        "prompt_eval_cached_count": 848,
+        "eval_count": 528
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.5883355830155779
+    },
+    {
+      "caseId": "mixed-02",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "7c799f327162e0de1328d418a10b0796d2b5cbb3912a9470258dc58e96f033e0",
+      "promptCharacters": 3361,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:52.793082733Z",
+        "response": "- **Inline Method**\n\n**Justification:**  \nIn the original code `checkout` called `invoiceTotal(rows)` to compute the total, and `invoiceTotal` was defined in `billing.js`. In the transformed version, the body of `invoiceTotal` (the loop that sums `row.price * row.quantity`) has been inserted directly into `checkout`, and the `invoiceTotal` function has been removed from `billing.js`. This matches the definition of the *Inline Method* refactoring, where a method call is replaced by the method’s implementation.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 652057392,
+        "prompt_eval_count": 826,
+        "prompt_eval_cached_count": 96,
+        "eval_count": 164
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.7210069170105271
+    },
+    {
+      "caseId": "mixed-03",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "5726d395edbc0c8a81520121cbb9eb88f867d29b3d151caf8749da912801a6e8",
+      "promptCharacters": 3202,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:54.098844242Z",
+        "response": "- **Extract Class**\n\n**Justification:**  \nIn the original code the `PriceBook` class was defined in `src/cart.js`. In the transformed version the class definition has been removed from `src/cart.js` and introduced in `src/billing.js`. This relocation of an entire class to a new module/file corresponds to the *Extract Class* refactoring, which moves a set of related fields and methods out of their original location into a newly created class (or, in this case, a new file). No other listed refactorings match the observed changes.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1233821893,
+        "prompt_eval_count": 786,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 343
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.3017403749981895
+    },
+    {
+      "caseId": "mixed-03",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "8ca14270a3ba2af321a49ba60f3073dea6d672d1da9c5e10179726bb3f2f2bd2",
+      "promptCharacters": 6061,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:55.697442128Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"price(value) { return value * this.rate; }\",\n          \"symbolId\": \"b3\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"price(value) { return value * this.rate + 1; }\",\n          \"symbolId\": \"a2\"\n        }\n      ],\n      \"explanation\": \"The body of the PriceBook.price method was altered to add \\\"+ 1\\\" to the computed result.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"The PriceBook class appears to have been moved from src/cart.js to src/billing.js, but no catalog entry directly describes a class move.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1431603374,
+        "prompt_eval_count": 1500,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 435
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.7008011670259293
+    },
+    {
+      "caseId": "mixed-04",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "cf3c98a2ca317b9d21f41ea43fe6c439b0892e64fd3cafdb32083e91bea062fd",
+      "promptCharacters": 5631,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:57.952543154Z",
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Rename Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\n  let total = 0;\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function amountDue(rows) {\\n  let total = 3;\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The function previously named `invoiceTotal` in cart.js is now named `amountDue` in billing.js. The correspondence entry links b1 → a0 with rawEqual false, indicating a rename rather than a pure copy.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"// amounts include handling\"\n        }\n      ],\n      \"explanation\": \"A comment was added before the new `amountDue` function.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"let total = 0;\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"let total = 3;\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The initialization literal for `total` changed from 0 to 3.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Whether the rename also intended to move the function to a different file.\",\n    \"If the change of the initial total value is a bug fix or a new requirement.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 2075052323,
+        "prompt_eval_count": 1375,
+        "prompt_eval_cached_count": 960,
+        "eval_count": 740
+      },
+      "status": "complete",
+      "elapsedSeconds": 2.2603005419950932
+    },
+    {
+      "caseId": "mixed-04",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "8f77bfa7fd39e1a2c3d70dae0269449807579783c8f55911fcf4970cc76e61b4",
+      "promptCharacters": 3268,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:50:59.231018727Z",
+        "response": "- **Rename Method**\n- **Move Method**\n\n**Justification**\n\n1. **Rename Method** – The function formerly named `invoiceTotal` in `src/cart.js` is now present as `amountDue` in `src/billing.js`. The body of the function is essentially the same (it computes a total from `rows`), indicating a simple renaming of the method.\n\n2. **Move Method** – The implementation of the former `invoiceTotal` has been relocated from `src/cart.js` to `src/billing.js`. The original file no longer contains this function, while the new file now includes it, demonstrating a move of the method to a more appropriate module.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1094329696,
+        "prompt_eval_count": 805,
+        "prompt_eval_cached_count": 208,
+        "eval_count": 343
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.2246207499993034
+    },
+    {
+      "caseId": "mixed-05",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "f33e8cb5bbf92e63ed54ad152ba62858fc7398f2e731e9cb599317c21c94bdf0",
+      "promptCharacters": 3120,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:00.397105788Z",
+        "response": "- **Move Method**  \n- **Move Field**  \n\n**Justification**\n\n- **Move Method:** The function `localPrice` originally resided in `src/cart.js`. In the transformed version it has been removed from `cart.js` and added to `src/billing.js`, preserving its implementation (`value * rate`). This is a classic *Move Method* refactoring.\n\n- **Move Field:** The constant `rate` was declared in `src/cart.js` (`const rate = 1;`). After the transformation the declaration is no longer present in `cart.js`; instead a new `const rate = 2;` appears at the top of `src/billing.js`. The field (constant) has been relocated from the original module to the module that now contains the moved method, which matches the *Move Field* refactoring.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1031809214,
+        "prompt_eval_count": 763,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 281
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.11983104198589
+    },
+    {
+      "caseId": "mixed-05",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "c17dec1b42ba05e116fc0dedb83c854264333af9dbcc9dd30b014cbf9fc0c3e8",
+      "promptCharacters": 5642,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:02.677701708Z",
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Move Field\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"const rate = 1;\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"const rate = 2;\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The variable `rate` was defined in `src/cart.js` before and now appears in `src/billing.js` with the same name and kind, indicating a move of the field.\"\n    },\n    {\n      \"type\": \"Move Method\",\n      \"sourceIds\": [\"b2\"],\n      \"destinationIds\": [\"a1\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function localPrice(value) { return value * rate; }\",\n          \"symbolId\": \"b2\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function localPrice(value) { return value * rate; }\",\n          \"symbolId\": \"a1\"\n        }\n      ],\n      \"explanation\": \"The function `localPrice` existed in `src/cart.js` before and now exists in `src/billing.js` with identical body, indicating the method was moved.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"const rate = 2;\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The literal value of `rate` changed from 1 to 2, a modification of a magic number.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Unclear whether the move was a copy‑then‑delete or a pure move.\",\n    \"No evidence of an explicit delete of `rate` in the original file; the original file simply no longer contains it.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 2184222073,
+        "prompt_eval_count": 1382,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 768
+      },
+      "status": "complete",
+      "elapsedSeconds": 2.266179958009161
+    },
+    {
+      "caseId": "mixed-06",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "35f37ebbde76dcfff2923fe3220cc4d59c62135d807c17792448aab54902bcbf",
+      "promptCharacters": 5420,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:05.250921343Z",
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Move Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function label(value) { return `商品:${value}`; }\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function caption(value) { return `品物:${value}`; }\"\n        }\n      ],\n      \"explanation\": \"The function originally named `label` in src/cart.js was removed and a function with the same signature appeared in src/billing.js under the name `caption`, indicating a move (and rename) of the method.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"`商品:${value}`\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"`品物:${value}`\"\n        }\n      ],\n      \"explanation\": \"The literal string inside the template was changed from \\\"商品\\\" to \\\"品物\\\", altering the returned message.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Whether the rename was intentional or a new method created separately.\",\n    \"If any other metadata (e.g., comments) was moved alongside the method.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 2469520495,
+        "prompt_eval_count": 1312,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 740
+      },
+      "status": "complete",
+      "elapsedSeconds": 2.57240649999585
+    },
+    {
+      "caseId": "mixed-06",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "72fc2ba5a8248354d3e4f677dcf85d1fbb99d6fdf55011f2245125182d319b9f",
+      "promptCharacters": 3080,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:06.176616796Z",
+        "response": "- **Move Method**\n- **Rename Method**\n\n**Justification**\n- The function `label` that originally resided in `src/cart.js` is no longer present there; instead, a new function `caption` appears in `src/billing.js`. This indicates that the method was moved from one module to another.\n- The moved function also changed its name from `label` to `caption`, which matches the definition of a Rename Method refactoring.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 850225572,
+        "prompt_eval_count": 752,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 217
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.9948874580150004
+    },
+    {
+      "caseId": "mixed-07",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "ec5af62d9d452c7259e1bc2a8dfe06ffe43e46915985f4c201dc463d4d9a85ac",
+      "promptCharacters": 3080,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:07.116615211Z",
+        "response": "- **Move Method**\n\n**Justification:**  \nThe default exported function `function (value) { return value / 100; }` was originally defined in `src/cart.js`. In the transformed version this function is removed from `cart.js` and appears as the default export in `src/billing.js`. The same function body is unchanged, only its location (the module it belongs to) has been altered, which matches the definition of a *Move Method* refactoring. No other listed refactorings (parameter changes, renames, extractions, etc.) are evident in the diff.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 796195478,
+        "prompt_eval_count": 751,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 197
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.0438540000177454
+    },
+    {
+      "caseId": "mixed-07",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "e52a900ee6fafb5d4850fa68a9cc44cb9798df8addf25214c37ec91063d6ce06",
+      "promptCharacters": 5421,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:08.903888235Z",
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Move Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export default function (value) { return value / 100; }\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export default function (value) { return value / 100; }\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The default exported function was removed from src/cart.js and appears as the default export in src/billing.js, indicating a method move.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function originMarker() { return \\\"origin-only\\\"; }\",\n          \"symbolId\": \"b2\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function originMarker() { return \\\"origin-only\\\"; }\",\n          \"symbolId\": \"a2\"\n        }\n      ],\n      \"explanation\": \"originMarker function remained unchanged in src/cart.js.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function destinationMarker() { return 991; }\",\n          \"symbolId\": \"b0\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function destinationMarker() { return 991; }\",\n          \"symbolId\": \"a1\"\n        }\n      ],\n      \"explanation\": \"destinationMarker function remained unchanged in src/billing.js.\"\n    }\n  ],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1538026278,
+        "prompt_eval_count": 1311,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 597
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.6083688749931753
+    },
+    {
+      "caseId": "mixed-08",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "fdf1ddfd6b6efe81cfce00074abbcb8d3f932e9d89c6c02f3c211728a4a49c31",
+      "promptCharacters": 5346,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:10.624965661Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"registerType(\\\"Query\\\", { resolve() { return 1; } });\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"registerType(\\\"Query\\\", { resolve() { return 2; } });\"\n        }\n      ],\n      \"explanation\": \"The registration call was removed from src/cart.js and a similar call (with a different literal return value) was added to src/billing.js.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function destinationMarker() { return 991; }\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function destinationMarker() { return 991; }\"\n        }\n      ],\n      \"explanation\": \"The destinationMarker function remains unchanged in src/billing.js.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Whether the change of the literal returned by the registerType resolve function (1 → 2) is intentional or incidental.\",\n    \"The intent behind moving the registerType call between files, which is not captured by any catalog operation.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1639364680,
+        "prompt_eval_count": 1292,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 497
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.7152063749963418
+    },
+    {
+      "caseId": "mixed-08",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "3e8828f4b4a0fe1c98197c39d7e5699e5a8c19906e4e1e34524a71c731ef3c85",
+      "promptCharacters": 3076,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:12.144363714Z",
+        "response": "- **Move Method**  \n\n  *The call to `registerType(\"Query\", { resolve() { return … } })` was removed from `src/cart.js` and inserted into `src/billing.js`. This constitutes relocating a method (or its registration) from one module to another.*  \n\n- **Replace Magic Number with Constant (or literal change)**  \n\n  *The literal returned by the `resolve` function changed from `1` in the original version to `2` in the transformed version. This reflects a modification of a magic number, typically addressed by replacing it with a more appropriate constant.*  ",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1450044714,
+        "prompt_eval_count": 755,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 362
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.5543954580207355
+    },
+    {
+      "caseId": "mixed-09",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "6468205c539ed4b4c031a8c3cda099c95b0222959a6a4f1d9da2c965362d4b7b",
+      "promptCharacters": 3167,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:13.428870559Z",
+        "response": "- **Move Method**\n\n**Justification:**  \nThe function `localPrice` (which originally resided in `src/cart.js` and depended on `rate` from `./rates.js`) has been removed from `cart.js` and re‑implemented in `src/billing.js`. The new implementation also changes the import to `./promotions.js`, but the essential transformation is the relocation of the method from one module to another, matching the definition of the **Move Method** refactoring. No other listed refactorings (e.g., renaming, parameter changes, class‑related moves) are evident in the diff.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1173645220,
+        "prompt_eval_count": 774,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 267
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.2470598750223871
+    },
+    {
+      "caseId": "mixed-09",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "3161beb6bc1d39ebaf262b109bd2ac94c6f47bfe3f9047d48df0cc03eca6de92",
+      "promptCharacters": 5527,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:15.29585407Z",
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Move Method\",\n      \"sourceIds\": [\"b1\"],\n      \"destinationIds\": [\"a0\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function localPrice(value) { return value * rate; }\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function localPrice(value) { return value * rate; }\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The function `localPrice` was defined in `src/cart.js` before and appears in `src/billing.js` after, indicating it was moved.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"import { rate } from \\\"./rates.js\\\";\",\n          \"symbolId\": \"b1\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"import { rate } from \\\"./promotions.js\\\";\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The import of `rate` was removed from `src/cart.js` and added to `src/billing.js` with a different module path.\"\n    }\n  ],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1791098290,
+        "prompt_eval_count": 1342,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 589
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.9309482499957085
+    },
+    {
+      "caseId": "mixed-10",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "71bfb6a8422c7f09413653eb2f907387edf749bc58975bd128174ef69921c6d3",
+      "promptCharacters": 4864,
+      "inputPaths": {
+        "before": [
+          "src/billing.js"
+        ],
+        "after": [
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:16.395457596Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\n  let total = 0;\\n  for (const row of rows) total += row.price * row.quantity;\\n  return total;\\n}\"\n        }\n      ],\n      \"explanation\": \"A new function `invoiceTotal` was added to the file.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Purpose of the newly added invoiceTotal function is not known\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 958399183,
+        "prompt_eval_count": 1147,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 288
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.0266978340223432
+    },
+    {
+      "caseId": "mixed-10",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "f31f677ad432ccbd75b13af144910c0fe2363c7d9499431b9d7017abef0b2ab3",
+      "promptCharacters": 2938,
+      "inputPaths": {
+        "before": [
+          "src/billing.js"
+        ],
+        "after": [
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:17.342680266Z",
+        "response": "- *(No refactoring from the provided list applies)*  \n\n**Justification:**  \nThe transformation only adds a completely new function `invoiceTotal` alongside the unchanged `destinationMarker`. No existing method’s signature, name, location, or body is altered, and no class‑related changes occur. Consequently, none of the listed refactoring types (e.g., Add/Remove Method Parameter, Extract Method, Move Method, etc.) describe this modification.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 878411636,
+        "prompt_eval_count": 715,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 208
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.0163951670110691
+    },
+    {
+      "caseId": "history-01",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "7d68ba84e2d91e2b13c15de6748b45da04ec12d44bfa1a1f7b147acf00110261",
+      "promptCharacters": 3881,
+      "inputPaths": {
+        "before": [
+          "src/diff.d.ts"
+        ],
+        "after": [
+          "src/diff.d.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:18.223219218Z",
+        "response": "- **Add Method Parameter**\n\n**Reasoning:**  \nIn the transformed file a new overload of `diffWordsWithSpace` is introduced:\n\n```ts\nexport function diffWordsWithSpace(oldStr: string, newStr: string, options: DiffOptions): Change<string>[] | undefined;\n```\n\nCompared to the original declaration, this overload adds a third parameter (`options: DiffOptions`) to the existing `diffWordsWithSpace` function signature. No other changes (renames, moves, removals, etc.) are present. Hence the refactoring applied is *Add Method Parameter*.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 734352242,
+        "prompt_eval_count": 952,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 194
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.8154437080083881
+    },
+    {
+      "caseId": "history-01",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "3e65e81e7c372ffe3975f98add1f425f8b297e20fb67803ba1626effcddc1e68",
+      "promptCharacters": 5638,
+      "inputPaths": {
+        "before": [
+          "src/diff.d.ts"
+        ],
+        "after": [
+          "src/diff.d.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:19.440436749Z",
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Add Method Parameter\",\n      \"sourceIds\": [],\n      \"destinationIds\": [],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/diff.d.ts\",\n          \"quote\": \"export function diffWordsWithSpace(oldStr: string, newStr: string): Change<string>[];\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/diff.d.ts\",\n          \"quote\": \"export function diffWordsWithSpace(oldStr: string, newStr: string, options: DiffOptions): Change<string>[] | undefined;\"\n        }\n      ],\n      \"explanation\": \"A third parameter `options: DiffOptions` was added to the `diffWordsWithSpace` function, creating an overload with an additional argument.\"\n    }\n  ],\n  \"additionalEdits\": [],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1135839211,
+        "prompt_eval_count": 1348,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 365
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.2243287499877624
+    },
+    {
+      "caseId": "history-02",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "48ac2e53100e288fcc8165351d5f4810ea525f7617044e749be7c232a3e77fb5",
+      "promptCharacters": 6275,
+      "inputPaths": {
+        "before": [],
+        "after": [
+          "src/panelOrder.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:20.114916664Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [],\n  \"uncertainties\": [\n    \"No before‑state source provided, so moves, renames, or parameter changes cannot be inferred.\",\n    \"Correspondence hints are empty, giving no mapping between before and after symbols.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 583005347,
+        "prompt_eval_count": 1520,
+        "prompt_eval_cached_count": 816,
+        "eval_count": 119
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.7156142499879934
+    },
+    {
+      "caseId": "history-02",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "293cbb3a1e0342680f707a5878103d1217887391dea9001cb0760da077809159",
+      "promptCharacters": 4270,
+      "inputPaths": {
+        "before": [],
+        "after": [
+          "src/panelOrder.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:21.014841105Z",
+        "response": "- **Add Method Parameter**  \n\n**Justification:**  \nThe transformed code introduces a new `PanelMove` interface and modifies the signature of the panel‑moving logic to accept a `move: PanelMove` argument (instead of relying on separate parameters or implicit state). This change adds an extra parameter to the existing functionality, matching the definition of the *Add Method Parameter* refactoring.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 764668470,
+        "prompt_eval_count": 1060,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 205
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.839982624980621
+    },
+    {
+      "caseId": "history-03",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "0cc6277cce3d670626e0b56ae6f64929794621aca4ce9193d34923e81ef3e7a5",
+      "promptCharacters": 20360,
+      "inputPaths": {
+        "before": [
+          "src/deepLink.ts"
+        ],
+        "after": [
+          "src/deepLink.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:22.100954024Z",
+        "response": "- **No refactoring from the provided list was applied.**\n\n**Reasoning:**  \nThe transformation only adjusts internal logic (e.g., the `resolveDocumentFocus` function now returns a different `key` for chapters based on `chapter.summary`) and makes minor stylistic tweaks. There are no changes that match the listed refactorings such as adding/removing parameters, renaming methods/classes/fields, extracting or moving classes/methods/fields, pulling up/pushing down members, inlining methods, extracting interfaces, or replacing literals with constants. Hence, none of the specified refactoring types are present in this diff.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1000917708,
+        "prompt_eval_count": 5444,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 268
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.097000042005675
+    },
+    {
+      "caseId": "history-03",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "3c2110cd020001586f13cef8ce6c0acd31ec60d0e8d65c09e24ba631a6d75793",
+      "promptCharacters": 26631,
+      "inputPaths": {
+        "before": [
+          "src/deepLink.ts"
+        ],
+        "after": [
+          "src/deepLink.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:23.917215901Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"return { key: 'chapter:${chapter.id}', sceneIndex, stepIndex: 0 };\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"return { key: chapter.summary?.trim() ? `chapter:${chapter.id}` : `scene:${selected.scenes[sceneIndex].id}`, sceneIndex, stepIndex: 0 };\"\n        }\n      ],\n      \"explanation\": \"The return object for the 'chapter' case in resolveDocumentFocus was altered to conditionally use a chapter key or fall back to a scene key based on the presence of a non‑empty chapter summary.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Intent of the conditional key selection is unclear\",\n    \"Potential impact on callers expecting only a chapter key\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1724171874,
+        "prompt_eval_count": 7285,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 610
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.796113249991322
+    },
+    {
+      "caseId": "history-04",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "e0411666c44cbe30f3b0f7bf76425f4e73f0d110500acbc030ff70629f896c93",
+      "promptCharacters": 14820,
+      "inputPaths": {
+        "before": [
+          "src/tourFeedback.ts"
+        ],
+        "after": [
+          "src/tourFeedback.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:25.845379032Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"quote\": \"Investigate before deciding what needs repair. Check the stated expectation, the explanation, and the implementation against source and relevant tests. The cause may involve implementation, explanation, a design/scope decision, missing evidence, or the viewer. Recover expected behavior from the user request, agreed requirements, or behavior that must be preserved; label expectations inferred from the diff. Do not silently weaken an expectation to match the code. Keep uncertainty explicit; do not explain away a defect or treat disagreement as confusion. Propose the smallest repair within the existing task authorization. If code changes, refresh the tour evidence and reassess affected claims. Close the loop on both behavior and understanding; report what remains unverified.\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourFeedback.ts\",\n          \"quote\": \"Investigate the concern against implementation code, relevant tests, and existing docs, requirements, or PR rationale. Distinguish intended behavior from the tour's claim and the evidence; label inferred intent and unresolved disagreement. Do not silently weaken an expectation to match the code.\\n\\nAnswer the concern, then identify any repair destination: implementation code, maintained documentation, PR explanation, the tour document, or the viewer. Missing evidence may need a check; disputed requirements may need a human decision. More tour prose is not always the remedy, and a clear answer may need no artifact change. Propose the smallest repair within the existing task authorization; this request does not itself authorize implementation edits or shared-system writes. Report what was checked, what remains unverified, and which artifacts actually changed. An agent reply does not update the saved tour document.\"\n        }\n      ],\n      \"explanation\": \"The body of `buildTourFeedbackRequest` was rewritten with substantially different instructional text, altering the guidance shown to the user.\"\n    }\n  ],\n  \"uncertainties\": [],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1849163539,
+        "prompt_eval_count": 3482,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 926
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.98876445798669
+    },
+    {
+      "caseId": "history-04",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "7b5de8705eca45a875188ca459b47639a29679300212d4387f124d634c1f8193",
+      "promptCharacters": 12295,
+      "inputPaths": {
+        "before": [
+          "src/tourFeedback.ts"
+        ],
+        "after": [
+          "src/tourFeedback.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:26.962001666Z",
+        "response": "- *(No refactoring from the listed catalog is evident)*  \n\n**Justification:**  \nThe transformation only modifies the literal text inside `buildTourFeedbackRequest` and adjusts formatting/whitespace. No method signatures were added or removed, no names of methods, classes, packages, or fields were changed, and no structural moves (extract, inline, pull‑up, push‑down, etc.) occurred. Therefore none of the specified refactoring types apply to this change.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 967443234,
+        "prompt_eval_count": 2829,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 198
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.120358583983034
+    },
+    {
+      "caseId": "history-05",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "98ca6a012ddce3c988aa8181dfac66030ed5a197a18c3cd762b2c4ee71623664",
+      "promptCharacters": 4103,
+      "inputPaths": {
+        "before": [
+          "src/tourContentHash.ts"
+        ],
+        "after": []
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:27.793438486Z",
+        "response": "- *(no refactoring detected)*  \n\nThe transformed version is empty, indicating that the file was removed rather than refactored. None of the listed refactoring types (e.g., method/field renames, extracts, moves, parameter changes, etc.) can be identified from the given change.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 679905950,
+        "prompt_eval_count": 986,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 137
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.8158635830041021
+    },
+    {
+      "caseId": "history-05",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "31e80add89f9710ab9e06cf8c10821de334f24ab90f4ba7ddc30797e694fc098",
+      "promptCharacters": 6016,
+      "inputPaths": {
+        "before": [
+          "src/tourContentHash.ts"
+        ],
+        "after": []
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:28.604037429Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [],\n  \"uncertainties\": [\n    \"All three functions (hashChangeTourSource, canonicalize, isRecord) are missing in the after version\",\n    \"No corresponding additions or moves are present in the supplied after code\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 674805048,
+        "prompt_eval_count": 1419,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 160
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.8317624169867486
+    },
+    {
+      "caseId": "history-06",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "58f4ea702bfe19c9a2a3a3eae47007a8e416a041d3576dae3029e4723280fdde",
+      "promptCharacters": 6016,
+      "inputPaths": {
+        "before": [],
+        "after": [
+          "src/tourContentHash.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:29.876900156Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"quote\": \"export function hashChangeTourSource(source: ChangeTourSource): string {\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"quote\": \"function canonicalize(value: unknown, parentKey?: string): unknown {\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourContentHash.ts\",\n          \"quote\": \"function isRecord(value: unknown): value is Record<string, unknown> {\"\n        }\n      ],\n      \"explanation\": \"Three new function declarations appear in the after version with no corresponding symbols in the before inventory, indicating they were added.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"No before‑side inventory, so cannot determine whether these functions are new or moved from elsewhere\",\n    \"Potential missing symbols in the before scope may hide moves or renames\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1109025378,
+        "prompt_eval_count": 1420,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 351
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.2189417089975905
+    },
+    {
+      "caseId": "history-06",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "04e481fda7a2a37474765ba9689e67fce4649e5854e42c4973b028f347ec9b25",
+      "promptCharacters": 4103,
+      "inputPaths": {
+        "before": [],
+        "after": [
+          "src/tourContentHash.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:31.266898148Z",
+        "response": "- **Extract Method**\n\n**Justification:**  \nIn the transformed version the logic that prepares a canonical representation of the `ChangeTourSource` object has been moved out of the original `hashChangeTourSource` implementation into separate helper functions `canonicalize` (with an additional optional `parentKey` parameter) and `isRecord`. This refactoring isolates a distinct piece of functionality (canonicalization) into its own method, which is the classic definition of an *Extract Method* transformation. No other structural changes (renames, parameter additions/removals, class moves, etc.) are evident.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1276601819,
+        "prompt_eval_count": 986,
+        "prompt_eval_cached_count": 96,
+        "eval_count": 261
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.4196747499809135
+    },
+    {
+      "caseId": "history-07",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "49edb9dc867a2ae8f0fd6a9ba3045f56e780222aca67f20c5d203f1d20932d08",
+      "promptCharacters": 17773,
+      "inputPaths": {
+        "before": [
+          "src/tourOrientation.ts"
+        ],
+        "after": [
+          "src/tourOrientation.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:32.45361391Z",
+        "response": "- **No refactoring from the provided list was applied.**\n\n**Justification:**  \nThe transformation adds several new functions (`TourRouteEntry`, `buildTourRoute`, `describeSceneRoute`, `describeStepOrientation`) and modifies the implementation of `describeTourTransition`, but it does not rename, move, extract, inline, or otherwise change existing methods, fields, classes, or parameters in a way that matches any of the listed refactoring types. Consequently, none of the specified refactorings (e.g., Add/Remove Method Parameter, Rename Method, Extract Class, Inline Method, etc.) are present in this change.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 989851439,
+        "prompt_eval_count": 4599,
+        "prompt_eval_cached_count": 80,
+        "eval_count": 235
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.1473726670083124
+    },
+    {
+      "caseId": "history-07",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "63cffee5a0c4ce2a7b49a2ebe02e986a86f9ca60f40f7dfd45c933d4659a9ddd",
+      "promptCharacters": 22264,
+      "inputPaths": {
+        "before": [
+          "src/tourOrientation.ts"
+        ],
+        "after": [
+          "src/tourOrientation.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:37.938163641Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"quote\": \"export function describeTourTransition(previous: TourEvidenceContext | null, current: TourEvidenceContext): string {\\n    if (!previous) return describeTourComparison(current);\\n    if (previous.kind !== current.kind) return `${current.kind === 'synthetic' ? 'Switching to explanation stages' : 'Switching to real revisions'}. ${describeTourComparison(current)}`;\\n    if (previous.comparisonKey !== current.comparisonKey) return `Comparison changed: ${previous.labels.join(' → ')} to ${current.labels.join(' → ')} · ${current.scope}`;\\n    return `Same comparison${previous.scopeKey !== current.scopeKey ? '; scope changed' : ''}: ${current.labels.join(' → ')} · ${current.scope}`;\\n}\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"quote\": \"export function describeTourTransition(previous: TourEvidenceContext | null, current: TourEvidenceContext): string {\\n    if (!previous) return describeTourComparison(current);\\n    if (previous.kind !== current.kind) return `${current.kind === 'synthetic' ? 'Switching to explanation stages' : 'Switching to real revisions'}. ${describeTourComparison(current)}`;\\n    if (previous.comparisonKey !== current.comparisonKey) return `${current.kind === 'synthetic' ? 'Explanation stages changed' : 'Revision comparison changed'}: ${previous.labels.join(' → ')} to ${current.labels.join(' → ')} · ${current.scope}`;\\n    const movement = previous.scopeKey !== current.scopeKey\\n        ? `${previous.overview || current.overview ? 'view' : 'file'} changed from ${previous.scope} to ${current.scope}`\\n        : `same ${current.overview ? 'directory view' : 'file'}: ${current.scope}`;\\n    return `Same ${current.kind === 'synthetic' ? 'explanation stages' : 'revision comparison'}; ${movement} · ${current.labels.join(' → ')}`;\\n}\"\n        }\n      ],\n      \"explanation\": \"The function describeTourTransition was rewritten to provide richer messages: it now distinguishes synthetic vs real changes in the comparison‑changed message, computes a detailed movement description when the scopeKey differs, and returns a unified string that includes the kind, movement, and label chain.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"quote\": \"export interface TourRouteEntry {\\n    sceneIndex: number;\\n    title: string;\\n    evidence: string;\\n}\"\n        }\n      ],\n      \"explanation\": \"A new exported interface TourRouteEntry was added to model entries of a tour route.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"quote\": \"export function buildTourRoute(tour: ChangeTourManifest): { summary: string; scenes: TourRouteEntry[] } {\\n    return {\\n        summary: `${tour.scenes.length} ${tour.scenes.length === 1 ? 'scene' : 'scenes'} in this tour. Scenes organize the explanation; steps point to the evidence. A scene can visit several files or revision pairs. The route below names those changes.`,\\n        scenes: tour.scenes.map((scene, sceneIndex) => ({ sceneIndex, title: scene.title, evidence: describeSceneRoute(tour, sceneIndex) }))\\n    };\\n}\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"quote\": \"export function describeSceneRoute(tour: ChangeTourManifest, sceneIndex: number): string {\\n    const scene = tour.scenes[sceneIndex];\\n    if (scene.kind === 'discussion') return 'Discussion: pause to connect the findings. No code comparison is displayed.';\\n    if (scene.kind === 'walkthrough' && scene.steps.every(step => step.image)) {\\n        return `${scene.steps.length} images in reading order. Each step explains what to notice in its image.`;\\n    }\\n    const items: TourReadingItem[] = 'steps' in scene\\n        ? scene.steps.flatMap((step, stepIndex) => 'image' in step && step.image ? [] : [{ kind: 'step' as const, key: `step:${scene.id}:${step.id}`, sceneIndex, stepIndex }])\\n        : [{ kind: 'scene', key: `scene:${scene.id}`, sceneIndex, stepIndex: 0 }];\\n    const imageCount = scene.kind === 'walkthrough' ? scene.steps.filter(step => step.image).length : 0;\\n    const contexts = items.map(item => resolveTourEvidenceContext(tour, item)!).filter(Boolean);\\n    const files = contexts.map(context => context.scope).filter((path, index, paths) => index === 0 || path !== paths[index - 1]);\\n    const pairs = contexts.filter((context, index) => index === 0 || context.comparisonKey !== contexts[index - 1].comparisonKey);\\n    const evidence = `${'steps' in scene ? `${scene.steps.length} steps. ` : ''}${files.length === 1 ? 'File' : 'Files in order'}: ${files.join(' → ')}.`;\\n    const comparisons = `${scene.kind === 'deconstructed-diff' ? 'Explanation stages (constructed, not commits)' : 'Revisions'}: ${pairs.map(pair => pair.labels.join(' → ')).join('; then ')}.`;\\n    const overviewContext = 'overview' in scene && scene.overview\\n        ? resolveTourEvidenceContext(tour, { kind: 'scene', key: `scene:${scene.id}`, sceneIndex, stepIndex: 0 }) : null;\\n    const overview = overviewContext ? `Starts with a directory overview${overviewContext.comparisonKey !== contexts[0]?.comparisonKey ? ` (${overviewContext.labels.join(' → ')})` : ''}, then follows the evidence. ` : '';\\n    return `${overview}${evidence} ${comparisons}${imageCount ? ` Also includes ${imageCount} image ${imageCount === 1 ? 'step' : 'steps'}.` : ''}`;\\n}\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourOrientation.ts\",\n          \"quote\": \"export function describeStepOrientation(tour: ChangeTourManifest, sceneIndex: number, stepIndex: number): string {\\n    const scene = tour.scenes[sceneIndex];\\n    if (!('steps' in scene)) return '';\\n    const step = scene.steps[stepIndex];\\n    const prefix = `Step ${stepIndex + 1} of ${scene.steps.length}.`;\\n    if ('image' in step && step.image) return `${prefix} Image: ${step.title}.`;\\n    const item = { kind: 'step' as const, key: `step:${scene.id}:${step.id}`, sceneIndex, stepIndex };\\n    const current = resolveTourEvidenceContext(tour, item)!;\\n    const previous = stepIndex > 0 && !(scene.kind === 'walkthrough' && scene.steps[stepIndex - 1].image)\\n        ? resolveTourEvidenceContext(tour, { ...item, stepIndex: stepIndex - 1 }) : null;\\n    if (!previous) return `${prefix} Evidence in ${current.scope}.`;\\n    const pairChanged = previous.comparisonKey !== current.comparisonKey;\\n    const fileChanged = previous.scope !== current.scope;\\n    const revisions = current.kind === 'synthetic' ? 'explanation stages' : 'revisions';\\n    const movement = pairChanged ? `Switch ${revisions} to ${current.labels.join(' → ')}.` : `Keep the same ${revisions}.`;\\n    return `${prefix} ${movement} ${fileChanged ? `Move from ${previous.scope} to ${current.scope}.` : `Continue in ${current.scope}.`}`;\\n}\"\n        }\n      ],\n      \"explanation\": \"Three new exported members were added: the TourRouteEntry interface, the buildTourRoute function, and the describeSceneRoute and describeStepOrientation functions. They provide utilities for constructing a textual route description of a tour and for describing individual steps.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Exact motivation for the richer movement text in describeTourTransition is inferred from code changes.\",\n    \"Whether the new route‑building functions are intended to replace existing UI components is not evident.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 5232355362,
+        "prompt_eval_count": 5810,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 2113
+      },
+      "status": "complete",
+      "elapsedSeconds": 5.4533913749910425
+    },
+    {
+      "caseId": "history-08",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "47f8d7c2fe121525d5398050cf45c776bd86ca7e9f790dc0249eb69c8081098d",
+      "promptCharacters": 26285,
+      "inputPaths": {
+        "before": [
+          "src/deepLink.ts"
+        ],
+        "after": [
+          "src/deepLink.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:40.080943797Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"export type DocumentFocus =\\n    | { part: 'title' }\\n    | { part: 'chapter'; chapter: string }\\n    | { part: 'scene'; scene: string }\\n    | { part: 'step'; scene: string; step: string };\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"export type DocumentFocus =\\n    | { part: 'title' }\\n    | { part: 'conclusion' }\\n    | { part: 'chapter'; chapter: string }\\n    | { part: 'scene'; scene: string }\\n    | { part: 'step'; scene: string; step: string };\"\n        }\n      ],\n      \"explanation\": \"Added a new union member 'conclusion' to DocumentFocus, extending the allowed document parts.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"const fields = part === 'title' ? [] : part === 'chapter' ? ['chapter']\\n        : part === 'scene' ? ['scene'] : part === 'step' ? ['scene', 'step'] : null;\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"const fields = (part === 'title' || part === 'conclusion') ? [] : part === 'chapter' ? ['chapter']\\n        : part === 'scene' ? ['scene'] : part === 'step' ? ['scene', 'step'] : null;\"\n        }\n      ],\n      \"explanation\": \"parseDocumentFocus now treats 'conclusion' like 'title' by allowing no extra fields.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"after\",\n          \"path\": \"src/deepLink.ts\",\n          \"quote\": \"if (focus.part === 'conclusion') {\\n        if (!selected.conclusion) throw new Error('Conclusion is unavailable in this tour mode.');\\n        return { key: 'conclusion', sceneIndex: -1, stepIndex: 0 };\\n    }\"\n        }\n      ],\n      \"explanation\": \"resolveDocumentFocus added a branch to handle the new 'conclusion' part, returning a special key.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Whether the added 'conclusion' variant constitutes a Rename Field operation (unlikely).\",\n    \"If any other hidden behavior changes accompany the new branch in resolveDocumentFocus.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 2016482268,
+        "prompt_eval_count": 7184,
+        "prompt_eval_cached_count": 880,
+        "eval_count": 793
+      },
+      "status": "complete",
+      "elapsedSeconds": 2.195319833990652
+    },
+    {
+      "caseId": "history-08",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "5f166f69363817f346d0053e9299153c2b89dedbba7c75da49a8a883dcf092db",
+      "promptCharacters": 20017,
+      "inputPaths": {
+        "before": [
+          "src/deepLink.ts"
+        ],
+        "after": [
+          "src/deepLink.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:41.334286634Z",
+        "response": "- *(No refactoring from the provided list applies)*  \n\n**Reasoning:**  \nThe transformation introduces a new `conclusion` variant to the `DocumentFocus` type and adds corresponding handling in `parseDocumentFocus` and `resolveDocumentFocus`. This change extends the data model and its processing logic but does not correspond to any of the listed refactorings (e.g., no method signatures were altered, no methods were renamed, moved, extracted, inlined, or fields were relocated). Consequently, none of the specified refactoring categories match the observed modifications.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1109368049,
+        "prompt_eval_count": 5346,
+        "prompt_eval_cached_count": 128,
+        "eval_count": 269
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.1843017089995556
+    },
+    {
+      "caseId": "history-09",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "4d9ed04c0c16995d27ccd6350aadb4732beb419eb64c6e8ca953cd771ad08d30",
+      "promptCharacters": 7986,
+      "inputPaths": {
+        "before": [],
+        "after": [
+          "src/revisionView.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:42.761763039Z",
+        "response": "- **Extract Interface** – the new `RevisionFiles` type was introduced to group together `paths`, `currentPath`, and `changedPaths` that were previously passed around as separate arguments.  \n- **Add Method Parameter** – several functions (`revisionFileTarget`, `revisionFileNavigation`, `revisionFileAction`, `revisionPanelsView`) now receive a `files: RevisionFiles` argument that did not exist before.  \n- **Move Method** – the logic that previously lived in other modules (e.g., navigation and action handling for revision files) has been moved into this file as the new functions `revisionFileTarget`, `revisionFileNavigation`, `revisionFileAction`, and `revisionPanelPairs`.  \n- **Rename Method** – the original helper that computed the next/previous file was renamed/rewritten as `revisionFileTarget`, reflecting a clearer purpose.  \n\nThese refactorings together reorganize the code: a cohesive interface is extracted, the related functions are given the new interface as a parameter, and the implementations are moved/renamed to reside in a dedicated module.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1352741924,
+        "prompt_eval_count": 1978,
+        "prompt_eval_cached_count": 96,
+        "eval_count": 303
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.473676042020088
+    },
+    {
+      "caseId": "history-09",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "a2454629c594394c8a5c667968224e00ee8f808471eab90a7fd159a460fc63dd",
+      "promptCharacters": 10844,
+      "inputPaths": {
+        "before": [],
+        "after": [
+          "src/revisionView.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:43.446148951Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [],\n  \"uncertainties\": [\n    \"No before‑state code provided, so no refactoring operations can be identified.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 557567624,
+        "prompt_eval_count": 2715,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 86
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.7076420829980634
+    },
+    {
+      "caseId": "history-10",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "f3d43cf34a41b7a253bd04ff6f052eaffeee00aed2cc3d0fb770fbb079356d16",
+      "promptCharacters": 6176,
+      "inputPaths": {
+        "before": [],
+        "after": [
+          "src/historyDirectory.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:44.168200818Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [],\n  \"uncertainties\": [\n    \"No matching before‑side declarations were provided, so moves, renames, or parameter changes cannot be confirmed.\",\n    \"The before version of src/historyDirectory.ts is missing; any inferred operation would be speculative.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 565207391,
+        "prompt_eval_count": 1454,
+        "prompt_eval_cached_count": 832,
+        "eval_count": 115
+      },
+      "status": "complete",
+      "elapsedSeconds": 0.7130321669974364
+    },
+    {
+      "caseId": "history-10",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "b8ba55d0b41d717cd45a83abe8d5b01d3c4094ee3705449068a26d354b8d1f1e",
+      "promptCharacters": 4460,
+      "inputPaths": {
+        "before": [],
+        "after": [
+          "src/historyDirectory.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:45.352990941Z",
+        "response": "- **Inline Method**\n\n**Justification:**  \nIn the transformed version the logic that previously existed in separate helper functions (e.g., building the directory trees, computing side‑presence flags, and sorting the entries) has been collapsed directly into the body of a single function `buildHistoryDirectoryEntries`. The code no longer calls those helper methods; instead, their implementations are written inline inside the new function, which matches the definition of an *Inline Method* refactoring. No other listed refactorings (e.g., renaming, moving, extracting classes, adding parameters, etc.) are evident from the diff.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1003221311,
+        "prompt_eval_count": 1088,
+        "prompt_eval_cached_count": 96,
+        "eval_count": 225
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.1241818749986123
+    },
+    {
+      "caseId": "diagnostic-imported-extraction",
+      "arm": "upstream",
+      "mode": "complete",
+      "promptSha256": "b708d312afa0e25cb2b0979bbba5659ec2cb38b0e8d54b6076c6e2f08f9c81cc",
+      "promptCharacters": 3281,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:46.557533903Z",
+        "response": "- **Move Method**\n\n**Justification:**  \nThe original `checkout` function contained the logic that summed `row.price * row.quantity`. In the transformed version this logic has been extracted into a new function `invoiceTotal` placed in `billing.js`, and `checkout` now delegates to it (`const result = invoiceTotal(rows);`). The method’s implementation has been relocated to a more appropriate module, which matches the definition of the *Move Method* refactoring.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1109110590,
+        "prompt_eval_count": 804,
+        "prompt_eval_cached_count": 128,
+        "eval_count": 269
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.1795260829967447
+    },
+    {
+      "caseId": "diagnostic-imported-extraction",
+      "arm": "grounded",
+      "mode": "complete",
+      "promptSha256": "7d8af07f21e17cf5546edf513341f418c8bed3ee44d17d282453951a66f4c482",
+      "promptCharacters": 5561,
+      "inputPaths": {
+        "before": [
+          "src/cart.js",
+          "src/billing.js"
+        ],
+        "after": [
+          "src/cart.js",
+          "src/billing.js"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:48.623151747Z",
+        "response": "{\n  \"operations\": [],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"let result = 0;\\n for (const row of rows) result += row.price * row.quantity;\\n save(result);\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"const result = invoiceTotal(rows);\\n save(result);\"\n        }\n      ],\n      \"explanation\": \"The body of `checkout` was changed: the aggregation loop was removed and replaced by a call to a new function `invoiceTotal`.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"export function checkout(rows) {\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/cart.js\",\n          \"quote\": \"import { invoiceTotal } from \\\"./billing.js\\\";\\nexport function checkout(rows) {\"\n        }\n      ],\n      \"explanation\": \"An import statement for `invoiceTotal` was added to `cart.js`.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function destinationMarker() { return 991; }\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/billing.js\",\n          \"quote\": \"export function invoiceTotal(rows) {\\n let result = 0;\\n for (const row of rows) result += row.price * row.quantity;\\n return result;\\n}\\nexport function destinationMarker() { return 991; }\"\n        }\n      ],\n      \"explanation\": \"A new function `invoiceTotal` containing the aggregation logic was introduced in `billing.js`, while the existing `destinationMarker` function was retained.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Whether the change should be classified as an Extract Method or a Move Method is unclear, as the catalog lacks an Extract Method entry.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1995146167,
+        "prompt_eval_count": 1345,
+        "prompt_eval_cached_count": 880,
+        "eval_count": 729
+      },
+      "status": "complete",
+      "elapsedSeconds": 2.0652302499802317
+    },
+    {
+      "caseId": "diagnostic-public-tour-details",
+      "arm": "grounded",
+      "mode": "diff",
+      "promptSha256": "6832554bbc4921411451b4d4df47f8a98c47e2047a54544db0126db0abc48fe9",
+      "promptCharacters": 79815,
+      "inputPaths": {
+        "before": [
+          "src/changeTour.ts",
+          "src/changeTourManifest.ts",
+          "src/changeTourSource.ts",
+          "src/tourAssessment.ts",
+          "src/tourContentHash.ts",
+          "src/tourFeedback.ts"
+        ],
+        "after": [
+          "src/changeTour.ts",
+          "src/changeTourManifest.ts",
+          "src/changeTourSource.ts",
+          "src/tourDetails.ts",
+          "src/tourFeedback.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:54.372181526Z",
+        "response": "{\n  \"operations\": [\n    {\n      \"type\": \"Remove Method Parameter\",\n      \"sourceIds\": [\"b154\"],\n      \"destinationIds\": [\"a137\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourAssessment.ts\",\n          \"quote\": \"export function validateChangeTourDetails(\\n    value: unknown,\\n    path: string,\\n    context: ChangeTourDetailsValidationContext\\n): asserts value is ChangeTourDetails | undefined {\",\n          \"symbolId\": \"b154\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourDetails.ts\",\n          \"quote\": \"export function validateChangeTourDetails(\\n    value: unknown,\\n    path: string\\n): asserts value is ChangeTourDetails | undefined {\",\n          \"symbolId\": \"a137\"\n        }\n      ],\n      \"explanation\": \"The validation function lost its third parameter (`context`) which held reference‑ids for assessment validation. The parameter is no longer needed after assessment logic was removed.\"\n    },\n    {\n      \"type\": \"Extract Class\",\n      \"sourceIds\": [\"b148\", \"b149\", \"b150\", \"b151\", \"b152\"],\n      \"destinationIds\": [\"a135\", \"a136\", \"a137\"],\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourAssessment.ts\",\n          \"quote\": \"export interface ChangeTourAudience { ... }\",\n          \"symbolId\": \"b148\"\n        },\n        {\n          \"side\": \"before\",\n          \"path\": \"src/tourAssessment.ts\",\n          \"quote\": \"export interface ChangeTourDetails { ... }\",\n          \"symbolId\": \"b152\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourDetails.ts\",\n          \"quote\": \"export interface ChangeTourAudience { ... }\",\n          \"symbolId\": \"a135\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourDetails.ts\",\n          \"quote\": \"export interface ChangeTourDetails { audience?: ChangeTourAudience; }\",\n          \"symbolId\": \"a136\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/tourDetails.ts\",\n          \"quote\": \"export function validateChangeTourDetails(... ) { ... }\",\n          \"symbolId\": \"a137\"\n        }\n      ],\n      \"explanation\": \"Audience‑related types and their validation logic were moved from `tourAssessment.ts` into a new module `tourDetails.ts`, effectively extracting a cohesive group of declarations.\"\n    }\n  ],\n  \"additionalEdits\": [\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"import { hashChangeTourSource } from './tourContentHash';\",\n          \"symbolId\": \"b0\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"// import removed – hash no longer used\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"The import of the hashing utility was removed because content hashing is no longer performed.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"export { hashChangeTourSource } from './tourContentHash';\",\n          \"symbolId\": \"b0\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"// export removed – function no longer exported\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"Re‑export of `hashChangeTourSource` was removed to match the deletion of the hashing module.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"export {\\n    TOUR_ASSESSMENT_METHODS,\\n    TOUR_ASSESSMENT_RATING_KEYS,\\n    TOUR_ASSESSMENT_RUBRIC,\\n    TOUR_ASSESSMENT_RUBRIC_KEYS,\\n    TOUR_ASSESSMENT_SCORE_VALUES\\n} from './tourAssessment';\",\n          \"symbolId\": \"b0\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"// assessment constants export removed – assessment module eliminated\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"Exports of assessment‑related constants were removed because the assessment feature was split out.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"export type {\\n    ChangeTourAssessment,\\n    ChangeTourAssessmentMethod,\\n    ChangeTourAssessmentRating,\\n    ChangeTourAssessmentRatingKey,\\n    ChangeTourAssessmentRatings,\\n    ChangeTourAssessmentScore,\\n    ChangeTourAudience,\\n    ChangeTourDetails\\n} from './tourAssessment';\",\n          \"symbolId\": \"b0\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"export type {\\n    ChangeTourAudience,\\n    ChangeTourDetails\\n} from './tourDetails';\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"All assessment‑related type exports were removed; only audience‑related types remain, now sourced from `tourDetails`.\"\n    },\n    {\n      \"evidence\": [\n        {\n          \"side\": \"before\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"const sourceContentHash = source && source.version >= 5 ? hashChangeTourSource(source) : undefined;\",\n          \"symbolId\": \"b0\"\n        },\n        {\n          \"side\": \"after\",\n          \"path\": \"src/changeTour.ts\",\n          \"quote\": \"// sourceContentHash computation removed – hashing no longer required\",\n          \"symbolId\": \"a0\"\n        }\n      ],\n      \"explanation\": \"Computation of `sourceContentHash` was removed from the tour building logic.\"\n    }\n  ],\n  \"uncertainties\": [\n    \"Whether the removal of assessment‑related types should be modeled as a separate \\\"Remove Method Parameter\\\" for each validation helper.\",\n    \"If the split of `tourAssessment` into `tourDetails` also implies a \\\"Rename File\\\" operation, which is not covered by the catalog.\",\n    \"Whether the deletion of the entire `tourAssessment.ts` file constitutes a distinct refactoring beyond the extracted class.\"\n  ],\n  \"behavior\": \"unassessed\"\n}",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 5595293665,
+        "prompt_eval_count": 21537,
+        "prompt_eval_cached_count": 816,
+        "eval_count": 1987
+      },
+      "status": "complete",
+      "elapsedSeconds": 5.922202291985741
+    },
+    {
+      "caseId": "diagnostic-public-tour-details",
+      "arm": "upstream",
+      "mode": "diff",
+      "promptSha256": "a77be7d88bd09a89ef8dc17bf9c3f3ff3e8cd3cd40910c892f1e51867917ddc8",
+      "promptCharacters": 31846,
+      "inputPaths": {
+        "before": [
+          "src/changeTour.ts",
+          "src/changeTourManifest.ts",
+          "src/changeTourSource.ts",
+          "src/tourAssessment.ts",
+          "src/tourContentHash.ts",
+          "src/tourFeedback.ts"
+        ],
+        "after": [
+          "src/changeTour.ts",
+          "src/changeTourManifest.ts",
+          "src/changeTourSource.ts",
+          "src/tourDetails.ts",
+          "src/tourFeedback.ts"
+        ]
+      },
+      "response": {
+        "model": "gpt-oss:120b",
+        "created_at": "2026-10-23T02:51:56.19390734Z",
+        "response": "- **Remove Method Parameter** – The `sourceContentHash` parameter was eliminated from `buildAuthoredModeTours` and all its call sites (e.g., removed from the function signature and the corresponding argument in `changeTour.ts`).\n\n- **Remove Field** – The `contentHash` property was deleted from several type definitions (`ChangeTourManifest`, `ChangeTourTours`, and related interfaces) and all code that constructed or validated this field was stripped out.\n\n- **Move Method** – The `validateChangeTourDetails` function (and its helper `validateAudience`) was relocated from `tourAssessment.ts` to the new `tourDetails.ts` module, and the import statements were updated accordingly.",
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 1533748855,
+        "prompt_eval_count": 7609,
+        "prompt_eval_cached_count": 64,
+        "eval_count": 372
+      },
+      "status": "complete",
+      "elapsedSeconds": 1.6053529580240138
+    }
+  ]
+}

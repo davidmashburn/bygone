@@ -1,0 +1,839 @@
+{
+  "protocolSha256": "bfab260351b242de503a1c6523c13463a48c04079d7289aa981f6f9f601e60b1",
+  "note": "Mechanical label extraction and source validation only. Source validity is not semantic correctness. No accuracy or precision estimate.",
+  "summary": {
+    "upstream": {
+      "runs": 32,
+      "complete": 32,
+      "sourceValidResponses": null,
+      "responsesWithOperations": 16,
+      "medianSeconds": 8.815252208005404,
+      "p95Seconds": 19.784849999996368
+    },
+    "grounded": {
+      "runs": 32,
+      "complete": 32,
+      "sourceValidResponses": 30,
+      "responsesWithOperations": 6,
+      "medianSeconds": 17.9953357919876,
+      "p95Seconds": 59.234191250026925
+    }
+  },
+  "runs": [
+    {
+      "caseId": "control-01",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 6.5719040420081,
+      "headings": [
+        "Move Method"
+      ],
+      "labels": [
+        "Move Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "control-01",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 18.044515374989714,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "control-02",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 22.894478457979858,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": [
+          {
+            "type": "Rename Method",
+            "validIds": true,
+            "hasMappingSupport": true
+          }
+        ]
+      },
+      "labels": [
+        "Rename Method"
+      ]
+    },
+    {
+      "caseId": "control-02",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 7.811906082992209,
+      "headings": [
+        "Move Method",
+        "Rename Method"
+      ],
+      "labels": [
+        "Move Method",
+        "Rename Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "control-03",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 5.810031999979401,
+      "headings": [
+        "Move Method"
+      ],
+      "labels": [
+        "Move Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "control-03",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 29.34712220801157,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": [
+          {
+            "type": "Move Method",
+            "validIds": true,
+            "hasMappingSupport": true
+          }
+        ]
+      },
+      "labels": [
+        "Move Method"
+      ]
+    },
+    {
+      "caseId": "control-04",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 15.700404250004794,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "control-04",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 7.186695125012193,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "control-05",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 11.07914470799733,
+      "headings": [
+        "Move Method"
+      ],
+      "labels": [
+        "Move Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "control-05",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 14.114733916998375,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "control-06",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 6.949208416015608,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "control-06",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 8.549121374991955,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "control-07",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 18.755432917008875,
+      "headings": [
+        "Move Method"
+      ],
+      "labels": [
+        "Move Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "control-07",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 15.644024666020414,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "control-08",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 8.260053500009235,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "control-08",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 9.379717208998045,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "control-09",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 7.34428979200311,
+      "headings": [
+        "Move Method"
+      ],
+      "labels": [
+        "Move Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "control-09",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 10.609929582977202,
+      "validation": {
+        "valid": false,
+        "errors": [
+          "edit-0:quote-id-mismatch",
+          "edit-0:quote-id-mismatch"
+        ],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "control-10",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 11.328662375017302,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "control-10",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 12.918197332997806,
+      "headings": [
+        "Move Method"
+      ],
+      "labels": [
+        "Move Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "mixed-01",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 12.745754500007024,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "mixed-01",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 16.17192833297304,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "mixed-02",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 17.104957582982024,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": [
+          {
+            "type": "Inline Method",
+            "validIds": true,
+            "hasMappingSupport": false
+          }
+        ]
+      },
+      "labels": [
+        "Inline Method"
+      ]
+    },
+    {
+      "caseId": "mixed-02",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 8.815252208005404,
+      "headings": [
+        "Inline Method"
+      ],
+      "labels": [
+        "Inline Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "mixed-03",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 9.32591037498787,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "mixed-03",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 11.448584874975495,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "mixed-04",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 25.46884079099982,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": [
+          {
+            "type": "Move Method",
+            "validIds": true,
+            "hasMappingSupport": true
+          },
+          {
+            "type": "Rename Method",
+            "validIds": true,
+            "hasMappingSupport": true
+          }
+        ]
+      },
+      "labels": [
+        "Move Method",
+        "Rename Method"
+      ]
+    },
+    {
+      "caseId": "mixed-04",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 10.465884665987687,
+      "headings": [
+        "Move Method",
+        "Rename Method"
+      ],
+      "labels": [
+        "Move Method",
+        "Rename Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "mixed-05",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 8.606505542004015,
+      "headings": [
+        "Move Method",
+        "Move Field"
+      ],
+      "labels": [
+        "Move Method",
+        "Move Field"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "mixed-05",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 22.41671658400446,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "mixed-06",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 38.36572162498487,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "mixed-06",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 10.463331250008196,
+      "headings": [
+        "Move Method",
+        "Rename Method"
+      ],
+      "labels": [
+        "Move Method",
+        "Rename Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "mixed-07",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 7.731331082992256,
+      "headings": [
+        "Move Method"
+      ],
+      "labels": [
+        "Move Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "mixed-07",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 17.106797542015556,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "mixed-08",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 11.029445541003952,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "mixed-08",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 17.936226999998325,
+      "headings": [
+        "Move Method"
+      ],
+      "labels": [
+        "Move Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "mixed-09",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 8.204816917015705,
+      "headings": [
+        "Move Method"
+      ],
+      "labels": [
+        "Move Method"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "mixed-09",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 19.60512245897553,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": [
+          {
+            "type": "Move Method",
+            "validIds": true,
+            "hasMappingSupport": true
+          }
+        ]
+      },
+      "labels": [
+        "Move Method"
+      ]
+    },
+    {
+      "caseId": "mixed-10",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 8.52879933299846,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "mixed-10",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 6.317268457991304,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "history-01",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 8.160638125002151,
+      "headings": [
+        "Add Method Parameter"
+      ],
+      "labels": [
+        "Add Method Parameter"
+      ],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "history-01",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 17.9953357919876,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "history-02",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 21.73599600000307,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "history-02",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 6.737950457987608,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "history-03",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 9.999056417000247,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "history-03",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 8.307521834009094,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "history-04",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 24.57334324999829,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "history-04",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 6.208956833987031,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "history-05",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 8.28426529202261,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "history-05",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 12.983486167009687,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "history-06",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 18.686756875016727,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "history-06",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 8.14258533300017,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "history-07",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 9.6961967079842,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "history-07",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 39.113352167012636,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "history-08",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 16.074794790998567,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "history-08",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 10.344033792003756,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "history-09",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 7.052274250017945,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "history-09",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 38.21568229200784,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "history-10",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 31.227031917020213,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "history-10",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 19.784849999996368,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "diagnostic-imported-extraction",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 12.994275834003929,
+      "headings": [],
+      "labels": [],
+      "otherHeadings": []
+    },
+    {
+      "caseId": "diagnostic-imported-extraction",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 59.234191250026925,
+      "validation": {
+        "valid": true,
+        "errors": [],
+        "proposals": []
+      },
+      "labels": []
+    },
+    {
+      "caseId": "diagnostic-public-tour-details",
+      "arm": "grounded",
+      "status": "complete",
+      "elapsedSeconds": 72.23580658299034,
+      "validation": {
+        "valid": false,
+        "errors": [
+          "edit-0:ambiguous-quote",
+          "edit-2:ambiguous-quote",
+          "edit-2:quote-id-mismatch",
+          "edit-2:ambiguous-quote",
+          "edit-2:quote-id-mismatch"
+        ],
+        "proposals": [
+          {
+            "type": "Remove Method Parameter",
+            "validIds": true,
+            "hasMappingSupport": true
+          },
+          {
+            "type": "Remove Method Parameter",
+            "validIds": true,
+            "hasMappingSupport": true
+          }
+        ]
+      },
+      "labels": [
+        "Remove Method Parameter",
+        "Remove Method Parameter"
+      ]
+    },
+    {
+      "caseId": "diagnostic-public-tour-details",
+      "arm": "upstream",
+      "status": "complete",
+      "elapsedSeconds": 29.359134292026283,
+      "headings": [
+        "Move Method",
+        "Remove Method Parameter"
+      ],
+      "labels": [
+        "Move Method",
+        "Remove Method Parameter"
+      ],
+      "otherHeadings": []
+    }
+  ]
+}

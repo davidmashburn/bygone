@@ -17,6 +17,15 @@ benefit: positive cases are synthetic, historical scope is restricted, and no
 human review task was run. Independent public cross-file examples or false
 links on a broader adjudicated set could change the recommendation.
 
+## Implemented follow-up (2026-10-22)
+
+The [richer mapping adapter](refactoring-mappings.md) now exports class and
+operation-body correspondences independently of refactoring event labels. It
+recovers the six cross-file function continuations in the real rewrite and
+retains the removed assessment validation as unmapped-before evidence and a
+complete local diff. The independent inventory, failure handling, tests, and
+scope limits are described there; the evaluation below remains a dated result.
+
 ## Artifacts and reproduction
 
 - [Corpus and sampling limits](semantic-corpus/README.md), with fixed inputs,
