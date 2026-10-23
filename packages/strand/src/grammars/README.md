@@ -8,6 +8,7 @@ Node addons. Each upstream license is retained beside its asset.
 | Language | Upstream / release | Origin | ABI |
 | --- | --- | --- | --- |
 | Go | [tree-sitter-go](https://github.com/tree-sitter/tree-sitter-go), 0.25.0 | `tree-sitter-go@0.25.0` npm tarball, `package/tree-sitter-go.wasm` | 15 |
+| Rust | [tree-sitter-rust](https://github.com/tree-sitter/tree-sitter-rust), 0.24.0 | `tree-sitter-rust@0.24.0` npm tarball, `package/tree-sitter-rust.wasm` | 14 |
 | Java | [tree-sitter-java](https://github.com/tree-sitter/tree-sitter-java), 0.23.5 | `tree-sitter-java@0.23.5` npm tarball, `package/tree-sitter-java.wasm` | 14 |
 
 To reproduce the Java asset, run `npm pack tree-sitter-java@0.23.5` in a temporary
@@ -17,3 +18,5 @@ scripts. Compare its SHA-256 with the registry before copying it here. The
 older ABI. No RefactoringMiner code or JVM is included in this package.
 
 The Go asset is copied in the same way from `npm pack tree-sitter-go@0.25.0`.
+
+The Rust asset is copied from `npm pack tree-sitter-rust@0.24.0`.

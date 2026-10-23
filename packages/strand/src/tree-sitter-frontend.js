@@ -16,10 +16,10 @@ function token(node) {
         : operators.test(text) ? 'operator' : /^[\p{L}_][\p{L}\p{N}_]*$/u.test(text) ? 'keyword' : 'punctuation';
     return { text, category, key: `${category}:${text}` };
 }
-function features(node, nameNode, body) {
+function features(node, nameNode, body, prefixes = []) {
     const headerTokens = [], bodyTokens = [], ast = {};
     let visited = 0;
-    const stack = [node];
+    const stack = [...prefixes, node].reverse();
     while (stack.length) {
         const current = stack.pop();
         if (++visited > TOKEN_LIMIT) throw new Error('tree-sitter-feature-budget');
@@ -76,16 +76,23 @@ async function parseDocument(text, language, options = {}) {
             let owner = parent;
             if (description?.kind) {
                 if (entries.length >= RECORD_LIMIT) throw new Error('tree-sitter-record-budget');
-                const { nameNode, kind, callable = false, body, scopeIdentity } = description;
+                const { nameNode, kind, callable = false, body, scopeIdentity, prefixes = [] } = description;
+                const first = prefixes[0] || node;
+                let previousEnd = first.startIndex;
+                for (const prefix of prefixes) {
+                    if (prefix.startIndex < previousEnd || prefix.endIndex > node.startIndex
+                        || text.slice(prefix.startIndex, prefix.endIndex) !== prefix.text) throw new Error('tree-sitter-range-mismatch');
+                    previousEnd = prefix.endIndex;
+                }
                 const name = description.name || nameNode?.text;
                 if (!name || !Number.isInteger(node.startIndex) || node.endIndex > text.length
                     || text.slice(node.startIndex, node.endIndex) !== node.text) throw new Error('tree-sitter-range-mismatch');
                 const parentName = Object.hasOwn(description, 'parent') ? description.parent : parent?.qualifiedName || null;
                 owner = { name, kind, parent: parentName, qualifiedName: parentName ? `${parentName}.${name}` : name,
-                    callable, start: node.startIndex, end: node.endIndex,
-                    startLine: node.startPosition.row, endLine: node.endPosition.row + (node.endPosition.column > 0 ? 1 : 0),
+                    callable, start: first.startIndex, end: node.endIndex,
+                    startLine: first.startPosition.row, endLine: node.endPosition.row + (node.endPosition.column > 0 ? 1 : 0),
                     engineRanges: [], ...(scopeIdentity ? { scopeIdentity } : {}) };
-                if (options.strandFeatures) owner.strandFeatures = features(node, nameNode, body);
+                if (options.strandFeatures) owner.strandFeatures = features(node, nameNode, body, prefixes);
                 entries.push(owner);
             }
             const children = description?.children || node.namedChildren;

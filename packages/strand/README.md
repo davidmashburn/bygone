@@ -48,3 +48,11 @@ struct fields, and single-name package constants/variables. Receiver identity
 normalizes pointers and generic arguments without resolving types. Receiver
 type renames, local bindings/types, embedded fields, and multi-name specs are
 not inferred.
+
+Rust supports functions, modules, structs, enums, traits, impl blocks and their
+methods/associated types, type aliases, constants and statics. Outer attributes
+are included in declaration ranges and features. Impl/trait identities are
+conservative: receiver/trait renames are not inferred across owners. Fields,
+enum variants, closures, macro definitions and expansions are not inventoried
+as separate symbols; macro/closure exclusions are reported. No crate or name
+resolution is performed.
