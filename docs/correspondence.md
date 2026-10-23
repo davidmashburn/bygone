@@ -26,16 +26,16 @@ edited or renamed declarations can remain unmatched, so unmatched does not
 prove an addition or removal. Use `--exact-only` to choose this mode even when
 Java engine environment variables are set.
 
-To use the local JavaScript correspondence engine:
+To use the local Strand correspondence engine:
 
 ```sh
 npm run correspondence:analyze -- feature --base main --engine bygone-strand \
   --output /tmp/correspondence-js.json
 ```
 
-Bygone Strand is an original, compact JS/TS declaration matcher. It uses the
-existing TypeScript parser, scoped declaration identities and syntax/token
-similarity to infer edited continuations, moves and renames. It has no Java
+Bygone Strand is an original, compact JS/TS/Python declaration matcher. It uses the
+existing TypeScript and isolated Python parsers, scoped declaration identities
+and syntax/token similarity to infer edited continuations, moves and renames. It has no Java
 requirement. The explicit selection ignores ambient Java configuration and
 cannot be combined with `--exact-only` or Java flags. The default mode is
 unchanged. See [the engine contract](../scripts/change-analysis/javascript-engine.md)
@@ -43,8 +43,9 @@ for evidence, ambiguity and resource limits.
 
 This version produces one-to-one continuations. Extraction/inline detection,
 binding resolution, editing history and behavior preservation are unassessed.
-Python declarations retain independent inventory/exact matching in this mode;
-use the optional RefactoringMiner path for inferred Python edits and moves.
+Python functions, async functions, classes, methods and nested declarations
+support inferred edits and moves. Decorators and complete source diffs remain
+visible. Python `.pyi` stubs retain inventory/exact matching only.
 
 For broader inference, build the pinned external engine following
 [scripts/change-analysis/README.md](../scripts/change-analysis/README.md), then

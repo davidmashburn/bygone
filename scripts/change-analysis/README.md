@@ -1,7 +1,7 @@
 # Local correspondence engine
 
-[Bygone Strand](javascript-engine.md) is the local JavaScript correspondence
-producer. Select it with `--engine bygone-strand` to infer JS/TS edited
+[Bygone Strand](javascript-engine.md) is the local correspondence
+producer. Select it with `--engine bygone-strand` to infer JS/TS/Python edited
 continuations, moves and renames without Java. The default and optional
 RefactoringMiner path described below remain available.
 

@@ -5,7 +5,7 @@ const { execFileSync } = require('node:child_process');
 const { cases } = require('./benchmark/cases');
 const { digest } = require('./symbol-inventory');
 const { analyzeWithBridge, compileBridge, LIMITS } = require('./run-refactoring-mappings');
-const { analyzeJavaScript, ENGINE, JAVASCRIPT_LIMITS } = require('./run-javascript-mappings');
+const { analyzeStrand, ENGINE, JAVASCRIPT_LIMITS } = require('./run-javascript-mappings');
 
 const labelKey = e => JSON.stringify([e.path, e.name, e.occurrence ?? null]);
 const pairKey = p => JSON.stringify([labelKey(p.source), labelKey(p.destination), p.kind || 'continuation']);
@@ -117,7 +117,7 @@ function run(mode, output, env = process.env) {
                     const right = Object.fromEntries(Object.entries(after).filter(([p]) => changed(p)));
                     before = left; after = right;
                 }
-                const result = selected === ENGINE.producer ? analyzeJavaScript(before, after, { python: env.MAPPING_PYTHON })
+                const result = selected === ENGINE.producer ? analyzeStrand(before, after, { python: env.MAPPING_PYTHON })
                     : analyzeWithBridge(before, after, selected === 'engine' ? config : { python: env.MAPPING_PYTHON });
                 rows.push({ ...scoreCase(c, result.analysis), nativeStatus: result.native?.status, nativeReason: result.native?.reason,
                     inputPaths: { before: Object.keys(before), after: Object.keys(after) }, engineMs: result.engineMs,

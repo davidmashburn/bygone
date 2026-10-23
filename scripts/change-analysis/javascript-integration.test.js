@@ -31,20 +31,20 @@ test('JS engine Git artifact uses committed bytes, preserves edited move diff an
     } finally { f.dispose(); }
 });
 
-test('JS engine partial mixed-language coverage survives consumer without promoting Python edits', () => {
+test('Strand mixed-language coverage preserves both JS and Python edits through the consumer', () => {
     const code = 'export function price(items) { return items.reduce((sum, item) => sum + item.cost, 0); }';
     const before = { 'a.ts': code, 'b.py': 'def price(n):\n    return n + 1\n' };
     const after = { 'a.ts': code.replace('item.cost', 'item.cost * 1.2'), 'b.py': 'def price(n):\n    return n + 2\n' };
     const f = correspondenceFixture({ before, after });
     try {
         const result = analyzeJavaScript(before, after);
-        assert.equal(result.analysis.status, 'partial');
+        assert.equal(result.analysis.status, 'complete');
         const artifact = importChangeCorrespondence(f.root, result, f.range);
         const loaded = validateChangeCorrespondence(f.root, JSON.parse(JSON.stringify(artifact)), f.range);
-        assert.equal(loaded.relations.length, 1);
-        assert.equal(loaded.relations[0].coverage, 'complete');
+        assert.equal(loaded.relations.length, 2);
+        assert.equal(loaded.status, 'complete');
         assert(loaded.symbols.before.find(s => s.id === loaded.relations[0].sourceId).path.endsWith('.ts'));
-        assert(loaded.diagnostics.records.some(d => d.reason === 'engine-skipped-document'));
+        assert(!loaded.diagnostics.records.some(d => d.reason === 'engine-skipped-document'));
     } finally { f.dispose(); }
 });
 

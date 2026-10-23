@@ -4,7 +4,7 @@ const { execFileSync } = require('node:child_process');
 const { resolveBranchReviewRange } = require('../../out/gitComparison');
 const { importChangeCorrespondence } = require('../../out/changeCorrespondence');
 const { compileBridge, analyzeWithBridge, LIMITS } = require('./run-refactoring-mappings');
-const { analyzeJavaScript, ENGINE, JAVASCRIPT_LIMITS } = require('./run-javascript-mappings');
+const { analyzeStrand, ENGINE, JAVASCRIPT_LIMITS } = require('./run-javascript-mappings');
 
 const USAGE = 'npm run correspondence:analyze -- [<head>] --base <base> --output <artifact.json> [--repo <checkout>] [--python <python3>] [--engine bygone-strand | --exact-only | --java <jdk/bin/java> --jar <RM-fat.jar> --jar-sha256 <verified digest>]';
 const { isSupportedSource } = require('./symbol-inventory');
@@ -88,7 +88,7 @@ function analyzeGit(args, cwd = process.cwd(), output = process.stdout, env = pr
     try {
         if (engine) config = compileBridge(engine);
         const javascript = options['--engine'] === ENGINE.producer;
-        const result = javascript ? analyzeJavaScript(snapshots.before, snapshots.after, { python: pythonExecutable })
+        const result = javascript ? analyzeStrand(snapshots.before, snapshots.after, { python: pythonExecutable })
             : analyzeWithBridge(snapshots.before, snapshots.after, { ...config, python: pythonExecutable });
         result.analysis.scope.excluded = snapshots.excluded;
         result.analysis.scope.note = 'Changed JS/TS/Python regular files only. Unchanged files are outside the candidate universe; repository-wide origins were not searched.';
@@ -97,8 +97,8 @@ function analyzeGit(args, cwd = process.cwd(), output = process.stdout, env = pr
             `Parser: ${[...new Set([result.analysis.inventories.before.parser, result.analysis.inventories.after.parser])].join('; ')}.`,
             `Engine status: ${result.analysis.engine.status}; reason: ${result.analysis.engine.reason || 'none'}; limits: ${JSON.stringify(javascript ? JAVASCRIPT_LIMITS : LIMITS)}.`);
         if (config) artifact.limitations.push(`Engine SHA-256: ${config.jarSha256}; bridge SHA-256: ${config.bridgeSha256}.`);
-        else if (javascript) artifact.limitations.push(`${ENGINE.name} v${ENGINE.version}: JS/TS declaration correspondence only; Python has independent inventory/exact matching. Extraction/inline, binding resolution and behavior preservation are not assessed.`,
-            `Engine implementation SHA-256: ${result.identity.implementationSha256}; runner SHA-256: ${result.identity.runnerSha256}.`);
+        else if (javascript) artifact.limitations.push(`${ENGINE.name} v${ENGINE.version}: JS/TS/Python declaration correspondence; Python .pyi stubs have inventory/exact matching only. Extraction/inline, binding resolution and behavior preservation are not assessed.`,
+            `Engine implementation SHA-256: ${result.identity.implementationSha256}; Python features SHA-256: ${result.identity.pythonFeaturesSha256}; runner SHA-256: ${result.identity.runnerSha256}.`);
         else artifact.limitations.push('Java engine not configured: inventory and unambiguous byte-identical declaration matching only. Edited or renamed declarations are not paired; unmatched symbols do not prove additions or removals.');
         const diagnostics = ['before', 'after'].flatMap(side => result.analysis.inventories[side].documents
             .flatMap(d => d.diagnostics.map(diag => `${side}:${d.path}: ${diag.message.slice(0, 300)}`)));
@@ -114,7 +114,7 @@ function analyzeGit(args, cwd = process.cwd(), output = process.stdout, env = pr
         fs.writeFileSync(destination, serialized, { flag: 'wx' });
         output.write(`Wrote ${artifact.relations.length} inferred correspondences (${artifact.status}) to ${destination}\n`);
         output.write(`Pinned ${range.mergeBaseOid}..${range.headOid}; engine ${result.analysis.engine.status}${result.analysis.engine.reason ? ` (${result.analysis.engine.reason})` : ''}\n`);
-        if (javascript) output.write(`${ENGINE.name} v${ENGINE.version}: inferred JS/TS declaration correspondence; behavior unassessed.\n`);
+        if (javascript) output.write(`${ENGINE.name} v${ENGINE.version}: inferred JS/TS/Python declaration correspondence; behavior unassessed.\n`);
         else if (!config) output.write('Exact-only coverage: edited/renamed declarations may remain unmatched. Configure the optional Java engine for broader inference.\n');
         return artifact;
     } finally {

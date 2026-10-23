@@ -281,7 +281,7 @@ export function importChangeCorrespondence(repoRoot: string, input: unknown, ran
         }
         for (const raw of list(analysis.unresolved)) {
             const group = object(raw);
-            if (!['repeated-exact-occurrences', 'ambiguous-js-candidates'].includes(String(group.reason)) || group.competingSources === undefined) continue;
+            if (!['repeated-exact-occurrences', 'ambiguous-js-candidates', 'ambiguous-python-candidates'].includes(String(group.reason)) || group.competingSources === undefined) continue;
             const locations: CorrespondenceDiagnostic['locations'] = [];
             for (const side of ['before', 'after'] as const) {
                 for (const id of list(side === 'before' ? group.competingSources : group.competingDestinations)) {

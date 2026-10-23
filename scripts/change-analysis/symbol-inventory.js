@@ -8,7 +8,7 @@ const isSupportedSource = path => sourceExtensions.test(path);
 
 function pythonInventory(files, options) {
     const result = spawnSync(options.python || process.env.MAPPING_PYTHON || 'python3',
-        ['-I', '-S', path.join(__dirname, 'python-inventory.py')], {
+        ['-I', '-S', path.join(__dirname, 'python-inventory.py'), ...(options.strandFeatures ? ['--strand-features'] : [])], {
             input: JSON.stringify(files), encoding: 'utf8', windowsHide: true,
             timeout: options.pythonTimeoutMs || 10000, maxBuffer: options.pythonMaxOutputBytes || 16777216
         });

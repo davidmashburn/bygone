@@ -1,6 +1,6 @@
 'use strict';
 
-// Bygone Strand v1: original, bounded JS/TS declaration correspondence.
+// Bygone Strand v1: original, bounded JS/TS/Python declaration correspondence.
 
 const ts = require('typescript');
 const { performance } = require('node:perf_hooks');
@@ -141,6 +141,10 @@ function normalizeLimits(input) {
 
 function isJavaScriptPath(filePath) {
     return typeof filePath === 'string' && JAVASCRIPT_PATH.test(filePath);
+}
+
+function languageFor(filePath) {
+    return /\.py$/.test(filePath) ? 'python' : 'javascript';
 }
 
 function scriptKindFor(filePath) {
@@ -335,6 +339,33 @@ function makeFeature(entry, sourceFile, nodeIndex, text, filePath, limits, budge
     };
 }
 
+function pythonFeature(entry, limits, budget) {
+    budget.check();
+    const data = entry.strandFeatures;
+    if (data?.version !== 1 || !Array.isArray(data.headerTokens) || !Array.isArray(data.bodyTokens)
+        || !data.ast || typeof data.ast !== 'object' || Array.isArray(data.ast)) throw new Error('invalid-python-features');
+    const headerTokens = data.headerTokens, bodyTokens = data.bodyTokens;
+    if (headerTokens.length + bodyTokens.length > limits.maxTokensPerSymbol) throw new BudgetExceeded('max-tokens-per-symbol');
+    const tokens = [...headerTokens, ...bodyTokens];
+    for (const token of tokens) {
+        budget.check();
+        if (!token || typeof token.key !== 'string' || typeof token.text !== 'string'
+            || !['identifier', 'keyword', 'literal', 'operator', 'punctuation'].includes(token.category)
+            || token.key !== `${token.category}:${token.text}`) throw new Error('invalid-python-features');
+    }
+    const ast = new Map(Object.entries(data.ast));
+    let astSize = 0;
+    for (const count of ast.values()) {
+        if (!Number.isSafeInteger(count) || count < 1) throw new Error('invalid-python-features');
+        astSize += count;
+    }
+    if (astSize > limits.maxTokensPerSymbol) throw new BudgetExceeded('max-features-per-symbol');
+    return { entry, tokens, headerTokens, bodyTokens,
+        headerKeys: headerTokens.map(t => t.key), bodyKeys: bodyTokens.map(t => t.key),
+        fullCounts: countTokens(tokens), headerCounts: countTokens(headerTokens), bodyCounts: countTokens(bodyTokens), ast,
+        meaningfulBodyCount: meaningfulTokens(bodyTokens).length, meaningfulFullCount: meaningfulTokens(tokens).length };
+}
+
 function multisetDice(left, right) {
     const leftTotal = [...left.values()].reduce((sum, value) => sum + value, 0);
     const rightTotal = [...right.values()].reduce((sum, value) => sum + value, 0);
@@ -431,7 +462,7 @@ function ancestryData(entries) {
 }
 
 function kindCompatible(source, destination) {
-    return source.kind === destination.kind;
+    return source.kind === destination.kind && languageFor(source.path) === languageFor(destination.path);
 }
 
 function sameFileIdentity(sourceInfo, destinationInfo) {
@@ -571,7 +602,7 @@ function ambiguityGroups(candidates, ambiguous, entryOrder, budget, rankings) {
         const componentDestinations = [...destinationIds].sort((left, right) => (entryOrder.after.get(left) ?? 0) - (entryOrder.after.get(right) ?? 0));
         budget.record();
         groups.push({
-            reason: 'ambiguous-js-candidates',
+            reason: languageFor(component[0].source.path) === 'python' ? 'ambiguous-python-candidates' : 'ambiguous-js-candidates',
             sources: componentSources,
             destinations: componentDestinations,
             evidence: {
@@ -638,17 +669,17 @@ function rejectedFor(candidate, reason, sourceRunnerUp, destinationRunnerUp) {
     };
 }
 
-function sourceDocuments(files, inventory) {
+function sourceDocuments(files, inventory, python) {
     const documents = Array.isArray(inventory?.documents) ? inventory.documents : [];
     const byPath = new Map(documents.map(document => [document.path, document]));
-    return Object.keys(files).filter(isJavaScriptPath).sort().map(path => ({
+    return Object.keys(files).filter(path => isJavaScriptPath(path) || (python && /\.py$/.test(path))).sort().map(path => ({
         path,
         status: byPath.get(path)?.status || 'unknown'
     }));
 }
 
-function prepareSide(files, inventory, side, limits, budget) {
-    const documents = sourceDocuments(files, inventory);
+function prepareSide(files, inventory, side, limits, budget, python) {
+    const documents = sourceDocuments(files, inventory, python);
     const complete = documents.filter(document => document.status === 'complete').map(document => document.path);
     const invalid = documents.filter(document => document.status === 'invalid').map(document => document.path);
     const unknown = documents.filter(document => document.status !== 'complete' && document.status !== 'invalid');
@@ -661,6 +692,13 @@ function prepareSide(files, inventory, side, limits, budget) {
     const parsedPaths = [];
     for (const path of complete) {
         budget.check();
+        if (languageFor(path) === 'python') {
+            for (const entry of entries.filter(candidate => candidate.path === path)) {
+                features.set(entry.id, pythonFeature(entry, limits, budget));
+            }
+            parsedPaths.push(path);
+            continue;
+        }
         const text = files[path];
         const sourceFile = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKindFor(path));
         if (sourceFile.parseDiagnostics.length) {
@@ -677,7 +715,7 @@ function prepareSide(files, inventory, side, limits, budget) {
     return { entries, info, features, parsedPaths, invalid: [...new Set(invalid)].sort() };
 }
 
-function matchJavaScript(before, after, inventories, limits = {}) {
+function matchDeclarations(before, after, inventories, limits = {}, python = false) {
     const normalizedLimits = normalizeLimits(limits);
     if (!normalizedLimits) return result('unavailable', { before: [], after: [] }, { reason: 'invalid-limits' });
     if (!before || !after || typeof before !== 'object' || typeof after !== 'object'
@@ -694,8 +732,8 @@ function matchJavaScript(before, after, inventories, limits = {}) {
     const budget = new Budget(normalizedLimits);
     let left, right;
     try {
-        left = prepareSide(before, inventories.before, 'before', normalizedLimits, budget);
-        right = prepareSide(after, inventories.after, 'after', normalizedLimits, budget);
+        left = prepareSide(before, inventories.before, 'before', normalizedLimits, budget, python);
+        right = prepareSide(after, inventories.after, 'after', normalizedLimits, budget, python);
     } catch (error) {
         if (error instanceof BudgetExceeded) {
             return result('partial', { before: left?.parsedPaths || [], after: right?.parsedPaths || [] }, {
@@ -704,7 +742,7 @@ function matchJavaScript(before, after, inventories, limits = {}) {
         }
         return result('unavailable', { before: left?.parsedPaths || [], after: right?.parsedPaths || [] }, {
             reason: error.message === 'invalid-before-inventory' || error.message === 'invalid-after-inventory'
-                ? error.message : 'javascript-parse-failed'
+                ? error.message : error.message === 'invalid-python-features' ? 'invalid-python-features' : 'strand-parse-failed'
         });
     }
 
@@ -820,4 +858,12 @@ function matchJavaScript(before, after, inventories, limits = {}) {
     return result(status, processedPaths, { reason, mappers, unresolved, rejectedCandidates });
 }
 
-module.exports = { matchJavaScript, DEFAULT_LIMITS };
+function matchJavaScript(before, after, inventories, limits) {
+    return matchDeclarations(before, after, inventories, limits);
+}
+
+function matchStrand(before, after, inventories, limits) {
+    return matchDeclarations(before, after, inventories, limits, true);
+}
+
+module.exports = { matchJavaScript, matchStrand, DEFAULT_LIMITS };

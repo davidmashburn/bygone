@@ -3,13 +3,30 @@
 This benchmark measures missed and incorrect accepted symbol correspondences in
 44 comparisons. It compares the current exact-only mode with the optional
 RefactoringMiner engine **plus Bygone's inventory and validation rules**, and
-Bygone Strand, the original compact JavaScript correspondence engine.
+Bygone Strand, the original compact JS/TS/Python correspondence engine.
 
 ## Bygone Strand v1
 
+The [Python-enabled report](results-strand-python-2026-10-23.json) reruns all 44
+comparisons with unchanged labels. Strand now finds all 8 expected Python
+continuations, including decorated, nested and edited move/rename examples,
+with no incorrect accepted pair in the labeled scope. JS/TS remains 106/108,
+with no incorrect accepted pair. Combined, Strand finds 114/116 (98.3%),
+including all 54 targeted expectations; the two remaining misses are the
+invalid-syntax context expectations in `control-10`.
+
+Exact-only remains 85/116 and RefactoringMiner plus validation remains 112/116.
+Extraction/inline results are unchanged: 0/2, 1/2 and 0/2 respectively. Python
+features come from the existing isolated CPython parser; Strand requires no Java.
+Stubs remain inventory/exact-only. Confidence is high for these measured counts;
+this known development corpus does not establish general precision. Unseen
+labeled Python cases could change that assessment.
+
+### Initial JS/TS slice
+
 The [three-mode report](results-strand-2026-10-23.json) uses the same 44
-comparisons and unchanged source labels. Report JS/TS separately from Python:
-Strand does not infer Python correspondences and uses exact matching there.
+comparisons and unchanged source labels. This historical version did not infer
+Python correspondences and used exact matching there.
 
 | JS/TS continuations | Exact only | RefactoringMiner + validation | Bygone Strand |
 | --- | ---: | ---: | ---: |

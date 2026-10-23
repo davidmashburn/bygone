@@ -23,7 +23,14 @@ document parsing and syntax exclusions. JS, JSX, TS, TSX, MJS, CJS, MTS and CTS
 use the existing parser's supported syntax. Named functions, function variables,
 classes/members, bindings, interfaces/types/enums and explicit literal
 `registerType` registrations are eligible. Inventory exclusions still apply.
-Python uses its existing independent parser and exact matching only in this mode.
+Python `.py` functions, async functions, classes, methods and nested declarations
+also support inferred edited continuations, moves and renames. The existing
+isolated CPython 3.8+ `ast`/`tokenize` subprocess supplies syntax features without
+importing or executing project code. Configure `--python` or `MAPPING_PYTHON`
+when needed; only Python generation needs the interpreter. Decorators remain in
+the declaration slice and in header evidence. Literal/operator spellings remain
+in token evidence. Assignments, imports and lambdas retain their existing inventory
+exclusions. Python `.pyi` stubs retain inventory/exact matching only.
 
 The matcher compares structural/token features, preserving literal/operator
 differences. Strong unique local identities anchor same-scope edits; cross-file
@@ -44,8 +51,9 @@ imports and surrounding context.
 
 The candidate universe contains supplied changed files, including retained
 declarations within those files. Unchanged repository files are outside that
-universe. Mixed Python/JS comparisons stay partial, with complete JS pair
-coverage recorded only when the JS search completed. A failed parse, exhausted
+universe. JS/TS and Python candidates never compete across languages. Mixed
+comparisons can be complete when both searches finish; supplied stubs and
+unsupported documents explicitly leave partial coverage. A failed parse, exhausted
 budget or engine failure prevents promotion of inferred edited pairs.
 
 ## Limits and evaluation
@@ -55,6 +63,9 @@ The generator retains limits of 50 paths, 1 MiB per file, 4 MiB total input,
 20,000 tokens per symbol and 30 seconds of cooperative search time; exhausted searches are explicit,
 with independent exact fallback only. No extract/inline relationships or
 repository-wide binding/dependency analysis are produced in this version.
+Python feature extraction shares the inventory subprocess's 10-second and
+16 MiB output limits per snapshot. Features are generation evidence; saved
+artifacts contain validated source slices and diffs, not a Python runtime.
 
 Run the engine's tests and the difficult-example benchmark:
 
