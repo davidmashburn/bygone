@@ -49,8 +49,9 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         const contained = relative && relative !== '..' && !relative.startsWith('../') && !path.isAbsolute(relative);
         manifest.localSource = { repo: pathToFileURL(root).href, tour: contained ? relative : pathToFileURL(documentPath).href };
     }
-    const correspondence = correspondencePath ? loadChangeCorrespondence(builtManifest.repository?.root || cwd,
-        path.resolve(cwd, correspondencePath), { baseOid: manifest.range.mergeBaseOid, headOid: manifest.range.headOid }) : null;
+    const correspondenceFile = correspondencePath || source?.correspondence;
+    const correspondence = correspondenceFile ? loadChangeCorrespondence(builtManifest.repository?.root || cwd,
+        path.resolve(correspondencePath ? cwd : builtManifest.repository?.root || cwd, correspondenceFile), { baseOid: manifest.range.mergeBaseOid, headOid: manifest.range.headOid }) : null;
     const history = createTourHistory(manifest);
     const serializedManifest = `${JSON.stringify(manifest, null, 2)}\n`;
     const outputPath = options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_OUTPUT;

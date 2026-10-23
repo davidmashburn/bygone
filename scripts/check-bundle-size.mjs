@@ -5,11 +5,11 @@ const budgets = [
     { path: 'media/webview.js', maxBytes: 4_000_000 },
     { path: 'media/webview.css', maxBytes: 375_000 },
     { path: 'media/editor.worker.js', maxBytes: 320_000 },
-    // Includes whitespace ranges, paragraph alignment, scroll anchors, and inline matching.
-    { path: 'media/diff.worker.js', maxBytes: 24_500 },
-    // Includes tour expectations, reader feedback, and expanded narration controls.
-    { path: 'web/web-host.js', maxBytes: 230_000 },
-    { path: 'web/presenter.css', maxBytes: 46_000 }
+    // Includes whitespace ranges, paragraph alignment, scroll anchors, and named-anchor highlighting.
+    { path: 'media/diff.worker.js', maxBytes: 27_000 },
+    // Includes symbol trees, analysis diagnostics, and pinned symbol tour stops.
+    { path: 'web/web-host.js', maxBytes: 260_000 },
+    { path: 'web/presenter.css', maxBytes: 53_000 }
 ];
 
 let failed = false;

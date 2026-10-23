@@ -105,6 +105,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         correspondence: null,
         collapsedSymbolNodes: new Set(),
         activeCorrespondenceId: null,
+        symbolSelection: null,
+        expandedFileSymbols: new Set(),
         historyPrefix: '/history/'
     };
     let workspaceControls = null;
@@ -224,6 +226,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     }
 
     let evidenceRequest = 0;
+    let symbolTreeId = 0;
 
     function legacyFinalTour(tour = state.authoredTour) {
         if (tour.tours || !tour.scenes.some((scene) => scene.kind === 'deconstructed-diff')) return null;
@@ -1343,6 +1346,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         initializeTourNarrativeLayout();
         initializeNarrationVoices();
         document.getElementById('correspondence-filter')?.addEventListener('input', renderCorrespondences);
+        document.getElementById('correspondence-context')?.addEventListener('click', () => showSymbolComparison(true));
+        document.getElementById('file-symbol-context')?.addEventListener('click', () => showSymbolComparison(Boolean(state.activeCorrespondenceId && !state.symbolContext)));
         document.getElementById('correspondence-all')?.addEventListener('change', renderCorrespondences);
         document.getElementById('correspondence-unmatched')?.addEventListener('change', renderCorrespondences);
         document.getElementById('tour-navigator-tabs')?.addEventListener('click', (event) => {
@@ -1923,6 +1928,10 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             state.correspondence = correspondence;
             state.collapsedSymbolNodes = new Set();
             state.activeCorrespondenceId = null;
+            state.symbolSelection = null;
+            state.expandedFileSymbols.clear();
+            document.getElementById('file-symbol-context').hidden = true;
+            document.getElementById('correspondence-context').hidden = true;
             state.authoredTour = parsedTour;
             state.historyPrefix = nextHistoryPrefix;
             state.zoom = new TourZoomSession(initialMode);
@@ -2171,15 +2180,67 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         const includeUnmatched = document.getElementById('correspondence-unmatched')?.checked ?? true;
         const tree = buildCorrespondenceTree(evidence, { all, includeUnmatched, query });
         document.getElementById('correspondence-status').textContent = `${evidence.range.baseOid.slice(0, 7)} → ${evidence.range.headOid.slice(0, 7)} · ${evidence.status} analysis · ${tree.matchingRelations} of ${evidence.relations.length} inferred mappings · ${tree.matchingUnmatched} unmatched symbols · ${evidence.unresolved.length} ambiguous groups. Behavior unassessed.`;
+        appendSymbolTree(list, tree.files);
+        refreshFileSymbols(tree);
+        if (!tree.files.length) {
+            const empty = document.createElement('p'); empty.className = 'history-rail-empty';
+            empty.textContent = query.trim() ? 'No symbols match this filter.' : 'No symbols match the current filters. Enable the include options to see more inventoried declarations.';
+            list.append(empty);
+        }
+        renderCorrespondenceDiagnostics(evidence);
+    }
+
+    function refreshFileSymbols(tree = buildCorrespondenceTree(state.correspondence, {
+        all: document.getElementById('correspondence-all').checked,
+        includeUnmatched: document.getElementById('correspondence-unmatched')?.checked ?? true,
+        query: document.getElementById('correspondence-filter').value
+    })) {
+        document.querySelectorAll('#tour-files .file-symbols, #tour-files .file-symbol-toggle').forEach(el => el.remove());
+        for (const button of document.querySelectorAll('#tour-files .tour-file')) {
+            button.parentElement.classList.remove('has-file-symbols');
+            const tourFile = state.tour.files.find(file => file.path === button.dataset.filePath);
+            const matchingFiles = tree.files.filter(node => node.path === tourFile?.path || node.path === tourFile?.previousPath);
+            const file = matchingFiles.length ? { path: tourFile.path, children: matchingFiles.flatMap(node => node.children) } : null;
+            if (!file?.children.length) continue;
+            const symbols = document.createElement('div'); symbols.className = 'file-symbols';
+            symbols.id = `file-symbols-${++symbolTreeId}`;
+            appendSymbolTree(symbols, file.children);
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'file-symbol-toggle';
+            toggle.setAttribute('aria-controls', symbols.id);
+            const update = () => {
+                const expanded = state.expandedFileSymbols.has(file.path);
+                symbols.hidden = !expanded;
+                toggle.setAttribute('aria-expanded', String(expanded));
+                toggle.dataset.tooltip = expanded ? 'Hide Symbols' : 'Show Symbols';
+                toggle.setAttribute('aria-label', `${toggle.dataset.tooltip}: ${file.path}`);
+                toggle.textContent = expanded ? '▾' : '▸';
+            };
+            toggle.addEventListener('click', () => {
+                if (state.expandedFileSymbols.has(file.path)) state.expandedFileSymbols.delete(file.path);
+                else state.expandedFileSymbols.add(file.path);
+                update();
+            });
+            update();
+            button.parentElement.classList.add('has-file-symbols');
+            button.parentElement.append(toggle, symbols);
+        }
+    }
+
+    function appendSymbolTree(list, nodes) {
+        const evidence = state.correspondence;
+        const query = document.getElementById('correspondence-filter').value;
+        const treeId = ++symbolTreeId;
         const root = document.createElement('ul'); root.className = 'correspondence-tree';
         list.append(root);
-        const pending = tree.files.map(node => ({ node, parent: root })).reverse();
+        const pending = nodes.map(node => ({ node, parent: root })).reverse();
         while (pending.length) {
             const { node, parent } = pending.pop();
             const row = document.createElement('li'); row.dataset.symbolKey = node.key;
             row.classList.toggle('is-context', node.type === 'symbol' && node.context);
             const heading = document.createElement('div'); heading.className = 'correspondence-heading';
-            const children = document.createElement('ul'); children.id = `symbols-${encodeURIComponent(node.key)}`;
+            const children = document.createElement('ul'); children.id = `symbols-${treeId}-${encodeURIComponent(node.key)}`;
             const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'correspondence-toggle';
             const label = node.type === 'file' ? node.path : node.entry.name;
             const update = () => {
@@ -2201,7 +2262,11 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 row.classList.add('correspondence-file');
                 const button = document.createElement('button'); button.type = 'button'; button.className = 'correspondence-file-label';
                 button.textContent = node.path; button.title = node.path;
-                button.addEventListener('click', () => toggle.click());
+                button.setAttribute('aria-current', String(state.activeTourFilePath === node.path));
+                button.addEventListener('click', () => {
+                    const index = state.tour.files.findIndex(file => file.path === node.path || file.previousPath === node.path);
+                    if (index >= 0) showTourFileSelection(index);
+                });
                 heading.append(button);
             } else {
                 const { before: a, after: b, relation } = node;
@@ -2210,6 +2275,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 const selectionId = relation?.id || node.key;
                 button.dataset.correspondenceId = selectionId;
                 button.dataset.sourceReference = String(!!node.sourceReference);
+                button.dataset.changeKind = relation ? (node.changed ? 'modified' : 'unchanged')
+                    : node.ambiguous ? 'ambiguous' : node.side === 'before' ? 'deleted' : 'added';
                 button.classList.toggle('is-relocated', !!node.sourceReference || !!relation?.pathChanged);
                 button.setAttribute('aria-pressed', String(state.activeCorrespondenceId === selectionId));
                 const location = entry => `${entry.path}:${entry.startLine}`;
@@ -2230,24 +2297,11 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                     cancelPendingModeRestore();
                     evidenceRequest += 1;
                     document.body.classList.remove('tour-discussion');
-                    state.activeTourFilePath = null;
                     lastReadingEvidence = null;
-                    updateTourFileSelection();
                     narrationController.interruptForExploration();
                     state.directoryEvidence = null;
-                    state.activeCorrespondenceId = selectionId;
-                    document.getElementById('correspondence-selection').textContent = relation
-                        ? `${a.name}: inferred correspondence. Showing complete declarations; line 1 below starts at source lines ${a.startLine} / ${b.startLine}. Use Files for the complete file changes.`
-                        : `${node.entry.name}: ${node.ambiguous ? 'ambiguous' : 'unmatched'} ${node.side} symbol. Only the available declaration is shown; the empty side does not establish an addition or deletion. Use Files for complete context.`;
-                    const left = a?.text || '', right = b?.text || '';
-                    emit({ type: 'showDiff', file1: `${a ? location(a) : 'No accepted match'} @ ${evidence.range.baseOid.slice(0, 7)}`,
-                        file2: `${b ? location(b) : 'No accepted match'} @ ${evidence.range.headOid.slice(0, 7)}`,
-                        sourceInfo: { leftPath: a?.path || node.entry.path, rightPath: b?.path || node.entry.path },
-                        comparisonId: `correspondence-${selectionId}`, leftContent: left, rightContent: right,
-                        diffModel: buildTwoWayDiffModel(left, right), history: null, correspondenceView: true,
-                        editableSides: { left: false, right: false },
-                        comparisonSummary: relation ? 'Inferred symbol correspondence · behavior unassessed · complete declaration diff'
-                            : 'No accepted symbol match · addition/deletion unassessed · complete available declaration' });
+                    state.symbolSelection = { before: a, after: b, relation, ambiguous: node.ambiguous, side: node.side, entry: node.entry, id: selectionId, range: evidence.range };
+                    showSymbolComparison(false);
                     list.querySelectorAll('.correspondence-item').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.correspondenceId === selectionId)));
                 });
                 heading.append(button);
@@ -2258,12 +2312,52 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 pending.push(...node.children.map(child => ({ node: child, parent: children })).reverse());
             }
         }
-        if (!tree.files.length) {
-            const empty = document.createElement('p'); empty.className = 'history-rail-empty';
-            empty.textContent = query.trim() ? 'No symbols match this filter.' : 'No symbols match the current filters. Enable the include options to see more inventoried declarations.';
-            list.append(empty);
+    }
+
+    function showSymbolComparison(context = false) {
+        const selection = state.symbolSelection;
+        if (!selection) return;
+        const { before: a, after: b, relation, range } = selection;
+        const getText = (entry, side) => {
+            if (!entry) return '';
+            if (!context) return entry.text;
+            return state.correspondence?.documents[side].find(doc => doc.path === entry.path)?.text
+                ?? selection.context?.[side === 'before' ? 'leftContent' : 'rightContent'] ?? null;
+        };
+        const left = getText(a, 'before'), right = getText(b, 'after');
+        if (left === null || right === null) {
+            document.getElementById('correspondence-selection').textContent = 'Full file context is unavailable in this older artifact. Rebuild the correspondence artifact to include it.';
+            return;
         }
-        renderCorrespondenceDiagnostics(evidence);
+        ++renderRequestId;
+        imageViewer.clear();
+        state.displayedPanels = [];
+        state.activeCorrespondenceId = selection.id;
+        state.activeTourFilePath = b?.path || a?.path;
+        state.symbolContext = context;
+        document.getElementById('correspondence-context').hidden = context;
+        document.getElementById('file-symbol-context').hidden = false;
+        document.getElementById('file-symbol-context').textContent = context ? 'Return to symbol comparison' : 'Show file context';
+        document.getElementById('correspondence-selection').textContent = relation
+            ? `${a.name}: inferred correspondence · behavior unassessed. ${context ? 'Complete source and destination files; declarations highlighted.' : `Complete declarations; line 1 starts at source lines ${a.startLine} / ${b.startLine}.`}`
+            : `${selection.entry.name}: ${selection.ambiguous ? 'ambiguous' : 'unmatched'} ${selection.side} symbol. The empty side does not establish an addition or deletion.`;
+        const annotations = context ? [[a, 'left'], [b, 'right']].filter(([entry]) => entry).map(([entry, side]) => ({
+            side, startLine: entry.startLine, endLine: entry.endLine, label: entry.name, active: true
+        })) : [];
+        const location = entry => entry ? `${entry.path}:${entry.startLine}` : 'No accepted match';
+        const model = buildTwoWayDiffModel(left, right);
+        emit({ type: 'showDiff', file1: `${location(a)} @ ${range.baseOid.slice(0, 7)}`,
+            file2: `${location(b)} @ ${range.headOid.slice(0, 7)}`,
+            sourceInfo: { leftPath: a?.path || selection.entry.path, rightPath: b?.path || selection.entry.path },
+            comparisonId: `correspondence-${selection.id}-${context ? 'file' : 'symbol'}`,
+            leftContent: left, rightContent: right, diffModel: model, history: null, correspondenceView: true,
+            editableSides: { left: false, right: false }, tourAnnotations: annotations,
+            initialChangeIndex: context ? findChangeIndexAtSourceLine(model, b ? 'right' : 'left', (b || a).startLine) : 0,
+            comparisonSummary: relation ? 'Inferred symbol correspondence · behavior unassessed'
+                : 'No accepted symbol match · addition/deletion unassessed' });
+        updateTourFileSelection();
+        document.querySelectorAll('.correspondence-item').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.correspondenceId === selection.id)));
+        if (context) setTourNavigatorTab('files');
     }
 
     function openDiagnosticSymbol(id) {
@@ -2381,6 +2475,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         empty.className = 'history-rail-empty';
         empty.dataset.fileTreeEmpty = '';
         files.append(empty);
+        if (state.correspondence) refreshFileSymbols();
         updateTourFileSelection();
     }
 
@@ -2478,6 +2573,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         const previousContext = lastReadingEvidence?.tour === tour && !options.zoomLanding && !applyingDocumentLocation
             ? lastReadingEvidence.context : null;
         state.directoryEvidence = null;
+        state.activeCorrespondenceId = null;
         setDirectoryOverviewStatus('');
         renderDirectoryOverviewBreadcrumb();
         buildReadingDocument();
@@ -2569,6 +2665,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         if (state.narrativeParent || !scene.overview) return false;
         const evidence = buildTourDirectoryEvidence(state.tour, scene);
         state.directoryEvidence = evidence;
+        state.activeCorrespondenceId = null;
         state.activeTourFilePath = null;
         updateTourFileSelection();
         document.body.classList.remove('tour-discussion');
@@ -2634,6 +2731,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         const tour = state.tour;
         if (!tour) return;
         imageViewer.clear();
+        state.activeCorrespondenceId = null;
         state.activeTourFilePath = state.zoom?.mode === 'history'
             ? state.historyPath || scene.path
             : scene.path;
@@ -2711,12 +2809,25 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         return suffix ? `${role} ${suffix}` : role;
     }
 
+    function symbolSelectionId(evidence) {
+        return evidence.status === 'inferred' ? evidence.id : `${evidence.before ? 'before' : 'after'}:${evidence.id}`;
+    }
+
     function renderWalkthroughStep(scene) {
         const step = scene.steps[state.activeStepIndex];
         if (!step) return;
+        if (step.symbol && !state.sceneIntroVisible) {
+            const evidence = step.symbol;
+            state.symbolSelection = { ...evidence, id: symbolSelectionId(evidence), entry: evidence.after || evidence.before,
+                relation: evidence.status === 'inferred' ? { id: evidence.id } : null,
+                ambiguous: evidence.status === 'ambiguous', side: evidence.before ? 'before' : 'after' };
+            showSymbolComparison(false);
+            return;
+        }
         if (step.image) {
             ++renderRequestId;
             state.displayedPanels = [];
+            state.activeCorrespondenceId = null;
             state.activeTourFilePath = step.diff.path;
             imageViewer.show(step.image, step.title);
             updateTourFileSelection();
@@ -2739,6 +2850,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         document.body.classList.remove('tour-discussion');
         const file = getMultiPanelFile(scene, filePath);
         if (!step || !file) return;
+        state.activeCorrespondenceId = null;
         state.activeTourFilePath = file.path;
         updateTourFileSelection();
         const panels = file.panels.map((panel, index) => ({
@@ -2857,6 +2969,12 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         const selected = state.tour?.files[index];
         if (!selected || selected.kind !== 'text-diff') return false;
         cancelPendingModeRestore();
+        state.activeCorrespondenceId = null;
+        state.symbolContext = false;
+        document.getElementById('file-symbol-context').hidden = !state.symbolSelection;
+        document.getElementById('file-symbol-context').textContent = 'Return to symbol comparison';
+        document.querySelectorAll('.correspondence-file-label').forEach(button => button.setAttribute('aria-current', String(button.textContent === selected.path)));
+        document.querySelectorAll('.correspondence-item').forEach(button => button.setAttribute('aria-pressed', 'false'));
         if (state.zoom?.mode === 'history') {
             void showZoomHistory(selected.path, state.historyCommit).catch((error) => { document.getElementById('tour-mode-status').textContent = error.message; });
             return true;
@@ -2956,16 +3074,28 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
 
     function updateTourFileSelection() {
         renderDirectoryOverviewBreadcrumb();
+        const symbolContextButton = document.getElementById('file-symbol-context');
+        symbolContextButton.hidden = !state.symbolSelection;
+        symbolContextButton.textContent = state.activeCorrespondenceId && !state.symbolContext ? 'Show file context' : 'Return to symbol comparison';
+        const symbolPaths = state.activeCorrespondenceId ? [state.symbolSelection?.before?.path, state.symbolSelection?.after?.path].filter(Boolean) : [];
+        const selectedFile = state.tour?.files.find(file => file.path === state.activeTourFilePath);
+        const selectedPaths = symbolPaths.length ? symbolPaths : [state.activeTourFilePath, selectedFile?.previousPath];
+        document.querySelectorAll('.correspondence-file-label').forEach(button => {
+            const active = selectedPaths.includes(button.textContent);
+            button.setAttribute('aria-current', String(active));
+        });
+        document.querySelectorAll('.correspondence-item').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.correspondenceId === state.activeCorrespondenceId)));
         const scene = state.tour?.scenes[state.activeSceneIndex];
         const step = isMultiPanelTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
         const filesByPath = new Map(state.tour?.files.map(file => [file.path, file]));
         document.querySelectorAll('.tour-file').forEach((button) => {
             const filePath = button.dataset.filePath;
-            button.classList.toggle('is-active', filePath === state.activeTourFilePath);
+            button.classList.toggle('is-active', filePath === state.activeTourFilePath || symbolPaths.includes(filePath) || symbolPaths.includes(filesByPath.get(filePath)?.previousPath));
             button.classList.toggle('is-tour-focus', !state.directoryEvidence && filePath === state.tourFocusFilePath);
             button.classList.remove('is-comparison-changed', 'is-comparison-empty');
             delete button.dataset.comparisonState;
             const tourFile = filesByPath.get(filePath);
+            button.dataset.changeKind = tourFile?.changeKind || '';
             button.classList.toggle('is-omitted', tourFile?.kind === 'omitted');
             button.disabled = tourFile?.kind === 'omitted' || Boolean(state.directoryEvidence && !state.directoryEvidence.files.some((file) => file.path === filePath));
             if (filePath === state.activeTourFilePath) button.setAttribute('aria-current', 'true');
@@ -2982,6 +3112,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             }
             if (state.directoryEvidence && tourFile?.kind === 'text-diff') {
                 const evidenceFile = state.directoryEvidence.files.find((file) => file.path === filePath);
+                button.dataset.changeKind = evidenceFile.changeKind;
                 const label = `${formatChangeKind(evidenceFile.changeKind)} in overview`;
                 button.setAttribute('title', `${filePath} · ${label}`);
                 button.setAttribute('aria-label', `${filePath}, ${label}`);
@@ -3075,8 +3206,9 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         if (returnButton) {
             const inTourMode = isNarrativeMode();
             const imageStep = scene?.kind === 'walkthrough' && scene.steps[state.activeStepIndex]?.image;
+            const symbolStep = scene?.kind === 'walkthrough' && scene.steps[state.activeStepIndex]?.symbol;
             returnButton.hidden = !inTourMode || Boolean(state.directoryEvidence)
-                || (state.narrativeParent ? !state.activeTourFilePath : (!state.tourFocusFilePath || (imageStep ? imageViewer.isVisible() : state.activeTourFilePath === state.tourFocusFilePath)));
+                || (state.narrativeParent ? !state.activeTourFilePath : (!state.tourFocusFilePath || (imageStep ? imageViewer.isVisible() : symbolStep ? state.activeCorrespondenceId === symbolSelectionId(symbolStep) && !state.symbolContext : state.activeTourFilePath === state.tourFocusFilePath)));
             returnButton.textContent = state.narrativeParent ? 'Return to passage' : 'Return to tour focus';
         }
     }

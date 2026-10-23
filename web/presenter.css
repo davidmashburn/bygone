@@ -1593,6 +1593,9 @@ body.tour-bookend.tour-discussion #tour-narrative-resizer { display: none; }
 .correspondence-file + .correspondence-file { margin-top: 12px; }
 .correspondence-item { display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 7px; border: 1px solid transparent; border-radius: 4px; background: none; color: inherit; cursor: pointer; font: inherit; }
 .correspondence-item strong { font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.correspondence-item[data-change-kind="added"] > strong { color: var(--vscode-gitDecoration-addedResourceForeground, #8ed6a5); }
+.correspondence-item[data-change-kind="modified"] > strong { color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2b36b); }
+.correspondence-item[data-change-kind="deleted"] > strong { color: var(--vscode-gitDecoration-deletedResourceForeground, #f48771); }
 .correspondence-item span { font-size: 12px; overflow-wrap: anywhere; color: var(--tour-muted); }
 .correspondence-location { display: none; }
 .correspondence-item.is-relocated .correspondence-location, .correspondence-item:hover .correspondence-location, .correspondence-item[aria-pressed="true"] .correspondence-location, .correspondence-item:focus-visible .correspondence-location { display: block; }
@@ -1613,3 +1616,47 @@ button.correspondence-diagnostic-location { background: none; border: 0; text-de
 button.correspondence-diagnostic-location:focus-visible { outline: 2px solid var(--vscode-focusBorder, #58a6ff); }
 
 .tour-navigator-tabs:has(#correspondence-tab:not([hidden])) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.file-symbols { margin: 4px 0 8px 16px; font-size: 12px; }
+.file-symbols[hidden] { display: none; }
+.has-file-symbols { position: relative; }
+.has-file-symbols > .tour-file { padding-right: 32px; }
+.file-symbol-toggle {
+    position: absolute;
+    top: 5px;
+    right: 4px;
+    width: 24px;
+    height: 28px;
+    padding: 0;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1;
+    color: var(--tour-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.file-symbol-toggle:hover { color: var(--tour-body); background: var(--bygone-hover); }
+.file-symbol-toggle:focus-visible { outline: 2px solid var(--vscode-focusBorder, #58a6ff); }
+.tour-file[data-change-kind="added"] { --file-status-color: var(--vscode-gitDecoration-addedResourceForeground, #8ed6a5); }
+.tour-file[data-change-kind="deleted"] { --file-status-color: var(--vscode-gitDecoration-deletedResourceForeground, #f48771); }
+.tour-file[data-change-kind="modified"] { --file-status-color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2b36b); }
+.tour-file[data-change-kind="renamed"] { --file-status-color: var(--vscode-gitDecoration-renamedResourceForeground, #73c991); }
+.tour-file[data-change-kind]:not(.is-comparison-empty) .tour-file-path,
+.tour-file[data-change-kind]:not(.is-comparison-empty) .tour-file-marker { color: var(--file-status-color, var(--tour-body)); }
+.correspondence-file-label[aria-current="true"] { outline: 1px solid var(--vscode-focusBorder, #58a6ff); }
+#correspondence-context, #file-symbol-context {
+    width: fit-content;
+    max-width: 100%;
+    margin-top: 6px;
+    margin-bottom: 6px;
+    padding: 5px 9px;
+    color: var(--tour-accent-bright);
+    background: var(--bygone-selection);
+    border: 1px solid var(--tour-border);
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+}
+#correspondence-context:hover, #file-symbol-context:hover { background: var(--bygone-hover); }

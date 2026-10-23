@@ -91,7 +91,19 @@ source symbol slices, including edits within moved code. Variable slices can
 exclude enclosing export/const/let syntax; inspect the complete file for that
 context and for surrounding binding/import changes. The labels identify
 both paths, source lines and revisions. Editor line numbers are relative to
-the declaration slice. The **Files** rail still opens complete file diffs.
+the declaration slice. **Show file context** opens complete source and destination
+files and highlights the declarations at their original lines, including moves
+between files. **Return to symbol comparison** restores the declaration slices.
+The **Files** rail also nests the same filtered symbol tree beneath each file.
+Use the arrow on the right of a file (**Show Symbols** on hover) to reveal or
+hide its symbols directly underneath. Each file starts folded and keeps its own
+expansion state; selecting files, symbols, or tour stops does not change it.
+Symbol names use green for after-only declarations, red for before-only declarations,
+and amber for accepted mappings with edits, moves, renames, or reparenting. Ambiguous
+origins and unchanged declarations stay neutral. One-sided colors describe the
+inventory; they do not confirm additions or deletions.
+Symbols and Files share selection; both endpoints of a move are highlighted.
+Selecting a file opens its complete diff without advancing the tour.
 Symbols groups declarations by file and nests classes, methods and functions
 using their source ranges. Expand or collapse branches with the disclosure
 buttons (also keyboard accessible). The default filter includes moved, renamed,
@@ -131,6 +143,14 @@ source and 8 MiB total symbol text). Nested symbols overlap, so their diffs
 must not be summed as coverage or subtracted from changed-line accounting.
 For a declaration diff exceeding the comparison effort budget, its entire old
 and new slices are retained as removal/addition rather than omitting content.
+
+## Use symbols in authored tours
+
+Version 6 walkthrough steps can select an accepted relation or one unmatched
+symbol from a source's `correspondence` artifact. The compiler pins declaration
+text and full file context into each stop, preserving one-sided ambiguous
+endpoints. See [Symbol-focused stops](change-tour-format.md#symbol-focused-stops)
+for the source contract, validation, coverage, and offline behavior.
 
 ## Run this checkout's real example
 

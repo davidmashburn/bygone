@@ -78,7 +78,7 @@ function materializeTour(sourcePath, profile) {
     delete manifest.localSource;
     // A source URL is optional provenance and may carry credentials or local bindings.
     delete manifest.sourceUrl;
-    const contentKeys = new Set(['leftContent', 'rightContent', 'content']);
+    const contentKeys = new Set(['leftContent', 'rightContent', 'content', 'text']);
     function pack(value) {
         if (Array.isArray(value)) return value.map(pack);
         if (!value || typeof value !== 'object') return value;

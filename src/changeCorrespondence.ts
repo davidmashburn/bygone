@@ -7,7 +7,7 @@ const MAX_BYTES = 16 * 1024 * 1024;
 const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
 const digest = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
 export interface CorrespondenceRange { baseOid: string; headOid: string }
-export interface CorrespondenceDocument { path: string; digest: string; status: string }
+export interface CorrespondenceDocument { path: string; digest: string; status: string; text?: string }
 export interface CorrespondenceSymbol {
     id: string; path: string; name: string; kind: string; start: number; end: number;
     digest: string; startLine: number; endLine: number; text: string;
@@ -121,7 +121,7 @@ export function validateChangeCorrespondence(repoRoot: string, input: unknown, e
             }
             texts.set(name, { text, status: documentStatus });
             documentsBySide[side].set(name, text);
-            result.documents[side].push({ path: name, digest: expectedDigest, status: documentStatus });
+            result.documents[side].push({ path: name, digest: expectedDigest, status: documentStatus, text });
         }
         for (const value of list(symbols[side])) {
             const entry = object(value), name = filePath(entry.path), doc = texts.get(name);

@@ -8,16 +8,16 @@ suffix, and explicitly supplied files are validated by content rather than
 rejected by extension.
 
 An authored source is Git-backed, not portable: resolving refs and anchors
-requires the corresponding local repository and Git objects. Version 2, 4, and 5
+requires the corresponding local repository and Git objects. Version 2, 4, 5, and 6
 compiled manifests remain bound to that repository so the presenter can load
 live file history. Version 1 manifests remain readable as legacy portable
 artifacts, without the mode switcher. Version 4 supports independent authored
 tours and scene directory overviews; versions 1 and 2 remain accepted without
 those fields.
 
-## Version 5 stability and compatibility
+## Version stability and compatibility
 
-Format version **5** is the current authoring contract. Application and document
+Format version **6** is the current authoring contract. Application and document
 versions are separate; UI fixes do not require rewriting a tour.
 
 | Document version | Reader support | Contract |
@@ -26,8 +26,9 @@ versions are separate; UI fixes do not require rewriting a tour.
 | 2 | Supported | Repository-bound manifests, real revision stacks, and endpoint walkthroughs |
 | 3 | Retired | Remove the top-level `review` block, set source `version: 4`, and recompile |
 | 4 | Supported | Independent authored tours and scene directory overviews; no Review Notes |
-| 5 | Use for new sources | Optional opening, conclusion, and chapter previews; explicit overview purpose |
-| Greater than 5 | Rejected with an upgrade message | Never interpreted as version 5 |
+| 5 | Supported | Optional opening, conclusion, and chapter previews; explicit overview purpose |
+| 6 | Use for new sources | Optional pinned symbol comparisons in walkthrough stops |
+| Greater than 6 | Rejected with an upgrade message | Never interpreted as version 6 |
 
 Version 4 removes the `review` field and the separate Review Notes panel.
 Concepts, boundaries, tradeoffs, and unresolved questions belong in scene or
@@ -49,7 +50,7 @@ does not prove that the source compiles. Validate against the intended local
 repository before sharing a tour.
 
 Keep authored YAML as the editable source. Compiled JSON is generated evidence,
-not a second authoring syntax; v2/v4/v5 manifests retain repository identity and
+not a second authoring syntax; v2/v4/v5/v6 manifests retain repository identity and
 resolved Git objects. Stable format support does not make missing repositories
 or pruned objects available, and does not promise byte-identical generated
 timestamps or presentation layout. Pin full commit IDs in `range` when the
@@ -60,6 +61,59 @@ independent authored modes, overview evidence and fallback semantics, retired
 v3 rejection, removed-field rejection, and rejection of future versions. Run
 `npm test` before releasing a parser, compiler, or schema change; update those
 checks with any new contract.
+
+## Symbol-focused stops
+
+Version 6 adds an optional repository-relative `correspondence` artifact and a
+`symbol` selector on walkthrough steps. Generate the artifact as described in
+[Symbol correspondence evidence](correspondence.md), then use an accepted
+relation ID or one unmatched symbol ID from its inventory:
+
+```yaml
+version: 6
+correspondence: evidence/symbols.json
+# Pin range.base and range.head to the artifact's comparison.
+anchors:
+  moved-declaration:
+    file: src/moved.py
+    revision: head
+    contains: "def transfer("
+# Within a walkthrough scene's steps:
+# - id: transfer
+#   title: Read the moved declaration
+#   body: Compare the complete declaration before and after the move.
+#   focus: moved-declaration
+#   symbol: { relation: relation-transfer }
+```
+
+The ordinary `focus` anchor remains required and must resolve inside the selected
+declaration on its revision side. It preserves source navigation and existing
+anchor validation. `symbol: { symbol: after-uncertain }` selects one unmatched
+endpoint instead. IDs are unique across the artifact's symbol inventory; matched
+endpoints must use their accepted relation ID. An ambiguous endpoint remains
+one-sided, with no invented origin. Symbol stops cannot also use an image or
+connection.
+
+Compilation revalidates the artifact against the exact Git comparison and
+embeds complete declaration text, source spans, revisions, and both full file
+contexts. The source artifact path must stay inside the repository, including
+through symlinks. Stale artifacts and selectors outside the chosen declaration
+are errors. An accepted relation is still an inferred correspondence; behavior
+remains unassessed.
+
+The viewer opens the declaration comparison. **Show file context** widens to the
+complete source and destination files, highlights both declarations, and keeps
+the current tour stop. **Return to symbol comparison** restores the slices;
+**Return to tour** restores the authored stop after exploring another file.
+The compiled evidence also works in an offline HTML export without the artifact
+or repository. Export packs repeated text once. Coverage counts only changed
+units intersecting either selected declaration, or the single available endpoint
+for an unmatched symbol; overlapping stops do not multiply coverage.
+
+Existing sources and ordinary anchor stops keep their existing behavior. Live
+presentations load the source's artifact into Symbols and Files automatically;
+offline exports retain the selected stops and their context, rather than the
+entire symbol inventory.
 
 ## Opening and conclusion passages
 

@@ -106,7 +106,11 @@ export function buildTourCoverageReport(startPath: string, sourceValue: unknown)
     for (const scene of walkthroughScenes) {
         if (scene.kind !== 'walkthrough') continue;
         for (const step of scene.steps) {
-            const matches = includedUnits.filter((unit) => evidenceIntersectsUnit(step.focus, unit));
+            const endpoints = step.symbol ? ([[step.symbol.before, 'base'], [step.symbol.after, 'head']] as const).flatMap(([entry, revision]) => {
+                if (!entry) return [];
+                return [{ path: entry.path, revision, startLine: entry.startLine, endLine: entry.endLine }];
+            }) : [step.focus];
+            const matches = includedUnits.filter((unit) => endpoints.some(endpoint => evidenceIntersectsUnit(endpoint, unit)));
             if (matches.length === 0) {
                 contextualOnlyEvidence.push({ sceneId: scene.id, stepId: step.id, path: step.focus.path });
                 continue;

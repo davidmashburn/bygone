@@ -1,3 +1,4 @@
+import { validateTourSymbol } from './tourSymbol';
 import { validateTourFraming, validateOverviewPurpose, type ChangeTourFraming } from './tourFraming';
 import { validateTourImage, type TourImage } from './tourImage';
 import type { BranchCommit, GitChangeKind } from './gitComparison';
@@ -8,7 +9,7 @@ import {
 } from './changeTourSource';
 import { validateChangeTourDetails, type ChangeTourDetails } from './tourDetails';
 
-export const CHANGE_TOUR_MANIFEST_VERSION = 5 as const;
+export const CHANGE_TOUR_MANIFEST_VERSION = 6 as const;
 
 export type ChangeTourMode = 'explanation' | 'revisions' | 'final' | 'history';
 
@@ -106,6 +107,7 @@ export interface ChangeTourWalkthroughStep {
     image?: TourImage;
     connection?: ChangeTourResolvedConnection;
     diff: ChangeTourDiffScene;
+    symbol?: import('./tourSymbol').TourSymbolEvidence;
     depth?: 'mentioned' | 'explained' | 'contextualized';
     requirement?: ChangeTourStepRequirement;
 }
@@ -255,7 +257,7 @@ export interface ChangeTourAuthoringCoverage {
 }
 
 export interface ChangeTourManifest extends ChangeTourFraming {
-    version: 1 | 2 | 4 | typeof CHANGE_TOUR_MANIFEST_VERSION;
+    version: 1 | 2 | 4 | 5 | typeof CHANGE_TOUR_MANIFEST_VERSION;
     repository?: { root: string };
     zoom?: ChangeTourZoom;
     title: string;
@@ -296,7 +298,7 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     if (isRecord(value) && value.version === 3) {
         throw new Error('Tour manifest format version 3 is retired. Remove the review block, set source version to 4, and recompile the tour.');
     }
-    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
+    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== 5 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
         throw new Error(`Unsupported or missing change-tour manifest version.`);
     }
     if ('review' in value) throw new Error('Change-tour manifests do not support the review field. Put observations in scene and step narrative.');
@@ -355,7 +357,7 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
         throw new Error('summary.includedScenes must match the number of scenes.');
     }
     if (value.details !== undefined) {
-        if (value.version !== 5) throw new Error('details requires manifest version 5.');
+        if (value.version < 5) throw new Error('details requires manifest version 5.');
         validateChangeTourDetails(value.details, 'details');
     }
 
@@ -374,16 +376,27 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     }
 
     if (value.tours !== undefined) {
-        if (value.version !== 4 && value.version !== 5) throw new Error('Independent tours require manifest version 4.');
+        if (value.version !== 4 && value.version !== 5 && value.version !== 6) throw new Error('Independent tours require manifest version 4.');
         validateModeTours(value.tours, value.version);
     }
 
     if (value.version !== 1) validateZoom(value, value.version, Boolean(options.exported));
 
+    const symbolScenes = [value.scenes, ...(isRecord(value.zoom) && isRecord(value.zoom.final) ? [value.zoom.final.scenes] : []),
+        ...(isRecord(value.tours) ? Object.values(value.tours).flatMap(tour => isRecord(tour) ? [tour.scenes] : []) : [])];
+    for (const scenes of symbolScenes) for (const scene of scenes as ChangeTourScene[]) {
+        if (scene.kind !== 'walkthrough') continue;
+        for (const step of scene.steps) if (step.symbol) {
+            const symbol = step.symbol;
+            if (symbol.range.baseOid !== value.range.mergeBaseOid || symbol.range.headOid !== value.range.headOid) throw new Error('Symbol tour evidence revisions do not match the tour.');
+            const endpoint = step.focus.revision === 'base' ? symbol.before : symbol.after;
+            if (!endpoint || endpoint.path !== step.focus.path || step.focus.startLine < endpoint.startLine || step.focus.endLine > endpoint.endLine) throw new Error('Symbol stop focus must lie within its selected declaration.');
+        }
+    }
     return { ...value, files } as unknown as ChangeTourManifest;
 }
 
-function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 4 | 5): asserts value is ChangeTourAuthoringCoverage {
+function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 4 | 5 | 6): asserts value is ChangeTourAuthoringCoverage {
     if (!isRecord(value) || !isRecord(value.walkthrough) || !Array.isArray(value.explanationAssignments)) {
         throw new Error('authoringCoverage must contain walkthrough and explanationAssignments.');
     }
@@ -413,7 +426,7 @@ function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 4 | 5): asse
     }
 }
 
-function validateModeTours(value: unknown, version: 4 | 5): asserts value is ChangeTourTours {
+function validateModeTours(value: unknown, version: 4 | 5 | 6): asserts value is ChangeTourTours {
     if (!isRecord(value)) throw new Error('Change-tour manifest tours must be an object.');
     if (value.historical === undefined && value.deconstructed === undefined) {
         throw new Error('Change-tour manifest tours must contain a historical or deconstructed tour.');
@@ -440,7 +453,7 @@ function validateModeTours(value: unknown, version: 4 | 5): asserts value is Cha
             }
         }
         if (tour.details !== undefined) {
-            if (version !== 5) throw new Error(`tours.${mode}.details requires manifest version 5.`);
+            if (version < 5) throw new Error(`tours.${mode}.details requires manifest version 5.`);
             validateChangeTourDetails(tour.details, `tours.${mode}.details`);
         }
         if (mode === 'deconstructed' && !hasDeconstructed) {
@@ -495,7 +508,7 @@ export function parseChangeTourStory(value: unknown): ChangeTourStory {
     return value as unknown as ChangeTourStory;
 }
 
-function validateZoom(value: Record<string, unknown>, version: 2 | 4 | 5, exported: boolean): void {
+function validateZoom(value: Record<string, unknown>, version: 2 | 4 | 5 | 6, exported: boolean): void {
     if (!exported && (!isRecord(value.repository) || typeof value.repository.root !== 'string' || !value.repository.root)) {
         throw new Error('A v2 tour requires its originating repository.root.');
     }
@@ -558,7 +571,7 @@ function validateZoom(value: Record<string, unknown>, version: 2 | 4 | 5, export
     }
 }
 
-function validateScene(value: unknown, index: number, version: 1 | 2 | 4 | 5): asserts value is ChangeTourScene {
+function validateScene(value: unknown, index: number, version: 1 | 2 | 4 | 5 | 6): asserts value is ChangeTourScene {
     if (!isRecord(value) || !['text-diff', 'discussion', 'walkthrough', 'stacked-diff', 'deconstructed-diff'].includes(String(value.kind))) {
         throw new Error(`scenes[${index}] must be a text-diff, discussion, walkthrough, stacked-diff, or deconstructed-diff scene.`);
     }
@@ -590,6 +603,11 @@ function validateScene(value: unknown, index: number, version: 1 | 2 | 4 | 5): a
             }
             validateStepRequirement(step.requirement, `${path}.requirement`);
             validateTourImage(step.image, `${path}.image`);
+            if (step.symbol !== undefined) {
+                if (version < 6) throw new Error(`${path}.symbol requires manifest version 6.`);
+                if (step.image || step.connection) throw new Error(`${path}.symbol cannot combine with image or connection.`);
+                validateTourSymbol(step.symbol);
+            }
             validateResolvedAnchor(step.focus, `${path}.focus`);
             validateScene(step.diff, index, version);
             if (step.diff.kind !== 'text-diff') throw new Error(`${path}.diff must be a text-diff scene.`);
@@ -787,7 +805,7 @@ function validateNarrative(value: Record<string, unknown>, path: string): void {
     requireString(value.takeaway, `${path}.takeaway`);
 }
 
-function validateChapterSummary(value: unknown, version: 1 | 2 | 4 | 5, path: string): void {
+function validateChapterSummary(value: unknown, version: 1 | 2 | 4 | 5 | 6, path: string): void {
     if (value === undefined) return;
     if (version < 5) throw new Error(`${path} requires manifest version 5.`);
     if (typeof value !== 'string' || !value.trim()) {

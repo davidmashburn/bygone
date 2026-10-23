@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["version", "anchors", "connections", "chapters"],
   "properties": {
-    "version": { "enum": [1, 2, 4, 5] },
+    "version": { "enum": [1, 2, 4, 5, 6] },
     "opening": { "$ref": "#/$defs/passage" },
     "conclusion": { "$ref": "#/$defs/passage" },
     "title": { "$ref": "#/$defs/nonEmptyString" },
@@ -15,6 +15,7 @@
       "$ref": "#/$defs/nonEmptyString",
       "description": "Optional native window title for the tour presenter. Use a short label such as a pull request number when multiple tours may be open."
     },
+    "correspondence": { "$ref": "#/$defs/nonEmptyString", "description": "Repository-relative validated correspondence artifact; requires version 6." },
     "sourceUrl": { "type": "string", "minLength": 1 },
     "details": { "$ref": "#/$defs/details" },
     "range": {
@@ -72,7 +73,7 @@
   },
   "allOf": [
     {
-      "if": { "properties": { "version": { "const": 5 } } },
+      "if": { "properties": { "version": { "enum": [5, 6] } } },
       "then": {
         "properties": {
           "chapters": { "$ref": "#/$defs/purposeChapters" },
@@ -127,7 +128,7 @@
       }
     },
     {
-      "if": { "properties": { "version": { "enum": [2, 4, 5] } }, "required": ["version"] },
+      "if": { "properties": { "version": { "enum": [2, 4, 5, 6] } }, "required": ["version"] },
       "then": {
         "properties": {
           "chapters": {
@@ -144,9 +145,47 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "version": {
+            "enum": [
+              1,
+              2,
+              4,
+              5
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "correspondence": false,
+          "chapters": {
+            "$ref": "#/$defs/legacySymbolChapters"
+          },
+          "tours": {
+            "additionalProperties": {
+              "properties": {
+                "chapters": {
+                  "$ref": "#/$defs/legacySymbolChapters"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ],
   "$defs": {
+    "legacySymbolChapters": {
+      "items": { "properties": { "scenes": {
+        "items": { "properties": { "steps": {
+          "items": { "properties": { "symbol": false } }
+        } } }
+      } } }
+    },
     "legacyFramingChapters": {
       "items": {
         "allOf": [
@@ -276,6 +315,7 @@
       }
     },
     "step": {
+      "not": { "anyOf": [{ "required": ["symbol", "image"] }, { "required": ["symbol", "connection"] }] },
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "title", "body", "focus"],
@@ -284,6 +324,11 @@
         "title": { "$ref": "#/$defs/nonEmptyString" },
         "body": { "$ref": "#/$defs/nonEmptyString" },
         "focus": { "$ref": "#/$defs/nonEmptyString" },
+        "symbol": {
+          "type": "object", "additionalProperties": false,
+          "properties": {"relation": {"$ref": "#/$defs/nonEmptyString"}, "symbol": {"$ref": "#/$defs/nonEmptyString"}},
+          "oneOf": [{"required": ["relation"]}, {"required": ["symbol"]}]
+        },
         "image": {
           "type": "object", "additionalProperties": false,
           "required": ["file", "revision", "alt"],

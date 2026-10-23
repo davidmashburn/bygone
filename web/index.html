@@ -70,6 +70,7 @@
                 <label><input id="correspondence-all" type="checkbox"> Include unchanged local symbols</label>
                 <label title="Includes before-only and after-only declarations without an accepted match; these are not confirmed additions or deletions."><input id="correspondence-unmatched" type="checkbox" checked> Include added or removed local symbols</label>
                 <p id="correspondence-selection" aria-live="polite"></p>
+                <button id="correspondence-context" type="button" title="Show complete source and destination files with declarations highlighted" hidden>Show file context</button>
                 <nav id="correspondence-list" aria-label="Symbol tree"></nav>
                 <details id="correspondence-analysis"><summary>Analysis details</summary><div id="correspondence-limitations"></div></details>
             </section>
@@ -191,6 +192,7 @@
                 <span id="tour-directory-narration-context" class="tour-directory-narration-context" hidden>Narration describes the overview</span>
             </nav>
             <div id="file-info" class="header-align-diff">Choose a compare command to render a diff.</div>
+            <button id="file-symbol-context" class="header-align-diff" type="button" title="Switch between the symbol comparison and its full file context" hidden>Show file context</button>
             <div id="status-banner" class="status-banner header-align-diff" role="status" aria-live="polite" aria-atomic="true" hidden></div>
             <div id="directory-return-toolbar" class="directory-return-toolbar header-align-diff" hidden>
                 <button id="back-to-directory" class="directory-return-button" type="button" title="Show directory comparison (Cmd/Ctrl+[)" aria-label="Show directory comparison">
