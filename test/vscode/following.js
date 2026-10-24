@@ -46,6 +46,9 @@ exports.run = async function() {
             await until(() => docs[0].getText() === beforeFollowing, 'source preflight undo');
             await command('followActiveEditor'); await ready('A.ts');
             panel = api.provider.panels.get('follow').panel;
+            // Git/model readiness can precede the workbench assigning the new
+            // webview its column. Wait for placement before asserting layout.
+            await until(() => panel.viewColumn !== undefined, 'following panel placement');
             assert.equal(panel.viewColumn, vscode.ViewColumn.Two);
             assert.equal(vscode.window.activeTextEditor.document, docs[0]);
             assert.deepEqual(message().editableSides, { left: false, right: false });
