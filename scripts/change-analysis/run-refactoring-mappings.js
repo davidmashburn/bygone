@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const childProcess = require('node:child_process');
 const { performance } = require('node:perf_hooks');
 const { digest } = require('./symbol-inventory');
 const { normalizeMappings } = require('./refactoring-mappings');
@@ -9,7 +9,7 @@ const { createHash } = require('node:crypto');
 
 const PINNED_JAR_SHA256 = '8f760b20a2be7552869cee1e1375008c76ac031c1c241f26cd55d32703887dce';
 const BRIDGE = path.join(__dirname, 'refactoring-miner/BygoneMappingsBridge.java');
-const { LIMITS, inputProblem } = require('../../packages/strand/src/input');
+const { LIMITS, inputProblem, boundedProcessOptions } = require('../../packages/strand/src/input');
 
 function compileBridge(config) {
     if (!config.java || !config.jar) throw new Error('Provide an explicit java executable and engine jar.');
@@ -18,7 +18,7 @@ function compileBridge(config) {
     if (jarSha256 !== (config.expectedJarSha256 || PINNED_JAR_SHA256)) throw new Error('engine-jar-digest-mismatch: provide the verified build digest explicitly');
     const javac = path.join(path.dirname(config.java), process.platform === 'win32' ? 'javac.exe' : 'javac');
     const versions = [config.java, javac].map(executable => {
-        const result = spawnSync(executable, ['-version'], { encoding: 'utf8', timeout: 10000, maxBuffer: 1048576, windowsHide: true });
+        const result = childProcess.spawnSync(executable, ['-version'], { encoding: 'utf8', timeout: 10000, maxBuffer: 1048576, windowsHide: true });
         const major = Number(`${result.stdout || ''}\n${result.stderr || ''}`.match(/(?:version\s+"|javac\s+)(\d+)/)?.[1]);
         if (result.error || result.status !== 0 || !major || major < 21) {
             throw new Error(`java-toolchain-unavailable: use an explicit JDK 21+ with sibling java and javac; ${path.basename(executable)} version check failed${result.error ? ` (${result.error.code})` : ''}. Use --exact-only to analyze without Java.`);
@@ -27,7 +27,7 @@ function compileBridge(config) {
     });
     if (versions[0] !== versions[1]) throw new Error('java-toolchain-mismatch: java and sibling javac must have the same major version.');
     const buildDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-mapping-bridge-'));
-    const compiled = spawnSync(javac, ['-proc:none', '-cp', config.jar, '-d', buildDir, BRIDGE], {
+    const compiled = childProcess.spawnSync(javac, ['-proc:none', '-cp', config.jar, '-d', buildDir, BRIDGE], {
         encoding: 'utf8', timeout: 30000, maxBuffer: 1048576
     });
     if (compiled.error || compiled.status !== 0) {
@@ -38,8 +38,13 @@ function compileBridge(config) {
 }
 
 function analyzeWithBridge(before, after, config = {}) {
-    const limits = { ...LIMITS, ...config.limits };
-    const invalidLimits = Object.values(limits).some(value => !Number.isInteger(value) || value < 1) || limits.maxRecords > 100000;
+    const requestedLimits = config.limits ?? {};
+    const processOptions = boundedProcessOptions(requestedLimits, 'timeoutMs', 'maxOutputBytes', LIMITS.timeoutMs);
+    const limits = { ...LIMITS, ...requestedLimits,
+        ...(processOptions ? { timeoutMs: processOptions.timeout, maxOutputBytes: processOptions.maxBuffer } : {}) };
+    const invalidLimits = !processOptions
+        || Object.values(limits).some(value => !Number.isSafeInteger(value) || value < 1)
+        || limits.maxRecords > 100000;
     const problem = invalidLimits ? 'invalid-limits' : inputProblem(before, after, limits);
     if (problem) return { analysis: { version: 1, status: 'unavailable', reason: problem, inventories: null, relations: [],
         scope: { note: 'Inventory not computed because the input was invalid or over budget.' } }, native: null };
@@ -58,9 +63,9 @@ function analyzeWithBridge(before, after, config = {}) {
     }
     if (!config.java || !config.jar || !config.buildDir) return fallback('engine-not-configured');
     const began = performance.now();
-    const result = spawnSync(config.java, ['-Xmx2g', '-cp', `${config.buildDir}${path.delimiter}${config.jar}`, 'BygoneMappingsBridge'], {
+    const result = childProcess.spawnSync(config.java, ['-Xmx2g', '-cp', `${config.buildDir}${path.delimiter}${config.jar}`, 'BygoneMappingsBridge'], {
         input: JSON.stringify({ before, after, maxRecords: limits.maxRecords }), encoding: 'utf8',
-        timeout: limits.timeoutMs, maxBuffer: limits.maxOutputBytes, windowsHide: true
+        ...processOptions, windowsHide: true
     });
     let native;
     if (result.error) native = { status: 'unavailable', reason: result.error.code === 'ETIMEDOUT' ? 'engine-timeout' : `engine-process: ${result.error.code}`, mappers: [] };

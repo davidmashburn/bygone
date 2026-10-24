@@ -1,12 +1,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const childProcess = require('node:child_process');
 const { resolveBranchReviewRange } = require('../../out/gitComparison');
 const { importChangeCorrespondence } = require('../../out/changeCorrespondence');
 const { compileBridge, analyzeWithBridge, LIMITS } = require('./run-refactoring-mappings');
 const { analyzeStrand, ENGINE, JAVASCRIPT_LIMITS } = require('./run-javascript-mappings');
 
 const USAGE = 'npm run correspondence:analyze -- [<head>] --base <base> --output <artifact.json> [--repo <checkout>] [--python <python3>] [--engine bygone-strand | --exact-only | --java <jdk/bin/java> --jar <RM-fat.jar> --jar-sha256 <verified digest>]';
+const DEFAULT_GIT_TIMEOUT_MS = 30_000;
 const { isSupportedSource } = require('./symbol-inventory');
 
 function parseArgs(args) {
@@ -49,7 +50,11 @@ function engineOptions(options, cwd, env) {
 // Read committed blobs, never working-tree bytes. Rename detection is disabled
 // so both names remain in scope even across language/extension changes.
 function readSnapshots(range, limits = LIMITS) {
-    const git = args => execFileSync('git', args, { cwd: range.repoRoot, maxBuffer: 8 * 1024 * 1024 });
+    const git = args => childProcess.execFileSync('git', args, {
+        cwd: range.repoRoot,
+        maxBuffer: 8 * 1024 * 1024,
+        timeout: DEFAULT_GIT_TIMEOUT_MS
+    });
     const paths = git(['diff', '--name-only', '-z', '--no-renames', range.mergeBaseOid, range.headOid, '--'])
         .toString('utf8').split('\0').filter(Boolean);
     const selected = paths.filter(p => isSupportedSource(p));

@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const DEFAULT_GIT_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
+const DEFAULT_GIT_TIMEOUT_MS = 30_000;
 
 export type GitSnapshot =
     | { kind: 'commit'; oid: string; label: string }
@@ -63,6 +64,7 @@ export function createGitRunner(maxBuffer = readGitMaxBuffer()): RunGit {
         cwd,
         encoding: 'utf8',
         maxBuffer,
+        timeout: DEFAULT_GIT_TIMEOUT_MS,
         stdio: ['ignore', 'pipe', 'pipe']
     }).trimEnd();
 }
@@ -417,6 +419,7 @@ function readGitBlob(repoRoot: string, commit: string, relativePath: string): Bu
         cwd: repoRoot,
         encoding: 'buffer',
         maxBuffer: readGitMaxBuffer(),
+        timeout: DEFAULT_GIT_TIMEOUT_MS,
         stdio: ['ignore', 'pipe', 'pipe']
     });
 }
@@ -426,6 +429,7 @@ function runGitText(repoRoot: string, args: readonly string[]): string {
         cwd: repoRoot,
         encoding: 'utf8',
         maxBuffer: readGitMaxBuffer(),
+        timeout: DEFAULT_GIT_TIMEOUT_MS,
         stdio: ['ignore', 'pipe', 'pipe']
     });
 }
