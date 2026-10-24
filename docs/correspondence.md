@@ -85,8 +85,17 @@ Python `.pyi` files have inventory/exact matching only and explicitly mark the
 comparison partial because the pinned engine does not parse them. Validated
 matches between analyzed implementation declarations can still be accepted.
 
-The output must be a new file. Artifacts contain source text;
+The output must be a new file. Import creates it exclusively and refuses an
+existing path, including the producer report itself and symlink or hardlink
+aliases. It never overwrites existing bytes; choose another output path.
+Artifacts contain source text;
 keep private repositories' evidence outside this repository.
+
+When presenting a tour, an authored `source.correspondence` path and an
+explicit `--correspondence` path must identify the same actual file. Symlink
+and hardlink aliases are accepted, but a separate copy with identical bytes is
+still a different artifact and is rejected before the manifest output or server
+is created.
 
 Changed files bound the candidate universe: unchanged files, unsupported
 languages, symlinks and submodules are excluded. The artifact records this

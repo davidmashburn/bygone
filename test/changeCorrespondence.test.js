@@ -12,7 +12,13 @@ const source = require('./fixtures/correspondence-module-split.json');
 const clone = value => JSON.parse(JSON.stringify(value));
 const hash = value => createHash('sha256').update(value).digest('hex');
 const { correspondenceFixture: fixture } = require('./correspondenceFixture');
+const { tourSymbolFixture } = require('./tourSymbolFixture');
 const silent = { write() {} };
+
+function symlinkAlias(file, directory) {
+    fs.symlinkSync(path.dirname(file), directory, process.platform === 'win32' ? 'junction' : 'dir');
+    return path.join(directory, path.basename(file));
+}
 
 test('structured diagnostics round-trip syntax, rejection endpoints, scope and parser failures without changing mappings', () => {
     const { normalizeMappings } = require('../scripts/change-analysis/refactoring-mappings');
@@ -238,6 +244,93 @@ test('CLI imports an explicitly selected report case and both consumers validate
         assert.equal(manifest.files.length, 2); // Complete raw files remain independently available.
         const html = await (await fetch(presentation.url)).text(); assert.match(html, /correspondence-list/);
     } finally { if (presentation) await new Promise(resolve => presentation.server.close(resolve)); f.dispose(); }
+});
+
+test('CLI import refuses existing destinations and preserves producer and aliased bytes', () => {
+    const f = fixture();
+    try {
+        const report = path.join(f.root, 'report.json');
+        const reportText = JSON.stringify({ cases: [{ id: 'split', ...source }] });
+        fs.writeFileSync(report, reportText);
+        const args = destination => ['import', report, '--case', 'split', '--base', f.range.baseOid, '--output', destination];
+        const existing = path.join(f.root, 'existing.json');
+        fs.writeFileSync(existing, 'keep existing');
+        assert.throws(() => importCorrespondenceCommand(args(existing), f.root, silent), /output already exists/);
+        assert.equal(fs.readFileSync(existing, 'utf8'), 'keep existing');
+        assert.throws(() => importCorrespondenceCommand(args(report), f.root, silent), /must not overwrite the producer report/);
+        assert.equal(fs.readFileSync(report, 'utf8'), reportText);
+        const reportSymlink = symlinkAlias(report, path.join(f.root, 'report-alias'));
+        const reportHardlink = path.join(f.root, 'report-hardlink.json');
+        fs.linkSync(report, reportHardlink);
+        for (const alias of [reportSymlink, reportHardlink]) {
+            assert.throws(() => importCorrespondenceCommand(args(alias), f.root, silent), /must not overwrite the producer report/);
+            assert.equal(fs.readFileSync(report, 'utf8'), reportText);
+        }
+        const protectedFile = path.join(f.root, 'protected.json');
+        fs.writeFileSync(protectedFile, 'keep aliases');
+        const symlink = symlinkAlias(protectedFile, path.join(f.root, 'protected-alias'));
+        assert.throws(() => importCorrespondenceCommand(args(symlink), f.root, silent), /output already exists/);
+        assert.equal(fs.readFileSync(protectedFile, 'utf8'), 'keep aliases');
+        const hardlink = path.join(f.root, 'protected-hardlink.json');
+        fs.linkSync(protectedFile, hardlink);
+        assert.throws(() => importCorrespondenceCommand(args(hardlink), f.root, silent), /output already exists/);
+        assert.equal(fs.readFileSync(protectedFile, 'utf8'), 'keep aliases');
+    } finally { f.dispose(); }
+});
+
+test('present rejects conflicting authored and explicit artifacts before output or server creation', async () => {
+    const f = tourSymbolFixture();
+    let presentation;
+    const outputPath = path.join(f.root, 'manifest.json');
+    const previousOutput = process.env.BYGONE_TOUR_OUTPUT;
+    try {
+        const tourPath = path.join(f.root, 'move.bygone');
+        const explicitArtifact = path.join(f.root, 'other-symbols.json');
+        fs.writeFileSync(tourPath, JSON.stringify(f.source));
+        fs.copyFileSync(path.join(f.root, 'symbols.json'), explicitArtifact);
+        process.env.BYGONE_TOUR_OUTPUT = outputPath;
+        await assert.rejects(
+            async () => { presentation = await startPresentation(['--tour', tourPath, '--correspondence', explicitArtifact], f.root, path.resolve(__dirname, '..'), { open: false, announce: false }); },
+            /Conflicting correspondence artifacts.*same actual file/
+        );
+        assert.equal(fs.existsSync(outputPath), false);
+        assert.equal(presentation, undefined);
+    } finally {
+        if (previousOutput === undefined) delete process.env.BYGONE_TOUR_OUTPUT;
+        else process.env.BYGONE_TOUR_OUTPUT = previousOutput;
+        if (presentation) await new Promise(resolve => presentation.server.close(resolve));
+        f.dispose();
+    }
+});
+
+test('present accepts symlink and hardlink aliases for the authored artifact', async () => {
+    const f = tourSymbolFixture();
+    let presentation;
+    try {
+        const tourPath = path.join(f.root, 'move.bygone');
+        fs.writeFileSync(tourPath, JSON.stringify(f.source));
+        const aliases = [
+            ['symlink-symbols.json', 'symlink'],
+            ['hardlink-symbols.json', 'hardlink']
+        ];
+        for (const [name, kind] of aliases) {
+            let alias = path.join(f.root, name);
+            if (kind === 'symlink') {
+                alias = symlinkAlias(path.join(f.root, 'symbols.json'), alias);
+            } else {
+                fs.linkSync(path.join(f.root, 'symbols.json'), alias);
+            }
+            presentation = await startPresentation(['--tour', tourPath, '--correspondence', alias], f.root, path.resolve(__dirname, '..'), { open: false, announce: false, ignoreEnvironment: true });
+            const response = await fetch(new URL('/correspondence.json', presentation.url));
+            assert.equal(response.status, 200);
+            assert.equal((await response.json()).relations.length, 6);
+            await new Promise(resolve => presentation.server.close(resolve));
+            presentation = undefined;
+        }
+    } finally {
+        if (presentation) await new Promise(resolve => presentation.server.close(resolve));
+        f.dispose();
+    }
 });
 
 test('oversized or malformed artifacts are rejected before any Git lookup', () => {

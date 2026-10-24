@@ -1,4 +1,4 @@
-const { existsSync, mkdirSync, readFile, readFileSync, realpathSync, writeFileSync } = require('fs');
+const { existsSync, mkdirSync, readFile, readFileSync, realpathSync, statSync, writeFileSync } = require('fs');
 const { createServer } = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -49,9 +49,21 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         const contained = relative && relative !== '..' && !relative.startsWith('../') && !path.isAbsolute(relative);
         manifest.localSource = { repo: pathToFileURL(root).href, tour: contained ? relative : pathToFileURL(documentPath).href };
     }
-    const correspondenceFile = correspondencePath || source?.correspondence;
-    const correspondence = correspondenceFile ? loadChangeCorrespondence(builtManifest.repository?.root || cwd,
-        path.resolve(correspondencePath ? cwd : builtManifest.repository?.root || cwd, correspondenceFile), { baseOid: manifest.range.mergeBaseOid, headOid: manifest.range.headOid }) : null;
+    const repositoryRoot = builtManifest.repository?.root || cwd;
+    const authoredCorrespondencePath = source?.correspondence
+        ? path.resolve(repositoryRoot, source.correspondence)
+        : undefined;
+    const explicitCorrespondencePath = correspondencePath
+        ? path.resolve(cwd, correspondencePath)
+        : undefined;
+    if (authoredCorrespondencePath && explicitCorrespondencePath
+        && !sameActualFile(authoredCorrespondencePath, explicitCorrespondencePath)) {
+        throw new Error(`Conflicting correspondence artifacts: source.correspondence (${authoredCorrespondencePath}) and --correspondence (${explicitCorrespondencePath}) must identify the same actual file.`);
+    }
+    const correspondencePathToLoad = explicitCorrespondencePath || authoredCorrespondencePath;
+    const correspondence = correspondencePathToLoad
+        ? loadChangeCorrespondence(repositoryRoot, correspondencePathToLoad, { baseOid: manifest.range.mergeBaseOid, headOid: manifest.range.headOid })
+        : null;
     const history = createTourHistory(manifest);
     const serializedManifest = `${JSON.stringify(manifest, null, 2)}\n`;
     const outputPath = options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_OUTPUT;
@@ -325,6 +337,24 @@ function isSameOriginLoopbackRequest(request) {
     try {
         const parsed = new URL(origin);
         return parsed.protocol === 'http:' && parsed.hostname === '127.0.0.1' && parsed.host === host;
+    } catch {
+        return false;
+    }
+}
+
+function sameActualFile(first, second) {
+    if (first === second) return true;
+    try {
+        const left = statSync(first);
+        const right = statSync(second);
+        if (left.dev !== undefined && left.ino !== undefined
+            && left.dev === right.dev && left.ino === right.ino
+            && left.ino !== 0 && right.ino !== 0) return true;
+    } catch {
+        // Fall back to canonical paths on filesystems without usable identity metadata.
+    }
+    try {
+        return realpathSync(first) === realpathSync(second);
     } catch {
         return false;
     }

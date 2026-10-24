@@ -1,5 +1,5 @@
 const path = require('path');
-const { mkdirSync, writeFileSync } = require('fs');
+const { lstatSync, mkdirSync, statSync, writeFileSync } = require('fs');
 const { resolveBranchReviewRange } = require('../out/gitComparison');
 const { importChangeCorrespondence, readCorrespondenceJson } = require('../out/changeCorrespondence');
 
@@ -16,7 +16,10 @@ function importCorrespondenceCommand(args, cwd, output = process.stdout) {
         else positional.push(arg);
     }
     if (!positional.length || positional.length > 2 || !options['--output']) throw new Error('Provide a producer report, at most one head ref, and --output.');
-    const report = readCorrespondenceJson(path.resolve(cwd, positional[0]));
+    const reportPath = path.resolve(cwd, positional[0]);
+    const destination = path.resolve(cwd, options['--output']);
+    assertDestinationAvailable(reportPath, destination);
+    const report = readCorrespondenceJson(reportPath);
     if (!report || typeof report !== 'object') throw new Error('Invalid correspondence report.');
     let selected = report;
     if (Array.isArray(report.cases)) {
@@ -27,11 +30,42 @@ function importCorrespondenceCommand(args, cwd, output = process.stdout) {
     } else if (options['--case']) throw new Error('--case requires a multi-case producer report.');
     const range = resolveBranchReviewRange(cwd, positional[1] || 'HEAD', options['--base']);
     const artifact = importChangeCorrespondence(range.repoRoot, selected, { baseOid: range.mergeBaseOid, headOid: range.headOid });
-    const destination = path.resolve(cwd, options['--output']);
-    if (destination === path.resolve(cwd, positional[0])) throw new Error('The imported artifact must not overwrite the producer report.');
     mkdirSync(path.dirname(destination), { recursive: true });
-    writeFileSync(destination, JSON.stringify(artifact, null, 2) + '\n');
+    try {
+        writeFileSync(destination, JSON.stringify(artifact, null, 2) + '\n', { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+    } catch (error) {
+        if (error?.code === 'EEXIST') throw new Error(`The correspondence output already exists at ${destination}; choose a new path.`, { cause: error });
+        throw new Error(`Could not create correspondence output at ${destination}: ${error.message}`, { cause: error });
+    }
     output.write(`Wrote ${artifact.relations.length} inferred correspondences (${artifact.status}) to ${destination}\n`);
     return artifact;
 }
+
+function assertDestinationAvailable(reportPath, destination) {
+    if (sameActualFile(reportPath, destination)) {
+        throw new Error('The imported artifact must not overwrite the producer report or any of its symlink/hardlink aliases.');
+    }
+    try {
+        lstatSync(destination);
+    } catch (error) {
+        if (error?.code === 'ENOENT') return;
+        throw new Error(`Could not inspect correspondence output at ${destination}: ${error.message}`, { cause: error });
+    }
+    throw new Error(`The correspondence output already exists at ${destination}; choose a new path.`);
+}
+
+function sameActualFile(first, second) {
+    if (first === second) return true;
+    try {
+        const left = statSync(first);
+        const right = statSync(second);
+        if (left.dev !== undefined && left.ino !== undefined
+            && left.dev === right.dev && left.ino === right.ino
+            && left.ino !== 0 && right.ino !== 0) return true;
+    } catch {
+        return false;
+    }
+    return false;
+}
+
 module.exports = { importCorrespondenceCommand };

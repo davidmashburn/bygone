@@ -84,7 +84,7 @@ test('ambiguous endpoints remain one-sided in symbol stops', () => {
     } finally { f.dispose(); }
 });
 
-test('symbol artifacts allow internal symlinks and reject links outside the repository', () => {
+test('symbol artifacts allow internal symlinks and hardlinks and reject links outside the repository', () => {
     const f = fixture(), outside = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-artifact-outside-'));
     try {
         const directoryLink = process.platform === 'win32' ? 'junction' : 'dir';
@@ -92,6 +92,9 @@ test('symbol artifacts allow internal symlinks and reject links outside the repo
         fs.copyFileSync(path.join(f.root, 'symbols.json'), path.join(f.root, 'evidence', 'symbols.json'));
         fs.symlinkSync(path.join(f.root, 'evidence'), path.join(f.root, 'internal'), directoryLink);
         f.source.correspondence = 'internal/symbols.json';
+        assert.doesNotThrow(() => compile(f));
+        fs.linkSync(path.join(f.root, 'symbols.json'), path.join(f.root, 'hardlink-symbols.json'));
+        f.source.correspondence = 'hardlink-symbols.json';
         assert.doesNotThrow(() => compile(f));
         fs.copyFileSync(path.join(f.root, 'symbols.json'), path.join(outside, 'symbols.json'));
         fs.symlinkSync(outside, path.join(f.root, 'external'), directoryLink);
