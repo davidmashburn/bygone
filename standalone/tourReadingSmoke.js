@@ -1,6 +1,7 @@
 /* global require, module, console */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const { setTimeout } = require('node:timers');
 
 const READING_SELECTOR = '.tour-reading-item[data-reading-key][data-reading-kind]';
 const TRANSITION_TYPES = ['showDiff', 'showMultiDiff'];
@@ -25,6 +26,18 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
         check();
     })`);
     const waitForRaf = () => evaluate('new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    const focusBrowserWindow = async () => {
+        if (!browserWindow || typeof browserWindow.isFocused !== 'function') return;
+        if (!browserWindow.isFocused()) {
+            browserWindow.show?.();
+            browserWindow.focus?.();
+        }
+        const deadline = Date.now() + 5000;
+        while (!browserWindow.isFocused() && Date.now() < deadline) {
+            await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        if (!browserWindow.isFocused()) throw new Error('Tour reading smoke window did not receive focus');
+    };
     const read = () => evaluate(`(() => {
         const content = document.querySelector('#tour-narrative-content');
         const elements = [...document.querySelectorAll(${JSON.stringify(READING_SELECTOR)})];
@@ -159,11 +172,13 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
             assert.ok(split.codeHeight >= 180, 'Resizing preserves room for code');
         };
         const dragSplit = async (height) => {
+            await focusBrowserWindow();
             const split = await readSplit();
             const x = Math.round(split.handleX);
             const y = Math.round(split.handleY);
             browserContents.sendInputEvent({ type: 'mouseMove', x, y });
             browserContents.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, x, y });
+            await waitFor("document.body.classList.contains('is-resizing-tour-narrative')", 'narrative drag start');
             browserContents.sendInputEvent({ type: 'mouseMove', x, y: height + split.top });
             await waitFor(`Number(document.querySelector('#tour-narrative-resizer').getAttribute('aria-valuenow')) === ${height}`, 'dragged narrative boundary');
             browserContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, x, y: height + split.top });
