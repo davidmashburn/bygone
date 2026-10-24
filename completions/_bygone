@@ -14,6 +14,7 @@ _bygone() {
     local -a root_items review_options present_options legacy_options history_options shells tour_actions
     root_items=(
         'review:Review a committed branch against its merge base'
+        'correspondence:Import externally produced symbol correspondence evidence'
         'completion:Print shell completion source'
         'present:Open an app-hosted tour of a committed branch range'
         'tour:Validate, compile, or inspect authored change tours'
@@ -41,6 +42,7 @@ _bygone() {
         '-m:Set the branch-review base ref'
         '--main:Set the branch-review base ref'
         '--tour:Use an authored .bygone presentation'
+        '--correspondence:Use pinned symbol evidence in present or tour context'
         '-h:Show command help'
         '--help:Show command help'
     )
@@ -78,10 +80,10 @@ _bygone() {
             elif [[ "$words[3]" == "context" ]]; then
                 if [[ "$previous" == (--base|-m|--main) ]]; then
                     _bygone_git_refs
-                elif [[ "$previous" == "--output" || "$previous" == "-o" ]]; then
+                elif [[ "$previous" == "--output" || "$previous" == "-o" || "$previous" == "--correspondence" ]]; then
                     _files
                 else
-                    compadd -- --base --output -o --max-patch-bytes --max-total-patch-bytes
+                    compadd -- --base --output -o --max-patch-bytes --max-total-patch-bytes --correspondence
                     _bygone_git_refs
                 fi
             elif [[ "$words[3]" == "coverage" || "$words[3]" == "validate" || "$words[3]" == "compile" ]]; then
@@ -97,7 +99,7 @@ _bygone() {
             fi
             ;;
         present)
-            if [[ "$previous" == (--tour) ]]; then
+            if [[ "$previous" == (--tour) || "$previous" == "--correspondence" ]]; then
                 _files -g '*.bygone' -g '*.bygone.yaml'
             elif [[ "$previous" == (--base|-m|--main) ]]; then
                 _bygone_git_refs

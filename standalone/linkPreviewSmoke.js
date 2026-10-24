@@ -24,6 +24,11 @@ async function checkPreviewContextMenu(guest, previewRenderer) {
         const owner = BrowserWindow.fromWebContents(previewRenderer);
         owner.show();
         owner.focus();
+        const focusDeadline = Date.now() + 5000;
+        while (!owner.isFocused() && Date.now() < focusDeadline) {
+            await new Promise(resolve => setTimeout(resolve, 25));
+        }
+        assert.equal(owner.isFocused(), true, 'Preview host window is focused before native input');
         previewRenderer.focus();
         const point = await guest.executeJavaScript(`(() => {
             const rect = document.querySelector('#username').getBoundingClientRect();

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { resolveFollowBaseline, checkFollowText, FOLLOW_MAX_BYTES } = require('../out/followBaseline');
+const { resolveFollowBaseline, checkFollowText, FOLLOW_MAX_BYTES, FOLLOW_MAX_LINES } = require('../out/followBaseline');
 
 function fixture(t) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-follow-'));
@@ -50,7 +50,18 @@ test('linked worktrees use their own root and HEAD', async t => {
     fs.writeFileSync(path.join(linked, 'a'), 'linked');
     execFileSync('git', ['-C', linked, 'commit', '-am', 'linked'], { stdio: 'ignore' });
     const value = await resolveFollowBaseline(path.join(linked, 'a'));
-    assert.equal(value.root, linked); assert.equal(value.content, 'linked');
+    assert.equal(value.root, fs.realpathSync(linked)); assert.equal(value.content, 'linked');
+});
+test('directory aliases resolve to the tracked file in the physical worktree', async t => {
+    const f = fixture(t); f.write('a.ts', 'tracked\n'); f.git('add', '.'); f.git('commit', '-m', 'fixture');
+    const alias = f.root + '-alias';
+    t.after(() => fs.rmSync(alias, { force: true, recursive: true }));
+    fs.symlinkSync(f.root, alias, process.platform === 'win32' ? 'junction' : 'dir');
+    const value = await resolveFollowBaseline(path.join(alias, 'a.ts'));
+    assert.equal(value.root, fs.realpathSync(f.root));
+    assert.equal(value.relativePath, 'a.ts');
+    assert.equal(value.content, 'tracked\n');
+    assert.equal(value.absent, false);
 });
 test('binary, invalid UTF-8, oversized and excessive-line inputs are bounded', async t => {
     const f = fixture(t);
@@ -64,4 +75,13 @@ test('cancelled reads reject', async t => {
     const f = fixture(t); const file = f.write('a', 'a');
     const abort = new AbortController(); abort.abort();
     await assert.rejects(resolveFollowBaseline(file, abort.signal), { name: 'AbortError' });
+});
+test('line limits accept the boundary with or without a final newline', () => {
+    for (const newline of ['\n', '\r\n']) {
+        const atLimit = Array(FOLLOW_MAX_LINES).fill('x').join(newline);
+        assert.doesNotThrow(() => checkFollowText(atLimit));
+        assert.doesNotThrow(() => checkFollowText(atLimit + newline));
+        assert.throws(() => checkFollowText(atLimit + newline + 'x'));
+        assert.throws(() => checkFollowText(atLimit + newline + 'x' + newline));
+    }
 });

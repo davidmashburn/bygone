@@ -50,6 +50,10 @@ export default [
         }
     },
     {
+        files: ['scripts/change-analysis/**/*.js', 'packages/strand/**/*.js'],
+        languageOptions: { sourceType: 'commonjs', globals: globals.node }
+    },
+    {
         files: ['media/**/*.js', 'web/**/*.js'],
         languageOptions: {
             globals: {

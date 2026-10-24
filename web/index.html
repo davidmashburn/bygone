@@ -31,6 +31,7 @@
         <nav id="tour-navigator-tabs" class="tour-navigator-tabs" aria-label="Tour navigator">
             <button type="button" data-tour-navigator="tour" aria-controls="tour-navigator-tour" aria-selected="true" title="Browse tour scenes">Tour <span id="tour-scene-count" class="tour-rail-count"></span></button>
             <button type="button" data-tour-navigator="files" aria-controls="tour-navigator-files" aria-selected="false" title="Browse changed files">Files <span id="tour-file-count" class="tour-rail-count"></span></button>
+            <button id="correspondence-tab" type="button" title="Explore inferred symbol mappings across the pinned comparison" data-tour-navigator="symbols" aria-controls="tour-navigator-symbols" aria-selected="false" hidden>Symbols</button>
             <button type="button" data-tour-navigator="commits" aria-controls="tour-navigator-commits" aria-selected="false" title="Browse revisions">Commits</button>
         </nav>
         <div class="tour-navigator-content">
@@ -62,6 +63,16 @@
                 </header>
                 <label id="tour-file-filter" class="file-tree-filter"><input id="tour-show-all-files" type="checkbox"><span id="tour-file-filter-label">Show all files</span><span id="tour-visible-file-count"></span></label>
                 <nav id="tour-files" class="tour-files" aria-label="Changed files"></nav>
+            </section>
+            <section id="tour-navigator-symbols" class="tour-navigator-panel" data-tour-navigator-panel="symbols" hidden>
+                <p id="correspondence-status" role="status"></p>
+                <label>Find a symbol <input id="correspondence-filter" type="search" placeholder="Name or path"></label>
+                <label><input id="correspondence-all" type="checkbox"> Include unchanged local symbols</label>
+                <label title="Includes before-only and after-only declarations without an accepted match; these are not confirmed additions or deletions."><input id="correspondence-unmatched" type="checkbox" checked> Include added or removed local symbols</label>
+                <p id="correspondence-selection" aria-live="polite"></p>
+                <button id="correspondence-context" type="button" title="Show complete source and destination files with declarations highlighted" hidden>Show file context</button>
+                <nav id="correspondence-list" aria-label="Symbol tree"></nav>
+                <details id="correspondence-analysis"><summary>Analysis details</summary><div id="correspondence-limitations"></div></details>
             </section>
             <section id="tour-navigator-commits" class="tour-navigator-panel" data-tour-navigator-panel="commits" hidden>
                 <div id="tour-history-controls" class="tour-evidence-controls" hidden>
@@ -181,6 +192,7 @@
                 <span id="tour-directory-narration-context" class="tour-directory-narration-context" hidden>Narration describes the overview</span>
             </nav>
             <div id="file-info" class="header-align-diff">Choose a compare command to render a diff.</div>
+            <button id="file-symbol-context" class="header-align-diff" type="button" title="Switch between the symbol comparison and its full file context" hidden>Show file context</button>
             <div id="status-banner" class="status-banner header-align-diff" role="status" aria-live="polite" aria-atomic="true" hidden></div>
             <div id="directory-return-toolbar" class="directory-return-toolbar header-align-diff" hidden>
                 <button id="back-to-directory" class="directory-return-button" type="button" title="Show directory comparison (Cmd/Ctrl+[)" aria-label="Show directory comparison">

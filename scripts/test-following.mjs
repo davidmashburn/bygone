@@ -29,7 +29,7 @@ try {
     await runTests({
         vscodeExecutablePath: executable, extensionDevelopmentPath: extension,
         extensionTestsPath: path.join(repo, 'test/vscode/following.js'),
-        extensionTestsEnv: { BYGONE_FOLLOW_FIXTURE: fixture },
+        extensionTestsEnv: { BYGONE_FOLLOW_FIXTURE: fixture, ELECTRON_RUN_AS_NODE: undefined },
         launchArgs: [fixture, '--disable-extensions', '--disable-workspace-trust', '--skip-welcome', '--skip-release-notes', '--disable-gpu', '--user-data-dir='+userData, '--extensions-dir='+path.join(root, 'extensions')]
     });
 } finally {

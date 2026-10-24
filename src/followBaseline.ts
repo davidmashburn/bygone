@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import { realpath } from 'fs/promises';
 import * as path from 'path';
 import { TextDecoder } from 'util';
 
@@ -14,7 +15,8 @@ export interface FollowBaseline {
 }
 
 export function checkFollowText(content: string): void {
-    if (Buffer.byteLength(content, 'utf8') > FOLLOW_MAX_BYTES || content.split('\n').length > FOLLOW_MAX_LINES) {
+    const lineCount = content.split('\n').length - (content.endsWith('\n') ? 1 : 0);
+    if (Buffer.byteLength(content, 'utf8') > FOLLOW_MAX_BYTES || lineCount > FOLLOW_MAX_LINES) {
         throw new Error('Following supports text up to 128 KiB and 5,000 lines. Use a manual comparison for this file.');
     }
     if (content.includes('\0')) throw new Error('Binary files cannot be followed.');
@@ -30,8 +32,12 @@ export async function resolveFollowBaseline(filePath: string, signal?: AbortSign
     });
     // Buffer output avoids silently replacing invalid UTF-8 in a baseline.
     const text = async (cwd: string, args: string[]) => (await git(cwd, args)).toString('utf8').replace(/\n$/, '');
-    const root = await text(path.dirname(filePath), ['rev-parse', '--show-toplevel']);
-    const relativePath = path.relative(root, filePath).split(path.sep).join('/');
+    // Git reports a physical worktree path. Resolve directory aliases (including
+    // macOS /var -> /private/var) before checking containment, retaining the leaf
+    // name so a file symlink cannot silently become a different tracked file.
+    const directory = await realpath(path.dirname(filePath));
+    const root = await text(directory, ['rev-parse', '--show-toplevel']);
+    const relativePath = path.relative(root, path.join(directory, path.basename(filePath))).split(path.sep).join('/');
     if (relativePath.startsWith('../') || path.isAbsolute(relativePath)) throw new Error('File is outside its Git worktree.');
     let oid: string | null;
     try {

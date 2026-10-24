@@ -176,3 +176,6 @@ matters. A new scene or file does not inherently mean a new comparison. Close
 by connecting the mechanism back to the promised behavior and stating material
 limits, rather than reciting the chapter titles. Include any remaining checks without adding
 fake code stops. See [the format](change-tour-format.md) for the fields.
+
+For experimental revision-pinned symbol evidence in authoring context and the
+viewer, see [symbol correspondence](correspondence.md).

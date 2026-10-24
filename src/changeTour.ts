@@ -1,3 +1,7 @@
+import { realpathSync } from 'fs';
+import { resolve, relative, isAbsolute, sep } from 'path';
+import { loadChangeCorrespondence } from './changeCorrespondence';
+import { compileTourSymbol } from './tourSymbol';
 import { MAX_TOUR_IMAGE_BYTES, validatePngHeader, type TourImageSource, type TourImage } from './tourImage';
 import { execFileSync } from 'child_process';
 import { GitChangedPath, parseNameStatusZ, resolveBranchReviewRange, resolveReviewPathPair } from './gitComparison';
@@ -309,10 +313,22 @@ function applySourceChapters(
     repoRoot: string,
     imageRevisions: { base: string; head: string }
 ): CompiledSourceTour {
+    const correspondence = source.correspondence ? (() => {
+        const file = realpathSync(resolve(repoRoot, source.correspondence));
+        const name = relative(realpathSync(repoRoot), file);
+        if (isAbsolute(name) || name === '..' || name.startsWith(`..${sep}`)) throw new Error('Correspondence artifact must be inside the repository.');
+        return loadChangeCorrespondence(repoRoot, file, { baseOid: imageRevisions.base, headOid: imageRevisions.head });
+    })() : undefined;
+    const compileSymbol = (step: ChangeTourSourceStep, focus: ChangeTourResolvedAnchor) => {
+        if (!step.symbol) return undefined;
+        if (!correspondence) throw new Error(`Step ${step.id} requires a correspondence artifact.`);
+        return compileTourSymbol(correspondence, step.symbol, focus);
+    };
     const available = new Map(defaultScenes.map((scene) => [scene.path, scene]));
     const resolvedAnchors = new Map<string, ChangeTourResolvedAnchor>();
     for (const [id, anchor] of Object.entries(source.anchors)) {
-        const file = available.get(anchor.file);
+        const file = available.get(anchor.file) || (anchor.revision === 'base'
+            ? defaultScenes.find(scene => scene.previousPath === anchor.file) : undefined);
         if (!file) {
             throw new Error(`Anchor ${id} references a file outside the text change range: ${anchor.file}`);
         }
@@ -350,7 +366,7 @@ function applySourceChapters(
                         available,
                         resolvedAnchors,
                         connections,
-                        image => compileTourImage(repoRoot, image, imageRevisions[image.revision])
+                        image => compileTourImage(repoRoot, image, imageRevisions[image.revision]), compileSymbol
                     );
                     finalScenes.push(finalScene);
                     finalSceneIds.push(finalScene.id);
@@ -375,7 +391,7 @@ function applySourceChapters(
                 continue;
             }
             const scene = buildWalkthroughManifestScene(authoredScene, available, resolvedAnchors, connections,
-                image => compileTourImage(repoRoot, image, imageRevisions[image.revision]));
+                image => compileTourImage(repoRoot, image, imageRevisions[image.revision]), compileSymbol);
             scenes.push(scene);
             sceneIds.push(scene.id);
             finalScenes.push(scene);
@@ -532,7 +548,8 @@ function buildWalkthroughManifestScene(
     available: ReadonlyMap<string, ChangeTourDiffScene>,
     resolvedAnchors: ReadonlyMap<string, ChangeTourResolvedAnchor>,
     connections: ReadonlyMap<string, NonNullable<ChangeTourWalkthroughScene['steps'][number]['connection']>>,
-    resolveImage: (source: TourImageSource) => TourImage
+    resolveImage: (source: TourImageSource) => TourImage,
+    compileSymbol: (step: ChangeTourSourceStep, focus: ChangeTourResolvedAnchor) => import('./tourSymbol').TourSymbolEvidence | undefined
 ): ChangeTourWalkthroughScene {
     const overview = compileSceneOverview(authoredScene.overview, false);
     return {
@@ -546,7 +563,8 @@ function buildWalkthroughManifestScene(
         ...(overview ? { overview } : {}),
         steps: authoredScene.steps.map((step) => {
             const focus = requireResolvedAnchor(resolvedAnchors, step.focus);
-            const diff = available.get(focus.path);
+            const diff = available.get(focus.path) || (focus.revision === 'base'
+                ? [...available.values()].find(scene => scene.previousPath === focus.path) : undefined);
             if (!diff) throw new Error(`Step ${step.id} has no text diff for ${focus.path}.`);
             return {
                 id: step.id,
@@ -556,6 +574,7 @@ function buildWalkthroughManifestScene(
                 requirement: step.requirement,
                 ...(step.image ? { image: resolveImage(step.image) } : {}),
                 focus,
+                ...(step.symbol ? { symbol: compileSymbol(step, focus) } : {}),
                 connection: step.connection ? connections.get(step.connection) : undefined,
                 diff: { ...diff, id: `${authoredScene.id}-${step.id}` }
             };

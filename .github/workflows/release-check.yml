@@ -47,6 +47,9 @@ jobs:
       - name: Run standalone smoke check
         run: npm run standalone:smoke
 
+      - name: Check VS Code following mode
+        run: npm run test:following
+
       - name: Check portable tours and image evidence
         run: npm run test:export-smoke
 

@@ -12,7 +12,7 @@ _bygone() {
     first="${COMP_WORDS[1]}"
 
     if (( COMP_CWORD == 1 )); then
-        COMPREPLY=( $(compgen -W 'review completion present tour --diff --history --git-diff --branch-diff --test --read-only -C -h --help -v --version' -- "$cur") $(compgen -f -- "$cur") )
+        COMPREPLY=( $(compgen -W 'review correspondence completion present tour --diff --history --git-diff --branch-diff --test --read-only -C -h --help -v --version' -- "$cur") $(compgen -f -- "$cur") )
         compopt -o filenames 2>/dev/null || true
         return
     fi
@@ -28,11 +28,11 @@ _bygone() {
                 refs="$(_bygone_git_refs)"
                 if [[ "$prev" =~ ^(--base|-m|--main)$ ]]; then
                     COMPREPLY=( $(compgen -W "$refs" -- "$cur") )
-                elif [[ "$prev" == "--output" || "$prev" == "-o" ]]; then
+                elif [[ "$prev" == "--output" || "$prev" == "-o" || "$prev" == "--correspondence" ]]; then
                     COMPREPLY=( $(compgen -f -- "$cur") )
                     compopt -o filenames 2>/dev/null || true
                 else
-                    COMPREPLY=( $(compgen -W '--base --output -o --max-patch-bytes --max-total-patch-bytes '"$refs" -- "$cur") )
+                    COMPREPLY=( $(compgen -W '--base --output -o --max-patch-bytes --max-total-patch-bytes --correspondence '"$refs" -- "$cur") )
                 fi
             else
                 COMPREPLY=( $(compgen -W '--json --output -o' -- "$cur") $(compgen -f -- "$cur") )
@@ -49,13 +49,13 @@ _bygone() {
             ;;
         present)
             refs="$(_bygone_git_refs)"
-            if [[ "$prev" == "--tour" ]]; then
+            if [[ "$prev" == "--tour" || "$prev" == "--correspondence" ]]; then
                 COMPREPLY=( $(compgen -f -- "$cur") )
                 compopt -o filenames 2>/dev/null || true
             elif [[ "$prev" =~ ^(--base|-m|--main)$ ]]; then
                 COMPREPLY=( $(compgen -W "$refs" -- "$cur") )
             else
-                COMPREPLY=( $(compgen -W '--base -m --main --tour -h --help '"$refs" -- "$cur") )
+                COMPREPLY=( $(compgen -W '--base -m --main --tour --correspondence -h --help '"$refs" -- "$cur") )
             fi
             ;;
         --branch-diff)

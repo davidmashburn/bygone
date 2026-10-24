@@ -1471,8 +1471,8 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.equal(parseChangeTourManifest(JSON.parse(JSON.stringify(manifest))).version, 1);
     assert.throws(() => parseChangeTourManifest({ version: 1 }), /title must be a string/);
     assert.throws(
-        () => parseChangeTourManifest({ version: 6 }),
-        /manifest format version 6, but this version of Bygone supports up to version 5\. Upgrade Bygone to open it\./
+        () => parseChangeTourManifest({ version: 7 }),
+        /manifest format version 7, but this version of Bygone supports up to version 6\. Upgrade Bygone to open it\./
     );
 
     const story = parseChangeTourStory({
@@ -1606,8 +1606,8 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.throws(() => parseChangeTourSource({ ...source, inventedField: true }), /unknown field: inventedField/);
     assert.throws(() => parseChangeTourSource({ ...source, chapters: [] }), /non-empty array/);
     assert.throws(
-        () => parseChangeTourSource({ ...source, version: 6 }),
-        /source format version 6, but this version of Bygone supports up to version 5\. Upgrade Bygone to open it\./
+        () => parseChangeTourSource({ ...source, version: 7 }),
+        /source format version 7, but this version of Bygone supports up to version 6\. Upgrade Bygone to open it\./
     );
 
     fs.mkdirSync(path.join(repo, 'web'), { recursive: true });

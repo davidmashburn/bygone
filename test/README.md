@@ -82,6 +82,7 @@ missing paths versus Git failures, literal filenames, linked worktrees, invalid
 text, size limits, and cancellation.
 
 Run `npm run test:following` for a real VS Code Extension Host and Monaco renderer.
+The macOS release-check job also runs this suite.
 On headless Linux use `xvfb-run -a npm run test:following` (Xvfb and VS Code's shared
 libraries must be installed). The runner downloads stable VS Code by default;
 set `BYGONE_VSCODE_VERSION` to select another release or

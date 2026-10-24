@@ -3,7 +3,7 @@ import { validateTourImageSource, type TourImageSource } from './tourImage';
 import type { ChangeTourNarrative } from './changeTourManifest';
 import { validateChangeTourDetails, type ChangeTourDetails } from './tourDetails';
 
-export const CHANGE_TOUR_SOURCE_VERSION = 5 as const;
+export const CHANGE_TOUR_SOURCE_VERSION = 6 as const;
 
 export interface ChangeTourSourceAnchor {
     file: string;
@@ -32,6 +32,7 @@ export interface ChangeTourSourceStep {
     title: string;
     body: string;
     focus: string;
+    symbol?: { relation?: string; symbol?: string };
     image?: TourImageSource;
     connection?: string;
     depth?: 'mentioned' | 'explained' | 'contextualized';
@@ -150,7 +151,7 @@ export interface ChangeTourSourceTours {
 }
 
 export interface ChangeTourSource extends ChangeTourFraming {
-    version: 1 | 2 | 4 | typeof CHANGE_TOUR_SOURCE_VERSION;
+    version: 1 | 2 | 4 | 5 | typeof CHANGE_TOUR_SOURCE_VERSION;
     title?: string;
     windowTitle?: string;
     sourceUrl?: string;
@@ -158,6 +159,7 @@ export interface ChangeTourSource extends ChangeTourFraming {
         base: string;
         head: string;
     };
+    correspondence?: string;
     anchors: Record<string, ChangeTourSourceAnchor>;
     connections: ChangeTourSourceConnection[];
     chapters: ChangeTourSourceChapter[];
@@ -175,11 +177,11 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
     if (isRecord(value) && value.version === 3) {
         throw new Error('Tour source format version 3 is retired. Remove the review block, set source version to 4, and recompile the tour.');
     }
-    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
+    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== 5 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
         throw new Error('Unsupported or missing change-tour source version.');
     }
     requireOnlyKeys(value, [
-        'version', 'title', 'windowTitle', 'sourceUrl', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage', 'opening', 'conclusion', 'details'
+        'version', 'title', 'windowTitle', 'sourceUrl', 'correspondence', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage', 'opening', 'conclusion', 'details'
     ], 'source');
     validateTourFraming(value, value.version, 'source');
     optionalString(value.title, 'title');
@@ -221,6 +223,11 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         if (anchor.occurrence !== undefined && (!Number.isInteger(anchor.occurrence) || Number(anchor.occurrence) < 1)) {
             throw new Error(`anchors.${id}.occurrence must be a positive integer.`);
         }
+    }
+    if (value.correspondence !== undefined) {
+        if (value.version < 6) throw new Error('correspondence requires source version 6.');
+        requireString(value.correspondence, 'correspondence');
+        if (value.correspondence.startsWith('/') || value.correspondence.includes('\\') || value.correspondence.includes('\0') || value.correspondence.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('correspondence must be a repository-relative file path.');
     }
     const rawConnections = Array.isArray(value.connections)
         ? value.connections
@@ -290,7 +297,7 @@ type SourceTourValidationMode = 'root' | 'historical' | 'deconstructed';
 function validateSourceChapters(
     chaptersValue: unknown,
     chaptersPath: string,
-    version: 1 | 2 | 4 | 5,
+    version: 1 | 2 | 4 | 5 | 6,
     anchors: Record<string, unknown>,
     connectionIds: ReadonlySet<string>,
     mode: SourceTourValidationMode
@@ -344,7 +351,7 @@ function validateSourceChapters(
                     validateRealStack(scene.stack, `${path}.stack`, 2);
                 }
                 if (requireRealEvidence || scene.steps !== undefined) {
-                    validateWalkthroughSteps(scene, path, anchors, connectionIds);
+                    validateWalkthroughSteps(scene, path, anchors, connectionIds, version);
                 }
                 continue;
             }
@@ -366,7 +373,7 @@ function validateSourceChapters(
             }
             requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'overview', 'steps'], path);
             validateSceneOverview(scene.overview, `${path}.overview`, { allowComparison: false });
-            validateWalkthroughSteps(scene, path, anchors, connectionIds);
+            validateWalkthroughSteps(scene, path, anchors, connectionIds, version);
         }
     }
     if (mode === 'deconstructed' && !chaptersValue.some((chapter) => (
@@ -440,7 +447,8 @@ function validateWalkthroughSteps(
     scene: Record<string, unknown>,
     path: string,
     anchors: Record<string, unknown>,
-    connectionIds: ReadonlySet<string>
+    connectionIds: ReadonlySet<string>,
+    version: number
 ): void {
     if (!Array.isArray(scene.steps) || scene.steps.length === 0) {
         throw new Error(`${path} must contain a non-empty steps array.`);
@@ -453,9 +461,16 @@ function validateWalkthroughSteps(
         requireString(step.title, `${stepPath}.title`);
         requireString(step.body, `${stepPath}.body`);
         requireString(step.focus, `${stepPath}.focus`);
-        requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth', 'requirement', 'image'], stepPath);
+        requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth', 'requirement', 'image', 'symbol'], stepPath);
         if (step.depth !== undefined && !['mentioned', 'explained', 'contextualized'].includes(String(step.depth))) {
             throw new Error(`${stepPath}.depth must be mentioned, explained, or contextualized.`);
+        }
+        if (step.symbol !== undefined) {
+            if (version < 6 || !isRecord(step.symbol)) throw new Error(`${stepPath}.symbol requires an object and source version 6.`);
+            requireOnlyKeys(step.symbol, ['relation', 'symbol'], `${stepPath}.symbol`);
+            if ((step.symbol.relation === undefined) === (step.symbol.symbol === undefined)) throw new Error(`${stepPath}.symbol requires exactly one relation or symbol ID.`);
+            requireString(step.symbol.relation ?? step.symbol.symbol, `${stepPath}.symbol ID`);
+            if (step.image || step.connection) throw new Error(`${stepPath}.symbol cannot combine with image or connection.`);
         }
         validateStepRequirement(step.requirement, `${stepPath}.requirement`);
         validateTourImageSource(step.image, `${stepPath}.image`);

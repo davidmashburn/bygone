@@ -19,7 +19,8 @@ exports.run = async function() {
     const show = async i => { const editor = await vscode.window.showTextDocument(docs[i], { viewColumn: vscode.ViewColumn.One, preview: false }); await until(() => vscode.window.activeTextEditor?.document.uri.toString() === docs[i].uri.toString() && vscode.window.activeTextEditor.viewColumn === editor.viewColumn, 'source focus'); return editor; };
     const command = name => vscode.commands.executeCommand('bygone.' + name);
     const message = () => api.provider?.currentMessage;
-    const ready = name => until(() => message()?.file2 === name && !message().follow.unavailable, name + ' rendered');
+    const ready = name => until(() => message()?.file2 === name && !message().follow.unavailable, name + ' rendered')
+        .catch(error => { console.error('Following state:', JSON.stringify(message())); throw error; });
     const panels = () => vscode.window.tabGroups.all.flatMap(g => g.tabs).filter(t => t.input instanceof vscode.TabInputWebview && t.label.startsWith('Bygone:'));
     const webviews = () => vscode.window.tabGroups.all.flatMap(g => g.tabs).filter(t => t.input instanceof vscode.TabInputWebview);
     let panel;

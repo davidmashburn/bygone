@@ -37,6 +37,7 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
         const context = buildChangeTourContext(cwd, {
             headRef: options.headRef,
             baseRef: options.baseRef,
+            correspondencePath: options.correspondencePath ? path.resolve(cwd, options.correspondencePath) : undefined,
             maxPatchBytes: options.maxPatchBytes,
             maxTotalPatchBytes: options.maxTotalPatchBytes
         });
@@ -147,6 +148,7 @@ function parseContextArgs(args) {
     let baseRef;
     let outputPath;
     let maxPatchBytes;
+    let correspondencePath;
     let maxTotalPatchBytes;
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index];
@@ -158,6 +160,11 @@ function parseContextArgs(args) {
         if (arg === '--output' || arg === '-o') {
             if (!args[index + 1]) throw new Error(`${arg} requires a file path.`);
             outputPath = args[++index];
+            continue;
+        }
+        if (arg === '--correspondence') {
+            if (!args[index + 1] || args[index + 1].startsWith('-')) throw new Error('--correspondence requires a file path.');
+            correspondencePath = args[++index];
             continue;
         }
         if (arg === '--max-patch-bytes') {
@@ -180,7 +187,7 @@ function parseContextArgs(args) {
         if (headRef) throw new Error('tour context accepts at most one head ref.');
         headRef = arg;
     }
-    return { action: 'context', headRef, baseRef, outputPath, maxPatchBytes, maxTotalPatchBytes };
+    return { action: 'context', headRef, baseRef, outputPath, maxPatchBytes, maxTotalPatchBytes, ...(correspondencePath ? { correspondencePath } : {}) };
 }
 
 function writeJsonResult(label, value, outputPath, cwd, output) {
