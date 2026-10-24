@@ -82,6 +82,17 @@ Related packaging commands:
 
 Before publishing, verify:
 
+### Packaging dependency override
+
+The development toolchain scopes an `@azure/msal-node` 7.1.0 override to
+`@azure/identity`, which is used by `@vscode/vsce`. The version requested by
+Azure Identity is affected by
+[GHSA-xcx6-jx8p-x3h5](https://github.com/advisories/GHSA-xcx6-jx8p-x3h5).
+Remove the override once Azure Identity requests a patched version. Local
+credential construction and VSIX packaging are checked; interactive Azure
+authentication still requires a separate authenticated check before publishing
+through that flow. This dependency is not bundled into the shipped extension.
+
 ## Accounts You Need
 
 You need accounts on three services:

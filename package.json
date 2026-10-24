@@ -328,7 +328,7 @@
     "@types/node": "16.x",
     "@types/vscode": "1.74.0",
     "@vscode/vsce": "^4.0.0",
-    "electron": "^43.7.6",
+    "electron": "^43.8.3",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
     "eslint": "^10.7.0",
@@ -343,6 +343,9 @@
     "monaco-editor": "^0.55.1"
   },
   "overrides": {
+    "@azure/identity": {
+      "@azure/msal-node": "7.1.0"
+    },
     "dompurify": "^3.4.12",
     "js-yaml": "^4.3.0"
   },
