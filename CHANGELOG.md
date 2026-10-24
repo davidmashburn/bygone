@@ -1,11 +1,18 @@
 # Changelog
 
-## Unreleased
+## 0.11.0
 
 - Added experimental JS/TS and Python symbol evidence with declaration diffs, symbol trees, analysis diagnostics, and shared Files/Symbols navigation
 - Added pinned symbol tour stops and full-file context in live presentations and portable exports
-- Made Java analysis optional: exact-only generation records partial coverage, while the external RefactoringMiner backend enables broader inference
-- Updated DOMPurify and fast-uri to resolve dependency advisories
+- Added the local Strand declaration matcher for JS/TS, Python, Java, Go, Rust, C#, Ruby, PHP, C, Lua, and experimental Mojo, with bounded analysis and explicit ambiguity reporting
+- Kept Java and RefactoringMiner optional: exact-only generation records partial coverage, and Strand provides local inference without a JVM
+- Added opt-in VS Code active-editor following with a live HEAD-to-buffer diff, Pin/Resume/Refresh controls, and safe handoffs to history and manual comparison
+- Fixed following for macOS directory aliases and files at the 5,000-line limit, with regression coverage on current and minimum-supported VS Code
+- Hardened correspondence artifact validation, parser budgets, and symbol owner matching
+- Updated Electron, DOMPurify, fast-uri, and packaging dependencies to resolve security advisories
+
+macOS desktop downloads are unsigned and not notarized. If Gatekeeper reports
+the app as damaged, run `xattr -cr /Applications/Bygone.app`, then reopen it.
 
 ## 0.10.2
 
