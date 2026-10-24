@@ -134,18 +134,24 @@ function normalizeMappings(before, after, native, options = {}) {
         }
         return out;
     };
+    const ownerChains = new Map();
     const scopedBuckets = entries => {
         const named = buckets(entries, e => JSON.stringify([e.path, e.qualifiedName]));
         return buckets(entries, e => {
-            const scope = [];
+            const chain = [], seen = new Set([e.id]);
             for (let parent = e.parent; parent;) {
                 const owners = named.get(JSON.stringify([e.path, parent]));
-                if (owners?.length !== 1) return undefined;
+                if (owners?.length !== 1 || seen.has(owners[0].id)) {
+                    ownerChains.set(e.id, null);
+                    return undefined;
+                }
                 const owner = owners[0];
-                scope.push([owner.kind, owner.name]);
+                chain.push(owner);
+                seen.add(owner.id);
                 parent = owner.parent;
             }
-            return JSON.stringify([e.path, scope, e.kind, e.name]);
+            ownerChains.set(e.id, chain);
+            return JSON.stringify([e.path, chain.map(owner => [owner.kind, owner.name]), e.kind, e.name]);
         });
     };
     const old = buckets(inventories.before.entries), current = buckets(inventories.after.entries);
@@ -173,10 +179,34 @@ function normalizeMappings(before, after, native, options = {}) {
                 coveredSources.add(candidate.sourceId); coveredDestinations.add(candidate.destinationId);
             }
         }
-        for (const [k, sources] of old) {
+        // Resolve enclosing declarations before their descendants. Exact bytes
+        // cannot establish a new owner when its own continuation is ambiguous.
+        const ownerTargets = new Map(), ownerSources = new Map(), supportedPairs = new Set();
+        const recordCandidate = candidate => {
+            const { sourceId, destinationId } = candidate;
+            if (!ownerTargets.has(sourceId)) ownerTargets.set(sourceId, new Set());
+            if (!ownerSources.has(destinationId)) ownerSources.set(destinationId, new Set());
+            ownerTargets.get(sourceId).add(destinationId);
+            ownerSources.get(destinationId).add(sourceId);
+            if (candidate.producer === 'exact-declaration' || engineCoversPair(byId.get(sourceId), byId.get(destinationId))) {
+                supportedPairs.add(`${sourceId}:${destinationId}`);
+            }
+        };
+        candidates.forEach(recordCandidate);
+        const ownersSupported = (source, destination) => {
+            const a = ownerChains.get(source.id), b = ownerChains.get(destination.id);
+            return a && b && a.length === b.length && a.every((owner, i) =>
+                supportedPairs.has(`${owner.id}:${b[i].id}`)
+                && ownerTargets.get(owner.id)?.size === 1 && ownerSources.get(b[i].id)?.size === 1);
+        };
+        const depth = entries => entries.reduce((minimum, e) => Math.min(minimum, ownerChains.get(e.id)?.length ?? Infinity), Infinity);
+        for (const [k, sources] of [...old].sort((a, b) => depth(a[1]) - depth(b[1]))) {
             const destinations = current.get(k) || [];
             if (sources.length === 1 && destinations.length === 1) {
-                candidates.push({ sourceId: sources[0].id, destinationId: destinations[0].id, evidence: [], producer: 'exact-declaration' });
+                if (!ownersSupported(sources[0], destinations[0])) continue;
+                const candidate = { sourceId: sources[0].id, destinationId: destinations[0].id, evidence: [], producer: 'exact-declaration' };
+                candidates.push(candidate);
+                recordCandidate(candidate);
             } else if (destinations.length && (sources.some(s => !coveredSources.has(s.id)) || destinations.some(d => !coveredDestinations.has(d.id)))) {
                 unresolved.push({ reason: 'repeated-exact-occurrences', sources: sources.map(e => e.id), destinations: destinations.map(e => e.id) });
             }

@@ -124,6 +124,34 @@ test('nested exact declarations continue only at unique matching scope identitie
     assert.equal(duplicates.unresolved.length, 2);
 });
 
+test('exact fallback does not move methods between unrelated owners', () => {
+    const before = { 'a.js': 'class Left { run() { return 1; } }\nclass Right {}' };
+    const after = { 'a.js': 'class Left {}\nclass Right { run() { return 1; } }' };
+    const { analyzeStrand } = require('./run-javascript-mappings');
+    for (const r of [normalizeMappings(before, after, native([])), analyzeStrand(before, after).analysis]) {
+        const entries = new Map([...r.inventories.before.entries, ...r.inventories.after.entries].map(e => [e.id, e]));
+        assert(!r.relations.some(pair => entries.get(pair.sourceId).name === 'run'));
+        assert(r.unmatchedBefore.some(id => entries.get(id).qualifiedName === 'Left.run'));
+        assert(r.unmatchedAfter.some(id => entries.get(id).qualifiedName === 'Right.run'));
+    }
+});
+
+test('exact fallback follows uniquely moved owners through multiple nesting levels', () => {
+    const text = 'function outer() { class Inner { run() { return 1; } } return Inner; }';
+    const r = normalizeMappings({ 'before.js': text }, { 'after.js': text }, { status: 'unavailable', mappers: [] });
+    const entries = new Map([...r.inventories.before.entries, ...r.inventories.after.entries].map(e => [e.id, e]));
+    assert.equal(r.relations.length, 3);
+    assert(r.relations.every(pair => pair.pathChanged && entries.get(pair.sourceId).qualifiedName === entries.get(pair.destinationId).qualifiedName));
+});
+
+test('ambiguous enclosing identities cannot authorize a unique exact descendant', () => {
+    const before = { 'a.js': 'function outer() { function inner() { return 1; } }\nfunction outer() {}' };
+    const after = { 'b.js': 'function outer() { function inner() { return 1; } }\nfunction outer() {}' };
+    const r = normalizeMappings(before, after, native([]));
+    const entries = new Map([...r.inventories.before.entries, ...r.inventories.after.entries].map(e => [e.id, e]));
+    assert(!r.relations.some(pair => entries.get(pair.sourceId).name === 'inner'));
+});
+
 test('duplicate variables report competing origins and retained copies cannot fabricate moves', () => {
     const constant = 'const START_AT = new Date(0);';
     const r = normalizeMappings({ 'a.js': constant, 'b.js': constant }, { 'a.js': constant, 'c.js': constant }, native([]));
