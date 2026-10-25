@@ -21,14 +21,30 @@ try {
     fs.writeFileSync(path.join(extension, 'package.json'), JSON.stringify(manifest));
     fs.mkdirSync(path.join(extension, 'media'));
     for (const file of ['webview.js', 'webview.css', 'editor.worker.js', 'diff.worker.js']) fs.copyFileSync(path.join(repo, 'media', file), path.join(extension, 'media', file));
+    if (process.env.BYGONE_SCM_TEST) await build({
+        entryPoints: [path.join(repo, 'media/webview-entry.js')], outfile: path.join(extension, 'media/webview.js'),
+        bundle: true, minify: true, loader: { '.md': 'text', '.ttf': 'dataurl' }, plugins: [{ name: 'renderer-test-driver', setup(build) {
+            build.onLoad({ filter: /media\/script\.js$/ }, args => ({ contents: fs.readFileSync(args.path, 'utf8') + `
+window.addEventListener('bygone:host-message', event => {
+    const m = event.detail;
+    if (m.type === 'testEdit') {
+        const model = rightEditor.getModel();
+        const start = model.getPositionAt(m.start), end = model.getPositionAt(m.end);
+        rightEditor.executeEdits('fixture', [{ range: new monacoInstance.Range(start.lineNumber, start.column, end.lineNumber, end.column), text: m.text }]);
+    }
+    if (m.type === 'testComposition') window.dispatchEvent(new CompositionEvent('composition'+m.phase));
+    if (m.type === 'testAction') followSync.action(m.action);
+});`, loader: 'js' }));
+        } }] });
     await build({ entryPoints: [path.join(repo, 'test/vscode/entry.js')], outfile: path.join(extension, 'entry.js'), bundle: true, platform: 'node', external: ['vscode'] });
+    fs.copyFileSync(path.join(repo, 'out/liveSymbolsWorker.js'), path.join(extension, 'liveSymbolsWorker.js'));
     const userData = path.join(root, 'user-data');
     fs.mkdirSync(path.join(userData, 'User'), { recursive: true });
     fs.writeFileSync(path.join(userData, 'User/settings.json'), JSON.stringify({ 'workbench.startupEditor': 'none', 'workbench.tips.enabled': false, 'chat.disableAIFeatures': true, 'telemetry.telemetryLevel': 'off' }));
     const executable = process.env.BYGONE_VSCODE_EXECUTABLE || await downloadAndUnzipVSCode(process.env.BYGONE_VSCODE_VERSION || 'stable');
     await runTests({
         vscodeExecutablePath: executable, extensionDevelopmentPath: extension,
-        extensionTestsPath: path.join(repo, 'test/vscode/following.js'),
+        extensionTestsPath: path.join(repo, process.env.BYGONE_SCM_TEST ? 'test/vscode/scm.js' : 'test/vscode/following.js'),
         extensionTestsEnv: { BYGONE_FOLLOW_FIXTURE: fixture, ELECTRON_RUN_AS_NODE: undefined },
         launchArgs: [fixture, '--disable-extensions', '--disable-workspace-trust', '--skip-welcome', '--skip-release-notes', '--disable-gpu', '--user-data-dir='+userData, '--extensions-dir='+path.join(root, 'extensions')]
     });

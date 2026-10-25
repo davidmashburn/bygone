@@ -8,7 +8,7 @@ import { launchDesktop } from './desktopLauncher';
 export function activate(context: vscode.ExtensionContext) {
     const fileComparator = new FileComparator();
     const diffViewProvider = new DiffViewProvider(context.extensionUri);
-    const follower = new FollowController(diffViewProvider);
+    const follower = new FollowController(diffViewProvider, undefined, context.workspaceState);
     const uriHandler = new BygoneUriHandler(fileComparator);
     const standaloneDownloadUrl = vscode.Uri.parse('https://github.com/davidmashburn/bygone/releases');
 
@@ -18,6 +18,9 @@ export function activate(context: vscode.ExtensionContext) {
         fileComparator,
         follower,
         vscode.window.registerWebviewPanelSerializer(FollowController.viewType, follower),
+        registerCommand('bygone.openStagedInBygone', (resource: unknown) => follower.openScm('head-index', resource)),
+        registerCommand('bygone.openWorkingInBygone', (resource: unknown) => follower.openScm('index-working', resource)),
+        registerCommand('bygone.compareSymbol', () => follower.compareSymbol()),
         registerCommand('bygone.followActiveEditor', () => follower.start()),
         registerCommand('bygone.pinFollowing', () => follower.pin()),
         registerCommand('bygone.resumeFollowing', () => follower.start()),

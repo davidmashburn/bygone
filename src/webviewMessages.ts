@@ -95,6 +95,8 @@ export interface FollowViewState {
 
 export interface ShowDiffMessage {
     follow?: FollowViewState;
+    editBinding?: { token: string; projection: string };
+    followAck?: { id: number; accepted: boolean };
     type: 'showDiff';
     file1: string;
     file2: string;
@@ -205,6 +207,8 @@ export interface ReadyMessage {
 }
 
 export interface RecomputeDiffMessage {
+    leftBase?: string;
+    rightBase?: string;
     type: 'recomputeDiff';
     leftContent: string;
     rightContent: string;

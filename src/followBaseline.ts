@@ -35,9 +35,19 @@ export async function resolveFollowBaseline(filePath: string, signal?: AbortSign
     // Git reports a physical worktree path. Resolve directory aliases (including
     // macOS /var -> /private/var) before checking containment, retaining the leaf
     // name so a file symlink cannot silently become a different tracked file.
-    const directory = await realpath(path.dirname(filePath));
+    let directory = path.dirname(filePath);
+    let suffix = path.basename(filePath);
+    for (;;) {
+        try { directory = await realpath(directory); break; }
+        catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            const parent = path.dirname(directory);
+            if (parent === directory) throw error;
+            suffix = path.join(path.basename(directory), suffix); directory = parent;
+        }
+    }
     const root = await text(directory, ['rev-parse', '--show-toplevel']);
-    const relativePath = path.relative(root, path.join(directory, path.basename(filePath))).split(path.sep).join('/');
+    const relativePath = path.relative(root, path.join(directory, suffix)).split(path.sep).join('/');
     if (relativePath.startsWith('../') || path.isAbsolute(relativePath)) throw new Error('File is outside its Git worktree.');
     let oid: string | null;
     try {

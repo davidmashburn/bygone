@@ -63,3 +63,5 @@ media/**
 out/**
 !out/extension.js
 packages/**
+
+!out/liveSymbolsWorker.js

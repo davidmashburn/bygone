@@ -12,6 +12,7 @@ const allowed = new Set([
     'LICENSE.txt',
     'CHANGELOG.md',
     'out/extension.js',
+    'out/liveSymbolsWorker.js',
     'media/webview.js',
     'media/webview.css',
     'media/editor.worker.js',
@@ -21,8 +22,8 @@ const allowed = new Set([
 ]);
 const unexpected = files.filter((file) => !allowed.has(file));
 const missing = [...allowed].filter((file) => !files.includes(file));
-// Includes the current comparison renderer and extension host; keep packaging bounded.
-const maximumBytes = 5.2 * 1024 * 1024;
+// Includes the isolated JS/TS Strand parser worker; no external parser executables or grammars.
+const maximumBytes = 9 * 1024 * 1024;
 const totalBytes = files.reduce((total, file) => total + fs.statSync(path.join(process.cwd(), file)).size, 0);
 if (unexpected.length || missing.length) {
     throw new Error([

@@ -1,3 +1,5 @@
+import { UndoCommand, RedoCommand } from 'monaco-editor/esm/vs/editor/browser/editorExtensions.js';
+import { createFollowSync } from './followSync';
 import { unionChangeDecorations } from './decorationUtils';
 import { isCancellationError } from 'monaco-editor/esm/vs/base/common/errors.js';
 import { applyComparisonOrder, moveComparisonPanel, movedPanelPairIndex } from '../src/panelOrder';
@@ -23,6 +25,27 @@ import { buildFileTree } from './fileTree';
 import './workspaceControls.css';
 
 const host = createHostBridge();
+const followSync = createFollowSync({ send: (message) => host.postMessage(message), read: () => rightEditor.getValue() });
+for (const [command, action] of [[UndoCommand, 'undo'], [RedoCommand, 'redo']]) {
+    command.addImplementation(10000, 'bygone-document-history', () => {
+        if (!followSync.active()) return false;
+        followSync.action(action); return true;
+    });
+}
+window.addEventListener('compositionstart', () => followSync.compositionStart(), true);
+window.addEventListener('compositionend', () => {
+    const message = followSync.compositionEnd();
+    if (message) window.dispatchEvent(new CustomEvent('bygone:host-message', { detail: message }));
+}, true);
+window.addEventListener('bygone:follow-action', (event) => followSync.action(event.detail));
+// Keep save and undo in the authoritative VS Code document, including context-menu commands.
+window.addEventListener('keydown', (event) => {
+    if (!followSync.active() || !(event.ctrlKey || event.metaKey)) return;
+    const key = event.key.toLowerCase();
+    const action = key === 's' ? 'save' : key === 'z' ? (event.shiftKey ? 'redo' : 'undo') : key === 'y' ? 'redo' : undefined;
+    if (action) { event.preventDefault(); event.stopImmediatePropagation(); followSync.action(action); }
+}, true);
+let manualBase;
 let workspaceControls;
 let workspaceSelection;
 let workspaceTourFrame;
@@ -273,6 +296,7 @@ host.onMessage((message) => {
     if (!message || typeof message !== 'object') {
         return;
     }
+    if (!followSync.receive(message)) return;
     if (message.workspace) updateWorkspaceControls(message.workspace);
     if (message.type === 'workspaceState') return;
     if (message.type === 'workspaceTour') { showWorkspaceTour(message); return; }
@@ -397,6 +421,18 @@ host.onMessage((message) => {
     }
 
     if (message.type === 'showDiff') {
+        if (!message.follow && host.environment === 'vscode') {
+            if (manualBase && manualBase.comparisonId === message.comparisonId && leftEditor && rightEditor) {
+                for (const [side, editor] of [['left', leftEditor], ['right', rightEditor]]) {
+                    const draft = editor.getValue();
+                    if (isSideEditable(side) && draft !== manualBase[side] && draft !== message[side + 'Content']) {
+                        host.postMessage({ type: 'recoverManualDraft', content: draft });
+                        clearTimeout(recomputeTimer);
+                    }
+                }
+            }
+            manualBase = { comparisonId: message.comparisonId, left: message.leftContent, right: message.rightContent };
+        }
         if (!monacoInstance) {
             pendingTwoWayPayload = message;
             return;
@@ -731,7 +767,7 @@ function showTwoWayDiff(file1, file2, leftContent, rightContent, diffModel, hist
     const nextFileExists = normalizeFileExists(fileExists);
     const layoutChanged = currentTwoWayFileExists.left !== nextFileExists.left
         || currentTwoWayFileExists.right !== nextFileExists.right;
-    const navigationBeforeLayoutChange = layoutChanged && !comparisonChanged && currentMode === MODE_TWO_WAY
+    const navigationBeforeLayoutChange = (layoutChanged || followSync.active()) && !comparisonChanged && currentMode === MODE_TWO_WAY
         ? captureNavigationState()
         : null;
     currentMode = MODE_TWO_WAY;
@@ -1415,7 +1451,7 @@ function createEditor(container, editorMode, side = null, initialModel = null) {
                 return;
             }
 
-            scheduleRecompute();
+            if (!(side === 'right' && followSync.changed())) scheduleRecompute();
             connectorController.scheduleDrawConnections();
             return;
         }
@@ -6062,6 +6098,7 @@ function scheduleRecompute() {
 
         host.postMessage({
             type: 'recomputeDiff',
+            leftBase: manualBase?.left, rightBase: manualBase?.right,
             leftContent: leftEditor.getValue(),
             rightContent: rightEditor.getValue()
         });

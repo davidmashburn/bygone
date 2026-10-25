@@ -85,3 +85,38 @@ test('line limits accept the boundary with or without a final newline', () => {
         assert.throws(() => checkFollowText(atLimit + newline + 'x' + newline));
     }
 });
+
+const { resolveIndexSnapshot } = require('../out/followSnapshots');
+test('index snapshots are immutable, literal and independent of working text', async t => {
+    const f=fixture(t), file=f.write('[a]: b.ts','staged\n'); f.git('add','.');
+    f.write('[a]: b.ts','working\n');
+    assert.equal((await resolveIndexSnapshot(file)).content,'staged\n');
+    f.git('rm','-f','--cached','--','[a]: b.ts');
+    assert.equal((await resolveIndexSnapshot(file)).absent,true);
+});
+test('deleted directories retain index and HEAD path identity', async t => {
+    const f=fixture(t); fs.mkdirSync(path.join(f.root,'nested')); const file=f.write('nested/a.ts','tracked\n');
+    f.git('add','.'); f.git('commit','-m','fixture'); fs.rmSync(path.join(f.root,'nested'),{recursive:true});
+    assert.equal((await resolveIndexSnapshot(file)).content,'tracked\n');
+    assert.equal((await resolveFollowBaseline(file)).relativePath,'nested/a.ts');
+});
+test('linked worktree indexes and separate repositories remain isolated', async t => {
+    const f=fixture(t); f.write('a.ts','base'); f.git('add','.'); f.git('commit','-m','fixture');
+    const linked=path.join(f.root,'linked'); f.git('worktree','add','-b','linked',linked);
+    fs.writeFileSync(path.join(linked,'a.ts'),'linked staged'); execFileSync('git',['-C',linked,'add','a.ts']);
+    const other=fixture(t); other.write('a.ts','other staged'); other.git('add','.');
+    assert.equal((await resolveIndexSnapshot(path.join(linked,'a.ts'))).content,'linked staged');
+    assert.equal((await resolveIndexSnapshot(path.join(f.root,'a.ts'))).content,'base');
+    assert.equal((await resolveIndexSnapshot(path.join(other.root,'a.ts'))).content,'other staged');
+});
+test('index conflicts, symlinks, binary, invalid UTF8 and oversized snapshots fail explicitly', async t => {
+    const f=fixture(t); const file=f.write('a.ts','base'); f.git('add','.'); f.git('commit','-m','fixture');
+    const branch=f.git('branch','--show-current'); f.git('checkout','-b','other'); f.write('a.ts','other'); f.git('commit','-am','other');
+    f.git('checkout',branch); f.write('a.ts','main'); f.git('commit','-am','main');
+    assert.throws(()=>f.git('merge','other'));
+    await assert.rejects(resolveIndexSnapshot(file),/Merge conflicts/); f.git('merge','--abort');
+    const files=[f.write('binary',Buffer.from([0,1])),f.write('encoding',Buffer.from([0xff])),f.write('large','x'.repeat(FOLLOW_MAX_BYTES+1))];
+    fs.symlinkSync('a.ts',path.join(f.root,'link')); files.push(path.join(f.root,'link')); f.git('add','.');
+    for (const value of files) await assert.rejects(resolveIndexSnapshot(value));
+    const abort=new AbortController(); abort.abort(); await assert.rejects(resolveIndexSnapshot(file,abort.signal));
+});

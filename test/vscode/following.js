@@ -36,7 +36,7 @@ exports.run = async function() {
         } finally { listener.dispose(); }
     }
     try {
-        await test('command creates one read-only renderer beside source and preserves keyboard focus', async () => {
+        await test('command creates one editable renderer beside source and preserves keyboard focus', async () => {
             await show(0);
             await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
             const beforeFollowing = docs[0].getText();
@@ -51,7 +51,7 @@ exports.run = async function() {
             await until(() => panel.viewColumn !== undefined, 'following panel placement');
             assert.equal(panel.viewColumn, vscode.ViewColumn.Two);
             assert.equal(vscode.window.activeTextEditor.document, docs[0]);
-            assert.deepEqual(message().editableSides, { left: false, right: false });
+            assert.deepEqual(message().editableSides, { left: false, right: true });
             assert.match(message().follow.status, /No changes from HEAD/);
             await until(() => api.renders > 0, 'initial renderer');
             const original = docs[0].getText();
@@ -137,14 +137,14 @@ exports.run = async function() {
         });
         await test('SCM diff tabs show an explicit source-file instruction', async () => {
             await vscode.commands.executeCommand('vscode.diff', docs[0].uri, docs[1].uri, 'Native diff', { viewColumn: vscode.ViewColumn.One });
-            await until(() => message().follow.unavailable && /outside the SCM diff/.test(message().follow.status), 'native diff state');
+            await until(() => message().follow.unavailable && /SCM diff following is off/.test(message().follow.status), 'native diff state');
             await show(0); await ready('A.ts');
         });
         await test('binary custom editors clear the previous source', async () => {
             const uri = vscode.Uri.file(path.join(fixture, 'pixel.png'));
             fs.writeFileSync(uri.fsPath, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aE9sAAAAASUVORK5CYII=', 'base64'));
             await vscode.commands.executeCommand('vscode.openWith', uri, 'imagePreview.previewEditor', { viewColumn: vscode.ViewColumn.One });
-            await until(() => message().follow.unavailable && /Custom and binary/.test(message().follow.status), 'image unavailable');
+            await until(() => message().follow.unavailable && /custom and binary/.test(message().follow.status), 'image unavailable');
             assert.equal(message().rightContent, '');
             await show(0); await ready('A.ts');
         });

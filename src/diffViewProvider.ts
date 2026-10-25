@@ -1,3 +1,4 @@
+import { minimalEdit } from './followEdits';
 import { moveComparisonPanel, movedPanelPairIndex, PanelMove } from './panelOrder';
 import * as vscode from 'vscode';
 import * as path from 'path';
@@ -41,6 +42,7 @@ export interface DirectoryDiffOptions {
 
 export interface FollowingView {
     update(message: Omit<ShowDiffMessage, 'type'>): void;
+    reveal(preserveFocus?: boolean): void;
     dispose(): void;
 }
 
@@ -89,7 +91,6 @@ export class DiffViewProvider implements vscode.Disposable {
     private currentTwoWayDiff?: TwoWayDiffState;
     private readonly disposables: vscode.Disposable[] = [];
     private documentUpdateQueue = Promise.resolve();
-    private applyingDocumentEdit = false;
     private historyNavigationHandler?: (direction: 'back' | 'forward') => void;
     private historyStagedToggleHandler?: (includeStaged: boolean) => void;
     private historySkipUnchangedToggleHandler?: (skipUnchanged: boolean) => void;
@@ -101,9 +102,6 @@ export class DiffViewProvider implements vscode.Disposable {
 
     constructor(private readonly extensionUri: vscode.Uri) {
         this.disposables.push(vscode.workspace.onDidChangeTextDocument((event) => {
-            if (this.applyingDocumentEdit) {
-                return;
-            }
             for (const state of this.panels.values()) {
                 const twoWayDiff = state === this.activeState ? this.currentTwoWayDiff : state.currentTwoWayDiff;
                 if (isTwoWayStateDocument(twoWayDiff, event.document.uri)) {
@@ -220,7 +218,12 @@ export class DiffViewProvider implements vscode.Disposable {
             }
 
             if (isRecomputeDiffMessage(message)) {
-                this.queueDocumentUpdate(state, message.leftContent, message.rightContent);
+                this.queueDocumentUpdate(state, message.leftContent, message.rightContent, message.leftBase, message.rightBase);
+            }
+
+            if (message?.type === 'recoverManualDraft' && typeof message.content === 'string') {
+                void vscode.workspace.openTextDocument({ content: message.content }).then(doc => vscode.window.showTextDocument(doc, { preserveFocus: true, preview: false }));
+                void vscode.window.showWarningMessage('Bygone preserved unapplied edits in an untitled document because the source changed.');
             }
 
             if (isHistoryNavigationMessage(message) && this.historyNavigationHandler) {
@@ -293,7 +296,8 @@ export class DiffViewProvider implements vscode.Disposable {
         viewType: string,
         onAction: (action: string) => void,
         onClose: () => void,
-        restored?: vscode.WebviewPanel
+        restored?: vscode.WebviewPanel,
+        onMessage?: (message: unknown) => void
     ): FollowingView {
         const source = vscode.window.activeTextEditor;
         const panel = restored ?? vscode.window.createWebviewPanel(
@@ -312,8 +316,9 @@ export class DiffViewProvider implements vscode.Disposable {
         const listener = panel.webview.onDidReceiveMessage((message: unknown) => {
             if (typeof message !== 'object' || message === null) return;
             const action = (message as { type?: unknown; action?: unknown });
+            onMessage?.(message);
             if (action.type === 'followAction' && typeof action.action === 'string'
-                && ['pin', 'resume', 'refresh', 'history', 'compare'].includes(action.action)) onAction(action.action);
+                && ['pin', 'resume', 'refresh', 'history', 'compare', 'symbol', 'file', 'reveal', 'save', 'undo', 'redo', 'working', 'followSymbol'].includes(action.action)) onAction(action.action);
         });
         panel.onDidDispose(() => { listener.dispose(); onClose(); });
         return {
@@ -324,6 +329,7 @@ export class DiffViewProvider implements vscode.Disposable {
                 panel.title = `Bygone: ${message.follow?.mode === 'pinned' ? 'Pinned' : message.follow?.mode === 'paused' ? 'Paused' : 'Following'}`;
                 this.postOrQueueDiffMessage(message);
             },
+            reveal: (preserveFocus = false) => panel.reveal(panel.viewColumn, preserveFocus),
             dispose: () => panel.dispose()
         };
     }
@@ -625,7 +631,16 @@ export class DiffViewProvider implements vscode.Disposable {
                     <button id="follow-compare" type="button" title="Pause following and compare the source with another file">Manual Compare…</button>
                 </div>
                 <div id="follow-status" role="status" aria-live="polite">Select a source file to follow.</div>
-                <small>HEAD → editor buffer. Refresh after external Git changes; HEAD also refreshes on file activation and window focus.</small>
+                <div>
+                    <button id="follow-symbol" type="button" title="Compare the enclosing source symbol">Compare Symbol</button>
+                    <button id="follow-followSymbol" type="button" title="Toggle following Outline and cursor selections">Toggle Follow Symbol</button>
+                    <button id="follow-file" type="button" title="Show the complete selected comparison">Show File Context</button>
+                    <button id="follow-reveal" type="button" title="Open the exact source endpoint">Reveal Source</button>
+                    <button id="follow-working" type="button" title="Compare index with the working document">Working Changes</button>
+                    <button id="follow-save" type="button" title="Save the underlying VS Code document">Save</button>
+                    <button id="follow-undo" type="button" title="Undo in the underlying document">Undo</button>
+                    <button id="follow-redo" type="button" title="Redo in the underlying document">Redo</button>
+                </div>
             </section>` : ''}
             <div id="file-info" class="header-align-diff">Choose a compare command to render a diff.</div>
             <div id="status-banner" class="status-banner header-align-diff" role="status" aria-live="polite" aria-atomic="true" hidden></div>
@@ -802,9 +817,9 @@ export class DiffViewProvider implements vscode.Disposable {
         const vscodeApi = acquireVsCodeApi();
         ${serialized ? `vscodeApi.setState(${JSON.stringify(serialized)});` : following ? 'vscodeApi.setState({ version: 1, kind: "follow" });' : ''}
         ${following ? `
-        for (const action of ['pin', 'resume', 'refresh', 'history', 'compare']) {
+        for (const action of ['pin', 'resume', 'refresh', 'history', 'compare', 'symbol', 'file', 'reveal', 'save', 'undo', 'redo', 'working', 'followSymbol']) {
             document.getElementById('follow-' + action).addEventListener('click', () => {
-                vscodeApi.postMessage({ type: 'followAction', action });
+                window.dispatchEvent(new CustomEvent('bygone:follow-action', { detail: action }));
             });
         }
         window.addEventListener('message', (event) => {
@@ -836,13 +851,13 @@ export class DiffViewProvider implements vscode.Disposable {
 </html>`;
     }
 
-    private queueDocumentUpdate(state: PanelState, leftContent: string, rightContent: string): void {
+    private queueDocumentUpdate(state: PanelState, leftContent: string, rightContent: string, leftBase?: string, rightBase?: string): void {
         const comparison = this.activeState === state ? this.currentTwoWayDiff : state.currentTwoWayDiff;
         this.documentUpdateQueue = this.documentUpdateQueue
             .then(() => {
                 if (!this.isCurrentComparison(state, comparison)) return;
                 this.activateState(state);
-                return this.handleRecomputeDiff(leftContent, rightContent);
+                return this.handleRecomputeDiff(leftContent, rightContent, leftBase, rightBase);
             })
             .catch((error) => this.showDocumentEditError(error));
     }
@@ -858,7 +873,7 @@ export class DiffViewProvider implements vscode.Disposable {
             .catch((error) => this.showDocumentEditError(error));
     }
 
-    private async handleRecomputeDiff(leftContent: string, rightContent: string): Promise<void> {
+    private async handleRecomputeDiff(leftContent: string, rightContent: string, leftBase?: string, rightBase?: string): Promise<void> {
         if (!this.currentTwoWayDiff) {
             return;
         }
@@ -867,27 +882,48 @@ export class DiffViewProvider implements vscode.Disposable {
         const comparison = this.currentTwoWayDiff;
         const edit = new vscode.WorkspaceEdit();
         let hasEdits = false;
+        const versions: Array<{ document: vscode.TextDocument; version: number }> = [];
         for (const [side, content] of [['left', leftContent], ['right', rightContent]] as const) {
             const uri = side === 'left' ? comparison.leftUri : comparison.rightUri;
             if (!uri || !comparison.editableSides[side]) {
                 continue;
             }
             const document = await vscode.workspace.openTextDocument(uri);
-            if (document.getText() !== content) {
-                edit.replace(uri, fullDocumentRange(document), content);
+            const base = side === 'left' ? leftBase : rightBase;
+            if (content === base) continue;
+            if (base === undefined || document.getText() !== base) {
+                if (document.getText() !== content) {
+                    const recovery = await vscode.workspace.openTextDocument({ language: document.languageId, content });
+                    await vscode.window.showTextDocument(recovery, { preserveFocus: true, preview: false });
+                    throw new Error('Source changed. Unapplied edits were preserved in an untitled document.');
+                }
+                continue;
+            }
+            const change = minimalEdit(base, content);
+            if (change) {
+                edit.replace(uri, new vscode.Range(document.positionAt(change.rangeOffset), document.positionAt(change.rangeOffset + change.rangeLength)), change.text);
+                versions.push({ document, version: document.version });
                 hasEdits = true;
             }
         }
 
         if (!state || !this.isCurrentComparison(state, comparison)) return;
+        if (versions.some(({ document, version }) => document.version !== version)) {
+            for (const content of [leftContent, rightContent]) {
+                const recovery = await vscode.workspace.openTextDocument({ content });
+                await vscode.window.showTextDocument(recovery, { preserveFocus: true, preview: false });
+            }
+            throw new Error('Source changed while preparing edits. Drafts were preserved in untitled documents.');
+        }
         if (hasEdits) {
-            this.applyingDocumentEdit = true;
-            try {
-                if (!await vscode.workspace.applyEdit(edit)) {
-                    throw new Error('VS Code rejected the document edit.');
+            if (!await vscode.workspace.applyEdit(edit)) {
+                for (const [side, content, base] of [['left', leftContent, leftBase], ['right', rightContent, rightBase]] as const) {
+                    if (comparison.editableSides[side] && content !== base) {
+                        const recovery = await vscode.workspace.openTextDocument({ content });
+                        await vscode.window.showTextDocument(recovery, { preserveFocus: true, preview: false });
+                    }
                 }
-            } finally {
-                this.applyingDocumentEdit = false;
+                throw new Error('VS Code rejected stale edits. Drafts were preserved in untitled documents.');
             }
         }
 

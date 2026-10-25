@@ -31,9 +31,11 @@ await rm('out/standalone-preload.js.map', { force: true });
 await rm('web/web-host.js', { force: true });
 await rm('web/web-host.js.map', { force: true });
 
-for (const name of ['followBaseline', 'changeCorrespondence', 'panelOrder', 'workspaceGit', 'workspaceHistory', 'historyDirectory', 'revisionView', 'workspacePrompt', 'tourReading', 'tourFeedback', 'tourOrientation', 'deepLink', 'deepLinkResolver', 'requirements', 'dependencyGraph']) {
+for (const name of ['followEdits', 'followSnapshots', 'liveSymbols', 'followBaseline', 'changeCorrespondence', 'panelOrder', 'workspaceGit', 'workspaceHistory', 'historyDirectory', 'revisionView', 'workspacePrompt', 'tourReading', 'tourFeedback', 'tourOrientation', 'deepLink', 'deepLinkResolver', 'requirements', 'dependencyGraph']) {
     await build({ ...sharedOptions, entryPoints: [`src/${name}.ts`], outfile: `out/${name}.js`, platform: 'node', format: 'cjs', target: 'node18' });
 }
+
+await build({ ...sharedOptions, entryPoints: ['src/liveSymbolsWorker.js'], outfile: 'out/liveSymbolsWorker.js', platform: 'node', format: 'cjs', target: 'node16', minify: true });
 
 await build({
     ...sharedOptions,

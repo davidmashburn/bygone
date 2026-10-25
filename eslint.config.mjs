@@ -50,7 +50,7 @@ export default [
         }
     },
     {
-        files: ['scripts/change-analysis/**/*.js', 'packages/strand/**/*.js'],
+        files: ['scripts/change-analysis/**/*.js', 'packages/strand/**/*.js', 'src/liveSymbolsWorker.js'],
         languageOptions: { sourceType: 'commonjs', globals: globals.node }
     },
     {

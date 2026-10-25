@@ -378,31 +378,57 @@ read-only. Desktop hand-offs are unavailable in remote extension hosts.
 
 ## Follow the active VS Code editor
 
-Run **Bygone: Follow Active Editor** to open one read-only comparison beside your
-source editor without moving keyboard focus. Switching source files updates that
-same pane. The left side is the file at HEAD; the right side is your editor buffer,
-including unsaved edits. Edit, undo, and save in the source editor as usual.
+Run **Bygone: Follow Active Editor** to open one comparison beside your source
+editor without moving keyboard focus. Switching source files updates that pane.
+The left side is HEAD; the right side is the VS Code document, including unsaved
+edits. Edit either the source pane or Bygone's working pane: both update the same
+document. Save, Undo and Redo in Bygone use that document's save and edit history.
+Typing neither saves the file nor stages it.
 
-**Pin** keeps the current file and baseline commit while buffer edits continue to
-update. **Resume Following** selects the active or last source editor. **Refresh**
-reads HEAD again when following; a pinned comparison retains its baseline. HEAD
-also refreshes on file activation and when the VS Code window regains focus.
-After external Git changes while the window stays focused, use Refresh.
+Source Control offers **Open Staged Changes in Bygone** (HEAD → index) and
+**Open Working Changes in Bygone** (index → working buffer), in the file's inline
+and context menus. Staged views exclude unsaved edits and are read-only. Native
+stage, unstage, discard, commit and checkout operations refresh live comparisons.
+The selected policy stays in place when a file leaves its SCM group; an empty
+comparison shows that there are now no changes. Enable `bygone.followScmDiffs`
+to follow supported native Git diff tabs during a following session. This does
+not change the SCM tree's default click behavior.
 
-The controls show the repository, relative file path, commit, and saved/unsaved
-state. Clean files say **No changes from HEAD**. Untracked files, files absent at
-the current path in HEAD, and unborn repositories use an explicitly absent
-baseline. Renames are compared at the new path; following does not infer history.
-**View File History** pauses following and opens the history viewer. **Manual
-Compare…** pauses following and compares the source with another selected file.
-Closing the pane stops following. A restored pane starts paused after reload.
+Use **Bygone: Compare Symbol in Bygone**, or enable `bygone.followSymbol` to follow
+Outline, Go to Symbol and cursor selections. Symbol focus preserves the selected
+comparison and uses the existing Strand matching engine. JavaScript and TypeScript
+are supported within the selected file pair, including Git-reported renames.
+Dirty-buffer selections in staged views require a verified mapping to the index.
+Unsupported or ambiguous selections show a reason and retain file context or a
+known one-sided symbol. **Show File Context** returns to the whole comparison;
+**Reveal Source** opens the working document or the exact read-only snapshot.
 
-Following supports trusted local Git worktrees, including linked worktrees and
-files in multiple repositories. Both versions must be text, at most 128 KiB and
-5,000 lines; Git baselines must be UTF-8. Untitled, remote, virtual, notebook,
-symlink, binary, and oversized files show an unavailable state. Open the source
-file outside a native SCM diff to follow it. Git failures clear the old comparison
-and show an error instead of treating a failed read as an empty baseline.
+Working symbol slices are editable. Edits before a declaration move its tracked
+range; temporary syntax errors keep its editing range usable. Replacing or deleting
+the declaration externally returns to file context. If a concurrent edit makes a
+pending write stale, Bygone preserves the attempted text in an untitled recovery
+document instead of overwriting the source. Pending drafts are also recovered
+when the panel closes or the extension starts again after a reload.
+
+**Pin** keeps the target, baseline and symbol focus. A pinned working endpoint
+continues to reflect edits; a pinned staged view holds both snapshots. Git changes
+show a notice until **Resume Following** resolves current endpoints. **Refresh**
+updates live comparisons; pinned snapshots remain fixed. Source navigation within
+the selected file preserves SCM policy; a different ordinary file selects HEAD →
+working. **View File History** and **Manual Compare…** pause following and open
+separate views. A restored following panel starts paused.
+
+Labels identify the repository, paths, comparison policy and saved/unsaved state.
+New/deleted files and unborn HEAD use explicit absent endpoints. Following supports
+trusted local Git worktrees, including linked worktrees and multiple repositories.
+Each selected endpoint must be text, at most 128 KiB and 5,000 lines; Git snapshots
+must be UTF-8. Conflicts, unsupported diff inputs, symlinks, binary, remote,
+virtual and notebook inputs show an explicit unavailable state. Git failures clear
+the previous comparison. Arbitrary cross-file symbol moves and hunk staging inside
+Bygone are outside this integration.
+
+See the [integration contract and verification record](docs/vscode-integration.md)
+for snapshot/edit safeguards, analysis budgets and reproducible Extension Host tests.
 
 ## Limitations
 
