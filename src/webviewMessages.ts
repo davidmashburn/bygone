@@ -91,6 +91,7 @@ export interface FollowViewState {
     status: string;
     unavailable: boolean;
     canPin: boolean;
+    canReturnToReview?: boolean;
 }
 
 export interface ShowDiffMessage {

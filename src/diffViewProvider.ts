@@ -318,7 +318,7 @@ export class DiffViewProvider implements vscode.Disposable {
             const action = (message as { type?: unknown; action?: unknown; token?: unknown });
             onMessage?.(message);
             if (action.type === 'followAction' && typeof action.action === 'string'
-                && ['pin', 'resume', 'refresh', 'history', 'compare', 'symbol', 'file', 'reveal', 'save', 'undo', 'redo', 'working', 'followSymbol'].includes(action.action)) onAction(action.action, typeof action.token === 'string' ? action.token : undefined);
+                && ['pin', 'resume', 'refresh', 'history', 'compare', 'symbol', 'file', 'reveal', 'save', 'undo', 'redo', 'working', 'followSymbol', 'returnReview'].includes(action.action)) onAction(action.action, typeof action.token === 'string' ? action.token : undefined);
         });
         panel.onDidDispose(() => { listener.dispose(); onClose(); });
         return {
@@ -625,6 +625,7 @@ export class DiffViewProvider implements vscode.Disposable {
             ${following ? `<section class="follow-toolbar" aria-label="Following controls">
                 <div><strong id="follow-mode">Paused</strong>
                     <button id="follow-pin" type="button" title="Keep this file and baseline commit">Pin</button>
+                    <button id="follow-returnReview" type="button" title="Return to the pinned evidence that opened this editor" hidden>Return to Evidence Review</button>
                     <button id="follow-resume" type="button" title="Follow the active source editor">Resume Following</button>
                     <button id="follow-refresh" type="button" title="Refresh this comparison">Refresh</button>
                     <button id="follow-history" type="button" title="Pause following and open file history">View File History</button>
@@ -817,7 +818,7 @@ export class DiffViewProvider implements vscode.Disposable {
         const vscodeApi = acquireVsCodeApi();
         ${serialized ? `vscodeApi.setState(${JSON.stringify(serialized)});` : following ? 'vscodeApi.setState({ version: 1, kind: "follow" });' : ''}
         ${following ? `
-        for (const action of ['pin', 'resume', 'refresh', 'history', 'compare', 'symbol', 'file', 'reveal', 'save', 'undo', 'redo', 'working', 'followSymbol']) {
+        for (const action of ['pin', 'resume', 'refresh', 'history', 'compare', 'symbol', 'file', 'reveal', 'save', 'undo', 'redo', 'working', 'followSymbol', 'returnReview']) {
             document.getElementById('follow-' + action).addEventListener('click', () => {
                 window.dispatchEvent(new CustomEvent('bygone:follow-action', { detail: action }));
             });
@@ -829,6 +830,7 @@ export class DiffViewProvider implements vscode.Disposable {
             document.getElementById('follow-status').textContent = state.status;
             document.getElementById('follow-pin').disabled = !state.canPin || state.mode !== 'following';
             document.getElementById('follow-resume').disabled = state.mode === 'following';
+            document.getElementById('follow-returnReview').hidden = !state.canReturnToReview;
             document.getElementById('follow-refresh').disabled = state.mode === 'paused';
             document.getElementById('diff-workspace').style.display = state.unavailable ? 'none' : '';
         });` : ''}

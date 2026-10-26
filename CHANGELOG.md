@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.1
+
+- Added pinned evidence reviews in the CLI and VS Code, with explicit refresh, source validation, and return-to-review navigation
+- Connected evidence ranges to synchronized working-file and symbol editing while preserving historical review snapshots
+- Added dependency-guided review navigation and improved modern TypeScript syntax coverage, metadata resolution, and report validation
+
 ## 0.11.0
 
 - Added experimental JS/TS and Python symbol evidence with declaration diffs, symbol trees, analysis diagnostics, and shared Files/Symbols navigation

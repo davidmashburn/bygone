@@ -6,6 +6,35 @@ profiler or a human review study. The measured report is
 commit, source and bundle hashes, fixture/harness hashes, public repository OIDs,
 Node version, hardware, individual measurements, mismatches and diagnostics.
 
+## Compatibility follow-up — 2026-10-26
+
+[Follow-up measurements](results-2026-10-26-compatibility.json) record the uncommitted
+implementation based on `dda37567`, identified by exact source/bundle hashes,
+using the isolated TypeScript 5.9.3 dependency analyzer. The earlier report below
+remains the historical baseline. Malformed-package behavior is now a contract
+case requiring explicit `invalid-config` targets instead of silent CommonJS fallback.
+
+All 38 labeled HEAD sites across 11 contract cases, their delta/consumer checks,
+and all four scale cases pass. All 158 source references checked across both
+revisions remain valid. Selected public-file labels match Express 9/9, p-limit
+1/1, and Redux 13/13. Redux now resolves all 13 expected internal entry-file targets
+(previously 0/13); its complete HEAD graph resolves 192/397 sites. p-limit and
+Redux now complete supported-scope indexing. External packages and builtins still
+remain unknown, and these selected-file labels do not establish whole-project accuracy.
+
+The 2,500-source case still indexes 1,999 sources with 501 omitted and partial
+coverage. Analysis across both snapshots measured 169–187 ms for 100 tiny sources,
+546–582 ms for 1,500, and 929–998 ms for the pinned Bygone snapshot. These are
+three fresh-process samples on the same workstation, not controlled latency
+comparisons; the compatibility changes do not establish a performance improvement.
+The harness's broad “Public repositories have no accuracy oracle” methodology
+string refers to whole-project coverage; the selected-file oracle is reported
+separately in both artifacts.
+
+No corpus code was installed or executed. No runtime call edges, human review
+speed, or comprehension improvement were measured. Deferred namespace imports
+remain explicitly deferred with unknown evaluation timing.
+
 ## Measured result — 2026-10-26
 
 Implementation `c7219ed06351626b8a65627fbb0427b57c576bbf`, TypeScript 4.9.5,

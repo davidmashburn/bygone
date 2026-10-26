@@ -17,6 +17,7 @@ const CLI_SPEC = Object.freeze({
         'bygone tour validate <file.bygone> [--json]',
         'bygone tour compile <file.bygone> [--output <tour.json>]',
         'bygone tour context [<head>] [--base <base>] [--output <context.json>] [--correspondence <artifact.json>] [--dependencies]',
+        'bygone evidence <inspect|import|refresh|tour> <review.json> [--head <revision>] [--output <new-file>]',
         'bygone dependencies [<head>] [--base <base>] [--json] [--output <graph.json>]',
         'bygone correspondence import <report.json> [<head>] [--base <base>] [--case <id>] --output <artifact.json>',
         'bygone tour coverage <file.bygone> [--json] [--minimum-coverage <0-100>]',
@@ -28,6 +29,7 @@ const CLI_SPEC = Object.freeze({
         'bygone --test'
     ],
     entries: [
+        { id: 'evidence', kind: 'command', tokens: ['evidence'], description: 'Inspect, import, refresh, or present pinned review evidence', argument: 'path' },
         {
             id: 'review',
             kind: 'command',

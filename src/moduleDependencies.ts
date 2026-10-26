@@ -1,4 +1,4 @@
-import * as ts from 'typescript';
+import * as ts from 'dependency-typescript';
 
 export type ModuleDependencyRelationship = 'import' | 'reexport' | 'require' | 'dynamic-import';
 export type ModuleDependencyPhase = 'type' | 'module-init' | 'invocation' | 'unknown';
@@ -180,7 +180,9 @@ export function extractModuleDependencies(file: string, content: string): {
                 Boolean(!clause?.name && namedBindings && ts.isNamedImports(namedBindings) && namedBindings.elements.length > 0
                     && namedBindings.elements.every(element => element.isTypeOnly));
             const typeOnly = Boolean(clause?.isTypeOnly || allNamedImportsAreTypeOnly);
-            addEdge(node, 'import', typeOnly ? 'type' : 'module-init', 'eager', literalSpecifier(node.moduleSpecifier));
+            const deferred = clause?.phaseModifier === ts.SyntaxKind.DeferKeyword;
+            addEdge(node, 'import', typeOnly ? 'type' : deferred ? 'unknown' : 'module-init', deferred ? 'deferred' : 'eager', literalSpecifier(node.moduleSpecifier));
+            if (deferred) diagnostics.push({ code: 'deferred-evaluation', message: 'Deferred import evaluation depends on namespace use; its execution phase is unknown.', ...location(node) });
             return;
         }
 

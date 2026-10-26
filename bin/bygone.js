@@ -40,7 +40,10 @@ if (tokenMatches('completion', args[0])) {
     process.exit(0);
 }
 
-if (args[0] === 'dependencies') {
+if (args[0] === 'evidence') {
+    try { require('../cli/evidence').runEvidenceCommand(args.slice(1), cliCwd); }
+    catch (error) { process.stderr.write(`Could not process evidence: ${error.message}\n`); process.exitCode = 1; }
+} else if (args[0] === 'dependencies') {
     try {
         require('../cli/dependencies').runDependenciesCommand(args.slice(1), cliCwd);
     } catch (error) {

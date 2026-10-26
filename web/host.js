@@ -2172,6 +2172,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     function renderCorrespondences() {
         const evidence = state.correspondence;
         document.getElementById('correspondence-tab').hidden = !evidence;
+        document.getElementById('correspondence-availability').hidden = !!evidence;
         const list = document.getElementById('correspondence-list');
         list.replaceChildren();
         if (!evidence) return;

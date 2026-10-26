@@ -334,8 +334,7 @@ const cases = [
     },
 
     {
-        id: 'invalid-package-config-falls-back-to-commonjs',
-        kind: 'characterization',
+        id: 'invalid-package-config',
         before: {
             'entry.ts': 'import "./lib";\nimport "./lib.js";',
             'lib.ts': 'export const value = 1;',
@@ -349,20 +348,23 @@ const cases = [
             'tsconfig.json': '{"compilerOptions":{"module":"nodenext","moduleResolution":"nodenext"}}'
         },
         expected: [
-            edge('entry.ts', './lib', 'import', 'module-init', 'eager', 'resolved', 'lib.ts'),
-            edge('entry.ts', './lib.js', 'import', 'module-init', 'eager', 'resolved', 'lib.ts')
+            edge('entry.ts', './lib', 'import', 'module-init', 'eager', 'invalid-config'),
+            edge('entry.ts', './lib.js', 'import', 'module-init', 'eager', 'invalid-config')
         ],
-        // The resolved module edge already existed through ./lib.js.
-        added: [],
+        added: [
+            edge('entry.ts', './lib', 'import', 'module-init', 'eager', 'invalid-config'),
+            edge('entry.ts', './lib.js', 'import', 'module-init', 'eager', 'invalid-config')
+        ],
         removed: [
-            edge('entry.ts', './lib', 'import', 'module-init', 'eager', 'unresolved')
+            edge('entry.ts', './lib', 'import', 'module-init', 'eager', 'unresolved'),
+            edge('entry.ts', './lib.js', 'import', 'module-init', 'eager', 'resolved', 'lib.ts')
         ],
         reviewTask: {
             question: 'How should a reviewer interpret a malformed package.json in this NodeNext snapshot?',
-            expectedAnswer: 'The committed malformed package.json is read as an empty package object by the resolver, so the file falls back to CommonJS interpretation: the extensionless import resolves to lib.ts, and the explicit .js import also resolves to lib.ts.',
+            expectedAnswer: 'Both literal imports are invalid-config without targets. The snapshot is partial and package-invalid diagnostics identify the malformed committed metadata.',
             baselineMethod: 'Read the package.json diff to detect malformed JSON; inspect the unchanged imports. The TypeScript fallback itself requires compiler knowledge.',
-            graphContribution: 'Makes package-scope metadata an explicit cause of a module-edge retargeting.',
-            limitation: 'The dependency report does not expose package-parser diagnostics for this fallback, so package metadata and coverage context must be reviewed separately.'
+            graphContribution: 'Prevents malformed package metadata from silently creating apparently resolved targets.',
+            limitation: 'The syntactic sites remain useful, but target-dependent deltas are provisional until metadata is repaired.'
         }
     },
 

@@ -4,6 +4,7 @@ function __bygone_git_refs
     printf "%s\n" HEAD INDEX WORKTREE
 end
 
+complete -c bygone -n '__fish_use_subcommand' -a evidence -r -d 'Inspect, import, refresh, or present pinned review evidence'
 complete -c bygone -n '__fish_use_subcommand' -a review -d 'Review a committed branch against its merge base'
 complete -c bygone -n '__fish_use_subcommand' -a dependencies -d 'Compare static JS/TS module dependencies at committed revisions'
 complete -c bygone -n '__fish_use_subcommand' -a correspondence -r -d 'Import externally produced symbol correspondence evidence'

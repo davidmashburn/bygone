@@ -196,3 +196,63 @@ test('NodeNext resolution reads committed package mode and substitutes explicit 
     assert.equal(report.head.edges[0].resolution, 'unresolved');
     assert.equal(report.head.edges[1].target, 'lib.ts');
 });
+
+test('modern bundler options and using syntax retain committed internal targets', t => {
+    const files = {
+        'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'esnext', moduleResolution: 'bundler', noUncheckedSideEffectImports: true } }),
+        'entry.ts': 'import { resource } from "./lib";\nusing value = resource();',
+        'lib.ts': 'export const resource = () => null;'
+    };
+    const { report } = analyze(t, files, { ...files, 'lib.ts': 'export const resource = () => undefined;' });
+    assert.equal(report.head.edges[0].target, 'lib.ts');
+    assert.equal(report.head.coverage.indexComplete, true);
+    assert.deepEqual(report.head.diagnostics, []);
+});
+
+test('unrelated JSON does not consume source and resolver input budgets', t => {
+    const files = { 'entry.ts': 'import "./lib";', 'lib.ts': 'export {};', 'package-lock.json': 'x'.repeat(1000), 'data.json': 'x'.repeat(1000) };
+    const { report } = analyze(t, files, { ...files, 'lib.ts': 'export const n = 1;' }, { limits: { maxFiles: 2, maxFileBytes: 50, maxBytes: 100 } });
+    assert.equal(report.head.coverage.indexComplete, true);
+    assert.equal(report.head.edges[0].target, 'lib.ts');
+    assert.deepEqual(report.head.diagnostics, []);
+});
+
+test('relative config inheritance loads transitive and array parents within bounds', t => {
+    const files = {
+        'tsconfig.json': '{"extends":["./config/first","./config/second.json"]}',
+        'config/first.json': '{"extends":"./ancestor"}',
+        'config/ancestor.json': '{"compilerOptions":{"moduleResolution":"bundler","module":"esnext"}}',
+        'config/second.json': '{"compilerOptions":{"baseUrl":"..","paths":{"@lib":["lib.ts"]}}}',
+        'entry.ts': 'import "@lib";', 'lib.ts': 'export {};'
+    };
+    const { fixture, report } = analyze(t, files, { ...files, 'lib.ts': 'export const n = 1;' });
+    assert.equal(report.head.coverage.indexComplete, true);
+    assert.equal(report.head.edges[0].target, 'lib.ts');
+    const bounded = buildDependencyGraph(fixture.root, { baseRef: fixture.range.baseOid, limits: { maxFiles: 3 } });
+    assert.equal(bounded.head.coverage.indexComplete, false);
+});
+
+test('malformed package metadata cannot silently invent CommonJS resolution', t => {
+    const files = { 'entry.ts': 'import "./lib";\nimport "./lib.js";', 'lib.ts': 'export {};', 'package.json': '{"type":"module"}',
+        'tsconfig.json': '{"compilerOptions":{"module":"nodenext","moduleResolution":"nodenext"}}' };
+    for (const invalid of ['{"type":', 'null', '[]']) {
+        const { report } = analyze(t, files, { ...files, 'package.json': invalid });
+        assert.equal(report.head.coverage.indexComplete, false);
+        assert.ok(report.head.diagnostics.some(d => d.code === 'package-invalid'));
+        assert.ok(report.head.edges.every(e => e.resolution === 'invalid-config' && e.target === undefined));
+    }
+});
+
+test('unrelated package metadata does not displace sources; directory-import metadata is loaded on demand', t => {
+    const files = { 'entry.ts': 'import "./lib";', 'lib.ts': 'export {};', 'unrelated/package.json': '{"invalid":' };
+    const { report } = analyze(t, files, { ...files, 'lib.ts': 'export const n = 1;' }, { limits: { maxFiles: 2 } });
+    assert.equal(report.head.coverage.indexComplete, true);
+    assert.equal(report.head.coverage.indexedFiles, 2);
+    const directory = { ...files, 'entry.ts': 'import "./adapter";', 'adapter/package.json': '{"main":"../lib.ts"}' };
+    const { report: resolved } = analyze(t, directory, { ...directory, 'lib.ts': 'export const n = 1;' });
+    assert.equal(resolved.head.edges[0].target, 'lib.ts');
+    const { report: limited } = analyze(t, directory, { ...directory, 'lib.ts': 'export const n = 1;' }, { limits: { maxFiles: 2 } });
+    assert.equal(limited.head.coverage.indexComplete, false);
+    assert.equal(limited.head.edges[0].resolution, 'invalid-config');
+    assert.equal(limited.head.edges[0].target, undefined);
+});

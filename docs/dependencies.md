@@ -28,7 +28,7 @@ initialization or later invocation; it is not a runtime trace.
   evaluated while a module initializes; a lazy-loaded module can initialize much
   later than process startup. `invocation` marks function/callback bodies.
   `unknown` retains sites where the extractor cannot assign a phase safely.
-- `eager` distinguishes ordinary imports/require from `deferred` dynamic imports.
+- `eager` distinguishes ordinary imports/require from `deferred` dynamic imports and namespace `import defer` declarations. Deferred namespace evaluation has `unknown` phase because namespace use determines when evaluation occurs.
   A dynamic import at top level is still labeled `module-init`. A `require` inside
   a function is `invocation` even though the require operation itself is eager.
 - `resolution: resolved` means the TypeScript resolver found a committed target
@@ -53,12 +53,11 @@ read or executed for resolution. The nearest committed `tsconfig.json` (or
 and `paths`. Missing/invalid config is diagnosed. Without a config, analysis uses
 TypeScript's Node-style resolution with JavaScript enabled. The report records
 the analyzer's TypeScript version; it need not match the target project's compiler.
-Package-based config extension and bundler-specific resolution may be unsupported.
+The dependency analyzer uses an isolated TypeScript 5.9.3 parser/resolver (without changing Strand or the extension compiler), including `bundler` resolution and modern syntax such as `using`. Package-based config extension and bundler runtime plugins remain outside scope. Malformed package metadata produces partial coverage; resolution that needs that metadata is `invalid-config`, without a fallback target.
 Project references do not provide symbol binding or build output reconstruction.
 
 Limits apply per snapshot: 2,000 source/config files, 1 MiB per file, 16 MiB total
-input and 20,000 dependency/initialization records. JSON files share the input
-budget and are read first for config/package metadata. Only UTF-8 text is parsed.
+input and 20,000 dependency/initialization records. Source-ancestor package.json, tsconfig.json and jsconfig.json files, plus their relative config inheritance closure, share the input budget and are read first. Directory imports can load other required package metadata on demand through the same bounds. Unrelated JSON, package files and lockfiles do not consume this budget. Relative inheritance supports transitive and array parents within the same bounds. Only UTF-8 text is parsed.
 The dependency analysis budget is 30 seconds, including standalone Git range
 discovery and both snapshots. It is checked between parsing/resolution operations;
 it is not a hard interrupt inside the parser. Tour context reuses its pinned range,
@@ -91,7 +90,5 @@ later slices. No workload is run to generate this evidence.
 
 The [validation corpus and measured results](../scripts/dependency-benchmark/README.md)
 cover labeled module edges, source evidence, bounded scale and pinned public
-repositories. They also document current compatibility gaps: newer compiler
-syntax/options, silent fallback for malformed package metadata, and unrelated
-JSON consuming the indexing budget. Complete indexing is not proof that runtime
+repositories. The historical baseline documents compatibility and metadata gaps; the follow-up validation records their fixes. Complete indexing is not proof that runtime
 loading is valid.

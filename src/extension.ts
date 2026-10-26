@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { FileComparator } from './fileComparator';
 import { DiffViewProvider } from './diffViewProvider';
 import { BygoneUriHandler } from './uriHandler';
+import { EvidenceController } from './evidenceController';
 import { FollowController } from './followController';
 import { launchDesktop } from './desktopLauncher';
 
@@ -9,12 +10,16 @@ export function activate(context: vscode.ExtensionContext) {
     const fileComparator = new FileComparator();
     const diffViewProvider = new DiffViewProvider(context.extensionUri);
     const follower = new FollowController(diffViewProvider, undefined, context.workspaceState);
+    const evidence = new EvidenceController(follower, diffViewProvider);
     const uriHandler = new BygoneUriHandler(fileComparator);
     const standaloneDownloadUrl = vscode.Uri.parse('https://github.com/davidmashburn/bygone/releases');
 
     fileComparator.setDiffViewProvider(diffViewProvider);
 
     context.subscriptions.push(
+        evidence,
+        registerCommand('bygone.openEvidenceReview', (file?: vscode.Uri, root?: vscode.Uri) => evidence.open(file, root)),
+        registerCommand('bygone.returnToEvidenceReview', () => evidence.returnToReview()),
         fileComparator,
         follower,
         vscode.window.registerWebviewPanelSerializer(FollowController.viewType, follower),

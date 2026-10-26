@@ -161,3 +161,13 @@ test('declaration files describe types, never initialization work', () => {
     assert.ok(result.edges.every(edge => edge.phase === 'type'));
     assert.deepEqual(result.effects, []);
 });
+
+test('deferred namespace import preserves unknown evaluation timing', () => {
+    const source = 'import defer * as library from "./library";\nexport const read = () => library.value;';
+    const result = extractModuleDependencies('deferred.ts', source);
+    assert.deepEqual(result.edges.map(edge => edgeSummary(source, edge)), [
+        { specifier: './library', relationship: 'import', phase: 'unknown', loading: 'deferred', slice: 'import defer * as library from "./library";' }
+    ]);
+    assert.ok(result.diagnostics.some(d => d.code === 'deferred-evaluation'));
+    assert.ok(!result.diagnostics.some(d => d.code.startsWith('ts-')));
+});

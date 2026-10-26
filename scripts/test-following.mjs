@@ -21,7 +21,7 @@ try {
     fs.writeFileSync(path.join(extension, 'package.json'), JSON.stringify(manifest));
     fs.mkdirSync(path.join(extension, 'media'));
     for (const file of ['webview.js', 'webview.css', 'editor.worker.js', 'diff.worker.js']) fs.copyFileSync(path.join(repo, 'media', file), path.join(extension, 'media', file));
-    if (process.env.BYGONE_SCM_TEST) await build({
+    if (process.env.BYGONE_SCM_TEST || process.env.BYGONE_EVIDENCE_TEST) await build({
         entryPoints: [path.join(repo, 'media/webview-entry.js')], outfile: path.join(extension, 'media/webview.js'),
         bundle: true, minify: true, loader: { '.md': 'text', '.ttf': 'dataurl' }, plugins: [{ name: 'renderer-test-driver', setup(build) {
             build.onLoad({ filter: /media\/script\.js$/ }, args => ({ contents: fs.readFileSync(args.path, 'utf8') + `
@@ -46,7 +46,7 @@ window.addEventListener('bygone:host-message', event => {
     const executable = process.env.BYGONE_VSCODE_EXECUTABLE || await downloadAndUnzipVSCode(process.env.BYGONE_VSCODE_VERSION || 'stable');
     await runTests({
         vscodeExecutablePath: executable, extensionDevelopmentPath: extension,
-        extensionTestsPath: path.join(repo, process.env.BYGONE_SCM_TEST ? 'test/vscode/scm.js' : 'test/vscode/following.js'),
+        extensionTestsPath: path.join(repo, process.env.BYGONE_EVIDENCE_TEST ? 'test/vscode/evidence.js' : process.env.BYGONE_SCM_TEST ? 'test/vscode/scm.js' : 'test/vscode/following.js'),
         extensionTestsEnv: { BYGONE_FOLLOW_FIXTURE: fixture, ELECTRON_RUN_AS_NODE: undefined },
         launchArgs: [fixture, '--disable-extensions', '--disable-workspace-trust', '--skip-welcome', '--skip-release-notes', '--disable-gpu', '--user-data-dir='+userData, '--extensions-dir='+path.join(root, 'extensions')]
     });

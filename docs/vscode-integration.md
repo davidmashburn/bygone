@@ -174,3 +174,10 @@ for two-dot filenames, live working comparisons through successive staged
 renames, loss/recovery of the Git API in an already-open comparison, and the
 explicit read-only snapshot behavior of a staged pin while Git is unavailable.
 The platform and interaction limits above still apply; hosted CI was not run.
+
+## Pinned evidence handoff
+
+[Evidence Review](evidence-review.md) uses this same editing bridge for full-file
+and exact symbol projections. Its left endpoint is an immutable cited snapshot,
+and its Return action restores the originating review. It does not stage files
+or alter saved evidence while editing.

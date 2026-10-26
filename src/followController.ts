@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { lstat } from 'fs/promises';
+import { lstat, realpath } from 'fs/promises';
+import { SourceRef, resolveSourceRef } from 'bygone-strand/source-references';
 import * as path from 'path';
 import { DiffViewProvider, FollowingView } from './diffViewProvider';
 import { buildTwoWayDiffModel } from './diffEngine';
@@ -17,6 +18,7 @@ interface Projection { token: string; identity: string; document: vscode.TextDoc
 export class FollowController implements vscode.Disposable, vscode.WebviewPanelSerializer {
     public static readonly viewType = 'bygone.followPanel';
     private view?: FollowingView;
+    private reviewBaseline = false;
     private mode: FollowViewState['mode'] = 'paused';
     private document?: vscode.TextDocument;
     private baseline?: FollowBaseline;
@@ -151,8 +153,48 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
         const leftPath = policy === 'index-working' && stagedRename ? right.fsPath : change?.originalUri?.fsPath ?? right.fsPath;
         this.setTarget({ policy, leftPath, rightPath: right.fsPath });
     }
+    /** Explicit handoff from pinned evidence; mutable content remains owned by TextDocument. */
+    public async openReviewEvidence(root: string, ref: SourceRef, source: string, wholeFile = false, workingPath = ref.path, isCurrent = () => true): Promise<boolean> {
+        if (!vscode.workspace.isTrusted || vscode.env.remoteName) throw new Error('Review editing requires a trusted local workspace.');
+        if (resolveSourceRef(ref, { revision: ref.revision, files: { [ref.path]: source } }).status !== 'valid') throw new Error('Review evidence snapshot or range is invalid.');
+        const file = path.join(root, workingPath);
+        const relative = path.relative(await realpath(root), await realpath(file));
+        if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative) || !(await lstat(file)).isFile()) {
+            throw new Error('Working counterpart must be a regular file inside the selected repository.');
+        }
+        if (!isCurrent()) return false;
+        if (!this.view) this.open();
+        const token = ++this.selectionGeneration;
+        const document = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
+        if (!isCurrent()) return false;
+        const version = document.version, current = document.getText();
+        checkFollowText(source); checkFollowText(current);
+        let range: OffsetRange | undefined;
+        if (!wholeFile) {
+            if (current === source) range = { start: ref.start, end: ref.end };
+            else {
+                try {
+                    const mapping = await analyzeLiveSymbols(path.join(root, ref.path), file, source, current);
+                    range = mapping.pairs.find(p => p.source.start === ref.start && p.source.end === ref.end)?.destination;
+                } catch { /* Unsupported syntax or analysis failure keeps full-file context. */ }
+            }
+        }
+        if (!isCurrent()) return false;
+        if (token !== this.selectionGeneration || document.version !== version) throw new Error('Working content or selection changed during mapping; retry the handoff.');
+        this.setTarget({ policy: 'head-working', leftPath: path.join(root, ref.path), rightPath: file });
+        this.reviewBaseline = true;
+        this.mode = 'pinned';
+        this.baseline = { root, relativePath: ref.path, oid: ref.revision, content: source, absent: false };
+        this.document = document;
+        this.capturedLeft = source; this.capturedRight = current;
+        if (range) this.focus = { left: { start: ref.start, end: ref.end }, right: { start: range.start, end: range.end }, name: 'Review evidence', id: ++this.serial };
+        this.notice = !wholeFile && !range ? 'No exact symbol mapping; showing full-file working context. Return to Evidence Review preserves the pinned review.' : 'Editing live working content. Return to Evidence Review preserves the pinned review.';
+        this.view?.reveal(true); this.schedule();
+        return true;
+    }
     private setTarget(target: GitTarget): void {
         this.cancel(); this.context++; this.selectionGeneration++; this.selectionRequest?.abort();
+        this.reviewBaseline = false;
         this.target = target; this.document = undefined; this.baseline = undefined; this.rightSnapshot = undefined;
         this.indexRenameSource = target.policy === 'index-working'
             ? this.git?.repository(vscode.Uri.file(target.rightPath))?.state.indexChanges.find(c => c.renameUri?.fsPath === target.rightPath)?.originalUri.fsPath
@@ -169,7 +211,7 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
     public pause(): void { if (this.view) { this.cancel(); this.selectionGeneration++; this.selectionRequest?.abort(); this.mode = 'paused'; this.unavailable('Following paused. Choose Resume Following to continue.'); } }
     public resume(): void {
         if (!this.view) return;
-        this.mode = 'following'; this.gitAdvanced = false;
+        this.mode = 'following'; this.reviewBaseline = false; this.gitAdvanced = false;
         this.baseline = undefined; this.rightSnapshot = undefined;
         this.select(vscode.window.activeTextEditor ?? this.lastEditor);
         this.refresh();
@@ -313,7 +355,7 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
             this.capturedLeft = baseline.content; this.capturedRight = right;
             const rightAbsent = target.policy === 'head-index' ? this.rightSnapshot!.absent : !exists && !document?.isDirty;
             const editable = target.policy !== 'head-index' && !!document && exists;
-            const leftLabel = target.policy === 'index-working' ? 'Index' : `HEAD (${baseline.oid?.slice(0, 12) ?? 'unborn HEAD'})`;
+            const leftLabel = target.policy === 'index-working' ? 'Index' : `${this.reviewBaseline ? 'Review snapshot' : 'HEAD'} (${baseline.oid?.slice(0, 12) ?? 'unborn HEAD'})`;
             let leftContent = baseline.content, rightContent = right;
             const focus = this.focus;
             if (focus) {
@@ -334,10 +376,10 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
                 }
             } else this.projection = undefined;
             const dirty = target.policy === 'head-index' ? 'Index snapshot • Read-only' : `${document?.isDirty ? 'Unsaved buffer' : 'Saved buffer'}${!exists ? ' • Absent working file' : ''}`;
-            const policyLabel = target.policy === 'head-index' ? 'HEAD → Index' : target.policy === 'index-working' ? 'Index → Working buffer' : 'HEAD → Working buffer';
+            const policyLabel = target.policy === 'head-index' ? 'HEAD → Index' : target.policy === 'index-working' ? 'Index → Working buffer' : this.reviewBaseline ? 'Review snapshot → Working buffer' : 'HEAD → Working buffer';
             const status = [baseline.root, `${path.relative(baseline.root, target.leftPath)}${target.leftPath !== target.rightPath ? ' → '+path.relative(baseline.root, target.rightPath) : ''}`,
                 policyLabel, dirty, baseline.absent ? 'No baseline at this path (addition)' : '',
-                baseline.content === right && !baseline.absent ? `No changes from ${target.policy === 'index-working' ? 'index' : 'HEAD'}` : '',
+                baseline.content === right && !baseline.absent ? `No changes from ${target.policy === 'index-working' ? 'index' : this.reviewBaseline ? 'review snapshot' : 'HEAD'}` : '',
                 focus ? `Symbol: ${focus.name}${!focus.left || !focus.right ? ' • No verified counterpart' : ''}` : 'File context',
                 this.followSymbol ? 'Follow Symbol on' : '', capturedStagedPin && !repository ? 'Git integration unavailable • Showing pinned snapshots' : '',
                 this.gitAdvanced ? 'Git state advanced • Resume to update pinned snapshots' : '', this.notice].filter(Boolean).join(' • ');
@@ -347,7 +389,7 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
                 diffModel: buildTwoWayDiffModel(leftContent, rightContent), history: null,
                 editableSides: { left: false, right: !!this.projection }, readOnlyLabel: 'Snapshot is read-only',
                 editBinding: this.projection ? { token: this.projection.token, projection: identity } : undefined,
-                follow: { mode: this.mode, status, unavailable: false, canPin: true } });
+                follow: { mode: this.mode, status, unavailable: false, canPin: true, canReturnToReview: this.reviewBaseline } });
             // Full-file rendering is independent of optional analysis. Focus ranges survive invalid syntax.
             if (this.pendingSymbol) { const editor = this.pendingSymbol; this.pendingSymbol = undefined; void this.compareSymbol(editor); }
             if (focus && this.mode !== 'pinned') void this.refreshSymbolMatch(generation, baseline.content, right, focus, request.signal);
@@ -499,6 +541,7 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
             }
             return;
         }
+        if (action === 'returnReview' && this.reviewBaseline) await vscode.commands.executeCommand('bygone.returnToEvidenceReview');
         if (action === 'pin') this.pin();
         if (action === 'resume') this.resume();
         if (action === 'refresh') this.refresh();

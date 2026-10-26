@@ -427,6 +427,10 @@ virtual and notebook inputs show an explicit unavailable state. Git failures cle
 the previous comparison. Arbitrary cross-file symbol moves and hunk staging inside
 Bygone are outside this integration.
 
+Use **Bygone: Open Evidence Review** to inspect pinned requirement evidence, edit
+the working counterpart, and return to the original review. See the
+[evidence workflow and PR Reviewer bridge](docs/evidence-review.md).
+
 See the [integration contract and verification record](docs/vscode-integration.md)
 for snapshot/edit safeguards, analysis budgets and reproducible Extension Host tests.
 

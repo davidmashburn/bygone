@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 import { createHash } from 'crypto';
 import { posix as path } from 'path';
 import { pathToFileURL } from 'url';
-import * as ts from 'typescript';
+import * as ts from 'dependency-typescript';
 import { resolveBranchReviewRange, type BranchReviewRange } from './gitComparison';
 import { serializeDeepLink } from './deepLink';
 import { extractModuleDependencies, type ModuleDependencySite, type ModuleInitializationSite } from './moduleDependencies';
@@ -150,31 +150,49 @@ function indexSnapshot(range: BranchReviewRange, revision: 'base' | 'head', limi
     const regular = (e: Entry) => e.mode === '100644' || e.mode === '100755';
     result.coverage.candidateFiles = entries.filter(supported).length;
     const manifest = new Map(entries.filter(e => regular(e) && !excluded(e)).map(e => [VIRTUAL_ROOT + e.file, e]));
-    const candidates = entries.filter(e => supported(e) || /\.json$/i.test(e.file))
-        .sort((a, b) => Number(supported(a)) - Number(supported(b)) || (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
-    const selected: Entry[] = [];
-    let bytes = 0;
-    for (const entry of candidates) {
-        let reason: string | undefined;
-        if (!regular(entry)) reason = 'Non-regular file (for example, a symlink) is not followed.';
-        else if (excluded(entry)) reason = 'Tracked node_modules are outside the resolution/index scope.';
-        else if (entry.size > limits.maxFileBytes) reason = 'File exceeds maxFileBytes.';
-        else if (selected.length >= limits.maxFiles || bytes + entry.size > limits.maxBytes) reason = 'Snapshot file/byte budget exhausted.';
-        if (reason) {
-            result.coverage.indexComplete = false;
-            diagnostic('file-omitted', reason, entry.file); continue;
+    // Only compiler/package metadata belongs in the resolver input budget. Config
+    // inheritance can name arbitrary JSON files, so discover that bounded closure.
+    const sourceDirectories = new Set<string>();
+    for (const entry of entries.filter(e => supported(e) && regular(e) && !excluded(e))) {
+        for (let dir = path.dirname(entry.file);; dir = path.dirname(dir)) {
+            sourceDirectories.add(dir);
+            if (dir === '.') break;
         }
-        selected.push(entry); bytes += entry.size;
     }
+    const metadata = (e: Entry) => sourceDirectories.has(path.dirname(e.file))
+        && /^(?:tsconfig|jsconfig|package)\.json$/i.test(path.basename(e.file));
+    const sorted = [...entries].sort((a, b) => a.file < b.file ? -1 : a.file > b.file ? 1 : 0);
+    const byFile = new Map(entries.map(e => [e.file, e]));
+    const selected: Entry[] = [];
+    const attempted = new Set<string>();
     const contents = new Map<string, string>();
-    if (selected.length && Date.now() < deadline) {
+    let bytes = 0;
+    const readBatch = (candidates: Entry[]) => {
+        const batch: Entry[] = [];
+        for (const entry of candidates) {
+            if (attempted.has(entry.file)) continue;
+            attempted.add(entry.file);
+            let reason: string | undefined;
+            if (!regular(entry)) reason = 'Non-regular file (for example, a symlink) is not followed.';
+            else if (excluded(entry)) reason = 'Tracked node_modules are outside the resolution/index scope.';
+            else if (entry.size > limits.maxFileBytes) reason = 'File exceeds maxFileBytes.';
+            else if (selected.length >= limits.maxFiles || bytes + entry.size > limits.maxBytes) reason = 'Snapshot file/byte budget exhausted.';
+            else if (Date.now() >= deadline) reason = 'Snapshot time budget exhausted.';
+            if (reason) {
+                result.coverage.indexComplete = false;
+                diagnostic('file-omitted', reason, entry.file); continue;
+            }
+            selected.push(entry); batch.push(entry); bytes += entry.size;
+        }
+        if (!batch.length) return;
         try {
             const buffer = execFileSync('git', ['cat-file', '--batch'], {
-                cwd: range.repoRoot, input: selected.map(e => e.oid).join('\n') + '\n',
-                maxBuffer: bytes + selected.length * 128, timeout: remaining(), stdio: ['pipe', 'pipe', 'pipe']
+                cwd: range.repoRoot, input: batch.map(e => e.oid).join('\n') + '\n',
+                maxBuffer: batch.reduce((sum, e) => sum + e.size + 128, 0), timeout: remaining(), stdio: ['pipe', 'pipe', 'pipe']
             });
             let offset = 0;
-            for (const entry of selected) {
+            const loaded = new Map<string, string>();
+            for (const entry of batch) {
                 const end = buffer.indexOf(10, offset);
                 const header = buffer.subarray(offset, end).toString('utf8');
                 if (header !== `${entry.oid} blob ${entry.size}`) throw new Error('Unexpected Git batch response.');
@@ -185,22 +203,73 @@ function indexSnapshot(range: BranchReviewRange, revision: 'base' | 'head', limi
                     result.coverage.indexComplete = false;
                     diagnostic('encoding-unsupported', 'Only UTF-8 text without NUL bytes is indexed.', entry.file); continue;
                 }
-                contents.set(VIRTUAL_ROOT + entry.file, content);
-                result.coverage.readBytes += entry.size;
+                loaded.set(VIRTUAL_ROOT + entry.file, content);
+            }
+            for (const [file, content] of loaded) {
+                contents.set(file, content); result.coverage.readBytes += Buffer.byteLength(content);
             }
         } catch {
             result.coverage.indexComplete = false;
-            contents.clear(); result.coverage.readBytes = 0;
             diagnostic('blobs-unavailable', 'Could not read snapshot blobs within the time/output budget.');
         }
+    };
+    let configBatch = sorted.filter(metadata);
+    while (configBatch.length) {
+        readBatch(configBatch);
+        const parents: Entry[] = [];
+        for (const entry of configBatch) {
+            if (path.basename(entry.file) === 'package.json') continue;
+            const content = contents.get(VIRTUAL_ROOT + entry.file);
+            if (content === undefined) continue;
+            const config = ts.parseConfigFileTextToJson(entry.file, content).config;
+            const extensions: unknown[] = Array.isArray(config?.extends) ? config.extends : [config?.extends];
+            for (const extension of extensions) {
+                if (typeof extension !== 'string' || !extension.startsWith('.')) continue;
+                const name = path.normalize(path.join(path.dirname(entry.file), extension));
+                const parent = byFile.get(name) ?? byFile.get(name + '.json');
+                if (parent && !attempted.has(parent.file)) parents.push(parent);
+            }
+        }
+        configBatch = [...new Set(parents)];
     }
+    readBatch(sorted.filter(supported));
+    const invalidPackages = new Set<string>();
+    const checkedPackages = new Set<string>();
+    const validatePackage = (file: string) => {
+        const content = contents.get(file);
+        if (content === undefined || checkedPackages.has(file)) return;
+        checkedPackages.add(file);
+        try {
+            const value: unknown = JSON.parse(content);
+            if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Expected a package object');
+        } catch {
+            invalidPackages.add(file); result.coverage.indexComplete = false;
+            diagnostic('package-invalid', 'Committed package.json must contain a valid JSON object; resolver fallback is not reliable.', file.slice(VIRTUAL_ROOT.length));
+        }
+    };
+    for (const file of contents.keys()) if (path.basename(file) === 'package.json') validatePackage(file);
+    let metadataFailure = false;
     const directories = new Set<string>([VIRTUAL_ROOT.slice(0, -1)]);
     for (const file of manifest.keys()) {
         for (let dir = path.dirname(file); dir.startsWith(VIRTUAL_ROOT.slice(0, -1)); dir = path.dirname(dir)) directories.add(dir);
     }
     const host: ts.ModuleResolutionHost = {
         fileExists: name => manifest.has(path.normalize(name)),
-        readFile: name => contents.get(path.normalize(name)),
+        readFile: name => {
+            const file = path.normalize(name);
+            if (path.basename(file) === 'package.json') {
+                // A relative directory import can need a package outside every
+                // source ancestor. Load it on demand through the same budgets.
+                const entry = manifest.get(file);
+                if (entry && !attempted.has(entry.file)) readBatch([entry]);
+                validatePackage(file);
+                if (invalidPackages.has(file) || (entry && !contents.has(file))) {
+                    metadataFailure = true;
+                    throw new Error('Unavailable or invalid committed package metadata');
+                }
+            }
+            return contents.get(file);
+        },
         directoryExists: name => directories.has(path.normalize(name)),
         getCurrentDirectory: () => VIRTUAL_ROOT, realpath: name => name
     };
@@ -267,6 +336,7 @@ function indexSnapshot(range: BranchReviewRange, revision: 'base' | 'head', limi
             let resolution: DependencyEdge['resolution'] = site.specifier === undefined ? 'computed' : options === null ? 'invalid-config' : 'unresolved';
             let target: string | undefined;
             if (site.specifier !== undefined && options) {
+                metadataFailure = false;
                 try {
                     const mode = site.relationship === 'require' ? ts.ModuleKind.CommonJS : site.relationship === 'dynamic-import' ? ts.ModuleKind.ESNext
                         : ts.getImpliedNodeFormatForFile(filename as ts.Path, undefined, host, options);
@@ -274,7 +344,12 @@ function indexSnapshot(range: BranchReviewRange, revision: 'base' | 'head', limi
                     if (resolved && manifest.has(resolved.resolvedFileName)) {
                         target = resolved.resolvedFileName.slice(VIRTUAL_ROOT.length); resolution = 'resolved';
                     }
-                } catch { diagnostic('resolution-failed', 'Compiler resolution failed for an import site.', entry.file); }
+                } catch {
+                    result.coverage.indexComplete = false;
+                    if (metadataFailure) resolution = 'invalid-config';
+                    diagnostic(metadataFailure ? 'package-unavailable' : 'resolution-failed',
+                        metadataFailure ? 'Resolution requires unavailable or invalid committed package metadata.' : 'Compiler resolution failed for an import site.', entry.file);
+                }
             }
             if (resolution !== 'resolved') result.coverage.unresolvedEdges++;
             result.edges.push({ ...fields, evidence: 'syntactic', resolution, ...(target ? { target } : {}), source: makeSource(entry, content, site) });
