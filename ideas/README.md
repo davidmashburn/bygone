@@ -23,6 +23,8 @@ clear enough to discuss as an actionable plan.
 
 ## Current ideas
 
+- [Dependency graphs](dependency-graphs.md) — evaluate static relationships,
+  module initialization effects, and run-scoped traces as change-review evidence.
 - [Semantic change evidence](semantic-change-evidence.md) — distinguish
   correspondence, structural hypotheses, replayed transforms, and behavior;
   connects the symbol inventory and refactor-decomposition research.
