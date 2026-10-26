@@ -42,6 +42,7 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
     private storageRevision = 0;
     private ack?: { id: number; accepted: boolean };
     private editing = false;
+    private actionQueue: Promise<void> = Promise.resolve();
     private notice = '';
     private gitAdvanced = false;
     private followSymbol = vscode.workspace.getConfiguration('bygone').get<boolean>('followSymbol', false);
@@ -79,7 +80,11 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
     }
     private open(restored?: vscode.WebviewPanel): void {
         this.view = this.provider.createFollowingView(FollowController.viewType,
-            action => { void this.action(action); }, () => this.stop(), restored,
+            (action, token) => {
+                this.actionQueue = this.actionQueue.then(() => this.action(action, token)).catch(error => {
+                    void vscode.window.showWarningMessage(`Bygone could not complete ${action}: ${error instanceof Error ? error.message : String(error)}`);
+                });
+            }, () => this.stop(), restored,
             message => { void this.receive(message); });
         this.git = new GitIntegration(repo => {
             if (!this.target || (repo && ![this.target.leftPath, this.target.rightPath].some(p => !path.relative(repo.rootUri.fsPath, p).startsWith('..')))) return;
@@ -169,7 +174,8 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
                 const uri = vscode.Uri.file(this.target.rightPath), repository = this.git?.repository(uri);
                 if (repository) {
                     const change = repository.state.indexChanges.find(c => changeContains(c, uri));
-                    this.target = { ...this.target, leftPath: change?.originalUri?.fsPath ?? this.target.rightPath };
+                    this.target = { ...this.target, leftPath: change?.originalUri?.fsPath ?? this.target.rightPath,
+                        rightPath: (change?.renameUri ?? change?.uri)?.fsPath ?? this.target.rightPath };
                 }
             }
             this.baseline = undefined; this.rightSnapshot = undefined; this.symbols = undefined;
@@ -228,7 +234,8 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
             if (!vscode.workspace.isTrusted) throw new Error('Trust this workspace before following files.');
             if (vscode.env.remoteName) throw new Error('Following supports local file documents only.');
             const uri = vscode.Uri.file(target.rightPath);
-            if (this.git?.repository(uri)?.state.mergeChanges.some(c => changeContains(c, uri))) throw new Error('Merge conflicts are not supported. Resolve them in VS Code first.');
+            const capturedStagedPin = this.mode === 'pinned' && target.policy === 'head-index' && this.baseline && this.rightSnapshot;
+            if (!capturedStagedPin && this.git?.repository(uri)?.state.mergeChanges.some(c => changeContains(c, uri))) throw new Error('Merge conflicts are not supported. Resolve them in VS Code first.');
             let document = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString() && !d.isClosed);
             let exists = false;
             if (target.policy !== 'head-index') {
@@ -433,16 +440,33 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
         if (this.mode === 'paused' || !this.target) this.unavailable(this.notice || 'Following paused.'); else this.schedule();
     }
     private async recover(token: string, content: string): Promise<void> {
-        const projection = this.projections.get(token);
-        if (content === projection?.content) return;
-        const current = !projection || projection.document.isClosed ? undefined : projection.document.getText().slice(projection.range.start, projection.range.start + content.length);
-        if (current === content) return;
+        const projection = this.projections.get(token), current = this.projection;
+        // An old range (or a matching prefix) cannot prove a rejected draft was
+        // applied. Only the complete, current projection can deduplicate it.
+        if (projection && current && projection.identity === current.identity && projection.document === current.document
+            && !current.document.isClosed && current.document.version === current.version && current.content === content
+            && current.document.getText().slice(current.range.start, current.range.end) === content) return;
         const document = await vscode.workspace.openTextDocument({ language: projection?.document.languageId, content });
         this.recoveryUris.add(document.uri.toString());
         await vscode.window.showTextDocument(document, { preserveFocus: true, preview: false });
         void vscode.window.showWarningMessage('Bygone preserved unapplied edits in an untitled recovery document. The source was not overwritten.');
     }
-    private async action(action: string): Promise<void> {
+    private async action(action: string, token?: string): Promise<void> {
+        if (action === 'save' || action === 'undo' || action === 'redo') {
+            const origin = token ? this.projections.get(token) : undefined;
+            const valid = () => origin && this.projection && origin.identity === this.projection.identity
+                && origin.document === this.projection.document && !origin.document.isClosed && this.mode !== 'paused';
+            const stale = () => { void vscode.window.showWarningMessage(`Bygone did not ${action}: the comparison changed. Select the intended document and try again.`); };
+            if (!valid()) { stale(); return; }
+            const doc = origin!.document;
+            if (action === 'save') await doc.save();
+            else {
+                await vscode.window.showTextDocument(doc, { viewColumn: this.lastEditor?.viewColumn ?? vscode.ViewColumn.One, preserveFocus: false });
+                if (!valid() || vscode.window.activeTextEditor?.document !== doc) { stale(); return; }
+                await vscode.commands.executeCommand(action); this.view?.reveal();
+            }
+            return;
+        }
         if (action === 'pin') this.pin();
         if (action === 'resume') this.resume();
         if (action === 'refresh') this.refresh();
@@ -450,12 +474,6 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
         if (action === 'file') { this.focus = undefined; this.notice = ''; this.schedule(); }
         if (action === 'followSymbol') { this.followSymbol = !this.followSymbol; this.schedule(); }
         if (action === 'working' && this.target) await this.openScm('index-working', vscode.Uri.file(this.target.rightPath));
-        if (action === 'save' && this.projection) await this.projection.document.save();
-        if ((action === 'undo' || action === 'redo') && this.projection) {
-            const doc = this.projection.document;
-            await vscode.window.showTextDocument(doc, { viewColumn: this.lastEditor?.viewColumn ?? vscode.ViewColumn.One, preserveFocus: false });
-            await vscode.commands.executeCommand(action); this.view?.reveal();
-        }
         if (action === 'reveal') await this.revealSource();
         if (action === 'history' || action === 'compare') {
             const uri = this.target && vscode.Uri.file(this.target.rightPath); this.pause();

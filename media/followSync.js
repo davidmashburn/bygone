@@ -1,13 +1,16 @@
 /** One request in flight. Refreshes cannot erase keystrokes awaiting an acknowledgment. */
 export function createFollowSync({ send, read }) {
-    let binding, pending, latest, serial = 0, deferred, action, composing = false;
+    let binding, pending, latest, serial = 0, deferred, composing = false;
+    const actions = [];
     function submit(content) {
         pending = { id: ++serial, token: binding.token, content, projection: binding.projection };
         send({ type: 'followDraft', token: pending.token, content });
         send({ type: 'followEdit', id: pending.id, token: pending.token, content });
     }
     function flushAction() {
-        if (!pending && !composing && action) { send({ type: 'followAction', action }); action = undefined; }
+        if (!pending && !composing) {
+            for (const action of actions.splice(0)) send(action);
+        }
     }
     return {
         active: () => !!binding,
@@ -31,7 +34,12 @@ export function createFollowSync({ send, read }) {
             flushAction();
             return undefined;
         },
-        action(value) { action = value; flushAction(); },
+        action(value) {
+            // Document commands belong to the projection visible when requested,
+            // even if their edit acknowledgment arrives with a different view.
+            actions.push({ type: 'followAction', action: value, token: binding?.token });
+            flushAction();
+        },
         receive(message) {
             if (message.type !== 'showDiff') return true;
             if (composing) {

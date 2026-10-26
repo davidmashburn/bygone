@@ -27,10 +27,12 @@ try {
             build.onLoad({ filter: /media\/script\.js$/ }, args => ({ contents: fs.readFileSync(args.path, 'utf8') + `
 window.addEventListener('bygone:host-message', event => {
     const m = event.detail;
-    if (m.type === 'testEdit') {
+    if (m.type === 'captureNavigationState') host.postMessage({ type:'testSyncState', state:followSync.state() });
+    if (m.type === 'testEdit' || m.type === 'testEditActions') {
         const model = rightEditor.getModel();
         const start = model.getPositionAt(m.start), end = model.getPositionAt(m.end);
         rightEditor.executeEdits('fixture', [{ range: new monacoInstance.Range(start.lineNumber, start.column, end.lineNumber, end.column), text: m.text }]);
+        for (const action of m.actions ?? []) followSync.action(action);
     }
     if (m.type === 'testComposition') window.dispatchEvent(new CompositionEvent('composition'+m.phase));
     if (m.type === 'testAction') followSync.action(m.action);

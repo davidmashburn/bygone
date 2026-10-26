@@ -43,9 +43,19 @@ drafts. Save, undo and redo operate on the authoritative VS Code document; typin
 does not save or stage. Other comparison panels observe the document change.
 The existing manual two-way bridge also checks its base text and document version.
 
+Save, undo and redo retain the document binding from when they were requested.
+Commands queued behind an edit execute in order, including repeated undo requests.
+If the comparison changes before a document command executes, Bygone rejects it
+with a notice rather than applying it to the new document. Recovery deduplicates
+a draft only against an entire current, version-validated projection; a matching
+prefix or an obsolete snapshot is insufficient.
+
 Pin freezes the target, historical snapshots and symbol focus. A pinned working
 projection remains editable. Repository changes produce a notice until Resume;
 unpinned comparisons keep their policy when a file leaves its SCM group.
+Live staged renames update both endpoint paths. A captured staged pin remains
+visible even if the live index enters a conflict; Resume checks the current
+index again. Working-change actions also appear in Git's separate untracked group.
 
 ## Supported scope and budgets
 
@@ -125,3 +135,19 @@ and persisted-draft constructor path, not a whole application restart. Remote an
 untrusted workspace guards were inspected; a remote host and restricted-mode
 window were not launched. macOS/Windows Extension Hosts, marketplace installation,
 release CI and publication were not exercised.
+
+## Review-fix verification: 2026-10-26
+
+The fixes applied over `cfd5e335d75f2be324c0865abe4c2f5bdece06f5` passed
+435 Node tests plus the existing diff-engine runner, TypeScript compilation,
+ESLint, renderer size budgets and VSIX packaging. In a fresh Linux ARM64 Lima
+checkout, all 25 SCM cases and all 16 original following cases passed on each
+of VS Code 1.74.0 and 1.143.1. Host and guest source/test SHA-256 hashes matched.
+
+Six added Extension Host cases cover complete rejected deletion/reversion recovery,
+deferred Save/Undo/Redo across a comparison switch, repeated Undo followed by
+Save and Pin, a live staged rename, conflict-after-staged-pin, and separate
+untracked resources. The untracked case checks the contributed menu conditions
+and executes the command with a resource argument; it does not physically click
+the SCM menu. The earlier platform, IME, restart, remote/restricted-host and
+release-verification limits still apply.

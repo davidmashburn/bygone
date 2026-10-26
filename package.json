@@ -235,12 +235,12 @@
         },
         {
           "command": "bygone.openWorkingInBygone",
-          "when": "scmProvider == git && scmResourceGroup == workingTree && isWorkspaceTrusted && !remoteName",
+          "when": "scmProvider == git && (scmResourceGroup == workingTree || scmResourceGroup == untracked) && isWorkspaceTrusted && !remoteName",
           "group": "navigation"
         },
         {
           "command": "bygone.openWorkingInBygone",
-          "when": "scmProvider == git && scmResourceGroup == workingTree && isWorkspaceTrusted && !remoteName",
+          "when": "scmProvider == git && (scmResourceGroup == workingTree || scmResourceGroup == untracked) && isWorkspaceTrusted && !remoteName",
           "group": "inline@2"
         }
       ]

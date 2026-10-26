@@ -29,6 +29,8 @@ exports.run = async () => {
     const ready = () => until(() => msg()?.editBinding && msg().rightContent === doc.getText(), 'working render');
     await ready();
     const panel = api.provider.panels.get('follow').panel;
+    let syncState;
+    panel.webview.onDidReceiveMessage(m=>{ if (m.type==='testSyncState') syncState=m.state; });
     async function buffers() {
         let value; const requestId = Date.now();
         const listener = panel.webview.onDidReceiveMessage(m => { if (m.type === 'navigationState' && m.requestId === requestId) value = m.buffers; });
@@ -165,6 +167,9 @@ exports.run = async () => {
             await until(async ()=>(await buffers()).find(b=>b.id==='right').content===slice,'pinned renderer');
             await rendererEdit(slice.indexOf('+ 51')+2,slice.indexOf('+ 51')+4,'61');
             await until(()=>doc.getText()===before.replace('+ 51','+ 61'),'pinned slice write');
+            // Finish the real renderer request before injecting synthetic request
+            // IDs, which otherwise replace its still-pending acknowledgment.
+            await until(async ()=>(await buffers()).find(b=>b.id==='right').content.includes('+ 61') && !syncState?.pending,'pinned edit acknowledgment');
             const token=msg().editBinding.token, authoritative=doc.getText(), large='x'.repeat(300000);
             await controller.receive({type:'followDraft',token,content:large});
             await controller.receive({type:'followEdit',id:1001,token,content:large});
@@ -259,6 +264,120 @@ exports.run = async () => {
             await until(()=>msg().leftContent.includes('return 3') && msg().rightContent.includes('return 3'),'new branch');
             git('checkout',branch); await repo.status(); await until(()=>msg().leftContent.includes('return 1') && msg().rightContent.includes('return 1'),'checkout refresh');
         });
+        await test('rejected deletions and reversions preserve the complete draft',async () => {
+            const value=vscode.Uri.file(path.join(root,'recovery.ts'));
+            fs.writeFileSync(value.fsPath,'abcDEF');
+            const document=await vscode.workspace.openTextDocument(value);
+            const source=await vscode.window.showTextDocument(document,{viewColumn:vscode.ViewColumn.One});
+            await controller.openScm('index-working',value);
+            await until(()=>msg().editBinding && msg().rightContent==='abcDEF','recovery base');
+            const token=msg().editBinding.token;
+            await source.edit(b=>b.replace(new vscode.Range(0,0,0,6),'abcXYZ'));
+            for (const content of ['abc','abcDEF','']) {
+                await controller.receive({type:'followDraft',token,content});
+                await controller.receive({type:'followEdit',id:2000,token,content});
+                assert.equal(controller.ack.accepted,false);
+                const before=new Set(vscode.workspace.textDocuments.map(d=>d.uri.toString()));
+                await controller.receive({type:'followRecover',token,content});
+                assert.ok(vscode.workspace.textDocuments.some(d=>d.isUntitled && !before.has(d.uri.toString()) && d.getText()===content));
+                assert.equal(document.getText(),'abcXYZ');
+                assert.equal(controller.draft,undefined);
+            }
+            await until(()=>controller.projection?.version===document.version,'current recovery projection');
+            const count=vscode.workspace.textDocuments.length;
+            await controller.receive({type:'followRecover',token:controller.projection.token,content:'abcXYZ'});
+            assert.equal(vscode.workspace.textDocuments.length,count);
+        });
+        await test('deferred Save Undo and Redo reject a changed comparison instead of modifying its document',async () => {
+            const a=vscode.Uri.file(path.join(root,'actions-a.ts')), b=vscode.Uri.file(path.join(root,'actions-b.ts'));
+            fs.writeFileSync(a.fsPath,'export const actionA = 1;\n'); fs.writeFileSync(b.fsPath,'export const actionB = 1;\n');
+            const documentA=await vscode.workspace.openTextDocument(a), documentB=await vscode.workspace.openTextDocument(b);
+            const native=new vscode.WorkspaceEdit(); native.insert(b,new vscode.Position(0,0),'// unsaved B\n'); await vscode.workspace.applyEdit(native);
+            await vscode.window.showTextDocument(documentA,{viewColumn:vscode.ViewColumn.One});
+            await controller.openScm('index-working',a);
+            await until(()=>msg().editBinding && msg().rightContent===documentA.getText(),'action A render');
+            await until(async ()=>(await buffers()).find(v=>v.id==='right').content===documentA.getText(),'action A renderer');
+            const beforeB=documentB.getText(), schedule=controller.schedule, perform=controller.action;
+            let processed=0;
+            controller.action=async function(...args) { try { return await perform.apply(this,args); } finally { processed++; } };
+            // Hold publication, not document writes, so the real edit acknowledgment
+            // is delivered with B's render after the user switches comparisons.
+            controller.cancel(); controller.schedule=()=>{};
+            try {
+                await panel.webview.postMessage({type:'testEditActions',start:0,end:0,text:'// unsaved A\n',actions:['save','undo','redo']});
+                await until(()=>documentA.getText().startsWith('// unsaved A') && controller.ack?.accepted,'pending A acknowledgment');
+                await controller.openScm('index-working',b);
+                controller.schedule=schedule; controller.schedule();
+                await until(()=>processed===3,'stale actions rejected'); await controller.actionQueue;
+                assert.ok(documentA.getText().startsWith('// unsaved A')); assert.equal(documentA.isDirty,true);
+                assert.equal(documentB.getText(),beforeB); assert.equal(documentB.isDirty,true);
+                assert.equal(fs.readFileSync(b.fsPath,'utf8'),'export const actionB = 1;\n');
+            } finally { controller.schedule=schedule; controller.action=perform; }
+        });
+        await test('two queued Undos execute separately and Save completes before Pin',async () => {
+            const value=vscode.Uri.file(path.join(root,'action-order.ts')), initial='export const actionOrder = 1;\n';
+            fs.writeFileSync(value.fsPath,initial);
+            const document=await vscode.workspace.openTextDocument(value);
+            const source=await vscode.window.showTextDocument(document,{viewColumn:vscode.ViewColumn.One});
+            await source.edit(b=>b.insert(new vscode.Position(0,0),'// first\n'));
+            await source.edit(b=>b.insert(new vscode.Position(0,0),'// second\n'));
+            await controller.openScm('index-working',value);
+            await until(()=>msg().editBinding && msg().rightContent===document.getText(),'ordered action render');
+            await until(async ()=>(await buffers()).find(v=>v.id==='right').content===document.getText(),'ordered action renderer');
+            await panel.webview.postMessage({type:'testEditActions',start:0,end:0,text:'// third\n',actions:['undo','undo','save','pin']});
+            await until(()=>controller.mode==='pinned','queued actions complete'); await controller.actionQueue;
+            assert.equal(document.getText(),'// first\n'+initial);
+            assert.equal(document.isDirty,false); assert.equal(fs.readFileSync(value.fsPath,'utf8'),document.getText());
+        });
+        await test('an active staged comparison follows a native rename to its new index path',async () => {
+            const old=vscode.Uri.file(path.join(root,'live-rename.ts')), renamed=vscode.Uri.file(path.join(root,'live-renamed.ts'));
+            const content='export const liveRename = 1;\n';
+            fs.writeFileSync(old.fsPath,content); git('add','live-rename.ts'); git('commit','-m','live rename fixture','--','live-rename.ts');
+            await repo.status(); await controller.openScm('head-index',old);
+            await until(()=>msg().rightContent===content && controller.target.rightPath===old.fsPath,'before live rename');
+            git('mv','live-rename.ts','live-renamed.ts'); await repo.status();
+            await until(()=>controller.target.rightPath===renamed.fsPath && msg().rightContent===content,'live rename destination');
+            assert.equal(controller.target.leftPath,old.fsPath); assert.equal(msg().leftContent,content);
+        });
+        await test('a staged pin keeps both captured endpoints after a native index conflict',async () => {
+            const name='pinned-conflict.ts', value=vscode.Uri.file(path.join(root,name));
+            const before='export const pinned = 1;\n', after='export const pinned = 2;\n';
+            fs.writeFileSync(value.fsPath,before); git('add',name); git('commit','-m','pinned conflict fixture','--',name);
+            fs.writeFileSync(value.fsPath,after); git('add',name); await repo.status();
+            await vscode.window.showTextDocument(value,{viewColumn:vscode.ViewColumn.One});
+            await controller.openScm('head-index',value);
+            await until(()=>msg().leftContent===before && msg().rightContent===after,'before pinned conflict');
+            controller.pin(); await until(()=>msg().follow.mode==='pinned','pin before conflict');
+            const base=git('rev-parse','HEAD:'+name), index=git('rev-parse',':'+name);
+            const stages=`0 ${'0'.repeat(base.length)}\t${name}\n100644 ${base} 1\t${name}\n100644 ${base} 2\t${name}\n100644 ${index} 3\t${name}\n`;
+            try {
+                execFileSync('git',['update-index','--index-info'],{cwd:root,input:stages}); await repo.status();
+                assert.ok(repo.state.mergeChanges.some(c=>c.uri.fsPath===value.fsPath));
+                await until(()=>/Git state advanced/.test(msg().follow.status),'pinned conflict notice');
+                assert.equal(msg().follow.unavailable,false); assert.equal(msg().leftContent,before); assert.equal(msg().rightContent,after);
+                controller.resume(); await until(()=>msg().follow.unavailable && /Merge conflicts/.test(msg().follow.status),'resume checks live conflict');
+            } finally { git('reset','HEAD','--',name); await repo.status(); }
+        });
+        await test('separate untracked SCM resources expose and execute the working comparison action',async () => {
+            const config=vscode.workspace.getConfiguration('git'), previous=config.get('untrackedChanges');
+            const value=vscode.Uri.file(path.join(root,'separate-untracked.ts')), content='export const untracked = true;\n';
+            try {
+                await config.update('untrackedChanges','separate',vscode.ConfigurationTarget.Global);
+                fs.writeFileSync(value.fsPath,content); await repo.status();
+                await until(()=>vscode.workspace.getConfiguration('git').get('untrackedChanges')==='separate','separate untracked configuration');
+                assert.equal(git('ls-files','--others','--exclude-standard','--','separate-untracked.ts'),'separate-untracked.ts');
+                // The 1.74 Git API omits the separate untracked group. Its menu
+                // still passes resourceUri, which must be enough for the action.
+                if (repo.state.untrackedChanges) assert.ok(repo.state.untrackedChanges.some(c=>c.uri.fsPath===value.fsPath));
+                const menus=vscode.extensions.getExtension('davidmashburn.bygone').packageJSON.contributes.menus['scm/resourceState/context'];
+                const entries=menus.filter(m=>m.command==='bygone.openWorkingInBygone');
+                assert.equal(entries.length,2);
+                for (const entry of entries) assert.match(entry.when,/scmResourceGroup == workingTree \|\| scmResourceGroup == untracked/);
+                await vscode.commands.executeCommand('bygone.openWorkingInBygone',{resourceUri:value});
+                await until(()=>msg().rightContent===content && msg().editBinding,'untracked working comparison');
+                assert.equal(msg().leftContent,''); assert.equal(controller.target.policy,'index-working');
+            } finally { await config.update('untrackedChanges',previous,vscode.ConfigurationTarget.Global); }
+        });
         await test('disabled Git reports SCM unavailability while explicit comparisons remain usable',async () => {
             const config=vscode.workspace.getConfiguration('git');
             try {
@@ -269,8 +388,9 @@ exports.run = async () => {
                 const other=await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(root,'renamed.ts')));
                 await api.provider.showDiff(other.uri,uri,other.getText(),doc.getText(),msg().diffModel);
                 const manual=api.provider.activeState;
-                await until(()=>api.provider.isReady,'manual without Git');
-                assert.equal(api.provider.currentMessage.rightContent,doc.getText());
+                await until(()=>api.provider.activeState===manual ? api.provider.isReady : manual.isReady,'manual without Git');
+                const manualMessage=api.provider.activeState===manual ? api.provider.currentMessage : manual.currentMessage;
+                assert.equal(manualMessage.rightContent,doc.getText());
                 manual.panel.dispose();
             } finally {
                 await config.update('enabled',true,vscode.ConfigurationTarget.Global);
@@ -291,6 +411,6 @@ exports.run = async () => {
             restored.dispose();
         });
         console.log('SCM INTEGRATION COMPLETE');
-    } catch(error) { console.error('SCM STATE',JSON.stringify({message:{left:msg()?.leftContent?.slice(0,200),right:msg()?.rightContent?.slice(0,200),follow:msg()?.follow},target:controller.target,focus:controller.focus})); throw error; }
+    } catch(error) { console.error('SCM STATE',JSON.stringify({message:{left:msg()?.leftContent?.slice(0,200),right:msg()?.rightContent?.slice(0,200),follow:msg()?.follow},target:controller.target,focus:controller.focus,sync:syncState && {binding:syncState.binding,pending:syncState.pending && {...syncState.pending,content:syncState.pending.content?.slice(0,100)},deferred:syncState.deferred?.editBinding}})); throw error; }
     finally { panel.dispose(); }
 };

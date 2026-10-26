@@ -31,7 +31,26 @@ test('rapid typing serializes acknowledgments without replacing the queued suffi
     assert.deepEqual(sent.at(-2), { type: 'followDraft', token: '3', content: 'ab' });
     sync.action('save');
     assert.equal(sync.receive({ type: 'showDiff', rightContent: 'ab', followAck: { id: 2, accepted: true }, editBinding: { token: '4', projection: 'file' } }), true);
-    assert.deepEqual(sent.at(-1), { type: 'followAction', action: 'save' });
+    assert.deepEqual(sent.at(-1), { type: 'followAction', action: 'save', token: '3' });
+});
+test('queued document actions retain their origin when acknowledgment switches files', async () => {
+    const { createFollowSync } = await protocol(); const sent = [];
+    const sync = createFollowSync({ send: m => sent.push(m), read: () => 'edited A' });
+    sync.receive({ type: 'showDiff', editBinding: { token: 'A1', projection: 'A' } });
+    sync.changed();
+    for (const action of ['save', 'undo', 'redo']) sync.action(action);
+    sync.receive({ type: 'showDiff', rightContent: 'B', followAck: { id: 1, accepted: true }, editBinding: { token: 'B1', projection: 'B' } });
+    assert.deepEqual(sent.filter(m => m.type === 'followAction'), ['save', 'undo', 'redo'].map(action => ({ type: 'followAction', action, token: 'A1' })));
+});
+test('pending edits preserve repeated undo and save before navigation in request order', async () => {
+    const { createFollowSync } = await protocol(); const sent = [];
+    const sync = createFollowSync({ send: m => sent.push(m), read: () => 'edited' });
+    sync.receive({ type: 'showDiff', editBinding: { token: '1', projection: 'file' } });
+    sync.changed();
+    for (const action of ['undo', 'undo', 'save', 'pin']) sync.action(action);
+    assert.equal(sent.filter(m => m.type === 'followAction').length, 0);
+    sync.receive({ type: 'showDiff', rightContent: 'edited', followAck: { id: 1, accepted: true }, editBinding: { token: '2', projection: 'file' } });
+    assert.deepEqual(sent.filter(m => m.type === 'followAction').map(m => m.action), ['undo', 'undo', 'save', 'pin']);
 });
 test('concurrent native edit rejection preserves the entire pending draft', async () => {
     const { createFollowSync } = await protocol(); const sent = []; let text = 'typed';

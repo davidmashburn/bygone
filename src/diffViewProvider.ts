@@ -294,7 +294,7 @@ export class DiffViewProvider implements vscode.Disposable {
 
     public createFollowingView(
         viewType: string,
-        onAction: (action: string) => void,
+        onAction: (action: string, token?: string) => void,
         onClose: () => void,
         restored?: vscode.WebviewPanel,
         onMessage?: (message: unknown) => void
@@ -315,10 +315,10 @@ export class DiffViewProvider implements vscode.Disposable {
         }
         const listener = panel.webview.onDidReceiveMessage((message: unknown) => {
             if (typeof message !== 'object' || message === null) return;
-            const action = (message as { type?: unknown; action?: unknown });
+            const action = (message as { type?: unknown; action?: unknown; token?: unknown });
             onMessage?.(message);
             if (action.type === 'followAction' && typeof action.action === 'string'
-                && ['pin', 'resume', 'refresh', 'history', 'compare', 'symbol', 'file', 'reveal', 'save', 'undo', 'redo', 'working', 'followSymbol'].includes(action.action)) onAction(action.action);
+                && ['pin', 'resume', 'refresh', 'history', 'compare', 'symbol', 'file', 'reveal', 'save', 'undo', 'redo', 'working', 'followSymbol'].includes(action.action)) onAction(action.action, typeof action.token === 'string' ? action.token : undefined);
         });
         panel.onDidDispose(() => { listener.dispose(); onClose(); });
         return {
