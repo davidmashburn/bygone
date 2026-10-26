@@ -2,12 +2,22 @@
 
 ## Status and outcome
 
-Implemented and tested 2026-10-24; committed and pushed 2026-10-25 on
-`feat/vscode-scm-symbol-integration` at
-[`cfd5e335`](https://github.com/davidmashburn/bygone/commit/cfd5e335d75f2be324c0865abe4c2f5bdece06f5).
-The feature has not been released. Automated validation passes on the
-minimum and current tested Linux ARM64 VS Code versions. Remaining manual
-verification limits are recorded below; this is not a release-complete claim.
+Merged and pushed to `main` on 2026-10-26 at
+[`c7219ed0`](https://github.com/davidmashburn/bygone/commit/c7219ed06351626b8a65627fbb0427b57c576bbf),
+after rebasing onto the requirements and dependency work and incorporating
+review fixes. The original implementation and validation record below is
+historical. This is an integration-complete claim, not a marketplace release
+or complete manual/platform verification claim.
+
+The final integration session recorded 484 Node tests plus the legacy runner,
+typecheck, lint, bundle-size and VSIX packaging checks passing. It reused the
+unchanged feature source's 29 SCM and 16 following Extension Host cases on
+each of VS Code 1.74.0 and 1.143.1 in a fresh Lima Linux ARM64 checkout.
+`dev:sync` completed from main. This planning reconciliation inspected the
+merged source and reused those validation results; no tests were rerun here.
+The manual/OS limits below remain. See the
+[workflow reconciliation](workflow-integration-reconciliation.md) for the
+next integration opportunities, rather than reopening this implementation scope.
 
 Original proposal baseline: inspected local `main` at
 `ec318cfbd9d9cddef2fcac150723958c0f7987c2`; the implementation checkout was clean.

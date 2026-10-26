@@ -26,12 +26,10 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
-- [VS Code SCM and symbol integration](vscode-scm-symbol-integration.md) — one
-  comparison context connecting native Source Control, Outline navigation and
-  existing Bygone symbol diffs with synchronized working-document editing;
-  implemented in `cfd5e335` on the pushed feature branch; awaiting review
-  and manual release checks.
-  Extends [following mode](vscode-following-mode.md).
+- [Workflow integration reconciliation](workflow-integration-reconciliation.md)
+  — 2026-10-26 assessment of merged SCM editing, Strand, requirements evidence,
+  dependencies, tours, and Daniel's PR Reviewer; proposes a bounded evidence-to-edit
+  loop and preserves the active dependency-validation workstream.
 
 - [Cross-file symbol correspondence experiment](semantic-correspondence-experiment.md)
   — exact AST baseline, held-out corpus, engine adapter, and review gates.
@@ -99,6 +97,9 @@ status headings identify the release outcome; they are not queued work.
 - [VS Code companion surface](vscode-companion-surface.md)
 - [VS Code following mode](vscode-following-mode.md) — first slice merged;
   includes the [feasibility and test record](vscode-following-mode-feasibility.md).
+- [VS Code SCM and symbol integration](vscode-scm-symbol-integration.md) — merged
+  into `main` at `c7219ed0`, including synchronized editing and review fixes;
+  manual/platform release checks remain explicitly unverified.
 - [In-document find behavior](find-behavior.md)
 - [Multi-scale search](multi-scale-search.md)
 - [Refreshable sessions](session-refresh.md)
