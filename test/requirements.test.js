@@ -185,6 +185,44 @@ function disputedQuestion(review) {
         { text: 'Only explicit requests', sources: [{ title: 'Discussion', text: 'Only explicit requests', quote: 'explicit requests' }] }
     ] };
 }
+test('recorded evidence survives persistence after authoring questions and reordering object fields', () => {
+    const { base, head, review } = fixture();
+    review.questions.push(disputedQuestion(review));
+    review.analyses.push(analysis(review.base, review.head));
+    // Match the established schema serialization: existing version 2 hashes stay valid.
+    const normalized = parseReview(review);
+    const expectedRequirement = digest(JSON.stringify({ repository: normalized.repository,
+        requirement: normalized.requirements[0], questions: normalized.questions }));
+    assert.equal(requirementFingerprint(review, 'R1'), expectedRequirement);
+    review.runs.push({ revision: head.revision, requirements: [association(review, 'R1')],
+        command: 'node test.js', outcome: 'passed', outputDigest: digest('pass') });
+    const withRun = parseReview(review);
+    const expectedDecision = digest(JSON.stringify({ repository: withRun.repository, base: withRun.base, head: withRun.head,
+        requirement: expectedRequirement, links: withRun.links, runs: withRun.runs, analyses: withRun.analyses }));
+    review.decisions[0].fingerprint = fingerprint(review, 'R1');
+    assert.equal(review.decisions[0].fingerprint, expectedDecision);
+    const original = JSON.stringify(review);
+    const reverseKeys = value => Array.isArray(value) ? value.map(reverseKeys)
+        : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reverseKeys(item)])) : value;
+    const reordered = reverseKeys(review);
+    reordered.requirements[0].annotation = 'Ignored authoring metadata';
+    reordered.questions[0].alternatives[0].sources[0].annotation = 'Ignored citation metadata';
+    reordered.links[0].ref.annotation = 'Ignored reference metadata';
+    reordered.runs[0].requirements[0].annotation = 'Ignored association metadata';
+    reordered.analyses[0].annotation = 'Ignored analysis metadata';
+    for (const value of [review, reordered, parseReview(JSON.parse(JSON.stringify(reordered))), refresh(review, head, head, []).review]) {
+        assert.equal(requirementFingerprint(value, 'R1'), expectedRequirement);
+        assert.equal(fingerprint(value, 'R1'), expectedDecision);
+        const report = inspect(value, base, head).requirements[0];
+        assert.equal(report.verification, 'recorded-pass');
+        assert.equal(report.reviewer, 'inspected');
+    }
+    assert.equal(JSON.stringify(review), original);
+    reordered.questions[0].alternatives.reverse();
+    assert.notEqual(requirementFingerprint(reordered, 'R1'), expectedRequirement);
+    assert.equal(inspect(reordered, base, head).requirements[0].verification, 'needs-reassessment');
+});
+
 test('conflicting provenance and open/resolved questions round-trip without choosing an interpretation', () => {
     const { base, head, review } = fixture();
     review.questions.push(disputedQuestion(review));

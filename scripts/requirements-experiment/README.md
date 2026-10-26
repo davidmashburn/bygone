@@ -69,6 +69,13 @@ explicitly reassess the same execution, without rewriting the historical one.
 Other requirements' edits do not invalidate this association. A pass does not
 resolve open questions or prove the whole requirement.
 
+Fingerprints use the schema's field order, so equivalent authored objects retain
+their test applicability and reviewer decisions after saving and reloading.
+Object property order and discarded unknown fields do not affect the fingerprint;
+array order and all retained evidence content still do. Existing version 2 hashes
+computed from parsed reviews remain valid. Previously recorded hashes from
+unnormalized objects may require explicit reassessment; they are not auto-approved.
+
 Reports retain all analysis receipts with their ranges: a complete incremental
 analysis cannot erase a partial baseline analysis or its budget warning.
 `current-comparison`, `current-head-delta`, and `historical` distinguish relevance;

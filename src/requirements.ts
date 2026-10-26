@@ -69,6 +69,33 @@ function parseAnalysis(value: unknown): Analysis {
         status: choice(a.status, ['complete', 'partial', 'unavailable'] as const), scope,
         limitations: list(a.limitations).map(string), artifactDigest: hash(a.artifactDigest) };
 }
+function parseRequirement(value: unknown): Requirement {
+    const r = record(value);
+    return { id: string(r.id), text: string(r.text), sources: sources(r.sources) };
+}
+function parseQuestion(value: unknown, requirement = string): Question {
+    const q = record(value);
+    const alternatives = list(q.alternatives).map(value => {
+        const a = record(value);
+        return { text: string(a.text), sources: sources(a.sources) };
+    });
+    const common = { id: string(q.id), requirement: requirement(q.requirement), text: string(q.text), alternatives };
+    const status = choice(q.status, ['open', 'resolved'] as const);
+    if (status === 'open' && q.resolution !== undefined) throw new Error('Open question cannot have a resolution');
+    return status === 'open' ? { ...common, status } : { ...common, status, resolution: string(q.resolution) };
+}
+function parseLink(value: unknown, requirement = string): Link {
+    const x = record(value);
+    return { id: string(x.id), requirement: requirement(x.requirement), role: choice(x.role, ['implementation', 'test', 'context', 'counterexample'] as const), rationale: string(x.rationale), ref: sourceRef(x.ref) };
+}
+function parseRun(value: unknown, requirement = string): Run {
+    const x = record(value), associations = list(x.requirements).map(value => {
+        const a = record(value);
+        return { requirement: requirement(a.requirement), fingerprint: hash(a.fingerprint), scope: string(a.scope) };
+    });
+    unique(associations.map(a => a.requirement));
+    return { revision: revision(x.revision), requirements: associations, command: string(x.command), outcome: choice(x.outcome, ['passed', 'failed'] as const), outputDigest: hash(x.outputDigest) };
+}
 
 /** Host must validate the artifact against Git before accepting it. No I/O or authenticity check here.
  * Scope describes the supplied inputs; complete means complete only within that scope.
@@ -91,41 +118,18 @@ export function correspondenceEvidence(artifact: ChangeCorrespondence, scope: st
 export function parseReview(value: unknown): Review {
     const r = record(value);
     if (r.version !== 2) throw new Error('Unsupported review version');
-    const requirements = list(r.requirements).map(value => {
-        const x = record(value);
-        return { id: string(x.id), text: string(x.text), sources: sources(x.sources) };
-    });
+    const requirements = list(r.requirements).map(parseRequirement);
     unique(requirements.map(r => r.id));
     const requirement = (value: unknown): string => {
         const id = string(value);
         if (!requirements.some(r => r.id === id)) throw new Error(`Unknown requirement: ${id}`);
         return id;
     };
-    const questions = list(r.questions).map((value): Question => {
-        const q = record(value);
-        const alternatives = list(q.alternatives).map(value => {
-            const a = record(value);
-            return { text: string(a.text), sources: sources(a.sources) };
-        });
-        const common = { id: string(q.id), requirement: requirement(q.requirement), text: string(q.text), alternatives };
-        const status = choice(q.status, ['open', 'resolved'] as const);
-        if (status === 'open' && q.resolution !== undefined) throw new Error('Open question cannot have a resolution');
-        return status === 'open' ? { ...common, status } : { ...common, status, resolution: string(q.resolution) };
-    });
+    const questions = list(r.questions).map(value => parseQuestion(value, requirement));
     unique(questions.map(q => q.id));
-    const links = list(r.links).map(value => {
-        const x = record(value);
-        return { id: string(x.id), requirement: requirement(x.requirement), role: choice(x.role, ['implementation', 'test', 'context', 'counterexample'] as const), rationale: string(x.rationale), ref: sourceRef(x.ref) };
-    });
+    const links = list(r.links).map(value => parseLink(value, requirement));
     unique(links.map(l => l.id));
-    const runs = list(r.runs).map(value => {
-        const x = record(value), associations = list(x.requirements).map(value => {
-            const a = record(value);
-            return { requirement: requirement(a.requirement), fingerprint: hash(a.fingerprint), scope: string(a.scope) };
-        });
-        unique(associations.map(a => a.requirement));
-        return { revision: revision(x.revision), requirements: associations, command: string(x.command), outcome: choice(x.outcome, ['passed', 'failed'] as const), outputDigest: hash(x.outputDigest) };
-    });
+    const runs = list(r.runs).map(value => parseRun(value, requirement));
     const decisions = list(r.decisions).map(value => {
         const x = record(value);
         return { requirement: requirement(x.requirement), fingerprint: hash(x.fingerprint), note: string(x.note) };
@@ -148,13 +152,15 @@ function resolveReference(ref: SourceRef, snapshot: Snapshot) {
 export function requirementFingerprint(review: Review, id: string): string {
     const requirement = review.requirements.find(r => r.id === id);
     if (!requirement) throw new Error(`Unknown requirement: ${id}`);
-    return digest(JSON.stringify({ repository: review.repository, requirement, questions: review.questions.filter(q => q.requirement === id) }));
+    // Use the same field order and projection as persisted reviews, including nested objects.
+    return digest(JSON.stringify({ repository: review.repository, requirement: parseRequirement(requirement),
+        questions: review.questions.filter(q => q.requirement === id).map(q => parseQuestion(q)) }));
 }
 export function fingerprint(review: Review, id: string): string {
     // Conservative by design: every new comparison needs review, even when local bytes match.
     return digest(JSON.stringify({ repository: review.repository, base: review.base, head: review.head,
-        requirement: requirementFingerprint(review, id), links: review.links.filter(l => l.requirement === id),
-        runs: review.runs.filter(r => r.requirements.some(a => a.requirement === id)), analyses: review.analyses }));
+        requirement: requirementFingerprint(review, id), links: review.links.filter(l => l.requirement === id).map(l => parseLink(l)),
+        runs: review.runs.filter(r => r.requirements.some(a => a.requirement === id)).map(r => parseRun(r)), analyses: review.analyses.map(parseAnalysis) }));
 }
 export function inspect(review: Review, base: Snapshot, head: Snapshot) {
     snapshotsMatch(review, base, head);
