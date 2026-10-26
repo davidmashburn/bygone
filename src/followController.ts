@@ -4,7 +4,7 @@ import { SourceRef, resolveSourceRef } from 'bygone-strand/source-references';
 import * as path from 'path';
 import { DiffViewProvider, FollowingView } from './diffViewProvider';
 import { buildTwoWayDiffModel } from './diffEngine';
-import { checkFollowText, FollowBaseline, resolveFollowBaseline } from './followBaseline';
+import { checkFollowText, FollowBaseline, resolveFollowBaseline, resolveFollowLocation } from './followBaseline';
 import { resolveIndexSnapshot } from './followSnapshots';
 import { GitIntegration, GitTarget, changeContains, decodeGitUri, diffTarget } from './gitIntegration';
 import { isFollowEdit, FollowEditRequest, minimalEdit, OffsetRange, trackRange } from './followEdits';
@@ -340,6 +340,12 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
             }
             if (!valid() || (target.policy !== 'head-index' && document?.version !== version)) { if (valid()) this.schedule(); return; }
             const baseline = this.baseline;
+            // Snapshot paths use Git's physical root; document URIs may retain
+            // directory aliases (notably macOS /var). Keep those URIs for edits.
+            const rightRelativePath = target.leftPath === target.rightPath ? baseline.relativePath
+                : target.policy === 'head-index' ? this.rightSnapshot!.relativePath
+                    : path.relative(baseline.root, (await resolveFollowLocation(target.rightPath)).physicalPath);
+            if (!valid() || (target.policy !== 'head-index' && document?.version !== version)) { if (valid()) this.schedule(); return; }
             const right = target.policy === 'head-index' ? this.rightSnapshot!.content : content;
             if (this.focus && this.capturedLeft !== undefined && this.capturedLeft !== baseline.content) this.focus.left = undefined;
             if (this.focus?.right && target.policy === 'head-index' && this.capturedRight !== undefined && this.capturedRight !== right) {
@@ -377,13 +383,13 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
             } else this.projection = undefined;
             const dirty = target.policy === 'head-index' ? 'Index snapshot • Read-only' : `${document?.isDirty ? 'Unsaved buffer' : 'Saved buffer'}${!exists ? ' • Absent working file' : ''}`;
             const policyLabel = target.policy === 'head-index' ? 'HEAD → Index' : target.policy === 'index-working' ? 'Index → Working buffer' : this.reviewBaseline ? 'Review snapshot → Working buffer' : 'HEAD → Working buffer';
-            const status = [baseline.root, `${path.relative(baseline.root, target.leftPath)}${target.leftPath !== target.rightPath ? ' → '+path.relative(baseline.root, target.rightPath) : ''}`,
+            const status = [baseline.root, `${baseline.relativePath}${target.leftPath !== target.rightPath ? ' → '+rightRelativePath : ''}`,
                 policyLabel, dirty, baseline.absent ? 'No baseline at this path (addition)' : '',
                 baseline.content === right && !baseline.absent ? `No changes from ${target.policy === 'index-working' ? 'index' : this.reviewBaseline ? 'review snapshot' : 'HEAD'}` : '',
                 focus ? `Symbol: ${focus.name}${!focus.left || !focus.right ? ' • No verified counterpart' : ''}` : 'File context',
                 this.followSymbol ? 'Follow Symbol on' : '', capturedStagedPin && !repository ? 'Git integration unavailable • Showing pinned snapshots' : '',
                 this.gitAdvanced ? 'Git state advanced • Resume to update pinned snapshots' : '', this.notice].filter(Boolean).join(' • ');
-            this.update({ file1: `${baseline.absent ? 'Absent • ' : ''}${leftLabel}`, file2: `${rightAbsent ? 'Absent • ' : ''}${path.relative(baseline.root, target.rightPath)}`,
+            this.update({ file1: `${baseline.absent ? 'Absent • ' : ''}${leftLabel}`, file2: `${rightAbsent ? 'Absent • ' : ''}${rightRelativePath}`,
                 comparisonId: identity, leftContent, rightContent,
                 sourceInfo: { leftPath: target.leftPath, rightPath: target.rightPath, rightLanguageId: document?.languageId },
                 diffModel: buildTwoWayDiffModel(leftContent, rightContent), history: null,

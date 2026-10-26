@@ -32,22 +32,9 @@ export async function resolveFollowBaseline(filePath: string, signal?: AbortSign
     });
     // Buffer output avoids silently replacing invalid UTF-8 in a baseline.
     const text = async (cwd: string, args: string[]) => (await git(cwd, args)).toString('utf8').replace(/\n$/, '');
-    // Git reports a physical worktree path. Resolve directory aliases (including
-    // macOS /var -> /private/var) before checking containment, retaining the leaf
-    // name so a file symlink cannot silently become a different tracked file.
-    let directory = path.dirname(filePath);
-    let suffix = path.basename(filePath);
-    for (;;) {
-        try { directory = await realpath(directory); break; }
-        catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-            const parent = path.dirname(directory);
-            if (parent === directory) throw error;
-            suffix = path.join(path.basename(directory), suffix); directory = parent;
-        }
-    }
+    const { directory, physicalPath } = await resolveFollowLocation(filePath);
     const root = await text(directory, ['rev-parse', '--show-toplevel']);
-    const relativePath = path.relative(root, path.join(directory, suffix)).split(path.sep).join('/');
+    const relativePath = path.relative(root, physicalPath).split(path.sep).join('/');
     if (relativePath.startsWith('../') || path.isAbsolute(relativePath)) throw new Error('File is outside its Git worktree.');
     let oid: string | null;
     try {
@@ -75,4 +62,23 @@ export async function resolveFollowBaseline(filePath: string, signal?: AbortSign
     catch { throw new Error('The HEAD version is not UTF-8 text.'); }
     checkFollowText(content);
     return { root, relativePath, oid, content, absent: false };
+}
+
+/** Resolve parent aliases while preserving missing paths and the selected leaf. */
+export async function resolveFollowLocation(filePath: string): Promise<{ directory: string; physicalPath: string }> {
+    // Git reports a physical worktree path. Resolve directory aliases (including
+    // macOS /var -> /private/var) before checking containment, retaining the leaf
+    // name so a file symlink cannot silently become a different tracked file.
+    let directory = path.dirname(filePath);
+    let suffix = path.basename(filePath);
+    for (;;) {
+        try { directory = await realpath(directory); break; }
+        catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            const parent = path.dirname(directory);
+            if (parent === directory) throw error;
+            suffix = path.join(path.basename(directory), suffix); directory = parent;
+        }
+    }
+    return { directory, physicalPath: path.join(directory, suffix) };
 }

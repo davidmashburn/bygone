@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { resolveFollowBaseline, checkFollowText, FOLLOW_MAX_BYTES, FOLLOW_MAX_LINES } = require('../out/followBaseline');
+const { resolveFollowBaseline, resolveFollowLocation, checkFollowText, FOLLOW_MAX_BYTES, FOLLOW_MAX_LINES } = require('../out/followBaseline');
 
 function fixture(t) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-follow-'));
@@ -62,6 +62,9 @@ test('directory aliases resolve to the tracked file in the physical worktree', a
     assert.equal(value.relativePath, 'a.ts');
     assert.equal(value.content, 'tracked\n');
     assert.equal(value.absent, false);
+    assert.equal((await resolveFollowLocation(path.join(alias, 'missing', 'removed.ts'))).physicalPath, path.join(value.root, 'missing', 'removed.ts'));
+    fs.symlinkSync('a.ts', path.join(f.root, 'link.ts'));
+    assert.equal((await resolveFollowLocation(path.join(alias, 'link.ts'))).physicalPath, path.join(value.root, 'link.ts'));
 });
 test('binary, invalid UTF-8, oversized and excessive-line inputs are bounded', async t => {
     const f = fixture(t);
