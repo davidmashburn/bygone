@@ -325,3 +325,28 @@ production implementation changed in this validation pass. Confidence is high
 for observed failures and labeled counts, moderate for local timings, and limited
 for general accuracy or reviewer benefit. Broader unseen cases or human trials
 could change the priority.
+
+## Compatibility follow-up — 2026-10-26
+
+After the validation thread completed, the user authorized the workflow
+integration thread to implement its measured gaps. Bygone commit `d161ce5c` (0.11.1),
+based on `dda37567`, isolates TypeScript 5.9.3 for dependency analysis, diagnose malformed
+package metadata, load source-ancestor configs/packages and their relative
+inheritance closure, and load other required package metadata on demand within
+the same bounds. Unrelated JSON, lockfiles and packages no longer displace source
+input. The extension and Strand keep their existing TypeScript compiler.
+
+The rerun passes 38 labeled sites across 11 contract cases, four bounded scales
+and 158 source-reference checks. Redux's selected entry file now resolves 13/13
+expected internal targets; p-limit and Redux complete supported-scope indexing.
+The exact report is `scripts/dependency-benchmark/results-2026-10-26-compatibility.json`
+in the implementation checkout. Invalid package metadata is now a correctness
+contract, superseding its historical fallback characterization above.
+
+The review workspace exposes module relationship/specifier/target, phase, loading
+and coverage alongside pinned navigation. A resolved path is a compiler lookup,
+not proof of a `require` binding or runtime execution; the explicit ambiguity
+diagnostic remains. Named-symbol/call binding and runtime observations still
+need their own evidence model and validation. No new graph UI, human review-speed
+claim or arbitrary name-based call inference was added. The next decision gate
+remains a paired human review/navigation trial and representative binding cases.

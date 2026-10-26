@@ -18,9 +18,9 @@ Its completed validation checked 36 labeled dependency sites and 158 source
 references. It identified newer TypeScript syntax/options, malformed package
 metadata fallback, and unrelated JSON consuming input budgets as remaining gaps.
 Its benchmark/documentation commit landed as `dda37567`; production behavior was unchanged.
-Those findings constrain this integration and are not fixes claimed here.
-Leave its implementation, fixtures, dependency idea, figures, and index edits
-with that thread.
+Those findings constrained the original integration. After that thread finished,
+the user authorized dependency improvements in this thread; the follow-up below
+records those fixes separately from the original validation baseline.
 
 ## Assessment
 
@@ -236,8 +236,9 @@ commits, or pushes were made by this planning pass.
 The plan was committed as `799a64eb` and implementation started from Bygone
 `dda37567`, which includes the dependency thread's completed validation commit.
 The earlier assessment above remains a record of the pre-implementation state.
-Implementation is currently uncommitted in the Bygone feature worktree and the
-PR Reviewer local fork; nothing in this section claims a release or upstream merge.
+Implementation is committed in Bygone as `d161ce5c` (version 0.11.1) and in the
+PR Reviewer fork as `6e8dc5e`. Publication is tracked separately; these commits
+do not claim an upstream PR Reviewer merge.
 
 Delivered locally:
 
@@ -294,3 +295,55 @@ The final independent review identified incomplete dependency summary identity
 and unenforced source budgets. Both were repaired and covered by regression
 tests; the 494-test run and both evidence Extension Host suites passed afterward.
 No other confirmed defect remained in the scoped review.
+
+## Full-workflow and dependency follow-up — 2026-10-26
+
+The user requested a full-workflow review and authorized dependency/call-graph
+improvements after the initial implementation. The follow-up is committed in Bygone `d161ce5c` and PR Reviewer `6e8dc5e`,
+based respectively on `dda37567` and `581d9137`. Release publication remains
+a separate operation.
+
+The dependency analyzer now uses isolated TypeScript 5.9.3 for bundler options and
+modern syntax, while Strand and the extension compiler remain on 4.9.5. Explicit
+compiler paths prevent the npm alias from changing repository typecheck/watch
+behavior. Only source-ancestor compiler/package metadata, relative inheritance
+closure, and required directory-import metadata consume the source budget.
+Malformed/unavailable required package metadata yields partial coverage and
+`invalid-config`, not a fallback target. Deferred imports retain unknown timing.
+
+The follow-up corpus passes 38 labeled HEAD sites in 11 contract cases, four
+scale cases and 158 source-reference checks. Selected public-file labels match
+Express 9/9, p-limit 1/1 and Redux 13/13; Redux previously resolved none of its
+13 expected internal entry-file targets. Exact source/bundle hashes and measured
+timings live in `scripts/dependency-benchmark/results-2026-10-26-compatibility.json`
+beside implementation. These results do not prove runtime behavior or general
+accuracy. Lexical call binding, runtime traces, graph visualization and human
+utility trials remain separate work.
+
+Workflow review fixes retain producer-reported unexplained hunks and overflow
+counts as explicit limitations, surface discussion-fetch failure, correct rename
+coverage and make import reports match their cleared inspection decisions.
+Producer receipt hashing is documented as initial projection identity, not
+authentication or a checksum of later edits. Dependency navigation includes the
+relationship, specifier, target, phase and loading without claiming call binding.
+
+Latest checks: legacy runner and 503 Node tests; PR Reviewer 56 tests including
+actual export/import/tour interoperability; explicit root TypeScript checking,
+ESLint, bundle budgets, VSIX and npm packaging. The final evidence suite passed
+9 checks on each VS Code 1.74.0 and 1.143.1 in Lima. The earlier 29 SCM and 16
+following checks per version remain inherited evidence for unchanged bridges.
+Live provider/model calls, manual visual QA, Windows/macOS Extension Hosts and
+human review benefit remain unverified.
+
+The bounded final review also identified inconsistent discussion truncation and
+a combined dependency byte cap that rejected otherwise valid snapshot pairs.
+Both are fixed and regression-tested: discussion extraction/quote validation/
+retention share the same slice; dependency import retains per-snapshot limits
+and allows their combined budget. The final broad review also found a
+review-switch race during symbol mapping and incomplete dependency counter
+validation. Generation/identity checks now discard stale handoffs, and imported
+coverage must account for every candidate and unresolved edge. Both repairs passed the full Node suite and real Extension Host tests on
+both versions, including review replacement/closure while a symbol worker is
+pending. The full-workflow review is complete with no remaining confirmed defect
+in the delivered scope. Human workflow benefit and the listed platform/provider
+limits remain unverified.
