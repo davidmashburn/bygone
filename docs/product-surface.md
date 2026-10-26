@@ -139,7 +139,8 @@ VS Code's native Search rather than another bundled ripgrep process.
 | --- | --- | --- |
 | `bygone`, paths, `--diff`, `--history`, `--git-diff`, `--read-only`, `review` | Launch Explore sessions | Core launcher; desktop owns writes; `--read-only` is a persisted capability ceiling for that launch |
 | `present` and `present --tour` | Launch Present sessions | Core, read-only presentation |
-| `tour context` | Produce a bounded provider-neutral change dossier | Authoring support, read-only |
+| `tour context` | Produce a bounded provider-neutral change dossier; optional `--dependencies` adds static JS/TS evidence | Node CLI authoring support, read-only |
+| `dependencies` | Compare committed module edges and identify unchanged consumers, with source navigation links | Experimental Node CLI analysis, read-only except explicit output files; no runtime execution |
 | `tour validate`, `compile`, `schema`, and coverage options | Validate exact evidence and build repository-bound manifests | Advanced authoring, read-only except explicit output files |
 | `completion` | Generate shell completions from the shared command specification | Supporting tooling |
 

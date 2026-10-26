@@ -96,11 +96,19 @@ ${historyOptions}
                 elif [[ "$previous" == "--output" || "$previous" == "-o" || "$previous" == "--correspondence" ]]; then
                     _files
                 else
-                    compadd -- --base --output -o --max-patch-bytes --max-total-patch-bytes --correspondence
+                    compadd -- --base --output -o --max-patch-bytes --max-total-patch-bytes --correspondence --dependencies
                     _bygone_git_refs
                 fi
             elif [[ "$words[3]" == "coverage" || "$words[3]" == "validate" || "$words[3]" == "compile" ]]; then
                 _files -g '*.bygone' -g '*.bygone.yaml'
+            fi
+            ;;
+        dependencies)
+            if [[ "$previous" == "--output" || "$previous" == "-o" ]]; then
+                _files
+            else
+                compadd -- --base --json --output -o
+                _bygone_git_refs
             fi
             ;;
         review)
@@ -192,11 +200,19 @@ _bygone() {
                     COMPREPLY=( $(compgen -f -- "$cur") )
                     compopt -o filenames 2>/dev/null || true
                 else
-                    COMPREPLY=( $(compgen -W '--base --output -o --max-patch-bytes --max-total-patch-bytes --correspondence '"$refs" -- "$cur") )
+                    COMPREPLY=( $(compgen -W '--base --output -o --max-patch-bytes --max-total-patch-bytes --correspondence --dependencies '"$refs" -- "$cur") )
                 fi
             else
                 COMPREPLY=( $(compgen -W '--json --output -o' -- "$cur") $(compgen -f -- "$cur") )
                 compopt -o filenames 2>/dev/null || true
+            fi
+            ;;
+        dependencies)
+            if [[ "$prev" == "--output" || "$prev" == "-o" ]]; then
+                COMPREPLY=( $(compgen -f -- "$cur") )
+                compopt -o filenames 2>/dev/null || true
+            else
+                COMPREPLY=( $(compgen -W '--base --json --output -o '"$(_bygone_git_refs)" -- "$cur") )
             fi
             ;;
         review)
@@ -261,6 +277,11 @@ function generateFishCompletion() {
     }
 
     lines.push(
+        "complete -c bygone -n 'string match -q \"*tour context*\" -- (commandline -opc)' -l dependencies -d 'Include static module dependency evidence'",
+        "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l base -r -a '(__bygone_git_refs)' -d 'Set the dependency comparison base'",
+        "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l json -d 'Print dependency evidence as JSON'",
+        "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l output -s o -r -d 'Write dependency evidence'",
+        "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -a '(__bygone_git_refs)' -d 'Git ref'",
         "complete -c bygone -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish' -d 'Shell'",
         "complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'context coverage validate compile export schema' -d 'Tour action'",
         "complete -c bygone -n 'string match -q \"*tour context*\" -- (commandline -opc)' -l base -r -a '(__bygone_git_refs)' -d 'Set the change-context base ref'",

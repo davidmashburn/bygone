@@ -16,7 +16,8 @@ const CLI_SPEC = Object.freeze({
         'bygone present [<head>] [--base <base>] [--tour <file.bygone>] [--correspondence <artifact.json>]',
         'bygone tour validate <file.bygone> [--json]',
         'bygone tour compile <file.bygone> [--output <tour.json>]',
-        'bygone tour context [<head>] [--base <base>] [--output <context.json>] [--correspondence <artifact.json>]',
+        'bygone tour context [<head>] [--base <base>] [--output <context.json>] [--correspondence <artifact.json>] [--dependencies]',
+        'bygone dependencies [<head>] [--base <base>] [--json] [--output <graph.json>]',
         'bygone correspondence import <report.json> [<head>] [--base <base>] [--case <id>] --output <artifact.json>',
         'bygone tour coverage <file.bygone> [--json] [--minimum-coverage <0-100>]',
         'bygone tour export <file.bygone> --output <tour.html> [--profile minimal|full] [--runtime embedded|cdn]',
@@ -33,6 +34,14 @@ const CLI_SPEC = Object.freeze({
             tokens: ['review'],
             description: 'Review a committed branch against its merge base',
             argument: 'git-ref'
+        },
+        {
+            id: 'dependencies', kind: 'command', tokens: ['dependencies'],
+            description: 'Compare static JS/TS module dependencies at committed revisions', argument: 'git-ref'
+        },
+        {
+            id: 'dependencyContext', kind: 'option', tokens: ['--dependencies'],
+            description: 'Include static module dependency evidence in tour context', argument: 'none'
         },
         {
             id: 'correspondence', kind: 'command', tokens: ['correspondence'],

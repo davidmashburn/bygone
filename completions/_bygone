@@ -14,6 +14,7 @@ _bygone() {
     local -a root_items review_options present_options legacy_options history_options shells tour_actions
     root_items=(
         'review:Review a committed branch against its merge base'
+        'dependencies:Compare static JS/TS module dependencies at committed revisions'
         'correspondence:Import externally produced symbol correspondence evidence'
         'completion:Print shell completion source'
         'present:Open an app-hosted tour of a committed branch range'
@@ -83,11 +84,19 @@ _bygone() {
                 elif [[ "$previous" == "--output" || "$previous" == "-o" || "$previous" == "--correspondence" ]]; then
                     _files
                 else
-                    compadd -- --base --output -o --max-patch-bytes --max-total-patch-bytes --correspondence
+                    compadd -- --base --output -o --max-patch-bytes --max-total-patch-bytes --correspondence --dependencies
                     _bygone_git_refs
                 fi
             elif [[ "$words[3]" == "coverage" || "$words[3]" == "validate" || "$words[3]" == "compile" ]]; then
                 _files -g '*.bygone' -g '*.bygone.yaml'
+            fi
+            ;;
+        dependencies)
+            if [[ "$previous" == "--output" || "$previous" == "-o" ]]; then
+                _files
+            else
+                compadd -- --base --json --output -o
+                _bygone_git_refs
             fi
             ;;
         review)

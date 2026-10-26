@@ -65,6 +65,7 @@ await copyFile('completions');
 await copyFile('out/standalone-main.js');
 await copyFile('out/standalone-preload.js');
 await copyFile('out/changeTour.js');
+await copyFile('out/dependencyGraph.js');
 await copyFile('out/changeCorrespondence.js');
 await copyFile('out/gitComparison.js');
 await copyFile('out/historyDirectory.js');

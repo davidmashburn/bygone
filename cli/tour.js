@@ -34,13 +34,21 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
         return { action: 'schema' };
     }
     if (options.action === 'context') {
+        const range = options.dependencies
+            ? require('../out/gitComparison.js').resolveBranchReviewRange(cwd, options.headRef, options.baseRef)
+            : undefined;
         const context = buildChangeTourContext(cwd, {
+            range,
             headRef: options.headRef,
             baseRef: options.baseRef,
             correspondencePath: options.correspondencePath ? path.resolve(cwd, options.correspondencePath) : undefined,
             maxPatchBytes: options.maxPatchBytes,
             maxTotalPatchBytes: options.maxTotalPatchBytes
         });
+        if (options.dependencies) {
+            const { buildDependencyGraph } = require('../out/dependencyGraph.js');
+            context.dependencies = buildDependencyGraph(cwd, { range });
+        }
         return writeJsonResult('change-tour context', context, options.outputPath, cwd, output);
     }
 
@@ -150,6 +158,7 @@ function parseContextArgs(args) {
     let maxPatchBytes;
     let correspondencePath;
     let maxTotalPatchBytes;
+    let dependencies = false;
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index];
         if (arg === '--base' || arg === '-m' || arg === '--main') {
@@ -162,6 +171,7 @@ function parseContextArgs(args) {
             outputPath = args[++index];
             continue;
         }
+        if (arg === '--dependencies') { dependencies = true; continue; }
         if (arg === '--correspondence') {
             if (!args[index + 1] || args[index + 1].startsWith('-')) throw new Error('--correspondence requires a file path.');
             correspondencePath = args[++index];
@@ -187,7 +197,7 @@ function parseContextArgs(args) {
         if (headRef) throw new Error('tour context accepts at most one head ref.');
         headRef = arg;
     }
-    return { action: 'context', headRef, baseRef, outputPath, maxPatchBytes, maxTotalPatchBytes, ...(correspondencePath ? { correspondencePath } : {}) };
+    return { action: 'context', headRef, baseRef, outputPath, maxPatchBytes, maxTotalPatchBytes, ...(correspondencePath ? { correspondencePath } : {}), ...(dependencies ? { dependencies } : {}) };
 }
 
 function writeJsonResult(label, value, outputPath, cwd, output) {

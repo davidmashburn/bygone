@@ -214,6 +214,8 @@ Contributors should consult the internal [product surface overview](./docs/produ
 
 `bygone tour context [<head>] --base <base>` produces a provider-neutral change dossier with bounded patches, changed ranges, file roles, symbol hints, commits, renames, and explicit binary omissions for an LLM to consume.
 
+`bygone dependencies [<head>] --base <base>` compares static JS/TS module dependencies, labels initialization versus deferred use, and lists unchanged consumers of changed modules. Add `--json` for exact source evidence, or use `bygone tour context --base <base> --dependencies` to include it in a change dossier. See [dependency evidence](docs/dependencies.md) for resolution rules and coverage limits. These analysis commands run through the npm/source Node CLI.
+
 The desktop app also includes `Help -> Install Command Line Tools...` for non-npm installs. Homebrew cask installs can provide the `bygone` command automatically.
 
 ### macOS says the app is damaged

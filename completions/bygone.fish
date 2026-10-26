@@ -5,6 +5,7 @@ function __bygone_git_refs
 end
 
 complete -c bygone -n '__fish_use_subcommand' -a review -d 'Review a committed branch against its merge base'
+complete -c bygone -n '__fish_use_subcommand' -a dependencies -d 'Compare static JS/TS module dependencies at committed revisions'
 complete -c bygone -n '__fish_use_subcommand' -a correspondence -r -d 'Import externally produced symbol correspondence evidence'
 complete -c bygone -n '__fish_use_subcommand' -a completion -d 'Print shell completion source'
 complete -c bygone -n '__fish_use_subcommand' -a present -d 'Open an app-hosted tour of a committed branch range'
@@ -18,6 +19,11 @@ complete -c bygone -n '__fish_use_subcommand' -l read-only -d 'Open live Explore
 complete -c bygone -n '__fish_use_subcommand' -s C -r -d 'Run as if Bygone started in this directory'
 complete -c bygone -n '__fish_use_subcommand' -s h -l help -d 'Show command help'
 complete -c bygone -n '__fish_use_subcommand' -s v -l version -d 'Show the installed version'
+complete -c bygone -n 'string match -q "*tour context*" -- (commandline -opc)' -l dependencies -d 'Include static module dependency evidence'
+complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l base -r -a '(__bygone_git_refs)' -d 'Set the dependency comparison base'
+complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l json -d 'Print dependency evidence as JSON'
+complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l output -s o -r -d 'Write dependency evidence'
+complete -c bygone -n '__fish_seen_subcommand_from dependencies' -a '(__bygone_git_refs)' -d 'Git ref'
 complete -c bygone -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish' -d 'Shell'
 complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'context coverage validate compile export schema' -d 'Tour action'
 complete -c bygone -n 'string match -q "*tour context*" -- (commandline -opc)' -l base -r -a '(__bygone_git_refs)' -d 'Set the change-context base ref'

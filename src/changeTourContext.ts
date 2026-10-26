@@ -1,6 +1,7 @@
+import type { DependencyGraphReport } from './dependencyGraph';
 import { loadChangeCorrespondence, ChangeCorrespondence } from './changeCorrespondence';
 import { execFileSync } from 'child_process';
-import type { BranchCommit, GitChangeKind } from './gitComparison';
+import type { BranchCommit, BranchReviewRange, GitChangeKind } from './gitComparison';
 import { resolveBranchReviewRange, resolveReviewPathPair } from './gitComparison';
 import { classifyChangeFileRole, type ChangeFileRole } from './changeAttention';
 
@@ -42,6 +43,8 @@ export interface ChangeTourContextFile {
 }
 
 export interface ChangeTourContext {
+    /** Opt-in CLI analysis; absent in ordinary context generation. */
+    dependencies?: DependencyGraphReport;
     correspondence?: ChangeCorrespondence;
     version: typeof CHANGE_TOUR_CONTEXT_VERSION;
     generatedAt: string;
@@ -71,6 +74,8 @@ export interface ChangeTourContext {
 }
 
 export interface BuildChangeTourContextOptions {
+    /** Reuse a pinned range when composing context with other analyses. */
+    range?: BranchReviewRange;
     correspondencePath?: string;
     headRef?: string;
     baseRef?: string;
@@ -83,7 +88,7 @@ export function buildChangeTourContext(
     startPath: string,
     options: BuildChangeTourContextOptions = {}
 ): ChangeTourContext {
-    const range = resolveBranchReviewRange(startPath, options.headRef, options.baseRef);
+    const range = options.range ?? resolveBranchReviewRange(startPath, options.headRef, options.baseRef);
     const maxPatchBytes = options.maxPatchBytes ?? DEFAULT_MAX_PATCH_BYTES;
     const maxTotalPatchBytes = options.maxTotalPatchBytes ?? DEFAULT_MAX_TOTAL_PATCH_BYTES;
     requirePositiveInteger(maxPatchBytes, 'maxPatchBytes');
