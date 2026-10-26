@@ -1,0 +1,30 @@
+[
+  {
+    "name": "express",
+    "url": "https://github.com/expressjs/express",
+    "path": "/tmp/bygone-dependency-public-express",
+    "base": "0dee2c52c7c873498f8ed7d8ee4ddd0a04d3ada8",
+    "head": "1c6f1b0fe4000977b9a7b4f34097e4d527dd9824"
+  },
+  {
+    "name": "p-limit",
+    "url": "https://github.com/sindresorhus/p-limit",
+    "path": "/tmp/bygone-dependency-public-p-limit",
+    "base": "4d4ec71803d8736567249c3dde06ea82795ae7c7",
+    "head": "a8a6fbec4e0e866d6d779b10889bb4f5567e70eb"
+  },
+  {
+    "name": "redux",
+    "url": "https://github.com/reduxjs/redux",
+    "path": "/tmp/bygone-dependency-public-redux",
+    "base": "56abca4749921d68f40cda20afd2043af9751f72",
+    "head": "61ebf8596654cf3c4b197e426e302fcb3c2bc13e"
+  },
+  {
+    "name": "bygone",
+    "url": "https://github.com/davidmashburn/bygone",
+    "path": ".",
+    "base": "2219fda8fc3f72d44e35346a3b0f771dd7c45575",
+    "head": "c7219ed06351626b8a65627fbb0427b57c576bbf"
+  }
+]

@@ -88,3 +88,10 @@ without a link. No source content is embedded in the dependency report itself.
 
 Runtime trace ingestion, resolved symbol/call graphs and visual graph layout are
 later slices. No workload is run to generate this evidence.
+
+The [validation corpus and measured results](../scripts/dependency-benchmark/README.md)
+cover labeled module edges, source evidence, bounded scale and pinned public
+repositories. They also document current compatibility gaps: newer compiler
+syntax/options, silent fallback for malformed package metadata, and unrelated
+JSON consuming the indexing budget. Complete indexing is not proof that runtime
+loading is valid.

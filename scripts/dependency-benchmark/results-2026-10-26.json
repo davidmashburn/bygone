@@ -1,0 +1,5472 @@
+{
+  "generatedAt": "2026-10-26T20:51:41.419Z",
+  "implementationCommit": "c7219ed06351626b8a65627fbb0427b57c576bbf",
+  "hashes": {
+    "src/moduleDependencies.ts": "b800d6a6c1f79e4cbd6805b5bcd7cdc1448bb7be122bc8ea897f6ca43ea7ee2c",
+    "src/dependencyGraph.ts": "6831ea3348032ab9a08f9439c05b5c158e7052b8dde697e7a4a304c287addc32",
+    "src/gitComparison.ts": "fd89203147734cc276f1b59fbd9712638ef16a881997b1d6338a3077767e5a2e",
+    "out/dependencyGraph.js": "ddd3173ae58159583a5cc566edfb4e6d5fc642a7706162c8842375857766d165",
+    "scripts/dependency-benchmark/run.cjs": "2b4345372b5296e3cc5bdc20d06bdb1ca976319624aab4bab7caf007b175dfc2",
+    "scripts/dependency-benchmark/cases.cjs": "9b5140e98965f95fdeb8ea00fc1af6e839906bf51fc8edfdf60f921443e782e1",
+    "scripts/dependency-benchmark/public-labels.cjs": "497bfddece4779462bf7bfc141d4c15bb2a33ef7ad2e8638a622aa8b08279fb3"
+  },
+  "environment": {
+    "node": "v26.10.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M4",
+    "logicalCpus": 10,
+    "memoryGiB": 32
+  },
+  "methodology": "Hand-labeled HEAD edge multisets; optional delta/consumer labels. Three fresh Node processes per scale/public input, sequential; first observed run and subsequent OS-cache-warm runs, not controlled cold-cache trials. Analysis includes Git range discovery and both snapshots, excludes module loading. RSS is whole-process high-water KiB, including parser. No target code executed. Public repositories have no accuracy oracle. Review-task comparisons are qualitative source inspections, not human or timed trials.",
+  "cases": [
+    {
+      "id": "static-type-mixed-and-side-effect",
+      "kind": "contract",
+      "score": {
+        "expected": 10,
+        "actual": 10,
+        "correct": 10,
+        "missing": [],
+        "unexpected": [],
+        "precision": 1,
+        "recall": 1
+      },
+      "byRelationship": {
+        "import": {
+          "expected": 5,
+          "actual": 5,
+          "correct": 5,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "reexport": {
+          "expected": 4,
+          "actual": 4,
+          "correct": 4,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "require": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "dynamic-import": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        }
+      },
+      "checks": {},
+      "reviewTask": {
+        "question": "Which HEAD edges represent runtime module initialization, and which are only type evidence?",
+        "expectedAnswer": "The polyfill import, mixed runtime import, empty re-export, and mixed runtime re-export are module-init edges. Explicit type imports/exports, both declaration-file sites, and the import type query are type-phase evidence; the import type query is deferred and unresolved.",
+        "baselineMethod": "Read entry.ts and api.d.ts in full; a diff of runtime.ts alone omits their unchanged imports and re-exports.",
+        "graphContribution": "Separates runtime-facing module edges from type-only and declaration-file dependencies while preserving side effects and repeated sites.",
+        "limitation": "It does not model type elision, emitted JavaScript, or whether a resolved module is executed."
+      },
+      "baselineChangedFiles": [
+        "src/runtime.ts"
+      ],
+      "sample": {
+        "moduleLoadMs": 72.559,
+        "analysisMs": 101.117542,
+        "peakRssKiB": 119984,
+        "range": {
+          "baseOid": "3e20025e5838a6c099ee8585d080b28af9b4ed08",
+          "headOid": "c8fbee32469eacae1b6ba81e319a2249bb0f2df2"
+        },
+        "producer": {
+          "name": "bygone",
+          "typescript": "4.9.5"
+        },
+        "base": {
+          "coverage": {
+            "candidateFiles": 6,
+            "indexedFiles": 6,
+            "omittedFiles": 0,
+            "readBytes": 641,
+            "indexComplete": true,
+            "unresolvedEdges": 1,
+            "omittedDiagnostics": 0
+          },
+          "edges": 10,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 9,
+            "unresolved": 1
+          },
+          "relationships": {
+            "import": 5,
+            "reexport": 4,
+            "dynamic-import": 1
+          },
+          "phases": {
+            "type": 6,
+            "module-init": 4
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": [
+            {
+              "file": "src/entry.ts",
+              "specifier": "external-types",
+              "relationship": "dynamic-import",
+              "phase": "type",
+              "loading": "deferred",
+              "resolution": "unresolved"
+            }
+          ]
+        },
+        "head": {
+          "coverage": {
+            "candidateFiles": 6,
+            "indexedFiles": 6,
+            "omittedFiles": 0,
+            "readBytes": 641,
+            "indexComplete": true,
+            "unresolvedEdges": 1,
+            "omittedDiagnostics": 0
+          },
+          "edges": 10,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 9,
+            "unresolved": 1
+          },
+          "relationships": {
+            "import": 5,
+            "reexport": 4,
+            "dynamic-import": 1
+          },
+          "phases": {
+            "type": 6,
+            "module-init": 4
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": [
+            {
+              "file": "src/entry.ts",
+              "specifier": "external-types",
+              "relationship": "dynamic-import",
+              "phase": "type",
+              "loading": "deferred",
+              "resolution": "unresolved"
+            }
+          ]
+        },
+        "added": 0,
+        "removed": 0,
+        "unchangedConsumers": 4,
+        "verifiedSourceSites": 20,
+        "processWallMs": 453.67604200000005
+      }
+    },
+    {
+      "id": "cjs-require-lazy-and-computed",
+      "kind": "contract",
+      "score": {
+        "expected": 7,
+        "actual": 7,
+        "correct": 7,
+        "missing": [],
+        "unexpected": [],
+        "precision": 1,
+        "recall": 1
+      },
+      "byRelationship": {
+        "import": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "reexport": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "require": {
+          "expected": 3,
+          "actual": 3,
+          "correct": 3,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "dynamic-import": {
+          "expected": 4,
+          "actual": 4,
+          "correct": 4,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        }
+      },
+      "checks": {
+        "added": {
+          "expected": 2,
+          "actual": 2,
+          "correct": 2,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "removed": {
+          "expected": 2,
+          "actual": 2,
+          "correct": 2,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        }
+      },
+      "baselineChangedFiles": [
+        "src/loader.ts"
+      ],
+      "sample": {
+        "moduleLoadMs": 65.869833,
+        "analysisMs": 102.72841700000001,
+        "peakRssKiB": 119936,
+        "range": {
+          "baseOid": "9ec2eb4b33fb8478d3e0b0d89380de74a0137928",
+          "headOid": "69da5f349e453e85c9b680283794d90a47c8115d"
+        },
+        "producer": {
+          "name": "bygone",
+          "typescript": "4.9.5"
+        },
+        "base": {
+          "coverage": {
+            "candidateFiles": 4,
+            "indexedFiles": 4,
+            "omittedFiles": 0,
+            "readBytes": 438,
+            "indexComplete": true,
+            "unresolvedEdges": 3,
+            "omittedDiagnostics": 0
+          },
+          "edges": 7,
+          "initializationSites": 5,
+          "resolution": {
+            "resolved": 4,
+            "computed": 2,
+            "unresolved": 1
+          },
+          "relationships": {
+            "require": 5,
+            "dynamic-import": 2
+          },
+          "phases": {
+            "module-init": 5,
+            "invocation": 2
+          },
+          "diagnostics": {
+            "require-binding-ambiguous": 5
+          },
+          "diagnosticExamples": [
+            {
+              "code": "require-binding-ambiguous",
+              "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+              "file": "src/loader.ts"
+            }
+          ],
+          "unresolvedExamples": [
+            {
+              "file": "src/loader.ts",
+              "relationship": "dynamic-import",
+              "phase": "module-init",
+              "loading": "deferred",
+              "resolution": "computed"
+            },
+            {
+              "file": "src/loader.ts",
+              "relationship": "require",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "computed"
+            },
+            {
+              "file": "src/loader.ts",
+              "specifier": "external-runtime",
+              "relationship": "require",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "unresolved"
+            }
+          ]
+        },
+        "head": {
+          "coverage": {
+            "candidateFiles": 4,
+            "indexedFiles": 4,
+            "omittedFiles": 0,
+            "readBytes": 436,
+            "indexComplete": true,
+            "unresolvedEdges": 3,
+            "omittedDiagnostics": 0
+          },
+          "edges": 7,
+          "initializationSites": 5,
+          "resolution": {
+            "resolved": 4,
+            "computed": 2,
+            "unresolved": 1
+          },
+          "relationships": {
+            "require": 3,
+            "dynamic-import": 4
+          },
+          "phases": {
+            "module-init": 5,
+            "invocation": 2
+          },
+          "diagnostics": {
+            "require-binding-ambiguous": 3
+          },
+          "diagnosticExamples": [
+            {
+              "code": "require-binding-ambiguous",
+              "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+              "file": "src/loader.ts"
+            }
+          ],
+          "unresolvedExamples": [
+            {
+              "file": "src/loader.ts",
+              "relationship": "dynamic-import",
+              "phase": "module-init",
+              "loading": "deferred",
+              "resolution": "computed"
+            },
+            {
+              "file": "src/loader.ts",
+              "relationship": "require",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "computed"
+            },
+            {
+              "file": "src/loader.ts",
+              "specifier": "external-runtime",
+              "relationship": "require",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "unresolved"
+            }
+          ]
+        },
+        "added": 2,
+        "removed": 2,
+        "unchangedConsumers": 0,
+        "verifiedSourceSites": 24,
+        "processWallMs": 444.2237080000001
+      }
+    },
+    {
+      "id": "alias-retarget-unchanged-consumer",
+      "kind": "contract",
+      "score": {
+        "expected": 1,
+        "actual": 1,
+        "correct": 1,
+        "missing": [],
+        "unexpected": [],
+        "precision": 1,
+        "recall": 1
+      },
+      "byRelationship": {
+        "import": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "reexport": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "require": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "dynamic-import": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        }
+      },
+      "checks": {
+        "added": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "removed": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "consumers": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        }
+      },
+      "reviewTask": {
+        "question": "Does the unchanged consumer remain independent when a committed path alias retargets its module?",
+        "expectedAnswer": "No. The consumer has an added edge to src/new.ts and its old edge to src/old.ts is removed; because the consumer source is unchanged and the new target changed, it is a direct unchanged consumer in HEAD.",
+        "baselineMethod": "Read the tsconfig diff, search for @shared imports, and inspect the selected old/new source files.",
+        "graphContribution": "Shows that configuration changes can alter an unchanged file’s module edge and expose a one-hop consumer.",
+        "limitation": "The consumer list is direct and one-hop; it is not symbol, transitive, or runtime impact analysis."
+      },
+      "baselineChangedFiles": [
+        "src/new.ts",
+        "tsconfig.json"
+      ],
+      "sample": {
+        "moduleLoadMs": 69.32025,
+        "analysisMs": 119.27037499999999,
+        "peakRssKiB": 119344,
+        "range": {
+          "baseOid": "e889d9122077d03a2712da2621b04670aac67833",
+          "headOid": "d4a3a2ba52dba1d93df24d7a80a2e389f453b432"
+        },
+        "producer": {
+          "name": "bygone",
+          "typescript": "4.9.5"
+        },
+        "base": {
+          "coverage": {
+            "candidateFiles": 3,
+            "indexedFiles": 3,
+            "omittedFiles": 0,
+            "readBytes": 185,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 1,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 1
+          },
+          "relationships": {
+            "import": 1
+          },
+          "phases": {
+            "module-init": 1
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": []
+        },
+        "head": {
+          "coverage": {
+            "candidateFiles": 3,
+            "indexedFiles": 3,
+            "omittedFiles": 0,
+            "readBytes": 192,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 1,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 1
+          },
+          "relationships": {
+            "import": 1
+          },
+          "phases": {
+            "module-init": 1
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": []
+        },
+        "added": 1,
+        "removed": 1,
+        "unchangedConsumers": 1,
+        "verifiedSourceSites": 2,
+        "processWallMs": 313.68629199999987
+      }
+    },
+    {
+      "id": "nested-config-resolution",
+      "kind": "contract",
+      "score": {
+        "expected": 2,
+        "actual": 2,
+        "correct": 2,
+        "missing": [],
+        "unexpected": [],
+        "precision": 1,
+        "recall": 1
+      },
+      "byRelationship": {
+        "import": {
+          "expected": 2,
+          "actual": 2,
+          "correct": 2,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "reexport": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "require": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "dynamic-import": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        }
+      },
+      "checks": {},
+      "reviewTask": {
+        "question": "Which committed alias configuration governs each import in this snapshot?",
+        "expectedAnswer": "root-consumer.ts inherits config/base.json through the root tsconfig and resolves to src/root.ts. sub/index.ts uses the nearer sub/tsconfig.json and resolves to src/nested.ts.",
+        "baselineMethod": "Search for @lib imports and walk parent directories to the nearest config, then follow relative extends and paths by hand.",
+        "graphContribution": "Preserves configuration scope boundaries instead of treating a root alias as global.",
+        "limitation": "Unsupported package-based config extension, plugins, and project-reference output reconstruction remain outside the graph."
+      },
+      "baselineChangedFiles": [
+        "src/nested.ts"
+      ],
+      "sample": {
+        "moduleLoadMs": 69.54620800000001,
+        "analysisMs": 108.733875,
+        "peakRssKiB": 119456,
+        "range": {
+          "baseOid": "802ce2f693e50039c3a6393695d69e0ead8e90bd",
+          "headOid": "380c3ffe358da2572fadc66d35906ddde8855815"
+        },
+        "producer": {
+          "name": "bygone",
+          "typescript": "4.9.5"
+        },
+        "base": {
+          "coverage": {
+            "candidateFiles": 4,
+            "indexedFiles": 4,
+            "omittedFiles": 0,
+            "readBytes": 246,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 2,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 2
+          },
+          "relationships": {
+            "import": 2
+          },
+          "phases": {
+            "module-init": 2
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": []
+        },
+        "head": {
+          "coverage": {
+            "candidateFiles": 4,
+            "indexedFiles": 4,
+            "omittedFiles": 0,
+            "readBytes": 246,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 2,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 2
+          },
+          "relationships": {
+            "import": 2
+          },
+          "phases": {
+            "module-init": 2
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": []
+        },
+        "added": 0,
+        "removed": 0,
+        "unchangedConsumers": 1,
+        "verifiedSourceSites": 4,
+        "processWallMs": 314.1842080000001
+      }
+    },
+    {
+      "id": "nodenext-explicit-js-substitution",
+      "kind": "contract",
+      "score": {
+        "expected": 2,
+        "actual": 2,
+        "correct": 2,
+        "missing": [],
+        "unexpected": [],
+        "precision": 1,
+        "recall": 1
+      },
+      "byRelationship": {
+        "import": {
+          "expected": 2,
+          "actual": 2,
+          "correct": 2,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "reexport": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "require": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "dynamic-import": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        }
+      },
+      "checks": {},
+      "reviewTask": {
+        "question": "What can the HEAD graph say about the two NodeNext imports?",
+        "expectedAnswer": "The extensionless ESM import is unresolved, while the explicit .js specifier resolves to the committed lib.ts source through TypeScript substitution; both are eager module-init syntax sites.",
+        "baselineMethod": "Read package.json, tsconfig.json and entry.ts, then inspect lib.ts and apply NodeNext extension rules.",
+        "graphContribution": "Makes explicit-extension requirements and .js-to-.ts source resolution visible in the dependency evidence.",
+        "limitation": "Resolution is not proof that the runtime loader, transpiler, or emitted artifact will accept or execute the edge."
+      },
+      "baselineChangedFiles": [
+        "lib.ts"
+      ],
+      "sample": {
+        "moduleLoadMs": 68.68983300000001,
+        "analysisMs": 99.365583,
+        "peakRssKiB": 119312,
+        "range": {
+          "baseOid": "aafc749767636aa5c5eb173371cf641b1815382a",
+          "headOid": "b1eacebd436cb5a7a7691e37832e1000ab2607db"
+        },
+        "producer": {
+          "name": "bygone",
+          "typescript": "4.9.5"
+        },
+        "base": {
+          "coverage": {
+            "candidateFiles": 2,
+            "indexedFiles": 2,
+            "omittedFiles": 0,
+            "readBytes": 145,
+            "indexComplete": true,
+            "unresolvedEdges": 1,
+            "omittedDiagnostics": 0
+          },
+          "edges": 2,
+          "initializationSites": 0,
+          "resolution": {
+            "unresolved": 1,
+            "resolved": 1
+          },
+          "relationships": {
+            "import": 2
+          },
+          "phases": {
+            "module-init": 2
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": [
+            {
+              "file": "entry.ts",
+              "specifier": "./lib",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "unresolved"
+            }
+          ]
+        },
+        "head": {
+          "coverage": {
+            "candidateFiles": 2,
+            "indexedFiles": 2,
+            "omittedFiles": 0,
+            "readBytes": 145,
+            "indexComplete": true,
+            "unresolvedEdges": 1,
+            "omittedDiagnostics": 0
+          },
+          "edges": 2,
+          "initializationSites": 0,
+          "resolution": {
+            "unresolved": 1,
+            "resolved": 1
+          },
+          "relationships": {
+            "import": 2
+          },
+          "phases": {
+            "module-init": 2
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": [
+            {
+              "file": "entry.ts",
+              "specifier": "./lib",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "unresolved"
+            }
+          ]
+        },
+        "added": 0,
+        "removed": 0,
+        "unchangedConsumers": 1,
+        "verifiedSourceSites": 4,
+        "processWallMs": 307.98825000000033
+      }
+    },
+    {
+      "id": "cycle-registration-callback-phases",
+      "kind": "contract",
+      "score": {
+        "expected": 5,
+        "actual": 5,
+        "correct": 5,
+        "missing": [],
+        "unexpected": [],
+        "precision": 1,
+        "recall": 1
+      },
+      "byRelationship": {
+        "import": {
+          "expected": 3,
+          "actual": 3,
+          "correct": 3,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "reexport": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "require": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "dynamic-import": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        }
+      },
+      "checks": {},
+      "initializationCheck": {
+        "expected": [
+          {
+            "file": "a.ts",
+            "kind": "call",
+            "phase": "module-init",
+            "text": "register(\"plugin\", () => import(\"./plugin\"))"
+          },
+          {
+            "file": "a.ts",
+            "kind": "call",
+            "phase": "module-init",
+            "text": "register(\"legacy\", () => require(\"./worker\"))"
+          }
+        ],
+        "actual": [
+          {
+            "file": "a.ts",
+            "kind": "call",
+            "phase": "module-init",
+            "text": "register(\"plugin\", () => import(\"./plugin\"))"
+          },
+          {
+            "file": "a.ts",
+            "kind": "call",
+            "phase": "module-init",
+            "text": "register(\"legacy\", () => require(\"./worker\"))"
+          }
+        ],
+        "passed": true
+      },
+      "reviewTask": {
+        "question": "Which dependencies are statically visible in the cycle, and which registration dependencies wait for callback invocation?",
+        "expectedAnswer": "The a-to-b, b-to-a, and plugin-to-a imports are module-init edges. The plugin dynamic import is deferred invocation evidence, and the worker require is eager syntax inside an invocation callback; registration syntax alone does not promote either callback body to module-init.",
+        "baselineMethod": "Read a.ts, b.ts and plugin.ts together; distinguish the registration call from each callback body and follow their imports manually.",
+        "graphContribution": "Shows cycles and registration callback dependencies in one graph while keeping static phase and lazy loading distinct.",
+        "limitation": "It does not prove registration occurs, callbacks run, or that a cycle is safe at runtime."
+      },
+      "baselineChangedFiles": [
+        "plugin.ts"
+      ],
+      "sample": {
+        "moduleLoadMs": 66.24716599999999,
+        "analysisMs": 93.80537500000001,
+        "peakRssKiB": 119472,
+        "range": {
+          "baseOid": "0c873eba0f818efdb33cd4d398aa6b6f9df5e5e1",
+          "headOid": "1af78add73e8c2dbd46443a6b9fa44916c3960c9"
+        },
+        "producer": {
+          "name": "bygone",
+          "typescript": "4.9.5"
+        },
+        "base": {
+          "coverage": {
+            "candidateFiles": 4,
+            "indexedFiles": 4,
+            "omittedFiles": 0,
+            "readBytes": 292,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 5,
+          "initializationSites": 2,
+          "resolution": {
+            "resolved": 5
+          },
+          "relationships": {
+            "import": 3,
+            "dynamic-import": 1,
+            "require": 1
+          },
+          "phases": {
+            "module-init": 3,
+            "invocation": 2
+          },
+          "diagnostics": {
+            "require-binding-ambiguous": 1
+          },
+          "diagnosticExamples": [
+            {
+              "code": "require-binding-ambiguous",
+              "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+              "file": "a.ts"
+            }
+          ],
+          "unresolvedExamples": []
+        },
+        "head": {
+          "coverage": {
+            "candidateFiles": 4,
+            "indexedFiles": 4,
+            "omittedFiles": 0,
+            "readBytes": 293,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 5,
+          "initializationSites": 2,
+          "resolution": {
+            "resolved": 5
+          },
+          "relationships": {
+            "import": 3,
+            "dynamic-import": 1,
+            "require": 1
+          },
+          "phases": {
+            "module-init": 3,
+            "invocation": 2
+          },
+          "diagnostics": {
+            "require-binding-ambiguous": 1
+          },
+          "diagnosticExamples": [
+            {
+              "code": "require-binding-ambiguous",
+              "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+              "file": "a.ts"
+            }
+          ],
+          "unresolvedExamples": []
+        },
+        "added": 0,
+        "removed": 0,
+        "unchangedConsumers": 1,
+        "verifiedSourceSites": 14,
+        "processWallMs": 387.5792919999999
+      }
+    },
+    {
+      "id": "invalid-compiler-config",
+      "kind": "contract",
+      "score": {
+        "expected": 3,
+        "actual": 3,
+        "correct": 3,
+        "missing": [],
+        "unexpected": [],
+        "precision": 1,
+        "recall": 1
+      },
+      "byRelationship": {
+        "import": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "reexport": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "require": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "dynamic-import": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        }
+      },
+      "checks": {
+        "added": {
+          "expected": 2,
+          "actual": 2,
+          "correct": 2,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "removed": {
+          "expected": 2,
+          "actual": 2,
+          "correct": 2,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        }
+      },
+      "reviewTask": {
+        "question": "What remains trustworthy when the committed compiler configuration is invalid?",
+        "expectedAnswer": "The syntactic sites and their phase/loading labels remain visible. Literal target resolution is invalid-config with no target, while the computed dynamic import remains computed; target-dependent deltas should be treated as provisional and the snapshot is partial.",
+        "baselineMethod": "Read the tsconfig diff and inspect entry.ts; recognize the invalid option before resolving its literal imports.",
+        "graphContribution": "Prevents a broken config from being silently treated as a clean unresolved graph and preserves the distinction between computed and config-invalid sites.",
+        "limitation": "The projected fixture does not include diagnostics or coverage; a code review must consult those report fields before drawing independence conclusions."
+      },
+      "baselineChangedFiles": [
+        "tsconfig.json"
+      ],
+      "sample": {
+        "moduleLoadMs": 66.879958,
+        "analysisMs": 94.89087500000001,
+        "peakRssKiB": 119248,
+        "range": {
+          "baseOid": "b938d3d8e752a961b9ff39a2723477d4331ae9ca",
+          "headOid": "fffb2847b57e7c2970e750fa888877b4fe94f676"
+        },
+        "producer": {
+          "name": "bygone",
+          "typescript": "4.9.5"
+        },
+        "base": {
+          "coverage": {
+            "candidateFiles": 2,
+            "indexedFiles": 2,
+            "omittedFiles": 0,
+            "readBytes": 153,
+            "indexComplete": true,
+            "unresolvedEdges": 1,
+            "omittedDiagnostics": 0
+          },
+          "edges": 3,
+          "initializationSites": 2,
+          "resolution": {
+            "resolved": 2,
+            "computed": 1
+          },
+          "relationships": {
+            "import": 1,
+            "dynamic-import": 1,
+            "require": 1
+          },
+          "phases": {
+            "module-init": 3
+          },
+          "diagnostics": {
+            "require-binding-ambiguous": 1
+          },
+          "diagnosticExamples": [
+            {
+              "code": "require-binding-ambiguous",
+              "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+              "file": "src/entry.ts"
+            }
+          ],
+          "unresolvedExamples": [
+            {
+              "file": "src/entry.ts",
+              "relationship": "dynamic-import",
+              "phase": "module-init",
+              "loading": "deferred",
+              "resolution": "computed"
+            }
+          ]
+        },
+        "head": {
+          "coverage": {
+            "candidateFiles": 2,
+            "indexedFiles": 2,
+            "omittedFiles": 0,
+            "readBytes": 159,
+            "indexComplete": false,
+            "unresolvedEdges": 3,
+            "omittedDiagnostics": 0
+          },
+          "edges": 3,
+          "initializationSites": 2,
+          "resolution": {
+            "invalid-config": 2,
+            "computed": 1
+          },
+          "relationships": {
+            "import": 1,
+            "dynamic-import": 1,
+            "require": 1
+          },
+          "phases": {
+            "module-init": 3
+          },
+          "diagnostics": {
+            "config-invalid": 1,
+            "require-binding-ambiguous": 1
+          },
+          "diagnosticExamples": [
+            {
+              "code": "config-invalid",
+              "message": "Argument for '--moduleResolution' option must be: 'node', 'classic', 'node16', 'nodenext'.",
+              "file": "tsconfig.json"
+            },
+            {
+              "code": "require-binding-ambiguous",
+              "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+              "file": "src/entry.ts"
+            }
+          ],
+          "unresolvedExamples": [
+            {
+              "file": "src/entry.ts",
+              "specifier": "./dep",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/entry.ts",
+              "relationship": "dynamic-import",
+              "phase": "module-init",
+              "loading": "deferred",
+              "resolution": "computed"
+            },
+            {
+              "file": "src/entry.ts",
+              "specifier": "./dep",
+              "relationship": "require",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            }
+          ]
+        },
+        "added": 2,
+        "removed": 2,
+        "unchangedConsumers": 0,
+        "verifiedSourceSites": 10,
+        "processWallMs": 338.6460830000001
+      }
+    },
+    {
+      "id": "invalid-package-config-falls-back-to-commonjs",
+      "kind": "characterization",
+      "score": {
+        "expected": 2,
+        "actual": 2,
+        "correct": 2,
+        "missing": [],
+        "unexpected": [],
+        "precision": 1,
+        "recall": 1
+      },
+      "byRelationship": {
+        "import": {
+          "expected": 2,
+          "actual": 2,
+          "correct": 2,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "reexport": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "require": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "dynamic-import": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        }
+      },
+      "checks": {
+        "added": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "removed": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        }
+      },
+      "reviewTask": {
+        "question": "How should a reviewer interpret a malformed package.json in this NodeNext snapshot?",
+        "expectedAnswer": "The committed malformed package.json is read as an empty package object by the resolver, so the file falls back to CommonJS interpretation: the extensionless import resolves to lib.ts, and the explicit .js import also resolves to lib.ts.",
+        "baselineMethod": "Read the package.json diff to detect malformed JSON; inspect the unchanged imports. The TypeScript fallback itself requires compiler knowledge.",
+        "graphContribution": "Makes package-scope metadata an explicit cause of a module-edge retargeting.",
+        "limitation": "The dependency report does not expose package-parser diagnostics for this fallback, so package metadata and coverage context must be reviewed separately."
+      },
+      "baselineChangedFiles": [
+        "lib.ts",
+        "package.json"
+      ],
+      "sample": {
+        "moduleLoadMs": 66.025833,
+        "analysisMs": 87.5405,
+        "peakRssKiB": 119104,
+        "range": {
+          "baseOid": "9b202d9857658e570154aec767c19730087f71b6",
+          "headOid": "ac276954370a8e52c7e925f85ab5a74cd1ff88b1"
+        },
+        "producer": {
+          "name": "bygone",
+          "typescript": "4.9.5"
+        },
+        "base": {
+          "coverage": {
+            "candidateFiles": 2,
+            "indexedFiles": 2,
+            "omittedFiles": 0,
+            "readBytes": 145,
+            "indexComplete": true,
+            "unresolvedEdges": 1,
+            "omittedDiagnostics": 0
+          },
+          "edges": 2,
+          "initializationSites": 0,
+          "resolution": {
+            "unresolved": 1,
+            "resolved": 1
+          },
+          "relationships": {
+            "import": 2
+          },
+          "phases": {
+            "module-init": 2
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": [
+            {
+              "file": "entry.ts",
+              "specifier": "./lib",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "unresolved"
+            }
+          ]
+        },
+        "head": {
+          "coverage": {
+            "candidateFiles": 2,
+            "indexedFiles": 2,
+            "omittedFiles": 0,
+            "readBytes": 136,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 2,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 2
+          },
+          "relationships": {
+            "import": 2
+          },
+          "phases": {
+            "module-init": 2
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": []
+        },
+        "added": 0,
+        "removed": 1,
+        "unchangedConsumers": 2,
+        "verifiedSourceSites": 4,
+        "processWallMs": 283.714833
+      }
+    },
+    {
+      "id": "symbol-binding-change-same-module",
+      "kind": "contract",
+      "score": {
+        "expected": 1,
+        "actual": 1,
+        "correct": 1,
+        "missing": [],
+        "unexpected": [],
+        "precision": 1,
+        "recall": 1
+      },
+      "byRelationship": {
+        "import": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "reexport": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "require": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "dynamic-import": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        }
+      },
+      "checks": {
+        "added": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "removed": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        }
+      },
+      "reviewTask": {
+        "question": "What dependency change is visible when the imported symbol changes but the module endpoint stays the same?",
+        "expectedAnswer": "No module-edge delta is visible: the consumer still has one eager module-init import of ./lib resolving to lib.ts. The changed binding names and exported declarations are outside this graph’s identity.",
+        "baselineMethod": "Read the consumer.ts and lib.ts diffs: they directly reveal the changed imported and exported names.",
+        "graphContribution": "Provides a control for the documented module-level limitation and prevents a same-module symbol edit from being scored as a new dependency.",
+        "limitation": "The graph is not a resolved symbol or call graph and cannot show whether the new binding exists, is compatible, or is used."
+      },
+      "baselineChangedFiles": [
+        "consumer.ts",
+        "lib.ts"
+      ],
+      "sample": {
+        "moduleLoadMs": 65.61266699999999,
+        "analysisMs": 91.55270800000001,
+        "peakRssKiB": 118784,
+        "range": {
+          "baseOid": "dff0fbce11c3d017fa889d8a09a61ca778e33ec5",
+          "headOid": "18a42a8196080525e1f200d941ba0fc78539f719"
+        },
+        "producer": {
+          "name": "bygone",
+          "typescript": "4.9.5"
+        },
+        "base": {
+          "coverage": {
+            "candidateFiles": 2,
+            "indexedFiles": 2,
+            "omittedFiles": 0,
+            "readBytes": 97,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 1,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 1
+          },
+          "relationships": {
+            "import": 1
+          },
+          "phases": {
+            "module-init": 1
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": []
+        },
+        "head": {
+          "coverage": {
+            "candidateFiles": 2,
+            "indexedFiles": 2,
+            "omittedFiles": 0,
+            "readBytes": 94,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 1,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 1
+          },
+          "relationships": {
+            "import": 1
+          },
+          "phases": {
+            "module-init": 1
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": []
+        },
+        "added": 0,
+        "removed": 0,
+        "unchangedConsumers": 0,
+        "verifiedSourceSites": 2,
+        "processWallMs": 286.35462499999994
+      }
+    },
+    {
+      "id": "import-equals-and-declaration-file-edges",
+      "kind": "contract",
+      "score": {
+        "expected": 4,
+        "actual": 4,
+        "correct": 4,
+        "missing": [],
+        "unexpected": [],
+        "precision": 1,
+        "recall": 1
+      },
+      "byRelationship": {
+        "import": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "reexport": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "require": {
+          "expected": 2,
+          "actual": 2,
+          "correct": 2,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "dynamic-import": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        }
+      },
+      "checks": {},
+      "baselineChangedFiles": [
+        "dep.ts"
+      ],
+      "sample": {
+        "moduleLoadMs": 67.41620900000001,
+        "analysisMs": 96.18749999999999,
+        "peakRssKiB": 119104,
+        "range": {
+          "baseOid": "95b4719a1b47ed4301ee53c95933b5849b0cfa3c",
+          "headOid": "d7dcec769e8aa4df52ff3b9c836fb109451f9212"
+        },
+        "producer": {
+          "name": "bygone",
+          "typescript": "4.9.5"
+        },
+        "base": {
+          "coverage": {
+            "candidateFiles": 4,
+            "indexedFiles": 4,
+            "omittedFiles": 0,
+            "readBytes": 194,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 4,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 4
+          },
+          "relationships": {
+            "require": 2,
+            "import": 1,
+            "reexport": 1
+          },
+          "phases": {
+            "module-init": 2,
+            "type": 2
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": []
+        },
+        "head": {
+          "coverage": {
+            "candidateFiles": 4,
+            "indexedFiles": 4,
+            "omittedFiles": 0,
+            "readBytes": 194,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 4,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 4
+          },
+          "relationships": {
+            "require": 2,
+            "import": 1,
+            "reexport": 1
+          },
+          "phases": {
+            "module-init": 2,
+            "type": 2
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": []
+        },
+        "added": 0,
+        "removed": 0,
+        "unchangedConsumers": 3,
+        "verifiedSourceSites": 8,
+        "processWallMs": 336.4993749999994
+      }
+    },
+    {
+      "id": "same-body-move-changes-relative-binding",
+      "kind": "contract",
+      "score": {
+        "expected": 1,
+        "actual": 1,
+        "correct": 1,
+        "missing": [],
+        "unexpected": [],
+        "precision": 1,
+        "recall": 1
+      },
+      "byRelationship": {
+        "import": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "reexport": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "require": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "dynamic-import": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        }
+      },
+      "checks": {
+        "added": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "removed": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        }
+      },
+      "reviewTask": {
+        "question": "Does moving an identical reader preserve its imported value?",
+        "expectedAnswer": "The source bytes are identical, but ./binding now targets new/binding.ts instead of old/binding.ts. The module edge changes even after Git rename alignment.",
+        "baselineMethod": "Read the rename in the diff, expand ./binding relative to each directory, and inspect both binding files.",
+        "graphContribution": "Exposes changed module context despite identical function and import text.",
+        "limitation": "Does not resolve the value symbol or prove behavior equivalence."
+      },
+      "baselineChangedFiles": [
+        "new/reader.ts"
+      ],
+      "sample": {
+        "moduleLoadMs": 67.398208,
+        "analysisMs": 94.90599999999999,
+        "peakRssKiB": 119040,
+        "range": {
+          "baseOid": "a8bfc46c62fc7e9a35c932dbcf3d456de21369b5",
+          "headOid": "73061532f9ae11aaf1a3a3d1188654b1b7c84921"
+        },
+        "producer": {
+          "name": "bygone",
+          "typescript": "4.9.5"
+        },
+        "base": {
+          "coverage": {
+            "candidateFiles": 3,
+            "indexedFiles": 3,
+            "omittedFiles": 0,
+            "readBytes": 121,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 1,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 1
+          },
+          "relationships": {
+            "import": 1
+          },
+          "phases": {
+            "module-init": 1
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": []
+        },
+        "head": {
+          "coverage": {
+            "candidateFiles": 3,
+            "indexedFiles": 3,
+            "omittedFiles": 0,
+            "readBytes": 121,
+            "indexComplete": true,
+            "unresolvedEdges": 0,
+            "omittedDiagnostics": 0
+          },
+          "edges": 1,
+          "initializationSites": 0,
+          "resolution": {
+            "resolved": 1
+          },
+          "relationships": {
+            "import": 1
+          },
+          "phases": {
+            "module-init": 1
+          },
+          "diagnostics": {},
+          "diagnosticExamples": [],
+          "unresolvedExamples": []
+        },
+        "added": 1,
+        "removed": 1,
+        "unchangedConsumers": 0,
+        "verifiedSourceSites": 2,
+        "processWallMs": 281.4494169999998
+      }
+    }
+  ],
+  "scale": [
+    {
+      "sourceFiles": 100,
+      "passed": true,
+      "samples": [
+        {
+          "moduleLoadMs": 65.69875,
+          "analysisMs": 146.648125,
+          "peakRssKiB": 126288,
+          "range": {
+            "baseOid": "9e03a4050370bdb807a2c739cc1f5bdffeb01760",
+            "headOid": "ef09e2c302069475852508976ab6526e898f3859"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 100,
+              "indexedFiles": 100,
+              "omittedFiles": 0,
+              "readBytes": 9837,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 100,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 100
+            },
+            "relationships": {
+              "import": 100
+            },
+            "phases": {
+              "module-init": 100
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 100,
+              "indexedFiles": 100,
+              "omittedFiles": 0,
+              "readBytes": 9840,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 100,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 100
+            },
+            "relationships": {
+              "import": 100
+            },
+            "phases": {
+              "module-init": 100
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 1,
+          "processWallMs": 312.2659999999996
+        },
+        {
+          "moduleLoadMs": 64.54141700000001,
+          "analysisMs": 140.742333,
+          "peakRssKiB": 126240,
+          "range": {
+            "baseOid": "9e03a4050370bdb807a2c739cc1f5bdffeb01760",
+            "headOid": "ef09e2c302069475852508976ab6526e898f3859"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 100,
+              "indexedFiles": 100,
+              "omittedFiles": 0,
+              "readBytes": 9837,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 100,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 100
+            },
+            "relationships": {
+              "import": 100
+            },
+            "phases": {
+              "module-init": 100
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 100,
+              "indexedFiles": 100,
+              "omittedFiles": 0,
+              "readBytes": 9840,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 100,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 100
+            },
+            "relationships": {
+              "import": 100
+            },
+            "phases": {
+              "module-init": 100
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 1,
+          "processWallMs": 299.66391699999986
+        },
+        {
+          "moduleLoadMs": 66.20391599999999,
+          "analysisMs": 135.95850000000002,
+          "peakRssKiB": 126096,
+          "range": {
+            "baseOid": "9e03a4050370bdb807a2c739cc1f5bdffeb01760",
+            "headOid": "ef09e2c302069475852508976ab6526e898f3859"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 100,
+              "indexedFiles": 100,
+              "omittedFiles": 0,
+              "readBytes": 9837,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 100,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 100
+            },
+            "relationships": {
+              "import": 100
+            },
+            "phases": {
+              "module-init": 100
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 100,
+              "indexedFiles": 100,
+              "omittedFiles": 0,
+              "readBytes": 9840,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 100,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 100
+            },
+            "relationships": {
+              "import": 100
+            },
+            "phases": {
+              "module-init": 100
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 1,
+          "processWallMs": 299.08449999999993
+        }
+      ]
+    },
+    {
+      "sourceFiles": 500,
+      "passed": true,
+      "samples": [
+        {
+          "moduleLoadMs": 65.96570799999999,
+          "analysisMs": 248.54616699999997,
+          "peakRssKiB": 137168,
+          "range": {
+            "baseOid": "f6c72fa0887957a15f5d87dd1702792684df5fa3",
+            "headOid": "c14588b7c48e0f6b2acd8494467aad9a609b9103"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 500,
+              "indexedFiles": 500,
+              "omittedFiles": 0,
+              "readBytes": 49437,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 500,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 500
+            },
+            "relationships": {
+              "import": 500
+            },
+            "phases": {
+              "module-init": 500
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 500,
+              "indexedFiles": 500,
+              "omittedFiles": 0,
+              "readBytes": 49440,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 500,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 500
+            },
+            "relationships": {
+              "import": 500
+            },
+            "phases": {
+              "module-init": 500
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 1,
+          "processWallMs": 405.563083
+        },
+        {
+          "moduleLoadMs": 67.007834,
+          "analysisMs": 240.246875,
+          "peakRssKiB": 137136,
+          "range": {
+            "baseOid": "f6c72fa0887957a15f5d87dd1702792684df5fa3",
+            "headOid": "c14588b7c48e0f6b2acd8494467aad9a609b9103"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 500,
+              "indexedFiles": 500,
+              "omittedFiles": 0,
+              "readBytes": 49437,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 500,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 500
+            },
+            "relationships": {
+              "import": 500
+            },
+            "phases": {
+              "module-init": 500
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 500,
+              "indexedFiles": 500,
+              "omittedFiles": 0,
+              "readBytes": 49440,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 500,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 500
+            },
+            "relationships": {
+              "import": 500
+            },
+            "phases": {
+              "module-init": 500
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 1,
+          "processWallMs": 396.45120899999984
+        },
+        {
+          "moduleLoadMs": 65.007166,
+          "analysisMs": 231.61112499999996,
+          "peakRssKiB": 137264,
+          "range": {
+            "baseOid": "f6c72fa0887957a15f5d87dd1702792684df5fa3",
+            "headOid": "c14588b7c48e0f6b2acd8494467aad9a609b9103"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 500,
+              "indexedFiles": 500,
+              "omittedFiles": 0,
+              "readBytes": 49437,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 500,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 500
+            },
+            "relationships": {
+              "import": 500
+            },
+            "phases": {
+              "module-init": 500
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 500,
+              "indexedFiles": 500,
+              "omittedFiles": 0,
+              "readBytes": 49440,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 500,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 500
+            },
+            "relationships": {
+              "import": 500
+            },
+            "phases": {
+              "module-init": 500
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 1,
+          "processWallMs": 387.94154100000014
+        }
+      ]
+    },
+    {
+      "sourceFiles": 1500,
+      "passed": true,
+      "samples": [
+        {
+          "moduleLoadMs": 71.04541599999999,
+          "analysisMs": 576.704584,
+          "peakRssKiB": 144592,
+          "range": {
+            "baseOid": "bf7798956cf54173ea54a9a13db3982859989f0c",
+            "headOid": "08c42c3a6c50ca95a30b9a8eb0a8d750623f5383"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 1500,
+              "indexedFiles": 1500,
+              "omittedFiles": 0,
+              "readBytes": 148937,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1500,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 1500
+            },
+            "relationships": {
+              "import": 1500
+            },
+            "phases": {
+              "module-init": 1500
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 1500,
+              "indexedFiles": 1500,
+              "omittedFiles": 0,
+              "readBytes": 148940,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1500,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 1500
+            },
+            "relationships": {
+              "import": 1500
+            },
+            "phases": {
+              "module-init": 1500
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 1,
+          "processWallMs": 750.7970830000013
+        },
+        {
+          "moduleLoadMs": 88.12445799999999,
+          "analysisMs": 686.026959,
+          "peakRssKiB": 144368,
+          "range": {
+            "baseOid": "bf7798956cf54173ea54a9a13db3982859989f0c",
+            "headOid": "08c42c3a6c50ca95a30b9a8eb0a8d750623f5383"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 1500,
+              "indexedFiles": 1500,
+              "omittedFiles": 0,
+              "readBytes": 148937,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1500,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 1500
+            },
+            "relationships": {
+              "import": 1500
+            },
+            "phases": {
+              "module-init": 1500
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 1500,
+              "indexedFiles": 1500,
+              "omittedFiles": 0,
+              "readBytes": 148940,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1500,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 1500
+            },
+            "relationships": {
+              "import": 1500
+            },
+            "phases": {
+              "module-init": 1500
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 1,
+          "processWallMs": 883.228083
+        },
+        {
+          "moduleLoadMs": 71.35391700000001,
+          "analysisMs": 543.728541,
+          "peakRssKiB": 144512,
+          "range": {
+            "baseOid": "bf7798956cf54173ea54a9a13db3982859989f0c",
+            "headOid": "08c42c3a6c50ca95a30b9a8eb0a8d750623f5383"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 1500,
+              "indexedFiles": 1500,
+              "omittedFiles": 0,
+              "readBytes": 148937,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1500,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 1500
+            },
+            "relationships": {
+              "import": 1500
+            },
+            "phases": {
+              "module-init": 1500
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 1500,
+              "indexedFiles": 1500,
+              "omittedFiles": 0,
+              "readBytes": 148940,
+              "indexComplete": true,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1500,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 1500
+            },
+            "relationships": {
+              "import": 1500
+            },
+            "phases": {
+              "module-init": 1500
+            },
+            "diagnostics": {},
+            "diagnosticExamples": [],
+            "unresolvedExamples": []
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 1,
+          "processWallMs": 719.6454159999994
+        }
+      ]
+    },
+    {
+      "sourceFiles": 2500,
+      "passed": true,
+      "samples": [
+        {
+          "moduleLoadMs": 69.976792,
+          "analysisMs": 724.48925,
+          "peakRssKiB": 146352,
+          "range": {
+            "baseOid": "2e5c7dfad59e74eda894aa924ad78a905c7f91cb",
+            "headOid": "7e0051a4b8079399a3a5250b28c7119bc435c6fa"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 2500,
+              "indexedFiles": 1999,
+              "omittedFiles": 501,
+              "readBytes": 198837,
+              "indexComplete": false,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1999,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 1999
+            },
+            "relationships": {
+              "import": 1999
+            },
+            "phases": {
+              "module-init": 1999
+            },
+            "diagnostics": {
+              "file-omitted": 501
+            },
+            "diagnosticExamples": [
+              {
+                "code": "file-omitted",
+                "message": "Snapshot file/byte budget exhausted.",
+                "file": "m1999.ts"
+              }
+            ],
+            "unresolvedExamples": []
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 2500,
+              "indexedFiles": 1999,
+              "omittedFiles": 501,
+              "readBytes": 198840,
+              "indexComplete": false,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1999,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 1999
+            },
+            "relationships": {
+              "import": 1999
+            },
+            "phases": {
+              "module-init": 1999
+            },
+            "diagnostics": {
+              "file-omitted": 501
+            },
+            "diagnosticExamples": [
+              {
+                "code": "file-omitted",
+                "message": "Snapshot file/byte budget exhausted.",
+                "file": "m1999.ts"
+              }
+            ],
+            "unresolvedExamples": []
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 0,
+          "processWallMs": 892.0361659999999
+        },
+        {
+          "moduleLoadMs": 67.744708,
+          "analysisMs": 710.486708,
+          "peakRssKiB": 146256,
+          "range": {
+            "baseOid": "2e5c7dfad59e74eda894aa924ad78a905c7f91cb",
+            "headOid": "7e0051a4b8079399a3a5250b28c7119bc435c6fa"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 2500,
+              "indexedFiles": 1999,
+              "omittedFiles": 501,
+              "readBytes": 198837,
+              "indexComplete": false,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1999,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 1999
+            },
+            "relationships": {
+              "import": 1999
+            },
+            "phases": {
+              "module-init": 1999
+            },
+            "diagnostics": {
+              "file-omitted": 501
+            },
+            "diagnosticExamples": [
+              {
+                "code": "file-omitted",
+                "message": "Snapshot file/byte budget exhausted.",
+                "file": "m1999.ts"
+              }
+            ],
+            "unresolvedExamples": []
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 2500,
+              "indexedFiles": 1999,
+              "omittedFiles": 501,
+              "readBytes": 198840,
+              "indexComplete": false,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1999,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 1999
+            },
+            "relationships": {
+              "import": 1999
+            },
+            "phases": {
+              "module-init": 1999
+            },
+            "diagnostics": {
+              "file-omitted": 501
+            },
+            "diagnosticExamples": [
+              {
+                "code": "file-omitted",
+                "message": "Snapshot file/byte budget exhausted.",
+                "file": "m1999.ts"
+              }
+            ],
+            "unresolvedExamples": []
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 0,
+          "processWallMs": 874.7793330000004
+        },
+        {
+          "moduleLoadMs": 68.365834,
+          "analysisMs": 714.834291,
+          "peakRssKiB": 146848,
+          "range": {
+            "baseOid": "2e5c7dfad59e74eda894aa924ad78a905c7f91cb",
+            "headOid": "7e0051a4b8079399a3a5250b28c7119bc435c6fa"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 2500,
+              "indexedFiles": 1999,
+              "omittedFiles": 501,
+              "readBytes": 198837,
+              "indexComplete": false,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1999,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 1999
+            },
+            "relationships": {
+              "import": 1999
+            },
+            "phases": {
+              "module-init": 1999
+            },
+            "diagnostics": {
+              "file-omitted": 501
+            },
+            "diagnosticExamples": [
+              {
+                "code": "file-omitted",
+                "message": "Snapshot file/byte budget exhausted.",
+                "file": "m1999.ts"
+              }
+            ],
+            "unresolvedExamples": []
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 2500,
+              "indexedFiles": 1999,
+              "omittedFiles": 501,
+              "readBytes": 198840,
+              "indexComplete": false,
+              "unresolvedEdges": 0,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1999,
+            "initializationSites": 0,
+            "resolution": {
+              "resolved": 1999
+            },
+            "relationships": {
+              "import": 1999
+            },
+            "phases": {
+              "module-init": 1999
+            },
+            "diagnostics": {
+              "file-omitted": 501
+            },
+            "diagnosticExamples": [
+              {
+                "code": "file-omitted",
+                "message": "Snapshot file/byte budget exhausted.",
+                "file": "m1999.ts"
+              }
+            ],
+            "unresolvedExamples": []
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 0,
+          "processWallMs": 882.1188329999986
+        }
+      ]
+    }
+  ],
+  "repositories": [
+    {
+      "name": "express",
+      "url": "https://github.com/expressjs/express",
+      "base": "0dee2c52c7c873498f8ed7d8ee4ddd0a04d3ada8",
+      "head": "1c6f1b0fe4000977b9a7b4f34097e4d527dd9824",
+      "samples": [
+        {
+          "moduleLoadMs": 69.28079199999999,
+          "analysisMs": 284.667542,
+          "peakRssKiB": 158128,
+          "range": {
+            "baseOid": "0dee2c52c7c873498f8ed7d8ee4ddd0a04d3ada8",
+            "headOid": "1c6f1b0fe4000977b9a7b4f34097e4d527dd9824"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 141,
+              "indexedFiles": 141,
+              "omittedFiles": 0,
+              "readBytes": 551452,
+              "indexComplete": true,
+              "unresolvedEdges": 340,
+              "omittedDiagnostics": 0
+            },
+            "edges": 403,
+            "initializationSites": 833,
+            "resolution": {
+              "unresolved": 337,
+              "resolved": 63,
+              "computed": 3
+            },
+            "relationships": {
+              "require": 403
+            },
+            "phases": {
+              "module-init": 399,
+              "invocation": 4
+            },
+            "diagnostics": {
+              "require-binding-ambiguous": 403,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "examples/auth/index.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "examples/search/index.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "../..",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "pbkdf2-password",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "node:path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "express-session",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/content-negotiation/index.js",
+                "specifier": "../../",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 142,
+              "indexedFiles": 142,
+              "omittedFiles": 0,
+              "readBytes": 567215,
+              "indexComplete": true,
+              "unresolvedEdges": 344,
+              "omittedDiagnostics": 0
+            },
+            "edges": 408,
+            "initializationSites": 839,
+            "resolution": {
+              "unresolved": 341,
+              "resolved": 64,
+              "computed": 3
+            },
+            "relationships": {
+              "require": 408
+            },
+            "phases": {
+              "module-init": 404,
+              "invocation": 4
+            },
+            "diagnostics": {
+              "require-binding-ambiguous": 408,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "examples/auth/index.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "examples/search/index.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "../..",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "pbkdf2-password",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "node:path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "express-session",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/content-negotiation/index.js",
+                "specifier": "../../",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "added": 5,
+          "removed": 0,
+          "unchangedConsumers": 0,
+          "processWallMs": 455.63508300000103
+        },
+        {
+          "moduleLoadMs": 69.939083,
+          "analysisMs": 274.793833,
+          "peakRssKiB": 156368,
+          "range": {
+            "baseOid": "0dee2c52c7c873498f8ed7d8ee4ddd0a04d3ada8",
+            "headOid": "1c6f1b0fe4000977b9a7b4f34097e4d527dd9824"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 141,
+              "indexedFiles": 141,
+              "omittedFiles": 0,
+              "readBytes": 551452,
+              "indexComplete": true,
+              "unresolvedEdges": 340,
+              "omittedDiagnostics": 0
+            },
+            "edges": 403,
+            "initializationSites": 833,
+            "resolution": {
+              "unresolved": 337,
+              "resolved": 63,
+              "computed": 3
+            },
+            "relationships": {
+              "require": 403
+            },
+            "phases": {
+              "module-init": 399,
+              "invocation": 4
+            },
+            "diagnostics": {
+              "require-binding-ambiguous": 403,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "examples/auth/index.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "examples/search/index.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "../..",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "pbkdf2-password",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "node:path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "express-session",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/content-negotiation/index.js",
+                "specifier": "../../",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 142,
+              "indexedFiles": 142,
+              "omittedFiles": 0,
+              "readBytes": 567215,
+              "indexComplete": true,
+              "unresolvedEdges": 344,
+              "omittedDiagnostics": 0
+            },
+            "edges": 408,
+            "initializationSites": 839,
+            "resolution": {
+              "unresolved": 341,
+              "resolved": 64,
+              "computed": 3
+            },
+            "relationships": {
+              "require": 408
+            },
+            "phases": {
+              "module-init": 404,
+              "invocation": 4
+            },
+            "diagnostics": {
+              "require-binding-ambiguous": 408,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "examples/auth/index.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "examples/search/index.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "../..",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "pbkdf2-password",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "node:path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "express-session",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/content-negotiation/index.js",
+                "specifier": "../../",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "added": 5,
+          "removed": 0,
+          "unchangedConsumers": 0,
+          "processWallMs": 454.7340000000004
+        },
+        {
+          "moduleLoadMs": 69.602625,
+          "analysisMs": 272.78870800000004,
+          "peakRssKiB": 146512,
+          "range": {
+            "baseOid": "0dee2c52c7c873498f8ed7d8ee4ddd0a04d3ada8",
+            "headOid": "1c6f1b0fe4000977b9a7b4f34097e4d527dd9824"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 141,
+              "indexedFiles": 141,
+              "omittedFiles": 0,
+              "readBytes": 551452,
+              "indexComplete": true,
+              "unresolvedEdges": 340,
+              "omittedDiagnostics": 0
+            },
+            "edges": 403,
+            "initializationSites": 833,
+            "resolution": {
+              "unresolved": 337,
+              "resolved": 63,
+              "computed": 3
+            },
+            "relationships": {
+              "require": 403
+            },
+            "phases": {
+              "module-init": 399,
+              "invocation": 4
+            },
+            "diagnostics": {
+              "require-binding-ambiguous": 403,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "examples/auth/index.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "examples/search/index.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "../..",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "pbkdf2-password",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "node:path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "express-session",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/content-negotiation/index.js",
+                "specifier": "../../",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 142,
+              "indexedFiles": 142,
+              "omittedFiles": 0,
+              "readBytes": 567215,
+              "indexComplete": true,
+              "unresolvedEdges": 344,
+              "omittedDiagnostics": 0
+            },
+            "edges": 408,
+            "initializationSites": 839,
+            "resolution": {
+              "unresolved": 341,
+              "resolved": 64,
+              "computed": 3
+            },
+            "relationships": {
+              "require": 408
+            },
+            "phases": {
+              "module-init": 404,
+              "invocation": 4
+            },
+            "diagnostics": {
+              "require-binding-ambiguous": 408,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "examples/auth/index.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "examples/search/index.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "../..",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "pbkdf2-password",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "node:path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/auth/index.js",
+                "specifier": "express-session",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/content-negotiation/index.js",
+                "specifier": "../../",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "added": 5,
+          "removed": 0,
+          "unchangedConsumers": 0,
+          "processWallMs": 450.92916700000205
+        }
+      ],
+      "selectedFileOracle": {
+        "files": [
+          "index.js",
+          "lib/express.js"
+        ],
+        "score": {
+          "expected": 9,
+          "actual": 9,
+          "correct": 9,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "resolvedEndpoints": {
+          "expected": 4,
+          "actual": 4,
+          "correct": 4,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "verifiedSourceSites": 36
+      }
+    },
+    {
+      "name": "p-limit",
+      "url": "https://github.com/sindresorhus/p-limit",
+      "base": "4d4ec71803d8736567249c3dde06ea82795ae7c7",
+      "head": "a8a6fbec4e0e866d6d779b10889bb4f5567e70eb",
+      "samples": [
+        {
+          "moduleLoadMs": 71.645166,
+          "analysisMs": 123.16941699999998,
+          "peakRssKiB": 129328,
+          "range": {
+            "baseOid": "4d4ec71803d8736567249c3dde06ea82795ae7c7",
+            "headOid": "a8a6fbec4e0e866d6d779b10889bb4f5567e70eb"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 6,
+              "indexedFiles": 6,
+              "omittedFiles": 0,
+              "readBytes": 36840,
+              "indexComplete": false,
+              "unresolvedEdges": 20,
+              "omittedDiagnostics": 0
+            },
+            "edges": 24,
+            "initializationSites": 79,
+            "resolution": {
+              "unresolved": 20,
+              "resolved": 4
+            },
+            "relationships": {
+              "import": 24
+            },
+            "phases": {
+              "module-init": 24
+            },
+            "diagnostics": {
+              "ts-1434": 1,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "ts-1434",
+                "message": "Unexpected keyword or identifier.",
+                "file": "benchmark.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "index.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "benchmark.js",
+                "specifier": "node:fs/promises",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:path",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:timers/promises",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:crypto",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "index.js",
+                "specifier": "yocto-queue",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 6,
+              "indexedFiles": 6,
+              "omittedFiles": 0,
+              "readBytes": 36840,
+              "indexComplete": false,
+              "unresolvedEdges": 20,
+              "omittedDiagnostics": 0
+            },
+            "edges": 24,
+            "initializationSites": 79,
+            "resolution": {
+              "unresolved": 20,
+              "resolved": 4
+            },
+            "relationships": {
+              "import": 24
+            },
+            "phases": {
+              "module-init": 24
+            },
+            "diagnostics": {
+              "ts-1434": 1,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "ts-1434",
+                "message": "Unexpected keyword or identifier.",
+                "file": "benchmark.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "index.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "benchmark.js",
+                "specifier": "node:fs/promises",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:path",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:timers/promises",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:crypto",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "index.js",
+                "specifier": "yocto-queue",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 0,
+          "processWallMs": 298.6552499999998
+        },
+        {
+          "moduleLoadMs": 68.517917,
+          "analysisMs": 125.432916,
+          "peakRssKiB": 129664,
+          "range": {
+            "baseOid": "4d4ec71803d8736567249c3dde06ea82795ae7c7",
+            "headOid": "a8a6fbec4e0e866d6d779b10889bb4f5567e70eb"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 6,
+              "indexedFiles": 6,
+              "omittedFiles": 0,
+              "readBytes": 36840,
+              "indexComplete": false,
+              "unresolvedEdges": 20,
+              "omittedDiagnostics": 0
+            },
+            "edges": 24,
+            "initializationSites": 79,
+            "resolution": {
+              "unresolved": 20,
+              "resolved": 4
+            },
+            "relationships": {
+              "import": 24
+            },
+            "phases": {
+              "module-init": 24
+            },
+            "diagnostics": {
+              "ts-1434": 1,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "ts-1434",
+                "message": "Unexpected keyword or identifier.",
+                "file": "benchmark.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "index.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "benchmark.js",
+                "specifier": "node:fs/promises",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:path",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:timers/promises",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:crypto",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "index.js",
+                "specifier": "yocto-queue",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 6,
+              "indexedFiles": 6,
+              "omittedFiles": 0,
+              "readBytes": 36840,
+              "indexComplete": false,
+              "unresolvedEdges": 20,
+              "omittedDiagnostics": 0
+            },
+            "edges": 24,
+            "initializationSites": 79,
+            "resolution": {
+              "unresolved": 20,
+              "resolved": 4
+            },
+            "relationships": {
+              "import": 24
+            },
+            "phases": {
+              "module-init": 24
+            },
+            "diagnostics": {
+              "ts-1434": 1,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "ts-1434",
+                "message": "Unexpected keyword or identifier.",
+                "file": "benchmark.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "index.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "benchmark.js",
+                "specifier": "node:fs/promises",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:path",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:timers/promises",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:crypto",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "index.js",
+                "specifier": "yocto-queue",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 0,
+          "processWallMs": 297.97979100000157
+        },
+        {
+          "moduleLoadMs": 76.576584,
+          "analysisMs": 129.980458,
+          "peakRssKiB": 128832,
+          "range": {
+            "baseOid": "4d4ec71803d8736567249c3dde06ea82795ae7c7",
+            "headOid": "a8a6fbec4e0e866d6d779b10889bb4f5567e70eb"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 6,
+              "indexedFiles": 6,
+              "omittedFiles": 0,
+              "readBytes": 36840,
+              "indexComplete": false,
+              "unresolvedEdges": 20,
+              "omittedDiagnostics": 0
+            },
+            "edges": 24,
+            "initializationSites": 79,
+            "resolution": {
+              "unresolved": 20,
+              "resolved": 4
+            },
+            "relationships": {
+              "import": 24
+            },
+            "phases": {
+              "module-init": 24
+            },
+            "diagnostics": {
+              "ts-1434": 1,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "ts-1434",
+                "message": "Unexpected keyword or identifier.",
+                "file": "benchmark.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "index.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "benchmark.js",
+                "specifier": "node:fs/promises",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:path",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:timers/promises",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:crypto",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "index.js",
+                "specifier": "yocto-queue",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 6,
+              "indexedFiles": 6,
+              "omittedFiles": 0,
+              "readBytes": 36840,
+              "indexComplete": false,
+              "unresolvedEdges": 20,
+              "omittedDiagnostics": 0
+            },
+            "edges": 24,
+            "initializationSites": 79,
+            "resolution": {
+              "unresolved": 20,
+              "resolved": 4
+            },
+            "relationships": {
+              "import": 24
+            },
+            "phases": {
+              "module-init": 24
+            },
+            "diagnostics": {
+              "ts-1434": 1,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "ts-1434",
+                "message": "Unexpected keyword or identifier.",
+                "file": "benchmark.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "index.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "benchmark.js",
+                "specifier": "node:fs/promises",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:path",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:timers/promises",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "benchmark.js",
+                "specifier": "node:crypto",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "index.js",
+                "specifier": "yocto-queue",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 0,
+          "processWallMs": 313.3949160000011
+        }
+      ],
+      "selectedFileOracle": {
+        "files": [
+          "index.js"
+        ],
+        "score": {
+          "expected": 1,
+          "actual": 1,
+          "correct": 1,
+          "missing": [],
+          "unexpected": [],
+          "precision": 1,
+          "recall": 1
+        },
+        "resolvedEndpoints": {
+          "expected": 0,
+          "actual": 0,
+          "correct": 0,
+          "missing": [],
+          "unexpected": [],
+          "precision": null,
+          "recall": null
+        },
+        "verifiedSourceSites": 2
+      }
+    },
+    {
+      "name": "redux",
+      "url": "https://github.com/reduxjs/redux",
+      "base": "56abca4749921d68f40cda20afd2043af9751f72",
+      "head": "61ebf8596654cf3c4b197e426e302fcb3c2bc13e",
+      "samples": [
+        {
+          "moduleLoadMs": 69.800959,
+          "analysisMs": 234.647166,
+          "peakRssKiB": 159264,
+          "range": {
+            "baseOid": "56abca4749921d68f40cda20afd2043af9751f72",
+            "headOid": "61ebf8596654cf3c4b197e426e302fcb3c2bc13e"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 139,
+              "indexedFiles": 139,
+              "omittedFiles": 0,
+              "readBytes": 2513021,
+              "indexComplete": false,
+              "unresolvedEdges": 384,
+              "omittedDiagnostics": 0
+            },
+            "edges": 397,
+            "initializationSites": 162,
+            "resolution": {
+              "invalid-config": 367,
+              "unresolved": 17,
+              "resolved": 13
+            },
+            "relationships": {
+              "import": 374,
+              "dynamic-import": 6,
+              "require": 7,
+              "reexport": 10
+            },
+            "phases": {
+              "module-init": 321,
+              "type": 74,
+              "invocation": 2
+            },
+            "diagnostics": {
+              "file-omitted": 3,
+              "config-invalid": 3,
+              "require-binding-ambiguous": 7,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "file-omitted",
+                "message": "File exceeds maxFileBytes.",
+                "file": "examples/shopping-cart/package-lock.json"
+              },
+              {
+                "code": "config-invalid",
+                "message": "Argument for '--moduleResolution' option must be: 'node', 'classic', 'node16', 'nodenext'.",
+                "file": "tsconfig.json"
+              },
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "examples/testAll.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "src/utils/symbol-observable.ts"
+              },
+              {
+                "code": "config-invalid",
+                "message": "Unknown compiler option 'noUncheckedSideEffectImports'.",
+                "file": "website/tsconfig.json"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "docs/components/DetailedExplanation.jsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "invalid-config"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "@testing-library/react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "react-redux",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.tsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 139,
+              "indexedFiles": 139,
+              "omittedFiles": 0,
+              "readBytes": 2513021,
+              "indexComplete": false,
+              "unresolvedEdges": 384,
+              "omittedDiagnostics": 0
+            },
+            "edges": 397,
+            "initializationSites": 162,
+            "resolution": {
+              "invalid-config": 367,
+              "unresolved": 17,
+              "resolved": 13
+            },
+            "relationships": {
+              "import": 374,
+              "dynamic-import": 6,
+              "require": 7,
+              "reexport": 10
+            },
+            "phases": {
+              "module-init": 321,
+              "type": 74,
+              "invocation": 2
+            },
+            "diagnostics": {
+              "file-omitted": 3,
+              "config-invalid": 3,
+              "require-binding-ambiguous": 7,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "file-omitted",
+                "message": "File exceeds maxFileBytes.",
+                "file": "examples/shopping-cart/package-lock.json"
+              },
+              {
+                "code": "config-invalid",
+                "message": "Argument for '--moduleResolution' option must be: 'node', 'classic', 'node16', 'nodenext'.",
+                "file": "tsconfig.json"
+              },
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "examples/testAll.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "src/utils/symbol-observable.ts"
+              },
+              {
+                "code": "config-invalid",
+                "message": "Unknown compiler option 'noUncheckedSideEffectImports'.",
+                "file": "website/tsconfig.json"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "docs/components/DetailedExplanation.jsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "invalid-config"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "@testing-library/react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "react-redux",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.tsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 0,
+          "processWallMs": 407.43545900000026
+        },
+        {
+          "moduleLoadMs": 70.773833,
+          "analysisMs": 238.32208400000002,
+          "peakRssKiB": 157984,
+          "range": {
+            "baseOid": "56abca4749921d68f40cda20afd2043af9751f72",
+            "headOid": "61ebf8596654cf3c4b197e426e302fcb3c2bc13e"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 139,
+              "indexedFiles": 139,
+              "omittedFiles": 0,
+              "readBytes": 2513021,
+              "indexComplete": false,
+              "unresolvedEdges": 384,
+              "omittedDiagnostics": 0
+            },
+            "edges": 397,
+            "initializationSites": 162,
+            "resolution": {
+              "invalid-config": 367,
+              "unresolved": 17,
+              "resolved": 13
+            },
+            "relationships": {
+              "import": 374,
+              "dynamic-import": 6,
+              "require": 7,
+              "reexport": 10
+            },
+            "phases": {
+              "module-init": 321,
+              "type": 74,
+              "invocation": 2
+            },
+            "diagnostics": {
+              "file-omitted": 3,
+              "config-invalid": 3,
+              "require-binding-ambiguous": 7,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "file-omitted",
+                "message": "File exceeds maxFileBytes.",
+                "file": "examples/shopping-cart/package-lock.json"
+              },
+              {
+                "code": "config-invalid",
+                "message": "Argument for '--moduleResolution' option must be: 'node', 'classic', 'node16', 'nodenext'.",
+                "file": "tsconfig.json"
+              },
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "examples/testAll.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "src/utils/symbol-observable.ts"
+              },
+              {
+                "code": "config-invalid",
+                "message": "Unknown compiler option 'noUncheckedSideEffectImports'.",
+                "file": "website/tsconfig.json"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "docs/components/DetailedExplanation.jsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "invalid-config"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "@testing-library/react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "react-redux",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.tsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 139,
+              "indexedFiles": 139,
+              "omittedFiles": 0,
+              "readBytes": 2513021,
+              "indexComplete": false,
+              "unresolvedEdges": 384,
+              "omittedDiagnostics": 0
+            },
+            "edges": 397,
+            "initializationSites": 162,
+            "resolution": {
+              "invalid-config": 367,
+              "unresolved": 17,
+              "resolved": 13
+            },
+            "relationships": {
+              "import": 374,
+              "dynamic-import": 6,
+              "require": 7,
+              "reexport": 10
+            },
+            "phases": {
+              "module-init": 321,
+              "type": 74,
+              "invocation": 2
+            },
+            "diagnostics": {
+              "file-omitted": 3,
+              "config-invalid": 3,
+              "require-binding-ambiguous": 7,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "file-omitted",
+                "message": "File exceeds maxFileBytes.",
+                "file": "examples/shopping-cart/package-lock.json"
+              },
+              {
+                "code": "config-invalid",
+                "message": "Argument for '--moduleResolution' option must be: 'node', 'classic', 'node16', 'nodenext'.",
+                "file": "tsconfig.json"
+              },
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "examples/testAll.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "src/utils/symbol-observable.ts"
+              },
+              {
+                "code": "config-invalid",
+                "message": "Unknown compiler option 'noUncheckedSideEffectImports'.",
+                "file": "website/tsconfig.json"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "docs/components/DetailedExplanation.jsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "invalid-config"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "@testing-library/react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "react-redux",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.tsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 0,
+          "processWallMs": 416.2410830000008
+        },
+        {
+          "moduleLoadMs": 71.012084,
+          "analysisMs": 229.62650000000002,
+          "peakRssKiB": 156464,
+          "range": {
+            "baseOid": "56abca4749921d68f40cda20afd2043af9751f72",
+            "headOid": "61ebf8596654cf3c4b197e426e302fcb3c2bc13e"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 139,
+              "indexedFiles": 139,
+              "omittedFiles": 0,
+              "readBytes": 2513021,
+              "indexComplete": false,
+              "unresolvedEdges": 384,
+              "omittedDiagnostics": 0
+            },
+            "edges": 397,
+            "initializationSites": 162,
+            "resolution": {
+              "invalid-config": 367,
+              "unresolved": 17,
+              "resolved": 13
+            },
+            "relationships": {
+              "import": 374,
+              "dynamic-import": 6,
+              "require": 7,
+              "reexport": 10
+            },
+            "phases": {
+              "module-init": 321,
+              "type": 74,
+              "invocation": 2
+            },
+            "diagnostics": {
+              "file-omitted": 3,
+              "config-invalid": 3,
+              "require-binding-ambiguous": 7,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "file-omitted",
+                "message": "File exceeds maxFileBytes.",
+                "file": "examples/shopping-cart/package-lock.json"
+              },
+              {
+                "code": "config-invalid",
+                "message": "Argument for '--moduleResolution' option must be: 'node', 'classic', 'node16', 'nodenext'.",
+                "file": "tsconfig.json"
+              },
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "examples/testAll.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "src/utils/symbol-observable.ts"
+              },
+              {
+                "code": "config-invalid",
+                "message": "Unknown compiler option 'noUncheckedSideEffectImports'.",
+                "file": "website/tsconfig.json"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "docs/components/DetailedExplanation.jsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "invalid-config"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "@testing-library/react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "react-redux",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.tsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 139,
+              "indexedFiles": 139,
+              "omittedFiles": 0,
+              "readBytes": 2513021,
+              "indexComplete": false,
+              "unresolvedEdges": 384,
+              "omittedDiagnostics": 0
+            },
+            "edges": 397,
+            "initializationSites": 162,
+            "resolution": {
+              "invalid-config": 367,
+              "unresolved": 17,
+              "resolved": 13
+            },
+            "relationships": {
+              "import": 374,
+              "dynamic-import": 6,
+              "require": 7,
+              "reexport": 10
+            },
+            "phases": {
+              "module-init": 321,
+              "type": 74,
+              "invocation": 2
+            },
+            "diagnostics": {
+              "file-omitted": 3,
+              "config-invalid": 3,
+              "require-binding-ambiguous": 7,
+              "iife-phase-conservative": 1
+            },
+            "diagnosticExamples": [
+              {
+                "code": "file-omitted",
+                "message": "File exceeds maxFileBytes.",
+                "file": "examples/shopping-cart/package-lock.json"
+              },
+              {
+                "code": "config-invalid",
+                "message": "Argument for '--moduleResolution' option must be: 'node', 'classic', 'node16', 'nodenext'.",
+                "file": "tsconfig.json"
+              },
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "examples/testAll.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "src/utils/symbol-observable.ts"
+              },
+              {
+                "code": "config-invalid",
+                "message": "Unknown compiler option 'noUncheckedSideEffectImports'.",
+                "file": "website/tsconfig.json"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "docs/components/DetailedExplanation.jsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "invalid-config"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "@testing-library/react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.test.tsx",
+                "specifier": "react-redux",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "examples/counter-ts/src/App.tsx",
+                "specifier": "react",
+                "relationship": "import",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 0,
+          "processWallMs": 420.8444580000032
+        }
+      ],
+      "selectedFileOracle": {
+        "files": [
+          "src/index.ts"
+        ],
+        "score": {
+          "expected": 13,
+          "actual": 13,
+          "correct": 0,
+          "missing": [
+            {
+              "file": "src/index.ts",
+              "specifier": "./createStore",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/createStore.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./combineReducers",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/combineReducers.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./bindActionCreators",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/bindActionCreators.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./applyMiddleware",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/applyMiddleware.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./compose",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/compose.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./utils/isAction",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/utils/isAction.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./utils/isPlainObject",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/utils/isPlainObject.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./utils/actionTypes",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/utils/actionTypes.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/store",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/types/store.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/reducers",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/types/reducers.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/actions",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/types/actions.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/middleware",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/types/middleware.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/actions",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/types/actions.ts"
+            }
+          ],
+          "unexpected": [
+            {
+              "file": "src/index.ts",
+              "specifier": "./createStore",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./combineReducers",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./bindActionCreators",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./applyMiddleware",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./compose",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./utils/isAction",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./utils/isPlainObject",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./utils/actionTypes",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/store",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/reducers",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/actions",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/middleware",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/actions",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "invalid-config"
+            }
+          ],
+          "precision": 0,
+          "recall": 0
+        },
+        "resolvedEndpoints": {
+          "expected": 13,
+          "actual": 0,
+          "correct": 0,
+          "missing": [
+            {
+              "file": "src/index.ts",
+              "specifier": "./createStore",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/createStore.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./combineReducers",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/combineReducers.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./bindActionCreators",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/bindActionCreators.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./applyMiddleware",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/applyMiddleware.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./compose",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/compose.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./utils/isAction",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/utils/isAction.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./utils/isPlainObject",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/utils/isPlainObject.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./utils/actionTypes",
+              "relationship": "import",
+              "phase": "module-init",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/utils/actionTypes.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/store",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/types/store.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/reducers",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/types/reducers.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/actions",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/types/actions.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/middleware",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/types/middleware.ts"
+            },
+            {
+              "file": "src/index.ts",
+              "specifier": "./types/actions",
+              "relationship": "reexport",
+              "phase": "type",
+              "loading": "eager",
+              "resolution": "resolved",
+              "target": "src/types/actions.ts"
+            }
+          ],
+          "unexpected": [],
+          "precision": null,
+          "recall": 0
+        },
+        "verifiedSourceSites": 26
+      }
+    },
+    {
+      "name": "bygone",
+      "url": "https://github.com/davidmashburn/bygone",
+      "base": "2219fda8fc3f72d44e35346a3b0f771dd7c45575",
+      "head": "c7219ed06351626b8a65627fbb0427b57c576bbf",
+      "samples": [
+        {
+          "moduleLoadMs": 71.74179099999999,
+          "analysisMs": 991.8220000000001,
+          "peakRssKiB": 229888,
+          "range": {
+            "baseOid": "2219fda8fc3f72d44e35346a3b0f771dd7c45575",
+            "headOid": "c7219ed06351626b8a65627fbb0427b57c576bbf"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 261,
+              "indexedFiles": 261,
+              "omittedFiles": 0,
+              "readBytes": 5330933,
+              "indexComplete": true,
+              "unresolvedEdges": 789,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1165,
+            "initializationSites": 1991,
+            "resolution": {
+              "unresolved": 778,
+              "resolved": 376,
+              "computed": 11
+            },
+            "relationships": {
+              "require": 780,
+              "import": 363,
+              "dynamic-import": 10,
+              "reexport": 12
+            },
+            "phases": {
+              "module-init": 1061,
+              "invocation": 65,
+              "type": 39
+            },
+            "diagnostics": {
+              "require-binding-ambiguous": 780,
+              "iife-phase-conservative": 6
+            },
+            "diagnosticExamples": [
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "bin/bygone.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "media/connectors.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "bin/bygone.js",
+                "specifier": "child_process",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "fs",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "../package.json",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "cli/correspondence.js",
+                "specifier": "path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 261,
+              "indexedFiles": 261,
+              "omittedFiles": 0,
+              "readBytes": 5340187,
+              "indexComplete": true,
+              "unresolvedEdges": 789,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1165,
+            "initializationSites": 1992,
+            "resolution": {
+              "unresolved": 778,
+              "resolved": 376,
+              "computed": 11
+            },
+            "relationships": {
+              "require": 780,
+              "import": 363,
+              "dynamic-import": 10,
+              "reexport": 12
+            },
+            "phases": {
+              "module-init": 1061,
+              "invocation": 65,
+              "type": 39
+            },
+            "diagnostics": {
+              "require-binding-ambiguous": 780,
+              "iife-phase-conservative": 6
+            },
+            "diagnosticExamples": [
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "bin/bygone.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "media/connectors.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "bin/bygone.js",
+                "specifier": "child_process",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "fs",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "../package.json",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "cli/correspondence.js",
+                "specifier": "path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 4,
+          "processWallMs": 1167.0552500000013
+        },
+        {
+          "moduleLoadMs": 68.661584,
+          "analysisMs": 884.701125,
+          "peakRssKiB": 231600,
+          "range": {
+            "baseOid": "2219fda8fc3f72d44e35346a3b0f771dd7c45575",
+            "headOid": "c7219ed06351626b8a65627fbb0427b57c576bbf"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 261,
+              "indexedFiles": 261,
+              "omittedFiles": 0,
+              "readBytes": 5330933,
+              "indexComplete": true,
+              "unresolvedEdges": 789,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1165,
+            "initializationSites": 1991,
+            "resolution": {
+              "unresolved": 778,
+              "resolved": 376,
+              "computed": 11
+            },
+            "relationships": {
+              "require": 780,
+              "import": 363,
+              "dynamic-import": 10,
+              "reexport": 12
+            },
+            "phases": {
+              "module-init": 1061,
+              "invocation": 65,
+              "type": 39
+            },
+            "diagnostics": {
+              "require-binding-ambiguous": 780,
+              "iife-phase-conservative": 6
+            },
+            "diagnosticExamples": [
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "bin/bygone.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "media/connectors.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "bin/bygone.js",
+                "specifier": "child_process",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "fs",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "../package.json",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "cli/correspondence.js",
+                "specifier": "path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 261,
+              "indexedFiles": 261,
+              "omittedFiles": 0,
+              "readBytes": 5340187,
+              "indexComplete": true,
+              "unresolvedEdges": 789,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1165,
+            "initializationSites": 1992,
+            "resolution": {
+              "unresolved": 778,
+              "resolved": 376,
+              "computed": 11
+            },
+            "relationships": {
+              "require": 780,
+              "import": 363,
+              "dynamic-import": 10,
+              "reexport": 12
+            },
+            "phases": {
+              "module-init": 1061,
+              "invocation": 65,
+              "type": 39
+            },
+            "diagnostics": {
+              "require-binding-ambiguous": 780,
+              "iife-phase-conservative": 6
+            },
+            "diagnosticExamples": [
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "bin/bygone.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "media/connectors.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "bin/bygone.js",
+                "specifier": "child_process",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "fs",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "../package.json",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "cli/correspondence.js",
+                "specifier": "path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 4,
+          "processWallMs": 1063.0364999999983
+        },
+        {
+          "moduleLoadMs": 70.562666,
+          "analysisMs": 884.702625,
+          "peakRssKiB": 228320,
+          "range": {
+            "baseOid": "2219fda8fc3f72d44e35346a3b0f771dd7c45575",
+            "headOid": "c7219ed06351626b8a65627fbb0427b57c576bbf"
+          },
+          "producer": {
+            "name": "bygone",
+            "typescript": "4.9.5"
+          },
+          "base": {
+            "coverage": {
+              "candidateFiles": 261,
+              "indexedFiles": 261,
+              "omittedFiles": 0,
+              "readBytes": 5330933,
+              "indexComplete": true,
+              "unresolvedEdges": 789,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1165,
+            "initializationSites": 1991,
+            "resolution": {
+              "unresolved": 778,
+              "resolved": 376,
+              "computed": 11
+            },
+            "relationships": {
+              "require": 780,
+              "import": 363,
+              "dynamic-import": 10,
+              "reexport": 12
+            },
+            "phases": {
+              "module-init": 1061,
+              "invocation": 65,
+              "type": 39
+            },
+            "diagnostics": {
+              "require-binding-ambiguous": 780,
+              "iife-phase-conservative": 6
+            },
+            "diagnosticExamples": [
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "bin/bygone.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "media/connectors.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "bin/bygone.js",
+                "specifier": "child_process",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "fs",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "../package.json",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "cli/correspondence.js",
+                "specifier": "path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "head": {
+            "coverage": {
+              "candidateFiles": 261,
+              "indexedFiles": 261,
+              "omittedFiles": 0,
+              "readBytes": 5340187,
+              "indexComplete": true,
+              "unresolvedEdges": 789,
+              "omittedDiagnostics": 0
+            },
+            "edges": 1165,
+            "initializationSites": 1992,
+            "resolution": {
+              "unresolved": 778,
+              "resolved": 376,
+              "computed": 11
+            },
+            "relationships": {
+              "require": 780,
+              "import": 363,
+              "dynamic-import": 10,
+              "reexport": 12
+            },
+            "phases": {
+              "module-init": 1061,
+              "invocation": 65,
+              "type": 39
+            },
+            "diagnostics": {
+              "require-binding-ambiguous": 780,
+              "iife-phase-conservative": 6
+            },
+            "diagnosticExamples": [
+              {
+                "code": "require-binding-ambiguous",
+                "message": "require() dependency is syntactic evidence; its binding was not resolved and may be shadowed.",
+                "file": "bin/bygone.js"
+              },
+              {
+                "code": "iife-phase-conservative",
+                "message": "IIFE body is conservatively classified as invocation; direct dispatch was not proven.",
+                "file": "media/connectors.js"
+              }
+            ],
+            "unresolvedExamples": [
+              {
+                "file": "bin/bygone.js",
+                "specifier": "child_process",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "fs",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "bin/bygone.js",
+                "specifier": "../package.json",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              },
+              {
+                "file": "cli/correspondence.js",
+                "specifier": "path",
+                "relationship": "require",
+                "phase": "module-init",
+                "loading": "eager",
+                "resolution": "unresolved"
+              }
+            ]
+          },
+          "added": 0,
+          "removed": 0,
+          "unchangedConsumers": 4,
+          "processWallMs": 1068.364375000001
+        }
+      ]
+    }
+  ],
+  "passed": true
+}
