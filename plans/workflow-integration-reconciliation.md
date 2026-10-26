@@ -347,3 +347,28 @@ both versions, including review replacement/closure while a symbol worker is
 pending. The full-workflow review is complete with no remaining confirmed defect
 in the delivered scope. Human workflow benefit and the listed platform/provider
 limits remain unverified.
+
+## Publication reconciliation — 2026-10-26
+
+Bygone 0.11.1 is published from `ef676afa` on `main` and tag `v0.11.1`.
+The VS Code Marketplace listing is public, npm serves `@davmash/bygone@0.11.1`
+as latest, and the GitHub release contains the desktop distributions. Homebrew's
+desktop cask uses the released DMG checksum; the CLI formula uses the downloaded
+npm registry archive checksum, verified against the publication job's SHA-1.
+The local npm pack differs from CI's archive and must not supply that formula's
+checksum. Release automation should obtain the registry archive before updating
+the formula; while npm processed the upload, the formula temporarily retained
+the available previous CLI version.
+
+Release CI exposed a macOS directory-alias display-path defect in following mode.
+`ef676afa` fixes relative labels while preserving document URIs and leaf symlink
+identity. Lint, all 503 Node tests, native following and SCM tests, and the full
+GitHub Release Check passed after the fix. The release built macOS, Linux and
+Windows distributions. Local CLI, extension and macOS app report 0.11.1;
+Windows/Linux installers were not manually run, and the macOS app remains
+unsigned under the existing release workflow.
+
+PR Reviewer commit `6e8dc5e` is pushed to the fork branch
+`pr/requirements-only-mode`; this is not an upstream merge. Planning changes
+remain on the separate orphan branch. No additional skills-library changes were
+pending for publication.

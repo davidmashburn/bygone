@@ -330,9 +330,9 @@ could change the priority.
 
 After the validation thread completed, the user authorized the workflow
 integration thread to implement its measured gaps. Bygone commit `d161ce5c` (0.11.1),
-based on `dda37567`, isolates TypeScript 5.9.3 for dependency analysis, diagnose malformed
-package metadata, load source-ancestor configs/packages and their relative
-inheritance closure, and load other required package metadata on demand within
+based on `dda37567`, isolates TypeScript 5.9.3 for dependency analysis, diagnoses malformed
+package metadata, loads source-ancestor configs/packages and their relative
+inheritance closure, and loads other required package metadata on demand within
 the same bounds. Unrelated JSON, lockfiles and packages no longer displace source
 input. The extension and Strand keep their existing TypeScript compiler.
 
