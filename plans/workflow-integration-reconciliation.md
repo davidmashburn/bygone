@@ -3,7 +3,9 @@
 ## Status and evidence
 
 Approved for implementation by the user on 2026-10-26, following the assessment
-below. Implementation starts after the dependency validation commit settles. Inspected Bygone `main` at
+below. Implemented locally from dependency validation commit `dda37567`; see the
+implementation reconciliation below for delivery evidence and remaining limits.
+The original assessment inspected Bygone `main` at
 [`c7219ed06351626b8a65627fbb0427b57c576bbf`](https://github.com/davidmashburn/bygone/commit/c7219ed06351626b8a65627fbb0427b57c576bbf),
 Daniel's PR Reviewer local fork at `581d9137bbba8e01f184fe93907ba76682267f10`,
 and relevant skills-library workflow sources at `0dd4d52`. PR Reviewer was
@@ -15,7 +17,7 @@ Dependency compatibility/performance validation belongs to the active
 Its completed validation checked 36 labeled dependency sites and 158 source
 references. It identified newer TypeScript syntax/options, malformed package
 metadata fallback, and unrelated JSON consuming input budgets as remaining gaps.
-Its benchmark/documentation commit is in progress; production behavior is unchanged.
+Its benchmark/documentation commit landed as `dda37567`; production behavior was unchanged.
 Those findings constrain this integration and are not fixes claimed here.
 Leave its implementation, fixtures, dependency idea, figures, and index edits
 with that thread.
@@ -228,3 +230,67 @@ upstream fetched, or new native UI interaction validated during this assessment.
 Earlier implementation test results are inherited evidence, not tests performed
 for this reconciliation. No implementation changes, shared-system writes,
 commits, or pushes were made by this planning pass.
+
+## Implementation reconciliation — 2026-10-26
+
+The plan was committed as `799a64eb` and implementation started from Bygone
+`dda37567`, which includes the dependency thread's completed validation commit.
+The earlier assessment above remains a record of the pre-implementation state.
+Implementation is currently uncommitted in the Bygone feature worktree and the
+PR Reviewer local fork; nothing in this section claims a release or upstream merge.
+
+Delivered locally:
+
+- `src/reviewWorkspace.ts`, `src/evidenceController.ts`, and `cli/evidence.js`
+  provide bounded load/inspect/import/refresh/tour paths around the existing
+  requirements model. Source references, questions/alternatives, execution
+  records, inspection notes, incomplete analysis, and uncovered files remain
+  separate. Refresh preserves the original baseline and historical artifact;
+  divergent history needs a new import, and requirement-only updates must name
+  the original repository and comparison.
+- PR Reviewer captures immutable GitHub base/head/merge-base and diff identity
+  during acquisition, with a metadata race check. Its versioned export converts
+  inclusive line anchors to UTF-16 against captured source, preserves quoted
+  requirements, discloses omitted inputs, and excludes reviewer checklist,
+  publication, and approval state. Old unpinned reviews remain readable but
+  cannot export invented provenance. Export is producer-side; Bygone validates
+  the resulting v2 contract against the selected local Git repository.
+- Pinned evidence hands off to the existing guarded full-file/symbol editor.
+  Exact mapping survives intervening native edits; absent counterparts stay
+  read-only, unsupported/ambiguous mapping falls back to file context, and
+  Git-reported rename pairs retain their source/destination paths. Return keeps
+  the originating review distinct from the live working document.
+- Dependency import validates range/blob/source identity, declared per-snapshot
+  limits against referenced source files, and full inventory identity before
+  exposing added/removed edges and unchanged consumers. Its negative control documents unchanged module edges
+  despite an imported-binding change. Validation has an elapsed-time budget;
+  producer input without records and original producer elapsed time cannot be
+  independently reconstructed. The existing Symbols surface explains
+  when correspondence was not supplied.
+
+Verification: Bygone legacy runner plus 494 Node tests; PR Reviewer 52 tests,
+including actual export/import/tour interoperability; typecheck/lint/bundle and
+VSIX/npm packaging; fresh Lima Extension Host runs with 8 evidence, 29 SCM, and
+16 following checks on each of VS Code 1.74.0 and 1.143.1. See the implementation's
+`docs/evidence-review.md` for commands, limits, and the verification record.
+
+The real-review comparison used merged SCM repair `c7219ed0`: one quoted
+requirement, two validated implementation/test links, three explicitly uncovered
+changed files, and an equivalent ordinary diff. Inspection took approximately
+234 ms in one local run; this is neither a benchmark nor a measure of human
+review speed. Return/refresh correctness is automated evidence. Locating decisive
+evidence, comprehension, and total human effort still need a paired user trial;
+acceptance slice 4 is therefore only functionally evaluated. No human benefit
+claim is made.
+
+Intentional limits remain GitHub-only capture, trusted local workspaces, existing
+editing/source budgets, explicit refresh, no automatic fulfillment/approval,
+and no runtime/call graph or bidirectional reviewer-state synchronization.
+Live provider/model calls, manual browser visual QA, and Windows/macOS Extension
+Host testing were not performed in this implementation pass. The dependency
+compatibility gaps remain owned by the dependency follow-up, as agreed.
+
+The final independent review identified incomplete dependency summary identity
+and unenforced source budgets. Both were repaired and covered by regression
+tests; the 494-test run and both evidence Extension Host suites passed afterward.
+No other confirmed defect remained in the scoped review.
