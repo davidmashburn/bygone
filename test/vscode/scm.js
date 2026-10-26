@@ -329,6 +329,57 @@ exports.run = async () => {
             assert.equal(document.getText(),'// first\n'+initial);
             assert.equal(document.isDirty,false); assert.equal(fs.readFileSync(value.fsPath,'utf8'),document.getText());
         });
+        await test('native symbol-boundary insertions fall back without absorbing neighboring declarations',async () => {
+            const value=vscode.Uri.file(path.join(root,'boundary.ts'));
+            const content='export function boundary() { return 17; }\n';
+            fs.writeFileSync(value.fsPath,content); git('add','boundary.ts'); await repo.status();
+            const document=await vscode.workspace.openTextDocument(value);
+            const source=await vscode.window.showTextDocument(document,{viewColumn:vscode.ViewColumn.One});
+            await controller.openScm('index-working',value);
+            for (const side of ['start','end']) {
+                await until(()=>msg().editBinding && msg().rightContent===document.getText(),'boundary file render');
+                const pos=document.positionAt(document.getText().indexOf('return 17'));
+                source.selection=new vscode.Selection(pos,pos);
+                await until(async ()=>(await vscode.commands.executeCommand('vscode.executeDocumentSymbolProvider',value))?.length,'boundary provider');
+                await controller.compareSymbol(source);
+                await until(()=>controller.focus?.right && msg().follow.status.includes('Symbol:'),'boundary focus');
+                const offset=controller.focus.right[side];
+                const neighbor=`\nexport function neighbor_${side}() { return 29; }\n`;
+                await source.edit(b=>b.insert(document.positionAt(offset),neighbor));
+                await until(()=>!controller.focus && msg().rightContent===document.getText(),'boundary fallback');
+                assert.match(msg().follow.status,/boundary.*Showing file context/);
+                assert.ok(document.getText().includes(neighbor));
+            }
+        });
+        await test('two-dot filenames refresh their index snapshot on repository events',async () => {
+            const value=vscode.Uri.file(path.join(root,'..config.ts'));
+            const before='export const config = 1;\n', after='export const config = 2;\n';
+            fs.writeFileSync(value.fsPath,before); git('add','..config.ts'); await repo.status();
+            await controller.openScm('index-working',value);
+            await until(()=>msg().leftContent===before && msg().editBinding,'two-dot initial index');
+            fs.writeFileSync(value.fsPath,after); git('add','..config.ts'); await repo.status();
+            await until(()=>msg().leftContent===after,'two-dot index refresh');
+        });
+        await test('an active working comparison follows a staged rename and keeps its policy',async () => {
+            const old=vscode.Uri.file(path.join(root,'working-rename.ts')), renamed=vscode.Uri.file(path.join(root,'working-renamed.ts'));
+            const content='export const workingRename = 31;\n', modified=content.replace('31','32');
+            fs.writeFileSync(old.fsPath,content); git('add','working-rename.ts'); git('commit','-m','working rename fixture','--','working-rename.ts');
+            fs.writeFileSync(old.fsPath,modified); await repo.status();
+            await controller.openScm('index-working',old);
+            await until(()=>msg().leftContent===content && msg().rightContent===modified,'working before rename');
+            git('mv','working-rename.ts','working-renamed.ts'); await repo.status();
+            await until(()=>controller.target.rightPath===renamed.fsPath && msg().rightContent===modified,'working rename destination');
+            assert.equal(controller.target.policy,'index-working'); assert.equal(controller.target.leftPath,renamed.fsPath);
+            assert.equal(msg().leftContent,content);
+            await vscode.window.showTextDocument(renamed,{viewColumn:vscode.ViewColumn.One});
+            await until(()=>msg().editBinding && msg().rightContent===modified,'renamed working editor');
+            assert.equal(controller.target.policy,'index-working');
+            git('mv','working-renamed.ts','working-renamed-again.ts'); await repo.status();
+            const again=path.join(root,'working-renamed-again.ts');
+            await until(()=>controller.target.rightPath===again && msg().rightContent===modified,'rename chain destination');
+            assert.equal(controller.target.leftPath,again); assert.equal(msg().leftContent,content);
+            assert.equal(controller.target.policy,'index-working');
+        });
         await test('an active staged comparison follows a native rename to its new index path',async () => {
             const old=vscode.Uri.file(path.join(root,'live-rename.ts')), renamed=vscode.Uri.file(path.join(root,'live-renamed.ts'));
             const content='export const liveRename = 1;\n';
@@ -381,10 +432,12 @@ exports.run = async () => {
         await test('disabled Git reports SCM unavailability while explicit comparisons remain usable',async () => {
             const config=vscode.workspace.getConfiguration('git');
             try {
+                editor=await vscode.window.showTextDocument(doc,{viewColumn:vscode.ViewColumn.One});
+                await controller.openScm('index-working',uri); await ready();
                 await config.update('enabled',false,vscode.ConfigurationTarget.Global);
                 await until(()=>!controller.git.repository(uri),'Git API disconnected');
-                await controller.openScm('head-index',uri);
                 await until(()=>msg().follow.unavailable && /Git integration is unavailable/.test(msg().follow.status),'SCM unavailable');
+                assert.equal(msg().editBinding,undefined);
                 const other=await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(root,'renamed.ts')));
                 await api.provider.showDiff(other.uri,uri,other.getText(),doc.getText(),msg().diffModel);
                 const manual=api.provider.activeState;
@@ -395,6 +448,25 @@ exports.run = async () => {
             } finally {
                 await config.update('enabled',true,vscode.ConfigurationTarget.Global);
                 await until(()=>controller.git.repository(uri),'Git API reconnected');
+                await ready();
+            }
+        });
+        await test('Git loss labels captured staged pins and Resume requires the repository',async () => {
+            const config=vscode.workspace.getConfiguration('git');
+            await controller.openScm('head-index',uri);
+            await until(()=>msg().follow?.unavailable===false && controller.rightSnapshot,'staged before Git loss');
+            controller.pin(); await until(()=>msg().follow.mode==='pinned','staged pin before Git loss');
+            const before={left:msg().leftContent,right:msg().rightContent};
+            try {
+                await config.update('enabled',false,vscode.ConfigurationTarget.Global);
+                await until(()=>/Git integration unavailable.*pinned snapshots/.test(msg().follow.status),'pinned Git loss label');
+                assert.equal(msg().leftContent,before.left); assert.equal(msg().rightContent,before.right);
+                assert.deepEqual(msg().editableSides,{left:false,right:false});
+                controller.resume();
+                await until(()=>msg().follow.unavailable && /Git integration is unavailable/.test(msg().follow.status),'resume missing Git');
+            } finally {
+                await config.update('enabled',true,vscode.ConfigurationTarget.Global);
+                await until(()=>controller.git.repository(uri),'pinned Git reconnected');
             }
         });
         await test('closing a session preserves pending text and reload recovery clears only its own draft',async () => {

@@ -18,6 +18,13 @@ test('range tracks before/inside edits and rejects external deletion/replacement
     assert.equal(isFollowEdit({ type: 'followEdit', id: 1, token: '1', content: 'x' }), true);
     assert.equal(isFollowEdit({ type: 'followEdit', id: NaN, token: '1', content: 'x' }), false);
 });
+test('native boundary insertions invalidate a slice while its own boundary edits remain editable', () => {
+    for (const at of [10,20]) {
+        const change = { rangeOffset: at, rangeLength: 0, text: 'function neighbor() {}' };
+        assert.equal(trackRange({start:10,end:20},[change]),undefined);
+        assert.deepEqual(trackRange({start:10,end:20},[change],true),{start:10,end:20+change.text.length});
+    }
+});
 async function protocol() { return import('data:text/javascript;base64,'+fs.readFileSync(require.resolve('../media/followSync.js')).toString('base64')); }
 test('rapid typing serializes acknowledgments without replacing the queued suffix', async () => {
     const { createFollowSync } = await protocol(); const sent = []; let text = 'a';

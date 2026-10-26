@@ -20,6 +20,9 @@ export function trackRange(range: OffsetRange, changes: readonly OffsetChange[],
     for (const change of [...changes].sort((a, b) => b.rangeOffset - a.rangeOffset)) {
         const a = change.rangeOffset, b = a + change.rangeLength;
         const delta = change.text.length - change.rangeLength;
+        // Native insertions at either edge may belong to a neighboring declaration
+        // or extend this one. Only our own slice edit establishes that intent.
+        if (!ownEdit && change.rangeLength === 0 && (a === start || a === end)) return undefined;
         if (b <= start && a < start) { start += delta; end += delta; }
         else if (a > end || (a === end && change.rangeLength > 0)) continue;
         else if (a >= start && b <= end && (ownEdit || a > start || b < end || change.rangeLength === 0)) end += delta;

@@ -21,6 +21,11 @@ before accepting ranges. Dirty-to-staged navigation needs an accepted mapping;
 matching names or offsets are insufficient. Committed correspondence artifacts
 and their validation contract are unchanged.
 
+Native insertions exactly at either edge of a focused symbol return to file
+context: the inserted text may belong to that declaration or its neighbor.
+Boundary edits made inside Bygone retain the known slice binding. Edits strictly
+inside a slice and shifts caused by edits before it continue to track normally.
+
 Working full-file views and symbol slices are projections of the same document.
 `followSync.js` allows one edit in flight and keeps subsequent typing until an
 acknowledgment. `followEdits.ts` computes a granular replacement, preserving
@@ -53,9 +58,13 @@ prefix or an obsolete snapshot is insufficient.
 Pin freezes the target, historical snapshots and symbol focus. A pinned working
 projection remains editable. Repository changes produce a notice until Resume;
 unpinned comparisons keep their policy when a file leaves its SCM group.
-Live staged renames update both endpoint paths. A captured staged pin remains
+Live staged and working comparisons reconcile Git-reported rename paths while
+preserving their comparison policy. A captured staged pin remains
 visible even if the live index enters a conflict; Resume checks the current
 index again. Working-change actions also appear in Git's separate untracked group.
+If the Git API repository disappears, live SCM comparisons become unavailable
+until it returns. Captured staged pins remain read-only and explicitly report
+that Git integration is unavailable; Resume requires the repository again.
 
 ## Supported scope and budgets
 
@@ -151,3 +160,17 @@ untracked resources. The untracked case checks the contributed menu conditions
 and executes the command with a resource argument; it does not physically click
 the SCM menu. The earlier platform, IME, restart, remote/restricted-host and
 release-verification limits still apply.
+
+## Rebase and follow-up fixes: 2026-10-26
+
+Rebased onto main `728f41e6`, preserving both the requirements and VS Code
+build/test entries. The rebased changes passed 464 Node tests plus the existing
+diff-engine runner. Final source passed TypeScript, ESLint, renderer size budgets
+and VSIX packaging. A fresh Linux ARM64 Lima checkout passed all 29 SCM cases
+and all 16 following cases on each of VS Code 1.74.0 and 1.143.1.
+
+New regressions cover native insertions at both symbol boundaries, index refresh
+for two-dot filenames, live working comparisons through successive staged
+renames, loss/recovery of the Git API in an already-open comparison, and the
+explicit read-only snapshot behavior of a staged pin while Git is unavailable.
+The platform and interaction limits above still apply; hosted CI was not run.

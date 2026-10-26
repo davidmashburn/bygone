@@ -22,6 +22,7 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
     private baseline?: FollowBaseline;
     private rightSnapshot?: FollowBaseline;
     private target?: GitTarget;
+    private indexRenameSource?: string;
     private lastEditor?: vscode.TextEditor;
     private subscriptions: vscode.Disposable[] = [];
     private timer?: ReturnType<typeof setTimeout>;
@@ -87,7 +88,10 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
             }, () => this.stop(), restored,
             message => { void this.receive(message); });
         this.git = new GitIntegration(repo => {
-            if (!this.target || (repo && ![this.target.leftPath, this.target.rightPath].some(p => !path.relative(repo.rootUri.fsPath, p).startsWith('..')))) return;
+            if (!this.target || (repo && ![this.target.leftPath, this.target.rightPath].some(p => {
+                const relative = path.relative(repo.rootUri.fsPath, p);
+                return relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative);
+            }))) return;
             if (this.mode === 'pinned') { this.gitAdvanced = true; this.schedule(); }
             else this.refresh();
         });
@@ -107,7 +111,7 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
                 if (this.focus?.right && this.target?.policy !== 'head-index') {
                     const moved = trackRange(this.focus.right, event.contentChanges, this.expectedEdit === event.document.getText());
                     if (moved) this.focus.right = moved;
-                    else { this.focus = undefined; this.notice = 'Selected declaration was replaced or removed. Showing file context.'; }
+                    else { this.focus = undefined; this.notice = 'Selected declaration changed at its boundary or was replaced. Showing file context.'; }
                 }
                 this.schedule();
             }),
@@ -150,6 +154,9 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
     private setTarget(target: GitTarget): void {
         this.cancel(); this.context++; this.selectionGeneration++; this.selectionRequest?.abort();
         this.target = target; this.document = undefined; this.baseline = undefined; this.rightSnapshot = undefined;
+        this.indexRenameSource = target.policy === 'index-working'
+            ? this.git?.repository(vscode.Uri.file(target.rightPath))?.state.indexChanges.find(c => c.renameUri?.fsPath === target.rightPath)?.originalUri.fsPath
+            : undefined;
         this.focus = undefined; this.symbols = undefined; this.projection = undefined; this.notice = ''; this.gitAdvanced = false;
         this.capturedLeft = undefined; this.capturedRight = undefined; this.blockedInput = undefined;
         this.schedule();
@@ -176,6 +183,28 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
                     const change = repository.state.indexChanges.find(c => changeContains(c, uri));
                     this.target = { ...this.target, leftPath: change?.originalUri?.fsPath ?? this.target.rightPath,
                         rightPath: (change?.renameUri ?? change?.uri)?.fsPath ?? this.target.rightPath };
+                }
+            }
+            if (this.target?.policy === 'index-working') {
+                const uri = vscode.Uri.file(this.target.rightPath), repository = this.git?.repository(uri);
+                if (repository) {
+                    // Prefer a current destination over a historical source when
+                    // several reported renames mention the same path.
+                    const find = (changes: typeof repository.state.indexChanges) => changes.find(c => (c.renameUri ?? c.uri).fsPath === uri.fsPath)
+                        ?? changes.find(c => changeContains(c, uri));
+                    // Git reports a chain A→B→C as A→C. Retain that HEAD-side
+                    // source while the index rename exists, without using it as
+                    // the index endpoint (which lives at the destination).
+                    const staged = find(repository.state.indexChanges)
+                        ?? repository.state.indexChanges.find(c => c.renameUri && c.originalUri.fsPath === this.indexRenameSource);
+                    const working = find([...repository.state.workingTreeChanges, ...(repository.state.untrackedChanges ?? [])]);
+                    const rightPath = (working?.renameUri ?? staged?.renameUri ?? working?.uri)?.fsPath ?? this.target.rightPath;
+                    const inIndex = repository.state.indexChanges.some(c => c.renameUri?.fsPath === rightPath);
+                    const leftPath = inIndex ? rightPath : working?.originalUri?.fsPath ?? rightPath;
+                    if (rightPath !== this.target.rightPath || leftPath !== this.target.leftPath) {
+                        this.setTarget({ policy: 'index-working', leftPath, rightPath }); return;
+                    }
+                    this.indexRenameSource = staged?.renameUri ? staged.originalUri.fsPath : undefined;
                 }
             }
             this.baseline = undefined; this.rightSnapshot = undefined; this.symbols = undefined;
@@ -235,7 +264,9 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
             if (vscode.env.remoteName) throw new Error('Following supports local file documents only.');
             const uri = vscode.Uri.file(target.rightPath);
             const capturedStagedPin = this.mode === 'pinned' && target.policy === 'head-index' && this.baseline && this.rightSnapshot;
-            if (!capturedStagedPin && this.git?.repository(uri)?.state.mergeChanges.some(c => changeContains(c, uri))) throw new Error('Merge conflicts are not supported. Resolve them in VS Code first.');
+            const repository = this.git?.repository(uri);
+            if (target.policy !== 'head-working' && !repository && !capturedStagedPin) throw new Error('VS Code Git integration is unavailable for this file.');
+            if (!capturedStagedPin && repository?.state.mergeChanges.some(c => changeContains(c, uri))) throw new Error('Merge conflicts are not supported. Resolve them in VS Code first.');
             let document = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString() && !d.isClosed);
             let exists = false;
             if (target.policy !== 'head-index') {
@@ -308,7 +339,8 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
                 policyLabel, dirty, baseline.absent ? 'No baseline at this path (addition)' : '',
                 baseline.content === right && !baseline.absent ? `No changes from ${target.policy === 'index-working' ? 'index' : 'HEAD'}` : '',
                 focus ? `Symbol: ${focus.name}${!focus.left || !focus.right ? ' • No verified counterpart' : ''}` : 'File context',
-                this.followSymbol ? 'Follow Symbol on' : '', this.gitAdvanced ? 'Git state advanced • Resume to update pinned snapshots' : '', this.notice].filter(Boolean).join(' • ');
+                this.followSymbol ? 'Follow Symbol on' : '', capturedStagedPin && !repository ? 'Git integration unavailable • Showing pinned snapshots' : '',
+                this.gitAdvanced ? 'Git state advanced • Resume to update pinned snapshots' : '', this.notice].filter(Boolean).join(' • ');
             this.update({ file1: `${baseline.absent ? 'Absent • ' : ''}${leftLabel}`, file2: `${rightAbsent ? 'Absent • ' : ''}${path.relative(baseline.root, target.rightPath)}`,
                 comparisonId: identity, leftContent, rightContent,
                 sourceInfo: { leftPath: target.leftPath, rightPath: target.rightPath, rightLanguageId: document?.languageId },
