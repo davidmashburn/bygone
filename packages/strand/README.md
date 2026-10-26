@@ -36,6 +36,49 @@ wall-clock budgets remain finite. No binding or type resolution, extract/inline,
 or cross-language matches are claimed. The legacy analysis script entry points
 remain compatible. Run `npm run test:strand` from the repository root.
 
+## Source references
+
+Strand also pins and follows exact source references. These operations are
+available from the package root and from `bygone-strand/source-references`; the
+subpath includes TypeScript declarations.
+
+```js
+const { pinSourceRef, resolveSourceRef, relocateSourceRefs } = require('bygone-strand/source-references');
+const before = { revision: 'snapshot:1', files: { 'a.js': 'function count() { return 1; }' } };
+const after = { revision: 'snapshot:2', files: { 'b.js': before.files['a.js'] } };
+const ref = pinSourceRef(before, 'a.js', 0, before.files['a.js'].length);
+const destination = pinSourceRef(after, 'b.js', 0, after.files['b.js'].length);
+// This example explicitly accepts the whole-declaration pair. Production callers
+// must select accepted correspondence and validate it against their snapshots.
+const [transition] = relocateSourceRefs([ref], before, after, [{ before: ref, after: destination }]);
+resolveSourceRef(transition.after, after); // { status: 'valid', text: ... }
+```
+
+`parseSourceRef(unknown)` validates the interchange shape. A reference contains an
+opaque revision ID, relative path, half-open UTF-16 range, and SHA-256 digest of
+the source slice encoded as UTF-8. Snapshot IDs must identify immutable contents
+within the host's scope; Git IDs and repository identity are host concerns.
+
+`resolveSourceRef` reports valid or broken evidence. `relocateSourceRefs` returns
+one transition per input reference: unchanged, relocated, changed, or unresolved.
+An unchanged whole file permits carrying a reference forward; otherwise only an
+exact match to a supplied pair's complete source endpoint can follow the pair.
+It does not search for similar text or infer subrange mappings. An unresolved
+transition retains the historical reference and has no destination. Caller
+objects are not mutated.
+
+Malformed inputs throw `TypeError`. Resolution and relocation recheck ranges and
+digests against supplied snapshots; relocation rejects duplicate source or
+destination endpoints and requires distinct revision IDs. This establishes
+endpoint validity, not that a supplied correspondence is correct. The host owns
+pair acceptance, snapshot authenticity, and cross-repository scope. The existing
+snapshot input ceilings apply; relocation also enforces the combined comparison
+budget and a maximum of `LIMITS.maxRecords` references and pairs.
+
+Requirements, test executions, review decisions, baseline retention, and Bygone
+artifact validation remain outside Strand. A valid or relocated reference says
+nothing about behavior preservation, requirement fulfillment, or review approval.
+
 The shared Tree-sitter frontend uses pinned `web-tree-sitter` WebAssembly in a
 bounded Node subprocess. Grammars are local, hash-checked assets; there are no
 runtime downloads or native addons. The subprocess owns async initialization
