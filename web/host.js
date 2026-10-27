@@ -15,6 +15,7 @@ import {
 import { buildReadingNarrationUnit } from '../src/tourNarration.ts';
 import { buildTourReadingItems, getTourReadingTarget, isImageOnlyTour, resolveTourReadingItem } from '../src/tourReading.ts';
 import { TourNarrationController } from '../src/tourNarrationPlayback.ts';
+import { createNarrationMediaSession } from './narrationMediaSession.js';
 import { searchTour } from '../src/tourSearch.ts';
 import {
     buildStackedTourAnnotations,
@@ -125,6 +126,14 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         onSegmentChange: renderNarrationHighlight,
         canNavigateUnit: canNavigateNarrationUnit,
         navigateUnit: navigateNarrationUnit
+    });
+    const narrationMediaSession = createNarrationMediaSession({
+        play() {
+            if (narrationController.state.kind === 'paused') narrationController.togglePause();
+        },
+        pause: () => narrationController.pauseForExternalOwner(),
+        stop: () => narrationController.stop(),
+        skip: direction => narrationController.skipSegment(direction)
     });
 
     window.__BYGONE_HOST__ = {
@@ -1425,6 +1434,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             if (result) openTourSearchResult(Number(result.getAttribute('data-tour-search-result')));
         });
         window.addEventListener('keydown', (event) => {
+            if (event.defaultPrevented || event.isComposing) return;
+            if (handleNarrationShortcut(event)) return;
             if (state.mode === 'tour' && (event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLocaleLowerCase() === 'f') {
                 event.preventDefault();
                 event.stopImmediatePropagation();
@@ -1435,7 +1446,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 tourSearchInput?.select();
                 return;
             }
-            if (state.mode !== 'tour' || event.metaKey || event.ctrlKey || event.altKey || isInteractiveKeyTarget(event.target)) {
+            if (state.mode !== 'tour' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || isInteractiveKeyTarget(event.target)) {
                 return;
             }
             if (event.key === 'PageUp' || event.key === 'ArrowLeft') {
@@ -1455,8 +1466,32 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             if (event.detail === 'toggleNarration') toggleNarrationFromHost();
             if (event.detail === 'pauseNarration') narrationController.pauseForExternalOwner();
         });
-        window.addEventListener('beforeunload', () => narrationController.dispose(), { once: true });
+        window.addEventListener('beforeunload', () => {
+            narrationController.dispose();
+            narrationMediaSession.dispose();
+        }, { once: true });
         renderNarrationPlaybackState(narrationController.state);
+    }
+
+    function handleNarrationShortcut(event) {
+        if (state.mode !== 'tour' || !deviceNarrationAvailable
+            || event.metaKey || event.ctrlKey || event.altKey
+            || isInteractiveKeyTarget(event.target)
+            || event.target?.closest?.('[role="separator"], [role="slider"], [role="menu"], [role="listbox"]')
+            || [...document.querySelectorAll('dialog[open], [aria-modal="true"]')].some(dialog => dialog.getClientRects().length > 0)
+            || window.getSelection()?.isCollapsed === false) return false;
+        const toggle = event.key === ' ' && !event.shiftKey;
+        const skip = event.shiftKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight');
+        if (!toggle && !skip) return false;
+        // Consume repeats without toggling again, and reserve Shift+arrows even
+        // when idle or at a boundary so they never fall through to tour navigation.
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!event.repeat) {
+            if (toggle) toggleNarrationFromHost();
+            else narrationController.skipSegment(event.key === 'ArrowLeft' ? -1 : 1);
+        }
+        return true;
     }
 
     function initializeNarrationVoices() {
@@ -1554,6 +1589,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         if (!deviceNarrationAvailable || state.mode !== 'tour') return;
         const unit = buildActiveNarrationUnit('playback-start');
         if (!unit) return;
+        if (document.getElementById('tour-audio-settings')?.hidden) toggleNarrationSettings();
         state.renderedNarrationUnit = unit;
         renderCurrentNarrativeForNarrationUnit(unit);
         narrationController.start(unit, true);
@@ -1591,6 +1627,10 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     }
 
     function renderNarrationPlaybackState(playbackState) {
+        narrationMediaSession.update(playbackState, state.tour?.title || 'Bygone tour', {
+            previous: narrationController.canSkipSegment(-1),
+            next: narrationController.canSkipSegment(1)
+        });
         const listen = document.getElementById('tour-listen');
         const stop = document.getElementById('tour-stop');
         const skipBack = document.getElementById('tour-narration-skip-back');
@@ -1605,7 +1645,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             const listenLabel = isPlaying
                 ? 'Pause narration'
                 : playbackState.kind === 'paused' ? 'Resume narration' : 'Listen from the current tour item';
-            listen.title = listenLabel;
+            listen.title = `${listenLabel} (Space)`;
             listen.setAttribute('aria-label', listenLabel);
             document.getElementById('tour-listen-label').textContent = isPlaying
                 ? 'Pause' : playbackState.kind === 'paused' ? 'Resume' : 'Listen';
@@ -3296,7 +3336,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
 
     function isInteractiveKeyTarget(target) {
         return target instanceof Element && Boolean(target.closest(
-            'a, button, input, select, summary, textarea, [contenteditable="true"], [role="textbox"], .monaco-editor'
+            'a, button, input, select, summary, textarea, [contenteditable]:not([contenteditable="false"]), [role="textbox"], .monaco-editor'
         ));
     }
 

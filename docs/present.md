@@ -171,9 +171,26 @@ right-edge chevron to collapse them again. Listen becomes Pause or Resume
 during playback. The overview opens when its
 text is spoken so the highlighted sentence remains visible.
 
+- In the tour viewing area, **Space** starts narration at the current passage
+  and reveals its controls, then pauses or resumes playback. **Shift+Left/Right
+  Arrow** skips a sentence while narration is playing or paused, including
+  across passage boundaries. Skipping while paused keeps it paused; skipping
+  while idle does nothing. These shortcuts work with the controls collapsed.
+  Plain arrows and PageUp/PageDown retain tour navigation. Inputs, editors,
+  focused buttons, dialogs, and selected text keep their normal keys.
+- After starting narration, supported system media controls (including Mac
+  keyboard Play/Pause and Previous/Next) control the same playback, even with
+  the narration controls collapsed. **Media keys cannot start idle narration:**
+  press Space in the tour viewing area or click Listen first. The system routes
+  media keys to an active media session; Bygone activates its session only when
+  narration starts, so opening a tour does not take over another player's keys.
+  Pausing keeps the session available for Resume. Stop, completion, or closing
+  the tour releases it; use Space or Listen to start again afterward. Bygone
+  does not register global media shortcuts or require Accessibility permission
+  for these controls.
 - **Pause/Resume** retains the current sentence; **Stop** clears playback. The
-  outer jump controls move one sentence backward or forward within the current
-  narration item.
+  outer jump controls move one sentence backward or forward, continuing into
+  an adjacent narration item at passage boundaries.
 - Existing Previous and Next controls move through the same scene/step order
   used by continuous narration.
 - Choose any device voice exposed by the browser and a speed from 0.75× to

@@ -7,6 +7,7 @@ const path = require('node:path');
 const { pathToFileURL, URL } = require('node:url');
 const { app, BrowserWindow, session } = require('electron');
 const { runTourHistorySmoke } = require('./tourHistorySmoke');
+const { runNarrationControlsSmoke } = require('./narrationControlsSmoke');
 const { exportTour } = require('../cli/tourExport');
 const { exportFixture } = require('../test/exportFixture');
 const { serializeDocumentFragment, parseDeepLink } = require('../out/deepLink');
@@ -60,6 +61,9 @@ app.whenReady().then(async () => {
             const hash = serializeDocumentFragment('historical', { part: 'step', scene: 'scene', step: 'step' });
             const fileUrl = pathToFileURL(output).href;
             const { window, evaluate, wait } = await open(fileUrl + hash);
+            await wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:scene:step'");
+            await runNarrationControlsSmoke({ evaluate, wait, window });
+            await window.loadURL(fileUrl + hash);
             await wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:scene:step'");
             await wait("document.querySelectorAll('.monaco-editor').length >= 2");
             assert.equal(await evaluate("getComputedStyle(document.querySelector('#tour-file-filter')).display"), 'none', 'Walkthroughs do not offer an irrelevant file filter');

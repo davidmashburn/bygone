@@ -1,11 +1,97 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
 const {
     buildTourReadingItems,
     getTourReadingTarget,
     isImageOnlyTour,
     resolveTourReadingItem
 } = require('../out/tourReading.js');
+
+function mediaSessionHarness({ available = true, rejectPlay = false } = {}) {
+    const source = fs.readFileSync(path.join(__dirname, '../web/narrationMediaSession.js'), 'utf8');
+    const actions = new Map();
+    const calls = [];
+    const audio = [];
+    const revoked = [];
+    const session = { setActionHandler: (name, handler) => {
+        if (name === 'stop') throw new Error('Unsupported action');
+        actions.set(name, handler);
+    } };
+    class Audio {
+        constructor(src) { this.src = src; this.paused = true; audio.push(this); }
+        addEventListener(_event, listener) { this.onPause = listener; }
+        play() { this.paused = false; return rejectPlay ? Promise.reject(new Error('Autoplay denied')) : Promise.resolve(); }
+        pause() { this.paused = true; }
+        removeAttribute() { this.src = null; }
+        load() {}
+    }
+    const create = new Function('navigator', 'Audio', 'MediaMetadata', 'URL', 'Blob',
+        `${source.replace('export function', 'function')}\nreturn createNarrationMediaSession;`
+    )({ mediaSession: available ? session : undefined }, Audio, class { constructor(data) { Object.assign(this, data); } }, {
+        createObjectURL: () => `blob:${audio.length}`,
+        revokeObjectURL: url => revoked.push(url)
+    }, Blob);
+    const bridge = create({ play: () => calls.push('play'), pause: () => calls.push('pause'),
+        stop: () => calls.push('stop'), skip: direction => calls.push(direction) });
+    const update = kind => bridge.update({ kind }, 'Test tour', { previous: false, next: true });
+    return { bridge, update, session, calls, actions, audio, revoked };
+}
+
+test('media controls are optional and tolerate unsupported actions', () => {
+    const absent = mediaSessionHarness({ available: false });
+    absent.update('playing');
+    absent.bridge.dispose();
+    assert.equal(absent.audio.length, 0);
+    const f = mediaSessionHarness();
+    f.update('idle');
+    assert.equal(f.audio.length, 0, 'Opening a tour never acquires audio focus');
+    f.update('playing');
+    assert.equal(f.session.playbackState, 'playing');
+    assert.equal(f.session.metadata.title, 'Test tour');
+    assert.equal(f.actions.get('previoustrack'), null, 'Unavailable previous action is disabled');
+    f.actions.get('nexttrack')();
+    assert.deepEqual(f.calls, [1]);
+    f.update('paused');
+    assert.equal(f.audio[0].paused, true);
+    f.update('playing');
+    assert.equal(f.audio.length, 1, 'Resume reuses the session');
+    f.update('error');
+    assert.equal(f.session.playbackState, 'none');
+    assert.equal(f.session.metadata, null);
+    assert.equal(f.audio[0].src, null);
+    assert.deepEqual(f.revoked, ['blob:0']);
+    f.bridge.dispose();
+    assert.equal(f.revoked.length, 1, 'Cleanup is idempotent');
+});
+
+test('blocked media playback releases handlers without stopping device speech', async () => {
+    const f = mediaSessionHarness({ rejectPlay: true });
+    f.update('playing');
+    await Promise.resolve();
+    assert.equal(f.session.playbackState, 'none');
+    assert.deepEqual(f.calls, []);
+    assert.equal(f.actions.get('play'), null);
+    assert.equal(f.audio[0].src, null);
+});
+
+test('late audio pause events cannot interrupt a replacement narration session', () => {
+    const f = mediaSessionHarness();
+    f.update('playing');
+    const oldAudio = f.audio[0];
+    f.update('idle');
+    f.update('playing');
+    oldAudio.onPause({ currentTarget: oldAudio });
+    assert.deepEqual(f.calls, []);
+    f.update('paused');
+    f.update('playing');
+    f.audio[1].onPause({ currentTarget: f.audio[1] });
+    assert.deepEqual(f.calls, [], 'An already-resumed player ignores its queued pause event');
+    f.audio[1].paused = true;
+    f.audio[1].onPause({ currentTarget: f.audio[1] });
+    assert.deepEqual(f.calls, ['pause'], 'A real audio-focus interruption pauses narration');
+});
 
 test('image-only guides skip structural stops in both directions without changing code tours', () => {
     const tour = {

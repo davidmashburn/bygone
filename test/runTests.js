@@ -661,8 +661,8 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
         assert.match(markup, new RegExp(`id="${id}"`));
     }
     assert.doesNotMatch(markup, /id="tour-pause"/);
-    assert.match(markup, /id="tour-narration-skip-back"[^>]+title="Previous sentence"[^>]+aria-label="Previous sentence"[^>]+disabled/);
-    assert.match(markup, /id="tour-narration-skip-ahead"[^>]+title="Next sentence"[^>]+aria-label="Next sentence"[^>]+disabled/);
+    assert.match(markup, /id="tour-narration-skip-back"[^>]+title="Previous sentence \(Shift\+Left Arrow\)"[^>]+aria-label="Previous sentence"[^>]+aria-keyshortcuts="Shift\+ArrowLeft"[^>]+disabled/);
+    assert.match(markup, /id="tour-narration-skip-ahead"[^>]+title="Next sentence \(Shift\+Right Arrow\)"[^>]+aria-label="Next sentence"[^>]+aria-keyshortcuts="Shift\+ArrowRight"[^>]+disabled/);
     assert.match(markup, /tour-play-pause-icon/);
     assert.match(markup, /id="tour-narration-status"[^>]+role="status"[^>]+aria-live="polite"/);
     assert.match(host, /new TourNarrationController\(createDeviceSpeechEngine\(\)/);

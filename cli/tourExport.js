@@ -121,7 +121,7 @@ function exportTour(sourcePath, outputPath, packageRoot, options = {}) {
         .replace(/<script src="\/(?:web|media)\/[^"]+"><\/script>/g, '')
         .replace('<title>Bygone Tour</title>', `<title>${html(data.manifest.title)} — Bygone export</title>`);
     const network = runtime === 'cdn' ? ' https://cdn.jsdelivr.net' : '';
-    const policy = `default-src 'none'; script-src 'unsafe-inline' blob:${network}; style-src 'unsafe-inline' blob:${network}; font-src data:; img-src data: blob:; worker-src blob:; connect-src${network || " 'none'"}; frame-src 'none'; base-uri 'none'; form-action 'none'`;
+    const policy = `default-src 'none'; script-src 'unsafe-inline' blob:${network}; style-src 'unsafe-inline' blob:${network}; font-src data:; img-src data: blob:; media-src blob:; worker-src blob:; connect-src${network || " 'none'"}; frame-src 'none'; base-uri 'none'; form-action 'none'`;
     shell = shell.replace('<meta charset="UTF-8">', `<meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="${policy}">`)
         .replace('<body class="web-host">', `<body class="web-host"><div id="export-loading" role="status">Loading ${html(data.manifest.title)}… ${runtime === 'cdn' ? 'Internet required to load the Bygone viewer.' : 'Embedded viewer; no internet required.'} If loading fails, reopen the file or obtain a new export.</div><noscript>This interactive tour requires JavaScript.</noscript>`)
         .replace('<summary>Tour details</summary>', `<summary>Tour details</summary><p class="export-notice">${html(summary)} ${runtime === 'cdn' ? 'Internet required to load the Bygone viewer.' : 'Embedded viewer; no internet required.'} ${html(data.history?.comparison || '')}</p>`);
