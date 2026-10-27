@@ -1,8 +1,12 @@
 # Dependency graphs for change review
 
-Status: 2026-10-26. Static module evidence implemented and validated; compiler
-compatibility and metadata coverage are the next proposed slice. The original
-assessment below is followed by implementation and validation updates.
+Status: 2026-10-27. Static module evidence and the compiler compatibility follow-up
+are implemented. [Tool evaluation](dependency-graph-tools.md) now includes
+executable cgg, native TypeScript and SCIP probes, plus a broader candidate
+comparison. The [approved adapter proposal](../plans/dependency-evidence-adapters.md)
+prioritizes Python, JS/TS, Go, Rust and Mojo, with a bounded graph view. The
+original assessment below is followed by implementation and validation
+updates.
 
 ## Recommendation
 

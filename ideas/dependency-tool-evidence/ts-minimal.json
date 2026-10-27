@@ -1,0 +1,148 @@
+{
+  "schema": "cgg.graph.v2",
+  "cgg_version": "0.11.2",
+  "callables": {
+    "C43s67wfrwv": {
+      "id": "C43s67wfrwv",
+      "qualified_name": "target",
+      "simple_name": "target",
+      "kind": "function",
+      "language": "typescript",
+      "file": "Fsl53ybvr6f",
+      "start_line": 1,
+      "end_line": 1,
+      "start_byte": 7,
+      "end_byte": 38,
+      "signature_hint": "function target()"
+    },
+    "C5zrl4fjvx7": {
+      "id": "C5zrl4fjvx7",
+      "qualified_name": "lazy",
+      "simple_name": "lazy",
+      "kind": "function",
+      "language": "typescript",
+      "file": "Fevkag4r4b9",
+      "start_line": 1,
+      "end_line": 1,
+      "start_byte": 7,
+      "end_byte": 87,
+      "signature_hint": "async function lazy()"
+    },
+    "C6aqzvne4cf": {
+      "id": "C6aqzvne4cf",
+      "qualified_name": "target",
+      "simple_name": "target",
+      "kind": "function",
+      "language": "typescript",
+      "file": "F6oj9m70f0j",
+      "start_line": 1,
+      "end_line": 1,
+      "start_byte": 7,
+      "end_byte": 38,
+      "signature_hint": "function target()"
+    }
+  },
+  "files": {
+    "Fsl53ybvr6f": {
+      "id": "Fsl53ybvr6f",
+      "path": "/tmp/bygone-tool-analysis/minimal/ts/lib.ts",
+      "language": "typescript",
+      "detected_via": "extension:.ts",
+      "blake3": "b76a3e3e8c9fe6cadb73ce93cf01b46220eea9477509bd0eab4aeb03048fade4",
+      "size_bytes": 39,
+      "lines": 1,
+      "parse_ms": 2.9057079999999997,
+      "parse_status": "ok"
+    },
+    "Fevkag4r4b9": {
+      "id": "Fevkag4r4b9",
+      "path": "/tmp/bygone-tool-analysis/minimal/ts/main.ts",
+      "language": "typescript",
+      "detected_via": "extension:.ts",
+      "blake3": "b04a2affb5002cb0787653f72375a0ababbc4c38d3221fda5e14ec1c9c87b9cb",
+      "size_bytes": 88,
+      "lines": 1,
+      "parse_ms": 2.904416,
+      "parse_status": "ok"
+    },
+    "F6oj9m70f0j": {
+      "id": "F6oj9m70f0j",
+      "path": "/tmp/bygone-tool-analysis/minimal/ts/other.ts",
+      "language": "typescript",
+      "detected_via": "extension:.ts",
+      "blake3": "d681b8036e237c9ee9685fb45a3e9680201ec4284e416239c46ce16b687db0be",
+      "size_bytes": 39,
+      "lines": 1,
+      "parse_ms": 2.916459,
+      "parse_status": "ok"
+    }
+  },
+  "edges": [
+    {
+      "src": "C5zrl4fjvx7",
+      "dst": "C43s67wfrwv",
+      "site_line": 1,
+      "site_byte": 74,
+      "confidence": "medium",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "C5zrl4fjvx7",
+      "dst": "C6aqzvne4cf",
+      "site_line": 1,
+      "site_byte": 74,
+      "confidence": "medium",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    }
+  ],
+  "unresolved": [],
+  "file_audits": [],
+  "metrics": {
+    "wall_ms": 11.25525,
+    "phases": {
+      "walk_ms": 1.174,
+      "parse_ms": 8.726583,
+      "extract_ms": 1.0378340000000001,
+      "resolve_ms": 0.0,
+      "link_ms": 2.0355,
+      "query_ms": 0.0,
+      "format_ms": 0.0
+    },
+    "files_discovered": 3,
+    "files_analyzed": 3,
+    "files_skipped": 0,
+    "files_errored": 0,
+    "bytes_processed": 166,
+    "callables": 3,
+    "edges": 2,
+    "unresolved_calls": 0,
+    "stdlib_calls": 0,
+    "external_calls": 0,
+    "ffi_detected": 0,
+    "ffi_resolved": 0,
+    "peak_rss_bytes": 0,
+    "by_language": {
+      "typescript": {
+        "files": 3,
+        "callables": 3,
+        "edges": 0,
+        "unresolved": 0,
+        "stdlib": 0,
+        "external": 0
+      }
+    },
+    "cycles": [],
+    "longest_path_len": 0,
+    "confidence_histogram": {
+      "high": 0,
+      "medium": 2,
+      "low": 0
+    }
+  }
+}

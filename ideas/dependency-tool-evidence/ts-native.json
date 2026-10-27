@@ -1,0 +1,117 @@
+{
+  "version": "5.9.3",
+  "diagnostics": [],
+  "calls": [
+    {
+      "file": "lib.ts",
+      "line": 2,
+      "expression": "target",
+      "target": {
+        "file": "lib.ts",
+        "line": 1,
+        "kind": "FunctionDeclaration",
+        "text": "export function target() { return 1; }"
+      }
+    },
+    {
+      "file": "main.ts",
+      "line": 4,
+      "expression": "alias",
+      "target": {
+        "file": "lib.ts",
+        "line": 1,
+        "kind": "FunctionDeclaration",
+        "text": "export function target() { return 1; }"
+      }
+    },
+    {
+      "file": "main.ts",
+      "line": 6,
+      "expression": "alias",
+      "target": {
+        "file": "lib.ts",
+        "line": 1,
+        "kind": "FunctionDeclaration",
+        "text": "export function target() { return 1; }"
+      }
+    },
+    {
+      "file": "main.ts",
+      "line": 7,
+      "expression": "other",
+      "target": {
+        "file": "other.ts",
+        "line": 1,
+        "kind": "FunctionDeclaration",
+        "text": "export function target() { return 2; }"
+      }
+    },
+    {
+      "file": "main.ts",
+      "line": 8,
+      "expression": "viaBarrel",
+      "target": {
+        "file": "lib.ts",
+        "line": 1,
+        "kind": "FunctionDeclaration",
+        "text": "export function target() { return 1; }"
+      }
+    },
+    {
+      "file": "main.ts",
+      "line": 9,
+      "expression": "Worker",
+      "target": null
+    },
+    {
+      "file": "main.ts",
+      "line": 10,
+      "expression": "worker.run",
+      "target": {
+        "file": "lib.ts",
+        "line": 2,
+        "kind": "MethodDeclaration",
+        "text": "run() { return target(); }"
+      }
+    },
+    {
+      "file": "main.ts",
+      "line": 11,
+      "expression": "register",
+      "target": {
+        "file": "lib.ts",
+        "line": 3,
+        "kind": "FunctionDeclaration",
+        "text": "export function register(cb: () => number) { return cb; }"
+      }
+    },
+    {
+      "file": "main.ts",
+      "line": 13,
+      "expression": "alias",
+      "target": {
+        "file": "main.ts",
+        "line": 13,
+        "kind": "FunctionType",
+        "text": "() => number"
+      }
+    },
+    {
+      "file": "main.ts",
+      "line": 14,
+      "expression": "import",
+      "target": null
+    },
+    {
+      "file": "main.ts",
+      "line": 14,
+      "expression": "m.target",
+      "target": {
+        "file": "lib.ts",
+        "line": 1,
+        "kind": "FunctionDeclaration",
+        "text": "export function target() { return 1; }"
+      }
+    }
+  ]
+}

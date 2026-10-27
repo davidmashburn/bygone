@@ -1,0 +1,294 @@
+{
+  "schema": "cgg.graph.v2",
+  "cgg_version": "0.11.2",
+  "callables": {
+    "Cj1j639wvj6": {
+      "id": "Cj1j639wvj6",
+      "qualified_name": "main.caller",
+      "simple_name": "caller",
+      "kind": "function",
+      "language": "python",
+      "file": "Fbyhvgfc68i",
+      "start_line": 4,
+      "end_line": 9,
+      "start_byte": 100,
+      "end_byte": 196,
+      "signature_hint": "def caller()",
+      "vis": "public"
+    },
+    "C7ffq8hh4vg": {
+      "id": "C7ffq8hh4vg",
+      "qualified_name": "main.shadow",
+      "simple_name": "shadow",
+      "kind": "function",
+      "language": "python",
+      "file": "Fbyhvgfc68i",
+      "start_line": 10,
+      "end_line": 11,
+      "start_byte": 197,
+      "end_byte": 234,
+      "signature_hint": "def shadow(alias)",
+      "vis": "public"
+    },
+    "C33mfjry7b4": {
+      "id": "C33mfjry7b4",
+      "qualified_name": "main.lazy",
+      "simple_name": "lazy",
+      "kind": "function",
+      "language": "python",
+      "file": "Fbyhvgfc68i",
+      "start_line": 12,
+      "end_line": 14,
+      "start_byte": 235,
+      "end_byte": 297,
+      "signature_hint": "def lazy()",
+      "vis": "public"
+    },
+    "Cijawxsphu": {
+      "id": "Cijawxsphu",
+      "qualified_name": "pkg.lib.target",
+      "simple_name": "target",
+      "kind": "function",
+      "language": "python",
+      "file": "F126u8cfxdgn",
+      "start_line": 1,
+      "end_line": 2,
+      "start_byte": 0,
+      "end_byte": 26,
+      "signature_hint": "def target()",
+      "vis": "public"
+    },
+    "Co1u4reozpb": {
+      "id": "Co1u4reozpb",
+      "qualified_name": "pkg.lib.Worker.run",
+      "simple_name": "run",
+      "kind": "method",
+      "language": "python",
+      "file": "F126u8cfxdgn",
+      "start_line": 4,
+      "end_line": 5,
+      "start_byte": 45,
+      "end_byte": 83,
+      "signature_hint": "def run(self)",
+      "vis": "public"
+    },
+    "Chph9u46s5g": {
+      "id": "Chph9u46s5g",
+      "qualified_name": "pkg.lib.register",
+      "simple_name": "register",
+      "kind": "function",
+      "language": "python",
+      "file": "F126u8cfxdgn",
+      "start_line": 6,
+      "end_line": 7,
+      "start_byte": 84,
+      "end_byte": 115,
+      "signature_hint": "def register(cb)",
+      "vis": "public"
+    },
+    "Cy12v9ayl6": {
+      "id": "Cy12v9ayl6",
+      "qualified_name": "pkg.other.target",
+      "simple_name": "target",
+      "kind": "function",
+      "language": "python",
+      "file": "Fxl84mm947h",
+      "start_line": 1,
+      "end_line": 2,
+      "start_byte": 0,
+      "end_byte": 26,
+      "signature_hint": "def target()",
+      "vis": "public"
+    }
+  },
+  "files": {
+    "Fbyhvgfc68i": {
+      "id": "Fbyhvgfc68i",
+      "path": "/tmp/bygone-tool-analysis/fixtures/py/main.py",
+      "language": "python",
+      "detected_via": "extension:.py",
+      "blake3": "efd266144380c664d096fb5ca524d4d2ad76b78262ef89f3336fe13609327b55",
+      "size_bytes": 298,
+      "lines": 14,
+      "parse_ms": 0.080834,
+      "parse_status": "ok"
+    },
+    "F1813xmfx3z8": {
+      "id": "F1813xmfx3z8",
+      "path": "/tmp/bygone-tool-analysis/fixtures/py/pkg/__init__.py",
+      "language": "python",
+      "detected_via": "extension:.py",
+      "blake3": "4e0e033c0deb544716d6b35b3ba3be336eca8a0172944e960594b2633c28c3bd",
+      "size_bytes": 33,
+      "lines": 2,
+      "parse_ms": 0.054458,
+      "parse_status": "ok"
+    },
+    "F126u8cfxdgn": {
+      "id": "F126u8cfxdgn",
+      "path": "/tmp/bygone-tool-analysis/fixtures/py/pkg/lib.py",
+      "language": "python",
+      "detected_via": "extension:.py",
+      "blake3": "83120a171a27cbd1b5c574c6d02eafb00a8ed60b0f4fa282a3881f967f654377",
+      "size_bytes": 116,
+      "lines": 7,
+      "parse_ms": 0.054125,
+      "parse_status": "ok"
+    },
+    "Fxl84mm947h": {
+      "id": "Fxl84mm947h",
+      "path": "/tmp/bygone-tool-analysis/fixtures/py/pkg/other.py",
+      "language": "python",
+      "detected_via": "extension:.py",
+      "blake3": "424feb0edc1a5507f73897d185ff6fff60e5111dbf816d9a407261bd3ad908da",
+      "size_bytes": 27,
+      "lines": 2,
+      "parse_ms": 0.039666,
+      "parse_status": "ok"
+    }
+  },
+  "edges": [
+    {
+      "src": "Co1u4reozpb",
+      "dst": "Cijawxsphu",
+      "site_line": 5,
+      "site_byte": 75,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "intra-file"
+    },
+    {
+      "src": "Cj1j639wvj6",
+      "dst": "Cijawxsphu",
+      "site_line": 5,
+      "site_byte": 118,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "Cj1j639wvj6",
+      "dst": "Cy12v9ayl6",
+      "site_line": 6,
+      "site_byte": 130,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "Cj1j639wvj6",
+      "dst": "Co1u4reozpb",
+      "site_line": 8,
+      "site_byte": 164,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "Cj1j639wvj6",
+      "dst": "Chph9u46s5g",
+      "site_line": 9,
+      "site_byte": 181,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "C7ffq8hh4vg",
+      "dst": "Cijawxsphu",
+      "site_line": 11,
+      "site_byte": 227,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "C33mfjry7b4",
+      "dst": "Cijawxsphu",
+      "site_line": 14,
+      "site_byte": 289,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    }
+  ],
+  "unresolved": [
+    {
+      "src": null,
+      "file": "F1813xmfx3z8",
+      "site_line": 2,
+      "site_byte": 24,
+      "name": "target",
+      "reason": {
+        "stage": "no-candidate-in-file"
+      }
+    },
+    {
+      "src": "Cj1j639wvj6",
+      "file": "Fbyhvgfc68i",
+      "site_line": 7,
+      "site_byte": 151,
+      "name": "Worker",
+      "reason": {
+        "stage": "class-without-explicit-init"
+      }
+    }
+  ],
+  "file_audits": [],
+  "metrics": {
+    "wall_ms": 1.5577500000000002,
+    "phases": {
+      "walk_ms": 0.399042,
+      "parse_ms": 0.229083,
+      "extract_ms": 0.9235840000000001,
+      "resolve_ms": 0.0,
+      "link_ms": 0.700792,
+      "query_ms": 0.0,
+      "format_ms": 0.0
+    },
+    "files_discovered": 4,
+    "files_analyzed": 4,
+    "files_skipped": 0,
+    "files_errored": 0,
+    "bytes_processed": 474,
+    "callables": 7,
+    "edges": 7,
+    "unresolved_calls": 3,
+    "stdlib_calls": 0,
+    "external_calls": 3,
+    "ffi_detected": 0,
+    "ffi_resolved": 0,
+    "peak_rss_bytes": 0,
+    "by_language": {
+      "python": {
+        "files": 4,
+        "callables": 7,
+        "edges": 1,
+        "unresolved": 3,
+        "stdlib": 0,
+        "external": 3
+      }
+    },
+    "cycles": [],
+    "longest_path_len": 0,
+    "confidence_histogram": {
+      "high": 7,
+      "medium": 0,
+      "low": 0
+    }
+  }
+}

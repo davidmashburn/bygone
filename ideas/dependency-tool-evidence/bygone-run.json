@@ -1,0 +1,14 @@
+{
+  "oid": "ee4a9790f3d13dad077b22328041a2e06599a2ba",
+  "seconds": 0.05533316599758109,
+  "returncode": 0,
+  "files": 67,
+  "callables": 807,
+  "edges": 2127,
+  "unresolved": 145,
+  "confidence": {
+    "high": 2027,
+    "medium": 115,
+    "low": 0
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "ts/package.json": "{\"name\":\"graph-probe\",\"version\":\"1.0.0\",\"type\":\"module\"}",
+  "ts/tsconfig.json": "{\"compilerOptions\":{\"target\":\"ES2022\",\"module\":\"NodeNext\",\"moduleResolution\":\"NodeNext\",\"strict\":true},\"include\":[\"*.ts\"]}",
+  "ts/lib.ts": "export function target() { return 1; }\nexport class Worker { run() { return target(); } }\nexport function register(cb: () => number) { return cb; }\n",
+  "ts/other.ts": "export function target() { return 2; }\n",
+  "ts/barrel.ts": "export { target as viaBarrel } from \"./lib.js\";\n",
+  "ts/main.ts": "import { target as alias, Worker, register } from \"./lib.js\";\nimport { target as other } from \"./other.js\";\nimport { viaBarrel } from \"./barrel.js\";\nalias();\nexport function caller() {\n  alias();\n  other();\n  viaBarrel();\n  const worker = new Worker();\n  worker.run();\n  register(alias);\n}\nexport function shadow(alias: () => number) { return alias(); }\nexport async function lazy() { const m = await import(\"./lib.js\"); return m.target(); }\n",
+  "py/pkg/__init__.py": "from .lib import target\ntarget()\n",
+  "py/pkg/lib.py": "def target():\n    return 1\nclass Worker:\n    def run(self):\n        return target()\ndef register(cb):\n    return cb\n",
+  "py/pkg/other.py": "def target():\n    return 2\n",
+  "py/main.py": "from pkg.lib import target as alias, Worker, register\nfrom pkg.other import target as other\nalias()\ndef caller():\n    alias()\n    other()\n    worker = Worker()\n    worker.run()\n    register(alias)\ndef shadow(alias):\n    return alias()\ndef lazy():\n    from pkg.lib import target\n    return target()\n",
+  "go/go.mod": "module example.test/graphprobe\n\ngo 1.22\n",
+  "go/lib/lib.go": "package lib\nfunc Target() int { return 1 }\ntype Worker struct{}\nfunc (w Worker) Run() int { return Target() }\nfunc Register(cb func() int) func() int { return cb }\n",
+  "go/other/other.go": "package other\nfunc Target() int { return 2 }\n",
+  "go/main.go": "package main\nimport a \"example.test/graphprobe/lib\"\nimport b \"example.test/graphprobe/other\"\nfunc init() { a.Target() }\nfunc caller() {\n    a.Target()\n    b.Target()\n    worker := a.Worker{}\n    worker.Run()\n    a.Register(a.Target)\n}\nfunc shadow(a func() int) int { return a() }\nfunc main() { caller() }\n"
+}

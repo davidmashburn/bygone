@@ -1,0 +1,289 @@
+{
+  "schema": "cgg.graph.v2",
+  "cgg_version": "0.11.2",
+  "callables": {
+    "C43s67wfrwv": {
+      "id": "C43s67wfrwv",
+      "qualified_name": "target",
+      "simple_name": "target",
+      "kind": "function",
+      "language": "typescript",
+      "file": "Fsl53ybvr6f",
+      "start_line": 1,
+      "end_line": 1,
+      "start_byte": 7,
+      "end_byte": 38,
+      "signature_hint": "function target()"
+    },
+    "Cjv8gy3b33o": {
+      "id": "Cjv8gy3b33o",
+      "qualified_name": "Worker.run",
+      "simple_name": "run",
+      "kind": "method",
+      "language": "typescript",
+      "file": "Fsl53ybvr6f",
+      "start_line": 2,
+      "end_line": 2,
+      "start_byte": 61,
+      "end_byte": 87,
+      "signature_hint": "run()",
+      "vis": "public"
+    },
+    "Cdwbebg67n7": {
+      "id": "Cdwbebg67n7",
+      "qualified_name": "register",
+      "simple_name": "register",
+      "kind": "function",
+      "language": "typescript",
+      "file": "Fsl53ybvr6f",
+      "start_line": 3,
+      "end_line": 3,
+      "start_byte": 97,
+      "end_byte": 147,
+      "signature_hint": "function register(cb: () => number)"
+    },
+    "Crllmo0jj9y": {
+      "id": "Crllmo0jj9y",
+      "qualified_name": "caller",
+      "simple_name": "caller",
+      "kind": "function",
+      "language": "typescript",
+      "file": "Fevkag4r4b9",
+      "start_line": 5,
+      "end_line": 12,
+      "start_byte": 165,
+      "end_byte": 289,
+      "signature_hint": "function caller()"
+    },
+    "C1mx0mdfwzt": {
+      "id": "C1mx0mdfwzt",
+      "qualified_name": "shadow",
+      "simple_name": "shadow",
+      "kind": "function",
+      "language": "typescript",
+      "file": "Fevkag4r4b9",
+      "start_line": 13,
+      "end_line": 13,
+      "start_byte": 297,
+      "end_byte": 353,
+      "signature_hint": "function shadow(alias: () => number)"
+    },
+    "C5zrl4fjvx7": {
+      "id": "C5zrl4fjvx7",
+      "qualified_name": "lazy",
+      "simple_name": "lazy",
+      "kind": "function",
+      "language": "typescript",
+      "file": "Fevkag4r4b9",
+      "start_line": 14,
+      "end_line": 14,
+      "start_byte": 361,
+      "end_byte": 441,
+      "signature_hint": "async function lazy()"
+    },
+    "C6aqzvne4cf": {
+      "id": "C6aqzvne4cf",
+      "qualified_name": "target",
+      "simple_name": "target",
+      "kind": "function",
+      "language": "typescript",
+      "file": "F6oj9m70f0j",
+      "start_line": 1,
+      "end_line": 1,
+      "start_byte": 7,
+      "end_byte": 38,
+      "signature_hint": "function target()"
+    }
+  },
+  "files": {
+    "Fuq5uivqg5": {
+      "id": "Fuq5uivqg5",
+      "path": "/tmp/bygone-tool-analysis/fixtures/ts/barrel.ts",
+      "language": "typescript",
+      "detected_via": "extension:.ts",
+      "blake3": "a6d41f034633cedccf69bca220f85cd142481f881355dd4da404a68e4850e518",
+      "size_bytes": 48,
+      "lines": 1,
+      "parse_ms": 0.046958,
+      "parse_status": "ok"
+    },
+    "Fsl53ybvr6f": {
+      "id": "Fsl53ybvr6f",
+      "path": "/tmp/bygone-tool-analysis/fixtures/ts/lib.ts",
+      "language": "typescript",
+      "detected_via": "extension:.ts",
+      "blake3": "81f88d0629bb4bbfeb14078b847cde5fdf6894ac44ac44241e0596f754fe939a",
+      "size_bytes": 148,
+      "lines": 3,
+      "parse_ms": 0.055708,
+      "parse_status": "ok"
+    },
+    "Fevkag4r4b9": {
+      "id": "Fevkag4r4b9",
+      "path": "/tmp/bygone-tool-analysis/fixtures/ts/main.ts",
+      "language": "typescript",
+      "detected_via": "extension:.ts",
+      "blake3": "f7b2b7a8b8d274436853f66dd8490c361e43b80aa223be4ad42706ab087c161f",
+      "size_bytes": 442,
+      "lines": 14,
+      "parse_ms": 0.064458,
+      "parse_status": "ok"
+    },
+    "F6oj9m70f0j": {
+      "id": "F6oj9m70f0j",
+      "path": "/tmp/bygone-tool-analysis/fixtures/ts/other.ts",
+      "language": "typescript",
+      "detected_via": "extension:.ts",
+      "blake3": "d681b8036e237c9ee9685fb45a3e9680201ec4284e416239c46ce16b687db0be",
+      "size_bytes": 39,
+      "lines": 1,
+      "parse_ms": 0.032042,
+      "parse_status": "ok"
+    }
+  },
+  "edges": [
+    {
+      "src": "Cjv8gy3b33o",
+      "dst": "C43s67wfrwv",
+      "site_line": 2,
+      "site_byte": 76,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "intra-file"
+    },
+    {
+      "src": "Crllmo0jj9y",
+      "dst": "C43s67wfrwv",
+      "site_line": 6,
+      "site_byte": 187,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "Crllmo0jj9y",
+      "dst": "C6aqzvne4cf",
+      "site_line": 7,
+      "site_byte": 198,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "Crllmo0jj9y",
+      "dst": "C43s67wfrwv",
+      "site_line": 8,
+      "site_byte": 209,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "Crllmo0jj9y",
+      "dst": "Cjv8gy3b33o",
+      "site_line": 10,
+      "site_byte": 255,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "Crllmo0jj9y",
+      "dst": "Cdwbebg67n7",
+      "site_line": 11,
+      "site_byte": 271,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "C5zrl4fjvx7",
+      "dst": "C43s67wfrwv",
+      "site_line": 14,
+      "site_byte": 428,
+      "confidence": "medium",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "C5zrl4fjvx7",
+      "dst": "C6aqzvne4cf",
+      "site_line": 14,
+      "site_byte": 428,
+      "confidence": "medium",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    }
+  ],
+  "unresolved": [
+    {
+      "src": "Crllmo0jj9y",
+      "file": "Fevkag4r4b9",
+      "site_line": 9,
+      "site_byte": 239,
+      "name": "Worker",
+      "reason": {
+        "stage": "class-without-explicit-init"
+      }
+    }
+  ],
+  "file_audits": [],
+  "metrics": {
+    "wall_ms": 1.975792,
+    "phases": {
+      "walk_ms": 0.4445,
+      "parse_ms": 0.199166,
+      "extract_ms": 1.325793,
+      "resolve_ms": 0.0,
+      "link_ms": 0.729209,
+      "query_ms": 0.0,
+      "format_ms": 0.0
+    },
+    "files_discovered": 6,
+    "files_analyzed": 4,
+    "files_skipped": 2,
+    "files_errored": 0,
+    "bytes_processed": 677,
+    "callables": 7,
+    "edges": 8,
+    "unresolved_calls": 2,
+    "stdlib_calls": 0,
+    "external_calls": 5,
+    "ffi_detected": 0,
+    "ffi_resolved": 0,
+    "peak_rss_bytes": 0,
+    "by_language": {
+      "typescript": {
+        "files": 4,
+        "callables": 7,
+        "edges": 1,
+        "unresolved": 2,
+        "stdlib": 0,
+        "external": 5
+      }
+    },
+    "cycles": [],
+    "longest_path_len": 0,
+    "confidence_histogram": {
+      "high": 6,
+      "medium": 2,
+      "low": 0
+    }
+  }
+}

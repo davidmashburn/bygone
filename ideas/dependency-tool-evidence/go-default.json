@@ -1,0 +1,276 @@
+{
+  "schema": "cgg.graph.v2",
+  "cgg_version": "0.11.2",
+  "callables": {
+    "Cn0p7oyvpqc": {
+      "id": "Cn0p7oyvpqc",
+      "qualified_name": "lib.Target",
+      "simple_name": "Target",
+      "kind": "function",
+      "language": "go",
+      "file": "Fj11ag40hyx",
+      "start_line": 2,
+      "end_line": 2,
+      "start_byte": 12,
+      "end_byte": 42,
+      "signature_hint": "func Target() int",
+      "vis": "public"
+    },
+    "Cog0p725m4s": {
+      "id": "Cog0p725m4s",
+      "qualified_name": "lib.Worker.Run",
+      "simple_name": "Run",
+      "kind": "method",
+      "language": "go",
+      "file": "Fj11ag40hyx",
+      "start_line": 4,
+      "end_line": 4,
+      "start_byte": 64,
+      "end_byte": 109,
+      "signature_hint": "func (w Worker) Run() int",
+      "vis": "public"
+    },
+    "C1poc963ee0": {
+      "id": "C1poc963ee0",
+      "qualified_name": "lib.Register",
+      "simple_name": "Register",
+      "kind": "function",
+      "language": "go",
+      "file": "Fj11ag40hyx",
+      "start_line": 5,
+      "end_line": 5,
+      "start_byte": 110,
+      "end_byte": 163,
+      "signature_hint": "func Register(cb func() int) func() int",
+      "vis": "public"
+    },
+    "Cve25bxlo30": {
+      "id": "Cve25bxlo30",
+      "qualified_name": "main.init",
+      "simple_name": "init",
+      "kind": "function",
+      "language": "go",
+      "file": "Fdkpi3xgvca",
+      "start_line": 4,
+      "end_line": 4,
+      "start_byte": 93,
+      "end_byte": 119,
+      "signature_hint": "func init()",
+      "vis": "internal"
+    },
+    "Cjw2c07hwwz": {
+      "id": "Cjw2c07hwwz",
+      "qualified_name": "main.caller",
+      "simple_name": "caller",
+      "kind": "function",
+      "language": "go",
+      "file": "Fdkpi3xgvca",
+      "start_line": 5,
+      "end_line": 11,
+      "start_byte": 120,
+      "end_byte": 234,
+      "signature_hint": "func caller()",
+      "vis": "internal"
+    },
+    "C6yde5z5459": {
+      "id": "C6yde5z5459",
+      "qualified_name": "main.shadow",
+      "simple_name": "shadow",
+      "kind": "function",
+      "language": "go",
+      "file": "Fdkpi3xgvca",
+      "start_line": 12,
+      "end_line": 12,
+      "start_byte": 235,
+      "end_byte": 279,
+      "signature_hint": "func shadow(a func() int) int",
+      "vis": "internal"
+    },
+    "C11wo04z0co0": {
+      "id": "C11wo04z0co0",
+      "qualified_name": "main.main",
+      "simple_name": "main",
+      "kind": "function",
+      "language": "go",
+      "file": "Fdkpi3xgvca",
+      "start_line": 13,
+      "end_line": 13,
+      "start_byte": 280,
+      "end_byte": 304,
+      "signature_hint": "func main()",
+      "vis": "internal"
+    },
+    "Cybxbgyqwkz": {
+      "id": "Cybxbgyqwkz",
+      "qualified_name": "other.Target",
+      "simple_name": "Target",
+      "kind": "function",
+      "language": "go",
+      "file": "Fliadsr0jwu",
+      "start_line": 2,
+      "end_line": 2,
+      "start_byte": 14,
+      "end_byte": 44,
+      "signature_hint": "func Target() int",
+      "vis": "public"
+    }
+  },
+  "files": {
+    "Fj11ag40hyx": {
+      "id": "Fj11ag40hyx",
+      "path": "/tmp/bygone-tool-analysis/fixtures/go/lib/lib.go",
+      "language": "go",
+      "detected_via": "extension:.go",
+      "blake3": "e12272958ea31383460c0da198a1a815344a8cd517bea26867e8ee434454f5d0",
+      "size_bytes": 164,
+      "lines": 5,
+      "parse_ms": 0.6982079999999999,
+      "parse_status": "ok"
+    },
+    "Fdkpi3xgvca": {
+      "id": "Fdkpi3xgvca",
+      "path": "/tmp/bygone-tool-analysis/fixtures/go/main.go",
+      "language": "go",
+      "detected_via": "extension:.go",
+      "blake3": "e7a85fa9058c90cea5bd1a25573fccfba4ae3a2c57ffe7e711378f91adf17ce2",
+      "size_bytes": 305,
+      "lines": 13,
+      "parse_ms": 0.7340829999999999,
+      "parse_status": "ok"
+    },
+    "Fliadsr0jwu": {
+      "id": "Fliadsr0jwu",
+      "path": "/tmp/bygone-tool-analysis/fixtures/go/other/other.go",
+      "language": "go",
+      "detected_via": "extension:.go",
+      "blake3": "ee06b62afe593a96aec9af6bc64b00736aa3f35a14536287e9026c811ade1a16",
+      "size_bytes": 45,
+      "lines": 2,
+      "parse_ms": 0.678042,
+      "parse_status": "ok"
+    }
+  },
+  "edges": [
+    {
+      "src": "Cog0p725m4s",
+      "dst": "Cn0p7oyvpqc",
+      "site_line": 4,
+      "site_byte": 99,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "intra-file"
+    },
+    {
+      "src": "C11wo04z0co0",
+      "dst": "Cjw2c07hwwz",
+      "site_line": 13,
+      "site_byte": 294,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "intra-file"
+    },
+    {
+      "src": "Cve25bxlo30",
+      "dst": "Cn0p7oyvpqc",
+      "site_line": 4,
+      "site_byte": 107,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "Cjw2c07hwwz",
+      "dst": "Cn0p7oyvpqc",
+      "site_line": 6,
+      "site_byte": 140,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "Cjw2c07hwwz",
+      "dst": "Cybxbgyqwkz",
+      "site_line": 7,
+      "site_byte": 155,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "Cjw2c07hwwz",
+      "dst": "Cog0p725m4s",
+      "site_line": 9,
+      "site_byte": 195,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    },
+    {
+      "src": "Cjw2c07hwwz",
+      "dst": "C1poc963ee0",
+      "site_line": 10,
+      "site_byte": 212,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    }
+  ],
+  "unresolved": [],
+  "file_audits": [],
+  "metrics": {
+    "wall_ms": 2.6228330000000004,
+    "phases": {
+      "walk_ms": 0.451625,
+      "parse_ms": 2.110333,
+      "extract_ms": 0.055792000000000286,
+      "resolve_ms": 0.0,
+      "link_ms": 0.674791,
+      "query_ms": 0.0,
+      "format_ms": 0.0
+    },
+    "files_discovered": 4,
+    "files_analyzed": 3,
+    "files_skipped": 1,
+    "files_errored": 0,
+    "bytes_processed": 514,
+    "callables": 8,
+    "edges": 7,
+    "unresolved_calls": 0,
+    "stdlib_calls": 0,
+    "external_calls": 1,
+    "ffi_detected": 0,
+    "ffi_resolved": 0,
+    "peak_rss_bytes": 0,
+    "by_language": {
+      "go": {
+        "files": 3,
+        "callables": 8,
+        "edges": 2,
+        "unresolved": 0,
+        "stdlib": 0,
+        "external": 1
+      }
+    },
+    "cycles": [],
+    "longest_path_len": 0,
+    "confidence_histogram": {
+      "high": 7,
+      "medium": 0,
+      "low": 0
+    }
+  }
+}

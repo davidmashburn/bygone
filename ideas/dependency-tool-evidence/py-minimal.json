@@ -1,0 +1,115 @@
+{
+  "schema": "cgg.graph.v2",
+  "cgg_version": "0.11.2",
+  "callables": {
+    "Ccsrxo4xr2p": {
+      "id": "Ccsrxo4xr2p",
+      "qualified_name": "lib.target",
+      "simple_name": "target",
+      "kind": "function",
+      "language": "python",
+      "file": "Ftdtbh8ipn1",
+      "start_line": 1,
+      "end_line": 2,
+      "start_byte": 0,
+      "end_byte": 26,
+      "signature_hint": "def target()",
+      "vis": "public"
+    },
+    "C7ffq8hh4vg": {
+      "id": "C7ffq8hh4vg",
+      "qualified_name": "main.shadow",
+      "simple_name": "shadow",
+      "kind": "function",
+      "language": "python",
+      "file": "Fbyhvgfc68i",
+      "start_line": 2,
+      "end_line": 3,
+      "start_byte": 32,
+      "end_byte": 69,
+      "signature_hint": "def shadow(alias)",
+      "vis": "public"
+    }
+  },
+  "files": {
+    "Ftdtbh8ipn1": {
+      "id": "Ftdtbh8ipn1",
+      "path": "/tmp/bygone-tool-analysis/minimal/py/lib.py",
+      "language": "python",
+      "detected_via": "extension:.py",
+      "blake3": "f32eb34f8a8b582e985e766921493a0ef7878e59068b8793c78f41b71b92f12a",
+      "size_bytes": 27,
+      "lines": 2,
+      "parse_ms": 0.884667,
+      "parse_status": "ok"
+    },
+    "Fbyhvgfc68i": {
+      "id": "Fbyhvgfc68i",
+      "path": "/tmp/bygone-tool-analysis/minimal/py/main.py",
+      "language": "python",
+      "detected_via": "extension:.py",
+      "blake3": "d62b2752893abd861caf48d17146d50701e5e187cb866e053eab65ad180a2fb9",
+      "size_bytes": 70,
+      "lines": 3,
+      "parse_ms": 0.8842500000000001,
+      "parse_status": "ok"
+    }
+  },
+  "edges": [
+    {
+      "src": "C7ffq8hh4vg",
+      "dst": "Ccsrxo4xr2p",
+      "site_line": 3,
+      "site_byte": 62,
+      "confidence": "high",
+      "via": {
+        "kind": "direct"
+      },
+      "resolver": "cross-file:imports"
+    }
+  ],
+  "unresolved": [],
+  "file_audits": [],
+  "metrics": {
+    "wall_ms": 3.03225,
+    "phases": {
+      "walk_ms": 0.32175,
+      "parse_ms": 1.768917,
+      "extract_ms": 0.9358330000000001,
+      "resolve_ms": 0.0,
+      "link_ms": 0.6904170000000001,
+      "query_ms": 0.0,
+      "format_ms": 0.0
+    },
+    "files_discovered": 2,
+    "files_analyzed": 2,
+    "files_skipped": 0,
+    "files_errored": 0,
+    "bytes_processed": 97,
+    "callables": 2,
+    "edges": 1,
+    "unresolved_calls": 0,
+    "stdlib_calls": 0,
+    "external_calls": 1,
+    "ffi_detected": 0,
+    "ffi_resolved": 0,
+    "peak_rss_bytes": 0,
+    "by_language": {
+      "python": {
+        "files": 2,
+        "callables": 2,
+        "edges": 0,
+        "unresolved": 0,
+        "stdlib": 0,
+        "external": 1
+      }
+    },
+    "cycles": [],
+    "longest_path_len": 0,
+    "confidence_histogram": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+    }
+  }
+}

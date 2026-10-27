@@ -1,0 +1,8 @@
+Command:
+node -e 'const fs=require("fs"); const lines=fs.readFileSync("/tmp/bygone-tool-analysis-scip/fixture/consumer.ts","utf8").split("\n"); const line=lines[4]; const token="aliased"; const i=line.indexOf(token); console.log(JSON.stringify({line, codeUnitIndex:i, utf8Bytes:Buffer.byteLength(line.slice(0,i),"utf8"), tokenLength:token.length, lineLengthCodeUnits:line.length, lineLengthUtf8:Buffer.byteLength(line,"utf8")}));'
+
+Observed:
+{"line":"const unicodeCall = '🦕' && aliased(3);","codeUnitIndex":28,"utf8Bytes":30,"tokenLength":7,"lineLengthCodeUnits":39,"lineLengthUtf8":41}
+SCIP occurrence in index.json: consumer.ts range [4,28,35]
+
+Interpretation: scip-typescript 0.4.0 emits the TypeScript/JavaScript UTF-16 code-unit position, despite its index metadata setting text_document_encoding to UTF8. The v0.10.0 SCIP schema has a newer per-document position_encoding field; this older index does not set it.
