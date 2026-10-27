@@ -106,8 +106,10 @@ ${historyOptions}
         dependencies)
             if [[ "$previous" == "--output" || "$previous" == "-o" ]]; then
                 _files
+            elif [[ "$previous" == "--python-root" ]]; then
+                _files -/
             else
-                compadd -- --base --json --output -o
+                compadd -- --base --json --graph --mermaid --html --python-root --output -o
                 _bygone_git_refs
             fi
             ;;
@@ -211,8 +213,11 @@ _bygone() {
             if [[ "$prev" == "--output" || "$prev" == "-o" ]]; then
                 COMPREPLY=( $(compgen -f -- "$cur") )
                 compopt -o filenames 2>/dev/null || true
+            elif [[ "$prev" == "--python-root" ]]; then
+                COMPREPLY=( $(compgen -d -- "$cur") )
+                compopt -o filenames 2>/dev/null || true
             else
-                COMPREPLY=( $(compgen -W '--base --json --output -o '"$(_bygone_git_refs)" -- "$cur") )
+                COMPREPLY=( $(compgen -W '--base --json --graph --mermaid --html --python-root --output -o '"$(_bygone_git_refs)" -- "$cur") )
             fi
             ;;
         review)
@@ -279,6 +284,10 @@ function generateFishCompletion() {
     lines.push(
         "complete -c bygone -n 'string match -q \"*tour context*\" -- (commandline -opc)' -l dependencies -d 'Include static module dependency evidence'",
         "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l base -r -a '(__bygone_git_refs)' -d 'Set the dependency comparison base'",
+        "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l graph -d 'Analyze multilingual symbols and calls'",
+        "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l mermaid -d 'Export a Mermaid head graph'",
+        "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l html -d 'Export a standalone interactive graph'",
+        "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l python-root -r -d 'Set a repository-relative Python import root'",
         "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l json -d 'Print dependency evidence as JSON'",
         "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l output -s o -r -d 'Write dependency evidence'",
         "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -a '(__bygone_git_refs)' -d 'Git ref'",

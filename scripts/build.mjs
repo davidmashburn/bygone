@@ -1,4 +1,4 @@
-import { rm, readFile, writeFile } from 'fs/promises';
+import { rm, readFile, writeFile, cp, mkdir } from 'fs/promises';
 import { createHash } from 'crypto';
 import { build } from 'esbuild';
 
@@ -31,8 +31,18 @@ await rm('out/standalone-preload.js.map', { force: true });
 await rm('web/web-host.js', { force: true });
 await rm('web/web-host.js.map', { force: true });
 
-for (const name of ['followEdits', 'followSnapshots', 'liveSymbols', 'followBaseline', 'changeCorrespondence', 'panelOrder', 'workspaceGit', 'workspaceHistory', 'historyDirectory', 'revisionView', 'workspacePrompt', 'tourReading', 'tourFeedback', 'tourOrientation', 'deepLink', 'deepLinkResolver', 'requirements', 'reviewWorkspace', 'reviewDependencies', 'dependencyGraph']) {
+for (const name of ['followEdits', 'followSnapshots', 'liveSymbols', 'followBaseline', 'changeCorrespondence', 'panelOrder', 'workspaceGit', 'workspaceHistory', 'historyDirectory', 'revisionView', 'workspacePrompt', 'tourReading', 'tourFeedback', 'tourOrientation', 'deepLink', 'deepLinkResolver', 'requirements', 'reviewWorkspace', 'reviewDependencies', 'dependencyGraph', 'dependencyEvidence', 'dependencyTypescript']) {
     await build({ ...sharedOptions, entryPoints: [`src/${name}.ts`], outfile: `out/${name}.js`, platform: 'node', format: 'cjs', target: 'node18' });
+}
+
+await build({ ...sharedOptions, entryPoints: ['src/dependencyParsers.js'], outfile: 'out/dependencyParsers.js', platform: 'node', format: 'cjs', target: 'node18' });
+await cp('src/dependencyEvidenceWorker.js', 'out/dependencyEvidenceWorker.js');
+await cp('node_modules/web-tree-sitter/web-tree-sitter.wasm', 'out/web-tree-sitter.wasm');
+await cp('node_modules/web-tree-sitter/LICENSE', 'out/web-tree-sitter-LICENSE.txt');
+await mkdir('out/grammars', { recursive: true });
+for (const name of ['go', 'rust', 'mojo']) {
+    await cp(`packages/strand/src/grammars/tree-sitter-${name}.wasm`, `out/grammars/tree-sitter-${name}.wasm`);
+    await cp(`packages/strand/src/grammars/${name}-LICENSE.txt`, `out/grammars/${name}-LICENSE.txt`);
 }
 
 await build({ ...sharedOptions, entryPoints: ['src/liveSymbolsWorker.js'], outfile: 'out/liveSymbolsWorker.js', platform: 'node', format: 'cjs', target: 'node16', minify: true });

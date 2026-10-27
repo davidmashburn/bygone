@@ -85,10 +85,91 @@ UTF-8 text. Links are local to the repository that generated the report. Equal
 base/head revisions and paths outside the deep-link grammar retain coordinates
 without a link. No source content is embedded in the dependency report itself.
 
-Runtime trace ingestion, resolved symbol/call graphs and visual graph layout are
-later slices. No workload is run to generate this evidence.
+Runtime trace ingestion remains a later slice. The opt-in symbol/call graphs and
+visual exports below use a separate schema. No workload is run to generate this evidence.
 
 The [validation corpus and measured results](../scripts/dependency-benchmark/README.md)
 cover labeled module edges, source evidence, bounded scale and pinned public
 repositories. The historical baseline documents compatibility and metadata gaps; the follow-up validation records their fixes. Complete indexing is not proof that runtime
 loading is valid.
+
+## Multilingual symbol and call evidence
+
+The opt-in version 2 report adds symbol nodes and individual dependency sites:
+
+```sh
+bygone dependencies HEAD --base main --graph --json --output dependencies.json
+bygone dependencies HEAD --base main --html --output dependencies.html
+bygone dependencies HEAD --base main --mermaid --output dependencies.mmd
+```
+
+`--html` and `--mermaid` imply `--graph`. The original command and tour-context
+integration continue to produce the version 1 JS/TS module report described
+above. The two versions have different schemas; consumers should check
+`version` and, for version 2, `kind: "dependency-evidence"`.
+
+The HTML file works offline without a server or downloaded scripts. It offers
+base/head selection, language, relationship and evaluation-phase filters,
+file/symbol search, direct-neighbor selection, and a table of source sites.
+Source links open the pinned comparison in Bygone. Mermaid exports the head
+snapshot for embedding in other tools. Both views cap diagrams at 150 nodes
+and 300 sites and disclose truncation; use JSON for the entire bounded index.
+These views are CLI exports, not panels embedded in the desktop or extension.
+
+### Evidence model
+
+Each snapshot contains `nodes`, `sites`, `producers`, `diagnostics`, and
+`coverage`. Nodes represent module initialization scopes, functions, or classes.
+Sites distinguish `import`, `reexport`, `call`, `construct`, and `reference`:
+passing a function as a callback is a reference, not evidence that it was called.
+
+Every node and site has a repository-relative file, commit OID, blob OID,
+half-open UTF-16 range, one-based line/column, source-slice SHA-256, and a Bygone
+link when representable. IDs are local to a snapshot; they are not stable
+symbol identities across edits. The version 2 report provides both snapshots,
+without asserting that syntactic node IDs establish cross-revision identity.
+
+A site records its owner, producer, evaluation phase, and resolution status.
+`resolved` means that the adapter identified a source binding whose target
+exists in the validated snapshot inventory. It does **not** prove execution,
+reachability, or a runtime dispatch target. Ambiguous, unresolved, external,
+and unsupported sites remain explicit. A resolved call must target a symbol;
+resolving only its imported module is insufficient.
+
+Phases are `module-init`, `invocation`, `type`, or `unknown`. Import-time work
+and function-body work remain separate. This is not a transitive startup graph:
+a top-level call does not automatically relabel its callee's body. Rust constant
+evaluation and uncertain Mojo phases must not be interpreted as runtime
+initialization. There is currently no runtime trace collection or ingestion.
+
+### Adapter coverage
+
+| Language | Producer and intended scope | Boundaries |
+| --- | --- | --- |
+| Python | Installed Python 3 AST parser in isolated mode; explicit source roots, imports, function/class scopes and direct bindings | No target imports or execution; dynamic attributes, callbacks, decorators and rebinding can prevent target resolution; parser syntax support follows installed Python |
+| JS/TS | Bundled TypeScript compiler over in-memory committed files; symbol bindings, relative imports, direct calls and references | No installed libraries, bundler execution, or runtime dispatch proof; the version 1 module report remains available for its separate configuration-aware import analysis |
+| Go | Pinned Tree-sitter syntax, imports and conservative source bindings | No compiler/type checking, build-tag selection, interface dispatch, or generated code |
+| Rust | Pinned Tree-sitter syntax, modules/use sites and conservative direct bindings | No Cargo builds, cfg evaluation, macro expansion, or trait-dispatch proof |
+| Mojo | Pinned experimental grammar, imports and conservative source bindings | Grammar-version-specific syntax; uncertain evaluation phases and dispatch remain explicit |
+
+Python defaults to repository root and `src` as import roots. Specify all
+project roots explicitly when that layout differs; repeated options replace
+the defaults. The report records them in `configuration.pythonRoots`:
+
+```sh
+bygone dependencies --base main --graph --python-root . --python-root services/api
+```
+
+Adapters receive only bounded, committed source/metadata inputs. Python requires
+`python3` on PATH; Go, Rust, and Mojo use shipped WASM grammars and require no
+language toolchain. Missing parsers, malformed sources, invalid adapter ranges,
+encoding failures and exhausted budgets produce diagnostics and partial
+coverage. Unresolved targets do not by themselves mean a file was unindexed;
+check both `indexComplete` and `unresolvedSites`. No graph is proof that two
+components are independent.
+
+The initial index shares the 20,000-record snapshot cap across declarations
+and sites. Reference-heavy repositories can exhaust it before all files are
+indexed; later targets then remain unresolved. A smoke run against Bygone's
+own source reached that cap. Check coverage before using a whole-repository
+graph; better budget allocation and analysis scoping remain follow-up work.

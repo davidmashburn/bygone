@@ -3,26 +3,35 @@ const path = require('path');
 
 function runDependenciesCommand(args, cwd, output = process.stdout) {
     let headRef, baseRef, outputPath;
-    let json = false;
+    let json = false, graph = false, mermaid = false, html = false;
+    const pythonRoots = [];
     for (let index = 0; index < args.length; index++) {
         const arg = args[index];
+        if (arg === '--graph') { graph = true; continue; }
+        if (arg === '--mermaid') { graph = true; mermaid = true; continue; }
+        if (arg === '--html') { graph = true; html = true; continue; }
         if (arg === '--json') { json = true; continue; }
-        if (['--base', '-m', '--main', '--output', '-o'].includes(arg)) {
+        if (['--base', '-m', '--main', '--output', '-o', '--python-root'].includes(arg)) {
             const value = args[++index];
             if (!value || value.startsWith('-')) throw new Error(`${arg} requires a value.`);
             if (['--output', '-o'].includes(arg)) outputPath = value;
+            else if (arg === '--python-root') { pythonRoots.push(value === '.' ? '' : value); graph = true; }
             else baseRef = value;
         } else if (arg.startsWith('-') || headRef) throw new Error(`Unexpected dependencies argument: ${arg}`);
         else headRef = arg;
     }
-    const { buildDependencyGraph } = require('../out/dependencyGraph.js');
-    const report = buildDependencyGraph(cwd, { headRef, baseRef });
+    if ([json, mermaid, html].filter(Boolean).length > 1) throw new Error('Choose one of --json, --mermaid, or --html.');
+    const build = graph ? require('../out/dependencyEvidence.js').buildDependencyEvidence : require('../out/dependencyGraph.js').buildDependencyGraph;
+    const report = build(cwd, { headRef, baseRef, ...(pythonRoots.length ? { pythonRoots } : {}) });
+    const view = graph ? require('./dependency-view') : undefined;
+    const rendered = mermaid ? view.renderMermaid(report) : html ? view.renderEvidenceHtml(report)
+        : json || outputPath ? `${JSON.stringify(report, null, 2)}\n` : graph ? view.renderEvidenceSummary(report) : renderDependencyReport(report);
     if (outputPath) {
         const resolved = path.resolve(cwd, outputPath);
         mkdirSync(path.dirname(resolved), { recursive: true });
-        writeFileSync(resolved, `${JSON.stringify(report, null, 2)}\n`);
+        writeFileSync(resolved, rendered);
         output.write(`Wrote dependency evidence to ${resolved}\n`);
-    } else output.write(json ? `${JSON.stringify(report, null, 2)}\n` : renderDependencyReport(report));
+    } else output.write(rendered);
     return report;
 }
 

@@ -15,7 +15,7 @@ _bygone() {
     root_items=(
         'evidence:Inspect, import, refresh, or present pinned review evidence'
         'review:Review a committed branch against its merge base'
-        'dependencies:Compare static JS/TS module dependencies at committed revisions'
+        'dependencies:Inspect static module and multilingual symbol dependencies'
         'correspondence:Import externally produced symbol correspondence evidence'
         'completion:Print shell completion source'
         'present:Open an app-hosted tour of a committed branch range'
@@ -95,8 +95,10 @@ _bygone() {
         dependencies)
             if [[ "$previous" == "--output" || "$previous" == "-o" ]]; then
                 _files
+            elif [[ "$previous" == "--python-root" ]]; then
+                _files -/
             else
-                compadd -- --base --json --output -o
+                compadd -- --base --json --graph --mermaid --html --python-root --output -o
                 _bygone_git_refs
             fi
             ;;
