@@ -162,6 +162,15 @@ initialization. There is currently no runtime trace collection or ingestion.
 | Rust | Pinned Tree-sitter syntax, modules/use sites, visible direct bindings, and `self`/`super` paths | No Cargo builds, cfg evaluation, macro expansion, or trait-dispatch proof |
 | Mojo | Pinned experimental grammar, imports and conservative source bindings | Grammar-version-specific syntax; uncertain evaluation phases and dispatch remain explicit |
 
+Rust module resolution currently supports `src/lib.rs` and `src/main.rs` roots
+with ordinary nested modules. Cargo binary targets (`src/bin/*.rs` and
+`src/bin/*/main.rs`), examples, tests, benches, and custom target paths are outside
+the supported layout. Their syntax may appear in the inventory, but module and
+crate-relative targets are not reliable. Multiple crate roots remain ambiguous;
+the adapter does not evaluate Cargo target configuration. Supporting binary
+targets requires tracking a file's identity in each crate, since the same source
+file can also be included as another target's module.
+
 Python defaults to repository root and `src` as import roots. Specify all
 project roots explicitly when that layout differs; repeated options replace
 the defaults. The report records them in `configuration.pythonRoots`:

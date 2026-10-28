@@ -1077,7 +1077,14 @@ function resolveRustCall(context, callee, owner, index, cargo, scopePath, module
     if (sameFile.length && imported && localDepth === importDepth) {
         return { resolution: 'unresolved', reason: 'rust-local-import-collision' };
     }
-    if (sameFile.length && (!imported || localDepth > importDepth)) return chooseCandidates(sameFile);
+    if (sameFile.length && (!imported || localDepth > importDepth)) {
+        // A nearer invalid declaration still shadows outer imports. Do not
+        // discard it before deciding precedence and accidentally resolve those.
+        if (sameFile.some(entry => !rustEntryVisible(entry, context, context, modulePath))) {
+            return { resolution: 'unresolved', reason: 'rust-path-target-not-visible' };
+        }
+        return chooseCandidates(sameFile);
+    }
     if (imported?.ambiguous) return { resolution: 'unresolved', reason: 'rust-import-ambiguous' };
     if (imported) {
         const resolved = imported.resolution?.kind === 'local'
@@ -1087,7 +1094,6 @@ function resolveRustCall(context, callee, owner, index, cargo, scopePath, module
         if (resolved.kind === 'external') return { resolution: 'external', reason: 'rust-external-path' };
         return { resolution: 'unresolved', reason: resolved.reason || 'rust-import-unresolved' };
     }
-    if (sameFile.length) return chooseCandidates(sameFile.filter(entry => !entry.signatureOnly));
     if (declaredEntriesForName(index, context.file, name, 'rust').length) {
         return { resolution: 'unresolved', reason: 'rust-name-not-visible-in-module' };
     }

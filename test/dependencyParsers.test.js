@@ -190,6 +190,30 @@ test('Rust direct calls compare local and import lexical depths conservatively',
     assert.equal(collisionCall.target, undefined);
 });
 
+test('Rust direct calls validate restricted visibility without falling back to outer imports', async () => {
+    const source = [
+        'mod source { pub fn target() {} }',
+        'mod parent {',
+        '    use super::source::target;',
+        '    pub(in crate::parent) fn valid() {}',
+        '    pub(in crate::other) fn invalid() {}',
+        '    pub(in external) fn unknown() {}',
+        '    fn call() { valid(); invalid(); unknown(); }',
+        '    fn shadow() { pub(in crate::other) fn target() {} target(); }',
+        '}',
+        ''
+    ].join('\n');
+    const document = (await analyzeParserDependencies({ 'src/lib.rs': source })).documents['src/lib.rs'];
+    const calls = sites(document, 'call');
+    assert.equal(calls.find(site => site.name === 'valid').resolution, 'resolved');
+    for (const name of ['invalid', 'unknown', 'target']) {
+        const call = calls.find(site => site.name === name);
+        assert.equal(call.resolution, 'unresolved');
+        assert.equal(call.reason, 'rust-path-target-not-visible');
+        assert.equal(call.target, undefined);
+    }
+});
+
 test('Rust module candidates include inline ancestors and do not fall back to flat files', async () => {
     const inline = await analyzeParserDependencies({
         'src/lib.rs': 'mod a { mod b; pub fn run(){ b::f(); }}\n',
