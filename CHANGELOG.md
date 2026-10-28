@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.2
+
+- Added Space to start, pause, and resume tour narration, plus Shift+Left/Right Arrow to skip sentences while playing or paused
+- Added Mac keyboard and supported system media controls after narration starts, with media-key ownership released on Stop or completion
+- Preserved normal keyboard behavior in editors, inputs, dialogs, focused buttons, and selected text; shortcuts also work with narration controls collapsed
+- Documented media-key activation and added narration shortcut and media-session regression coverage
+
 ## 0.11.1
 
 - Added pinned evidence reviews in the CLI and VS Code, with explicit refresh, source validation, and return-to-review navigation
