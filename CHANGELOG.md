@@ -6,6 +6,7 @@
 - Added Mac keyboard and supported system media controls after narration starts, with media-key ownership released on Stop or completion
 - Preserved normal keyboard behavior in editors, inputs, dialogs, focused buttons, and selected text; shortcuts also work with narration controls collapsed
 - Documented media-key activation and added narration shortcut and media-session regression coverage
+- Fixed following mode retaining a stale text comparison when opening built-in image previews in newer VS Code versions
 
 ## 0.11.1
 

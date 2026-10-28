@@ -254,12 +254,17 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
         this.schedule();
     }
     private tabChanged(): void {
-        if (this.mode === 'following' && vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputTextDiff) this.select(vscode.window.activeTextEditor);
+        const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+        const input = tab?.input;
+        if (this.mode === 'following' && tab && (input instanceof vscode.TabInputTextDiff
+            || input instanceof vscode.TabInputNotebook || input instanceof vscode.TabInputNotebookDiff
+            || input instanceof vscode.TabInputCustom || input === undefined)) this.select(vscode.window.activeTextEditor);
     }
     private select(editor: vscode.TextEditor | undefined): void {
         if (editor && this.recoveryUris.has(editor.document.uri.toString())) return;
         this.blockedInput = undefined;
-        const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+        const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+        const input = tab?.input;
         if (input instanceof vscode.TabInputTextDiff) {
             if (!vscode.workspace.getConfiguration('bygone').get<boolean>('followScmDiffs', false)) {
                 this.blockInput('SCM diff following is off. Enable Bygone: Follow SCM Diffs or use Open in Bygone in Source Control.'); return;
@@ -269,7 +274,10 @@ export class FollowController implements vscode.Disposable, vscode.WebviewPanelS
             if (JSON.stringify(target) !== JSON.stringify(this.target)) this.setTarget(target);
             return;
         }
-        if (input instanceof vscode.TabInputNotebook || input instanceof vscode.TabInputNotebookDiff || input instanceof vscode.TabInputCustom) {
+        // Built-in image previews in newer VS Code versions have an active tab
+        // but no typed input. They must clear the previous text comparison too.
+        if (input instanceof vscode.TabInputNotebook || input instanceof vscode.TabInputNotebookDiff || input instanceof vscode.TabInputCustom
+            || (tab && input === undefined)) {
             this.blockInput('Notebook, custom and binary editors cannot be followed. Open a local text source file.'); return;
         }
         if (!editor || editor.document.uri.scheme === 'bygone-snapshot') {

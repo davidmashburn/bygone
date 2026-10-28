@@ -140,11 +140,12 @@ exports.run = async function() {
             await until(() => message().follow.unavailable && /SCM diff following is off/.test(message().follow.status), 'native diff state');
             await show(0); await ready('A.ts');
         });
-        await test('binary custom editors clear the previous source', async () => {
+        await test('binary image editors clear the previous source', async () => {
             const uri = vscode.Uri.file(path.join(fixture, 'pixel.png'));
             fs.writeFileSync(uri.fsPath, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aE9sAAAAASUVORK5CYII=', 'base64'));
             await vscode.commands.executeCommand('vscode.openWith', uri, 'imagePreview.previewEditor', { viewColumn: vscode.ViewColumn.One });
-            await until(() => message().follow.unavailable && /custom and binary/.test(message().follow.status), 'image unavailable');
+            await until(() => message().follow.unavailable && /custom and binary/.test(message().follow.status), 'image unavailable')
+                .catch(error => { console.error('Image editor state:', JSON.stringify({ follow: message()?.follow, tab: vscode.window.tabGroups.activeTabGroup.activeTab?.label, input: vscode.window.tabGroups.activeTabGroup.activeTab?.input })); throw error; });
             assert.equal(message().rightContent, '');
             await show(0); await ready('A.ts');
         });
