@@ -95,10 +95,12 @@ _bygone() {
         dependencies)
             if [[ "$previous" == "--output" || "$previous" == "-o" ]]; then
                 _files
+            elif [[ "$previous" == "--scope" ]]; then
+                _files
             elif [[ "$previous" == "--python-root" ]]; then
                 _files -/
             else
-                compadd -- --base --json --graph --mermaid --html --python-root --output -o
+                compadd -- --base --json --graph --mermaid --html --python-root --scope --output -o
                 _bygone_git_refs
             fi
             ;;

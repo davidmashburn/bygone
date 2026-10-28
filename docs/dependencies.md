@@ -110,10 +110,20 @@ above. The two versions have different schemas; consumers should check
 
 The HTML file works offline without a server or downloaded scripts. It offers
 base/head selection, language, relationship and evaluation-phase filters,
-file/symbol search, direct-neighbor selection, and a table of source sites.
-Source links open the pinned comparison in Bygone. Mermaid exports the head
-snapshot for embedding in other tools. Both views cap diagrams at 150 nodes
-and 300 sites and disclose truncation; use JSON for the entire bounded index.
+folder/file/symbol views, search, direct-neighbor selection, and a table of source
+sites. ELK layered layout routes relationships between nodes; fit, zoom, drag to
+pan, and horizontal/vertical direction controls navigate the graph. Larger indexes
+open at folder level; select a folder or file and inspect its contents to drill
+down. References are hidden by default and can be selected with the relationship
+filter. Repeated relationships are combined with site counts; selecting an edge
+shows its original evidence. Source links open the pinned comparison in Bygone.
+
+Mermaid exports the grouped head snapshot for embedding in other tools. It omits
+references and within-group sites; unresolved sites remain in JSON and HTML. Both
+views cap diagrams at 150 nodes and 300 aggregated relationships, disclose
+truncation, and retain the selected node when its neighborhood exceeds the cap.
+Use JSON for the entire bounded index. The HTML embeds ELK and its license, so it
+needs no network access to render.
 These views are CLI exports, not panels embedded in the desktop or extension.
 
 ### Evidence model
@@ -149,7 +159,7 @@ initialization. There is currently no runtime trace collection or ingestion.
 | Python | Installed Python 3 AST parser in isolated mode; explicit source roots, imports, function/class scopes and direct bindings | No target imports or execution; dynamic attributes, callbacks, decorators and rebinding can prevent target resolution; parser syntax support follows installed Python |
 | JS/TS | Bundled TypeScript compiler over in-memory committed files; symbol bindings, relative imports, direct calls and references | No installed libraries, bundler execution, or runtime dispatch proof; the version 1 module report remains available for its separate configuration-aware import analysis |
 | Go | Pinned Tree-sitter syntax, imports and conservative source bindings | No compiler/type checking, build-tag selection, interface dispatch, or generated code |
-| Rust | Pinned Tree-sitter syntax, modules/use sites and conservative direct bindings | No Cargo builds, cfg evaluation, macro expansion, or trait-dispatch proof |
+| Rust | Pinned Tree-sitter syntax, modules/use sites, visible direct bindings, and `self`/`super` paths | No Cargo builds, cfg evaluation, macro expansion, or trait-dispatch proof |
 | Mojo | Pinned experimental grammar, imports and conservative source bindings | Grammar-version-specific syntax; uncertain evaluation phases and dispatch remain explicit |
 
 Python defaults to repository root and `src` as import roots. Specify all
@@ -168,8 +178,29 @@ coverage. Unresolved targets do not by themselves mean a file was unindexed;
 check both `indexComplete` and `unresolvedSites`. No graph is proof that two
 components are independent.
 
-The initial index shares the 20,000-record snapshot cap across declarations
-and sites. Reference-heavy repositories can exhaust it before all files are
-indexed; later targets then remain unresolved. A smoke run against Bygone's
-own source reached that cap. Check coverage before using a whole-repository
-graph; better budget allocation and analysis scoping remain follow-up work.
+The index shares the 20,000-record snapshot cap across declarations and sites.
+Declarations are inventoried first, round-robin across files, then imports,
+reexports, calls and constructions receive priority over references. Site
+allocation also distributes space across files. Exhausting any budget still
+produces partial coverage: `indexedFiles` counts complete declaration inventories,
+while `indexComplete: false` and `record-budget` diagnostics can indicate omitted
+sites even when every file has declarations.
+
+Whole-repository analysis can also exhaust the shared 30-second analysis budget
+before both revisions finish. Each revision reports its own coverage and adapter
+diagnostics; use a narrower scope when either side is incomplete.
+
+Use repeated `--scope` options to analyze selected repository-relative files or
+directories. This opts into the version 2 graph and applies to both revisions:
+
+```sh
+bygone dependencies --base main --scope src --scope cli --html --output graph.html
+```
+
+Scopes match exact files or directory boundaries, not globs. `.` selects the whole
+repository; no scopes is also whole-repository analysis. The report records the
+normalized selection in `configuration.scopes`. Coverage counts describe that
+selection only. Source targets outside it are not indexed, so a scoped report
+cannot establish independence from the rest of the repository. Relevant ancestor
+metadata remains available within the same file/byte budgets. A scope matching
+no source files produces an empty inventory.

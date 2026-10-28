@@ -18,7 +18,7 @@ const CLI_SPEC = Object.freeze({
         'bygone tour compile <file.bygone> [--output <tour.json>]',
         'bygone tour context [<head>] [--base <base>] [--output <context.json>] [--correspondence <artifact.json>] [--dependencies]',
         'bygone evidence <inspect|import|refresh|tour> <review.json> [--head <revision>] [--output <new-file>]',
-        'bygone dependencies [<head>] [--base <base>] [--graph] [--json | --mermaid | --html] [--output <file>] [--python-root <path>]',
+        'bygone dependencies [<head>] [--base <base>] [--graph] [--json | --mermaid | --html] [--output <file>] [--python-root <path>] [--scope <path>]',
         'bygone correspondence import <report.json> [<head>] [--base <base>] [--case <id>] --output <artifact.json>',
         'bygone tour coverage <file.bygone> [--json] [--minimum-coverage <0-100>]',
         'bygone tour export <file.bygone> --output <tour.html> [--profile minimal|full] [--runtime embedded|cdn]',

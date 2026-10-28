@@ -68,6 +68,8 @@ await copyFile('out/changeTour.js');
 await copyFile('out/dependencyGraph.js');
 await copyFile('out/dependencyEvidence.js');
 await copyFile('out/dependencyEvidenceWorker.js');
+await copyFile('out/dependency-layout.js');
+await copyFile('out/dependency-layout-LICENSE.txt');
 await copyFile('out/dependencyTypescript.js');
 await copyFile('out/dependencyParsers.js');
 await copyFile('out/web-tree-sitter.wasm');

@@ -37,6 +37,9 @@ for (const name of ['followEdits', 'followSnapshots', 'liveSymbols', 'followBase
 
 await build({ ...sharedOptions, entryPoints: ['src/dependencyParsers.js'], outfile: 'out/dependencyParsers.js', platform: 'node', format: 'cjs', target: 'node18' });
 await cp('src/dependencyEvidenceWorker.js', 'out/dependencyEvidenceWorker.js');
+// Kept separate from application bundles; embedded only in optional offline graph exports.
+await cp('node_modules/elkjs/lib/elk.bundled.js', 'out/dependency-layout.js');
+await cp('node_modules/elkjs/LICENSE.md', 'out/dependency-layout-LICENSE.txt');
 await cp('node_modules/web-tree-sitter/web-tree-sitter.wasm', 'out/web-tree-sitter.wasm');
 await cp('node_modules/web-tree-sitter/LICENSE', 'out/web-tree-sitter-LICENSE.txt');
 await mkdir('out/grammars', { recursive: true });

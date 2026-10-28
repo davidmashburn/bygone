@@ -40,14 +40,14 @@ _bygone() {
             fi
             ;;
         dependencies)
-            if [[ "$prev" == "--output" || "$prev" == "-o" ]]; then
+            if [[ "$prev" == "--output" || "$prev" == "-o" || "$prev" == "--scope" ]]; then
                 COMPREPLY=( $(compgen -f -- "$cur") )
                 compopt -o filenames 2>/dev/null || true
             elif [[ "$prev" == "--python-root" ]]; then
                 COMPREPLY=( $(compgen -d -- "$cur") )
                 compopt -o filenames 2>/dev/null || true
             else
-                COMPREPLY=( $(compgen -W '--base --json --graph --mermaid --html --python-root --output -o '"$(_bygone_git_refs)" -- "$cur") )
+                COMPREPLY=( $(compgen -W '--base --json --graph --mermaid --html --python-root --scope --output -o '"$(_bygone_git_refs)" -- "$cur") )
             fi
             ;;
         review)

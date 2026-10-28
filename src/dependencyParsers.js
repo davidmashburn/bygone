@@ -253,7 +253,7 @@ function createContext(file, source, language) {
         records: 0, traversed: 0, truncated: false,
         diagnostics: [], nodes: [], sites: [], declarations: [], declarationByKey: new Map(),
         wrapperOwnerByKey: new Map(), nameNodeKeys: new Set(), bindingCache: new Map(),
-        importBindings: new Map(), rustModules: new Map(), goImports: new Map(),
+        importBindings: new Map(), rustModules: new Map(), rustModulePaths: [], rustModulePath: null, goImports: new Map(),
         rootNode: null, tree: null, parser: null
     };
     if (addRecord(context)) {
@@ -303,6 +303,93 @@ function rustModulePathForAncestors(ancestors) {
     return pathParts;
 }
 
+function rustVisibility(node) {
+    const visibility = namedChildren(node).find(child => child.type === 'visibility_modifier');
+    if (!visibility) return 'private';
+    const value = textOf(visibility).replace(/\s+/gu, ' ').trim();
+    const compact = value.replace(/\s/gu, '');
+    if (compact === 'pub' || compact === 'pub(crate)') return 'public';
+    if (compact === 'pub(super)') return 'super';
+    if (/^pub\s*\(\s*in\b/u.test(value)) {
+        const match = /^pub\s*\(\s*in\s+([^)]+)\)$/u.exec(value);
+        const path = match?.[1].split('::').map(part => part.trim());
+        if (!path?.length || path.some(part => !/^[\p{L}_][\p{L}\p{N}_]*$/u.test(part))) return { kind: 'unknown' };
+        return { kind: 'restricted', path };
+    }
+    return 'private';
+}
+
+function samePath(left, right) {
+    return left.length === right.length && left.every((part, index) => part === right[index]);
+}
+
+function pathStartsWith(pathValue, prefix) {
+    return prefix.length <= pathValue.length && prefix.every((part, index) => part === pathValue[index]);
+}
+
+function rustPathForContext(context, modulePath, callerContext) {
+    if (Array.isArray(context.rustModulePath)) return [...context.rustModulePath, ...modulePath];
+    if (context === callerContext) return [...modulePath];
+    return null;
+}
+
+function rustVisibilityAllows(visibility, definitionPath, callerPath) {
+    if (visibility === 'public') return true;
+    if (!Array.isArray(definitionPath) || !Array.isArray(callerPath)) return false;
+    let visibleFrom;
+    if (visibility === 'super') {
+        visibleFrom = definitionPath.slice(0, -1);
+    } else if (visibility?.kind === 'restricted') {
+        const path = visibility.path;
+        if (!Array.isArray(path) || !path.length) return false;
+        if (path[0] === 'crate') {
+            visibleFrom = [];
+            for (let offset = 1; offset < path.length; offset++) {
+                if (path[offset] === 'crate' || path[offset] === 'self' || path[offset] === 'super') return false;
+                visibleFrom.push(path[offset]);
+            }
+        } else if (path[0] === 'self') {
+            visibleFrom = [...definitionPath];
+            for (let offset = 1; offset < path.length; offset++) {
+                if (path[offset] === 'crate' || path[offset] === 'self' || path[offset] === 'super') return false;
+                visibleFrom.push(path[offset]);
+            }
+        } else if (path[0] === 'super') {
+            visibleFrom = [...definitionPath];
+            let offset = 0;
+            while (path[offset] === 'super') {
+                if (!visibleFrom.length) return false;
+                visibleFrom.pop();
+                offset += 1;
+            }
+            for (; offset < path.length; offset++) {
+                if (path[offset] === 'crate' || path[offset] === 'self') return false;
+                visibleFrom.push(path[offset]);
+            }
+        } else {
+            return false;
+        }
+        if (!pathStartsWith(definitionPath, visibleFrom)) return false;
+    } else if (visibility?.kind === 'unknown') {
+        return false;
+    } else {
+        visibleFrom = definitionPath;
+    }
+    return pathStartsWith(callerPath, visibleFrom);
+}
+
+function rustEntryVisible(entry, targetContext, callerContext, callerModulePath) {
+    const definitionPath = rustPathForContext(targetContext, entry.modulePath || [], callerContext);
+    const callerPath = rustPathForContext(callerContext, callerModulePath, callerContext);
+    return rustVisibilityAllows(entry.visibility || 'private', definitionPath, callerPath);
+}
+
+function rustModuleVisible(module, ownerContext, callerContext, callerModulePath) {
+    const definitionPath = rustPathForContext(ownerContext, module.modulePath || [], callerContext);
+    const callerPath = rustPathForContext(callerContext, callerModulePath, callerContext);
+    return rustVisibilityAllows(module.visibility || 'private', definitionPath, callerPath);
+}
+
 function isVisibleInScope(entry, scopePath) {
     const entryPath = entry.scopePath || [];
     if (entryPath.length > scopePath.length) return false;
@@ -326,7 +413,7 @@ function visibleRustBinding(context, name, scopePath, modulePath = []) {
     if (!visible.length) return null;
     const deepest = Math.max(...visible.map(entry => (entry.scopePath || []).length));
     const candidates = visible.filter(entry => (entry.scopePath || []).length === deepest);
-    return candidates.length === 1 ? candidates[0] : { ambiguous: true };
+    return candidates.length === 1 ? candidates[0] : { ambiguous: true, scopePath: candidates[0].scopePath };
 }
 
 function nearestVisible(entries, scopePath) {
@@ -345,7 +432,8 @@ function addDeclaration(context, ast, description, wrapper, ancestors = []) {
     const id = `${name}@${range.start}`;
     const entry = { id, file: context.file, name, baseName: description.baseName || name, kind: description.kind,
         start: range.start, end: range.end, callable: description.callable === true, method: description.method === true,
-        signatureOnly: description.signatureOnly === true, scopePath: scopePathForAncestors(context.language, ancestors), ast, nameNode: description.nameNode };
+        signatureOnly: description.signatureOnly === true, scopePath: scopePathForAncestors(context.language, ancestors), ast, nameNode: description.nameNode,
+        ...(context.language === 'rust' ? { modulePath: rustModulePathForAncestors(ancestors), visibility: rustVisibility(ast) } : {}) };
     context.declarations.push(entry);
     context.declarationByKey.set(key, entry);
     if (wrapper) context.wrapperOwnerByKey.set(nodeKey(wrapper), entry);
@@ -513,8 +601,8 @@ function rustModuleParent(context) {
     return joinPath(dirname(file), stem);
 }
 
-function rustModuleCandidate(context, moduleName, index) {
-    const parent = rustModuleParent(context);
+function rustModuleCandidate(context, moduleName, modulePath, index) {
+    const parent = joinPath(rustModuleParent(context), ...(modulePath || []));
     const candidates = [joinPath(parent, moduleName + '.rs'), joinPath(parent, moduleName, 'mod.rs')]
         .filter(candidate => [...index.values()].some(item => item.language === 'rust' && normalizeFile(item.file) === candidate));
     if (candidates.length !== 1) return null;
@@ -536,10 +624,26 @@ function resolveRustPath(context, pathText, index, cargo, scopePath = [], module
     const parts = pathText.replace(/\s+/gu, '').split('::').filter(Boolean);
     if (!parts.length) return { kind: 'unresolved', reason: 'rust-empty-use-path' };
     let current = context;
-    let offset;
+    let offset = 0;
     let lookupScopePath = scopePath;
     let lookupModulePath = [...modulePath];
     let targetScopePath = [...modulePath];
+    const moveSuper = () => {
+        if (lookupModulePath.length) {
+            lookupModulePath = lookupModulePath.slice(0, -1);
+            lookupScopePath = [...lookupModulePath];
+            targetScopePath = [...lookupModulePath];
+            return null;
+        }
+        const origins = rustModuleOrigins(index, current);
+        if (origins.length !== 1) return { kind: 'unresolved', reason: 'rust-super-module-unresolved' };
+        const origin = origins[0];
+        current = origin.context;
+        lookupScopePath = [...origin.module.scopePath];
+        lookupModulePath = [...origin.module.modulePath];
+        targetScopePath = [...lookupModulePath];
+        return null;
+    };
     const descend = (entry) => {
         if (entry.inline) {
             targetScopePath = [...(entry.modulePath || []), entry.name];
@@ -561,21 +665,61 @@ function resolveRustPath(context, pathText, index, cargo, scopePath = [], module
     } else if (parts[0] === 'self') {
         offset = 1;
     } else if (parts[0] === 'super') {
-        return { kind: 'unresolved', reason: 'rust-super-module-unresolved' };
-    } else {
-        const module = visibleRustModule(context, parts[0], scopePath, modulePath);
-        if (!module) return { kind: 'external' };
-        const failure = descend(module);
+        const failure = moveSuper();
         if (failure) return failure;
         offset = 1;
     }
+    if (offset >= parts.length) return { kind: 'unresolved', reason: 'rust-empty-use-path' };
     for (; offset < parts.length - 1; offset++) {
-        const module = visibleRustModule(current, parts[offset], lookupScopePath, lookupModulePath);
-        if (!module) return { kind: 'unresolved', reason: 'rust-module-path-unresolved' };
+        const part = parts[offset];
+        if (part === 'super') {
+            const failure = moveSuper();
+            if (failure) return failure;
+            continue;
+        }
+        if (part === 'crate' || part === 'self') return { kind: 'unresolved', reason: 'rust-module-path-unresolved' };
+        const module = visibleRustModule(current, part, lookupScopePath, lookupModulePath);
+        if (!module) {
+            const declared = (current.rustModules.get(part) || []).some(entry => samePath(entry.modulePath || [], lookupModulePath));
+            return offset === 0 && !declared ? { kind: 'external' } : { kind: 'unresolved', reason: 'rust-module-path-unresolved' };
+        }
+        if (!rustModuleVisible(module, current, context, modulePath)) {
+            return { kind: 'unresolved', reason: 'rust-module-not-visible' };
+        }
         const failure = descend(module);
         if (failure) return failure;
     }
-    return { kind: 'local', file: current.file, name: parts[parts.length - 1], scopePath: targetScopePath };
+
+    const terminal = parts[parts.length - 1];
+    if (terminal === 'crate' || terminal === 'self' || terminal === 'super') {
+        return { kind: 'unresolved', reason: 'rust-path-target-not-found' };
+    }
+    const declarations = current.declarations.filter(entry => entry.baseName === terminal && !entry.method && !entry.signatureOnly
+        && samePath(entry.scopePath || [], targetScopePath));
+    const visibleDeclarations = declarations.filter(entry => rustEntryVisible(entry, current, context, modulePath));
+    if (visibleDeclarations.length > 1) return { kind: 'unresolved', reason: 'rust-path-target-ambiguous' };
+    if (visibleDeclarations.length === 1) {
+        const entry = visibleDeclarations[0];
+        return { kind: 'local', file: current.file, name: terminal, scopePath: entry.scopePath, entry };
+    }
+
+    const module = visibleRustModule(current, terminal, lookupScopePath, lookupModulePath);
+    if (module) {
+        if (!rustModuleVisible(module, current, context, modulePath)) {
+            return { kind: 'unresolved', reason: 'rust-module-not-visible' };
+        }
+        if (module.inline) {
+            return { kind: 'local', file: current.file, name: terminal,
+                scopePath: [...(module.modulePath || []), module.name], targetKind: 'module', module };
+        }
+        if (!module.target) return { kind: 'unresolved', reason: 'rust-module-file-not-found' };
+        return { kind: 'local', file: module.target.file, name: terminal, scopePath: [], targetKind: 'module', module };
+    }
+
+    const declared = declarations.length || (current.rustModules.get(terminal) || []).some(entry => samePath(entry.modulePath || [], lookupModulePath));
+    if (declared) return { kind: 'unresolved', reason: 'rust-path-target-not-visible' };
+    if (offset === 0 && parts.length === 1) return { kind: 'external' };
+    return { kind: 'unresolved', reason: 'rust-path-target-not-found' };
 }
 
 function collectRustModules(context, index) {
@@ -586,9 +730,10 @@ function collectRustModules(context, index) {
         const module = {
             name: textOf(name), node, inline: Boolean(field(node, 'body')),
             scopePath: scopePathForAncestors('rust', ancestors),
-            modulePath: rustModulePathForAncestors(ancestors)
+            modulePath: rustModulePathForAncestors(ancestors),
+            visibility: rustVisibility(node)
         };
-        module.target = module.inline ? null : rustModuleCandidate(context, module.name, index);
+        module.target = module.inline ? null : rustModuleCandidate(context, module.name, module.modulePath, index);
         const entries = context.rustModules.get(module.name) || [];
         entries.push(module);
         context.rustModules.set(module.name, entries);
@@ -601,6 +746,66 @@ function collectRustModules(context, index) {
         return true;
     });
     if (context.truncated) addDiagnostic(context, 'truncated', `Dependency AST traversal/output was truncated at ${MAX_TRAVERSAL_NODES} traversed nodes or ${MAX_RECORDS} records.`);
+}
+
+function rustRootContexts(index, cargoMetadata) {
+    const roots = new Set();
+    for (const cargo of cargoMetadata) {
+        for (const context of rustRootCandidates(null, index, cargo)) roots.add(context);
+    }
+    if (roots.size) return [...roots];
+    return [...index.values()].filter(context => context.language === 'rust'
+        && /(?:^|\/)(?:lib|main)\.rs$/u.test(normalizeFile(context.file)));
+}
+
+function addRustModulePath(context, modulePath) {
+    // Two distinct paths already make ownership ambiguous. Capping here also
+    // terminates invalid recursive module declarations without expanding paths forever.
+    if (context.rustModulePaths.length < 2 && !context.rustModulePaths.some(existing => samePath(existing, modulePath))) {
+        context.rustModulePaths.push(modulePath);
+    }
+}
+
+function assignRustModulePaths(index, cargoMetadata) {
+    const contexts = [...index.values()].filter(context => context.language === 'rust');
+    for (const context of contexts) {
+        context.rustModulePaths = [];
+        context.rustModulePath = null;
+    }
+    for (const root of rustRootContexts(index, cargoMetadata)) addRustModulePath(root, []);
+
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const context of contexts) {
+            for (const module of context.rustModules.values()) {
+                for (const entry of module) {
+                    if (entry.inline || !entry.target) continue;
+                    for (const parentPath of context.rustModulePaths) {
+                        const targetPath = [...parentPath, ...(entry.modulePath || []), entry.name];
+                        const before = entry.target.rustModulePaths.length;
+                        addRustModulePath(entry.target, targetPath);
+                        if (entry.target.rustModulePaths.length !== before) changed = true;
+                    }
+                }
+            }
+        }
+    }
+    for (const context of contexts) {
+        if (context.rustModulePaths.length === 1) context.rustModulePath = context.rustModulePaths[0];
+    }
+}
+
+function rustModuleOrigins(index, target) {
+    const origins = [];
+    for (const context of index.values()) {
+        for (const entries of context.rustModules.values()) {
+            for (const module of entries) {
+                if (!module.inline && module.target === target) origins.push({ context, module });
+            }
+        }
+    }
+    return origins;
 }
 
 function collectRustImports(context, index, cargo) {
@@ -809,6 +1014,14 @@ function chooseCandidates(candidates) {
     return { resolution: 'unresolved' };
 }
 
+function resolveRustCallTarget(resolved) {
+    if (resolved.kind !== 'local') return { resolution: 'unresolved', reason: resolved.reason || 'rust-path-unresolved' };
+    if (resolved.targetKind === 'module' || !resolved.entry) {
+        return { resolution: 'unresolved', reason: 'rust-path-target-not-callable' };
+    }
+    return chooseCandidates([resolved.entry]);
+}
+
 function resolveGoCall(context, callee, owner, index, goMetadata, scopePath) {
     const name = callee.name;
     const bindings = bindingNames(context, owner);
@@ -846,37 +1059,35 @@ function resolveGoCall(context, callee, owner, index, goMetadata, scopePath) {
 function resolveRustCall(context, callee, owner, index, cargo, scopePath, modulePath = []) {
     if (callee.kind === 'scoped') {
         const first = callee.name.split('::')[0];
-        const knownModule = first === 'crate' || first === 'self'
+        const knownModule = first === 'crate' || first === 'self' || first === 'super'
             || Boolean(visibleRustModule(context, first, scopePath, modulePath));
         if (!knownModule) return { resolution: 'unsupported', reason: 'rust-path-or-method-dispatch' };
         const resolved = resolveRustPath(context, callee.name, index, cargo, scopePath, modulePath);
-        if (resolved.kind === 'local') {
-            const targetContext = [...index.values()].find(item => item.file === resolved.file);
-            return targetContext ? chooseCandidates(targetContext.declarations.filter(entry => entry.baseName === resolved.name && !entry.method && !entry.signatureOnly
-                && JSON.stringify(entry.scopePath || []) === JSON.stringify(resolved.scopePath || [])))
-                : { resolution: 'unresolved', reason: 'rust-path-target-not-found' };
-        }
+        if (resolved.kind === 'local') return resolveRustCallTarget(resolved);
         if (resolved.kind === 'external') return { resolution: 'external', reason: 'rust-external-path' };
         return { resolution: 'unresolved', reason: resolved.reason || 'rust-path-unresolved' };
     }
     if (callee.kind !== 'direct') return { resolution: 'unsupported', reason: 'rust-path-or-method-dispatch' };
     const name = callee.name;
     if (bindingNames(context, owner).has(name)) return { resolution: 'unresolved', reason: 'rust-shadowed-local-binding' };
-    const sameFile = entriesForName(index, context.file, name, 'rust', scopePath);
-    if (sameFile.length) return chooseCandidates(sameFile.filter(entry => !entry.signatureOnly));
+    const sameFile = entriesForName(index, context.file, name, 'rust', scopePath).filter(entry => !entry.signatureOnly);
     const imported = visibleRustBinding(context, name, scopePath, modulePath);
+    const localDepth = sameFile.length ? (sameFile[0].scopePath || []).length : -1;
+    const importDepth = imported ? (imported.scopePath || []).length : -1;
+    if (sameFile.length && imported && localDepth === importDepth) {
+        return { resolution: 'unresolved', reason: 'rust-local-import-collision' };
+    }
+    if (sameFile.length && (!imported || localDepth > importDepth)) return chooseCandidates(sameFile);
     if (imported?.ambiguous) return { resolution: 'unresolved', reason: 'rust-import-ambiguous' };
     if (imported) {
         const resolved = imported.resolution?.kind === 'local'
             ? imported.resolution
             : resolveRustPath(context, imported.path, index, cargo, imported.scopePath, imported.modulePath);
-        if (resolved.kind === 'local') {
-            const targetContext = [...index.values()].find(item => item.file === resolved.file);
-            return targetContext ? chooseCandidates(targetContext.declarations.filter(entry => entry.baseName === resolved.name && !entry.method && !entry.signatureOnly
-                && JSON.stringify(entry.scopePath || []) === JSON.stringify(resolved.scopePath || []))) : { resolution: 'unresolved', reason: 'rust-import-target-not-found' };
-        }
+        if (resolved.kind === 'local') return resolveRustCallTarget(resolved);
         if (resolved.kind === 'external') return { resolution: 'external', reason: 'rust-external-path' };
+        return { resolution: 'unresolved', reason: resolved.reason || 'rust-import-unresolved' };
     }
+    if (sameFile.length) return chooseCandidates(sameFile.filter(entry => !entry.signatureOnly));
     if (declaredEntriesForName(index, context.file, name, 'rust').length) {
         return { resolution: 'unresolved', reason: 'rust-name-not-visible-in-module' };
     }
@@ -1094,6 +1305,7 @@ async function analyzeParserDependencies(files) {
         else if (context.language === 'rust') collectRustModules(context, index);
         else collectMojoImports(context);
     }
+    assignRustModulePaths(index, cargoMetadata);
     for (const context of contexts) {
         if (context.language === 'rust') collectRustImports(context, index, cargoForContext(context, cargoMetadata));
     }

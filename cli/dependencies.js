@@ -4,25 +4,26 @@ const path = require('path');
 function runDependenciesCommand(args, cwd, output = process.stdout) {
     let headRef, baseRef, outputPath;
     let json = false, graph = false, mermaid = false, html = false;
-    const pythonRoots = [];
+    const pythonRoots = [], scopes = [];
     for (let index = 0; index < args.length; index++) {
         const arg = args[index];
         if (arg === '--graph') { graph = true; continue; }
         if (arg === '--mermaid') { graph = true; mermaid = true; continue; }
         if (arg === '--html') { graph = true; html = true; continue; }
         if (arg === '--json') { json = true; continue; }
-        if (['--base', '-m', '--main', '--output', '-o', '--python-root'].includes(arg)) {
+        if (['--base', '-m', '--main', '--output', '-o', '--python-root', '--scope'].includes(arg)) {
             const value = args[++index];
             if (!value || value.startsWith('-')) throw new Error(`${arg} requires a value.`);
             if (['--output', '-o'].includes(arg)) outputPath = value;
             else if (arg === '--python-root') { pythonRoots.push(value === '.' ? '' : value); graph = true; }
+            else if (arg === '--scope') { scopes.push(value); graph = true; }
             else baseRef = value;
         } else if (arg.startsWith('-') || headRef) throw new Error(`Unexpected dependencies argument: ${arg}`);
         else headRef = arg;
     }
     if ([json, mermaid, html].filter(Boolean).length > 1) throw new Error('Choose one of --json, --mermaid, or --html.');
     const build = graph ? require('../out/dependencyEvidence.js').buildDependencyEvidence : require('../out/dependencyGraph.js').buildDependencyGraph;
-    const report = build(cwd, { headRef, baseRef, ...(pythonRoots.length ? { pythonRoots } : {}) });
+    const report = build(cwd, { headRef, baseRef, ...(pythonRoots.length ? { pythonRoots } : {}), ...(scopes.length ? { scopes } : {}) });
     const view = graph ? require('./dependency-view') : undefined;
     const rendered = mermaid ? view.renderMermaid(report) : html ? view.renderEvidenceHtml(report)
         : json || outputPath ? `${JSON.stringify(report, null, 2)}\n` : graph ? view.renderEvidenceSummary(report) : renderDependencyReport(report);

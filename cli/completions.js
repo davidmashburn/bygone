@@ -106,10 +106,12 @@ ${historyOptions}
         dependencies)
             if [[ "$previous" == "--output" || "$previous" == "-o" ]]; then
                 _files
+            elif [[ "$previous" == "--scope" ]]; then
+                _files
             elif [[ "$previous" == "--python-root" ]]; then
                 _files -/
             else
-                compadd -- --base --json --graph --mermaid --html --python-root --output -o
+                compadd -- --base --json --graph --mermaid --html --python-root --scope --output -o
                 _bygone_git_refs
             fi
             ;;
@@ -210,14 +212,14 @@ _bygone() {
             fi
             ;;
         dependencies)
-            if [[ "$prev" == "--output" || "$prev" == "-o" ]]; then
+            if [[ "$prev" == "--output" || "$prev" == "-o" || "$prev" == "--scope" ]]; then
                 COMPREPLY=( $(compgen -f -- "$cur") )
                 compopt -o filenames 2>/dev/null || true
             elif [[ "$prev" == "--python-root" ]]; then
                 COMPREPLY=( $(compgen -d -- "$cur") )
                 compopt -o filenames 2>/dev/null || true
             else
-                COMPREPLY=( $(compgen -W '--base --json --graph --mermaid --html --python-root --output -o '"$(_bygone_git_refs)" -- "$cur") )
+                COMPREPLY=( $(compgen -W '--base --json --graph --mermaid --html --python-root --scope --output -o '"$(_bygone_git_refs)" -- "$cur") )
             fi
             ;;
         review)
@@ -287,6 +289,7 @@ function generateFishCompletion() {
         "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l graph -d 'Analyze multilingual symbols and calls'",
         "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l mermaid -d 'Export a Mermaid head graph'",
         "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l html -d 'Export a standalone interactive graph'",
+        "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l scope -r -d 'Analyze a repository-relative file or directory'",
         "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l python-root -r -d 'Set a repository-relative Python import root'",
         "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l json -d 'Print dependency evidence as JSON'",
         "complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l output -s o -r -d 'Write dependency evidence'",

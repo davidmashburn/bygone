@@ -16,6 +16,27 @@ const input = {
     'app.mojo': 'def target():\n    pass\n\ndef main():\n    target()\n'
 };
 const fixture = () => correspondenceFixture({ before: input, after: { ...input, 'app.py': input['app.py'] + '# changed\n' } });
+test('scopes bound the committed inventory, preserve unknown targets, and respect path boundaries', () => {
+    const before = { 'src/app.py': 'from lib import target\ntarget()\n', 'lib.py': 'def target():\n    pass\n',
+        'src-extra/other.py': 'pass\n', 'extra/one.py': 'pass\n' };
+    const f = correspondenceFixture({ before, after: { ...before, 'src/app.py': before['src/app.py'] + '# changed\n' } });
+    try {
+        const cli = path.resolve(__dirname, '../bin/bygone.js');
+        const report = JSON.parse(execFileSync(process.execPath, [cli, 'dependencies', '--base', f.range.baseOid,
+            '--scope', './src/', '--scope', 'extra/one.py', '--json'], { cwd: f.root, encoding: 'utf8' }));
+        assert.deepEqual(report.configuration.scopes, ['src', 'extra/one.py']);
+        assert.equal(report.head.coverage.candidateFiles, 2);
+        assert.equal(report.head.coverage.indexedFiles, 2);
+        assert.deepEqual(new Set(report.head.nodes.map(n => n.source.file)), new Set(['src/app.py', 'extra/one.py']));
+        assert.notEqual(report.head.sites.find(s => s.relation === 'call').resolution, 'resolved');
+        for (const scope of ['../src', '/src', 'C:/src', 'src\\app.py']) {
+            assert.throws(() => buildDependencyEvidence(f.root, { baseRef: f.range.baseOid, scopes: [scope] }), /repository-relative/);
+        }
+        const empty = buildDependencyEvidence(f.root, { baseRef: f.range.baseOid, scopes: ['missing'] });
+        assert.equal(empty.head.coverage.candidateFiles, 0);
+        assert.equal(empty.head.nodes.length, 0);
+    } finally { f.dispose(); }
+});
 test('multilingual graph keeps committed source anchors and resolved targets valid', () => {
     const f = fixture();
     try {

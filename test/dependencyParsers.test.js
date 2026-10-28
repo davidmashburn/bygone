@@ -4,6 +4,11 @@ const { analyzeParserDependencies } = require('../src/dependencyParsers');
 
 const sites = (document, relation) => document.sites.filter(site => !relation || site.relation === relation);
 
+test('recursive Rust module declarations cannot expand module ownership indefinitely', async () => {
+    const result = await analyzeParserDependencies({ 'src/main.rs': 'mod main; fn main() {}' });
+    assert.equal(result.documents['src/main.rs'].status, 'complete');
+});
+
 test('Go records imports, module-init initializers, and resolved cross-file calls', async () => {
     const files = {
         'go.mod': 'module example.com/demo\ngo 1.22\n',
@@ -150,6 +155,196 @@ test('Rust files without mod declarations do not create visible modules', async 
 
     assert.notEqual(call.resolution, 'resolved');
     assert.equal(call.target, undefined);
+});
+
+test('Rust direct calls compare local and import lexical depths conservatively', async () => {
+    const source = [
+        'mod source { pub fn target() {} }',
+        'fn target() {}',
+        'mod child {',
+        '    use super::source::target;',
+        '    fn outer() { fn target() {} target(); }',
+        '    fn imported() { target(); }',
+        '}',
+        'mod collision {',
+        '    use super::source::target;',
+        '    fn target() {}',
+        '    fn call() { target(); }',
+        '}',
+        ''
+    ].join('\n');
+    const document = (await analyzeParserDependencies({ 'src/lib.rs': source })).documents['src/lib.rs'];
+    const calls = sites(document, 'call').filter(site => site.name === 'target');
+    const sourceTarget = document.nodes.find(node => node.name === 'target' && node.start === source.indexOf('pub fn target'));
+    const nestedTargetStart = source.indexOf('fn target() {}', source.indexOf('fn outer'));
+    const nestedTarget = document.nodes.find(node => node.name === 'target' && node.start === nestedTargetStart);
+    const localCall = calls.find(site => site.owner.startsWith('outer@'));
+    const importedCall = calls.find(site => site.owner.startsWith('imported@'));
+    const collisionCall = calls.find(site => site.owner.startsWith('call@'));
+
+    assert.equal(localCall.resolution, 'resolved');
+    assert.equal(localCall.target.node, nestedTarget.id);
+    assert.equal(importedCall.resolution, 'resolved');
+    assert.equal(importedCall.target.node, sourceTarget.id);
+    assert.equal(collisionCall.resolution, 'unresolved');
+    assert.equal(collisionCall.target, undefined);
+});
+
+test('Rust module candidates include inline ancestors and do not fall back to flat files', async () => {
+    const inline = await analyzeParserDependencies({
+        'src/lib.rs': 'mod a { mod b; pub fn run(){ b::f(); }}\n',
+        'src/b.rs': 'pub fn f() {}\n',
+        'src/a/b.rs': 'pub fn f() {}\n'
+    });
+    const inlineCall = sites(inline.documents['src/lib.rs'], 'call').find(site => site.name === 'b::f');
+
+    assert.equal(inlineCall.resolution, 'resolved');
+    assert.equal(inlineCall.target.file, 'src/a/b.rs');
+
+    const flatOnly = await analyzeParserDependencies({
+        'src/lib.rs': 'mod a { mod b; pub fn run(){ b::f(); }}\n',
+        'src/b.rs': 'pub fn f() {}\n'
+    });
+    const flatCall = sites(flatOnly.documents['src/lib.rs'], 'call').find(site => site.name === 'b::f');
+
+    assert.equal(flatCall.resolution, 'unresolved');
+    assert.equal(flatCall.target, undefined);
+
+    const fileAncestor = await analyzeParserDependencies({
+        'src/lib.rs': 'mod a;\n',
+        'src/a.rs': 'mod b; pub fn run(){ b::f(); }\n',
+        'src/b.rs': 'pub fn f() {}\n',
+        'src/a/b.rs': 'pub fn f() {}\n'
+    });
+    const fileCall = sites(fileAncestor.documents['src/a.rs'], 'call').find(site => site.name === 'b::f');
+
+    assert.equal(fileCall.resolution, 'resolved');
+    assert.equal(fileCall.target.file, 'src/a/b.rs');
+});
+
+test('Rust restricted visibility resolves valid ancestors and rejects invalid paths', async () => {
+    const result = await analyzeParserDependencies({
+        'Cargo.toml': '[package]\nname = "demo"\n',
+        'src/lib.rs': [
+            'mod parent;',
+            'fn main() { parent::crate_target(); parent::parent_target(); parent::super_target(); parent::invalid_target(); parent::unknown_target(); }',
+            ''
+        ].join('\n'),
+        'src/parent.rs': [
+            'pub ( in crate ) fn crate_target() {}',
+            'pub(in crate::parent) fn parent_target() {}',
+            'pub(in super) fn super_target() {}',
+            'pub(in crate::other) fn invalid_target() {}',
+            'pub(in external) fn unknown_target() {}',
+            'mod child;',
+            ''
+        ].join('\n'),
+        'src/parent/child.rs': [
+            'fn call() { super::crate_target(); super::parent_target(); super::super_target(); super::invalid_target(); super::unknown_target(); }',
+            ''
+        ].join('\n')
+    });
+    const rootCalls = sites(result.documents['src/lib.rs'], 'call');
+    const childCalls = sites(result.documents['src/parent/child.rs'], 'call');
+    const rootCall = name => rootCalls.find(site => site.name === name);
+    const childCall = name => childCalls.find(site => site.name === name);
+
+    assert.equal(rootCall('parent::crate_target').resolution, 'resolved');
+    assert.equal(rootCall('parent::super_target').resolution, 'resolved');
+    assert.equal(rootCall('parent::parent_target').resolution, 'unresolved');
+    assert.equal(rootCall('parent::invalid_target').resolution, 'unresolved');
+    assert.equal(rootCall('parent::unknown_target').resolution, 'unresolved');
+    assert.equal(childCall('super::crate_target').resolution, 'resolved');
+    assert.equal(childCall('super::parent_target').resolution, 'resolved');
+    assert.equal(childCall('super::super_target').resolution, 'resolved');
+    assert.equal(childCall('super::invalid_target').resolution, 'unresolved');
+    assert.equal(childCall('super::unknown_target').resolution, 'unresolved');
+});
+
+test('Rust scoped paths enforce item and nested-module visibility and prefer imports', async () => {
+    const source = [
+        'fn target() {}',
+        'fn root_private() {}',
+        'mod source { pub fn target() {} }',
+        'mod parent {',
+        '    mod hidden { pub fn target() {} }',
+        '    pub mod exposed { pub fn target() {} }',
+        '}',
+        'mod child {',
+        '    use super::source::target;',
+        '    use super::root_private;',
+        '    fn call() { target(); super::source::target(); root_private(); super::root_private(); }',
+        '    fn child_private() {}',
+        '    pub fn child_public() {}',
+        '    mod nested { fn descendant() { super::child_private(); } }',
+        '}',
+        'fn main() { child::child_private(); child::child_public(); parent::hidden::target(); parent::exposed::target(); }',
+        ''
+    ].join('\n');
+    const document = (await analyzeParserDependencies({ 'src/lib.rs': source })).documents['src/lib.rs'];
+    const calls = sites(document, 'call');
+    const sourceTarget = document.nodes.find(node => node.name === 'target' && node.start === source.indexOf('pub fn target'));
+    const importedTarget = calls.find(site => site.owner.startsWith('call@') && site.name === 'target');
+    const scopedImportedTarget = calls.find(site => site.owner.startsWith('call@') && site.name === 'super::source::target');
+    const hiddenTarget = calls.find(site => site.name === 'parent::hidden::target');
+    const exposedTarget = calls.find(site => site.name === 'parent::exposed::target');
+    const childPrivate = calls.find(site => site.name === 'child::child_private');
+    const childPublic = calls.find(site => site.name === 'child::child_public');
+    const descendant = calls.find(site => site.name === 'super::child_private');
+
+    assert.equal(importedTarget.resolution, 'resolved');
+    assert.equal(importedTarget.target.node, sourceTarget.id);
+    assert.equal(scopedImportedTarget.resolution, 'resolved');
+    assert.equal(scopedImportedTarget.target.node, sourceTarget.id);
+    assert.equal(hiddenTarget.resolution, 'unresolved');
+    assert.equal(hiddenTarget.target, undefined);
+    assert.equal(exposedTarget.resolution, 'resolved');
+    assert.equal(childPrivate.resolution, 'unresolved');
+    assert.equal(childPrivate.target, undefined);
+    assert.equal(childPublic.resolution, 'resolved');
+    assert.equal(descendant.resolution, 'resolved');
+});
+
+test('Rust cross-file paths validate missing terminals and resolve super imports', async () => {
+    const result = await analyzeParserDependencies({
+        'Cargo.toml': '[package]\nname = "demo"\n',
+        'src/lib.rs': [
+            'mod parent;',
+            'use crate::parent::missing;',
+            'fn main() { parent::private_target(); parent::public_target(); missing(); }',
+            ''
+        ].join('\n'),
+        'src/parent.rs': [
+            'fn private_target() {}',
+            'pub fn public_target() {}',
+            'mod child;',
+            ''
+        ].join('\n'),
+        'src/parent/child.rs': [
+            'use super::private_target;',
+            'fn call() { private_target(); super::private_target(); }',
+            ''
+        ].join('\n')
+    });
+    const root = result.documents['src/lib.rs'];
+    const child = result.documents['src/parent/child.rs'];
+    const missingImport = sites(root, 'import').find(site => site.name === 'crate::parent::missing');
+    const missingCall = sites(root, 'call').find(site => site.name === 'missing');
+    const privateCall = sites(root, 'call').find(site => site.name === 'parent::private_target');
+    const publicCall = sites(root, 'call').find(site => site.name === 'parent::public_target');
+    const childImport = sites(child, 'import').find(site => site.name === 'super::private_target');
+    const childCalls = sites(child, 'call');
+
+    assert.equal(missingImport.resolution, 'unresolved');
+    assert.equal(missingImport.target, undefined);
+    assert.equal(missingCall.resolution, 'unresolved');
+    assert.equal(privateCall.resolution, 'unresolved');
+    assert.equal(privateCall.target, undefined);
+    assert.equal(publicCall.resolution, 'resolved');
+    assert.equal(childImport.resolution, 'resolved');
+    assert.equal(childImport.target.file, 'src/parent.rs');
+    assert.equal(childCalls.find(site => site.name === 'private_target').resolution, 'resolved');
+    assert.equal(childCalls.find(site => site.name === 'super::private_target').resolution, 'resolved');
 });
 
 test('Rust imports are visible only in their declaring module scope', async () => {
