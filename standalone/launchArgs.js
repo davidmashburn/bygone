@@ -1,5 +1,8 @@
 function getCliArgsFromArgv(argv, { defaultApp = Boolean(process.defaultApp) } = {}) {
-    const args = defaultApp ? argv.slice(2) : argv.slice(1);
+    // AppImage's launcher may prepend this Electron switch when user namespaces
+    // are unavailable. Electron consumes it, but also leaves it in process.argv.
+    const args = (defaultApp ? argv.slice(2) : argv.slice(1))
+        .filter(arg => arg !== '--no-sandbox');
     return args[0]?.endsWith('standalone-main.js') ? args.slice(1) : args;
 }
 

@@ -3594,6 +3594,9 @@ function testForwardedLaunchArgumentsPreferValidatedAdditionalData() {
     assert.deepEqual(getForwardedLaunchArgs(fallbackArgv, { launchArgs: [42] }), fallbackArgv.slice(1));
     assert.deepEqual(getForwardedLaunchArgs(fallbackArgv, null), fallbackArgv.slice(1));
     assert.deepEqual(getCliArgsFromArgv(['electron', 'out/standalone-main.js', '--test'], { defaultApp: true }), ['--test']);
+    assert.deepEqual(getCliArgsFromArgv(['/tmp/AppImage/bygone', '--no-sandbox', '--smoke-test']), ['--smoke-test']);
+    assert.deepEqual(getCliArgsFromArgv(['/tmp/AppImage/bygone', '--no-sandbox', 'diff', 'left file', 'right file']), ['diff', 'left file', 'right file']);
+    assert.deepEqual(getForwardedLaunchArgs(['/tmp/AppImage/bygone', '--no-sandbox', 'history', 'file'], null), ['history', 'file']);
 }
 
 function testDynamicButtonsHaveTooltips() {

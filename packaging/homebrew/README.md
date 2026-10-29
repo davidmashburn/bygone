@@ -3,7 +3,13 @@
 These files stage Homebrew distribution without publishing anything.
 
 - `bygone.rb` is the CLI formula. It installs the scoped npm tarball and exposes `bygone`.
-- `bygone-desktop.rb` is the desktop cask. It installs `Bygone.app` and symlinks the app executable as `bygone`.
+- `bygone-desktop.rb` is the desktop cask. It installs `Bygone.app` and symlinks its launcher as `bygone`. The launcher follows symlinks before locating the app executable.
+
+Desktop builds are unsigned and not notarized. The cask removes only
+`com.apple.quarantine` from the installed app bundle, including its contents, to
+allow it to launch. This bypasses the quarantine check for Bygone without changing
+the system-wide Gatekeeper setting or removing other extended attributes. The
+cask displays this caveat during installation and respects Homebrew's `--appdir`.
 
 Before publishing:
 

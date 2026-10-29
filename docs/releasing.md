@@ -213,14 +213,34 @@ That path must point at a local git checkout of the tap repo. The script writes:
 
 and then commits and pushes that tap repo.
 
+## Linux AppImage prerequisites
+
+The ARM64 AppImage needs FUSE 2 and the unversioned `libz.so` library. On Ubuntu
+24.04, install them with:
+
+```bash
+sudo apt-get install libfuse2t64 zlib1g-dev
+chmod +x "Bygone-<version>-arm64.AppImage"
+./"Bygone-<version>-arm64.AppImage"
+```
+
+A desktop display is required; automated renderer tests can use `xvfb-run`.
+When unprivileged user namespaces are unavailable, the generated AppImage
+launcher automatically passes `--no-sandbox`, disabling Chromium's sandbox for
+that launch. Bygone ignores this Electron switch when parsing its own commands.
+
 ## macOS Unsigned Desktop Builds
 
 Published macOS desktop builds are currently **unsigned and not notarized**. After download, Gatekeeper often shows a misleading **“Bygone is damaged”** dialog.
 
 ### End-user workaround
 
+The Homebrew desktop cask removes only `com.apple.quarantine` from the installed
+Bygone app bundle and displays an unsigned-app caveat. For a manual DMG install,
+the equivalent explicit workaround is:
+
 ```bash
-xattr -cr /Applications/Bygone.app
+xattr -dr com.apple.quarantine /Applications/Bygone.app
 open /Applications/Bygone.app
 ```
 

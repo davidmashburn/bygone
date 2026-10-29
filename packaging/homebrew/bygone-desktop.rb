@@ -21,10 +21,22 @@ cask "bygone-desktop" do
   artifact "Bygone.app/Contents/Resources/completions/bygone.fish",
            target: "#{HOMEBREW_PREFIX}/share/fish/vendor_completions.d/bygone.fish"
 
+  postflight_steps do
+    run "/usr/bin/xattr",
+        args: ["-dr", "com.apple.quarantine", "{{appdir}}/Bygone.app"],
+        sudo: false
+  end
+
   zap trash: [
     "~/Library/Application Support/Bygone",
     "~/Library/Logs/Bygone",
     "~/Library/Preferences/com.davidmashburn.bygone.plist",
     "~/Library/Saved Application State/com.davidmashburn.bygone.savedState",
   ]
+
+  caveats <<~EOS
+    Bygone is unsigned and not notarized. This cask removes the macOS quarantine
+    attribute from Bygone.app so it can launch.
+    Only install it if you trust the source.
+  EOS
 end

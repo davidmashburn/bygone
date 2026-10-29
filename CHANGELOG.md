@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.3
+
+- Fixed the Homebrew desktop launcher when invoked through symlinks, including application paths containing spaces
+- Made the unsigned macOS cask remove only the app quarantine attribute after installation, preserving other extended attributes
+- Fixed Linux AppImage command handling when its launcher supplies Electron’s `--no-sandbox` option
+- Documented Ubuntu 24.04 AppImage prerequisites and the unsigned macOS installation workaround
+
 ## 0.11.2
 
 - Added Space to start, pause, and resume tour narration, plus Shift+Left/Right Arrow to skip sentences while playing or paused
