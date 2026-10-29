@@ -75,7 +75,7 @@ export function buildDependencyGraph(startPath: string, options: DependencyGraph
         const remaining = deadline - Date.now();
         if (remaining <= 0) throw new Error('Dependency analysis time budget exhausted during Git range discovery.');
         try {
-            return execFileSync('git', [...args], {
+            return execFileSync('git', ['--no-replace-objects', ...args], {
                 cwd, encoding: 'utf8', maxBuffer: MAX_TREE_BYTES, timeout: remaining, stdio: ['ignore', 'pipe', 'pipe']
             }).trimEnd();
         } catch (error) {
@@ -133,7 +133,7 @@ function indexSnapshot(range: BranchReviewRange, revision: 'base' | 'head', limi
     }
     let entries: Entry[];
     try {
-        const tree = execFileSync('git', ['ls-tree', '-r', '-l', '-z', oid], {
+        const tree = execFileSync('git', ['--no-replace-objects', 'ls-tree', '-r', '-l', '-z', oid], {
             cwd: range.repoRoot, maxBuffer: MAX_TREE_BYTES, timeout: remaining(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
         });
         entries = tree.split('\0').filter(Boolean).flatMap(row => {
@@ -186,7 +186,7 @@ function indexSnapshot(range: BranchReviewRange, revision: 'base' | 'head', limi
         }
         if (!batch.length) return;
         try {
-            const buffer = execFileSync('git', ['cat-file', '--batch'], {
+            const buffer = execFileSync('git', ['--no-replace-objects', 'cat-file', '--batch'], {
                 cwd: range.repoRoot, input: batch.map(e => e.oid).join('\n') + '\n',
                 maxBuffer: batch.reduce((sum, e) => sum + e.size + 128, 0), timeout: remaining(), stdio: ['pipe', 'pipe', 'pipe']
             });

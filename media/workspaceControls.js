@@ -25,6 +25,7 @@ const RANGE_STATUSES = new Set([
     'divergent',
     'unavailable'
 ]);
+const DEPENDENCY_STATUSES = new Set(['idle', 'loading', 'ready', 'error', 'navigating']);
 
 let controlInstanceId = 0;
 
@@ -93,6 +94,13 @@ function createWorkspaceControls({ container, content, send } = {}) {
     revisionContext.className = 'workspace-revision-context';
     root.appendChild(revisionContext);
 
+    const dependencyButton = document.createElement('button');
+    dependencyButton.type = 'button';
+    dependencyButton.className = 'workspace-dependency-button';
+    dependencyButton.textContent = 'Dependencies';
+    dependencyButton.setAttribute('aria-label', 'Open dependency graph');
+    root.appendChild(dependencyButton);
+
     const panel = content || container;
     if (!panel.id) panel.id = `bygone-workspace-${instanceId}-view`;
     panel.setAttribute('role', 'tabpanel');
@@ -112,6 +120,8 @@ function createWorkspaceControls({ container, content, send } = {}) {
 
     const dialogParts = createPromptDialog(document, instanceId);
     root.appendChild(dialogParts.dialog);
+    const dependencyParts = createDependencyDialog(document, instanceId);
+    root.appendChild(dependencyParts.dialog);
     container.appendChild(root);
 
     let currentState = normalizeState();
@@ -120,8 +130,26 @@ function createWorkspaceControls({ container, content, send } = {}) {
     let activeTrigger = null;
     let restoringFocus = false;
     let interactionStatus = '';
+    let dependencyTrigger = null;
+    let dependencyDismissed = false;
     const draftsBySession = new Map();
     const skillsBySession = new Map();
+
+    const dependencyMessageListener = event => {
+        if (destroyed || event.source !== dependencyParts.frame.contentWindow) return;
+        const message = event.data;
+        if (!message || typeof message !== 'object') return;
+        if (message.type === 'dependencySource') {
+            dependencyDismissed = false;
+            setDependencyState({ status: 'navigating', error: '', url: '', html: '' });
+            emit({ type: 'dependencySource', source: message.source });
+        } else if (message.type === 'dependencyLoadCorrespondence') {
+            dependencyDismissed = false;
+            setDependencyState({ status: 'loading', error: '', url: '', html: '' });
+            emit({ type: 'dependencyLoadCorrespondence' });
+        }
+    };
+    (document.defaultView || globalThis.window)?.addEventListener?.('message', dependencyMessageListener);
 
     for (const [mode, button] of modeButtons) {
         button.addEventListener('click', () => {
@@ -144,6 +172,14 @@ function createWorkspaceControls({ container, content, send } = {}) {
 
     createButton.addEventListener('click', () => openPrompt(currentState.mode, createButton));
     openButton.addEventListener('click', () => emit({ type: 'workspaceOpenTour', kind: currentState.mode }));
+    dependencyButton.addEventListener('click', () => {
+        if (destroyed || dependencyButton.disabled) return;
+        dependencyDismissed = false;
+        dependencyTrigger = dependencyButton;
+        setDependencyState({ status: 'loading', error: '', html: '', url: '' });
+        renderDependencyGraph(currentState.dependencyGraph, { open: true });
+        emit({ type: 'workspaceDependencyGraph' });
+    });
 
     dialogParts.textarea.addEventListener('input', () => {
         if (!activeKind) return;
@@ -230,18 +266,40 @@ function createWorkspaceControls({ container, content, send } = {}) {
         if (!restoringFocus) restoreFocus();
     });
 
+    dependencyParts.closeButton.addEventListener('click', () => requestDependencyClose());
+    dependencyParts.dialog.addEventListener('cancel', event => {
+        event.preventDefault();
+        requestDependencyClose();
+    });
+    dependencyParts.dialog.addEventListener('close', () => {
+        dependencyDismissed = true;
+        const trigger = dependencyTrigger;
+        dependencyTrigger = null;
+        if (trigger && trigger.isConnected !== false) trigger.focus?.();
+    });
+
     update();
 
     return {
         update,
+        updateDependencyGraph,
         destroy
     };
 
     function update(nextState) {
         if (destroyed) return;
+        const previous = currentState;
         const next = normalizeState(nextState);
         if (next.sessionId !== currentState.sessionId && isDialogOpen()) {
             closePrompt();
+        }
+        if (next.sessionId !== previous.sessionId && isDependencyDialogOpen()) closeDependencyDialog();
+        if (nextState?.dependencyGraph && typeof nextState.dependencyGraph === 'object'
+            && !Object.prototype.hasOwnProperty.call(nextState.dependencyGraph, 'html')
+            && next.sessionId === previous.sessionId
+            && next.dependencyGraph.status === 'ready') {
+            next.dependencyGraph.html = previous.dependencyGraph.html;
+            next.dependencyGraph.url = previous.dependencyGraph.url;
         }
         markContextChanges(next);
         if (activeKind && next.status !== currentState.status) interactionStatus = next.status;
@@ -249,13 +307,29 @@ function createWorkspaceControls({ container, content, send } = {}) {
         renderModes();
         renderEmptyView();
         renderStatus();
+        renderDependencyEntry();
+        if (next.mode !== 'compare') closeDependencyDialog();
+        const dependencyChanged = previous.sessionId !== next.sessionId
+            || previous.dependencyGraph.status !== next.dependencyGraph.status;
+        if (dependencyChanged) renderDependencyGraph(next.dependencyGraph, { open: true });
         if (activeKind) renderPromptDialog();
+    }
+
+    function updateDependencyGraph(message) {
+        if (destroyed || (message?.sessionId !== undefined && sessionKey(message.sessionId) !== currentState.sessionId)) return;
+        const incoming = message?.graph && typeof message.graph === 'object' ? message.graph : message;
+        if (!incoming || typeof incoming !== 'object') return;
+        currentState = { ...currentState, dependencyGraph: normalizeDependencyGraph({ ...currentState.dependencyGraph, ...incoming }) };
+        renderDependencyEntry();
+        renderDependencyGraph(currentState.dependencyGraph, { open: true });
     }
 
     function destroy() {
         if (destroyed) return;
         destroyed = true;
         closePrompt();
+        closeDependencyDialog();
+        (document.defaultView || globalThis.window)?.removeEventListener?.('message', dependencyMessageListener);
         if (typeof root.remove === 'function') root.remove();
         else root.parentNode?.removeChild(root);
         modeButtons.clear();
@@ -263,6 +337,78 @@ function createWorkspaceControls({ container, content, send } = {}) {
         emptyView.remove();
         draftsBySession.clear();
         skillsBySession.clear();
+    }
+
+    function setDependencyState(changes) {
+        currentState = { ...currentState, dependencyGraph: normalizeDependencyGraph({ ...currentState.dependencyGraph, ...changes }) };
+        renderDependencyEntry();
+        renderDependencyGraph(currentState.dependencyGraph);
+    }
+
+    function renderDependencyEntry() {
+        const graph = currentState.dependencyGraph;
+        dependencyButton.hidden = !graph.visible;
+        dependencyButton.disabled = !graph.enabled;
+        dependencyButton.title = graph.enabled ? 'Open the native dependency graph for the pinned comparison.'
+            : graph.reason || 'Dependency graph analysis is unavailable.';
+        dependencyButton.setAttribute('aria-description', dependencyButton.title);
+    }
+
+    function renderDependencyGraph(graph, { open = false } = {}) {
+        if (!graph || graph.status === 'idle') {
+            dependencyParts.frame.hidden = true;
+            if (isDependencyDialogOpen()) closeDependencyDialog();
+            return;
+        }
+        dependencyParts.status.hidden = false;
+        dependencyParts.status.textContent = graph.status === 'loading'
+            ? 'Analyzing pinned dependency snapshots…'
+            : graph.status === 'navigating'
+                ? 'Opening the pinned source in Compare…'
+                : graph.status === 'error'
+                    ? `Dependency analysis failed: ${graph.error || 'Unknown error.'}`
+                    : graph.url || graph.html ? 'Dependency graph loaded.' : 'Preparing dependency graph…';
+        const view = graph.url || graph.html;
+        dependencyParts.frame.hidden = graph.status !== 'ready' || !view;
+        if (graph.status === 'ready' && graph.url) {
+            dependencyParts.frame.removeAttribute?.('srcdoc');
+            if (dependencyParts.frame.src !== graph.url) dependencyParts.frame.src = graph.url;
+        } else if (graph.status === 'ready' && graph.html) {
+            dependencyParts.frame.removeAttribute?.('src');
+            if (dependencyParts.frame.srcdoc !== graph.html) dependencyParts.frame.srcdoc = graph.html;
+        }
+        if (open && !dependencyDismissed && !isDependencyDialogOpen()) openDependencyDialog();
+    }
+
+    function openDependencyDialog() {
+        dependencyDismissed = false;
+        if (typeof dependencyParts.dialog.showModal === 'function') {
+            try { dependencyParts.dialog.showModal(); }
+            catch { dependencyParts.dialog.setAttribute('open', ''); }
+        } else dependencyParts.dialog.setAttribute('open', '');
+        dependencyParts.closeButton.focus?.();
+    }
+
+    function closeDependencyDialog() {
+        if (!isDependencyDialogOpen()) {
+            dependencyDismissed = true;
+            return;
+        }
+        try {
+            if (typeof dependencyParts.dialog.close === 'function') dependencyParts.dialog.close();
+            else dependencyParts.dialog.removeAttribute('open');
+        } finally {
+            dependencyDismissed = true;
+        }
+    }
+
+    function requestDependencyClose() {
+        closeDependencyDialog();
+        if (!destroyed) emit({ type: 'workspaceDependencyClose' });
+    }
+
+    function isDependencyDialogOpen() {
+        return dependencyParts.dialog.open === true || dependencyParts.dialog.hasAttribute('open');
     }
 
     function renderModes() {
@@ -570,6 +716,42 @@ function createPromptDialog(document, instanceId) {
     };
 }
 
+function createDependencyDialog(document, instanceId) {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'workspace-dependency-dialog';
+    dialog.setAttribute('aria-modal', 'true');
+
+    const title = document.createElement('h2');
+    title.id = `bygone-workspace-${instanceId}-dependency-title`;
+    title.textContent = 'Dependency graph';
+    dialog.setAttribute('aria-labelledby', title.id);
+    dialog.appendChild(title);
+
+    const status = document.createElement('p');
+    status.className = 'workspace-dependency-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.setAttribute('aria-atomic', 'true');
+    dialog.appendChild(status);
+
+    const frame = document.createElement('iframe');
+    frame.className = 'workspace-dependency-frame';
+    frame.title = 'Pinned dependency graph';
+    frame.setAttribute('sandbox', 'allow-scripts');
+    frame.hidden = true;
+    dialog.appendChild(frame);
+
+    const actions = document.createElement('div');
+    actions.className = 'workspace-dependency-actions';
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.textContent = 'Close';
+    closeButton.title = 'Close dependency graph';
+    actions.appendChild(closeButton);
+    dialog.appendChild(actions);
+    return { dialog, status, frame, closeButton };
+}
+
 function makeButton(document, label, action) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -614,7 +796,22 @@ function normalizeState(input = {}) {
         tourSkill: input?.tourSkill && typeof input.tourSkill.path === 'string'
             ? { path: input.tourSkill.path, text: typeof input.tourSkill.text === 'string' ? input.tourSkill.text : bundledTourSkill } : null,
         promptContext: normalizePromptContext(input?.promptContext),
-        status: stringOr(input?.status, '')
+        status: stringOr(input?.status, ''),
+        dependencyGraph: normalizeDependencyGraph(input?.dependencyGraph)
+    };
+}
+
+function normalizeDependencyGraph(input) {
+    const source = input && typeof input === 'object' ? input : {};
+    return {
+        visible: source.visible === true,
+        enabled: source.enabled === true,
+        reason: stringOr(source.reason, ''),
+        status: DEPENDENCY_STATUSES.has(source.status) ? source.status : 'idle',
+        error: stringOr(source.error, ''),
+        canLoadCorrespondence: source.canLoadCorrespondence === true,
+        url: typeof source.url === 'string' ? source.url : '',
+        html: typeof source.html === 'string' ? source.html : ''
     };
 }
 

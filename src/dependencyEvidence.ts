@@ -129,7 +129,7 @@ export function buildDependencyEvidence(startPath: string, options: DependencyEv
     const deadline = Date.now() + limits.timeoutMs;
     const git = (args: string[], cwd: string, input?: string): Buffer => {
         if (Date.now() >= deadline) throw new Error('Dependency analysis time budget exhausted.');
-        return execFileSync('git', args, { cwd, input, maxBuffer: MAX_BUFFER, timeout: deadline - Date.now(), stdio: ['pipe', 'pipe', 'pipe'] });
+        return execFileSync('git', ['--no-replace-objects', ...args], { cwd, input, maxBuffer: MAX_BUFFER, timeout: deadline - Date.now(), stdio: ['pipe', 'pipe', 'pipe'] });
     };
     const range = options.range ?? resolveBranchReviewRange(startPath, options.headRef, options.baseRef,
         (args, cwd) => git([...args], cwd).toString('utf8').trimEnd());

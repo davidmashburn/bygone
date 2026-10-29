@@ -46,6 +46,10 @@ const { createWorkspaceHost } = require('./workspaceHost.js');
 const { revisionFileLabel } = require('./fileLabel.js');
 const { resolveWorkspaceGit, resolveWorkspaceRange } = require('../src/workspaceGit.ts');
 const { createWorkspaceHistory } = require('../src/workspaceHistory.ts');
+const { loadChangeCorrespondence } = require('../out/changeCorrespondence.js');
+const { readPinnedFile } = require('../out/reviewWorkspace.js');
+const { buildNativeDependencyView: buildNativeDependencyViewRaw, dependencySource } = require('../cli/dependency-native.js');
+const { serveDependencyHtml } = require('../cli/dependency-server.js');
 const {
     buildHistoryTitle,
     buildStandaloneSessionTitle,
@@ -74,7 +78,7 @@ const commandLineToolPath = process.platform === 'win32'
 const gitHistoryService = new GitHistoryService();
 const initialCliArgs = getCliArgs();
 const launchArguments = parseLaunchArgs(initialCliArgs);
-const workspaceSmokeMode = launchArguments.kind === 'smoke-workspace';
+const workspaceSmokeMode = launchArguments.kind === 'smoke-workspace' || launchArguments.kind === 'smoke-dependencies';
 const windowSmokeMode = launchArguments.kind === 'smoke-windows';
 const smokeTestMode = launchArguments.kind === 'smoke'
     || launchArguments.kind === 'smoke-multi'
@@ -84,7 +88,7 @@ const captureOutputPath = launchArguments.capturePath ? path.resolve(launchArgum
 const captureMode = Boolean(captureOutputPath);
 const launchWindowWidth = Number.isFinite(launchArguments.windowWidth) ? launchArguments.windowWidth : 1500;
 const launchWindowHeight = Number.isFinite(launchArguments.windowHeight) ? launchArguments.windowHeight : 960;
-const shouldUseSingleInstanceLock = app.isPackaged && !smokeTestMode && !windowSmokeMode && !captureMode;
+const shouldUseSingleInstanceLock = app.isPackaged && !smokeTestMode && !workspaceSmokeMode && !windowSmokeMode && !captureMode;
 const shouldRestoreWindowState = initialCliArgs.length === 0 && !smokeTestMode && !captureMode;
 
 app.setName(APP_NAME);
@@ -101,9 +105,44 @@ let activeComparisonHost;
 let latestTourWindow;
 const tourPresentations = new Map();
 const activeTourServers = new Set();
+const activeDependencyUrls = new Set();
 let pendingOpenPaths = [];
 let appIsQuitting = false;
 let restoringWindowState = false;
+
+function dependencyAbortError() {
+    const error = new Error('Dependency analysis was canceled.');
+    error.name = 'AbortError';
+    return error;
+}
+
+async function buildNativeDependencyView(repoRoot, options = {}) {
+    const result = await buildNativeDependencyViewRaw(repoRoot, options);
+    if (!result || typeof result.html !== 'string') return result;
+    if (options.signal?.aborted) throw dependencyAbortError();
+
+    const served = await serveDependencyHtml(result.html);
+    const url = typeof served?.url === 'string' ? served.url : '';
+    const disposeServed = typeof served?.dispose === 'function' ? served.dispose : null;
+    if (!url || !disposeServed) {
+        try { await disposeServed?.(); } catch { /* The invalid server result is already unusable. */ }
+        throw new Error('Dependency graph server returned an invalid view.');
+    }
+
+    activeDependencyUrls.add(url);
+    let disposed = false;
+    const dispose = () => {
+        if (disposed) return;
+        disposed = true;
+        activeDependencyUrls.delete(url);
+        return disposeServed();
+    };
+    if (options.signal?.aborted) {
+        try { await dispose(); } catch { /* The analysis remains canceled even if cleanup races shutdown. */ }
+        throw dependencyAbortError();
+    }
+    return { ...result, url, dispose };
+}
 
 function getActiveComparisonHost() {
     const focused = BrowserWindow.getFocusedWindow();
@@ -237,6 +276,7 @@ function parseLaunchArgsCore(args) {
     }
     if (filteredArgs[0] === '--smoke-test-windows') return { kind: 'smoke-windows' };
     if (filteredArgs[0] === '--smoke-test-workspace') return { kind: 'smoke-workspace' };
+    if (filteredArgs[0] === '--smoke-test-dependencies') return { kind: 'smoke-dependencies' };
 
     if (filteredArgs[0] === '--smoke-test-multi') {
         return { kind: 'smoke-multi', capturePath, windowWidth, windowHeight };
@@ -413,6 +453,14 @@ const workspace = createWorkspaceHost({
         if (!text.trim()) throw new Error('The instructions file is empty.');
         return { path: skillPath, text };
     },
+    chooseDependencyCorrespondence: async (repoRoot, baseOid, headOid) => {
+        const picked = await dialog.showOpenDialog(mainWindow, {
+            title: 'Load symbol correspondence', properties: ['openFile'],
+            filters: [{ name: 'Symbol correspondence', extensions: ['json'] }]
+        });
+        if (picked.canceled || !picked.filePaths[0]) return null;
+        return loadChangeCorrespondence(repoRoot, picked.filePaths[0], { baseOid, headOid });
+    },
     saveTourSkill: async (skill) => {
         const picked = await dialog.showSaveDialog(mainWindow, {
             title: 'Save an editable copy of the tour instructions', defaultPath: 'bygone-tour-skill.md',
@@ -432,7 +480,8 @@ const workspace = createWorkspaceHost({
         await fs.promises.writeFile(destination, text, 'utf8');
         return { path: destination, text };
     }
-}, { resolve: resolveWorkspaceGit, range: resolveWorkspaceRange, history: createWorkspaceHistory });
+}, { resolve: resolveWorkspaceGit, range: resolveWorkspaceRange, history: createWorkspaceHistory,
+    buildNativeDependencyView, dependencySource, readPinnedFile });
 
 const host = {
     window: () => mainWindow,
@@ -443,6 +492,7 @@ const host = {
     routeLaunchTarget, restoreMainSession, openDeepLink, handleRendererMessage,
     isTrustedRendererEvent, installApplicationMenu, showError,
     dispose: () => {
+        workspace.dispose();
         repositorySearch?.handle?.cancel();
         clearWatchers();
         cleanupGitDiffTempRoots([...trackedGitDiffTempRoots]);
@@ -647,8 +697,9 @@ function createMainWindow({ show = !smokeTestMode && !workspaceSmokeMode && !win
         if (event.isMainFrame) return;
         try {
             const candidate = new URL(event.url);
+            const isActiveDependency = activeDependencyUrls.has(candidate.href);
             if (candidate.hostname !== '127.0.0.1' || candidate.protocol !== 'http:'
-                || ![...activeTourServers].some((server) => String(server.address()?.port) === candidate.port)) event.preventDefault();
+                || (!isActiveDependency && ![...activeTourServers].some((server) => String(server.address()?.port) === candidate.port))) event.preventDefault();
         } catch {
             event.preventDefault();
         }
@@ -1719,11 +1770,13 @@ async function routeLaunchTarget(launchTarget) {
         return;
     }
     if (launchTarget.kind === 'deep-link') { await enqueueDeepLink(launchTarget.url); return; }
-    if (launchTarget.kind === 'smoke-workspace') {
+    if (launchTarget.kind === 'smoke-workspace' || launchTarget.kind === 'smoke-dependencies') {
         ensureMainWindow();
         const timeout = setTimeout(() => { console.error('Workspace smoke timed out after 60 seconds.'); app.exit(1); }, 60000);
         try {
-            await require('./workspaceSmoke.js').runWorkspaceSmoke({
+            const smoke = require('./workspaceSmoke.js');
+            const run = launchTarget.kind === 'smoke-dependencies' ? smoke.runNativeDependencySmoke : smoke.runWorkspaceSmoke;
+            await run({
                 open: openDiff, openMulti: openMultiDiff, window: () => mainWindow, session: () => session, dialog,
                 openDefault: (cwd) => routeLaunchTarget(parseLaunchArgs(['--cwd', cwd])),
                 openTour: () => workspace.handle({ type: 'workspaceOpenTour', kind: 'historical' }),

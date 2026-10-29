@@ -13,6 +13,21 @@ const allowed = new Set([
     'CHANGELOG.md',
     'out/extension.js',
     'out/liveSymbolsWorker.js',
+    'cli/dependency-python.py',
+    'out/dependencyEvidence.js',
+    'out/dependencyEvidenceWorker.js',
+    'out/dependencyNativeWorker.js',
+    'out/dependencyChanges.js',
+    'out/changeCorrespondence.js',
+    'out/dependencyTypescript.js',
+    'out/dependencyParsers.js',
+    'out/dependency-layout.js',
+    'out/dependency-layout-LICENSE.txt',
+    'out/web-tree-sitter.wasm',
+    'out/web-tree-sitter-LICENSE.txt',
+    ...['go', 'rust', 'mojo'].flatMap(language => [
+        `out/grammars/tree-sitter-${language}.wasm`, `out/grammars/${language}-LICENSE.txt`
+    ]),
     'media/webview.js',
     'media/webview.css',
     'media/editor.worker.js',
@@ -22,8 +37,8 @@ const allowed = new Set([
 ]);
 const unexpected = files.filter((file) => !allowed.has(file));
 const missing = [...allowed].filter((file) => !files.includes(file));
-// Includes the isolated JS/TS Strand parser worker; no external parser executables or grammars.
-const maximumBytes = 9 * 1024 * 1024;
+// Includes multilingual analysis workers, TypeScript, ELK, and parser grammars.
+const maximumBytes = 42 * 1024 * 1024;
 const totalBytes = files.reduce((total, file) => total + fs.statSync(path.join(process.cwd(), file)).size, 0);
 if (unexpected.length || missing.length) {
     throw new Error([

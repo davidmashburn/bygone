@@ -31,12 +31,13 @@ await rm('out/standalone-preload.js.map', { force: true });
 await rm('web/web-host.js', { force: true });
 await rm('web/web-host.js.map', { force: true });
 
-for (const name of ['followEdits', 'followSnapshots', 'liveSymbols', 'followBaseline', 'changeCorrespondence', 'panelOrder', 'workspaceGit', 'workspaceHistory', 'historyDirectory', 'revisionView', 'workspacePrompt', 'tourReading', 'tourFeedback', 'tourOrientation', 'deepLink', 'deepLinkResolver', 'requirements', 'reviewWorkspace', 'reviewDependencies', 'dependencyGraph', 'dependencyEvidence', 'dependencyTypescript']) {
+for (const name of ['followEdits', 'followSnapshots', 'liveSymbols', 'followBaseline', 'changeCorrespondence', 'panelOrder', 'workspaceGit', 'workspaceHistory', 'historyDirectory', 'revisionView', 'workspacePrompt', 'tourReading', 'tourFeedback', 'tourOrientation', 'deepLink', 'deepLinkResolver', 'requirements', 'reviewWorkspace', 'reviewDependencies', 'dependencyGraph', 'dependencyEvidence', 'dependencyTypescript', 'dependencyChanges']) {
     await build({ ...sharedOptions, entryPoints: [`src/${name}.ts`], outfile: `out/${name}.js`, platform: 'node', format: 'cjs', target: 'node18' });
 }
 
 await build({ ...sharedOptions, entryPoints: ['src/dependencyParsers.js'], outfile: 'out/dependencyParsers.js', platform: 'node', format: 'cjs', target: 'node18' });
 await cp('src/dependencyEvidenceWorker.js', 'out/dependencyEvidenceWorker.js');
+await cp('src/dependencyNativeWorker.js', 'out/dependencyNativeWorker.js');
 // Kept separate from application bundles; embedded only in optional offline graph exports.
 await cp('node_modules/elkjs/lib/elk.bundled.js', 'out/dependency-layout.js');
 await cp('node_modules/elkjs/LICENSE.md', 'out/dependency-layout-LICENSE.txt');

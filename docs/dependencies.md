@@ -15,8 +15,9 @@ The text report lists added/removed module edges and direct, unchanged consumers
 of changed files. Each site includes a `bygone://` link to its committed source.
 JSON includes both bounded snapshot graphs, potential initialization calls and
 constructors, diagnostics, and exact evidence coordinates. Ordinary tour context
-generation is unchanged. The desktop and VS Code interfaces do not yet have a
-graph view; these commands use the Node CLI rather than the desktop launcher.
+generation is unchanged unless `--dependencies` is supplied. That option now adds
+the multilingual v2 report and correspondence-aware call changes to the context.
+The analysis commands use the Node CLI; native graph controls are described below.
 
 ## Reading an edge
 
@@ -103,9 +104,10 @@ bygone dependencies HEAD --base main --html --output dependencies.html
 bygone dependencies HEAD --base main --mermaid --output dependencies.mmd
 ```
 
-`--html` and `--mermaid` imply `--graph`. The original command and tour-context
-integration continue to produce the version 1 JS/TS module report described
-above. The two versions have different schemas; consumers should check
+`--html` and `--mermaid` imply `--graph`. The original `dependencies` command
+without these flags continues to produce the version 1 JS/TS module report.
+`tour context --dependencies` produces v2 evidence instead. The two versions have
+different schemas; consumers should check
 `version` and, for version 2, `kind: "dependency-evidence"`.
 
 The HTML file works offline without a server or downloaded scripts. It offers
@@ -124,7 +126,40 @@ views cap diagrams at 150 nodes and 300 aggregated relationships, disclose
 truncation, and retain the selected node when its neighborhood exceeds the cap.
 Use JSON for the entire bounded index. The HTML embeds ELK and its license, so it
 needs no network access to render.
-These views are CLI exports, not panels embedded in the desktop or extension.
+
+### Native review workflow
+
+The desktop comparison workspace offers **Dependencies** for a pair of committed
+revisions. It starts from the selected file or symbol and opens the graph inside
+Bygone. Working-tree, index, and multi-revision comparisons must first select a
+pair of commits. Analysis runs in a bounded child process. Changing the comparison
+while analysis runs invalidates the old result.
+
+In VS Code, run **Bygone: Explore Dependencies** from the Command Palette or the
+editor context menu. From an evidence review, **Explore dependency graph** uses
+that review's exact base/head commits. From an ordinary editor, analysis uses the
+repository's default branch-review range. Source buttons open immutable committed
+source, with the evidence range selected; they do not open the working copy.
+
+The graph's **Dependency changes and affected consumers** section reports added,
+removed, and unclassified calls. **Load symbol correspondence** accepts a
+correspondence JSON artifact for the exact same revision pair. It validates source
+bytes against Git before matching symbols by path, range, and digest. Without a
+mapping, only exact unchanged declarations are paired. Unmatched or ambiguous
+symbols, unresolved targets, and incomplete coverage remain explicitly unknown.
+Counts are static call-site changes, not proof of runtime impact.
+
+Review evidence imports accept both v1 and v2 JSON. They validate pinned sources,
+references between records, and coverage budgets before exposing navigation links.
+For tour authors, combine the graph and correspondence in the same context:
+
+```sh
+bygone tour context HEAD --base main --dependencies \
+  --correspondence correspondence.json --output context.json
+```
+
+`dependencies` contains the v2 snapshots; `dependencyChanges` contains symbol
+continuations, added/removed/unknown calls, affected consumers, and limitations.
 
 ### Evidence model
 

@@ -61,11 +61,15 @@ await copyFile('schemas');
 await copyFile('skills');
 await copyFile('bin/bygone.js');
 await copyFile('cli');
+// This declaration is a source-tree bridge for the extension, not a public API.
+await rm(path.join(packageRoot, 'cli/dependency-native.d.ts'), { force: true });
 await copyFile('completions');
 await copyFile('out/standalone-main.js');
 await copyFile('out/standalone-preload.js');
 await copyFile('out/changeTour.js');
 await copyFile('out/dependencyGraph.js');
+await copyFile('out/dependencyChanges.js');
+await copyFile('out/dependencyNativeWorker.js');
 await copyFile('out/dependencyEvidence.js');
 await copyFile('out/dependencyEvidenceWorker.js');
 await copyFile('out/dependency-layout.js');

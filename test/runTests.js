@@ -3552,7 +3552,7 @@ function testMacCliRoutesThroughCentralAppInstance() {
 
     assert.match(cliSource, /path\.join\(installedApp, 'Contents', 'MacOS', executableName\)/);
     assert.doesNotMatch(cliSource, /spawn\('open', \['-W', '-n'/);
-    assert.match(standaloneSource, /app\.isPackaged && !smokeTestMode && !windowSmokeMode && !captureMode/);
+    assert.match(standaloneSource, /app\.isPackaged && !smokeTestMode && !workspaceSmokeMode && !windowSmokeMode && !captureMode/);
     assert.match(standaloneSource, /requestSingleInstanceLock\(\{ launchArgs: getCliArgs\(\) \}\)/);
     assert.match(standaloneSource, /window\.show\(\);/);
     assert.match(standaloneSource, /shellQuote\(process\.execPath\)/);

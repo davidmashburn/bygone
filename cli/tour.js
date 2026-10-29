@@ -46,8 +46,12 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
             maxTotalPatchBytes: options.maxTotalPatchBytes
         });
         if (options.dependencies) {
-            const { buildDependencyGraph } = require('../out/dependencyGraph.js');
-            context.dependencies = buildDependencyGraph(cwd, { range });
+            const { buildDependencyEvidence } = require('../out/dependencyEvidence.js');
+            context.dependencies = buildDependencyEvidence(cwd, { range });
+            context.dependencyChanges = require('../out/dependencyChanges.js').compareDependencyEvidence(
+                context.dependencies,
+                context.correspondence
+            );
         }
         return writeJsonResult('change-tour context', context, options.outputPath, cwd, output);
     }

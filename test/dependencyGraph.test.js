@@ -155,9 +155,18 @@ test('CLI and tour context opt in to dependency evidence without changing ordina
     });
     const enhanced = runTourCommand(['context', '--base', fixture.range.baseOid, '--dependencies'], fixture.root, path.resolve(__dirname, '..'), stream).context;
     gitMock.mock.restore();
-    assert.equal(gitCalls.filter(args => args[0] === 'rev-parse' && args[1] === '--show-toplevel').length, 1);
+    assert.equal(gitCalls.filter(args => args[0] === '--no-replace-objects' && args[1] === 'rev-parse' && args[2] === '--show-toplevel').length, 1);
     assert.equal(ordinary.dependencies, undefined);
     assert.equal(enhanced.dependencies.range.headOid, ordinary.range.headOid);
+    assert.equal(enhanced.dependencies.version, 2);
+    assert.equal(enhanced.dependencyChanges.version, 1);
+    assert.deepEqual(enhanced.dependencyChanges.range, {
+        baseOid: fixture.range.baseOid,
+        headOid: fixture.range.headOid
+    });
+    assert.ok(Array.isArray(enhanced.dependencyChanges.changes.added));
+    assert.ok(Array.isArray(enhanced.dependencyChanges.changes.removed));
+    assert.ok(Array.isArray(enhanced.dependencyChanges.changes.unknown));
     assert.deepEqual(enhanced.files, ordinary.files);
     assert.throws(() => runDependenciesCommand(['--unknown'], fixture.root, stream), /Unexpected/);
 });

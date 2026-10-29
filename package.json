@@ -63,6 +63,11 @@
     ],
     "commands": [
       {
+        "command": "bygone.openDependencies",
+        "title": "Bygone: Explore Dependencies",
+        "enablement": "isWorkspaceTrusted && !remoteName && !virtualWorkspace"
+      },
+      {
         "command": "bygone.compareFiles",
         "title": "Compare Active File With\u2026",
         "category": "Bygone"
@@ -214,6 +219,7 @@
         }
       ],
       "editor/context": [
+        { "command": "bygone.openDependencies", "when": "resourceScheme == file", "group": "bygone@9" },
         {
           "command": "bygone.compareWithSelected",
           "group": "compare",
@@ -286,7 +292,7 @@
     "test:correspondence": "npm run compile && node --test ./test/tourSymbol.test.js ./test/changeCorrespondence.test.js ./test/correspondenceTree.test.js ./test/correspondenceDiagnostics.test.js && node scripts/run-electron.mjs standalone/correspondenceSmoke.js",
     "test:presentation": "npm run compile && node --test ./test/presentation.test.js && node scripts/run-electron.mjs standalone/presentationSmoke.js",
     "standalone:start": "npm run compile && node ./scripts/run-electron.mjs ./out/standalone-main.js",
-    "standalone:smoke": "npm run compile && node scripts/run-electron.mjs standalone/diffRegressionSmoke.js && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-multi && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-directory && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-directory-history && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-workspace && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-windows",
+    "standalone:smoke": "npm run compile && node scripts/run-electron.mjs standalone/diffRegressionSmoke.js && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-multi && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-directory && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-directory-history && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-dependencies && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-workspace && node ./scripts/run-electron.mjs ./out/standalone-main.js --smoke-test-windows",
     "walkthrough:refresh": "node ./scripts/refresh-walkthrough-screenshots.mjs",
     "web:start": "npm run compile && node ./scripts/web-server.mjs",
     "package:desktop": "npm run package:desktop:mac",
@@ -315,7 +321,7 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "watch": "node ./node_modules/typescript/bin/tsc -watch -p ./",
-    "test": "npm run compile && node ./test/runTests.js && node --test ./test/homebrewLauncher.test.js ./test/followEdits.test.js ./test/dependencyGraph.test.js test/dependencyEvidence.test.js test/dependencyBudget.test.js test/dependencyView.test.js test/dependencyPython.test.js test/dependencyTypescript.test.js test/dependencyParsers.test.js ./test/moduleDependencies.test.js ./test/followBaseline.test.js ./test/requirements.test.js ./test/reviewWorkspace.test.js ./packages/strand/test/*.test.js ./scripts/change-analysis/python-strand.test.js ./scripts/change-analysis/python-features.test.js ./scripts/change-analysis/js-correspondence.test.js ./scripts/change-analysis/javascript-integration.test.js ./scripts/change-analysis/benchmark-correspondence.test.js ./scripts/change-analysis/registration-inventory.test.js ./scripts/change-analysis/refactoring-mappings.test.js ./scripts/change-analysis/analyze-git.test.js ./test/tourSymbol.test.js ./test/changeCorrespondence.test.js ./test/correspondenceTree.test.js ./test/correspondenceDiagnostics.test.js ./test/presentation.test.js ./test/panelOrder.test.js ./test/revisionView.test.js ./test/devVersion.test.js ./test/focusedStrip.test.js ./test/diffRegression.test.js ./test/deepLink.test.js ./test/tourExport.test.js ./test/tourProse.test.js ./test/tourReading.test.js ./test/chapterSummary.test.js ./test/tourFraming.test.js ./test/tourFeedback.test.js ./test/tourZoomSession.test.js ./test/tourComparison.test.js ./test/tourHistory.test.js ./test/changeTourAuthoredModes.test.js ./test/renderCompleteToken.test.js ./test/tourDirectoryOverview.test.js ./test/tourDirectoryEvidence.test.js ./test/workspace*.test.js",
+    "test": "npm run compile && node ./test/runTests.js && node --test ./test/homebrewLauncher.test.js ./test/followEdits.test.js ./test/dependencyGraph.test.js test/dependencyEvidence.test.js test/dependencyBudget.test.js test/dependencyView.test.js test/dependencyNative.test.js test/dependencyChanges.test.js test/dependencyPython.test.js test/dependencyTypescript.test.js test/dependencyParsers.test.js ./test/moduleDependencies.test.js ./test/followBaseline.test.js ./test/requirements.test.js ./test/reviewWorkspace.test.js ./packages/strand/test/*.test.js ./scripts/change-analysis/python-strand.test.js ./scripts/change-analysis/python-features.test.js ./scripts/change-analysis/js-correspondence.test.js ./scripts/change-analysis/javascript-integration.test.js ./scripts/change-analysis/benchmark-correspondence.test.js ./scripts/change-analysis/registration-inventory.test.js ./scripts/change-analysis/refactoring-mappings.test.js ./scripts/change-analysis/analyze-git.test.js ./test/tourSymbol.test.js ./test/changeCorrespondence.test.js ./test/correspondenceTree.test.js ./test/correspondenceDiagnostics.test.js ./test/presentation.test.js ./test/panelOrder.test.js ./test/revisionView.test.js ./test/devVersion.test.js ./test/focusedStrip.test.js ./test/diffRegression.test.js ./test/deepLink.test.js ./test/tourExport.test.js ./test/tourProse.test.js ./test/tourReading.test.js ./test/chapterSummary.test.js ./test/tourFraming.test.js ./test/tourFeedback.test.js ./test/tourZoomSession.test.js ./test/tourComparison.test.js ./test/tourHistory.test.js ./test/changeTourAuthoredModes.test.js ./test/renderCompleteToken.test.js ./test/tourDirectoryOverview.test.js ./test/tourDirectoryEvidence.test.js ./test/workspace*.test.js",
     "test:diff-renderer": "npm run compile && node scripts/run-electron.mjs standalone/diffRegressionSmoke.js",
     "test:export-smoke": "npm run compile && node scripts/run-electron.mjs standalone/exportSmoke.js && node scripts/run-electron.mjs standalone/tourImageSmoke.js",
     "correspondence:benchmark": "node scripts/change-analysis/benchmark-correspondence.js",
@@ -339,6 +345,7 @@
       "media/diff.worker.js",
       "media/icon.png",
       "standalone/**",
+      "cli/dependency-python.py",
       "web/**",
       "package.json",
       "README.md",
@@ -363,6 +370,11 @@
       "main": "out/standalone-main.js"
     },
     "asarUnpack": [
+      "cli/dependency-python.py",
+      "out/dependency*.js",
+      "out/changeCorrespondence.js",
+      "out/web-tree-sitter.wasm",
+      "out/grammars/**",
       "media/editor.worker.js",
       "media/diff.worker.js"
     ],

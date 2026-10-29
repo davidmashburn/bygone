@@ -1,6 +1,7 @@
 import { SourceRef, parseSourceRef, resolveSourceRef } from 'bygone-strand/source-references';
 import { Review } from './requirements';
 import { readPinnedFile } from './reviewWorkspace';
+import { inspectDependencyEvidenceV2 } from './reviewDependencyEvidence';
 
 export interface DependencyEvidence { title: string; ref: SourceRef; phase: string; loading: string; resolution: string }
 export interface DependencyInspection { links: DependencyEvidence[]; limitations: string[] }
@@ -18,6 +19,7 @@ const list = (value: unknown): unknown[] => {
 };
 /** Imported analysis is navigation evidence, never an impact/safety judgment. */
 export function inspectDependencies(root: string, review: Review, input: unknown): DependencyInspection {
+    if (isVersion2Report(input)) return inspectDependencyEvidenceV2(root, review, input);
     const data = object(input), range = object(data.range);
     if (data.version !== 1 || range.baseOid !== review.base || range.headOid !== review.head || typeof range.dirtyWorkingTreeExcluded !== 'boolean') throw new Error('Dependency report does not match pinned review');
     const limits = object(data.limits), producer = object(data.producer);
@@ -109,4 +111,9 @@ export function inspectDependencies(root: string, review: Review, input: unknown
     }
     checkTime();
     return { links, limitations };
+}
+
+function isVersion2Report(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+        && (value as Record<string, unknown>).version === 2;
 }

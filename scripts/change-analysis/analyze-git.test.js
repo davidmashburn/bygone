@@ -91,6 +91,8 @@ test('git comparison subprocesses use a finite timeout for resolution and blob r
     try {
         childProcess.execFileSync = (executable, args, options) => {
             calls.push({ executable, args, options });
+            assert.equal(args[0], '--no-replace-objects');
+            args = args.slice(1);
             if (args[0] === 'status') throw Object.assign(new Error('simulated git timeout'), { code: 'ETIMEDOUT' });
             if (args[0] === 'ls-tree') return '100644 blob abc\tfile.txt\0';
             if (args[0] === 'show') return Buffer.from('content\n');

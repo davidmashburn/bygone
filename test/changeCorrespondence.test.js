@@ -233,8 +233,17 @@ test('CLI imports an explicitly selected report case and both consumers validate
         assert.equal(loadChangeCorrespondence(f.root, artifactPath, f.range).relations.length, 6);
         assert.equal(parseTourArgs(['context', '--correspondence', artifactPath]).correspondencePath, artifactPath);
         assert.equal(parsePresentArgs(['--correspondence', artifactPath]).correspondencePath, artifactPath);
-        const result = runTourCommand(['context', '--base', f.range.baseOid, '--correspondence', artifactPath], f.root, path.resolve(__dirname, '..'), silent);
+        const result = runTourCommand(['context', '--base', f.range.baseOid, '--correspondence', artifactPath, '--dependencies'], f.root, path.resolve(__dirname, '..'), silent);
         assert.equal(result.context.correspondence.relations.length, 6);
+        assert.equal(result.context.dependencies.version, 2);
+        assert.equal(result.context.dependencyChanges.version, 1);
+        assert.deepEqual(result.context.dependencyChanges.range, {
+            baseOid: f.range.baseOid,
+            headOid: f.range.headOid
+        });
+        assert.ok(Array.isArray(result.context.dependencyChanges.changes.added));
+        assert.ok(Array.isArray(result.context.dependencyChanges.changes.removed));
+        assert.ok(Array.isArray(result.context.dependencyChanges.changes.unknown));
         presentation = await startPresentation(['--base', f.range.baseOid, '--correspondence', artifactPath], f.root, path.resolve(__dirname, '..'), { open: false, announce: false, ignoreEnvironment: true });
         const response = await fetch(new URL('/correspondence.json', presentation.url));
         const served = await response.json(); assert.equal(response.status, 200); assert.equal(served.relations.length, 6);

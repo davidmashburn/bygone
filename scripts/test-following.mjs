@@ -17,7 +17,7 @@ try {
     for (const name of ['A', 'B', 'C']) fs.writeFileSync(path.join(fixture, `${name}.ts`), `export function ${name.toLowerCase()}() { return 1; }\n`);
     git('add', '.'); git('commit', '-m', 'fixture');
     const manifest = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'), 'utf8'));
-    manifest.main = './entry.js';
+    manifest.main = process.env.BYGONE_DEPENDENCY_TEST ? './out/extension.js' : './entry.js';
     fs.writeFileSync(path.join(extension, 'package.json'), JSON.stringify(manifest));
     fs.mkdirSync(path.join(extension, 'media'));
     for (const file of ['webview.js', 'webview.css', 'editor.worker.js', 'diff.worker.js']) fs.copyFileSync(path.join(repo, 'media', file), path.join(extension, 'media', file));
@@ -38,7 +38,12 @@ window.addEventListener('bygone:host-message', event => {
     if (m.type === 'testAction') followSync.action(m.action);
 });`, loader: 'js' }));
         } }] });
-    await build({ entryPoints: [path.join(repo, 'test/vscode/entry.js')], outfile: path.join(extension, 'entry.js'), bundle: true, platform: 'node', external: ['vscode'] });
+    if (process.env.BYGONE_DEPENDENCY_TEST) {
+        fs.cpSync(path.join(repo, 'out'), path.join(extension, 'out'), { recursive: true });
+        fs.mkdirSync(path.join(extension, 'cli'));
+        fs.copyFileSync(path.join(repo, 'cli/dependency-python.py'), path.join(extension, 'cli/dependency-python.py'));
+    }
+    await build({ entryPoints: [path.join(repo, 'test/vscode/entry.js')], outfile: path.join(extension, manifest.main), bundle: true, platform: 'node', external: ['vscode'] });
     fs.copyFileSync(path.join(repo, 'out/liveSymbolsWorker.js'), path.join(extension, 'liveSymbolsWorker.js'));
     const userData = path.join(root, 'user-data');
     fs.mkdirSync(path.join(userData, 'User'), { recursive: true });
@@ -46,7 +51,7 @@ window.addEventListener('bygone:host-message', event => {
     const executable = process.env.BYGONE_VSCODE_EXECUTABLE || await downloadAndUnzipVSCode(process.env.BYGONE_VSCODE_VERSION || 'stable');
     await runTests({
         vscodeExecutablePath: executable, extensionDevelopmentPath: extension,
-        extensionTestsPath: path.join(repo, process.env.BYGONE_EVIDENCE_TEST ? 'test/vscode/evidence.js' : process.env.BYGONE_SCM_TEST ? 'test/vscode/scm.js' : 'test/vscode/following.js'),
+        extensionTestsPath: path.join(repo, process.env.BYGONE_DEPENDENCY_TEST ? 'test/vscode/dependencies.js' : process.env.BYGONE_EVIDENCE_TEST ? 'test/vscode/evidence.js' : process.env.BYGONE_SCM_TEST ? 'test/vscode/scm.js' : 'test/vscode/following.js'),
         extensionTestsEnv: { BYGONE_FOLLOW_FIXTURE: fixture, ELECTRON_RUN_AS_NODE: undefined },
         launchArgs: [fixture, '--disable-extensions', '--disable-workspace-trust', '--skip-welcome', '--skip-release-notes', '--disable-gpu', '--user-data-dir='+userData, '--extensions-dir='+path.join(root, 'extensions')]
     });

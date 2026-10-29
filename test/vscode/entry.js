@@ -3,6 +3,7 @@ const { activate: activateProduction } = require('../../src/extension');
 const { DiffViewProvider } = require('../../src/diffViewProvider');
 const { EvidenceController } = require('../../src/evidenceController');
 const { FollowController } = require('../../src/followController');
+const { DependencyController } = require('../../src/dependencyController');
 
 
 exports.activate = function(context) {
@@ -22,6 +23,11 @@ exports.activate = function(context) {
         start.call(this);
     };
     const open = EvidenceController.prototype.open;
+    const openDependencies = DependencyController.prototype.open;
+    DependencyController.prototype.open = async function(...args) {
+        observed.dependencies = this;
+        return openDependencies.apply(this, args);
+    };
     EvidenceController.prototype.open = async function(...args) {
         observed.evidence = this;
         return open.apply(this, args);

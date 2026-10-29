@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { DependencyController } from './dependencyController';
 import { randomBytes } from 'crypto';
 import { Review, fingerprint } from './requirements';
 import { SourceRef } from 'bygone-strand/source-references';
@@ -25,7 +26,7 @@ export class EvidenceController implements vscode.Disposable {
     private renderToken = '';
     private handoffGeneration = 0;
     private origin?: { review: Review; root: string; file: string; dependencies?: DependencyInspection };
-    constructor(private readonly follower: FollowController, private readonly diff: DiffViewProvider) {}
+    constructor(private readonly follower: FollowController, private readonly diff: DiffViewProvider, private readonly graph?: DependencyController) {}
     dispose(): void { this.panel?.dispose(); this.provider.dispose(); }
     async open(file?: vscode.Uri, repository?: vscode.Uri): Promise<void> {
         if (!vscode.workspace.isTrusted || vscode.env.remoteName) throw new Error('Evidence review requires a trusted local workspace.');
@@ -70,6 +71,9 @@ export class EvidenceController implements vscode.Disposable {
         if (!message || typeof message !== 'object' || !this.review) return;
         const { action, index } = message as { action?: string; index?: number };
         const review = this.review, root = this.root;
+        if (action === 'graph') {
+            await this.graph?.open({ repoRoot: root, baseOid: review.base, headOid: review.head }); return;
+        }
         if (action === 'dependencies') {
             const file = (await vscode.window.showOpenDialog({ filters: { 'Dependency report': ['json'] }, canSelectMany: false }))?.[0];
             if (this.review !== review) return;
@@ -162,7 +166,7 @@ export class EvidenceController implements vscode.Disposable {
         this.renderToken = nonce;
         this.panel.webview.html = `<!doctype html><html><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'"><style nonce="${nonce}">body{font:14px var(--vscode-font-family);color:var(--vscode-foreground);background:var(--vscode-editor-background);padding:24px;max-width:1000px}section,article{border:1px solid var(--vscode-panel-border);padding:16px;margin:16px 0}button{padding:7px;margin:4px;color:var(--vscode-button-foreground);background:var(--vscode-button-background);border:0;cursor:pointer}pre{white-space:pre-wrap;overflow-wrap:anywhere}h1,h2,h3{font-weight:500}p{line-height:1.5}</style></head><body>
             <h1>Evidence Review</h1><p>${escape(review.repository)} · ${escape(this.root)}</p><p>Pinned ${review.base.slice(0, 12)} → ${review.head.slice(0, 12)}. Working buffers excluded. ${report.checkoutHead !== review.head ? 'Checkout HEAD has advanced or differs.' : ''}</p>
-            <p>Editing opens a separate live view. Use “Bygone: Return to Evidence Review” to return here.</p>${button('refresh', 0, 'Refresh to committed revision')}${button('dependencies', 0, 'Load dependency evidence')}
+            <p>Editing opens a separate live view. Use “Bygone: Return to Evidence Review” to return here.</p>${button('refresh', 0, 'Refresh to committed revision')}${this.graph ? button('graph', 0, 'Explore dependency graph') : ''}${button('dependencies', 0, 'Load dependency evidence')}
             ${requirements}<section><h2>Changed files without valid evidence links</h2><pre>${escape(report.changedPathsWithoutLinks.join('\n') || 'None')}</pre><p>File-level coverage only; linked files may still contain unexplained changes.</p></section>
             <section><h2>Analysis receipts</h2>${report.analyses.map(a => `<p>${escape(a.producer)} · ${escape(a.status)} · ${escape(a.relevance)}</p><pre>${escape([...a.scope, ...a.limitations].join('\n'))}</pre>`).join('') || '<p>No analysis recorded.</p>'}</section>
             <section><h2>Dependency inspection</h2>${this.dependencies ? `<pre>${escape(this.dependencies.limitations.join('\n'))}</pre>${this.dependencies.links.map(l => `<article><p>${escape(l.title)} · phase ${escape(l.phase)} · loading ${escape(l.loading)} · ${escape(l.resolution)}</p>${navigation(l.ref)}</article>`).join('')}` : '<p>No dependency report loaded. Generate one for these exact base/head revisions. Dependency evidence does not determine requirement fulfillment.</p>'}</section>

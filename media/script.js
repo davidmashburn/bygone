@@ -299,6 +299,10 @@ host.onMessage((message) => {
     }
     if (!followSync.receive(message)) return;
     if (message.workspace) updateWorkspaceControls(message.workspace);
+    if (message.type === 'workspaceDependencyGraph') {
+        workspaceControls?.updateDependencyGraph(message);
+        return;
+    }
     if (message.type === 'workspaceState') return;
     if (message.type === 'workspaceTour') { showWorkspaceTour(message); return; }
     if (message.type === 'workspaceEmptyTour') {

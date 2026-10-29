@@ -666,4 +666,55 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
     }
 }
 
-module.exports = { runWorkspaceSmoke };
+async function runNativeDependencySmoke({ openLink, window, session, navigation }) {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-native-dependency-')));
+    const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: 'pipe' }).trim();
+    const evaluate = code => window().webContents.executeJavaScript(code, true);
+    const wait = condition => evaluate(`new Promise((resolve,reject)=>{const start=Date.now(); function check(){
+        if (${condition}) return resolve(); if(Date.now()-start>15000) return reject(new Error(${JSON.stringify(condition)}));
+        setTimeout(check, 20); } check(); })`);
+    try {
+        window().show();
+        console.log('Native dependency smoke: opening pinned comparison.');
+        git('init'); git('config', 'user.name', 'Dependency smoke'); git('config', 'user.email', 'smoke@example.test');
+        const helper = 'def helper():\n    return 1\n';
+        fs.writeFileSync(path.join(root, 'helper.py'), helper);
+        fs.writeFileSync(path.join(root, 'app.py'), 'from helper import helper\ndef run():\n    return helper()\n');
+        git('add', '.'); git('commit', '-m', 'base'); const base = git('rev-parse', 'HEAD');
+        fs.appendFileSync(path.join(root, 'app.py'), 'run()\n');
+        git('commit', '-am', 'head'); const head = git('rev-parse', 'HEAD');
+        await openLink(serializeDeepLink({ kind: 'compare', repo: pathToFileURL(root).href,
+            revisions: [base, head], file: 'app.py', revision: head, line: 2 }));
+        console.log('Native dependency smoke: opening graph.');
+        await wait("document.querySelector('.workspace-dependency-button:not(:disabled)')");
+        assert.equal(await evaluate("getComputedStyle(document.querySelector('.workspace-dependency-dialog')).display"), 'none', 'Closed graph does not cover the comparison');
+        await evaluate("document.querySelector('.workspace-dependency-button').click()");
+        await wait("document.querySelector('.workspace-dependency-frame:not([hidden])')");
+        const frame = await new Promise((resolve, reject) => {
+            const deadline = Date.now() + 15000;
+            const check = () => {
+                const child = window().webContents.mainFrame.framesInSubtree.find(frame => frame.url.startsWith('http://127.0.0.1:') && frame.url.includes('/dependency/'));
+                if (child) return resolve(child);
+                if (Date.now() > deadline) return reject(new Error('Embedded dependency frame unavailable'));
+                setTimeout(check, 20);
+            }; check();
+        });
+        assert.ok(frame, 'Embedded dependency frame loaded');
+        await frame.executeJavaScript(`new Promise((resolve,reject)=>{const start=Date.now();function check(){
+            if(document.querySelector('#graph svg .node')) return resolve();
+            if(Date.now()-start>15000) return reject(new Error('Dependency layout did not render'));requestAnimationFrame(check);}check();})`);
+        const anchor = await frame.executeJavaScript(`(()=>{const report=JSON.parse(document.getElementById('report').textContent);
+            return report.head.nodes.find(n=>n.name==='helper' && n.kind==='function').source;})()`);
+        await frame.executeJavaScript(`parent.postMessage({type:'dependencySource',source:${JSON.stringify(anchor)}},'*')`);
+        await wait("!document.querySelector('.workspace-dependency-dialog[open]') && document.querySelectorAll('.monaco-editor').length===2");
+        assert.equal(await evaluate("getComputedStyle(document.querySelector('.workspace-dependency-dialog')).display"), 'none', 'Source navigation hides the graph dialog');
+        assert.equal(session().workspaceView.path, 'helper.py', 'Unchanged dependency opens outside the original file scope');
+        assert.deepEqual(session().workspaceView.revisions, [base, head]);
+        assert.ok(session().multi.files.every(panel => panel.content === helper && !panel.editable));
+        const active = session().multi.activePanelId;
+        assert.equal((await navigation()).editorStates[active].selection.startLineNumber, anchor.line);
+        console.log('Native dependency smoke passed: embedded layout, unchanged dependency navigation, pinned bytes and read-only selection.');
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+}
+
+module.exports = { runWorkspaceSmoke, runNativeDependencySmoke };

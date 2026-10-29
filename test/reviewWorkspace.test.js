@@ -8,6 +8,7 @@ const workspace = require('../out/reviewWorkspace');
 const core = require('../out/requirements');
 const { inspectDependencies } = require('../out/reviewDependencies');
 const { buildDependencyGraph } = require('../out/dependencyGraph');
+const { buildDependencyEvidence } = require('../out/dependencyEvidence');
 const { runEvidenceCommand } = require('../cli/evidence');
 function fixture(t) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-evidence-'));
@@ -76,6 +77,31 @@ test('dependency navigation checks exact blobs/ranges and exposes unchanged-edge
     tampered.head.edges[0].source.blobOid = '0'.repeat(40);
     assert.throws(() => inspectDependencies(f.root, f.review, tampered), /blob mismatch/);
     assert.throws(() => inspectDependencies(f.root, { ...f.review, head: f.base }, graph), /does not match/);
+});
+test('v2 dependency evidence is pinned, bounded, and honest about static coverage', t => {
+    const f = fixture(t);
+    const report = buildDependencyEvidence(f.root, { baseRef: f.base });
+    const inspection = inspectDependencies(f.root, f.review, report);
+    assert.ok(inspection.links.length);
+    assert.match(inspection.limitations.join('\n'), /Static phase labels describe syntax/);
+    assert.match(inspection.limitations.join('\n'), /Resolution labels identify only source targets/);
+    assert.match(inspection.limitations.join('\n'), /base: .*files indexed/);
+
+    const schema = structuredClone(report);
+    schema.extra = true;
+    assert.throws(() => inspectDependencies(f.root, f.review, schema), /unknown field/);
+
+    const digest = structuredClone(report);
+    digest.head.sites[0].source.digest = '0'.repeat(64);
+    assert.throws(() => inspectDependencies(f.root, f.review, digest), /digest mismatch/);
+
+    const membership = structuredClone(report);
+    membership.head.sites[0].owner = membership.head.nodes.find(node => node.source.file !== membership.head.sites[0].source.file).id;
+    assert.throws(() => inspectDependencies(f.root, f.review, membership), /membership mismatch/);
+
+    const budget = structuredClone(report);
+    budget.limits.maxBytes = 1;
+    assert.throws(() => inspectDependencies(f.root, f.review, budget), /coverage exceeds declared limits/);
 });
 test('CLI imports with no carried decisions and produces a validated pinned tour', t => {
     const f = fixture(t), input = path.join(f.root, 'input.json'), output = path.join(f.root, 'import.json');
@@ -189,4 +215,24 @@ test('dependency validation accepts two individually bounded snapshots above 16 
     assert.ok(graph.base.coverage.readBytes + graph.head.coverage.readBytes > 16 * 1024 * 1024);
     const result = inspectDependencies(f.root, { ...f.review, base, head }, graph);
     assert.equal(result.links.filter(l => l.title.includes('large-')).length, 18);
+});
+
+
+test('v2 imports accept empty modules and partial declaration inventories without overstating coverage', t => {
+    const f = fixture(t);
+    fs.writeFileSync(path.join(f.root, '__init__.py'), '');
+    fs.writeFileSync(path.join(f.root, 'many.py'), Array.from({length: 12}, (_, i) => `def f${i}():\n    pass\n`).join('\n'));
+    f.head = f.commit('empty and large modules'); f.review.head = f.head;
+    const report = buildDependencyEvidence(f.root, { baseRef: f.base });
+    assert.ok(report.head.nodes.some(n => n.source.file === '__init__.py' && n.source.end === 0));
+    assert.doesNotThrow(() => inspectDependencies(f.root, f.review, report));
+    const partial = buildDependencyEvidence(f.root, { baseRef: f.base, limits: { maxRecords: 6 } });
+    assert.equal(partial.head.coverage.indexComplete, false);
+    assert.ok(new Set(partial.head.nodes.map(n => n.source.file)).size > partial.head.coverage.indexedFiles);
+    const inspection = inspectDependencies(f.root, f.review, partial);
+    assert.match(inspection.limitations.join('\n'), /index partial/);
+    const forged = structuredClone(report);
+    const node = forged.head.nodes.find(n => n.kind === 'function');
+    node.source.end = node.source.start;
+    assert.throws(() => inspectDependencies(f.root, f.review, forged), /Invalid dependency/);
 });

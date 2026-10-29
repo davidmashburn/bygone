@@ -43,6 +43,7 @@ examples/**
 docs/**
 completions/**
 cli/**
+!cli/dependency-python.py
 packaging/**
 skills/**
 .agents/**
@@ -65,3 +66,16 @@ out/**
 packages/**
 
 !out/liveSymbolsWorker.js
+
+!out/dependencyEvidence.js
+!out/dependencyEvidenceWorker.js
+!out/dependencyNativeWorker.js
+!out/dependencyChanges.js
+!out/changeCorrespondence.js
+!out/dependencyTypescript.js
+!out/dependencyParsers.js
+!out/dependency-layout.js
+!out/dependency-layout-LICENSE.txt
+!out/web-tree-sitter.wasm
+!out/web-tree-sitter-LICENSE.txt
+!out/grammars/**

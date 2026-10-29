@@ -60,7 +60,7 @@ export interface ReviewPathPair {
 export type RunGit = (args: readonly string[], cwd: string) => string;
 
 export function createGitRunner(maxBuffer = readGitMaxBuffer()): RunGit {
-    return (args, cwd) => execFileSync('git', [...args], {
+    return (args, cwd) => execFileSync('git', ['--no-replace-objects', ...args], {
         cwd,
         encoding: 'utf8',
         maxBuffer,
@@ -415,7 +415,7 @@ function parseIndexStageRecord(record: string): { mode: string; path: string } |
 
 function readGitBlob(repoRoot: string, commit: string, relativePath: string): Buffer {
     const spec = commit && commit !== 'INDEX' ? `${commit}:${relativePath}` : `:${relativePath}`;
-    return execFileSync('git', ['show', spec], {
+    return execFileSync('git', ['--no-replace-objects', 'show', spec], {
         cwd: repoRoot,
         encoding: 'buffer',
         maxBuffer: readGitMaxBuffer(),
@@ -425,7 +425,7 @@ function readGitBlob(repoRoot: string, commit: string, relativePath: string): Bu
 }
 
 function runGitText(repoRoot: string, args: readonly string[]): string {
-    return execFileSync('git', [...args], {
+    return execFileSync('git', ['--no-replace-objects', ...args], {
         cwd: repoRoot,
         encoding: 'utf8',
         maxBuffer: readGitMaxBuffer(),

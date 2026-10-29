@@ -27,7 +27,8 @@ function renderMermaid(report) {
     lines.push('  %% Unresolved sites remain in JSON and the HTML evidence table.');
     return lines.join('\n') + '\n';
 }
-function renderEvidenceHtml(report) {
+function renderEvidenceHtml(report, options = {}) {
+    const settings = JSON.stringify(options).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
     const data = JSON.stringify(report).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
     const layout = readFileSync(join(__dirname, '../out/dependency-layout.js'), 'utf8').replace(/<\/script/gi, '<\\/script');
     const license = readFileSync(join(__dirname, '../out/dependency-layout-LICENSE.txt'), 'utf8');
@@ -39,12 +40,14 @@ function renderEvidenceHtml(report) {
 <main><div><label>Revision <select id="revision"><option>head</option><option>base</option></select></label><label>View <select id="mode"><option value="folders">Folders</option><option value="files">Files</option><option value="symbols">Symbols</option></select></label><label>Language <select id="language"><option value="">All</option><option value="python">Python</option><option value="typescript">JS/TS</option><option value="go">Go</option><option value="rust">Rust</option><option value="mojo">Mojo</option></select></label><label>Relation <select id="relation"><option value="dependencies">Dependencies</option><option value="">All, including references</option><option>import</option><option>reexport</option><option>call</option><option>construct</option><option>reference</option></select></label><label>Phase <select id="phase"><option value="">All</option><option>module-init</option><option>invocation</option><option>type</option><option>unknown</option></select></label><label>Find <input id="search" placeholder="File or symbol" type="search"></label></div>
 <div class="toolbar"><button id="reset">Clear focus</button><button id="expand" disabled>Inspect symbols</button><span class="grow"></span><label>Direction <select id="direction"><option value="RIGHT">Left to right</option><option value="DOWN">Top to bottom</option></select></label><button id="zoomout" aria-label="Zoom out">−</button><button id="fit">Fit graph</button><button id="zoomin" aria-label="Zoom in">+</button></div>
 <p id="status" role="status"></p><div id="graph" aria-busy="true"></div><p id="focus"></p><p id="hint" class="muted">Arrows point from consumer to dependency. Select a node for its neighbors; select an edge for its source evidence. Drag to pan, scroll to zoom. Folder and file views combine repeated relationships and hide within-group edges. Diagrams show up to 150 nodes and 300 relationships; JSON retains the full indexed report.</p>
-<details id="evidence-panel"><summary id="evidence-summary">Source evidence</summary><div id="evidence"></div></details><details><summary>Coverage, producers, and limitations</summary><div id="details"></div></details><details><summary>Layout license</summary><p>Layout by <a href="https://github.com/kieler/elkjs/tree/v0.12.1">ELK.js 0.12.1</a>, distributed unmodified under EPL-2.0. Source and notices are available at that link.</p><pre>${escapeHtml(license)}</pre></details></main>
-<script id="report" type="application/json">${data}</script><script>${layout}</script><script>const projectGraph = ${projectGraph.toString()}; const layoutInput = ${layoutInput.toString()}; (${viewer.toString()})();</script></html>`;
+<details id="changes-panel"><summary>Dependency changes and affected consumers</summary><button id="load-correspondence" hidden>Load symbol correspondence</button><div id="changes"></div></details><details id="evidence-panel"><summary id="evidence-summary">Source evidence</summary><div id="evidence"></div></details><details><summary>Coverage, producers, and limitations</summary><div id="details"></div></details><details><summary>Layout license</summary><p>Layout by <a href="https://github.com/kieler/elkjs/tree/v0.12.1">ELK.js 0.12.1</a>, distributed unmodified under EPL-2.0. Source and notices are available at that link.</p><pre>${escapeHtml(license)}</pre></details></main>
+<script id="settings" type="application/json">${settings}</script><script id="report" type="application/json">${data}</script><script>${layout}</script><script>const projectGraph = ${projectGraph.toString()}; const layoutInput = ${layoutInput.toString()}; (${viewer.toString()})();</script></html>`;
 }
-/* global document, window, ELK */
+/* global document, window, ELK, acquireVsCodeApi */
 function viewer() {
     const report = JSON.parse(document.getElementById('report').textContent);
+    const settings = JSON.parse(document.getElementById('settings').textContent);
+    const bridge = settings.embedded && typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : undefined;
     document.getElementById('mode').value = new Set(report.head.nodes.map(n => n.source.file)).size > 30 ? 'folders' : 'files';
     const el = id => document.getElementById(id), engine = new ELK();
     let focus, selectedEdge, generation = 0, current, svg, box, initialBox, drag, moved = false;
@@ -52,9 +55,33 @@ function viewer() {
     const svgEl = (tag, attrs, parent) => { const n = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v)); if (parent) parent.append(n); return n; };
     const sourceLink = (source, parent) => {
         const value = `${source.file}:${source.line}:${source.column}`;
-        if (source.link?.startsWith('bygone:')) { const a = text('a', value, parent); a.href = source.link; }
+        if (settings.embedded) { const a = text('button', value, parent); a.addEventListener('click', () => { const message = { type: 'dependencySource', source }; if (bridge) bridge.postMessage(message); else window.parent.postMessage(message, '*'); }); }
+        else if (source.link?.startsWith('bygone:')) { const a = text('a', value, parent); a.href = source.link; }
         else text('span', value, parent);
     };
+    if (settings.canLoadCorrespondence) {
+        el('load-correspondence').hidden = false;
+        el('load-correspondence').onclick = () => { const message = { type: 'dependencyLoadCorrespondence' }; if (bridge) bridge.postMessage(message); else window.parent.postMessage(message, '*'); };
+    }
+    if (settings.changes) {
+        const changes = settings.changes, parent = el('changes');
+        text('p', `${changes.continuations.length} trusted symbol continuations · ${changes.changes.added.length} added calls · ${changes.changes.removed.length} removed calls · ${changes.changes.unknown.length} unclassified calls`, parent);
+        for (const limitation of changes.limitations) text('p', limitation, parent);
+        for (const kind of ['added', 'removed', 'unknown']) {
+            const entries = changes.changes[kind];
+            text('h3', `${kind} · showing ${Math.min(200, entries.length)} / ${entries.length}`, parent);
+            for (const entry of entries.slice(0, 200)) {
+                const row = text('p', `${entry.consumer?.name || '?'} → ${entry.target?.name || entry.site.name}${entry.reason ? ' · ' + entry.reason : ''} · `, parent);
+                sourceLink(entry.site.source, row);
+            }
+        }
+        text('h3', `Affected consumers · ${changes.affectedConsumers.length}`, parent);
+        for (const consumer of changes.affectedConsumers.slice(0, 200)) {
+            const node = consumer.after || consumer.before;
+            const row = text('p', `${node.name} · +${consumer.added.length} / −${consumer.removed.length} / ?${consumer.unknown.length} · `, parent);
+            sourceLink(node.source, row);
+        }
+    } else el('changes-panel').hidden = true;
     const applyBox = () => { if (svg && box) svg.setAttribute('viewBox', `${box.x} ${box.y} ${box.width} ${box.height}`); };
     const zoom = factor => {
         if (!box || box.width * factor < 80 || box.width * factor > 100000) return;
@@ -172,6 +199,14 @@ function viewer() {
     window.addEventListener('pointerup', () => { drag = undefined; });
     window.addEventListener('pointercancel', () => { drag = undefined; });
     window.addEventListener('resize', fit);
+    if (settings.focus?.file) {
+        if (settings.focus.revision === 'base') el('revision').value = 'base';
+        const snapshot = report[el('revision').value];
+        const candidates = snapshot.nodes.filter(n => n.source.file === settings.focus.file && n.kind !== 'module-init' && (Number.isInteger(settings.focus.start) ? n.source.start <= settings.focus.start && n.source.end > settings.focus.start : n.source.line === settings.focus.line));
+        candidates.sort((a, b) => b.source.start - a.source.start);
+        el('mode').value = (settings.focus.line || Number.isInteger(settings.focus.start)) && candidates.length ? 'symbols' : 'files';
+        focus = el('mode').value === 'symbols' ? candidates[0].id : JSON.stringify(['file', settings.focus.file]);
+    }
     render();
 }
 module.exports = { renderEvidenceSummary, renderMermaid, renderEvidenceHtml };

@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
 const { test } = require('node:test');
 const { createWorkspaceHost } = require('../standalone/workspaceHost.js');
 const { getMenuCapabilities } = require('../standalone/menuUtils.js');
@@ -29,7 +30,7 @@ function nativeSession(sessionSource = source()) {
 }
 
 function makeGit({ failHistory = false } = {}) {
-    const calls = { resolve: [], history: [], range: [] };
+    const calls = { resolve: [], history: [], historyRead: [], range: [], readPinnedFile: [] };
     const context = {
         kind: 'ready', repoRoot: '/repo', commonDir: '/repo/.git', worktreeRoot: '/repo',
         paths: [{ path: 'one.txt', type: 'file' }, { path: 'two.txt', type: 'file' }],
@@ -43,6 +44,7 @@ function makeGit({ failHistory = false } = {}) {
         entries,
         files: ['one.txt', 'two.txt'],
         read(file, revision) {
+            calls.historyRead.push({ file, revision });
             return { exists: true, content: `${file}:${revision}`, reason: undefined };
         },
         changedCommits() { return [B, A]; },
@@ -60,6 +62,10 @@ function makeGit({ failHistory = false } = {}) {
             calls.history.push(options);
             if (failHistory) throw new Error('history backend failed');
             return history;
+        },
+        readPinnedFile(repoRoot, revision, file) {
+            calls.readPinnedFile.push({ repoRoot, revision, file });
+            return { text: 'one', blob: 'c'.repeat(40) };
         }
     };
 }
@@ -98,6 +104,433 @@ function makeHost(initial, { confirm = true, unsaved = false, capture = { active
 function showMessage() {
     return { type: 'showMultiDiff', panels: [] };
 }
+
+function dependencyAnchor(oid = A, overrides = {}) {
+    const text = 'one';
+    return {
+        oid,
+        blobOid: 'c'.repeat(40),
+        file: 'one.txt',
+        start: 0,
+        end: 3,
+        digest: createHash('sha256').update(text, 'utf8').digest('hex'),
+        ...overrides
+    };
+}
+
+function dependencyReport(anchor = dependencyAnchor()) {
+    return {
+        range: { baseOid: A, headOid: B },
+        base: { nodes: [{ source: anchor }], sites: [] },
+        head: { nodes: [], sites: [] }
+    };
+}
+
+function addNativeDependencyGraph(git, report = dependencyReport()) {
+    const calls = [];
+    git.buildNativeDependencyView = async (repoRoot, options) => {
+        calls.push({ repoRoot, options });
+        return { report, changes: [], html: '<!doctype html><p>graph</p>' };
+    };
+    git.dependencySource = (_report, candidate) => {
+        const anchor = report.base.nodes[0].source;
+        return candidate && ['oid', 'blobOid', 'file', 'start', 'end', 'digest']
+            .every(key => candidate[key] === anchor[key]) ? anchor : undefined;
+    };
+    return calls;
+}
+
+test('native dependency graph rejects live revisions and requires the exact pinned pair', async () => {
+    for (const liveRevision of ['WORKTREE', 'INDEX']) {
+        const fixture = makeHost(nativeSession(source({ resolvedRevisions: [liveRevision, B] })));
+        const git = makeGit();
+        const resolved = git.resolve();
+        git.resolve = () => ({ ...resolved, revisions: [liveRevision, B] });
+        const calls = addNativeDependencyGraph(git);
+        const workspace = createWorkspaceHost(fixture.host, git);
+
+        const before = workspace.uiState();
+        assert.equal(before.dependencyGraph.visible, true);
+        assert.equal(before.dependencyGraph.enabled, false);
+        assert.match(before.dependencyGraph.reason, /full committed revision OIDs/);
+        await workspace.handle({ type: 'workspaceDependencyGraph' });
+
+        assert.equal(calls.length, 0);
+        assert.match(workspace.uiState().dependencyGraph.error, /full committed revision OIDs/);
+    }
+});
+
+test('native dependency graph passes exact focus, validates source membership, and navigates to the pinned file', async () => {
+    const fixture = makeHost(nativeSession(), {
+        capture: { editorStates: { 'native-one': { selection: { startLineNumber: 1, startColumn: 1 } } } }
+    });
+    const git = makeGit();
+    const anchor = dependencyAnchor(A);
+    const report = dependencyReport(anchor);
+    const calls = addNativeDependencyGraph(git, report);
+    const workspace = createWorkspaceHost(fixture.host, git);
+
+    await workspace.handle({ type: 'workspaceDependencyGraph' });
+
+    const { signal, ...buildOptions } = calls[0].options;
+    assert.equal(calls[0].repoRoot, '/repo');
+    assert.deepEqual(buildOptions, {
+        baseOid: A,
+        headOid: B,
+        focus: { file: 'one.txt', revision: 'base', line: 1, start: 0 }
+    });
+    assert.equal(signal.aborted, false);
+    const ready = fixture.sent.findLast(message => message.type === 'workspaceDependencyGraph');
+    assert.equal(ready.graph.status, 'ready');
+    assert.equal(ready.graph.html, '<!doctype html><p>graph</p>');
+
+    const original = fixture.session;
+    await workspace.handle({ type: 'dependencySource', source: { ...anchor, file: '../outside.txt' } });
+    assert.equal(fixture.session, original, 'untrusted source data must not navigate');
+    assert.match(workspace.uiState().dependencyGraph.error, /validated pinned anchor/);
+
+    await workspace.handle({ type: 'dependencySource', source: anchor });
+    assert.deepEqual(fixture.session.workspaceView.revisions, [A, B]);
+    assert.equal(fixture.session.workspaceView.path, 'one.txt');
+    assert.deepEqual(fixture.sent.findLast(message => message.type === 'revealSearchResult'), {
+        type: 'revealSearchResult', sideIndex: 0, lineNumber: 1, startColumn: 1, endColumn: 4
+    });
+});
+
+test('native dependency source navigation rejects a pinned blob or digest mismatch', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const report = dependencyReport();
+    addNativeDependencyGraph(git, report);
+    git.readPinnedFile = () => ({ text: 'two', blob: 'c'.repeat(40) });
+    const workspace = createWorkspaceHost(fixture.host, git);
+    await workspace.handle({ type: 'workspaceDependencyGraph' });
+
+    const original = fixture.session;
+    await workspace.handle({ type: 'dependencySource', source: report.base.nodes[0].source });
+    assert.equal(fixture.session, original);
+    assert.match(workspace.uiState().dependencyGraph.error, /unavailable or changed/);
+});
+
+test('native dependency source accepts an empty module anchor only for an empty pinned file', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const anchor = dependencyAnchor(A, {
+        file: '__init__.py', start: 0, end: 0,
+        digest: createHash('sha256').update('', 'utf8').digest('hex')
+    });
+    const report = dependencyReport(anchor);
+    addNativeDependencyGraph(git, report);
+    const originalHistory = git.history;
+    git.history = (context, options) => {
+        const data = originalHistory(context, options);
+        if (context.paths.some(item => item.path === '__init__.py')) data.files = [...data.files, '__init__.py'];
+        return data;
+    };
+    const original = fixture.session;
+    git.readPinnedFile = () => ({ text: 'one', blob: 'c'.repeat(40) });
+    const workspace = createWorkspaceHost(fixture.host, git);
+    await workspace.handle({ type: 'workspaceDependencyGraph' });
+    await workspace.handle({ type: 'dependencySource', source: anchor });
+    assert.equal(fixture.session, original, 'a zero-length anchor must not navigate into non-empty source');
+    assert.match(workspace.uiState().dependencyGraph.error, /unavailable or changed/);
+
+    git.readPinnedFile = () => ({ text: '', blob: 'c'.repeat(40) });
+    await workspace.handle({ type: 'dependencySource', source: anchor });
+    assert.equal(fixture.session.workspaceView.path, '__init__.py');
+    assert.deepEqual(fixture.session.multi.files.map(panel => panel.content), ['', '']);
+});
+
+test('native dependency source keeps unchanged targets pinned and adds them to the history file set', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const anchor = dependencyAnchor(A, { file: 'unchanged.txt' });
+    const report = dependencyReport(anchor);
+    addNativeDependencyGraph(git, report);
+    const originalHistory = git.history;
+    git.history = (context, options) => {
+        const data = originalHistory(context, options);
+        if (context.paths.some(item => item.path === 'unchanged.txt') && !data.files.includes('unchanged.txt')) {
+            data.files = [...data.files, 'unchanged.txt'];
+        }
+        return data;
+    };
+    const workspace = createWorkspaceHost(fixture.host, git);
+
+    await workspace.handle({ type: 'workspaceDependencyGraph' });
+    await workspace.handle({ type: 'dependencySource', source: anchor });
+
+    assert.equal(fixture.session.workspaceView.path, 'unchanged.txt');
+    assert.deepEqual(fixture.session.multi.files.map(panel => panel.content), ['one', 'one']);
+    assert.deepEqual(git.calls.readPinnedFile.map(call => [call.revision, call.file]), [[A, 'unchanged.txt'], [B, 'unchanged.txt']]);
+    assert.deepEqual(git.calls.historyRead, [], 'session construction must not reread the validated target');
+    const historyUpdate = fixture.sent.findLast(message => message.type === 'updateCommitHistory');
+    assert.ok(historyUpdate.history.rail.itemsByTab['workspace-files'].some(item => item.relativePath === 'unchanged.txt'));
+});
+
+test('native dependency graph reloads with a selected validated correspondence artifact', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const report = dependencyReport();
+    const calls = addNativeDependencyGraph(git, report);
+    const correspondence = { version: 1, range: { baseOid: A, headOid: B }, status: 'complete' };
+    const picked = [];
+    fixture.host.chooseDependencyCorrespondence = async (...args) => {
+        picked.push(args);
+        return correspondence;
+    };
+    const workspace = createWorkspaceHost(fixture.host, git);
+
+    assert.equal(workspace.uiState().dependencyGraph.canLoadCorrespondence, true);
+    await workspace.handle({ type: 'dependencyLoadCorrespondence' });
+
+    assert.deepEqual(picked, [['/repo', A, B]]);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].options.correspondence, correspondence);
+    assert.equal(workspace.uiState().dependencyGraph.status, 'ready');
+});
+
+test('native dependency graph ignores a build that completes after the workspace session changes', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const report = dependencyReport();
+    let startBuild;
+    let releaseBuild;
+    let disposed = 0;
+    const started = new Promise(resolve => { startBuild = resolve; });
+    const pending = new Promise(resolve => { releaseBuild = resolve; });
+    git.buildNativeDependencyView = async () => {
+        startBuild();
+        return pending;
+    };
+    const workspace = createWorkspaceHost(fixture.host, git);
+    const request = workspace.handle({ type: 'workspaceDependencyGraph' });
+    await started;
+
+    fixture.host.setSession(nativeSession(source({ refs: ['changed-session'] })));
+    workspace.update();
+    releaseBuild({ report, changes: [], html: '<p>stale</p>',
+        url: 'http://127.0.0.1:43123/dependency/stale', dispose() { disposed += 1; } });
+    await request;
+
+    assert.equal(workspace.uiState().sessionId.startsWith('workspace-'), true);
+    assert.equal(fixture.sent.some(message => message.type === 'workspaceDependencyGraph'
+        && message.graph?.status === 'ready'), false);
+    assert.equal(disposed, 1, 'stale served graph must be disposed');
+});
+
+test('native dependency graph aborts superseded analysis without reporting a stale abort', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    let signal;
+    let started;
+    const analysisStarted = new Promise(resolve => { started = resolve; });
+    git.buildNativeDependencyView = async (_repoRoot, options) => {
+        signal = options.signal;
+        started();
+        return new Promise((resolve, reject) => {
+            signal.addEventListener('abort', () => {
+                const error = new Error('The operation was aborted');
+                error.name = 'AbortError';
+                reject(error);
+            }, { once: true });
+        });
+    };
+    const workspace = createWorkspaceHost(fixture.host, git);
+    const request = workspace.handle({ type: 'workspaceDependencyGraph' });
+    await analysisStarted;
+
+    fixture.host.setSession(nativeSession(source({ refs: ['changed-session'] })));
+    workspace.update();
+    assert.equal(signal.aborted, true);
+    await request;
+
+    assert.equal(fixture.sent.some(message => message.type === 'workspaceDependencyGraph'
+        && message.graph?.status === 'error'), false);
+    workspace.reset();
+});
+
+test('native dependency graph aborts a queued replacement before it starts', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const report = dependencyReport();
+    const signals = [];
+    let firstStarted;
+    let secondStarted;
+    let releaseSecond;
+    const first = new Promise(resolve => { firstStarted = resolve; });
+    const second = new Promise(resolve => { secondStarted = resolve; });
+    git.buildNativeDependencyView = async (_repoRoot, options) => {
+        signals.push(options.signal);
+        if (signals.length === 1) firstStarted();
+        if (signals.length === 2) secondStarted();
+        return new Promise((resolve, reject) => {
+            if (signals.length === 2) releaseSecond = resolve;
+            options.signal.addEventListener('abort', () => {
+                const error = new Error('The operation was aborted');
+                error.name = 'AbortError';
+                reject(error);
+            }, { once: true });
+        });
+    };
+    const workspace = createWorkspaceHost(fixture.host, git);
+    const firstRequest = workspace.handle({ type: 'workspaceDependencyGraph' });
+    await first;
+    const secondRequest = workspace.handle({ type: 'workspaceDependencyGraph' });
+    assert.equal(signals[0].aborted, true);
+    await second;
+    assert.equal(signals[1].aborted, false);
+    releaseSecond({ report, changes: [], html: '<p>replacement</p>' });
+    await Promise.all([firstRequest, secondRequest]);
+    assert.equal(workspace.uiState().dependencyGraph.status, 'ready');
+});
+
+test('native dependency graph aborts before a queued workspace context change', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    let signal;
+    let started;
+    const analysisStarted = new Promise(resolve => { started = resolve; });
+    git.buildNativeDependencyView = async (_repoRoot, options) => {
+        signal = options.signal;
+        started();
+        return new Promise((resolve, reject) => {
+            signal.addEventListener('abort', () => {
+                const error = new Error('The operation was aborted');
+                error.name = 'AbortError';
+                reject(error);
+            }, { once: true });
+        });
+    };
+    const workspace = createWorkspaceHost(fixture.host, git);
+    const graphRequest = workspace.handle({ type: 'workspaceDependencyGraph' });
+    await analysisStarted;
+
+    const contextChange = workspace.handle({ type: 'workspaceOpenFile', relativePath: 'two.txt' });
+    assert.equal(signal.aborted, true);
+    await Promise.all([graphRequest, contextChange]);
+
+    assert.equal(fixture.session.workspaceView.path, 'two.txt');
+    assert.equal(workspace.uiState().dependencyGraph.status, 'idle');
+});
+
+test('native dependency graph does not serialize navigation behind an unresolved worker', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const report = dependencyReport();
+    let signal;
+    let started;
+    let releaseBuild;
+    const analysisStarted = new Promise(resolve => { started = resolve; });
+    git.buildNativeDependencyView = async (_repoRoot, options) => {
+        signal = options.signal;
+        started();
+        return new Promise(resolve => {
+            releaseBuild = () => resolve({ report, changes: [], html: '<p>late</p>' });
+        });
+    };
+    let rendered = false;
+    fixture.host.render = async () => { rendered = true; };
+    const workspace = createWorkspaceHost(fixture.host, git);
+    const graphRequest = workspace.handle({ type: 'workspaceDependencyGraph' });
+    await analysisStarted;
+
+    const navigation = workspace.handle({ type: 'workspaceOpenFile', relativePath: 'two.txt' });
+    const navigationFinished = await Promise.race([
+        navigation.then(() => true),
+        new Promise(resolve => setTimeout(() => resolve(false), 100))
+    ]);
+
+    assert.equal(signal.aborted, true);
+    assert.equal(navigationFinished, true, 'navigation must not wait for worker teardown');
+    assert.equal(rendered, true);
+    assert.equal(fixture.session.workspaceView.path, 'two.txt');
+
+    releaseBuild();
+    await graphRequest;
+    assert.equal(workspace.uiState().dependencyGraph.status, 'idle');
+});
+
+test('native dependency graph close aborts immediately and invalidates stale results', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const report = dependencyReport();
+    let signal;
+    let started;
+    let releaseBuild;
+    const analysisStarted = new Promise(resolve => { started = resolve; });
+    git.buildNativeDependencyView = async (_repoRoot, options) => {
+        signal = options.signal;
+        started();
+        return new Promise(resolve => {
+            releaseBuild = () => resolve({ report, changes: [], html: '<p>stale after close</p>' });
+        });
+    };
+    const workspace = createWorkspaceHost(fixture.host, git);
+    const graphRequest = workspace.handle({ type: 'workspaceDependencyGraph' });
+    await analysisStarted;
+
+    const closeRequest = workspace.handle({ type: 'workspaceDependencyClose' });
+    assert.equal(signal.aborted, true);
+    await closeRequest;
+    assert.equal(workspace.uiState().dependencyGraph.status, 'idle');
+
+    releaseBuild();
+    await graphRequest;
+    assert.equal(workspace.uiState().dependencyGraph.status, 'idle');
+    assert.equal(fixture.sent.some(message => message.type === 'workspaceDependencyGraph'
+        && message.graph?.status === 'ready'), false);
+});
+
+test('native dependency graph sends and disposes a served view on close', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    const report = dependencyReport();
+    let disposed = 0;
+    git.buildNativeDependencyView = async () => ({
+        report, changes: [], html: '<p>served</p>',
+        url: 'http://127.0.0.1:43123/dependency/ready',
+        dispose() { disposed += 1; }
+    });
+    const workspace = createWorkspaceHost(fixture.host, git);
+
+    await workspace.handle({ type: 'workspaceDependencyGraph' });
+    const ready = fixture.sent.findLast(message => message.type === 'workspaceDependencyGraph');
+    assert.equal(ready.graph.url, 'http://127.0.0.1:43123/dependency/ready');
+    assert.equal(disposed, 0);
+
+    await workspace.handle({ type: 'workspaceDependencyClose' });
+    assert.equal(disposed, 1);
+    await workspace.handle({ type: 'workspaceDependencyClose' });
+    assert.equal(disposed, 1, 'served graph cleanup must be idempotent');
+});
+
+test('native dependency graph disposal aborts active analysis', async () => {
+    const fixture = makeHost(nativeSession());
+    const git = makeGit();
+    let signal;
+    let started;
+    const analysisStarted = new Promise(resolve => { started = resolve; });
+    git.buildNativeDependencyView = async (_repoRoot, options) => {
+        signal = options.signal;
+        started();
+        return new Promise((resolve, reject) => {
+            signal.addEventListener('abort', () => {
+                const error = new Error('The operation was aborted');
+                error.name = 'AbortError';
+                reject(error);
+            }, { once: true });
+        });
+    };
+    const workspace = createWorkspaceHost(fixture.host, git);
+    const request = workspace.handle({ type: 'workspaceDependencyGraph' });
+    await analysisStarted;
+    workspace.dispose();
+    assert.equal(signal.aborted, true);
+    await request;
+    assert.equal(fixture.sent.some(message => message.type === 'workspaceDependencyGraph'
+        && message.graph?.status === 'error'), false);
+});
 
 test('directory history opens changed files and supports drill-down, return, and revision changes', async () => {
     const fixture = makeHost(nativeSession());

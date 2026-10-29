@@ -3,7 +3,8 @@ import { stat } from 'node:fs/promises';
 const budgets = [
     // Includes union/focus highlighting, visible-panel preservation, and panel reordering.
     { path: 'media/webview.js', maxBytes: 4_000_000 },
-    { path: 'media/webview.css', maxBytes: 375_000 },
+    // Includes the embedded dependency graph dialog and its controls.
+    { path: 'media/webview.css', maxBytes: 378_000 },
     { path: 'media/editor.worker.js', maxBytes: 320_000 },
     // Includes whitespace ranges, paragraph alignment, scroll anchors, and named-anchor highlighting.
     { path: 'media/diff.worker.js', maxBytes: 27_000 },

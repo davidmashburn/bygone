@@ -1,8 +1,68 @@
-/* global module, require */
+/* global AbortController, module, require */
+const { createHash } = require('node:crypto');
 const path = require('path');
 const { revisionFileLabel } = require('./fileLabel.js');
 const { applyComparisonOrder } = require('../out/panelOrder.js');
 const { revisionFileAction, revisionDirectoryView, revisionPanelsView, revisionRailItems } = require('../out/revisionView.js');
+
+const FULL_COMMIT_OID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+
+function dependencyRangeFor(context, revisions, rangeResolver) {
+    if (context?.kind !== 'ready') {
+        return { reason: context?.reason || 'Dependency graphs require a Git workspace.' };
+    }
+    if (!Array.isArray(revisions) || revisions.length !== 2) {
+        return { reason: 'Dependency graphs require exactly two pinned revisions.' };
+    }
+    if (!revisions.every(revision => typeof revision === 'string' && FULL_COMMIT_OID.test(revision))) {
+        return { reason: 'Dependency graphs require two full committed revision OIDs; WORKTREE and INDEX are not supported.' };
+    }
+    const [baseOid, headOid] = revisions;
+    if (baseOid === headOid) {
+        return { reason: 'Dependency graphs require two different pinned revisions.' };
+    }
+    if (typeof rangeResolver !== 'function') {
+        return { reason: 'Dependency graph analysis is unavailable in this desktop build.' };
+    }
+    const range = rangeResolver(context.repoRoot, revisions);
+    if (range?.status !== 'exact') {
+        return { reason: range?.reason || 'The selected revisions do not form an exact committed range.' };
+    }
+    if ((range.baseOid && range.baseOid !== baseOid) || (range.headOid && range.headOid !== headOid)) {
+        return { reason: 'The selected revisions did not remain pinned to the requested exact range.' };
+    }
+    return { baseOid, headOid, revisions: [baseOid, headOid], key: JSON.stringify([baseOid, headOid]), range };
+}
+
+function isSafeDependencyFile(file) {
+    if (typeof file !== 'string' || !file || file.startsWith('/') || file.includes('\\') || file.includes('\0')) return false;
+    const parts = file.split('/');
+    return parts.every(part => part && part !== '.' && part !== '..');
+}
+
+function offsetAtLineColumn(text, line, column) {
+    if (typeof text !== 'string' || !Number.isInteger(line) || !Number.isInteger(column) || line < 1 || column < 1) return undefined;
+    let offset = 0;
+    let currentLine = 1;
+    while (currentLine < line) {
+        const match = /\r\n|\r|\n/g;
+        match.lastIndex = offset;
+        const found = match.exec(text);
+        if (!found) return undefined;
+        offset = found.index + found[0].length;
+        currentLine++;
+    }
+    const nextBreak = text.slice(offset).search(/\r\n|\r|\n/);
+    const lineEnd = nextBreak < 0 ? text.length : offset + nextBreak;
+    return Math.min(offset + column - 1, lineEnd);
+}
+
+function sourceLocation(text, offset) {
+    if (typeof text !== 'string' || !Number.isInteger(offset) || offset < 0 || offset > text.length) return undefined;
+    const prefix = text.slice(0, offset);
+    const lines = prefix.split(/\r\n|\r|\n/);
+    return { line: lines.length, column: lines.at(-1).length + 1 };
+}
 
 // Owns mode cursors, not editor capabilities. The native host continues to own
 // editable sessions, saving, window lifetime, and confirmation dialogs.
@@ -11,18 +71,62 @@ function createWorkspaceHost(host, git) {
     let serial = 0;
     let actions = Promise.resolve();
 
+    function abortDependencyAnalysis(current) {
+        if (!current) return;
+        const controller = current?.dependencyAnalysis;
+        current.dependencyAnalysis = null;
+        if (controller && !controller.signal.aborted) controller.abort();
+    }
+
+    function abortSpecificDependencyAnalysis(current, controller) {
+        if (current?.dependencyAnalysis === controller) abortDependencyAnalysis(current);
+    }
+
+    function callDependencyDisposer(dispose) {
+        if (typeof dispose !== 'function') return;
+        try { Promise.resolve(dispose()).catch(() => {}); } catch { /* Cleanup must not mask the workspace transition. */ }
+    }
+
+    function disposeDependencyResult(result) {
+        callDependencyDisposer(result?.dispose);
+    }
+
+    function disposeDependencyView(current) {
+        if (!current) return;
+        const dispose = current.dependencyViewDispose;
+        current.dependencyViewDispose = null;
+        callDependencyDisposer(dispose);
+    }
+
+    function invalidateDependencyGraph(current, { preserveReport = false } = {}) {
+        abortDependencyAnalysis(current);
+        disposeDependencyView(current);
+        const previous = current.dependencyGraph || { requestId: 0 };
+        current.dependencyGraph = {
+            status: 'idle', requestId: previous.requestId + 1, rangeKey: null,
+            report: preserveReport ? previous.report : null,
+            correspondence: preserveReport ? previous.correspondence : null,
+            error: '', focus: preserveReport ? previous.focus : null
+        };
+    }
+
     function ensure() {
         const current = host.getSession();
         if (state && (current.workspaceId === state.id || current === state.owner || current === state.original || [...state.saved.values()].includes(current))) return state;
         const key = JSON.stringify(current.source);
         if (!state || state.sourceKey !== key || current !== state.owner) {
+            disposeDependencyView(state);
+            abortDependencyAnalysis(state);
             state?.tour?.dispose?.();
             const context = git.resolve(current.source, { pinnedRevisions: current.source?.resolvedRevisions });
             state = {
                 id: `workspace-${++serial}`, sourceKey: key, source: current.source,
                 context, mode: 'compare', draft: [], saved: new Map(), navigation: new Map(),
                 original: null, owner: current, backend: null, backendError: '', status: '', tours: [], originalNavigation: null,
-                includeStaged: Boolean(current.source?.includeStaged), skipUnchanged: Boolean(current.source?.skipUnchanged)
+                includeStaged: Boolean(current.source?.includeStaged), skipUnchanged: Boolean(current.source?.skipUnchanged),
+                dependencyAnalysis: null,
+                dependencyViewDispose: null,
+                dependencyGraph: { status: 'idle', requestId: 0, rangeKey: null, report: null, correspondence: null, error: '', focus: null }
             };
         }
         return state;
@@ -68,8 +172,14 @@ function createWorkspaceHost(host, git) {
         if (current.rangeKey !== rangeKey) {
             current.rangeKey = rangeKey;
             current.range = context.kind === 'ready' ? git.range(context.repoRoot, revisions) : { status: 'unavailable', reason: context.reason };
+            if (current.dependencyGraph?.rangeKey && current.dependencyGraph.rangeKey !== rangeKey) {
+                invalidateDependencyGraph(current);
+            }
         }
         const range = current.range;
+        const dependencyRange = dependencyRangeFor(context, revisions, git.range);
+        const dependencyVisible = typeof git.buildNativeDependencyView === 'function';
+        const dependencyEnabled = current.mode === 'compare' && !current.tourMode && dependencyVisible && !dependencyRange.reason;
         return {
             sessionId: current.id, mode: current.tourMode || current.mode, availableTours: current.tours,
             modeLabels: current.tour?.modeLabels,
@@ -92,7 +202,17 @@ function createWorkspaceHost(host, git) {
             selectionPath: activePath(),
             canFinalDiff: context.kind === 'ready' && context.revisions.length >= 2 && context.revisions[0] !== context.revisions.at(-1),
             canShowAllFiles: current.mode === 'compare' && Boolean(activePath()) && context.kind === 'ready' && context.paths.some(item => item.type === 'directory'),
-            canSelectRevisions: context.kind === 'ready' && !current.backendError
+            canSelectRevisions: context.kind === 'ready' && !current.backendError,
+            dependencyGraph: {
+                visible: dependencyVisible,
+                enabled: dependencyEnabled,
+                reason: dependencyEnabled ? '' : (current.tourMode ? 'Dependency graphs are available in Compare mode.'
+                    : dependencyRange.reason || 'Dependency graph analysis is unavailable in this desktop build.'),
+                status: current.dependencyGraph?.status || 'idle',
+                error: current.dependencyGraph?.error || '',
+                canLoadCorrespondence: dependencyEnabled && typeof host.chooseDependencyCorrespondence === 'function',
+                ...(dependencyRange.baseOid ? { baseOid: dependencyRange.baseOid, headOid: dependencyRange.headOid } : {})
+            }
         };
     }
 
@@ -154,6 +274,207 @@ function createWorkspaceHost(host, git) {
         if (!state.tourMode && state.context.kind === 'ready' && state.backend && !state.backendError) host.send({ type: 'updateCommitHistory', history: rail() });
     }
 
+    function currentDependencyRange(current = ensure()) {
+        const revisions = selectedRevisions();
+        try {
+            return dependencyRangeFor(current.context, revisions, git.range);
+        } catch (error) {
+            return { reason: error.message };
+        }
+    }
+
+    function isCurrentDependencyRequest(target, requestId, rangeKey) {
+        if (state !== target || target.dependencyGraph?.requestId !== requestId
+            || target.dependencyGraph?.rangeKey !== rangeKey || target.mode !== 'compare' || target.tourMode) return false;
+        const current = host.getSession();
+        if (current.workspaceId && current.workspaceId !== target.id) return false;
+        return JSON.stringify(selectedRevisions()) === rangeKey;
+    }
+
+    async function dependencyFocus(current, range) {
+        const file = activePath();
+        if (!file) return undefined;
+        let navigation;
+        try { navigation = await host.capture(); } catch { /* A graph can still open without editor focus. */ }
+        const session = host.getSession();
+        const panelIndex = session.multi?.files?.findIndex(panel => panel.id === session.multi.activePanelId) ?? -1;
+        const panel = panelIndex >= 0 ? session.multi.files[panelIndex] : undefined;
+        const selectedRevision = panel?.revision || range.revisions[panelIndex] || range.headOid;
+        const revision = selectedRevision === range.baseOid ? 'base' : selectedRevision === range.headOid ? 'head' : undefined;
+        const selection = navigation?.editorStates?.[session.multi?.activePanelId]?.selection;
+        const focus = { file, ...(revision ? { revision } : {}) };
+        if (Number.isInteger(selection?.startLineNumber) && selection.startLineNumber > 0) {
+            focus.line = selection.startLineNumber;
+        }
+        if (revision && Number.isInteger(selection?.startColumn) && selection.startColumn > 0) {
+            const offset = offsetAtLineColumn(panel?.content, selection.startLineNumber, selection.startColumn);
+            if (offset !== undefined) focus.start = offset;
+        }
+        return focus;
+    }
+
+    async function buildDependencyGraph(correspondence = state.dependencyGraph?.correspondence) {
+        const target = state;
+        const range = currentDependencyRange(target);
+        if (range.reason) throw new Error(range.reason);
+        abortDependencyAnalysis(target);
+        disposeDependencyView(target);
+        const previous = target.dependencyGraph;
+        const requestId = (previous?.requestId || 0) + 1;
+        const analysis = new AbortController();
+        target.dependencyAnalysis = analysis;
+        target.dependencyGraph = {
+            ...previous, status: 'loading', requestId, rangeKey: range.key,
+            report: null, error: '', focus: null, correspondence: correspondence || null
+        };
+        target.status = '';
+        update();
+        const focus = await dependencyFocus(target, range);
+        if (!isCurrentDependencyRequest(target, requestId, range.key)) {
+            abortSpecificDependencyAnalysis(target, analysis);
+            return true;
+        }
+        target.dependencyGraph.focus = focus;
+        let result;
+        try {
+            const options = { baseOid: range.baseOid, headOid: range.headOid, focus };
+            if (correspondence) options.correspondence = correspondence;
+            options.signal = analysis.signal;
+            result = await git.buildNativeDependencyView(target.context.repoRoot, options);
+            if (!isCurrentDependencyRequest(target, requestId, range.key)) {
+                disposeDependencyResult(result);
+                result = null;
+                return true;
+            }
+            if (!result || typeof result.html !== 'string' || !result.report) throw new Error('Dependency analysis returned no embedded view.');
+            if (result.url !== undefined && (typeof result.url !== 'string' || !result.url || typeof result.dispose !== 'function')) {
+                throw new Error('Dependency graph server returned an invalid view.');
+            }
+            if (result.dispose !== undefined && typeof result.dispose !== 'function') {
+                throw new Error('Dependency graph server returned invalid cleanup state.');
+            }
+            if (result.report.range?.baseOid !== range.baseOid || result.report.range?.headOid !== range.headOid) {
+                throw new Error('Dependency analysis returned a different revision range.');
+            }
+            target.dependencyViewDispose = typeof result.dispose === 'function' ? result.dispose : null;
+            target.dependencyGraph = {
+                ...target.dependencyGraph, status: 'ready', report: result.report,
+                error: '', focus, correspondence: correspondence || null
+            };
+            host.send({ type: 'workspaceDependencyGraph', sessionId: target.id, graph: {
+                status: 'ready', html: result.html, ...(result.url ? { url: result.url } : {}), focus,
+                canLoadCorrespondence: typeof host.chooseDependencyCorrespondence === 'function'
+            } });
+            result = null;
+            update();
+        } catch (error) {
+            if (result) {
+                disposeDependencyResult(result);
+                if (target.dependencyViewDispose === result.dispose) target.dependencyViewDispose = null;
+            }
+            if (analysis.signal.aborted || error?.name === 'AbortError' || error?.code === 'ABORT_ERR'
+                || !isCurrentDependencyRequest(target, requestId, range.key)) return true;
+            target.dependencyGraph = { ...target.dependencyGraph, status: 'error', report: null, error: error.message };
+            target.status = `Dependency graph: ${error.message}`;
+            update();
+        } finally {
+            if (target.dependencyAnalysis === analysis) target.dependencyAnalysis = null;
+        }
+        return true;
+    }
+
+    async function loadDependencyCorrespondence() {
+        const target = state;
+        const range = currentDependencyRange(target);
+        if (range.reason) throw new Error(range.reason);
+        if (typeof host.chooseDependencyCorrespondence !== 'function') {
+            throw new Error('Loading symbol correspondence is unavailable in this desktop build.');
+        }
+        abortDependencyAnalysis(target);
+        const previous = target.dependencyGraph;
+        const requestId = (previous?.requestId || 0) + 1;
+        target.dependencyGraph = { ...previous, status: 'loading', requestId, rangeKey: range.key, error: '' };
+        target.status = '';
+        update();
+        const correspondence = await host.chooseDependencyCorrespondence(target.context.repoRoot, range.baseOid, range.headOid);
+        if (!isCurrentDependencyRequest(target, requestId, range.key)) return true;
+        if (!correspondence) {
+            target.dependencyGraph = { ...previous, requestId, rangeKey: range.key };
+            update();
+            return true;
+        }
+        return buildDependencyGraph(correspondence);
+    }
+
+    function validateDependencyAnchor(report, untrustedSource, range) {
+        if (!report || typeof git.dependencySource !== 'function') throw new Error('Dependency source navigation is unavailable.');
+        const source = git.dependencySource(report, untrustedSource);
+        const validSpan = source && ((source.start < source.end) || (source.start === 0 && source.end === 0));
+        if (!source || !FULL_COMMIT_OID.test(source.oid) || !FULL_COMMIT_OID.test(source.blobOid)
+            || !isSafeDependencyFile(source.file) || (source.oid !== range.baseOid && source.oid !== range.headOid)
+            || !Number.isSafeInteger(source.start) || !Number.isSafeInteger(source.end)
+            || source.start < 0 || source.end < 0 || !validSpan
+            || typeof source.digest !== 'string' || !/^[0-9a-f]{64}$/.test(source.digest)) {
+            throw new Error('The selected dependency source is not a validated pinned anchor.');
+        }
+        return source;
+    }
+
+    function pinnedDependencySnapshot(current, source, revisions) {
+        if (typeof git.readPinnedFile !== 'function') throw new Error('Pinned dependency source validation is unavailable.');
+        const anchor = git.readPinnedFile(current.context.repoRoot, source.oid, source.file);
+        const emptyModule = source.start === 0 && source.end === 0;
+        if (!anchor || typeof anchor.text !== 'string' || anchor.blob !== source.blobOid
+            || (emptyModule ? anchor.text.length !== 0 : source.end > anchor.text.length)
+            || createHash('sha256').update(anchor.text.slice(source.start, source.end), 'utf8').digest('hex') !== source.digest) {
+            throw new Error('Pinned dependency source is unavailable or changed.');
+        }
+        const values = new Map([[source.oid, { exists: true, content: anchor.text, reason: undefined }]]);
+        for (const revision of revisions) {
+            if (revision === source.oid) continue;
+            const pinned = git.readPinnedFile(current.context.repoRoot, revision, source.file);
+            values.set(revision, pinned
+                ? { exists: true, content: pinned.text, reason: undefined }
+                : { exists: false, content: '', reason: undefined });
+        }
+        return { file: source.file, values, text: anchor.text };
+    }
+
+    function includeDependencyFileInHistory(current, file) {
+        const data = backend();
+        if (data.files.includes(file)) return data;
+        const paths = [...current.context.paths];
+        if (!paths.some(item => item.path === file)) paths.push({ path: file, type: 'file' });
+        const expanded = git.history({ ...current.context, paths }, { includeStaged: current.includeStaged });
+        if (!expanded || !Array.isArray(expanded.files) || !expanded.files.includes(file)) {
+            throw new Error('The selected dependency source is unavailable in the comparison history.');
+        }
+        current.backend = expanded;
+        return expanded;
+    }
+
+    async function openDependencySource(untrustedSource) {
+        const target = state;
+        const range = currentDependencyRange(target);
+        if (range.reason) throw new Error(range.reason);
+        const source = validateDependencyAnchor(target.dependencyGraph?.report, untrustedSource, range);
+        const pinned = pinnedDependencySnapshot(target, source, range.revisions);
+        const start = sourceLocation(pinned.text, source.start);
+        const end = sourceLocation(pinned.text, source.end);
+        if (!start || !end) throw new Error('The selected dependency source has no usable location.');
+        if (!await leave()) return true;
+        if (state !== target) return true;
+        includeDependencyFileInHistory(target, source.file);
+        await install(makeSession('compare', range.revisions, source.file, pinned), 'compare');
+        invalidateDependencyGraph(target);
+        target.status = '';
+        update();
+        const sideIndex = range.revisions.indexOf(source.oid);
+        host.send({ type: 'revealSearchResult', sideIndex, lineNumber: start.line,
+            startColumn: start.column, endColumn: end.line === start.line ? Math.max(start.column + 1, end.column) : start.column + 1 });
+        return true;
+    }
+
     async function leave() {
         if (state.tourMode) return true;
         const departing = host.getSession();
@@ -175,7 +496,7 @@ function createWorkspaceHost(host, git) {
         return true;
     }
 
-    function makeSession(mode, revisions, file) {
+    function makeSession(mode, revisions, file, pinnedSnapshot = null) {
         const current = ensure();
         const history = backend();
         const panelOrder = [...revisions];
@@ -185,10 +506,18 @@ function createWorkspaceHost(host, git) {
                 left: { label: path.basename(current.context.repoRoot) }, right: { label: 'Changed files' },
                 history: null, directory: null, dirHistory: null, multi: null };
         }
-        const selectedPath = history.files.includes(file) ? file : history.files[0];
+        if (pinnedSnapshot && (pinnedSnapshot.file !== file || !(pinnedSnapshot.values instanceof Map))) {
+            throw new Error('Pinned dependency source session is invalid.');
+        }
+        const selectedPath = pinnedSnapshot ? file : history.files.includes(file) ? file : history.files[0];
         if (!selectedPath) throw new Error('No tracked files exist in this history scope.');
         const files = panelOrder.map((revision) => {
-            const value = history.read(selectedPath, revision);
+            const value = pinnedSnapshot
+                ? pinnedSnapshot.values.get(revision)
+                : history.read(selectedPath, revision);
+            if (!value || typeof value.content !== 'string' || typeof value.exists !== 'boolean') {
+                throw new Error('Pinned dependency source session is missing a revision snapshot.');
+            }
             const editable = revision === 'WORKTREE' && !current.source.readOnly && value.exists && !value.reason;
             return {
                 id: `${current.id}-${mode}-${selectedPath}-${revision}`, revision,
@@ -211,6 +540,7 @@ function createWorkspaceHost(host, git) {
         if (state.tourMode) host.send({ type: 'workspaceHideTour' });
         state.tourMode = null;
         state.mode = mode;
+        if (mode !== 'compare') invalidateDependencyGraph(state);
         if (mode === 'compare' && next.workspaceView) next.source = { ...next.source, comparisonView: { ...next.workspaceView } };
         if (mode !== 'compare' && next.source.comparisonView) {
             next.source = { ...next.source };
@@ -229,6 +559,7 @@ function createWorkspaceHost(host, git) {
             const retained = state.saved.get(state.mode);
             if (retained) host.setSession(retained);
             state.tourMode = mode;
+            invalidateDependencyGraph(state);
             host.send(state.tour?.kinds.includes(mode)
                 ? { type: 'workspaceTour', url: state.tour.url, mode, workspace: uiState() }
                 : { type: 'workspaceEmptyTour', workspace: uiState() });
@@ -295,12 +626,40 @@ function createWorkspaceHost(host, git) {
         const workspaceAction = message.type.startsWith('workspace');
         const current = host.getSession();
         const derived = Boolean(current.workspaceView);
-        const sharedAction = ['toggleHistorySelection', 'selectHistoryEntry', 'compareHistoryEntry'].includes(message.type);
+        const sharedAction = ['toggleHistorySelection', 'selectHistoryEntry', 'compareHistoryEntry', 'dependencySource', 'dependencyLoadCorrespondence'].includes(message.type);
         const derivedAction = derived && ['multiMovePanel', 'refreshSession', 'selectHistoryEntry', 'historyBack', 'historyForward', 'openDirectoryEntry', 'returnToDirectory', 'navigateFile', 'multiAddPanel', 'multiRemovePanel', 'historyToggleStaged', 'historyToggleSkipUnchanged'].includes(message.type);
         if (!workspaceAction && !sharedAction && !derivedAction) return false;
         const target = ensure();
+        if (message.type === 'workspaceDependencyClose') {
+            // This is a user-initiated cancellation, so invalidate before any
+            // queued workspace work can observe the old graph request.
+            invalidateDependencyGraph(target);
+            if (typeof target.status === 'string' && target.status.startsWith('Dependency graph:')) target.status = '';
+            update();
+            return true;
+        }
+        // The action queue serializes host mutations, but a newer workspace
+        // action must still cancel analysis before it waits behind one. This
+        // covers range, file, mode, and session-context changes as well as a
+        // replacement graph request.
+        const preservesDependencyGraph = ['dependencySource', 'workspaceClear', 'workspaceReset',
+            'workspaceSkillChoose', 'workspaceSkillSave'].includes(message.type);
+        if (preservesDependencyGraph) {
+            abortDependencyAnalysis(target);
+            if (target.dependencyGraph?.status === 'loading' && message.type === 'dependencySource') {
+                invalidateDependencyGraph(target);
+            }
+        } else {
+            invalidateDependencyGraph(target);
+        }
         const action = actions.then(() => ensure() === target ? runAction(message) : true);
-        actions = action.catch(() => {});
+        // Dependency analysis is cancellable background work. Keep it ordered
+        // after mutations already queued, but do not append it to the mutation
+        // queue: a later navigation must be able to abort the worker and run
+        // immediately instead of waiting for its child-process teardown.
+        const dependencyAction = message.type === 'workspaceDependencyGraph'
+            || message.type === 'dependencyLoadCorrespondence';
+        if (!dependencyAction) actions = action.catch(() => {});
         return action;
     }
 
@@ -309,6 +668,9 @@ function createWorkspaceHost(host, git) {
         const derivedAction = Boolean(current.workspaceView) && ['refreshSession', 'selectHistoryEntry', 'historyBack', 'historyForward', 'openDirectoryEntry', 'returnToDirectory', 'navigateFile', 'multiAddPanel', 'multiRemovePanel', 'historyToggleStaged', 'historyToggleSkipUnchanged'].includes(message.type);
         try {
             if (message.type === 'multiMovePanel') return true;
+            if (message.type === 'workspaceDependencyGraph') await buildDependencyGraph();
+            else if (message.type === 'dependencyLoadCorrespondence') await loadDependencyCorrespondence();
+            else if (message.type === 'dependencySource') await openDependencySource(message.source);
             if (message.type === 'workspaceSkillChoose' || message.type === 'workspaceSkillSave') {
                 const target = state;
                 const skill = message.type === 'workspaceSkillChoose'
@@ -447,7 +809,13 @@ function createWorkspaceHost(host, git) {
                 const next = makeSession(state.mode, revisions, file);
                 if (await leave()) await install(makeSession(state.mode, next.workspaceView.revisions, next.workspaceView.path), state.mode);
             }
-        } catch (error) { state.status = error.message; update(); }
+        } catch (error) {
+            if (['workspaceDependencyGraph', 'dependencyLoadCorrespondence', 'dependencySource'].includes(message.type)) {
+                state.dependencyGraph = { ...state.dependencyGraph, status: 'error', error: error.message };
+            }
+            state.status = error.message;
+            update();
+        }
         return true;
     }
 
@@ -457,11 +825,16 @@ function createWorkspaceHost(host, git) {
         const data = git.history(context, { includeStaged: Boolean(source.includeStaged) });
         if (!data.files.length || !data.entries.length) throw new Error('No tracked history exists in this scope.');
         if (!await host.confirm('open History')) return;
+        disposeDependencyView(state);
+        abortDependencyAnalysis(state);
         state?.tour?.dispose?.();
         state = { id: `workspace-${++serial}`, sourceKey: JSON.stringify(source), source, context,
             mode: 'history', draft: [], saved: new Map(), navigation: new Map(), original: null,
             originalNavigation: null, backend: data, backendError: '', status: '', tours: [],
-            includeStaged: Boolean(source.includeStaged), skipUnchanged: Boolean(source.skipUnchanged) };
+            includeStaged: Boolean(source.includeStaged), skipUnchanged: Boolean(source.skipUnchanged),
+            dependencyAnalysis: null,
+            dependencyViewDispose: null,
+            dependencyGraph: { status: 'idle', requestId: 0, rangeKey: null, report: null, correspondence: null, error: '', focus: null } };
         // Install an owner before makeSession calls ensure().
         host.setSession({ ...host.getSession(), source, workspaceId: state.id });
         const entry = (source.kind === 'directory-history'
@@ -471,6 +844,9 @@ function createWorkspaceHost(host, git) {
     }
 
     async function restoreComparison(source) {
+        disposeDependencyView(state);
+        abortDependencyAnalysis(state);
+        state?.tour?.dispose?.();
         state = null;
         host.setSession({ source, mode: 'multi-diff', left: {}, right: {}, multi: null });
         ensure();
@@ -478,7 +854,15 @@ function createWorkspaceHost(host, git) {
         await install(makeSession('compare', view.revisions, view.path), 'compare');
     }
 
-    return { augment, render, handle, openHistory, restoreComparison, uiState, update, isTourActive: () => Boolean(state?.tourMode), reset() { state?.tour?.dispose?.(); state = null; },
+    function dispose() {
+        disposeDependencyView(state);
+        abortDependencyAnalysis(state);
+        state?.tour?.dispose?.();
+        state = null;
+    }
+
+    return { augment, render, handle, openHistory, restoreComparison, uiState, update, isTourActive: () => Boolean(state?.tourMode),
+        dispose, reset: dispose,
         setStatus(status) { ensure().status = status; update(); },
         setTours(tours) { ensure().tours = tours; update(); } };
 }

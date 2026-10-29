@@ -1,4 +1,5 @@
-import type { DependencyGraphReport } from './dependencyGraph';
+import type { DependencyEvidenceReport } from './dependencyEvidence';
+import type { DependencyChanges } from './dependencyChanges';
 import { loadChangeCorrespondence, ChangeCorrespondence } from './changeCorrespondence';
 import { execFileSync } from 'child_process';
 import type { BranchCommit, BranchReviewRange, GitChangeKind } from './gitComparison';
@@ -44,7 +45,8 @@ export interface ChangeTourContextFile {
 
 export interface ChangeTourContext {
     /** Opt-in CLI analysis; absent in ordinary context generation. */
-    dependencies?: DependencyGraphReport;
+    dependencies?: DependencyEvidenceReport;
+    dependencyChanges?: DependencyChanges;
     correspondence?: ChangeCorrespondence;
     version: typeof CHANGE_TOUR_CONTEXT_VERSION;
     generatedAt: string;
@@ -208,7 +210,7 @@ function readPatch(
     if (binary) return { included: false, content: '', bytes: 0, reason: 'binary' };
     try {
         const buffer = execFileSync('git', [
-            'diff', '--no-ext-diff', '--no-color', '--find-renames', '--unified=3',
+            '--no-replace-objects', 'diff', '--no-ext-diff', '--no-color', '--find-renames', '--unified=3',
             baseOid, headOid, '--', ...paths
         ], {
             cwd: repoRoot,
@@ -264,7 +266,7 @@ function findSymbolHints(content: string, ranges: ChangeTourChangedRange[]): Cha
 
 function readGitText(repoRoot: string, oid: string, relativePath: string, maxBytes: number): string | undefined {
     try {
-        const content = execFileSync('git', ['show', `${oid}:${relativePath}`], {
+        const content = execFileSync('git', ['--no-replace-objects', 'show', `${oid}:${relativePath}`], {
             cwd: repoRoot,
             encoding: 'buffer',
             maxBuffer: maxBytes + 1,
@@ -278,7 +280,7 @@ function readGitText(repoRoot: string, oid: string, relativePath: string, maxByt
 }
 
 function runGit(repoRoot: string, args: string[]): string {
-    return execFileSync('git', args, {
+    return execFileSync('git', ['--no-replace-objects', ...args], {
         cwd: repoRoot,
         encoding: 'utf8',
         maxBuffer: MAX_CAPTURE_BYTES,
