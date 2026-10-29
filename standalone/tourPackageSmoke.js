@@ -1,4 +1,4 @@
-/* global require, console, setTimeout, clearTimeout */
+/* global require, console, process, setTimeout, clearTimeout */
 // Walk every packaged step offline in Chromium. Optional screenshots stay outside the package.
 // node scripts/run-electron.mjs standalone/tourPackageSmoke.js PACKAGE_DIR [SCREENSHOT_DIR]
 const assert = require('node:assert/strict');
