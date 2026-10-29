@@ -98,7 +98,11 @@ async function copyFile(relativePath) {
     await cp(
         path.join(repoRoot, relativePath),
         path.join(packageRoot, relativePath),
-        { recursive: true }
+        {
+            recursive: true,
+            // Tour downloads belong to the docs site, not every CLI installation.
+            filter: source => source !== path.join(repoRoot, 'docs', 'tours')
+        }
     );
 }
 

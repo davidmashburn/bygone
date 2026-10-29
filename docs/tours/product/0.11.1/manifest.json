@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "title": "Bygone: every view in context",
+  "provenance": {
+    "captureVersion": "0.11.1",
+    "sourceRepository": "https://github.com/davidmashburn/bygone",
+    "evidenceKind": "synthetic product screenshot documentation; not implementation history",
+    "scope": "38 product steps in 8 chapters",
+    "captureDate": "2026-10-27"
+  },
+  "evidence": {
+    "base": "cc7dbd61b9552976f884457d43eba3a76c659306",
+    "head": "5ee7ff3362dd779de8b1cc08c3f769d7443ace6f"
+  },
+  "exporter": {
+    "version": "0.11.2",
+    "implementationSha256": "b87de8ccfdb381fd918ffadecd825aee0154f5429cd7b4d4c8dae4bff0f19fdd",
+    "runtimeManifestSha256": "56c54b81d760ef5ca6c8178b50c634c16d3c597d5358612f20226dc1c4f6b270"
+  },
+  "artifacts": {
+    "tour.bygone.yaml": {
+      "bytes": 31314,
+      "sha256": "e33d85e859083db857edce14656ed5cb85c038ae8b41b7c02105692d793a2cae"
+    },
+    "tour.json": {
+      "bytes": 38681953,
+      "sha256": "223d9e3d3927d67f25ffdd3292241b28a50427060d7ec8be88f8751ef1742b9d"
+    },
+    "tour.html": {
+      "bytes": 19138899,
+      "sha256": "226a8979e65297d3a4c5a5a5c82bd94e75ab0eded7f2e857f9434a72405d1a5a"
+    },
+    "evidence.bundle": {
+      "bytes": 8838097,
+      "sha256": "745088fe82e320904ac8f4f763253ddddf699d40f7bd03a69397d2235b890967"
+    },
+    "validation.json": {
+      "bytes": 444,
+      "sha256": "f24087af9aa0953ac7c4618093d6a64c768f93ad429e8f937821f419ebbbc295"
+    }
+  },
+  "digest": "9f7c00c447f392b4e4062bb378943054ede202d982d96ef4271285661be544c3"
+}

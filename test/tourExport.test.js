@@ -163,7 +163,12 @@ test('image steps embed pinned Git PNGs in both export profiles and ignore dirty
         fs.writeFileSync(f.sourcePath, JSON.stringify(source));
         fs.writeFileSync(path.join(f.root, 'screen.png'), 'dirty non-image');
         for (const profile of ['minimal', 'full']) {
-            const data = hydrate(materializeTour(f.sourcePath, profile));
+            const packed = materializeTour(f.sourcePath, profile);
+            const url = `data:image/png;base64,${png.toString('base64')}`;
+            assert.equal(Object.values(packed.texts).filter(text => text === url).length, 1);
+            assert.equal(JSON.stringify(packed).split(url).length - 1, 1,
+                'Repeated scene/mode images share one integrity-checked payload');
+            const data = hydrate(packed);
             const image = data.manifest.scenes[0].steps[0].image;
             assert.equal(image.revision, imageHead);
             assert.equal(image.dataUrl, `data:image/png;base64,${png.toString('base64')}`);

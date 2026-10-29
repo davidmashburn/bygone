@@ -1,4 +1,5 @@
 import { UndoCommand, RedoCommand } from 'monaco-editor/esm/vs/editor/browser/editorExtensions.js';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
 import { createFollowSync } from './followSync';
 import { unionChangeDecorations } from './decorationUtils';
 import { isCancellationError } from 'monaco-editor/esm/vs/base/common/errors.js';
@@ -641,7 +642,9 @@ async function initializeMonaco() {
         getWorker: () => new Worker(host.editorWorkerUrl)
     };
 
-    monacoInstance = window.monaco;
+    // Imported modules execute before webview-entry assigns its diagnostic global.
+    // Exports can load this script after document completion (notably in Safari).
+    monacoInstance = monaco;
     registerJsonLanguage(monacoInstance);
     applyMonacoTheme();
 

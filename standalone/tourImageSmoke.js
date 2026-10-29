@@ -31,6 +31,10 @@ app.whenReady().then(async () => {
         for (const profile of ['minimal', 'full']) {
             const output = path.join(f.root, `${profile}.html`);
             exportTour(f.sourcePath, output, path.resolve(__dirname, '..'), { profile });
+            // Safari can finish the document before blob-backed viewer scripts load.
+            // Exercise that ordering in Chromium too, rather than depending on timing.
+            fs.writeFileSync(output, fs.readFileSync(output, 'utf8').replace('<script id="bygone-export-data"',
+                '<script>Object.defineProperty(document, "readyState", {value: "complete"});</script><script id="bygone-export-data"'));
             win = new BrowserWindow({ show: false, width: 1440, height: 900, webPreferences: {
                 session: offline, contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false
             } });

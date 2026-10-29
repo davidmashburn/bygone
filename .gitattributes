@@ -1,0 +1,5 @@
+# Preserve the exact bytes covered by each portable package manifest.
+docs/tours/product/** -text
+# Exported HTML retains renderer whitespace; review the source and manifest instead.
+docs/tours/product/**/tour.html -whitespace linguist-generated=true
+docs/tours/product/**/tour.json linguist-generated=true
