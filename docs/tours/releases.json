@@ -1,9 +1,13 @@
 {
-  "current": "0.11.1",
+  "current": "0.11.4",
   "versions": [
     {
       "version": "0.11.1",
       "digest": "9f7c00c447f392b4e4062bb378943054ede202d982d96ef4271285661be544c3"
+    },
+    {
+      "version": "0.11.4",
+      "digest": "da4f59f9bf4b85732feedaaea01ad19af4384df4436cd29c74be80510de9a34a"
     }
   ]
 }

@@ -1,0 +1,11 @@
+{
+  "captureVersion": "0.11.1 retained; 0.11.3 dependency captures",
+  "sourceRepository": "https://github.com/davidmashburn/bygone",
+  "evidenceKind": "synthetic product screenshot documentation; not implementation history",
+  "scope": "44 steps in 8 chapters",
+  "captureDate": "2026-10-29",
+  "implementationCommit": "c09083b40933cee04560259df11f0ae53eb863a2",
+  "dependencyEvidence": "Native desktop captures; synthetic Python and explicit correspondence fixture; static analysis only",
+  "tourRelease": "0.11.4",
+  "exportDate": "2026-10-30"
+}

@@ -1,0 +1,20 @@
+{
+  "result": "passed",
+  "checks": [
+    "fresh bundle clone",
+    "pinned endpoint existence",
+    "source compilation and anchors",
+    "portable manifest parsing"
+  ],
+  "steps": 44,
+  "files": 51,
+  "range": {
+    "base": "cc7dbd61b9552976f884457d43eba3a76c659306",
+    "head": "7f061595bd4cc0065abd068f7e8fd036de6bce6a"
+  },
+  "notChecked": [
+    "narrative correctness",
+    "browser behavior",
+    "publication and hosted access"
+  ]
+}

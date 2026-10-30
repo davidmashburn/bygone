@@ -53,3 +53,12 @@ An initial full export smoke run timed out during concurrent package builds;
 rerunning it alone passed. A separate direct Electron invocation was rejected by
 the harness's Node-mode environment; the repository's `scripts/run-electron.mjs`
 launcher was used for successful browser checks.
+
+
+## Dependency tour update — 2026-10-30
+
+The new [0.11.4 package](product/0.11.4/README.md), rebuilt with the 0.11.4 exporter while preserving the original capture provenance, has 44 steps across eight chapters. Seven native graph captures replace the old dependency documentation card. The prior 0.11.1 package remains byte-identical. Fresh bundle compilation resolved every anchor; package integrity and the two-version site build passed. Browser checks covered all seven new step/image links, the call-graph narrative and image enlargement. HTML, Mermaid and dependency-aware context exports completed against the exact synthetic pair.
+
+The native capture harness checked source navigation to an unchanged helper at the pinned range, read-only source panes, phase filtering, and supplied synthetic correspondence. The public evidence history has three commits containing only public synthetic documentation and its demo fixture; a private-content/credential scan found no matches, supplemented by narrative and new screenshot inspection.
+
+No publication, hosted access, runtime observation, fresh VS Code graph capture, Go/Rust/Mojo demonstration, full product regression run or CI run is claimed by this documentation update.
