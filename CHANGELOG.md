@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.4
+
+- Added multilingual static dependency graphs for Python, JS/TS, Go, Rust, and experimental Mojo, with file/symbol views and automatic graph layout
+- Integrated dependency exploration into desktop comparisons and VS Code review workflows, with validated navigation to pinned source
+- Distinguished module-initialization and invocation sites, and exposed correspondence-backed call changes, affected consumers, coverage, and unresolved evidence
+- Added JSON, HTML, and Mermaid graph exports and dependency-aware tour authoring context
+- Expanded the portable public product tour with native dependency graph walkthroughs
+
 ## 0.11.3
 
 - Fixed the Homebrew desktop launcher when invoked through symlinks, including application paths containing spaces
