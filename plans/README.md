@@ -26,6 +26,10 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [Predictable optional-tour navigation](optional-tour-navigation.md) — proposed
+  step/sentence controls, explicit detail entry and return, reading-path cues,
+  and a bounded usability and validation plan.
+
 - [Workflow integration reconciliation](workflow-integration-reconciliation.md)
   — 2026-10-26 assessment of merged SCM editing, Strand, requirements evidence,
   dependencies, tours, and Daniel's PR Reviewer; proposes a bounded evidence-to-edit
