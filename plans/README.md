@@ -27,7 +27,7 @@ grew out of an earlier concept.
 ## Active follow-ups
 
 - [Focused tour reader](focused-tour-reader.md) — proposed quieter outline, contextual
-  evidence, consolidated navigation, and alternate shortcut candidates.
+  evidence, consolidated navigation, and Escape recovery to reading.
 
 - [Tour discovery, revision impact, and handoff](tour-discovery-revision-impact-and-handoff.md)
   — loaded-tour lookup from code, authored explanation maintenance using existing
