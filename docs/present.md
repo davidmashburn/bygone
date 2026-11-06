@@ -167,17 +167,20 @@ offline and does not send tour text to a hosted speech service.
 
 The sentence buttons beside the reading navigation are always available, even
 with narration stopped or device speech unavailable. **Shift+Up/Down Arrow**
-selects the previous/next sentence across tour controls. Selection stays silent
+selects the previous/next sentence across tour controls and prose. Selection stays silent
 until you press **Listen**, which starts at that sentence. During playback,
 sentence navigation keeps playing; while paused, it stays paused.
 
-Focus the tour navigation group (Tab or click its background) to use:
+While reading, these keys work without first focusing the navigation toolbar:
 
 - **Up/Down**: previous/next step on the current path, skipping optional detail.
-- **Right** or **Enter**: drill into optional detail; choose a path when several exist.
+- **Right**: drill into optional detail; choose a path when several exist.
 - **Left** or **Escape**: return one level to the owning step and restore its
   sentence and scroll position. Returning pauses any active narration.
-- **Space**: start, pause, or resume narration and reveal its controls.
+
+**Enter** also explores detail when the navigation group itself has focus;
+on a button or link it retains native activation. **Space** starts, pauses, or
+resumes narration from the navigation group, and retains scrolling in prose.
 
 The **↑ Prev**, **Next ↓**, **Explore detail →**, and **← Return parent**
 buttons work without focusing the navigation group. Previous
@@ -185,8 +188,8 @@ follows the current path, not your visit history. At a detail endpoint, Next
 and narration stop; **Continue parent detail** or **Continue main tour** advances
 past the owner on the immediate parent path. Deeper paths remain optional.
 
-Outside the focused navigation group, plain arrows retain native scrolling.
-Inputs, editors, selectable prose, tree/menu widgets, dialogs, and active text
+Use the wheel, trackpad, or Page Up/Down to scroll the reading text.
+Inputs, editors, disclosure summaries, tree/menu widgets, dialogs, and active text
 selections retain their native keys, including Shift+arrows. There is no global
 reader mode to toggle. Narration settings (Stop, voice, speed) remain available
 from **‹ Narration**; sentence navigation works with settings collapsed.

@@ -70,7 +70,7 @@ app.whenReady().then(async () => {
             assert.equal(await evaluate("document.querySelector('[data-file-folder=\"nested/deep\"] .tour-file .tour-file-path').textContent"), 'late.txt', 'Files use nested folders and basename labels');
             assert.equal(await evaluate("document.querySelector('.tour-file[data-file-path=\"binary.dat\"]').disabled"), true, 'Omitted files remain disabled');
             assert.match(await evaluate("document.querySelector('#tour-audience').textContent"), /Check the changed line/);
-            assert.equal(await evaluate("document.querySelector('#tour-audience details').open"), false, 'Familiarity stays collapsed');
+            assert.equal(await evaluate("document.querySelector('#tour-audience > details:not(.tour-checks)').open"), false, 'Familiarity stays collapsed');
             assert.ok(!await evaluate("document.querySelector('#tour-audience').textContent.includes('Root fixture')"), 'Historical audience stays independent');
             await evaluate(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.feedbackRequest = text; } } }); document.querySelector('#tour-feedback-question').click()`);
             await wait("document.querySelector('.tour-feedback-dialog[open]')");
@@ -116,7 +116,8 @@ app.whenReady().then(async () => {
             await evaluate("document.querySelector('[data-workspace-mode=deconstructed]').click()");
             await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]') && document.querySelector('[data-reading-key=\"scene:synthetic\"]')");
             await wait("location.hash.includes('mode=deconstructed')");
-            assert.equal(await evaluate("document.querySelector('#tour-audience').hidden"), true, 'Unspecified audience stays unobtrusive');
+            assert.equal(await evaluate("[...document.querySelectorAll('#tour-audience > h2')].some(heading => heading.textContent === 'Audience')"), false, 'Unspecified audience stays unobtrusive');
+            assert.equal(await evaluate("document.querySelector('#tour-audience .tour-checks').open"), false, 'Evidence checks remain available but collapsed without an audience');
             assert.ok(!await evaluate("document.querySelector('#tour-audience').textContent.includes('Root fixture')"), 'Independent mode does not inherit root audience');
             assert.equal(await evaluate("document.querySelectorAll('[data-reading-key^=\"step:synthetic:\"] .tour-step-body').length"), 1, 'Stage prose renders once across multiple evidence focuses');
             await evaluate("location.hash = '#location=1&mode=deconstructed&part=step&scene=synthetic&step=stage-focus-2'");

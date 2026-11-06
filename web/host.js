@@ -1484,14 +1484,12 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
 
     function nativeReaderKeyOwner(event) {
         const target = event.target instanceof Element ? event.target : null;
-        const navigation = target?.id === 'tour-keyboard-navigation';
         const selection = window.getSelection();
         return Boolean(event.defaultPrevented || event.isComposing
             || target?.closest('input, select, textarea, [contenteditable]:not([contenteditable="false"]), .monaco-editor, summary, [role="textbox"], [role="separator"], [role="slider"], [role="menu"], [role="listbox"], [role="tree"], [role="grid"], [role="tablist"], [role="combobox"], [role="spinbutton"], [role="radiogroup"], [role="scrollbar"], [aria-activedescendant]')
-            || (!navigation && target?.closest('#tour-narrative-content, #tour-scenes, #tour-search-results'))
+            || target?.closest('#tour-scenes, #tour-search-results')
             || [...document.querySelectorAll('dialog[open], [aria-modal="true"]')].some(dialog => dialog.getClientRects().length > 0)
-            || selection?.isCollapsed === false
-            || (!navigation && target === document.body && selection?.anchorNode?.parentElement?.closest('#tour-narrative-content')));
+            || selection?.isCollapsed === false);
     }
 
     function handleReaderShortcut(event) {
@@ -1521,9 +1519,14 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     }
 
     function handleNarrationShortcut(event) {
+        // Space still scrolls prose; expanding arrow navigation must not make
+        // an ordinary reading gesture start audio after clicking the text.
+        const target = event.target instanceof Element ? event.target : null;
+        const inProse = target?.closest('#tour-narrative-content')
+            || (target === document.body && window.getSelection()?.anchorNode?.parentElement?.closest('#tour-narrative-content'));
         if (state.mode !== 'tour' || !isNarrativeMode() || !deviceNarrationAvailable
             || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey
-            || isInteractiveKeyTarget(event.target) || nativeReaderKeyOwner(event)
+            || isInteractiveKeyTarget(event.target) || nativeReaderKeyOwner(event) || inProse
             || event.key !== ' ') return false;
         event.preventDefault();
         event.stopPropagation();
@@ -3515,7 +3518,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             if (navigationButton) {
                 navigationButton.disabled = !isNarrativeMode() || !target;
                 navigationButton.textContent = direction < 0 ? '↑ Prev' : 'Next ↓';
-                navigationButton.title = target ? `${direction < 0 ? 'Previous' : 'Next'}: ${tourReadingTitle(state.tour, target)} (${direction < 0 ? 'Up' : 'Down'} Arrow in tour navigation)` : `${direction < 0 ? 'Start' : 'End'} of ${scope} path`;
+                navigationButton.title = target ? `${direction < 0 ? 'Previous' : 'Next'}: ${tourReadingTitle(state.tour, target)} (${direction < 0 ? 'Up' : 'Down'} Arrow)` : `${direction < 0 ? 'Start' : 'End'} of ${scope} path`;
                 navigationButton.setAttribute('aria-label', navigationButton.title);
             }
         }
@@ -3525,15 +3528,15 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         if (drill) {
             drill.disabled = !isNarrativeMode() || detailOptions.length === 0;
             drill.title = detailOptions.length === 1
-                ? `Explore detail: ${detailOptions[0].title} (Enter or Right Arrow in tour navigation)`
-                : `Explore detail: choose an optional path (Enter or Right Arrow in tour navigation)`;
+                ? `Explore detail: ${detailOptions[0].title} (Right Arrow; Enter when navigation is focused)`
+                : `Explore detail: choose an optional path (Right Arrow; Enter when navigation is focused)`;
             drill.setAttribute('aria-label', drill.title);
         }
         if (backToParent) {
             backToParent.disabled = !isNarrativeMode() || !readingBranch;
             const parent = readingBranch && getTourBranchParent(state.tour, readingBranch);
             backToParent.title = parent
-                ? `Return to parent: ${tourReadingTitle(state.tour, parent)} (Escape or Left Arrow in tour navigation)`
+                ? `Return to parent: ${tourReadingTitle(state.tour, parent)} (Escape or Left Arrow)`
                 : 'Already on the main path';
             backToParent.setAttribute('aria-label', backToParent.title);
         }

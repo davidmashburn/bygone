@@ -72,10 +72,13 @@ async function runNarrationControlsSmoke({ evaluate, wait, window }) {
         guards.innerHTML = '<input id="ns-input"><button id="ns-button">Next</button><div id="ns-editable" contenteditable="plaintext-only">edit</div><div class="monaco-editor" id="ns-editor"></div><div id="ns-resizer" role="separator"></div><p id="ns-selection">Selected text</p>';
         document.body.append(guards);
     })()`);
-    for (const selector of ['#ns-input', '#ns-editable', '#ns-editor', '#ns-resizer', '#tour-narrative-content']) {
+    for (const selector of ['#ns-input', '#ns-editable', '#ns-editor', '#ns-resizer']) {
         assert.equal(await key(' ', {}, selector), false, `Preserve Space in ${selector}`);
         assert.equal(await key('ArrowDown', { shiftKey: true }, selector), false, `Preserve selection in ${selector}`);
     }
+    assert.equal(await key(' ', {}, '#tour-narrative-content'), false, 'Space still scrolls prose');
+    assert.equal(await key('ArrowDown', { shiftKey: true }, '#tour-narrative-content'), true);
+    await key('ArrowUp', { shiftKey: true }, '#tour-narrative-content');
     assert.equal(await key(' ', {}, '#ns-button'), false);
     assert.equal(await key('ArrowDown', { shiftKey: true }, '#ns-button'), true);
     await key('ArrowUp', { shiftKey: true }, '#ns-button');

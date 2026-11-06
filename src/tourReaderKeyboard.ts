@@ -29,12 +29,13 @@ export function resolveTourReaderKey(context: TourReaderKeyContext): TourReaderA
         if (context.key === 'ArrowDown') return TourReaderAction.NextSentence;
         return null;
     }
-    if (!context.navigationFocused) return null;
     switch (context.key) {
         case 'ArrowUp': return TourReaderAction.PreviousStep;
         case 'ArrowDown': return TourReaderAction.NextStep;
-        case 'ArrowRight':
-        case 'Enter': return TourReaderAction.EnterDetail;
+        case 'ArrowRight': return TourReaderAction.EnterDetail;
+        // Enter must still activate a focused button or link. The navigation
+        // group itself has no native activation, so it can offer this alias.
+        case 'Enter': return context.navigationFocused ? TourReaderAction.EnterDetail : null;
         case 'ArrowLeft':
         case 'Escape': return TourReaderAction.ReturnToParent;
         default: return null;

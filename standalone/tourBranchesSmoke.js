@@ -68,6 +68,37 @@ app.whenReady().then(async () => {
             console.log(`Checking ${exported ? 'offline' : 'live'} reader`);
             await window.loadURL(url + hash('outcome'));
             await active('outcome');
+            // Real key events must work when Tab focuses a child button, not
+            // only when tests dispatch directly at the navigation container.
+            await evaluate("document.querySelector('#tour-next').focus()");
+            window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Down' });
+            window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Down' });
+            await active('boundary');
+            await evaluate("document.querySelector('#tour-back').focus()");
+            assert.equal(await key('Enter', false, '#tour-back'), false, 'Enter remains native button activation');
+            window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Up' });
+            window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Up' });
+            await active('outcome');
+            // Clicking prose leaves a collapsed selection in the document.
+            await evaluate(`(() => {
+                document.activeElement.blur();
+                const range = document.createRange();
+                range.selectNodeContents(document.querySelector('.tour-reading-item.is-active'));
+                range.collapse(true);
+                getSelection().removeAllRanges(); getSelection().addRange(range);
+            })()`);
+            assert.equal(await key('ArrowDown', false, 'body'), true, 'Collapsed prose caret does not disable arrows');
+            await active('boundary');
+            assert.equal(await key('ArrowUp', false, '#tour-narrative-content'), true, 'Prose participates in step navigation');
+            await active('outcome');
+            await evaluate(`(() => {
+                const range = document.createRange();
+                range.selectNodeContents(document.querySelector('.tour-reading-item.is-active'));
+                getSelection().removeAllRanges(); getSelection().addRange(range);
+            })()`);
+            assert.equal(await key('ArrowDown', false, '#tour-narrative-content'), false, 'Selected prose retains native keys');
+            assert.equal(await key('ArrowDown', true, '#tour-narrative-content'), false, 'Selected prose retains selection keys');
+            await evaluate('getSelection().removeAllRanges()');
             assert.equal(await evaluate("document.querySelector('[data-outline-branch-id=why]').open"), false);
             assert.equal(await evaluate(`(() => {
                 const toolbar = document.querySelector('.tour-narrative-toolbar');
@@ -96,8 +127,8 @@ app.whenReady().then(async () => {
             assert.equal(await evaluate('document.activeElement.id'), 'tour-next', 'Sentence shortcuts preserve invoking control focus');
             const parentSentence = await selected();
             assert.ok(parentSentence, 'Silent navigation visibly selects a sentence without device speech');
-            assert.equal(await key('ArrowDown', true, '#tour-narrative-content'), false, 'Prose retains selection keys');
-            assert.equal(await key('ArrowDown', false, '#tour-narrative-content'), false, 'Prose retains native scrolling');
+            assert.equal(await key('ArrowDown', true, '#tour-narrative-content'), true, 'Prose supports silent sentence navigation');
+            await key('ArrowUp', true, '#tour-narrative-content');
             await key('ArrowRight'); await active('reason');
             await key('ArrowLeft'); await active('outcome');
             assert.equal(await selected(), parentSentence, 'Return restores the parent sentence');

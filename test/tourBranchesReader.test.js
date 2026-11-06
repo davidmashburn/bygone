@@ -14,7 +14,7 @@ test('reader keys separate path movement, detail and sentence selection without 
         ArrowRight: Action.EnterDetail, Enter: Action.EnterDetail, ArrowLeft: Action.ReturnToParent, Escape: Action.ReturnToParent };
     for (const [key, action] of Object.entries(bindings)) {
         assert.equal(resolveTourReaderKey({ ...context, key }), action);
-        assert.equal(resolveTourReaderKey({ ...context, key, navigationFocused: false }), null);
+        assert.equal(resolveTourReaderKey({ ...context, key, navigationFocused: false }), key === 'Enter' ? null : action);
     }
     for (const navigationFocused of [false, true]) {
         assert.equal(resolveTourReaderKey({ ...context, navigationFocused, key: 'ArrowUp', shiftKey: true }), Action.PreviousSentence);
