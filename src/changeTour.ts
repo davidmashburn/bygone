@@ -42,9 +42,12 @@ export { parseChangeTourManifest, parseChangeTourStory } from './changeTourManif
 export { parseChangeTourSource } from './changeTourSource';
 export type {
     ChangeTourAudience,
+    ChangeTourCheck,
+    ChangeTourChecks,
     ChangeTourDetails,
     ChangeTourGenerator
 } from './tourDetails';
+export { ChangeTourCheckCategory, ChangeTourCheckStatus } from './tourDetails';
 export type { ChangeTourStepBranch } from './changeTourManifest';
 export { buildChangeTourContext } from './changeTourContext';
 export type { BuildChangeTourContextOptions, ChangeTourContext } from './changeTourContext';

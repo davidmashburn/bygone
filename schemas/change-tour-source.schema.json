@@ -85,7 +85,13 @@
   "allOf": [
     {
       "if": { "properties": { "version": { "const": 7 } } },
-      "else": { "properties": { "generatedBy": false } }
+      "else": { "properties": {
+        "generatedBy": false,
+        "details": { "properties": { "checks": false } },
+        "tours": { "additionalProperties": { "properties": {
+          "details": { "properties": { "checks": false } }
+        } } }
+      } }
     },
     {
       "if": { "properties": { "version": { "enum": [5, 6, 7] } } },
@@ -286,7 +292,30 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "audience": { "$ref": "#/$defs/audience" }
+        "audience": { "$ref": "#/$defs/audience" },
+        "checks": { "$ref": "#/$defs/checks" }
+      }
+    },
+    "checks": {
+      "description": "Optional author-supplied checks, never narrated or inferred from compilation. Missing categories are not checked. Requires version 7.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provenance": { "$ref": "#/$defs/check" },
+        "claims": { "$ref": "#/$defs/check" },
+        "behavior": { "$ref": "#/$defs/check" },
+        "coverage": { "$ref": "#/$defs/check" },
+        "uncertainty": { "$ref": "#/$defs/check" }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "summary"],
+      "properties": {
+        "status": { "enum": ["verified", "partial", "not-checked", "not-applicable"] },
+        "summary": { "$ref": "#/$defs/prose" },
+        "details": { "$ref": "#/$defs/prose", "description": "Optional supporting prose with safe inline source links." }
       }
     },
     "audience": {

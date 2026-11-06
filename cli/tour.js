@@ -7,7 +7,7 @@ const { getTourNarrationCost, buildReadingNarrationUnit } = require('../out/tour
 const { tourReadingTitle } = require('../out/tourOrientation.js');
 const { buildManifestForTourSource, loadTourSource } = require('./tourFile.js');
 
-const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'narration', 'compile', 'export', 'schema']);
+const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'narration', 'reader-packet', 'compile', 'export', 'schema']);
 
 function runTourCommand(args, cwd, packageRoot, output = process.stdout, commandOptions = {}) {
     if (args[0] === 'export') {
@@ -71,6 +71,11 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout, command
         return { action: 'coverage', sourcePath: resolvedPath, report };
     }
     const manifest = buildManifestForTourSource(cwd, source);
+    if (options.action === 'reader-packet') {
+        const report = require('./tourReaderPacket').buildReaderPacketReport(manifest);
+        output.write(`${JSON.stringify(report, null, 2)}\n`);
+        return { action: options.action, sourcePath: resolvedPath, report };
+    }
     if (options.action === 'narration') {
         const modes = Object.fromEntries(Object.entries(manifest.tours || { tour: manifest }).map(([mode, content]) => {
             const tour = { ...manifest, ...content };
@@ -152,8 +157,8 @@ function parseTourArgs(args) {
         sourcePath = arg;
     }
     if (!sourcePath) throw new Error(`tour ${action} requires a .bygone source file.`);
-    if ((action === 'validate' || action === 'narration') && outputPath) throw new Error('--output is only valid with tour compile.');
-    if (action === 'compile' && json) throw new Error('--json is only valid with tour validate, coverage, or narration.');
+    if ((action === 'validate' || action === 'narration' || action === 'reader-packet') && outputPath) throw new Error('--output is only valid with tour compile.');
+    if (action === 'compile' && json) throw new Error('--json is only valid with tour validate, coverage, narration, or reader-packet.');
     if (action !== 'coverage' && minimumCoverage !== undefined) {
         throw new Error('--minimum-coverage is only valid with tour coverage.');
     }

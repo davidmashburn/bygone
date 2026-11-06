@@ -214,6 +214,12 @@ Restate an important expected behavior or boundary from its
 existing source when useful; the opening is an explanation, not a new specification.
 Never silently weaken an expectation to match the implementation.
 
+Keep routine evidence in the optional `details.checks` checklist when the installed
+schema supports it: provenance, claims, behavior, coverage, uncertainty. Use
+`verified`, `partial`, `not-checked`, or `not-applicable` honestly, with a concise
+summary and optional `details` prose. Checks are not narration. Material limits
+remain beside their claims. See [checks format](../../docs/tour-checks.md).
+
 Before drafting, derive must-retain claims directly from the evidence, including
 consequential requirements for preparation, reuse, and deliverables. Keep this
 brief inventory internal. Choose the smallest set of reader questions that
@@ -222,10 +228,10 @@ explains those claims:
 - A chapter groups related questions. A scene answers one question; several
   steps can supply its evidence. Split for a new reasoning task, not simply
   a new file or viewport. Keep the main route complete, including material
-  caveats. For a small focused change, start at no more than five total main
-  reading stops and 250 spoken words, counting opening, chapter/scene
-  orientation, steps, and conclusion. This is advisory, not a quota or schema
-  limit. Broader changes can need more; correctness wins over the budget.
+  caveats. Lead with why, what, and the key decisions. Explain supported
+  alternatives and accepted tradeoffs; distinguish inference and unknown intent.
+  Give a representative before/after case. Judge comprehension, not a word or
+  stop quota; count narration only to diagnose avoidable reading cost.
 - Use optional `chapter.summary` for one or two brief sentences that explain
   what comes next and why. Omit it when no useful preview is needed: chapters
   without summaries stay in the contents but are skipped as presentation and
@@ -432,8 +438,8 @@ Optional branches must answer an additional question; remove those that merely
 repeat the parent. Inspect validation's `readingCosts[mode].narration` for main
 and optional totals. With older tooling, inspect the rendered narration instead.
 
-Cut redundant stops, framing, and sentences; revise over-budget paths and
-remeasure. With branches closed, map each must-retain source claim to explicit
+Cut redundant stops, framing, and sentences; preserve the causal explanation.
+Read for why, what, key decisions, and a concrete result. With branches closed, map each must-retain source claim to explicit
 main-path text, not merely an anchor. Preserve its actor, timing, and the rule
 each exception qualifies. Generic “approval needed” does not preserve the
 operation, scope, or effect of prior approval. Restore missing meaning before

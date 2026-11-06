@@ -1177,6 +1177,8 @@ body.tour-sidebar-hidden .tour-narrative-toolbar {
 #tour-audience summary { cursor: pointer; padding: 5px 0; }
 #tour-audience dt { color: var(--tour-muted); margin-top: 6px; }
 #tour-audience dd { margin: 0; }
+#tour-audience .tour-checks { margin-top: 10px; }
+#tour-audience .tour-check-category { margin-left: 12px; }
 .tour-feedback-more { position: relative; flex: none; }
 .tour-feedback-more > summary { padding: 5px 7px; color: var(--tour-muted); cursor: pointer; }
 .tour-feedback-more > summary:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 2px; }

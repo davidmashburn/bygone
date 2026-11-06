@@ -31,7 +31,7 @@ complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l json -d 'Pri
 complete -c bygone -n '__fish_seen_subcommand_from dependencies' -l output -s o -r -d 'Write dependency evidence'
 complete -c bygone -n '__fish_seen_subcommand_from dependencies' -a '(__bygone_git_refs)' -d 'Git ref'
 complete -c bygone -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish' -d 'Shell'
-complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'context coverage validate narration compile export schema' -d 'Tour action'
+complete -c bygone -n '__fish_seen_subcommand_from tour' -a 'context coverage validate narration reader-packet compile export schema' -d 'Tour action'
 complete -c bygone -n 'string match -q "*tour context*" -- (commandline -opc)' -l base -r -a '(__bygone_git_refs)' -d 'Set the change-context base ref'
 complete -c bygone -n 'string match -q "*tour context*" -- (commandline -opc)' -l output -s o -r -d 'Write the change context'
 complete -c bygone -n 'string match -q "*tour context*" -- (commandline -opc)' -l max-patch-bytes -r -d 'Maximum included patch size per file'

@@ -88,12 +88,11 @@ Continuous narration announces file and comparison changes without repeating an
 unchanged file or revision pair at every step. The visible orientation and a fresh
 playback start retain the full context.
 
-For a small focused change, aim for at most five default reading stops and 250
-spoken words, then read the complete path with every branch closed. Keep essential
-constraints and limits there; use detail for rationale and supporting evidence.
-Revise and remeasure before handoff. Exceed this advisory budget when preserving
-meaning requires it, and explain why in the handoff. Validation does not reject
-an otherwise valid tour for exceeding an editorial budget.
+Judge the default journey by whether readers understand why, what, and the key
+decisions, including supported alternatives and tradeoffs. Keep a concrete case
+and consequential constraints in the main path. Use word counts to diagnose
+repetition, not as a quality threshold. Routine evidence belongs in the optional
+[Checks & evidence checklist](tour-checks.md), outside narration.
 
 Keep authored YAML as the editable source. Compiled JSON is generated evidence,
 not a second authoring syntax; v2/v4/v5/v6/v7 manifests retain repository identity and
@@ -457,3 +456,21 @@ hunk must be assigned once or explicitly excluded.
 See [Bygone's self-referencing history tour](../examples/bygone-history.bygone) for a complete walkthrough that pins and explains the commit where branch review was introduced.
 
 For agent workflows, see [Generating change tours with an LLM](./generating-change-tours.md) and the machine-readable [JSON Schema](../schemas/change-tour-source.schema.json).
+
+## Bounded reader experiments
+
+`bygone tour reader-packet review.bygone.yaml --json` compiles the source and
+returns a text packet per mode in `modes`. Each packet has `schema_version: 1`,
+a title, ordered `main` nodes, and optional `branches` and `checks`. Nodes contain
+stable `id`, `title`, `text`, and `child_ids`. Select one mode's packet before
+initializing a bounded reader session. The packet contains the full candidate;
+only the parent may read it. Give the skim reader only harness responses.
+
+This projection uses continuous narration and the reader's titles, branch labels,
+and check statuses. It removes exact repeated title segments and excludes
+repository data and generator attribution. Each optional path's steps are joined
+in reading order; nested branch labels become available on entering that path.
+It is a text comprehension surrogate, not a simulation of viewport layout,
+step-by-step branch controls, code inspection, images, or audio. Test those in the
+presenter separately. Keep projection and budget parameters frozen within a
+comparison, and do not claim human reading performance from model trials.

@@ -370,7 +370,7 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     }
     if (value.details !== undefined) {
         if (value.version < 5) throw new Error('details requires manifest version 5.');
-        validateChangeTourDetails(value.details, 'details');
+        validateChangeTourDetails(value.details, 'details', value.version);
     }
 
     const files = value.files === undefined
@@ -466,7 +466,7 @@ function validateModeTours(value: unknown, version: 4 | 5 | 6 | typeof CHANGE_TO
         }
         if (tour.details !== undefined) {
             if (version < 5) throw new Error(`tours.${mode}.details requires manifest version 5.`);
-            validateChangeTourDetails(tour.details, `tours.${mode}.details`);
+            validateChangeTourDetails(tour.details, `tours.${mode}.details`, version);
         }
         if (mode === 'deconstructed' && !hasDeconstructed) {
             throw new Error('Deconstructed tours must contain a constructed deconstructed-diff scene.');

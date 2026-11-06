@@ -282,7 +282,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
     );
     if (value.details !== undefined) {
         if (value.version < 5) throw new Error('source.details requires version 5.');
-        validateChangeTourDetails(value.details, 'details');
+        validateChangeTourDetails(value.details, 'details', value.version);
     }
     if (value.tours !== undefined) {
         if (value.version < 4) throw new Error('Independent tours require version 4.');
@@ -301,7 +301,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             validateSourceChapters(tour.chapters, `${path}.chapters`, value.version, value.anchors, connectionIds, mode);
             if (tour.details !== undefined) {
                 if (value.version < 5) throw new Error(`${path}.details requires source version 5.`);
-                validateChangeTourDetails(tour.details, `${path}.details`);
+                validateChangeTourDetails(tour.details, `${path}.details`, value.version);
             }
         }
     }
