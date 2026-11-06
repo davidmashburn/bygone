@@ -175,8 +175,13 @@ While reading, these keys work without first focusing the navigation toolbar:
 
 - **Up/Down**: previous/next step on the current path, skipping optional detail.
 - **Right**: drill into optional detail; choose a path when several exist.
-- **Left** or **Escape**: return one level to the owning step and restore its
+- **Left**: return one level to the owning step and restore its
   sentence and scroll position. Returning pauses any active narration.
+
+**Escape** returns focus to reading at the same passage. Menus and dialogs dismiss
+first; another press may be needed to leave a field or widget. Prose selections
+are cleared so arrows work again. Repeated Escape never leaves optional detail
+or changes the sentence, scroll position, or narration.
 
 **Enter** also explores detail when the navigation group itself has focus;
 on a button or link it retains native activation. **Space** starts, pauses, or

@@ -11,7 +11,7 @@ const context = { readerActive: true, navigationFocused: true, nativeKeyOwner: f
     shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, defaultPrevented: false, isComposing: false };
 test('reader keys separate path movement, detail and sentence selection without taking native keys', () => {
     const bindings = { ArrowUp: Action.PreviousStep, ArrowDown: Action.NextStep,
-        ArrowRight: Action.EnterDetail, Enter: Action.EnterDetail, ArrowLeft: Action.ReturnToParent, Escape: Action.ReturnToParent };
+        ArrowRight: Action.EnterDetail, Enter: Action.EnterDetail, ArrowLeft: Action.ReturnToParent, Escape: Action.RecoverFocus };
     for (const [key, action] of Object.entries(bindings)) {
         assert.equal(resolveTourReaderKey({ ...context, key }), action);
         assert.equal(resolveTourReaderKey({ ...context, key, navigationFocused: false }), key === 'Enter' ? null : action);
@@ -24,6 +24,10 @@ test('reader keys separate path movement, detail and sentence selection without 
         for (const shiftKey of [false, true]) assert.equal(resolveTourReaderKey({ ...context, key: 'ArrowDown', shiftKey, [blocked]: true }), null);
     }
     assert.equal(resolveTourReaderKey({ ...context, key: 'ArrowDown', shiftKey: true, readerActive: false }), null);
+    assert.equal(resolveTourReaderKey({ ...context, key: 'Escape', nativeKeyOwner: true }), Action.RecoverFocus);
+    for (const guard of ['defaultPrevented', 'isComposing', 'shiftKey', 'ctrlKey', 'altKey', 'metaKey']) {
+        assert.equal(resolveTourReaderKey({ ...context, key: 'Escape', [guard]: true }), null);
+    }
     assert.equal(resolveTourReaderKey({ ...context, key: 'ArrowRight', shiftKey: true }), null);
 });
 

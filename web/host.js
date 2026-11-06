@@ -1296,8 +1296,15 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             for (const menu of selectionMenus) if (menu.open && !menu.contains(event.target)) closeSelectionMenu(menu);
         });
         document.addEventListener('keydown', (event) => {
-            if (event.key !== 'Escape') return;
-            for (const menu of selectionMenus) if (menu.open) {
+            if (event.key === 'Escape' && event.repeat && state.mode === 'tour' && isNarrativeMode()) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        }, true);
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+            const menu = selectionMenus.findLast(candidate => candidate.open);
+            if (menu) {
                 event.preventDefault();
                 closeSelectionMenu(menu, true);
             }
@@ -1493,6 +1500,9 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     }
 
     function handleReaderShortcut(event) {
+        // A modal owns cancellation and focus restoration before reader recovery.
+        if (event.key === 'Escape' && [...document.querySelectorAll('dialog[open], [aria-modal="true"]')]
+            .some(dialog => dialog.getClientRects().length > 0)) return false;
         const action = resolveTourReaderKey({
             key: event.key, shiftKey: event.shiftKey, altKey: event.altKey,
             ctrlKey: event.ctrlKey, metaKey: event.metaKey,
@@ -1506,6 +1516,10 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         event.stopPropagation();
         if (event.repeat) return true;
         switch (action) {
+            case TourReaderAction.RecoverFocus:
+                window.getSelection()?.removeAllRanges();
+                focusReaderNavigation();
+                break;
             case TourReaderAction.PreviousStep: showTourLinear(-1); focusReaderNavigation(); break;
             case TourReaderAction.NextStep: showTourLinear(1); focusReaderNavigation(); break;
             case TourReaderAction.PreviousSentence: skipNarrationSentence(-1); break;
@@ -3536,13 +3550,13 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             backToParent.disabled = !isNarrativeMode() || !readingBranch;
             const parent = readingBranch && getTourBranchParent(state.tour, readingBranch);
             backToParent.title = parent
-                ? `Return to parent: ${tourReadingTitle(state.tour, parent)} (Escape or Left Arrow)`
+                ? `Return to parent: ${tourReadingTitle(state.tour, parent)} (Left Arrow)`
                 : 'Already on the main path';
             backToParent.setAttribute('aria-label', backToParent.title);
         }
         const keyboard = document.getElementById('tour-keyboard-navigation');
         const currentItem = readingItems.find(item => item.key === state.readingKey);
-        if (keyboard && currentItem) keyboard.setAttribute('aria-label', `Tour navigation: ${tourReadingTitle(state.tour, currentItem)}. Up/Down: steps. Enter/Right: explore detail. Escape/Left: return to parent.`);
+        if (keyboard && currentItem) keyboard.setAttribute('aria-label', `Tour navigation: ${tourReadingTitle(state.tour, currentItem)}. Up/Down: steps. Enter/Right: explore detail. Left: return to parent. Escape: back to reading.`);
         const plan = document.getElementById('tour-reading-plan');
         if (plan) {
             plan.hidden = !hasBranches;

@@ -1,5 +1,6 @@
 /** Reader actions are distinct from native widget navigation and visit history. */
 export enum TourReaderAction {
+    RecoverFocus = 'recover-focus',
     PreviousStep = 'previous-step',
     NextStep = 'next-step',
     PreviousSentence = 'previous-sentence',
@@ -23,7 +24,9 @@ export interface TourReaderKeyContext {
 
 export function resolveTourReaderKey(context: TourReaderKeyContext): TourReaderAction | null {
     if (!context.readerActive || context.defaultPrevented || context.isComposing
-        || context.altKey || context.ctrlKey || context.metaKey || context.nativeKeyOwner) return null;
+        || context.altKey || context.ctrlKey || context.metaKey) return null;
+    if (context.key === 'Escape' && !context.shiftKey) return TourReaderAction.RecoverFocus;
+    if (context.nativeKeyOwner) return null;
     if (context.shiftKey) {
         if (context.key === 'ArrowUp') return TourReaderAction.PreviousSentence;
         if (context.key === 'ArrowDown') return TourReaderAction.NextSentence;
@@ -36,8 +39,7 @@ export function resolveTourReaderKey(context: TourReaderKeyContext): TourReaderA
         // Enter must still activate a focused button or link. The navigation
         // group itself has no native activation, so it can offer this alias.
         case 'Enter': return context.navigationFocused ? TourReaderAction.EnterDetail : null;
-        case 'ArrowLeft':
-        case 'Escape': return TourReaderAction.ReturnToParent;
+        case 'ArrowLeft': return TourReaderAction.ReturnToParent;
         default: return null;
     }
 }

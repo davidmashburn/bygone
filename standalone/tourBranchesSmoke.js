@@ -145,7 +145,8 @@ app.whenReady().then(async () => {
             await active('boundary');
             await key('ArrowRight');
             await click('.tour-detail-chooser button'); await active('choice-step-one');
-            await key('Escape'); await active('boundary');
+            await key('Escape'); await active('choice-step-one');
+            await key('ArrowLeft'); await active('boundary');
             await key('ArrowUp'); await active('outcome');
             window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Tab' });
             window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab' });
@@ -198,6 +199,27 @@ app.whenReady().then(async () => {
             })()`), true, 'Return controls remain visible without covering the active heading');
             await click('[data-branch-id=evidence]'); await active('proof');
             assert.deepEqual(await keys(), ['step:scene:proof']);
+            // Escape recovers focus even in nested detail; it never leaves that path.
+            const recoverySentence = await selected();
+            const recoveryScroll = await evaluate("document.querySelector('#tour-narrative-content').scrollTop");
+            for (const selector of ['#tour-search-input', '#tour-scenes [data-reading-link="step:scene:proof"]', '#tour-narrative-content']) {
+                await evaluate(`document.querySelector(${JSON.stringify(selector)}).focus({preventScroll:true})`);
+                window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
+                window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+                await wait("document.activeElement.id === 'tour-keyboard-navigation'");
+                await active('proof');
+            }
+            await evaluate(`(() => {
+                const range = document.createRange();
+                range.selectNodeContents(document.querySelector('.tour-reading-item.is-active'));
+                getSelection().removeAllRanges(); getSelection().addRange(range);
+            })()`);
+            await key('Escape', false, '#tour-narrative-content');
+            assert.equal(await evaluate('getSelection().isCollapsed'), true);
+            await key('Escape'); await key('Escape'); await active('proof');
+            assert.equal(await selected(), recoverySentence);
+            assert.equal(await evaluate("document.querySelector('#tour-narrative-content').scrollTop"), recoveryScroll);
+
             assert.equal(await evaluate("document.querySelector('#tour-scenes [aria-current=location]').dataset.readingLink"), 'step:scene:proof');
             assert.match(await evaluate("document.querySelector('[data-outline-branch-id=why] .tour-outline-branch-status').textContent"), /Parent path · paused/);
             assert.equal(await evaluate("document.getElementById('tour-reading-plan').textContent"), 'End of detail. Next and narration stop here.');
