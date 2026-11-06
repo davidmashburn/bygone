@@ -73,6 +73,8 @@ export interface NarrationUnit {
     readingKey?: string;
     position?: TourPosition;
     segments: NarrationSegment[];
+    /** Allows the reader to render the exact source text used for offsets. */
+    orientationDetail?: TourOrientationDetail;
 }
 
 export interface BuildNarrationUnitOptions {
@@ -153,7 +155,6 @@ export function buildReadingNarrationUnit(
     activeItems?: readonly TourReadingItem[]
 ): NarrationUnit {
     const fields: NarrationFieldValue[] = [];
-    let spokenOrientation: string | undefined;
     const add = (field: NarrationField, text: string | undefined, itemIndex?: number) => {
         if (text) fields.push({ source: { field, ...(itemIndex === undefined ? {} : { itemIndex }) }, text });
     };
@@ -194,11 +195,9 @@ export function buildReadingNarrationUnit(
                 add('stage-title', scene.panels[scene.steps[item.stepIndex].pairIndex + 1].label);
             }
             add('step-title', tourReadingTitle(tour, item));
-            add('step-orientation', describeStepOrientation(tour, item.sceneIndex, item.stepIndex));
-            if (options.entry === 'continuous') {
-                spokenOrientation = describeStepOrientation(tour, item.sceneIndex, item.stepIndex, TourOrientationDetail.Changes);
-            }
             add('step-body', step.body);
+            add('step-orientation', describeStepOrientation(tour, item.sceneIndex, item.stepIndex,
+                options.entry === 'playback-start' ? TourOrientationDetail.Full : TourOrientationDetail.Changes));
             if ('connection' in step) add('connection', step.connection?.label);
             const branch = getTourStepBranch(step);
             const routeItems = getActiveItems(tour, item.sceneIndex, branch, activeItems ?? options.activeItems);
@@ -208,11 +207,8 @@ export function buildReadingNarrationUnit(
     return {
         id: item.key,
         readingKey: item.key,
-        // Select sentences from the full visible orientation so segment IDs and
-        // highlight offsets remain stable when unchanged context is not spoken.
+        orientationDetail: options.entry === 'playback-start' ? TourOrientationDetail.Full : TourOrientationDetail.Changes,
         segments: fields.flatMap(field => buildFieldSegments(item.key, field, options.segmentLimit ?? DEFAULT_NARRATION_SEGMENT_LIMIT))
-            .filter(segment => segment.source.field !== 'step-orientation'
-                || spokenOrientation === undefined || spokenOrientation.includes(segment.text))
     };
 }
 

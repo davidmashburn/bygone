@@ -6,7 +6,7 @@ const { materializeTour } = require('../cli/tourExport');
 const { parseChangeTourSource, buildChangeTourManifest, parseChangeTourManifest } = require('../out/changeTour');
 const { buildTourReadingItems, getTourReadingTarget, resolveTourReadingItem } = require('../out/tourReading');
 const { buildReadingNarrationUnit, buildTourNarrationUnit, getTourNarrationCost, normalizeNarrationSpeech } = require('../out/tourNarration');
-const { buildTourRoute, describeStepOrientation, tourLanding, resolveTourEvidenceContext, describeTourTransition } = require('../out/tourOrientation');
+const { buildTourRoute, describeStepOrientation, tourLanding, resolveTourEvidenceContext, describeTourTransition, tourEvidenceName } = require('../out/tourOrientation');
 const { parseDocumentFragment, serializeDocumentFragment, resolveDocumentFocus } = require('../out/deepLink');
 const { searchTour } = require('../out/tourSearch');
 const passage = title => ({ title, summary: `${title} summary.`, bullets: [`${title} point.`] });
@@ -100,7 +100,7 @@ test('bookends are reading locations, searchable and linkable, including image-o
         assert.equal(spoken.filter(value => value === text).length, 1, `${text} is narrated once`);
     }
     const direct = buildReadingNarrationUnit(tour, items.find(item => item.key === 'step:s:b'), { entry: 'playback-start' });
-    assert.deepEqual(direct.segments.map(segment => segment.text), ['Scene', 'Second', 'Step 2 of 2.', 'Image: Second.', 'Second evidence.', 'Result.']);
+    assert.deepEqual(direct.segments.map(segment => segment.text), ['Scene', 'Second', 'Second evidence.', 'Result.']);
     assert.equal(direct.position, undefined);
     const modeTour = { ...tour, tours: { historical: tour, deconstructed: { ...tour, conclusion: undefined } } };
     const fragment = serializeDocumentFragment('historical', { part: 'conclusion' });
@@ -143,8 +143,8 @@ test('orientation and narration use main counts while optional playback stays br
     const route = buildTourRoute(tour);
     assert.match(route.summary, /2 steps/);
     assert.doesNotMatch(route.scenes[0].evidence, /optional\.ts/);
-    assert.match(describeStepOrientation(tour, 0, 2), /^Step 2 of 2\./);
-    assert.match(describeStepOrientation(tour, 0, 1), /^Step 1 of 1\./);
+    assert.equal(describeStepOrientation(tour, 0, 2), '');
+    assert.equal(describeStepOrientation(tour, 0, 1), 'Evidence: optional.ts.');
 
     const mainNarration = buildReadingNarrationUnit(tour, mainItems.find(item => item.key === 'step:scene:main-after'), {
         entry: 'continuous', activeItems: mainItems
@@ -211,17 +211,17 @@ test('the opening route separates topics, files, revision pairs, and constructed
     assert.match(route.scenes[0].evidence, /Files in order: route.ts → store.ts → route.ts/);
     assert.match(route.scenes[0].evidence, /Revisions: base \(aaaaaaa\) → head \(ccccccc\)/);
     assert.doesNotMatch(route.scenes[0].evidence, /then/);
-    assert.equal(describeStepOrientation(tour, 0, 1), 'Step 2 of 3. Keep the same revisions. Move from route.ts to store.ts.');
+    assert.equal(describeStepOrientation(tour, 0, 1), 'File changed: store.ts.');
     tour.scenes[0] = { id: 's', title: 'Guard then recover', kind: 'stacked-diff', stack: [
         { id: 'a', label: 'Before', oid: 'a'.repeat(40) }, { id: 'b', label: 'Guard', oid: 'b'.repeat(40) }, { id: 'c', label: 'Recovery', oid: 'c'.repeat(40) }
     ], steps: [{ id: 'a', file: 'route.ts', pairIndex: 0 }, { id: 'b', file: 'route.ts', pairIndex: 1 }] };
     route = buildTourRoute(tour);
     assert.match(route.scenes[0].evidence, /File: route.ts/);
     assert.match(route.scenes[0].evidence, /; then Guard/);
-    assert.match(describeStepOrientation(tour, 0, 1), /Switch revisions to Guard.*Continue in route.ts/);
+    assert.match(describeStepOrientation(tour, 0, 1), /Revisions changed: Guard/);
     tour.scenes[0] = { ...tour.scenes[0], kind: 'deconstructed-diff', panels: tour.scenes[0].stack };
     assert.match(buildTourRoute(tour).scenes[0].evidence, /Explanation stages \(constructed, not commits\)/);
-    assert.match(describeStepOrientation(tour, 0, 1), /Switch explanation stages/);
+    assert.match(describeStepOrientation(tour, 0, 1), /Explanation stages changed/);
     tour.scenes[0] = { id: 'd', title: 'Decide', kind: 'discussion' };
     assert.match(buildTourRoute(tour).scenes[0].evidence, /No code comparison/);
 });
@@ -314,17 +314,17 @@ test('continuous narration omits unchanged orientation but preserves file and re
     const orientation = (stepIndex, entry = 'continuous') => buildReadingNarrationUnit(tour,
         { kind: 'step', key: `step:request:${tour.scenes[0].steps[stepIndex].id}`, sceneIndex: 0, stepIndex }, { entry })
         .segments.filter(segment => segment.source.field === 'step-orientation').map(segment => segment.speechText).join(' ');
-    assert.equal(orientation(0), 'Step 1 of 3. Evidence in route.ts.');
-    assert.equal(orientation(1), 'Step 2 of 3.');
-    assert.equal(orientation(1, 'playback-start'), 'Step 2 of 3. Keep the same revisions. Continue in route.ts.');
-    assert.equal(orientation(2), 'Step 3 of 3. Move from route.ts to store.ts.');
+    assert.equal(orientation(0), 'Evidence: route.ts.');
+    assert.equal(orientation(1), '');
+    assert.equal(orientation(1, 'playback-start'), 'Evidence: route.ts.');
+    assert.equal(orientation(2), 'File changed: store.ts.');
     const changedFileUnit = buildReadingNarrationUnit(tour,
         { kind: 'step', key: 'step:request:third', sceneIndex: 0, stepIndex: 2 }, { entry: 'continuous', segmentLimit: 40 });
     for (const segment of changedFileUnit.segments.filter(segment => segment.source.field === 'step-orientation')) {
         assert.equal(describeStepOrientation(tour, 0, 2).slice(segment.startOffset, segment.endOffset), segment.text,
             'spoken orientation retains offsets into the full visible field');
     }
-    assert.equal(describeStepOrientation(tour, 0, 1), 'Step 2 of 3. Keep the same revisions. Continue in route.ts.', 'visual orientation stays complete');
+    assert.equal(describeStepOrientation(tour, 0, 1), '', 'unchanged context does not become a visible or spoken sentence');
     tour.scenes[0] = { ...tour.scenes[0], kind: 'stacked-diff', stack: [
         { id: 'a', label: 'Before', oid: 'a'.repeat(40) },
         { id: 'b', label: 'Guard', oid: 'b'.repeat(40) },
@@ -333,6 +333,17 @@ test('continuous narration omits unchanged orientation but preserves file and re
         { id: 'first', title: 'Guard', body: 'Guard.', file: 'route.ts', pairIndex: 0 },
         { id: 'second', title: 'Recover', body: 'Recover.', file: 'route.ts', pairIndex: 1 }
     ] };
-    assert.match(orientation(1), /Switch revisions to Guard.*Recovery/);
+    assert.match(orientation(1), /Revisions changed: Guard.*Recovery/);
     assert.doesNotMatch(orientation(1), /Continue in/);
+});
+
+
+test('compact evidence names disambiguate duplicate basenames', () => {
+    const tour = { scenes: [{ kind: 'walkthrough', steps: [
+        { diff: { path: 'client/route.ts' } }, { diff: { path: 'server/route.ts' } },
+        { diff: { path: 'server/store.ts' } }, { diff: { path: 'server/store.ts' } }
+    ] }] };
+    assert.equal(tourEvidenceName(tour, 'client/route.ts'), 'client/route.ts');
+    assert.equal(tourEvidenceName(tour, 'server/route.ts'), 'server/route.ts');
+    assert.equal(tourEvidenceName(tour, 'server/store.ts'), 'store.ts');
 });

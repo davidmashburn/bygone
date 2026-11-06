@@ -120,6 +120,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     const branchReturns = new WeakMap();
     const readingElements = new Map();
     const collapsedOutline = new Set();
+    const expandedOutline = new Set();
+    const collapsedBranches = new Set();
     let programmaticReadingScroll = null;
     let readingScrollFrame = null;
     const embeddedWorkspaceMode = new URLSearchParams(window.location.search).get('workspaceEmbedded') === '1';
@@ -1296,7 +1298,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             for (const menu of selectionMenus) if (menu.open && !menu.contains(event.target)) closeSelectionMenu(menu);
         });
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && event.repeat && state.mode === 'tour' && isNarrativeMode()) {
+            if (event.key === 'Escape' && event.repeat && !event.isComposing
+                && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && state.mode === 'tour' && isNarrativeMode()) {
                 event.preventDefault();
                 event.stopImmediatePropagation();
             }
@@ -1307,6 +1310,13 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             if (menu) {
                 event.preventDefault();
                 closeSelectionMenu(menu, true);
+            } else {
+                const disclosure = event.target.closest?.('.tour-evidence-context[open], .tour-shortcuts[open]');
+                if (disclosure) {
+                    event.preventDefault();
+                    disclosure.open = false;
+                    disclosure.querySelector('summary').focus({ preventScroll: true });
+                }
             }
         });
         action('tour-history-compare', () => openComparison({ commits: state.comparisonDraftCommits }));
@@ -1517,6 +1527,11 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         if (event.repeat) return true;
         switch (action) {
             case TourReaderAction.RecoverFocus:
+                if (!state.tourSidebarHidden && window.matchMedia('(max-width: 720px)').matches) {
+                    setTourSidebarHidden(true);
+                    document.getElementById('tour-sidebar-show').focus({ preventScroll: true });
+                    break;
+                }
                 window.getSelection()?.removeAllRanges();
                 focusReaderNavigation();
                 break;
@@ -1551,7 +1566,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     function currentSentencePosition() {
         const position = narrationController.position;
         if (position?.unit.readingKey === state.readingKey) return position;
-        const unit = buildActiveNarrationUnit('playback-start');
+        const unit = buildActiveNarrationUnit('continuous');
         return unit?.segments.length ? { unit, segmentIndex: 0 } : null;
     }
 
@@ -1847,6 +1862,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         }
 
         applyTourSidebarWidth();
+        if (window.matchMedia('(max-width: 720px)').matches) setTourSidebarHidden(true);
         hideButton.addEventListener('click', () => setTourSidebarHidden(true));
         showButton.addEventListener('click', () => setTourSidebarHidden(false));
 
@@ -2216,12 +2232,6 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         scenes.replaceChildren();
         if (isNarrativeMode()) {
             buildReadingDocument();
-            if (getTourReadingCost(tour).optional.steps) {
-                const scope = document.createElement('p');
-                scope.id = 'tour-outline-scope';
-                scope.className = 'tour-outline-scope';
-                scenes.append(scope);
-            }
             const intro = readingButton('Intro', 'Read the introduction and tour route', () => activateReadingItem(buildTourReadingItems(tour).find(item => item.kind === 'title')));
             intro.className = 'tour-scene';
             intro.dataset.readingLink = 'title';
@@ -2229,7 +2239,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         }
         const sceneById = new Map(tour.scenes.map((scene) => [scene.id, scene]));
         for (const chapter of tour.chapters) {
-            const chapterGroup = createOutlineGroup(`chapter:${chapter.id}`, `${tour.chapters.indexOf(chapter) + 1}. ${chapter.title}`, 'tour-chapter-link', () => {
+            const chapterGroup = createOutlineGroup(`chapter:${chapter.id}`, chapter.title, 'tour-chapter-link', () => {
                 const item = buildTourReadingItems(tour).find((entry) => entry.kind === 'chapter' && entry.chapterId === chapter.id)
                     || buildTourReadingItems(tour).find((entry) => entry.kind === 'scene' && chapter.sceneIds.includes(tour.scenes[entry.sceneIndex]?.id));
                 if (item) activateReadingItem(item);
@@ -2252,22 +2262,10 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 group.link.title = `Open scene: ${scene.kind === 'text-diff' ? scene.path : scene.title}`;
                 const copy = document.createElement('span');
                 copy.className = 'tour-scene-copy';
-                for (const [className, text] of [
-                    ['tour-scene-title', `${index + 1}. ${scene.title}`],
-                    ['tour-scene-path', scene.kind === 'text-diff'
-                        ? scene.path
-                        : scene.kind === 'deconstructed-diff'
-                            ? `${formatCount(scene.panels.length - 1, 'comparison stage')} · ${formatCount(scene.steps.filter(step => !step.branch).length, 'tour slide')}`
-                            : isSteppedTourScene(scene)
-                                ? formatCount(scene.steps.filter(step => !step.branch).length, scene.steps.every(step => step.image) ? 'image' : 'step')
-                                : 'Discussion'],
-                    ['tour-scene-note', scene.takeaway]
-                ]) {
-                    const line = document.createElement('span');
-                    line.className = className;
-                    line.textContent = text;
-                    copy.append(line);
-                }
+                const line = document.createElement('span');
+                line.className = 'tour-scene-title';
+                line.textContent = scene.title;
+                copy.append(line);
                 button.append(copy);
                 chapterContent.append(group.group);
                 if (isSteppedTourScene(scene)) {
@@ -2292,9 +2290,9 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     function appendOutlineSteps(container, tour, sceneIndex, branchId = null) {
         const scene = tour.scenes[sceneIndex];
         const members = scene.steps.filter(step => (step.branch?.id ?? null) === branchId);
-        members.forEach((step, index) => {
+        members.forEach((step) => {
             const stepIndex = scene.steps.indexOf(step);
-            const button = readingButton(`${index + 1}. ${step.title}`, `Read ${step.title}`, () => showTourScene(sceneIndex, stepIndex, {
+            const button = readingButton(step.title, `Read ${step.title}`, () => showTourScene(sceneIndex, stepIndex, {
                 userNavigation: true, showIntro: false
             }));
             button.className = 'tour-outline-step';
@@ -2311,9 +2309,12 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 summary.append(`Optional: ${branch.title}`);
                 const status = document.createElement('span');
                 status.className = 'tour-outline-branch-status';
-                const count = buildTourReadingItems(tour, { sceneIndex, branchId: branch.id }).length;
-                details.dataset.stepCount = String(count);
-                status.textContent = `${formatCount(count, 'step')} · Outside reading path`;
+                status.hidden = true;
+                const branchKey = `${scene.id}:${branch.id}`;
+                summary.addEventListener('click', () => {
+                    if (details.open) collapsedBranches.add(branchKey);
+                    else collapsedBranches.delete(branchKey);
+                });
                 summary.append(status);
                 const children = document.createElement('div');
                 children.className = 'tour-outline-branch-steps';
@@ -3425,13 +3426,6 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         };
     }
 
-    function formatTourBreadcrumb(scene, stepIndex) {
-        if (!isSteppedTourScene(scene)) return scene.title;
-        const step = scene.steps[stepIndex];
-        const path = scene.steps.filter(candidate => candidate.branch?.id === step?.branch?.id);
-        return `${step?.branch ? 'Detail' : 'Step'} ${path.indexOf(step) + 1} of ${path.length}`;
-    }
-
     function findChangeIndexAtSourceLine(diffModel, side, sourceLine) {
         const lines = side === 'left' ? diffModel.leftLines : diffModel.rightLines;
         const renderedIndex = lines.findIndex((line) => line.lineNumber === sourceLine);
@@ -3495,14 +3489,18 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         children.id = `outline-${encodeURIComponent(key)}`;
         const collapseKey = `${state.zoom?.mode || 'tour'}:${key}`;
         const toggle = readingButton('▾', `Expand or collapse ${title}`, () => {
-            if (collapsedOutline.has(collapseKey)) collapsedOutline.delete(collapseKey);
-            else collapsedOutline.add(collapseKey);
+            if (children.hidden) {
+                collapsedOutline.delete(collapseKey); expandedOutline.add(collapseKey);
+            } else {
+                expandedOutline.delete(collapseKey); collapsedOutline.add(collapseKey);
+            }
             update();
         });
         toggle.className = 'tour-outline-toggle';
         toggle.setAttribute('aria-controls', children.id);
+        group.dataset.collapseKey = collapseKey;
         const update = () => {
-            children.hidden = collapsedOutline.has(collapseKey);
+            children.hidden = collapsedOutline.has(collapseKey) || (!expandedOutline.has(collapseKey) && !group.classList.contains('has-active'));
             toggle.setAttribute('aria-expanded', String(!children.hidden));
             toggle.textContent = children.hidden ? '▸' : '▾';
         };
@@ -3524,7 +3522,6 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
 
     function renderNarrativeViewControls() {
         renderDirectoryOverviewBreadcrumb();
-        const hasBranches = Boolean(state.tour?.scenes.some(scene => isSteppedTourScene(scene) && scene.steps.some(step => step.branch)));
         const scope = readingBranch ? 'detail' : 'main';
         for (const [id, direction] of [['tour-back', -1], ['tour-next', 1]]) {
             const navigationButton = document.getElementById(id);
@@ -3540,6 +3537,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         const backToParent = document.getElementById('tour-return');
         const detailOptions = currentDetailOptions();
         if (drill) {
+            if (!detailOptions.length && document.activeElement === drill) focusReaderNavigation();
+            drill.hidden = detailOptions.length === 0;
             drill.disabled = !isNarrativeMode() || detailOptions.length === 0;
             drill.title = detailOptions.length === 1
                 ? `Explore detail: ${detailOptions[0].title} (Right Arrow; Enter when navigation is focused)`
@@ -3547,6 +3546,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             drill.setAttribute('aria-label', drill.title);
         }
         if (backToParent) {
+            if (!readingBranch && document.activeElement === backToParent) focusReaderNavigation();
+            backToParent.hidden = !readingBranch;
             backToParent.disabled = !isNarrativeMode() || !readingBranch;
             const parent = readingBranch && getTourBranchParent(state.tour, readingBranch);
             backToParent.title = parent
@@ -3557,13 +3558,20 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         const keyboard = document.getElementById('tour-keyboard-navigation');
         const currentItem = readingItems.find(item => item.key === state.readingKey);
         if (keyboard && currentItem) keyboard.setAttribute('aria-label', `Tour navigation: ${tourReadingTitle(state.tour, currentItem)}. Up/Down: steps. Enter/Right: explore detail. Left: return to parent. Escape: back to reading.`);
+        const progress = document.getElementById('tour-progress');
+        if (progress && currentItem) {
+            const steps = readingItems.filter(item => item.kind === 'step');
+            const index = steps.findIndex(item => item.key === currentItem.key);
+            progress.textContent = index >= 0
+                ? `${readingBranch ? 'Detail' : 'Main'} · ${index + 1}/${steps.length}`
+                : currentItem.kind === 'title' ? 'Introduction'
+                : currentItem.kind === 'conclusion' ? 'Conclusion' : 'Section';
+        }
         const plan = document.getElementById('tour-reading-plan');
         if (plan) {
-            plan.hidden = !hasBranches;
             const next = getTourReadingTarget(readingItems, state.readingKey, 1, isImageOnlyTour(state.tour));
-            plan.textContent = next
-                ? `Next: ${tourReadingTitle(state.tour, next)}. ${readingBranch ? 'Deeper' : 'Optional'} detail is skipped by Next and narration.`
-                : `End of ${scope}. Next and narration stop here.`;
+            plan.hidden = Boolean(next);
+            plan.textContent = `End of ${scope}. Next and narration stop here.`;
         }
         const narration = document.getElementById('tour-narration');
         const settings = document.getElementById('tour-audio-settings');
@@ -3765,7 +3773,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             : state.narrativeParent === 'conclusion' ? 'Conclusion'
             : state.narrativeParent === 'chapter' ? location.chapter?.title || ''
                 : state.sceneIntroVisible ? scene.title
-                    : formatTourBreadcrumb(scene, state.activeStepIndex);
+                    : scene.title;
         // Only refresh sentence spans, never replace the document or disclosures.
         const sceneElement = scene && readingElements.get(`scene:${scene.id}`);
         const step = isSteppedTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
@@ -3773,6 +3781,12 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         for (const element of new Set([sceneElement, stepElement, readingElements.get(state.readingKey)].filter(Boolean))) {
             element.querySelectorAll('[data-reading-field]').forEach((field) => {
                 if (field.closest('[data-reading-key]') !== element) return;
+                if (field.dataset.readingField === 'step-orientation') {
+                    const detail = narrationUnit?.readingKey === element.dataset.readingKey ? narrationUnit.orientationDetail : undefined;
+                    const text = describeStepOrientation(state.tour, Number(element.dataset.sceneIndex), Number(element.dataset.stepIndex), detail);
+                    field.dataset.readingText = text;
+                    field.hidden = !text;
+                }
                 renderNarrationField(field, field.dataset.readingText, {
                     field: field.dataset.readingField,
                     ...(field.dataset.itemIndex !== undefined ? { itemIndex: Number(field.dataset.itemIndex) } : {})
@@ -3848,16 +3862,13 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         const location = { ...readingBranch };
         const trail = getTourBranchTrail(state.tour, location);
         const parent = getTourBranchParent(state.tour, location);
-        const root = trail.length ? getTourBranchParent(state.tour, { sceneIndex: location.sceneIndex, branchId: trail[0].id }) : null;
-        const main = buildTourReadingItems(state.tour);
-        const mainSteps = main.filter(item => item.kind === 'step');
         const nav = document.createElement('nav');
         nav.className = footer ? 'tour-branch-navigation tour-branch-footer' : 'tour-branch-navigation';
         nav.setAttribute('aria-label', footer ? 'Finish optional branch' : 'Optional branch');
         if (!footer) {
             const label = document.createElement('p');
             label.className = 'tour-branch-label';
-            label.textContent = `Main paused at step ${mainSteps.findIndex(item => item.key === root?.key) + 1} of ${mainSteps.length} · Optional detail · ${trail.map(branch => branch.title).join(' › ')}`;
+            label.textContent = `Optional detail · ${trail.map(branch => branch.title).join(' › ')}`;
             nav.append(label);
             return nav;
         }
@@ -3998,7 +4009,11 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 overview(intro, { ...scene, takeaway: isSteppedTourScene(scene) ? '' : scene.takeaway }, true);
                 if (scene.overview?.purpose) field(intro, 'p', 'tour-overview-purpose', scene.overview.purpose, 'overview-purpose');
                 const evidenceContext = resolveTourEvidenceContext(state.tour, item, state.zoom?.mode);
-                if (evidenceContext) field(intro, 'p', 'tour-scene-orientation', describeTourComparison(evidenceContext));
+                if (evidenceContext) {
+                    const evidence = field(intro, 'details', 'tour-evidence-context', '');
+                    field(evidence, 'summary', '', 'Evidence context');
+                    field(evidence, 'p', 'tour-scene-orientation', describeTourComparison(evidenceContext));
+                }
                 const tags = field(intro, 'div', 'tour-narrative-tags', '');
                 scene.tags.forEach((tag) => field(tags, 'span', '', tag));
             } else {
@@ -4007,8 +4022,9 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                     ? (!step.body ? scene.panels[step.pairIndex + 1].label : `Stage ${(step.stageIndex ?? step.pairIndex) + 1}`) : '';
                 if (stage) field(element, 'div', 'tour-narrative-chapter', stage, 'stage-title');
                 field(element, 'h3', 'tour-step-title', tourReadingTitle(state.tour, item), 'step-title');
-                field(element, 'p', 'tour-step-orientation', describeStepOrientation(state.tour, item.sceneIndex, item.stepIndex), 'step-orientation');
                 if (step.body) field(element, 'p', 'tour-step-body', step.body, 'step-body');
+                const orientation = describeStepOrientation(state.tour, item.sceneIndex, item.stepIndex);
+                field(element, 'p', 'tour-step-orientation', orientation, 'step-orientation').hidden = !orientation;
                 if (scene.kind === 'deconstructed-diff' && !step.body) {
                     const firstStepIndex = scene.steps.findIndex(candidate => candidate.pairIndex === step.pairIndex);
                     if (firstStepIndex >= 0 && firstStepIndex < item.stepIndex) {
@@ -4031,8 +4047,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                     const choices = field(element, 'div', 'tour-branch-choices', '');
                     field(choices, 'span', 'tour-branch-label', 'Optional · skipped by Next and narration');
                     for (const branch of branches) {
-                        const count = buildTourReadingItems(state.tour, { sceneIndex: item.sceneIndex, branchId: branch.id }).length;
-                        const button = readingButton(`Drill in → ${branch.title} · ${formatCount(count, 'step')}`, `Read optional detail: ${branch.title}`, () => openTourBranch(item, branch));
+                        const button = readingButton(`Explore: ${branch.title} →`, `Read optional detail: ${branch.title}`, () => openTourBranch(item, branch));
                         button.className = 'tour-branch-link';
                         button.dataset.branchId = branch.id;
                         choices.append(button);
@@ -4040,7 +4055,11 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 }
                 const target = getActiveStepCodeTarget(scene, item.stepIndex);
                 if (target) {
-                    const code = field(element, 'div', 'tour-step-code', '');
+                    const evidence = field(element, 'details', 'tour-evidence-context', '');
+                    field(evidence, 'summary', '', scene.kind === 'deconstructed-diff' ? 'Evidence · explanation stages' : 'Evidence context');
+                    const context = resolveTourEvidenceContext(state.tour, item, state.zoom?.mode);
+                    if (context) field(evidence, 'p', 'tour-evidence-comparison', describeTourComparison(context));
+                    const code = field(evidence, 'div', 'tour-step-code', '');
                     field(code, 'span', 'tour-step-code-location', target.label);
                     const button = readingButton('Show in code', `Show ${target.label}`, () => {
                         activateReadingItem(item);
@@ -4080,14 +4099,22 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             const onTrail = readingBranch?.sceneIndex === Number(group.dataset.sceneIndex)
                 && trail.some(branch => branch.id === group.dataset.outlineBranchId);
             const current = onTrail && group.dataset.outlineBranchId === readingBranch.branchId;
-            if (onTrail) group.open = true;
+            const branchKey = `${state.tour.scenes[Number(group.dataset.sceneIndex)].id}:${group.dataset.outlineBranchId}`;
+            if (onTrail && !collapsedBranches.has(branchKey)) group.open = true;
             group.classList.toggle('is-reading-path', Boolean(current));
-            group.querySelector('.tour-outline-branch-status').textContent = `${formatCount(Number(group.dataset.stepCount), 'step')} · ${current ? 'Reading now' : onTrail ? 'Parent path · paused' : 'Outside reading path'}`;
+            const status = group.querySelector('.tour-outline-branch-status');
+            status.hidden = !onTrail;
+            status.textContent = current ? 'Current' : onTrail ? 'Parent' : '';
         });
-        const scope = document.getElementById('tour-outline-scope');
-        if (scope) scope.textContent = readingBranch ? 'Main path · paused. Reading optional detail.' : 'Reading main path · optional groups are skipped.';
         document.querySelectorAll('.tour-outline-group').forEach((group) => {
             group.classList.toggle('has-active', Boolean(group.querySelector('[aria-current="location"]')));
+            const children = group.querySelector(':scope > .tour-outline-children');
+            const closed = collapsedOutline.has(group.dataset.collapseKey)
+                || (!expandedOutline.has(group.dataset.collapseKey) && !group.classList.contains('has-active'));
+            children.hidden = closed;
+            const toggle = group.querySelector(':scope > .tour-outline-heading .tour-outline-toggle');
+            toggle.setAttribute('aria-expanded', String(!closed));
+            toggle.textContent = closed ? '▸' : '▾';
         });
         const outline = document.getElementById('tour-scenes');
         let link = outline?.querySelector('[aria-current="location"]');
@@ -4153,7 +4180,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         }
         return showTourScene(item.sceneIndex, item.stepIndex, {
             readingKey: item.key, showIntro: item.kind !== 'step',
-            userNavigation: true, fromReadingScroll: fromScroll, narrationNavigation: linear ? 'linear' : undefined, narrationEntry: linear ? 'continuous' : 'playback-start'
+            userNavigation: true, fromReadingScroll: fromScroll, narrationNavigation: linear ? 'linear' : undefined, narrationEntry: linear || fromScroll ? 'continuous' : 'playback-start'
         });
     }
 

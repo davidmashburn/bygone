@@ -68,12 +68,21 @@ app.whenReady().then(async () => {
             console.log(`Checking ${exported ? 'offline' : 'live'} reader`);
             await window.loadURL(url + hash('outcome'));
             await active('outcome');
+            assert.equal(await evaluate("document.querySelector('.tour-reading-item.is-active .tour-evidence-context').open"), false, 'Routine evidence context starts collapsed');
+            assert.equal(await evaluate("document.getElementById('tour-return').checkVisibility()"), false, 'Main path has no irrelevant return control');
+            assert.equal(await evaluate("document.querySelector('.tour-shortcuts').open"), false, 'Shortcut help starts collapsed');
+            await click('.tour-reading-item.is-active .tour-evidence-context > summary');
+            await key('Escape', false, '.tour-reading-item.is-active .tour-evidence-context > summary');
+            assert.equal(await evaluate("document.querySelector('.tour-reading-item.is-active .tour-evidence-context').open"), false, 'Escape first closes the focused disclosure');
+            await key('Escape', false, '.tour-reading-item.is-active .tour-evidence-context > summary');
+            await wait("document.activeElement.id === 'tour-keyboard-navigation'");
             // Real key events must work when Tab focuses a child button, not
             // only when tests dispatch directly at the navigation container.
             await evaluate("document.querySelector('#tour-next').focus()");
             window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Down' });
             window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Down' });
             await active('boundary');
+            assert.equal(await evaluate("document.querySelector('.tour-reading-item.is-active .tour-step-orientation').hidden"), true, 'Unchanged evidence creates no visible sentence stop');
             await evaluate("document.querySelector('#tour-back').focus()");
             assert.equal(await key('Enter', false, '#tour-back'), false, 'Enter remains native button activation');
             window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Up' });
@@ -153,7 +162,7 @@ app.whenReady().then(async () => {
             await wait("document.activeElement.id !== 'tour-keyboard-navigation'");
             await evaluate("document.querySelector('[data-outline-branch-id=why]').open = false");
             assert.deepEqual(await keys(), ['step:scene:outcome', 'step:scene:boundary', 'step:scene:finish']);
-            assert.match(await evaluate("document.getElementById('tour-reading-plan').textContent"), /Next: The next main claim stays close.*Optional detail is skipped by Next and narration/);
+            assert.equal(await evaluate("document.getElementById('tour-progress').textContent"), 'Main · 1/3');
             assert.equal(await evaluate("document.getElementById('tour-next').textContent"), 'Next ↓');
             assert.equal(await evaluate("document.querySelector('[data-outline-branch-id=why]').open"), false);
             assert.equal(await evaluate(`(() => {
@@ -178,19 +187,24 @@ app.whenReady().then(async () => {
             await evaluate("document.querySelector('.tour-feedback-dialog').close()");
             await click('[data-outline-branch-id=why] > summary');
             await active('outcome');
-            assert.match(await evaluate("document.querySelector('[data-outline-branch-id=why] .tour-outline-branch-status').textContent"), /Outside reading path/);
+            assert.equal(await evaluate("document.querySelector('[data-outline-branch-id=why] .tour-outline-branch-status').hidden"), true);
             await click('[data-outline-branch-id=why] > summary');
             await click('#tour-next'); await active('boundary');
             await click('#tour-back'); await active('outcome');
+            await click('[data-reading-group="scene:scene"] > .tour-outline-heading .tour-outline-toggle');
+            await click('#tour-next'); await active('boundary');
+            assert.equal(await evaluate(`document.querySelector('[data-reading-group="scene:scene"] > .tour-outline-children').hidden`), true, 'Navigation preserves a deliberately collapsed scene');
+            await click('#tour-back'); await active('outcome');
+            await click('[data-reading-group="scene:scene"] > .tour-outline-heading .tour-outline-toggle');
             const scroll = await evaluate("document.getElementById('tour-narrative-content').scrollTop");
             await click('[data-branch-id=why]'); await active('reason');
             assert.deepEqual(await keys(), ['step:scene:reason', 'step:scene:qualification']);
             assert.equal(await evaluate("document.getElementById('tour-next').textContent"), 'Next ↓');
-            assert.match(await evaluate("document.getElementById('tour-reading-plan').textContent"), /Next: The scope remains bounded.*Deeper detail is skipped/);
-            assert.equal(await evaluate("document.querySelector('[data-outline-branch-id=why]').open"), true);
+            assert.equal(await evaluate("document.getElementById('tour-progress').textContent"), 'Detail · 1/2');
+            assert.equal(await evaluate("document.querySelector('[data-outline-branch-id=why]').open"), false, 'Entering detail respects the manually collapsed outline');
             assert.equal(await evaluate("document.querySelector('#tour-scenes [aria-current=location]').dataset.readingLink"), 'step:scene:reason');
-            assert.match(await evaluate("document.querySelector('[data-outline-branch-id=why] .tour-outline-branch-status').textContent"), /Reading now/);
-            assert.match(await evaluate("document.querySelector('[data-outline-branch-id=evidence] .tour-outline-branch-status').textContent"), /Outside reading path/);
+            assert.match(await evaluate("document.querySelector('[data-outline-branch-id=why] .tour-outline-branch-status').textContent"), /Current/);
+            assert.equal(await evaluate("document.querySelector('[data-outline-branch-id=evidence] .tour-outline-branch-status').hidden"), true);
             assert.equal(await evaluate(`(() => {
                 const content = document.getElementById('tour-narrative-content').getBoundingClientRect();
                 const nav = document.querySelector('.tour-branch-navigation').getBoundingClientRect();
@@ -221,7 +235,7 @@ app.whenReady().then(async () => {
             assert.equal(await evaluate("document.querySelector('#tour-narrative-content').scrollTop"), recoveryScroll);
 
             assert.equal(await evaluate("document.querySelector('#tour-scenes [aria-current=location]').dataset.readingLink"), 'step:scene:proof');
-            assert.match(await evaluate("document.querySelector('[data-outline-branch-id=why] .tour-outline-branch-status').textContent"), /Parent path · paused/);
+            assert.match(await evaluate("document.querySelector('[data-outline-branch-id=why] .tour-outline-branch-status').textContent"), /Parent/);
             assert.equal(await evaluate("document.getElementById('tour-reading-plan').textContent"), 'End of detail. Next and narration stop here.');
             assert.match(await evaluate("document.querySelector('.tour-branch-return').textContent"), /Return to parent detail: Callers observe the new value/);
             assert.equal(await evaluate("document.querySelector('.tour-branch-continue').textContent"), 'Continue parent detail ↓ The scope remains bounded');
@@ -237,7 +251,7 @@ app.whenReady().then(async () => {
             await click('[data-branch-id=evidence]'); await active('proof');
             await click('.tour-branch-continue'); await active('qualification');
             await click('.tour-branch-continue'); await active('boundary');
-            assert.match(await evaluate("document.getElementById('tour-outline-scope').textContent"), /Reading main path/);
+            assert.equal(await evaluate("document.getElementById('tour-progress').textContent"), 'Main · 2/3');
             // An outline destination can enter nested detail directly, independently of disclosure.
             await click('#tour-scenes [data-reading-link="step:scene:proof"]'); await active('proof');
             await click('.tour-branch-continue'); await active('qualification');
@@ -256,8 +270,17 @@ app.whenReady().then(async () => {
             await click('#tour-sidebar-hide');
             await wait("document.getElementById('tour-sidebar-show').hidden === false");
             assert.equal(await evaluate("document.getElementById('tour-back').getBoundingClientRect().left >= document.getElementById('tour-sidebar-show').getBoundingClientRect().right"), true, 'Sidebar toggle does not cover step controls');
+            assert.equal(await evaluate("document.getElementById('tour-sidebar-show').getBoundingClientRect().top >= document.querySelector('.workspace-mode-strip').getBoundingClientRect().bottom"), true, 'Outline drawer stays below the app header');
             fs.writeFileSync(path.join(os.tmpdir(), `bygone-branches-${exported ? 'offline' : 'live'}-narrow.png`), (await window.webContents.capturePage()).toPNG());
             assert.equal(await evaluate("document.querySelector('#tour-narrative-content').scrollWidth <= document.querySelector('#tour-narrative-content').clientWidth"), true, 'Branch controls fit a narrow viewport');
+            await window.loadURL(url + hash('outcome')); await active('outcome');
+            assert.equal(await evaluate("document.getElementById('tour-sidebar-show').hidden"), false, 'A narrow reader starts with an Outline drawer');
+            await click('#tour-sidebar-show');
+            await key('Escape', false, '#tour-search-input');
+            assert.equal(await evaluate("document.getElementById('tour-sidebar-show').hidden"), false, 'Escape dismisses the narrow drawer');
+            await active('outcome');
+            await key('Escape', false, '#tour-sidebar-show');
+            await wait("document.activeElement.id === 'tour-keyboard-navigation'");
             window.destroy();
         }
         const output = path.join(fixture.root, 'branches.html');

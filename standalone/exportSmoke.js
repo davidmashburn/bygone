@@ -169,8 +169,8 @@ app.whenReady().then(async () => {
             assert.equal(await evaluate("document.querySelector('[data-reading-link=title]').getAttribute('aria-current')"), 'location');
             assert.ok(await evaluate("document.querySelector('[data-reading-key=title]').textContent.includes(\"What you'll see\")"));
             assert.equal(await evaluate("document.querySelector('.tour-scope-details')"), null, 'No scope disclosures clutter the tour');
-            for (const selector of ['.tour-chapter-link', '.tour-scene-title', '.tour-outline-step', '.tour-route-chapter-link']) {
-                assert.match(await evaluate(`document.querySelector(${JSON.stringify(selector)}).textContent`), /^1\. /, 'Lists retain a simple reference number');
+            for (const selector of ['.tour-chapter-link', '.tour-scene-title', '.tour-outline-step']) {
+                assert.doesNotMatch(await evaluate(`document.querySelector(${JSON.stringify(selector)}).textContent`), /^1\. /, 'Outline titles do not duplicate progress counters');
             }
             assert.doesNotMatch(await evaluate("document.querySelector('.tour-scene-heading').textContent"), /^\d+\./, 'Reading headings keep plain titles');
             assert.doesNotMatch(await evaluate("document.querySelector('.tour-step-title').textContent"), /^\d+\./);

@@ -122,14 +122,15 @@
         </div>
         <div id="tour-sidebar-resizer" class="tour-sidebar-resizer" role="separator" aria-label="Resize tour sidebar" title="Resize tour sidebar (Left/Right; Home/End)" aria-orientation="vertical" aria-valuemin="240" aria-valuemax="600" tabindex="0"></div>
     </aside>
-    <button id="tour-sidebar-show" class="tour-sidebar-show" type="button" title="Show tour sidebar" aria-label="Show tour sidebar" hidden>›</button>
+    <button id="tour-sidebar-show" class="tour-sidebar-show" type="button" title="Show tour sidebar" aria-label="Show tour sidebar" hidden>Outline</button>
     <section id="tour-narrative" class="tour-narrative" hidden>
         <div class="tour-narrative-toolbar" role="group" aria-label="Tour reading view">
             <div id="tour-keyboard-navigation" class="tour-navigation" role="group" tabindex="0" aria-label="Tour navigation" aria-describedby="tour-keyboard-help" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Enter Escape">
                 <button id="tour-back" type="button" title="Previous tour passage (Up Arrow)" aria-keyshortcuts="ArrowUp" disabled>↑ Prev</button>
+                <span id="tour-progress" class="tour-progress"></span>
                 <button id="tour-next" type="button" title="Next tour passage (Down Arrow)" aria-keyshortcuts="ArrowDown" disabled>Next ↓</button>
-                <button id="tour-return" type="button" title="Return to parent (Left Arrow)" aria-keyshortcuts="ArrowLeft" disabled>← Return parent</button>
-                <button id="tour-drill" type="button" title="Explore optional detail (Right Arrow; Enter when navigation is focused)" aria-keyshortcuts="Enter ArrowRight" disabled>Explore detail →</button>
+                <button id="tour-return" type="button" title="Return to parent (Left Arrow)" aria-keyshortcuts="ArrowLeft" hidden disabled>← Return parent</button>
+                <button id="tour-drill" type="button" title="Explore optional detail (Right Arrow; Enter when navigation is focused)" aria-keyshortcuts="Enter ArrowRight" hidden disabled>Explore detail →</button>
             </div>
             <div class="tour-sentence-navigation" role="group" aria-label="Sentence navigation">
                 <button id="tour-narration-skip-back" type="button" title="Previous sentence (Shift+Up Arrow)" aria-label="Previous sentence" aria-keyshortcuts="Shift+ArrowUp" disabled>
@@ -139,6 +140,7 @@
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 10 6 6 6-6"/></svg>
                 </button>
             </div>
+            <details class="tour-shortcuts"><summary>Keys</summary><p id="tour-keyboard-help" class="tour-keyboard-help">↑↓ steps · → explore detail · ← parent · Shift+↑↓ sentences · Esc: back to reading</p></details>
             <span id="tour-breadcrumb" class="tour-breadcrumb"></span>
             <details class="tour-feedback-more">
                 <summary title="Explain or question this passage">Discuss</summary>
@@ -176,7 +178,6 @@
                 <button id="tour-narration" type="button" title="Show narration controls" aria-label="Show narration controls" aria-controls="tour-audio-settings" aria-expanded="false">‹ Narration</button>
             </div>
         </div>
-        <p id="tour-keyboard-help" class="tour-keyboard-help">↑↓ steps · ←→ detail · Shift+↑↓ sentences · Esc: back to reading</p>
         <p id="tour-reading-plan" class="tour-reading-plan" hidden></p>
         <div id="tour-narrative-content" class="tour-narrative-content" tabindex="0" role="region" aria-label="Tour reading flow"></div>
     </section>

@@ -159,9 +159,21 @@ The active tour position or comparison is also reflected in the URL for refresh.
 While reading a step, expand **Scene context** beneath it to keep the scene's
 summary, supporting points, and takeaway visible without leaving the step.
 
+The outline shows titles, expanding the current chapter and scene by default.
+Manual expansion and collapse stay in place as you navigate. A narrow window
+starts with an **Outline** drawer. The current item has a marker as well as color.
+
+A single **Main** or **Detail** count beside Prev/Next tracks steps on the current
+path. Introduction, section previews, and conclusion have their own labels.
+Optional actions appear only where available; Next skips the optional choices.
+Expand **Evidence context** for the full file path and exact comparison. Changed
+files or comparisons remain visible as brief cues, and constructed explanation
+stages remain labeled. Routine unchanged context is omitted from sentence
+navigation and continuous narration. Shortcut help is available under **Keys**.
+
 ## Listen to a tour
 
-Use **Listen** beside the reading breadcrumb or **Present → Listen to Tour** in the
+Use **Listen** under **Narration** beside the reading controls or **Present → Listen to Tour** in the
 desktop app to read the tour aloud with a device voice. Narration works
 offline and does not send tour text to a hosted speech service.
 
@@ -178,7 +190,7 @@ While reading, these keys work without first focusing the navigation toolbar:
 - **Left**: return one level to the owning step and restore its
   sentence and scroll position. Returning pauses any active narration.
 
-**Escape** returns focus to reading at the same passage. Menus and dialogs dismiss
+**Escape** returns focus to reading at the same passage. Menus, dialogs, and the narrow Outline drawer dismiss
 first; another press may be needed to leave a field or widget. Prose selections
 are cleared so arrows work again. Repeated Escape never leaves optional detail
 or changes the sentence, scroll position, or narration.

@@ -192,33 +192,41 @@ export enum TourOrientationDetail {
     Changes = 'changes'
 }
 
-export function describeStepOrientation(tour: ChangeTourManifest, sceneIndex: number, stepIndex: number, detail = TourOrientationDetail.Full): string {
+/** Short names remain unambiguous when a tour contains duplicate basenames. */
+export function tourEvidenceName(tour: ChangeTourManifest, path: string): string {
+    const basename = path.split('/').at(-1) || path;
+    const paths = new Set(tour.scenes.flatMap(scene => scene.kind === 'text-diff' ? [scene.path]
+        : 'steps' in scene ? scene.steps.map(step => 'diff' in step ? step.diff.path : 'file' in step ? step.file : '') : []));
+    return [...paths].filter(candidate => candidate.split('/').at(-1) === basename).length > 1 ? path : basename;
+}
+
+export function describeStepOrientation(tour: ChangeTourManifest, sceneIndex: number, stepIndex: number, detail = TourOrientationDetail.Changes): string {
     const scene = tour.scenes[sceneIndex];
     if (!('steps' in scene)) return '';
     const allSteps = steppedSceneSteps(scene);
     const step = allSteps[stepIndex];
+    if ('image' in step && step.image) return '';
     const branch = getTourStepBranch(step);
     const routeSteps = branch
         ? allSteps.filter(candidate => getTourStepBranch(candidate)?.id === branch.id)
         : mainSceneSteps(scene);
-    const routeIndex = Math.max(routeSteps.findIndex(candidate => candidate.id === step.id), 0);
-    const prefix = `Step ${routeIndex + 1} of ${routeSteps.length || allSteps.length}.`;
-    if ('image' in step && step.image) return `${prefix} Image: ${step.title}.`;
+    const routeIndex = routeSteps.findIndex(candidate => candidate.id === step.id);
     const item = { kind: 'step' as const, key: `step:${scene.id}:${step.id}`, sceneIndex, stepIndex };
     const current = resolveTourEvidenceContext(tour, item)!;
+    const name = tourEvidenceName(tour, current.scope);
+    const revisions = current.kind === 'synthetic' ? 'Explanation stages' : 'Revisions';
+    if (detail === TourOrientationDetail.Full) return `Evidence: ${name}.`
+        + (scene.kind === 'walkthrough' ? '' : ` ${revisions}: ${current.labels.join(' → ')}.`);
     const previousStep = routeSteps[routeIndex - 1];
     const previousStepIndex = previousStep ? allSteps.findIndex(candidate => candidate.id === previousStep.id) : -1;
-    const previous = previousStepIndex >= 0 && !(scene.kind === 'walkthrough' && previousStep && 'image' in previousStep && previousStep.image)
+    const previous = previousStepIndex >= 0 && !('image' in previousStep && previousStep.image)
         ? resolveTourEvidenceContext(tour, { ...item, stepIndex: previousStepIndex }) : null;
-    if (!previous) return `${prefix} Evidence in ${current.scope}.`;
-    const pairChanged = previous.comparisonKey !== current.comparisonKey;
-    const fileChanged = previous.scope !== current.scope;
-    const revisions = current.kind === 'synthetic' ? 'explanation stages' : 'revisions';
-    const movement = pairChanged ? `Switch ${revisions} to ${current.labels.join(' → ')}.`
-        : detail === TourOrientationDetail.Full ? `Keep the same ${revisions}.` : '';
-    const location = fileChanged ? `Move from ${previous.scope} to ${current.scope}.`
-        : detail === TourOrientationDetail.Full ? `Continue in ${current.scope}.` : '';
-    return [prefix, movement, location].filter(Boolean).join(' ');
+    if (!previous) return current.kind === 'synthetic'
+        ? `Explanation stages: ${current.labels.join(' → ')}. Evidence: ${name}.` : `Evidence: ${name}.`;
+    const movement = previous.comparisonKey !== current.comparisonKey
+        ? `${revisions} changed: ${current.labels.join(' → ')}.` : '';
+    const location = previous.scope !== current.scope ? `File changed: ${name}.` : '';
+    return [movement, location].filter(Boolean).join(' ');
 }
 
 type SteppedScene = Extract<ChangeTourScene, { kind: 'walkthrough' | 'stacked-diff' | 'deconstructed-diff' }>;

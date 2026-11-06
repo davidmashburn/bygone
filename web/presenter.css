@@ -1801,3 +1801,25 @@ button.correspondence-diagnostic-location:focus-visible { outline: 2px solid var
     margin: 8px 0;
     width: 100%;
 }
+
+/* Reading chrome stays secondary to the current claim. */
+.tour-navigation { align-items: center; max-width: 100%; min-width: 0; }
+.tour-navigation [hidden], .tour-outline-branch-status[hidden], .tour-step-orientation[hidden] { display: none; }
+.tour-progress { color: var(--tour-muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; padding: 0 3px; }
+.tour-breadcrumb { display: none; }
+.tour-outline-step[aria-current="location"]::before { content: '• '; }
+.tour-outline-step.is-active { font-weight: 600; }
+.tour-outline-group.has-active > .tour-outline-heading { font-weight: 600; }
+.tour-shortcuts { position: relative; color: var(--tour-muted); font-size: 12px; }
+.tour-shortcuts > summary { cursor: pointer; padding: 5px; }
+.tour-shortcuts > p { position: absolute; top: 100%; right: 0; z-index: 150; width: min(260px, 70vw); padding: 10px; border: 1px solid var(--tour-border); border-radius: 6px; background: var(--tour-surface); line-height: 1.7; box-shadow: 0 4px 16px #0003; }
+.tour-evidence-context { margin: 8px 0; color: var(--tour-muted); font-size: 12px; overflow-wrap: anywhere; }
+.tour-evidence-context > summary { cursor: pointer; }
+.tour-evidence-context > p { margin: 8px 0; }
+.tour-sidebar-show { width: auto; padding: 0 10px; height: 30px; top: calc(var(--workspace-toolbar-height, 0px) + 10px); }
+body.tour-sidebar-hidden .tour-narrative-toolbar { padding-left: 65px; }
+
+.tour-outline-group.has-active > .tour-outline-heading::after { content: '•'; flex-shrink: 0; padding-right: 6px; }
+@media (max-width: 720px) {
+    .tour-breadcrumb { display: block; order: 2; flex: 1 1 12ch; white-space: normal; font-size: 12px; }
+}
