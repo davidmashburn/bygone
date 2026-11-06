@@ -5,6 +5,8 @@ const { ChangeTourCheckCategory: Category, ChangeTourCheckStatus: Status } = req
 
 const PACKET_VERSION = 1;
 const CHECKS_ID = 'checks';
+/** @type {Set<import('../src/tourNarration').NarrationField>} */
+const HEADING_FIELDS = new Set(['document-title', 'passage-title', 'chapter', 'scene-title', 'step-title']);
 const categoryLabels = {
     [Category.Provenance]: 'Provenance', [Category.Claims]: 'Claims', [Category.Behavior]: 'Behavior',
     [Category.Coverage]: 'Coverage', [Category.Uncertainty]: 'Uncertainty'
@@ -28,7 +30,8 @@ function buildReaderPacket(tour) {
             text: [check?.summary ?? 'No check supplied.', check?.details].filter(Boolean).join('\n'), child_ids: [] });
     }
     const narration = (item, items, title) => buildReadingNarrationUnit(tour, item,
-        { entry: 'continuous' }, items).segments.filter(segment => segment.speechText !== title)
+        { entry: 'continuous' }, items).segments.filter(segment =>
+        segment.speechText !== title || !HEADING_FIELDS.has(segment.source.field))
         .map(segment => segment.speechText).join('\n');
     const childBranches = item => {
         if (item.kind !== 'step') return [];

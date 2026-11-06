@@ -37,3 +37,45 @@ test('reader packet uses real main reading order and keeps branch and check bodi
         assert.ok(independent.checks.some(n => n.title === 'Behavior · Not checked'));
     } finally { f.dispose(); }
 });
+
+test('reader packets preserve title-equal prose while removing duplicated headings', () => {
+    const f = optionalBranchesFixture();
+    try {
+        const { source } = loadTourSource(f.root, f.sourcePath);
+        const manifest = buildManifestForTourSource(f.root, source);
+        const tour = { ...manifest, ...manifest.tours.historical };
+        const title = 'Keep local copies.';
+        const prose = `Remote copies are absent. ${title} They are the only evidence.`;
+        tour.opening = { title, summary: prose };
+        tour.conclusion = { title, summary: prose };
+        const scene = tour.scenes[0];
+        scene.title = title;
+        scene.summary = prose;
+        const step = scene.steps.find(step => !step.branch);
+        step.title = title;
+        step.body = prose;
+        const packet = buildReaderPacket(tour);
+        for (const id of ['title', `scene:${scene.id}`, `step:${scene.id}:${step.id}`, 'conclusion']) {
+            const item = packet.main.find(item => item.id === id);
+            assert.equal(item.title, title);
+            assert.ok(item.text.includes(prose.replaceAll('. ', '.\n')), `${id} retains the full prose sequence`);
+            assert.equal(item.text.split('\n').filter(line => line === title).length, 1,
+                `${id} retains the prose occurrence without duplicating the heading`);
+        }
+    } finally { f.dispose(); }
+});
+
+test('optional packet branches retain child headings as well as matching body sentences', () => {
+    const f = optionalBranchesFixture();
+    try {
+        const { source } = loadTourSource(f.root, f.sourcePath);
+        const manifest = buildManifestForTourSource(f.root, source);
+        const tour = { ...manifest, ...manifest.tours.historical };
+        const step = tour.scenes[0].steps.find(step => step.branch);
+        step.title = 'Keep optional copies.';
+        step.body = step.title;
+        const packet = buildReaderPacket(tour);
+        const branch = packet.branches.find(item => item.id === `branch:0:${step.branch.id}`);
+        assert.equal(branch.text.split('\n').filter(line => line === step.title).length, 2);
+    } finally { f.dispose(); }
+});

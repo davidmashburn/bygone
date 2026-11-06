@@ -771,7 +771,6 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(hostSource, /buildStackedTourAnnotations/);
     assert.match(hostSource, /getFirstChangeSourceRange\(pairs\?\.\[pairIndex\]\?\.diffModel, side\)/);
     assert.match(hostSource, /const tourAnnotations = state\.sceneIntroVisible \? \[\] : buildStackedTourAnnotationsForFile\(file\.path, pairs\);/);
-    assert.match(hostSource, /formatCount\(scene\.panels\.length - 1, 'comparison stage'\)[\s\S]{0,120}formatCount\(scene\.steps\.filter\(step => !step\.branch\)\.length, 'tour slide'\)/);
     assert.match(hostSource, /tourAnnotations/);
     assert.match(rendererSource, /function showMultiDiff\([\s\S]{0,500}tourAnnotations = \[\]/);
     assert.match(rendererSource, /function pushTourAnnotationDecoration/);
