@@ -1,0 +1,93 @@
+version: 7
+title: Explain a bounded request change
+windowTitle: Optional evidence example
+opening:
+  title: Follow the request from validation to its result
+  summary: >-
+    The main path makes the behavioral claim in three steps. Optional questions
+    add the cause and proof without making every reader traverse them.
+conclusion:
+  title: The result is understood at the right depth
+  summary: >-
+    The request is validated before dispatch, the handler produces the result,
+    and the test preserves that boundary. The optional branch supplies more
+    evidence when the reader needs it.
+range:
+  base: "1111111111111111111111111111111111111111"
+  head: "2222222222222222222222222222222222222222"
+anchors:
+  validate-request:
+    file: src/requestRouter.ts
+    revision: head
+    contains: "if (!request.method) return invalidRequest();"
+  dispatch-request:
+    file: src/requestRouter.ts
+    revision: head
+    contains: "return handlers[request.method](request);"
+  response-result:
+    file: src/requestRouter.ts
+    revision: head
+    contains: "return response.json(result);"
+  validation-test:
+    file: test/requestRouter.test.ts
+    revision: head
+    contains: "expect(invalidRequest).toHaveBeenCalled();"
+connections: []
+chapters:
+  - id: request-path
+    title: Follow the request path
+    scenes:
+      - id: router
+        kind: walkthrough
+        title: Validate, dispatch, and report
+        summary: >-
+          The main route explains the complete causal argument: reject an
+          incomplete request, dispatch valid input, and return the result.
+        bullets: []
+        tags:
+          - request-routing
+        takeaway: >-
+          Validation keeps malformed input out of dispatch while the handler
+          remains responsible for the returned result.
+        steps:
+          - id: validate
+            title: Reject incomplete input before dispatch
+            body: >-
+              The router checks the request before selecting a handler, so an
+              incomplete request cannot reach downstream behavior.
+            focus: validate-request
+            branches:
+              - id: validation-question
+                title: Why does validation happen before dispatch?
+                steps:
+                  - id: validation-consequence
+                    title: What consequence does the early return protect?
+                    body: >-
+                      Returning immediately keeps handler selection from
+                      interpreting a missing method as a valid request. The handler only sees requests
+                      that pass this check.
+                    focus: validate-request
+                    depth: explained
+                    branches:
+                      - id: validation-proof-question
+                        title: Which evidence checks that boundary?
+                        steps:
+                          - id: validation-proof
+                            title: The test checks the rejected request
+                            body: >-
+                              The focused test verifies that invalid input
+                              takes the rejection path.
+                            focus: validation-test
+                            depth: contextualized
+          - id: dispatch
+            title: Dispatch the validated request
+            body: >-
+              Once the request has the required method, the router selects the
+              corresponding handler and passes the request to it.
+            focus: dispatch-request
+          - id: respond
+            title: Return the handler result
+            body: >-
+              The router serializes the handler result as the response, which
+              completes the behavior promised by the main path.
+            focus: response-result

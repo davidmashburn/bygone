@@ -25,6 +25,7 @@
                     <div id="tour-stats" class="tour-stats"></div>
                 </div>
                 <div id="tour-authoring-coverage" class="tour-authoring-coverage" aria-label="Tour authoring coverage" hidden></div>
+                <p id="correspondence-availability" class="tour-symbol-availability">Symbol analysis was not supplied for this comparison. To explore symbols, generate correspondence for these exact revisions and reopen with --correspondence. File diffs remain available.</p>
                 <section id="tour-audience" aria-label="Tour audience"></section>
             </details>
         </header>
@@ -34,7 +35,6 @@
             <button id="correspondence-tab" type="button" title="Explore inferred symbol mappings across the pinned comparison" data-tour-navigator="symbols" aria-controls="tour-navigator-symbols" aria-selected="false" hidden>Symbols</button>
             <button type="button" data-tour-navigator="commits" aria-controls="tour-navigator-commits" aria-selected="false" title="Browse revisions">Commits</button>
         </nav>
-        <p id="correspondence-availability" class="history-rail-empty">Symbols unavailable: no validated symbol analysis was supplied for this comparison. Generate correspondence for these exact revisions and reopen with --correspondence. File diffs remain available.</p>
         <div class="tour-navigator-content">
             <section id="tour-navigator-tour" class="tour-navigator-panel" data-tour-navigator-panel="tour">
                 <details class="tour-search-disclosure">
@@ -125,15 +125,28 @@
     <button id="tour-sidebar-show" class="tour-sidebar-show" type="button" title="Show tour sidebar" aria-label="Show tour sidebar" hidden>›</button>
     <section id="tour-narrative" class="tour-narrative" hidden>
         <div class="tour-narrative-toolbar" role="group" aria-label="Tour reading view">
-            <div class="tour-navigation" role="group" aria-label="Tour navigation">
-                <button id="tour-back" type="button" title="Previous tour passage" disabled>‹ Back</button>
-                <button id="tour-next" type="button" title="Next tour passage" disabled>Next ›</button>
+            <div id="tour-keyboard-navigation" class="tour-navigation" role="group" tabindex="0" aria-label="Tour navigation" aria-describedby="tour-keyboard-help" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Enter Escape">
+                <button id="tour-back" type="button" title="Previous tour passage (Up Arrow in tour navigation)" aria-keyshortcuts="ArrowUp" disabled>↑ Prev</button>
+                <button id="tour-next" type="button" title="Next tour passage (Down Arrow in tour navigation)" aria-keyshortcuts="ArrowDown" disabled>Next ↓</button>
+                <button id="tour-return" type="button" title="Return to parent (Escape or Left Arrow in tour navigation)" aria-keyshortcuts="Escape ArrowLeft" disabled>← Return parent</button>
+                <button id="tour-drill" type="button" title="Explore optional detail (Enter or Right Arrow in tour navigation)" aria-keyshortcuts="Enter ArrowRight" disabled>Explore detail →</button>
+            </div>
+            <div class="tour-sentence-navigation" role="group" aria-label="Sentence navigation">
+                <button id="tour-narration-skip-back" type="button" title="Previous sentence (Shift+Up Arrow)" aria-label="Previous sentence" aria-keyshortcuts="Shift+ArrowUp" disabled>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 14 6-6 6 6"/></svg>
+                </button>
+                <button id="tour-narration-skip-ahead" type="button" title="Next sentence (Shift+Down Arrow)" aria-label="Next sentence" aria-keyshortcuts="Shift+ArrowDown" disabled>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 10 6 6 6-6"/></svg>
+                </button>
             </div>
             <span id="tour-breadcrumb" class="tour-breadcrumb"></span>
-            <div class="tour-feedback-actions" role="group" aria-label="Discuss this passage">
-                <button id="tour-feedback-explain" type="button" title="Ask for help understanding this passage">Explain this</button>
-                <button id="tour-feedback-question" type="button" title="Raise a concern about the change shown here">Question this change</button>
-            </div>
+            <details class="tour-feedback-more">
+                <summary title="Explain or question this passage">Discuss</summary>
+                <div class="tour-feedback-actions" role="group" aria-label="Discuss this passage">
+                    <button id="tour-feedback-explain" type="button" title="Ask for help understanding this passage">Explain this</button>
+                    <button id="tour-feedback-question" type="button" title="Raise a concern about the change shown here">Question this change</button>
+                </div>
+            </details>
             <div class="tour-narration-dock">
                 <div id="tour-audio-settings" class="tour-audio-settings" hidden>
                     <div id="tour-narration-controls" class="tour-narration-controls" role="group" aria-label="Tour narration">
@@ -141,14 +154,8 @@
                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="tour-icon-fill tour-play-pause-icon" d="m8 5 11 7-11 7Z"/></svg><span id="tour-listen-label">Listen</span>
                         </button>
                         <div class="tour-narration-transport" role="group" aria-label="Narration playback">
-                            <button id="tour-narration-skip-back" type="button" title="Previous sentence (Shift+Left Arrow)" aria-label="Previous sentence" aria-keyshortcuts="Shift+ArrowLeft" disabled>
-                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-                            </button>
                             <button id="tour-stop" type="button" title="Stop narration" aria-label="Stop narration" disabled>
                                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="tour-icon-fill" d="M6 6h12v12H6z"/></svg>
-                            </button>
-                            <button id="tour-narration-skip-ahead" type="button" title="Next sentence (Shift+Right Arrow)" aria-label="Next sentence" aria-keyshortcuts="Shift+ArrowRight" disabled>
-                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
                             </button>
                         </div>
                         <div class="tour-narration-settings">
@@ -169,6 +176,8 @@
                 <button id="tour-narration" type="button" title="Show narration controls" aria-label="Show narration controls" aria-controls="tour-audio-settings" aria-expanded="false">‹ Narration</button>
             </div>
         </div>
+        <p id="tour-keyboard-help" class="tour-keyboard-help">Navigation focus: ↑↓ steps · ←→ detail · Shift+↑↓ sentences</p>
+        <p id="tour-reading-plan" class="tour-reading-plan" hidden></p>
         <div id="tour-narrative-content" class="tour-narrative-content" tabindex="0" role="region" aria-label="Tour reading flow"></div>
     </section>
     <div id="tour-narrative-resizer" class="tour-narrative-resizer" role="separator" aria-label="Resize tour text" title="Resize tour text (Up/Down; Home/End)" aria-controls="tour-narrative" aria-orientation="horizontal" aria-valuemin="180" tabindex="0"></div>

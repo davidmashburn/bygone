@@ -7,9 +7,11 @@ import {
     validateStepRequirement,
     type ChangeTourStepRequirement
 } from './changeTourSource';
-import { validateChangeTourDetails, type ChangeTourDetails } from './tourDetails';
+import { validateChangeTourDetails, validateTourGenerator, type ChangeTourDetails, type ChangeTourGenerator } from './tourDetails';
 
-export const CHANGE_TOUR_MANIFEST_VERSION = 6 as const;
+export const CHANGE_TOUR_MANIFEST_VERSION = 7 as const;
+
+export type ChangeTourManifestVersion = 1 | 2 | 4 | 5 | 6 | typeof CHANGE_TOUR_MANIFEST_VERSION;
 
 export type ChangeTourMode = 'explanation' | 'revisions' | 'final' | 'history';
 
@@ -99,6 +101,12 @@ export interface ChangeTourResolvedConnection {
     to: ChangeTourResolvedAnchor;
 }
 
+export interface ChangeTourStepBranch {
+    id: string;
+    title: string;
+    parentStepId: string;
+}
+
 export interface ChangeTourWalkthroughStep {
     id: string;
     title: string;
@@ -110,6 +118,7 @@ export interface ChangeTourWalkthroughStep {
     symbol?: import('./tourSymbol').TourSymbolEvidence;
     depth?: 'mentioned' | 'explained' | 'contextualized';
     requirement?: ChangeTourStepRequirement;
+    branch?: ChangeTourStepBranch;
 }
 
 export interface ChangeTourWalkthroughScene extends ChangeTourNarrative {
@@ -149,6 +158,7 @@ export interface ChangeTourStackStep {
     side: 'left' | 'right';
     startLine?: number;
     endLine?: number;
+    branch?: ChangeTourStepBranch;
 }
 
 export interface ChangeTourStackedScene extends ChangeTourNarrative {
@@ -257,13 +267,14 @@ export interface ChangeTourAuthoringCoverage {
 }
 
 export interface ChangeTourManifest extends ChangeTourFraming {
-    version: 1 | 2 | 4 | 5 | typeof CHANGE_TOUR_MANIFEST_VERSION;
+    version: ChangeTourManifestVersion;
     repository?: { root: string };
     zoom?: ChangeTourZoom;
     title: string;
     windowTitle?: string;
     sourceUrl?: string;
     generatedAt: string;
+    generatedBy?: ChangeTourGenerator;
     range: {
         baseRef: string;
         headRef: string;
@@ -298,11 +309,12 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     if (isRecord(value) && value.version === 3) {
         throw new Error('Tour manifest format version 3 is retired. Remove the review block, set source version to 4, and recompile the tour.');
     }
-    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== 5 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
+    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
         throw new Error(`Unsupported or missing change-tour manifest version.`);
     }
     if ('review' in value) throw new Error('Change-tour manifests do not support the review field. Put observations in scene and step narrative.');
     validateTourFraming(value, value.version, 'manifest');
+    validateTourGenerator(value.generatedBy, value.version);
     requireString(value.title, 'title');
     requireString(value.generatedAt, 'generatedAt');
     if (value.windowTitle !== undefined) {
@@ -376,7 +388,7 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     }
 
     if (value.tours !== undefined) {
-        if (value.version !== 4 && value.version !== 5 && value.version !== 6) throw new Error('Independent tours require manifest version 4.');
+        if (value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== CHANGE_TOUR_MANIFEST_VERSION) throw new Error('Independent tours require manifest version 4.');
         validateModeTours(value.tours, value.version);
     }
 
@@ -396,7 +408,7 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     return { ...value, files } as unknown as ChangeTourManifest;
 }
 
-function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 4 | 5 | 6): asserts value is ChangeTourAuthoringCoverage {
+function validateAuthoringCoverage(value: unknown, version: ChangeTourManifestVersion): asserts value is ChangeTourAuthoringCoverage {
     if (!isRecord(value) || !isRecord(value.walkthrough) || !Array.isArray(value.explanationAssignments)) {
         throw new Error('authoringCoverage must contain walkthrough and explanationAssignments.');
     }
@@ -426,7 +438,7 @@ function validateAuthoringCoverage(value: unknown, version: 1 | 2 | 4 | 5 | 6): 
     }
 }
 
-function validateModeTours(value: unknown, version: 4 | 5 | 6): asserts value is ChangeTourTours {
+function validateModeTours(value: unknown, version: 4 | 5 | 6 | typeof CHANGE_TOUR_MANIFEST_VERSION): asserts value is ChangeTourTours {
     if (!isRecord(value)) throw new Error('Change-tour manifest tours must be an object.');
     if (value.historical === undefined && value.deconstructed === undefined) {
         throw new Error('Change-tour manifest tours must contain a historical or deconstructed tour.');
@@ -508,7 +520,7 @@ export function parseChangeTourStory(value: unknown): ChangeTourStory {
     return value as unknown as ChangeTourStory;
 }
 
-function validateZoom(value: Record<string, unknown>, version: 2 | 4 | 5 | 6, exported: boolean): void {
+function validateZoom(value: Record<string, unknown>, version: 2 | 4 | 5 | 6 | typeof CHANGE_TOUR_MANIFEST_VERSION, exported: boolean): void {
     if (!exported && (!isRecord(value.repository) || typeof value.repository.root !== 'string' || !value.repository.root)) {
         throw new Error('A v2 tour requires its originating repository.root.');
     }
@@ -571,7 +583,7 @@ function validateZoom(value: Record<string, unknown>, version: 2 | 4 | 5 | 6, ex
     }
 }
 
-function validateScene(value: unknown, index: number, version: 1 | 2 | 4 | 5 | 6): asserts value is ChangeTourScene {
+function validateScene(value: unknown, index: number, version: ChangeTourManifestVersion): asserts value is ChangeTourScene {
     if (!isRecord(value) || !['text-diff', 'discussion', 'walkthrough', 'stacked-diff', 'deconstructed-diff'].includes(String(value.kind))) {
         throw new Error(`scenes[${index}] must be a text-diff, discussion, walkthrough, stacked-diff, or deconstructed-diff scene.`);
     }
@@ -589,12 +601,9 @@ function validateScene(value: unknown, index: number, version: 1 | 2 | 4 | 5 | 6
     }
     if (value.kind === 'walkthrough') {
         validateSceneOverview(value.overview, `scenes[${index}].overview`, { allowComparison: false });
-        if (!Array.isArray(value.steps) || value.steps.length === 0) {
-            throw new Error(`scenes[${index}].steps must be a non-empty array.`);
-        }
-        for (const [stepIndex, step] of value.steps.entries()) {
-            const path = `scenes[${index}].steps[${stepIndex}]`;
-            if (!isRecord(step) || !isRecord(step.focus) || !isRecord(step.diff)) {
+        validateManifestStepTree(value.steps, `scenes[${index}].steps`, version, (step, path) => {
+            requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'image', 'connection', 'diff', 'symbol', 'depth', 'requirement', 'branch'], path);
+            if (!isRecord(step.focus) || !isRecord(step.diff)) {
                 throw new Error(`${path} must contain focus and diff objects.`);
             }
             for (const key of ['id', 'title', 'body']) requireString(step[key], `${path}.${key}`);
@@ -618,18 +627,18 @@ function validateScene(value: unknown, index: number, version: 1 | 2 | 4 | 5 | 6
                 validateResolvedAnchor(step.connection.from, `${path}.connection.from`);
                 validateResolvedAnchor(step.connection.to, `${path}.connection.to`);
             }
-        }
+        });
         return;
     }
     if (value.kind === 'stacked-diff') {
-        validateStackedScene(value, index);
+        validateStackedScene(value, index, version);
         validateSceneOverview(value.overview, `scenes[${index}].overview`, {
             endpointIds: (value.stack as Record<string, unknown>[]).map((panel) => (panel as Record<string, unknown>).id as string)
         });
         return;
     }
     if (value.kind === 'deconstructed-diff') {
-        validateDeconstructedScene(value, index);
+        validateDeconstructedScene(value, index, version);
         validateSceneOverview(value.overview, `scenes[${index}].overview`, {
             endpointIds: (value.panels as Record<string, unknown>[]).map((panel) => (panel as Record<string, unknown>).id as string)
         });
@@ -650,7 +659,79 @@ function validateScene(value: unknown, index: number, version: 1 | 2 | 4 | 5 | 6
     }
 }
 
-function validateStackedScene(value: Record<string, unknown>, index: number): void {
+function validateManifestStepTree(
+    value: unknown,
+    path: string,
+    version: ChangeTourManifestVersion,
+    validateStep: (step: Record<string, unknown>, path: string) => void
+): void {
+    if (!Array.isArray(value) || value.length === 0) throw new Error(`${path} must be a non-empty array.`);
+    const stepIds = new Set<string>();
+    const branchMetadata = new Map<string, ChangeTourStepBranch>();
+    const parentByStep = new Map<string, string>();
+    let mainStepCount = 0;
+
+    for (const [stepIndex, candidate] of value.entries()) {
+        const stepPath = `${path}[${stepIndex}]`;
+        if (!isRecord(candidate)) throw new Error(`${stepPath} must be an object.`);
+        requireNonEmptyString(candidate.id, `${stepPath}.id`);
+        if (stepIds.has(candidate.id)) throw new Error(`Duplicate step id in ${path}: ${candidate.id}`);
+        stepIds.add(candidate.id);
+        validateStep(candidate, stepPath);
+
+        if (candidate.branch === undefined) {
+            mainStepCount += 1;
+            continue;
+        }
+        if (version < CHANGE_TOUR_MANIFEST_VERSION) {
+            throw new Error(`${stepPath}.branch requires manifest version ${CHANGE_TOUR_MANIFEST_VERSION}.`);
+        }
+        const branch = validateManifestStepBranch(candidate.branch, `${stepPath}.branch`);
+        if (branch.parentStepId === candidate.id) {
+            throw new Error(`${stepPath}.branch.parentStepId cannot reference the step itself.`);
+        }
+        const previous = branchMetadata.get(branch.id);
+        if (previous !== undefined && (previous.title !== branch.title || previous.parentStepId !== branch.parentStepId)) {
+            throw new Error(`${path} contains inconsistent metadata for branch ${branch.id}.`);
+        }
+        branchMetadata.set(branch.id, branch);
+        parentByStep.set(candidate.id, branch.parentStepId);
+    }
+
+    if (mainStepCount === 0) throw new Error(`${path} must contain at least one main step.`);
+    for (const branch of branchMetadata.values()) {
+        if (stepIds.has(branch.id)) {
+            throw new Error(`${path} branch id must not duplicate a step id: ${branch.id}`);
+        }
+        if (!stepIds.has(branch.parentStepId)) {
+            throw new Error(`${path} branch ${branch.id} references unknown parent step ${branch.parentStepId}.`);
+        }
+    }
+    for (const stepId of parentByStep.keys()) {
+        const seen = new Set<string>();
+        let current = stepId;
+        while (parentByStep.has(current)) {
+            if (seen.has(current)) throw new Error(`${path} contains a cyclic branch parent chain.`);
+            seen.add(current);
+            current = parentByStep.get(current) as string;
+        }
+    }
+}
+
+function validateManifestStepBranch(value: unknown, path: string): ChangeTourStepBranch {
+    if (!isRecord(value)) throw new Error(`${path} must be an object.`);
+    requireOnlyKeys(value, ['id', 'title', 'parentStepId'], path);
+    requireNonEmptyString(value.id, `${path}.id`);
+    requireNonEmptyString(value.title, `${path}.title`);
+    requireNonEmptyString(value.parentStepId, `${path}.parentStepId`);
+    return {
+        id: value.id,
+        title: value.title,
+        parentStepId: value.parentStepId
+    };
+}
+
+function validateStackedScene(value: Record<string, unknown>, index: number, version: ChangeTourManifestVersion): void {
     if (!Array.isArray(value.stack) || value.stack.length < 2 || value.stack.length > 6) {
         throw new Error(`scenes[${index}].stack must contain between 2 and 6 revisions.`);
     }
@@ -659,10 +740,10 @@ function validateStackedScene(value: Record<string, unknown>, index: number): vo
         for (const key of ['id', 'ref', 'oid', 'label']) requireString(panel[key], `scenes[${index}].stack[${panelIndex}].${key}`);
     }
     validateMultiPanelFiles(value.files, value.stack.length, index);
-    validateMultiPanelSteps(value.steps, value.stack.length, index, false);
+    validateMultiPanelSteps(value.steps, value.stack.length, index, false, version);
 }
 
-function validateDeconstructedScene(value: Record<string, unknown>, index: number): void {
+function validateDeconstructedScene(value: Record<string, unknown>, index: number, version: ChangeTourManifestVersion): void {
     if (value.stageLabel !== 'Explanation stages') {
         throw new Error(`scenes[${index}].stageLabel must be Explanation stages.`);
     }
@@ -682,7 +763,7 @@ function validateDeconstructedScene(value: Record<string, unknown>, index: numbe
         if (panelIndex > 0) requireString(panel.stageId, `scenes[${index}].panels[${panelIndex}].stageId`);
     }
     validateMultiPanelFiles(value.files, panels.length, index);
-    validateMultiPanelSteps(value.steps, panels.length, index, true);
+    validateMultiPanelSteps(value.steps, panels.length, index, true, version);
     if (Array.isArray(value.steps)) {
         let previousPairIndex = -1;
         value.steps.forEach((step, stepIndex) => {
@@ -739,21 +820,29 @@ function validateMultiPanelFiles(value: unknown, panelCount: number, index: numb
     }
 }
 
-function validateMultiPanelSteps(value: unknown, panelCount: number, index: number, deconstructed: boolean): void {
-    if (!Array.isArray(value) || value.length === 0) throw new Error(`scenes[${index}].steps must be non-empty.`);
-    for (const [stepIndex, step] of value.entries()) {
-        if (!isRecord(step)) throw new Error(`scenes[${index}].steps[${stepIndex}] must be an object.`);
-        for (const key of ['id', 'title', 'body', 'file', 'side']) requireString(step[key], `scenes[${index}].steps[${stepIndex}].${key}`);
-        requireNonNegativeInteger(step.pairIndex, `scenes[${index}].steps[${stepIndex}].pairIndex`);
-        if (Number(step.pairIndex) >= panelCount - 1) throw new Error(`scenes[${index}].steps[${stepIndex}].pairIndex is outside the panels.`);
+function validateMultiPanelSteps(
+    value: unknown,
+    panelCount: number,
+    index: number,
+    deconstructed: boolean,
+    version: ChangeTourManifestVersion
+): void {
+    validateManifestStepTree(value, `scenes[${index}].steps`, version, (step, path) => {
+        const allowedKeys = deconstructed
+            ? ['id', 'title', 'body', 'file', 'pairIndex', 'side', 'startLine', 'endLine', 'introducedHunks', 'stageId', 'stageIndex', 'focusIndex', 'focusCount', 'branch']
+            : ['id', 'title', 'body', 'file', 'pairIndex', 'side', 'startLine', 'endLine', 'branch'];
+        requireOnlyKeys(step, allowedKeys, path);
+        for (const key of ['id', 'title', 'body', 'file', 'side']) requireString(step[key], `${path}.${key}`);
+        requireNonNegativeInteger(step.pairIndex, `${path}.pairIndex`);
+        if (Number(step.pairIndex) >= panelCount - 1) throw new Error(`${path}.pairIndex is outside the panels.`);
         if (deconstructed) {
-            requireStringArray(step.introducedHunks, `scenes[${index}].steps[${stepIndex}].introducedHunks`);
-            if (step.introducedHunks.length === 0) throw new Error(`scenes[${index}].steps[${stepIndex}].introducedHunks must be non-empty.`);
+            requireStringArray(step.introducedHunks, `${path}.introducedHunks`);
+            if (step.introducedHunks.length === 0) throw new Error(`${path}.introducedHunks must be non-empty.`);
         }
-        if (step.side !== 'left' && step.side !== 'right') throw new Error(`scenes[${index}].steps[${stepIndex}].side must be left or right.`);
-        if (step.startLine !== undefined) requirePositiveInteger(step.startLine, `scenes[${index}].steps[${stepIndex}].startLine`);
-        if (step.endLine !== undefined) requirePositiveInteger(step.endLine, `scenes[${index}].steps[${stepIndex}].endLine`);
-    }
+        if (step.side !== 'left' && step.side !== 'right') throw new Error(`${path}.side must be left or right.`);
+        if (step.startLine !== undefined) requirePositiveInteger(step.startLine, `${path}.startLine`);
+        if (step.endLine !== undefined) requirePositiveInteger(step.endLine, `${path}.endLine`);
+    });
 }
 
 function validateTourFile(value: unknown, index: number): asserts value is ChangeTourFile {
@@ -805,7 +894,7 @@ function validateNarrative(value: Record<string, unknown>, path: string): void {
     requireString(value.takeaway, `${path}.takeaway`);
 }
 
-function validateChapterSummary(value: unknown, version: 1 | 2 | 4 | 5 | 6, path: string): void {
+function validateChapterSummary(value: unknown, version: ChangeTourManifestVersion, path: string): void {
     if (value === undefined) return;
     if (version < 5) throw new Error(`${path} requires manifest version 5.`);
     if (typeof value !== 'string' || !value.trim()) {
@@ -820,6 +909,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function requireString(value: unknown, path: string): asserts value is string {
     if (typeof value !== 'string') {
         throw new Error(`${path} must be a string.`);
+    }
+}
+
+function requireNonEmptyString(value: unknown, path: string): asserts value is string {
+    if (typeof value !== 'string' || value.length === 0) {
+        throw new Error(`${path} must be a non-empty string.`);
     }
 }
 
@@ -843,4 +938,11 @@ function requirePercentage(value: unknown, path: string): asserts value is numbe
 
 function requirePositiveInteger(value: unknown, path: string): asserts value is number {
     if (!Number.isInteger(value) || Number(value) < 1) throw new Error(`${path} must be a positive integer.`);
+}
+
+function requireOnlyKeys(value: Record<string, unknown>, allowed: string[], path: string): void {
+    const unexpected = Object.keys(value).filter((key) => !allowed.includes(key));
+    if (unexpected.length > 0) {
+        throw new Error(`${path} contains unknown field${unexpected.length === 1 ? '' : 's'}: ${unexpected.join(', ')}`);
+    }
 }

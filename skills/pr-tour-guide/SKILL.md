@@ -204,7 +204,7 @@ do not imply they reproduce historical authorship merely because they have OIDs.
 
 ## Plan the explanation
 
-Lead with what changes for the user or system and why it matters. Use version 5
+Lead with what changes for the user or system and why it matters. Use version 7
 `opening: { title, summary, bullets? }` for a short orientation and
 `conclusion: { title, summary, bullets? }` for what the evidence established and
 what remains unresolved. Give each independently authored mode enough context
@@ -214,12 +214,19 @@ Restate an important expected behavior or boundary from its
 existing source when useful; the opening is an explanation, not a new specification.
 Never silently weaken an expectation to match the implementation.
 
-Choose the smallest set of questions that makes the change understandable:
+Before drafting, derive must-retain claims directly from the evidence, including
+consequential requirements for preparation, reuse, and deliverables. Keep this
+brief inventory internal. Choose the smallest set of reader questions that
+explains those claims:
 
 - A chapter groups related questions. A scene answers one question; several
   steps can supply its evidence. Split for a new reasoning task, not simply
-  a new file or viewport. Use no fixed chapter or step count.
-- Use optional v5 `chapter.summary` for one or two brief sentences that explain
+  a new file or viewport. Keep the main route complete, including material
+  caveats. For a small focused change, start at no more than five total main
+  reading stops and 250 spoken words, counting opening, chapter/scene
+  orientation, steps, and conclusion. This is advisory, not a quota or schema
+  limit. Broader changes can need more; correctness wins over the budget.
+- Use optional `chapter.summary` for one or two brief sentences that explain
   what comes next and why. Omit it when no useful preview is needed: chapters
   without summaries stay in the contents but are skipped as presentation and
   narration stops. A list of scene titles or links is not a preview.
@@ -236,7 +243,9 @@ Choose the smallest set of questions that makes the change understandable:
   from a passing execution, and synthetic stages from real revision history.
 - Add context, connections, and steps only when they add understanding. Keep
   mechanical files in the complete Files rail unless they affect the argument.
-  Do not repeat the same point across summaries, bullets, and takeaways.
+  Use short behavior titles and branch questions. Omit optional summaries,
+  bullets, and takeaways that repeat another field; schema capacity is not a
+  checklist to fill.
 
 Support claims about intent, safety, performance, or runtime behavior with
 appropriate evidence. A selected reading path is not an exhaustive code review.
@@ -251,14 +260,25 @@ Retrieve the current contract:
 bygone tour schema > /tmp/change-tour-source.schema.json
 ```
 
-Write a version 5 `.bygone` file for new tours. The legacy `.bygone.yaml`
+Write a version 7 `.bygone` file for new tours. The legacy `.bygone.yaml`
 spelling remains valid when generic YAML tooling requires it. Treat the
 authored source and its compiled `.tour.json` as Git-backed, non-portable
 artifacts: pin `range.base` and `range.head` to the exact OIDs from the
 context, and keep them with the corresponding repository so Bygone can resolve
-those objects and live history. Versions 1, 2, and 4 remain readable for legacy
-inputs; v5 adds bookends, optional chapter previews, and requires a purpose for explicit directory overviews.
+those objects and live history. Legacy v6 remains readable; v7 adds recursive
+optional branches while retaining the v6 fields and behavior. Versions 1, 2,
+4, 5, and 6 remain readable for legacy inputs. Existing tours do not need
+migration merely because v7 is available.
 Version 3 is retired. The source has no `review` or ad hoc `notes` field.
+
+Keep full OIDs in `range` and routine provenance or historical bookkeeping in
+supported metadata or linked sources, outside spoken fields. When the schema
+supports it, set top-level `generatedBy.model` to the actual author model
+identifier supplied by the runtime; include optional `harness` and `effort` only
+when known. For delegation, supply the recorded author metadata in the worker
+brief or add it from task metadata during integration. Never infer identity from
+task names or stamp the integrator as author. Omit unknown values; `generatedBy`
+is non-narrated provenance.
 
 Set optional `windowTitle` when the tour should appear in the native window
 title — for example a pull request number (`PR-1234`) so multiple open tours
@@ -305,6 +325,31 @@ For every walkthrough step:
 - connect behavior to tests, error handling, or other concrete proof;
 - add a connection only when the relationship between two locations materially improves understanding.
 
+### Add optional evidence hierarchically
+
+Add `branches` to an authored walkthrough or stacked step when a reader may reasonably ask
+for more detail. Each branch has an `id`, a question-shaped `title`, and
+recursive `steps` using the same step shape as its parent. Default to one
+optional layer; nest further only to answer a separate question. Walkthrough steps retain `title`, `body`, and
+`focus`; stacked steps retain their `file` and `pair`; explicit walkthrough
+steps in deconstructed tours can branch, but stages do not become branches.
+Keep the main route's title as the claim and its body as the cause or
+consequence; use branches for optional explanation and proof rather than
+moving a material caveat out of the main route. With every branch closed, the
+reader must still know the exact approval scope, prerequisites, prohibited
+actions, and material exceptions when they govern the behavior being explained.
+Branches may explain or prove those rules, not be their only statement.
+Before handing off, verify the
+reader identifies the active path, next destination, and skipped detail.
+Expanding an outline group must not change the reading path.
+
+The compiler flattens optional steps into scene evidence preorder. Stable IDs
+therefore remain linkable and exportable, while default reading omits optional
+steps. `depth` records evidence coverage (`mentioned`, `explained`, or
+`contextualized`); it is not a navigation level. See
+`examples/optional-branches.bygone.yaml` for a synthetic v7 source. Existing
+v5 and v6 tours remain valid without edits.
+
 For every `stacked-diff` step, use a real changed file and a `pair` of adjacent
 stack entry IDs; use `side` or `lines` only to refine the focus. For every
 deconstructed stage, assign concrete change-unit (hunk) IDs through `changes`
@@ -327,7 +372,7 @@ Keep deconstructed-tour coordinates distinct:
 
 Use a directory overview only when its inventory answers the scene’s question.
 Otherwise the viewer previews the first step without an active annotation.
-Version 5 requires an explicit purpose:
+Current authoring versions require an explicit purpose:
 
 ```yaml
 overview:
@@ -346,7 +391,8 @@ Put concepts, boundaries, and tradeoffs beside their code evidence in scene or
 step narrative. Label unresolved questions explicitly and state the next check
 that would resolve them. Never present an unknown as a settled conclusion.
 Do not add a `review` block or an ad hoc `notes` key. See
-`examples/navigation-lab.bygone.yaml` for independently authored modes.
+`examples/navigation-lab.bygone.yaml` for independently authored modes and
+`examples/optional-branches.bygone.yaml` for recursive optional evidence.
 
 Never emit generated line numbers or hunk indexes. Verify candidate snippets against the pinned object when uncertain:
 
@@ -373,12 +419,30 @@ validation pass. If evidence no longer exists, revise the claim or report the
 broken premise. Validation checks structure and evidence locations, not code
 correctness or comprehension.
 
-Read the resulting path against its evidence: does each scene establish a useful
-point, do transitions preserve orientation, and does the conclusion stay within
-what was shown? Check the compiled path where generated focus steps or fallback
-modes could introduce repetition or change the intended sequence. Report material
-omissions and checks actually performed; do not require a scored audit or a
-separate reader-review process for every tour.
+Read the actual continuous main path, including generated framing:
+
+```sh
+bygone tour narration review.bygone.yaml
+```
+
+It reports per-stop word counts with optional branches closed; add `--json` for
+structured output. Check every delivered mode for repetition between opening,
+scene, and first step. Omit generic framing such as “The rules, in order.”
+Optional branches must answer an additional question; remove those that merely
+repeat the parent. Inspect validation's `readingCosts[mode].narration` for main
+and optional totals. With older tooling, inspect the rendered narration instead.
+
+Cut redundant stops, framing, and sentences; revise over-budget paths and
+remeasure. With branches closed, map each must-retain source claim to explicit
+main-path text, not merely an anchor. Preserve its actor, timing, and the rule
+each exception qualifies. Generic “approval needed” does not preserve the
+operation, scope, or effect of prior approval. Restore missing meaning before
+accepting the cut. Keep required actions as well as failure conditions on the
+main path. “The procedure lives elsewhere” does not preserve “read it before
+acting.” Document names and rationale can be optional; the required action cannot.
+If an overage remains necessary, name what would be lost by
+cutting it in the handoff. Report material omissions and checks actually
+performed; no separate scored audit is required.
 
 ## Always print the open command
 
@@ -406,6 +470,14 @@ Compile a repository-bound manifest when the user needs an artifact:
 
 ```sh
 bygone tour compile review.bygone --output review.tour.json
+```
+
+For a standalone reader, bind the repository explicitly, especially when the
+source lives outside its worktree. Export otherwise discovers Git from the source
+location, not the shell's working directory:
+
+```sh
+bygone -C /absolute/path/to/repository tour export /absolute/path/to/review.bygone.yaml --output review.html --runtime embedded
 ```
 
 Open the interactive browser only when requested or useful for verifying the result:

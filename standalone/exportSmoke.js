@@ -92,10 +92,10 @@ app.whenReady().then(async () => {
             assert.match(await evaluate("document.querySelector('.tour-feedback-dialog textarea[readonly]').value"), /"kind": "title"/);
             assert.ok(!await evaluate("document.querySelector('.tour-feedback-dialog textarea[readonly]').value.includes('\"step\": \"step\"')"), 'Opening does not capture the previous step');
             await evaluate("document.querySelector('.tour-feedback-dialog').close(); location.hash = '#location=1&mode=historical&part=step&scene=scene&step=step'");
-            await wait("document.activeElement.dataset.readingKey === 'step:scene:step'");
+            await wait("document.activeElement.id === 'tour-keyboard-navigation' && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:scene:step'");
             assert.equal(await evaluate("document.querySelector('[data-tour-navigator=tour]').disabled"), false);
             assert.equal(await evaluate("[...document.querySelectorAll('.tour-reading-item')].every(item => item.querySelector('h1 .tour-copy-location, h2 .tour-copy-location, h3 .tour-copy-location'))"), true, 'Every heading keeps its link action after narration renders');
-            assert.equal(await evaluate("document.activeElement.dataset.readingKey"), 'step:scene:step');
+            assert.equal(await evaluate("document.activeElement.id"), 'tour-keyboard-navigation');
             assert.equal(await evaluate("document.querySelector('[data-workspace-mode=history]').disabled"), profile === 'minimal');
             assert.equal(await evaluate("getComputedStyle(document.querySelector('#refresh-session')).display"), 'none');
             await evaluate("document.querySelector('[data-workspace-mode=compare]').click()");
@@ -120,7 +120,7 @@ app.whenReady().then(async () => {
             assert.ok(!await evaluate("document.querySelector('#tour-audience').textContent.includes('Root fixture')"), 'Independent mode does not inherit root audience');
             assert.equal(await evaluate("document.querySelectorAll('[data-reading-key^=\"step:synthetic:\"] .tour-step-body').length"), 1, 'Stage prose renders once across multiple evidence focuses');
             await evaluate("location.hash = '#location=1&mode=deconstructed&part=step&scene=synthetic&step=stage-focus-2'");
-            await wait("document.activeElement.dataset.readingKey === 'step:synthetic:stage-focus-2'");
+            await wait("document.activeElement.id === 'tour-keyboard-navigation' && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:synthetic:stage-focus-2'");
             await wait("document.querySelectorAll('#container .monaco-editor .view-line').length >= 2");
             assert.equal(await evaluate("document.querySelector('#tour-file-filter-label').textContent"), 'Show unchanged tour files');
             assert.equal(await evaluate("document.querySelector('.tour-file[data-file-path=\"nested/early.txt\"]').parentElement.hidden"), true, 'The step hides files unchanged in this pair');
@@ -153,12 +153,12 @@ app.whenReady().then(async () => {
             await window.loadURL(window.webContents.getURL());
             await wait("window.__BYGONE_EXPORT_READY__ && document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]')");
             await evaluate("location.hash = '#location=1&mode=historical&part=chapter&chapter=chapter'");
-            await wait("document.activeElement.dataset.readingKey === 'chapter:chapter'");
+            await wait("document.activeElement.id === 'tour-keyboard-navigation' && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'chapter:chapter'");
             assert.match(await evaluate("document.querySelector('[data-reading-key=\"chapter:chapter\"] .tour-narrative-summary').textContent"), /Preview the changed line and its evidence/);
             await evaluate('history.back()');
-            await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]') && document.activeElement.dataset.readingKey === 'title'");
+            await wait("document.querySelector('[data-workspace-mode=deconstructed][aria-selected=true]') && document.activeElement.id === 'tour-keyboard-navigation' && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'title'");
             await evaluate('history.forward()');
-            await wait("document.activeElement.dataset.readingKey === 'chapter:chapter'");
+            await wait("document.activeElement.id === 'tour-keyboard-navigation' && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'chapter:chapter'");
             await evaluate("location.hash = '#location=1&mode=historical&part=step&scene=scene&step=gone'");
             await wait("document.querySelector('.workspace-status')?.textContent.includes('unavailable')");
             assert.equal(await evaluate("document.querySelector('.tour-reading-item.is-active').dataset.readingKey"), 'chapter:chapter');
@@ -240,7 +240,7 @@ app.whenReady().then(async () => {
             await wait("document.querySelector('#file-info').textContent.startsWith('Coming up:')");
             assert.ok(await evaluate("document.querySelector('#tour-narrative').getBoundingClientRect().height < innerHeight - 100"), 'Entering evidence restores the split view');
             await evaluate("location.hash = '#location=1&mode=historical&part=conclusion'");
-            await wait("document.activeElement.dataset.readingKey === 'conclusion'");
+            await wait("document.activeElement.id === 'tour-keyboard-navigation' && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'conclusion'");
             assert.equal(await evaluate("getComputedStyle(document.querySelector('#container')).visibility"), 'hidden', 'Conclusion hides stale evidence');
             assert.ok(await evaluate("Math.abs(document.querySelector('[data-reading-key=conclusion]').getBoundingClientRect().top - document.querySelector('#tour-narrative-content').getBoundingClientRect().top) < 2"), 'Conclusion aligns to the top without the previous scene heading');
             assert.equal(await evaluate("document.querySelector('.tour-reading-item.is-active h2').textContent.includes('What we established')"), true);
@@ -260,7 +260,7 @@ app.whenReady().then(async () => {
             await evaluate("document.querySelector('[data-workspace-mode=historical]').click()");
             await wait("document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'conclusion'");
             await evaluate("location.hash = '#location=1&mode=historical&part=scene&scene=scene'");
-            await wait("document.activeElement.dataset.readingKey === 'scene:scene'");
+            await wait("document.activeElement.id === 'tour-keyboard-navigation' && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'scene:scene'");
             assert.equal(await evaluate("document.body.classList.contains('tour-directory-overview')"), false, 'Unspecified overview previews evidence');
             await wait("document.querySelector('#file-info').textContent.startsWith('Coming up')");
             assert.equal(await evaluate("document.querySelectorAll('.bygone-tour-anchor').length"), 0, 'Preview has no active step marker');
@@ -347,7 +347,7 @@ app.whenReady().then(async () => {
         });
         server = presentation.server;
         const live = await open(presentation.url, false);
-        await live.wait("document.activeElement.dataset.readingKey === 'step:scene:step'");
+        await live.wait("document.activeElement.id === 'tour-keyboard-navigation' && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:scene:step'");
         assert.equal(await live.evaluate("document.querySelectorAll('.tour-step-context').length"), 0);
         assert.equal(await live.evaluate("document.querySelectorAll('.tour-scene-header').length"), 2);
         assert.equal(await live.evaluate(`(() => {
@@ -357,7 +357,7 @@ app.whenReady().then(async () => {
                 && step.top >= header.bottom - 1;
         })()`), true, 'Deep-linked step lands beneath its sticky scene heading');
         await live.evaluate("location.hash = '#location=1&mode=historical&part=scene&scene=scene'");
-        await live.wait("document.activeElement.dataset.readingKey === 'scene:scene'");
+        await live.wait("document.activeElement.id === 'tour-keyboard-navigation' && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'scene:scene'");
         assert.equal(await live.evaluate(`(() => {
             const header = document.querySelector('.tour-scene-header');
             const summary = header.querySelector('summary');
@@ -366,7 +366,7 @@ app.whenReady().then(async () => {
                 && Math.abs(header.querySelector('h2').getBoundingClientRect().left - header.querySelector('button').getBoundingClientRect().left) < 1;
         })()`), true, 'Scene overview control stays hidden while the original overview is visible');
         await live.evaluate("document.querySelector('.tour-scene-context').open = false; location.hash = '#location=1&mode=historical&part=step&scene=scene&step=step'");
-        await live.wait("document.activeElement.dataset.readingKey === 'step:scene:step'");
+        await live.wait("document.activeElement.id === 'tour-keyboard-navigation' && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:scene:step'");
         const initialScroll = await live.evaluate("document.querySelector('#tour-narrative-content').scrollTop");
         assert.equal(await live.evaluate(`(() => {
             const header = document.querySelector('.tour-scene-header.is-stuck');
@@ -495,7 +495,7 @@ app.whenReady().then(async () => {
         });
         server = reopened.server;
         const reopenedView = await open(reopened.url, false);
-        await reopenedView.wait("document.activeElement.dataset.readingKey === 'step:scene:step'");
+        await reopenedView.wait("document.activeElement.id === 'tour-keyboard-navigation' && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:scene:step'");
         reopenedView.window.destroy();
         console.log('Export smoke passed: file URLs, offline runtime/workers, both profiles/modes, fixed commit order and legacy URL restore, section links, unavailable targets, integrity failures, sticky headings and keyboard overview, outside-repo copy link and reopen after server shutdown.');
         clearTimeout(timeout); app.exit(0);

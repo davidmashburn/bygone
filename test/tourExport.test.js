@@ -1,7 +1,9 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const { buildSync } = require('esbuild');
 const { createHash } = require('node:crypto');
 const { exportTour, materializeTour } = require('../cli/tourExport');
@@ -13,6 +15,47 @@ const historyModule = import('data:text/javascript;base64,' + Buffer.from(buildS
 function hydrate(data) {
     return JSON.parse(JSON.stringify(data), (_key, value) => value && typeof value.$text === 'string' ? data.texts[value.$text] : value);
 }
+
+test('CLI export honors -C for sources outside the repository in both profiles', () => {
+    const f = exportFixture();
+    const external = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-external-export-'));
+    try {
+        const sourcePath = path.join(external, 'tour.bygone.yaml');
+        fs.copyFileSync(f.sourcePath, sourcePath);
+        const nested = path.join(f.root, 'nested');
+        fs.mkdirSync(nested);
+        for (const profile of ['minimal', 'full']) {
+            const outputPath = path.join(external, `${profile}.html`);
+            execFileSync(process.execPath, [path.resolve(__dirname, '../bin/bygone.js'),
+                '-C', nested, 'tour', 'export', sourcePath, '--output', outputPath, '--profile', profile],
+            { cwd: external, encoding: 'utf8', stdio: 'pipe' });
+            const html = fs.readFileSync(outputPath, 'utf8');
+            const payload = JSON.parse(html.match(/<script id="bygone-export-data" type="application\/json">(.*?)<\/script>/s)[1]);
+            assert.equal(payload.manifest.range.headOid, f.head);
+            assert.equal(payload.manifest.range.mergeBaseOid, f.base);
+            assert.equal(payload.profile, profile);
+            assert.equal(payload.manifest.repository, undefined);
+            if (profile === 'full') assert.equal(payload.history.commits.length, 3);
+        }
+        assert.equal(fs.readFileSync(sourcePath, 'utf8'), fs.readFileSync(f.sourcePath, 'utf8'));
+    } finally {
+        f.dispose();
+        fs.rmSync(external, { recursive: true, force: true });
+    }
+});
+
+test('CLI export without -C discovers the source repository instead of using the invocation directory', () => {
+    const f = exportFixture();
+    try {
+        const outputPath = path.join(f.root, 'discovered.html');
+        execFileSync(process.execPath, [path.resolve(__dirname, '../bin/bygone.js'),
+            'tour', 'export', f.sourcePath, '--output', outputPath],
+        { cwd: path.resolve(__dirname, '..'), encoding: 'utf8', stdio: 'pipe' });
+        const html = fs.readFileSync(outputPath, 'utf8');
+        const payload = JSON.parse(html.match(/<script id="bygone-export-data" type="application\/json">(.*?)<\/script>/s)[1]);
+        assert.equal(payload.manifest.range.headOid, f.head);
+    } finally { f.dispose(); }
+});
 
 test('Minimal captures all authored modes, Full retains bounded history including reverted paths', async () => {
     const f = exportFixture({ nestedFiles: true });
@@ -85,6 +128,8 @@ test('Minimal captures all authored modes, Full retains bounded history includin
 test('HTML is safely serialized, pinned and protected from accidental overwrite', () => {
     const f = exportFixture();
     try {
+        f.source.title = "Export <fixture> $& $$ $` $'";
+        fs.writeFileSync(f.sourcePath, JSON.stringify(f.source));
         const output = path.join(f.root, 'tour.html');
         const packageRoot = path.resolve(__dirname, '..');
         exportTour(f.sourcePath, output, packageRoot);
@@ -99,6 +144,7 @@ test('HTML is safely serialized, pinned and protected from accidental overwrite'
         assert.equal(fs.readFileSync(temporary, 'utf8'), 'another writer');
         fs.unlinkSync(temporary);
         const payload = JSON.parse(html.match(/<script id="bygone-export-data" type="application\/json">(.*?)<\/script>/s)[1]);
+        assert.equal(payload.manifest.title, f.source.title, 'Replacement tokens remain literal in tour content');
         assert.equal(payload.profile, 'minimal');
         assert.ok(payload.assets.every(asset => asset.base64 && /^sha256-/.test(asset.integrity)));
         assert.throws(() => exportTour(f.sourcePath, output, packageRoot), /Output exists/);

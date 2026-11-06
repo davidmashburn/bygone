@@ -113,7 +113,7 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
         assert.match(initialPrompt, /SKILL\.md/);
         assert.ok(initialPrompt.length < 1600, 'The handoff stays short');
         const instructions = await evaluate("document.querySelector('[aria-label=\"Tour skill Markdown instructions\"]').value");
-        assert.match(instructions, /version 5/);
+        assert.match(instructions, /version 7/);
         const saveDialog = dialog.showSaveDialog;
         const chooseDialog = dialog.showOpenDialog;
         const skillCopy = path.join(root, 'my-tour-instructions.md');
@@ -631,7 +631,7 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
         try {
             await linkedTour.webContents.executeJavaScript(`new Promise((resolve, reject) => {
                 const started = Date.now(); const check = () => {
-                    if (document.activeElement.dataset.readingKey === 'step:scene-two:step-two-b') resolve();
+                    if (document.activeElement.id === 'tour-keyboard-navigation' && document.querySelector('.tour-reading-item.is-active')?.dataset.readingKey === 'step:scene-two:step-two-b') resolve();
                     else if (Date.now() - started > 10000) reject(new Error('Linked tour target did not render'));
                     else requestAnimationFrame(check);
                 }; check();

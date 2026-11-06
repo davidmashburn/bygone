@@ -1,4 +1,5 @@
 import type { ChangeTourManifest, ChangeTourScene } from './changeTourManifest';
+import { getTourStepBranch } from './tourReading';
 
 export type TourSearchScope = 'all' | 'narrative' | 'code';
 
@@ -55,13 +56,15 @@ export function searchTour(
             }
             if (isSteppedScene(scene)) {
                 scene.steps.forEach((step, stepIndex) => {
+                    const branch = getTourStepBranch(step);
                     const stepPreview = firstContaining([
-                        step.title, step.body,
+                        step.title, step.body, branch?.title,
                         'connection' in step ? step.connection?.label : undefined
                     ], needle);
                     if (stepPreview) {
                         matches.push({
                             kind: 'narrative', sceneIndex, stepIndex,
+                            ...(branch ? { readingKey: `step:${scene.id}:${step.id}` } : {}),
                             label: `${scene.title} · ${step.title}`,
                             preview: stepPreview
                         });

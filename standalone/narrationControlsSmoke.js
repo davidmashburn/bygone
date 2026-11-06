@@ -20,7 +20,7 @@ async function runNarrationControlsSmoke({ evaluate, wait, window }) {
         navigator.mediaSession.setActionHandler = (action, handler) => {
             smoke.actions[action] = handler; setHandler(action, handler);
         };
-        smoke.key = (key, options = {}, selector = '#tour-narrative-content') => {
+        smoke.key = (key, options = {}, selector = '#tour-keyboard-navigation') => {
             const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key, ...options });
             document.querySelector(selector).dispatchEvent(event);
             return event.defaultPrevented;
@@ -31,11 +31,13 @@ async function runNarrationControlsSmoke({ evaluate, wait, window }) {
     const status = () => evaluate("document.querySelector('#tour-narration-status').textContent");
     const key = (value, options = {}, selector) => evaluate(`narrationSmoke.key(${JSON.stringify(value)}, ${JSON.stringify(options)}, ${JSON.stringify(selector)})`);
     const originalKey = await activeKey();
-    assert.equal(await key('ArrowRight', { shiftKey: true }), true);
+    assert.equal(await key('ArrowDown', { shiftKey: true }), true);
     assert.equal(await activeKey(), originalKey, 'Idle skip does not advance the tour');
     assert.equal(await evaluate('narrationSmoke.spoken.length'), 0, 'Idle skip does not start speech');
+    assert.match(await status(), /Sentence .* selected/);
+    await key('ArrowUp', { shiftKey: true });
 
-    await evaluate("document.querySelector('#tour-narrative-content').tabIndex = -1; document.querySelector('#tour-narrative-content').focus()");
+    await evaluate("document.querySelector('#tour-keyboard-navigation').focus()");
     window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Space' });
     window.webContents.sendInputEvent({ type: 'char', keyCode: ' ' });
     window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Space' });
@@ -56,10 +58,10 @@ async function runNarrationControlsSmoke({ evaluate, wait, window }) {
     const paused = await status();
     const selectedSegment = await evaluate("document.querySelector('.tour-narration-segment.is-speaking').dataset.narrationSegmentId");
     await evaluate("document.querySelector('#tour-audio-settings').hidden = true");
-    assert.equal(await key('ArrowRight', { shiftKey: true }), true);
+    assert.equal(await key('ArrowDown', { shiftKey: true }), true);
     assert.match(await status(), /^Paused/);
     assert.notEqual(await evaluate("document.querySelector('.tour-narration-segment.is-speaking').dataset.narrationSegmentId"), selectedSegment);
-    await key('ArrowLeft', { shiftKey: true });
+    await key('ArrowUp', { shiftKey: true });
     assert.equal(await status(), paused, 'Skipping back returns to the same paused segment');
     assert.equal(await activeKey(), originalKey);
 
@@ -70,19 +72,22 @@ async function runNarrationControlsSmoke({ evaluate, wait, window }) {
         guards.innerHTML = '<input id="ns-input"><button id="ns-button">Next</button><div id="ns-editable" contenteditable="plaintext-only">edit</div><div class="monaco-editor" id="ns-editor"></div><div id="ns-resizer" role="separator"></div><p id="ns-selection">Selected text</p>';
         document.body.append(guards);
     })()`);
-    for (const selector of ['#ns-input', '#ns-button', '#ns-editable', '#ns-editor', '#ns-resizer']) {
+    for (const selector of ['#ns-input', '#ns-editable', '#ns-editor', '#ns-resizer', '#tour-narrative-content']) {
         assert.equal(await key(' ', {}, selector), false, `Preserve Space in ${selector}`);
-        assert.equal(await key('ArrowRight', { shiftKey: true }, selector), false, `Preserve selection in ${selector}`);
+        assert.equal(await key('ArrowDown', { shiftKey: true }, selector), false, `Preserve selection in ${selector}`);
     }
+    assert.equal(await key(' ', {}, '#ns-button'), false);
+    assert.equal(await key('ArrowDown', { shiftKey: true }, '#ns-button'), true);
+    await key('ArrowUp', { shiftKey: true }, '#ns-button');
     for (const options of [{ ctrlKey: true }, { altKey: true }, { metaKey: true }, { shiftKey: true }, { isComposing: true }]) {
         assert.equal(await key(' ', options), false);
     }
     await evaluate("const range = document.createRange(); range.selectNodeContents(document.querySelector('#ns-selection')); getSelection().addRange(range)");
     assert.equal(await key(' '), false);
-    assert.equal(await key('ArrowRight', { shiftKey: true }), false);
+    assert.equal(await key('ArrowDown', { shiftKey: true }), false);
     await evaluate("getSelection().removeAllRanges(); const modal = document.createElement('dialog'); modal.id = 'ns-dialog'; document.body.append(modal); modal.showModal()");
     assert.equal(await key(' '), false);
-    assert.equal(await key('ArrowRight', { shiftKey: true }), false);
+    assert.equal(await key('ArrowDown', { shiftKey: true }), false);
     await evaluate("document.querySelector('#ns-dialog').remove(); document.querySelector('#narration-smoke-guards').remove()");
     assert.equal(await status(), paused, 'Guarded shortcuts never change narration');
 
@@ -102,9 +107,9 @@ async function runNarrationControlsSmoke({ evaluate, wait, window }) {
     await wait("document.querySelector('#tour-listen-label').textContent === 'Resume'");
 
     // Plain arrows retain passage navigation, including paused narration.
-    await key('ArrowRight');
+    await key('ArrowDown');
     await wait(`document.querySelector('.tour-reading-item.is-active').dataset.readingKey !== ${JSON.stringify(originalKey)}`);
-    await key('ArrowLeft');
+    await key('ArrowUp');
     await wait(`document.querySelector('.tour-reading-item.is-active').dataset.readingKey === ${JSON.stringify(originalKey)}`);
     await evaluate('narrationSmoke.actions.stop()');
     assert.equal(await evaluate('navigator.mediaSession.playbackState'), 'none');

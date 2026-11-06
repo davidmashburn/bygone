@@ -2,11 +2,14 @@ const { mkdirSync, readFileSync, writeFileSync } = require('fs');
 const path = require('path');
 const { buildChangeTourContext } = require('../out/changeTour.js');
 const { buildTourCoverageReport } = require('../out/tourCoverage.js');
+const { getTourReadingCost, buildTourReadingItems } = require('../out/tourReading.js');
+const { getTourNarrationCost, buildReadingNarrationUnit } = require('../out/tourNarration.js');
+const { tourReadingTitle } = require('../out/tourOrientation.js');
 const { buildManifestForTourSource, loadTourSource } = require('./tourFile.js');
 
-const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'compile', 'export', 'schema']);
+const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'narration', 'compile', 'export', 'schema']);
 
-function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
+function runTourCommand(args, cwd, packageRoot, output = process.stdout, commandOptions = {}) {
     if (args[0] === 'export') {
         const { exportTour } = require('./tourExport');
         let sourcePath, outputPath;
@@ -24,7 +27,8 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
             else sourcePath = arg;
         }
         if (!sourcePath || !outputPath) throw new Error('Usage: bygone tour export file.bygone --output tour.html [--profile minimal|full] [--runtime embedded|cdn]');
-        const result = exportTour(path.resolve(cwd, sourcePath), path.resolve(cwd, outputPath), packageRoot, options);
+        const result = exportTour(path.resolve(cwd, sourcePath), path.resolve(cwd, outputPath), packageRoot,
+            { ...options, repoRoot: commandOptions.repoRoot });
         output.write(`Wrote ${result.profile} HTML tour to ${result.outputPath} (${result.bytes} bytes). ${result.summary}\n`);
         return result;
     }
@@ -67,11 +71,35 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout) {
         return { action: 'coverage', sourcePath: resolvedPath, report };
     }
     const manifest = buildManifestForTourSource(cwd, source);
+    if (options.action === 'narration') {
+        const modes = Object.fromEntries(Object.entries(manifest.tours || { tour: manifest }).map(([mode, content]) => {
+            const tour = { ...manifest, ...content };
+            const readingItems = buildTourReadingItems(tour);
+            const items = readingItems.map(item => {
+                const segments = buildReadingNarrationUnit(tour, item, { entry: 'continuous' }, readingItems).segments;
+                return {
+                    key: item.key,
+                    title: tourReadingTitle(tour, item),
+                    words: segments.reduce((sum, segment) => sum + segment.speechText.trim().split(/\s+/u).filter(Boolean).length, 0),
+                    text: segments.map(segment => segment.speechText).join('\n')
+                };
+            });
+            return [mode, { main: { stops: items.length, words: items.reduce((sum, item) => sum + item.words, 0), items } }];
+        }));
+        const report = { title: manifest.title, modes };
+        output.write(options.json ? `${JSON.stringify(report, null, 2)}\n`
+            : `Continuous main-path narration (optional branches excluded)\n`
+                + Object.entries(modes).map(([mode, { main }]) => `\n${mode}: ${main.stops} stops / ${main.words} words\n`
+                    + main.items.map((item, index) => `\n${index + 1}. ${item.title} (${item.words} words)\n${item.text}\n`).join('')).join(''));
+        return { action: 'narration', sourcePath: resolvedPath, report };
+    }
     if (options.action === 'validate') {
         const result = buildValidationResult(resolvedPath, manifest);
         output.write(options.json
             ? `${JSON.stringify(result, null, 2)}\n`
-            : `Valid change tour: ${path.relative(cwd, resolvedPath) || path.basename(resolvedPath)} · ${result.walkthroughSteps} steps · ${result.summary.changedFiles} changed files · ${result.range.mergeBaseOid.slice(0, 7)} → ${result.range.headOid.slice(0, 7)}\n`);
+            : `Valid change tour: ${path.relative(cwd, resolvedPath) || path.basename(resolvedPath)} · ${result.walkthroughSteps} steps · ${result.summary.changedFiles} changed files · ${result.range.mergeBaseOid.slice(0, 7)} → ${result.range.headOid.slice(0, 7)}\n`
+                + Object.entries(result.readingCosts).map(([mode, cost]) => `${mode}: main ${cost.main.steps} steps / ${cost.main.words} words; optional ${cost.optional.steps} steps / ${cost.optional.words} words\n`
+                    + `  Continuous narration: main ${cost.narration.main.stops} stops / ${cost.narration.main.words} words; optional ${cost.narration.optional.stops} stops / ${cost.narration.optional.words} words\n`).join(''));
         return result;
     }
 
@@ -124,8 +152,8 @@ function parseTourArgs(args) {
         sourcePath = arg;
     }
     if (!sourcePath) throw new Error(`tour ${action} requires a .bygone source file.`);
-    if (action === 'validate' && outputPath) throw new Error('--output is only valid with tour compile.');
-    if (action === 'compile' && json) throw new Error('--json is only valid with tour validate or coverage.');
+    if ((action === 'validate' || action === 'narration') && outputPath) throw new Error('--output is only valid with tour compile.');
+    if (action === 'compile' && json) throw new Error('--json is only valid with tour validate, coverage, or narration.');
     if (action !== 'coverage' && minimumCoverage !== undefined) {
         throw new Error('--minimum-coverage is only valid with tour coverage.');
     }
@@ -225,6 +253,12 @@ function buildValidationResult(sourcePath, manifest) {
         range: manifest.range,
         summary: manifest.summary,
         chapters: manifest.chapters.length,
+        readingCosts: Object.fromEntries(Object.entries(manifest.tours || { tour: manifest }).map(([mode, tour]) => [
+            mode, {
+                ...getTourReadingCost({ ...manifest, ...tour }),
+                narration: getTourNarrationCost({ ...manifest, ...tour })
+            }
+        ])),
         walkthroughSteps: manifest.scenes.reduce(
             (total, scene) => total + (
                 scene.kind === 'walkthrough' || scene.kind === 'stacked-diff' || scene.kind === 'deconstructed-diff'

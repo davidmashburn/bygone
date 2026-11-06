@@ -19,6 +19,24 @@ export interface ChangeTourDetails {
     audience?: ChangeTourAudience;
 }
 
+/** Attribution supplied by the authoring runtime, not inferred by the compiler. */
+export interface ChangeTourGenerator {
+    model: string;
+    harness?: string;
+    effort?: string;
+}
+
+export function validateTourGenerator(value: unknown, version: number): asserts value is ChangeTourGenerator | undefined {
+    if (value === undefined) return;
+    if (version < 7) throw new Error('generatedBy requires tour version 7.');
+    if (!isRecord(value)) throw new Error('generatedBy must be an object.');
+    requireOnlyKeys(value, ['model', 'harness', 'effort'], 'generatedBy');
+    requireString(value.model, 'generatedBy.model');
+    for (const key of ['harness', 'effort']) {
+        if (value[key] !== undefined) requireString(value[key], `generatedBy.${key}`);
+    }
+}
+
 export function validateChangeTourDetails(
     value: unknown,
     path: string

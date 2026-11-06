@@ -33,6 +33,12 @@ The versioned URL fields are:
 - Comparison: two ordered `rev=<full commit ID>` fields, with optional `file`,
   `revision`, and `line`. A line requires a file and selected revision.
 
+Optional branch steps use the same stable step IDs as the main route. A link to
+one resolves against the compiled scene's physical evidence order even though
+the default reading path skips optional steps; a missing branch step is an
+error, not a fallback to its parent. Exported tours preserve the branch
+metadata and its focused evidence.
+
 ## Export a saved tour
 
 Choose **File → Export Tour as HTML…**, or run:
@@ -58,6 +64,11 @@ that were reverted before the head. This is a read-only, Git-derived snapshot,
 not a cloneable repository or an arbitrary Git command environment. Parents
 outside the included set are unavailable. History diffs use the first parent;
 comparisons use exact paths, so renames appear as deletion and addition.
+
+Branch-only evidence follows the same rules: Minimal packages the focused files
+needed by the authored endpoint comparison, while Full also packages bounded
+history for those paths when it is in scope. Neither profile turns optional
+evidence into an extra default reading stop.
 
 Both profiles can contain full surrounding and deleted source code. Full also
 includes commit authors and email addresses. Local repository bindings are
