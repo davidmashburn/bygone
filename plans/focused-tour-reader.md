@@ -1,6 +1,6 @@
 # Focused tour reader
 
-Status: proposed; product changes are not implemented by this plan.
+Status: implemented locally on 2026-11-06; human comprehension, assistive-technology, and device-audio validation remain outstanding. Not installed, pushed, or published.
 
 Inspected 2026-11-06: `local/tour-quality-seven-rounds` at `d567e1ee` (clean). This proposal follows [optional-tour navigation](optional-tour-navigation.md) and [tour orientation](tour-orientation-and-narrative-framing.md). It refines their presentation; it does not treat prior plans as implementation evidence. The planning checkout contains pre-existing edits, which this work preserves. Remote refs were not refreshed.
 
@@ -10,14 +10,14 @@ Make the reason for a change, its behavior, and the consequential decisions the 
 
 Use a quieter default, with contextual disclosures rather than a compact/verbose preference or a new reader mode. Keep existing arrow navigation and make Escape a predictable route back to reading at the same location. Alternate key families and a command menu are rejected for this proposal.
 
-## Observed sources of clutter
+## Observed sources of clutter at the proposal baseline
 
 - `web/host.js` renders scene title, file path/type counts, and takeaway in outline rows, then repeats step numbers and optional-branch status below them. Chapter/scene groups start expanded unless explicitly collapsed.
 - `src/tourOrientation.ts:describeStepOrientation` generates progress, unchanged-revision statements, and repeated full paths. These are UI output, not necessarily authored prose.
 - `web/host.js:renderTourStepState` renders a persistent next-destination/skip explanation whenever a tour contains branches. `buildBranchNavigation` adds another progress/trail statement.
 - `src/tourNarration.ts:buildReadingNarrationUnit` includes orientation in the sentence stream. Continuous audio already reduces some repetition, but visual and speech changes need to stay aligned; CSS-only hiding would leave invisible sentence targets.
 
-## Proposed experience
+## Design accepted for implementation
 
 ### Reading surface
 
@@ -85,4 +85,19 @@ High confidence that repeated generated orientation and multi-line outline rows 
 
 W3C documents Escape dismissal and return of focus for modal dialogs: [Dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/). The broader reader-recovery behavior is a product proposal, not a requirement of that pattern. Previously considered command-menu and home-row shortcuts are not part of this scope.
 
-This planning pass inspected source and official shortcut guidance. It did not implement changes, run product tests, inspect the rendered private tour, perform assistive-technology testing, or conduct a new user trial.
+## Implementation evidence
+
+Implemented on `local/tour-quality-seven-rounds` in two local commits:
+
+- `a6bb4104 fix(tours): let Escape restore reading focus without leaving detail`
+- `42fcaac1 feat(tours): focus the reader on claims and optional detail`
+
+Escape now restores reading focus without structural navigation; menus/dialogs and focused disclosures consume the first dismissal, and the narrow Outline drawer closes before reading recovery. Held repeats do not cascade. Left Arrow and the labeled Return action retain parent navigation.
+
+The reader now uses titles-only outline rows with explicit expansion state, one route-relative progress indicator, contextual Explore/Return controls, collapsed Evidence context and Keys disclosures, and a narrow Outline drawer. Authored prose precedes compact evidence-change cues. Unchanged evidence generates no repeated orientation or hidden sentence stops. Duplicate basenames are disambiguated. Meaningful chapter wrappers remain intact.
+
+Verification passed: compilation, 91 tour-related unit tests, live/offline branch navigation, offline export/narration checks, image-tour smoke checks, desktop workspace smoke checks, lint, and whitespace checks. Wide and narrow generic-fixture screenshots were inspected. Escape classifier tests also passed in the first implementation slice. The desktop harness exercised its browser reading helper and native/embedded tours.
+
+A representative existing offline artifact was rebuilt from unchanged source with the new runtime. Frozen experiment artifacts were preserved. No private content was added to this plan.
+
+High confidence in the tested navigation behavior; the automated checks and rendered generic fixtures support it. Human five-minute comprehension trials, screen-reader sessions, actual device speech, and the full unrelated test/release suite were not run. The earlier rendered private-tour inspection restriction remains respected. Human wrong turns, unclear optional-path expectations, or assistive-technology focus failures would require revisiting the interaction. The historical confidence assessment above describes the proposal baseline, not the implemented test results.
