@@ -1,9 +1,39 @@
-import { tourReadingTitle, buildTourRoute, describeStepOrientation } from './tourOrientation';
+import { tourReadingTitle, buildTourRoute, describeStepOrientation, TourOrientationDetail } from './tourOrientation';
 import type { ChangeTourManifest, ChangeTourScene } from './changeTourManifest';
-import type { TourReadingItem } from './tourReading';
+import { buildTourReadingItems, getTourStepBranch } from './tourReading';
+import type { TourBranchLocation, TourReadingItem } from './tourReading';
 import type { TourPosition } from './tourNavigation';
 
 export const DEFAULT_NARRATION_SEGMENT_LIMIT = 240;
+
+export interface TourNarrationCost {
+    main: { stops: number; words: number };
+    optional: { stops: number; words: number };
+}
+
+/** Measure the same continuous speech projection the reader uses, including framing. */
+export function getTourNarrationCost(tour: ChangeTourManifest): TourNarrationCost {
+    const cost = (items: TourReadingItem[]) => ({
+        stops: items.length,
+        words: items.reduce((total, item) => total + buildReadingNarrationUnit(tour, item, { entry: 'continuous' }, items)
+            .segments.reduce((sum, segment) => sum + segment.speechText.trim().split(/\s+/u).filter(Boolean).length, 0), 0)
+    });
+    const main = cost(buildTourReadingItems(tour));
+    const optional = { stops: 0, words: 0 };
+    tour.scenes.forEach((scene, sceneIndex) => {
+        const seen = new Set<string>();
+        if (!isSteppedScene(scene)) return;
+        for (const step of scene.steps) {
+            const branch = getTourStepBranch(step);
+            if (!branch || seen.has(branch.id)) continue;
+            seen.add(branch.id);
+            const branchCost = cost(buildTourReadingItems(tour, { sceneIndex, branchId: branch.id }));
+            optional.stops += branchCost.stops;
+            optional.words += branchCost.words;
+        }
+    });
+    return { main, optional };
+}
 
 export type NarrationField =
     | 'document-title'
@@ -43,11 +73,15 @@ export interface NarrationUnit {
     readingKey?: string;
     position?: TourPosition;
     segments: NarrationSegment[];
+    /** Allows the reader to render the exact source text used for offsets. */
+    orientationDetail?: TourOrientationDetail;
 }
 
 export interface BuildNarrationUnitOptions {
     entry: 'playback-start' | 'continuous';
     segmentLimit?: number;
+    /** The currently rendered route, when the caller already has one. */
+    activeItems?: readonly TourReadingItem[];
 }
 
 interface NarrationFieldValue {
@@ -73,6 +107,7 @@ export function buildTourNarrationUnit(
         : 0;
     const normalizedPosition = { sceneIndex: position.sceneIndex, stepIndex };
     const step = isSteppedScene(scene) ? scene.steps[stepIndex] : undefined;
+    const branch = getTourStepBranch(step);
     const fields: NarrationFieldValue[] = [];
     const includeFullIntroduction = !step || stepIndex === 0;
     const includeOrientationTitle = Boolean(step && stepIndex > 0 && options.entry === 'playback-start');
@@ -97,7 +132,8 @@ export function buildTourNarrationUnit(
             fields.push({ source: { field: 'connection' }, text: step.connection.label });
         }
     }
-    if (!step || (isSteppedScene(scene) && stepIndex === scene.steps.length - 1)) {
+    const activeItems = step ? getActiveItems(tour, position.sceneIndex, branch, options.activeItems) : [];
+    if (!step || (!branch && isLastActiveStep(activeItems, { kind: 'step', key: `step:${scene.id}:${step.id}`, sceneIndex: position.sceneIndex, stepIndex }))) {
         fields.push({ source: { field: 'takeaway' }, text: scene.takeaway });
     }
 
@@ -115,7 +151,8 @@ export function buildTourNarrationUnit(
 export function buildReadingNarrationUnit(
     tour: ChangeTourManifest,
     item: TourReadingItem,
-    options: BuildNarrationUnitOptions
+    options: BuildNarrationUnitOptions,
+    activeItems?: readonly TourReadingItem[]
 ): NarrationUnit {
     const fields: NarrationFieldValue[] = [];
     const add = (field: NarrationField, text: string | undefined, itemIndex?: number) => {
@@ -158,17 +195,38 @@ export function buildReadingNarrationUnit(
                 add('stage-title', scene.panels[scene.steps[item.stepIndex].pairIndex + 1].label);
             }
             add('step-title', tourReadingTitle(tour, item));
-            add('step-orientation', describeStepOrientation(tour, item.sceneIndex, item.stepIndex));
             add('step-body', step.body);
+            add('step-orientation', describeStepOrientation(tour, item.sceneIndex, item.stepIndex,
+                options.entry === 'playback-start' ? TourOrientationDetail.Full : TourOrientationDetail.Changes));
             if ('connection' in step) add('connection', step.connection?.label);
-            if (item.stepIndex === scene.steps.length - 1) add('takeaway', scene.takeaway);
+            const branch = getTourStepBranch(step);
+            const routeItems = getActiveItems(tour, item.sceneIndex, branch, activeItems ?? options.activeItems);
+            if (!branch && isLastActiveStep(routeItems, item)) add('takeaway', scene.takeaway);
         }
     }
     return {
         id: item.key,
         readingKey: item.key,
+        orientationDetail: options.entry === 'playback-start' ? TourOrientationDetail.Full : TourOrientationDetail.Changes,
         segments: fields.flatMap(field => buildFieldSegments(item.key, field, options.segmentLimit ?? DEFAULT_NARRATION_SEGMENT_LIMIT))
     };
+}
+
+function getActiveItems(
+    tour: ChangeTourManifest,
+    sceneIndex: number,
+    branch: ReturnType<typeof getTourStepBranch>,
+    suppliedItems?: readonly TourReadingItem[]
+): readonly TourReadingItem[] {
+    if (suppliedItems) return suppliedItems;
+    const location: TourBranchLocation | null = branch ? { sceneIndex, branchId: branch.id } : null;
+    return buildTourReadingItems(tour, location);
+}
+
+function isLastActiveStep(items: readonly TourReadingItem[], item: TourReadingItem): boolean {
+    const sceneSteps = items.filter(candidate => candidate.kind === 'step' && candidate.sceneIndex === item.sceneIndex);
+    const currentIndex = sceneSteps.findIndex(candidate => candidate.key === item.key);
+    return currentIndex >= 0 && currentIndex === sceneSteps.length - 1;
 }
 
 export function splitNarrationText(text: string, maxLength = DEFAULT_NARRATION_SEGMENT_LIMIT): TextRange[] {
@@ -180,25 +238,37 @@ export function splitNarrationText(text: string, maxLength = DEFAULT_NARRATION_S
 }
 
 export function normalizeNarrationSpeech(text: string): string {
-    return text
+    return maskNarrationLinks(text)
         .replace(/https?:\/\/\S+/giu, ' ')
         .replace(/\b(?=[0-9a-f]{7,40}\b)(?=[0-9a-f]*\d)[0-9a-f]+\b/giu, ' ')
         .replace(/[`*_~]/gu, '')
         .replace(/([\p{Ll}\d])(\p{Lu})/gu, '$1 $2')
         .replace(/([\p{Lu}])(\p{Lu}\p{Ll})/gu, '$1 $2')
         .replace(/\s+/gu, ' ')
+        .replace(/\s+([,.;:!?])/gu, '$1')
         .trim();
+}
+
+/** Keep label offsets intact while hiding inline-link syntax and destinations from speech. */
+function maskNarrationLinks(text: string): string {
+    const pattern = /\[([^\]\n]+)\]\(((?:https?:\/\/|bygone:\/\/)(?:[^\s()]|\([^\s()]*\))+)\)/gu;
+    return text.replace(pattern, (match: string, label: string, _url: string, offset: number) => {
+        if (offset > 0 && text[offset - 1] === '!') return match;
+        return ` ${label}${' '.repeat(match.length - label.length - 1)}`;
+    });
 }
 
 function buildFieldSegments(unitId: string, field: NarrationFieldValue, maxLength: number): NarrationSegment[] {
     const sourceKey = field.source.itemIndex === undefined
         ? field.source.field
         : `${field.source.field}-${field.source.itemIndex}`;
+    // Mask the entire field before slicing: a long URL can cross several segment boundaries.
+    const speechText = maskNarrationLinks(field.text);
     return splitNarrationText(field.text, maxLength)
         .map((segment, segmentIndex) => ({
             id: `${unitId}:${sourceKey}:${segmentIndex}`,
             text: segment.text,
-            speechText: normalizeNarrationSpeech(segment.text),
+            speechText: normalizeNarrationSpeech(speechText.slice(segment.startOffset, segment.endOffset)),
             source: field.source,
             startOffset: segment.startOffset,
             endOffset: segment.endOffset

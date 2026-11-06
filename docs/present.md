@@ -159,29 +159,64 @@ The active tour position or comparison is also reflected in the URL for refresh.
 While reading a step, expand **Scene context** beneath it to keep the scene's
 summary, supporting points, and takeaway visible without leaving the step.
 
+The outline shows titles, expanding the current chapter and scene by default.
+Manual expansion and collapse stay in place as you navigate. A narrow window
+starts with an **Outline** drawer. The current item has a marker as well as color.
+
+A single **Main** or **Detail** count beside Prev/Next tracks steps on the current
+path. Introduction, section previews, and conclusion have their own labels.
+Optional actions appear only where available; Next skips the optional choices.
+Expand **Evidence context** for the full file path and exact comparison. Changed
+files or comparisons remain visible as brief cues, and constructed explanation
+stages remain labeled. Routine unchanged context is omitted from sentence
+navigation and continuous narration. Shortcut help is available under **Keys**.
+
 ## Listen to a tour
 
-Use **Listen** beside the reading breadcrumb or **Present → Listen to Tour** in the
+Use **Listen** under **Narration** beside the reading controls or **Present → Listen to Tour** in the
 desktop app to read the tour aloud with a device voice. Narration works
 offline and does not send tour text to a hosted speech service.
 
-Narration controls are available from **‹ Narration** beside the reading
-breadcrumb, with sentence navigation, Stop, voice, and speed. Use the
-right-edge chevron to collapse them again. Listen becomes Pause or Resume
-during playback. The overview opens when its
+The sentence buttons beside the reading navigation are always available, even
+with narration stopped or device speech unavailable. **Shift+Up/Down Arrow**
+selects the previous/next sentence across tour controls and prose. Selection stays silent
+until you press **Listen**, which starts at that sentence. During playback,
+sentence navigation keeps playing; while paused, it stays paused.
+
+While reading, these keys work without first focusing the navigation toolbar:
+
+- **Up/Down**: previous/next step on the current path, skipping optional detail.
+- **Right**: drill into optional detail; choose a path when several exist.
+- **Left**: return one level to the owning step and restore its
+  sentence and scroll position. Returning pauses any active narration.
+
+**Escape** returns focus to reading at the same passage. Menus, dialogs, and the narrow Outline drawer dismiss
+first; another press may be needed to leave a field or widget. Prose selections
+are cleared so arrows work again. Repeated Escape never leaves optional detail
+or changes the sentence, scroll position, or narration.
+
+**Enter** also explores detail when the navigation group itself has focus;
+on a button or link it retains native activation. **Space** starts, pauses, or
+resumes narration from the navigation group, and retains scrolling in prose.
+
+The **↑ Prev**, **Next ↓**, **Explore detail →**, and **← Return parent**
+buttons work without focusing the navigation group. Previous
+follows the current path, not your visit history. At a detail endpoint, Next
+and narration stop; **Continue parent detail** or **Continue main tour** advances
+past the owner on the immediate parent path. Deeper paths remain optional.
+
+Use the wheel, trackpad, or Page Up/Down to scroll the reading text.
+Inputs, editors, disclosure summaries, tree/menu widgets, dialogs, and active text
+selections retain their native keys, including Shift+arrows. There is no global
+reader mode to toggle. Narration settings (Stop, voice, speed) remain available
+from **‹ Narration**; sentence navigation works with settings collapsed.
+Listen becomes Pause or Resume during playback. The overview opens when its
 text is spoken so the highlighted sentence remains visible.
 
-- In the tour viewing area, **Space** starts narration at the current passage
-  and reveals its controls, then pauses or resumes playback. **Shift+Left/Right
-  Arrow** skips a sentence while narration is playing or paused, including
-  across passage boundaries. Skipping while paused keeps it paused; skipping
-  while idle does nothing. These shortcuts work with the controls collapsed.
-  Plain arrows and PageUp/PageDown retain tour navigation. Inputs, editors,
-  focused buttons, dialogs, and selected text keep their normal keys.
 - After starting narration, supported system media controls (including Mac
   keyboard Play/Pause and Previous/Next) control the same playback, even with
   the narration controls collapsed. **Media keys cannot start idle narration:**
-  press Space in the tour viewing area or click Listen first. The system routes
+  press Space in the tour navigation group or click Listen first. The system routes
   media keys to an active media session; Bygone activates its session only when
   narration starts, so opening a tour does not take over another player's keys.
   Pausing keeps the session available for Resume. Stop, completion, or closing
@@ -243,6 +278,51 @@ See [the change tour format](./change-tour-format.md) and
 [LLM-assisted generation](./generating-change-tours.md) for the complete
 contract. Checked-in examples include real stacked revisions and explicitly
 synthetic deconstructed stages.
+
+### Keep the main path concise; branch for optional evidence
+
+Version 7 lets authored walkthrough and stacked steps carry recursive
+`branches`; deconstructed stages remain stages, while explicit walkthrough
+steps can branch. The main path should still make the complete argument,
+including material caveats: a title states the claim, and the body explains its
+cause or consequence. Three to seven total main-route steps is a soft default,
+not a quota; use the number needed to make the change understandable.
+
+Use an optional branch for a reader question, then add further evidence only
+when it helps answer that question. Branch titles work best as questions, and
+each branch keeps the same step shape as its parent: walkthrough steps use
+`title`, `body`, and `focus`; stacked steps retain their `file` and `pair`:
+
+```yaml
+- id: validate
+  title: Reject incomplete input before dispatch
+  body: The early return keeps malformed requests out of handler selection.
+  focus: validate-request
+  branches:
+    - id: why-validation
+      title: Why does validation happen before dispatch?
+      steps:
+        - id: validation-proof
+          title: Which test checks that boundary?
+          body: The rejection test observes invalid input before dispatch.
+          focus: validation-test
+```
+
+The reader labels the active path and previews the next destination. On the main
+path, **Next ↓** and narration skip optional groups. Within an opened group,
+they skip deeper groups and stop at its end. The outline shows optional groups
+collapsed until opened or entered. Expanding a group only previews its contents;
+selecting a step enters that path. **Return** restores the owning step;
+**Continue parent detail** or **Continue main tour** names the next destination
+on the immediate parent path and skips remaining detail in the current branch.
+These labels describe the current route, not which passages have already been read.
+
+The compiler keeps optional steps in the scene's physical evidence order, so
+they remain deep-linkable and exportable while the default reading path omits
+them. `depth` describes evidence coverage (`mentioned`, `explained`, or
+`contextualized`); it does not choose navigation depth. See
+[`examples/optional-branches.bygone.yaml`](../examples/optional-branches.bygone.yaml)
+for a complete synthetic source.
 
 ### Directory evidence in an Overview
 

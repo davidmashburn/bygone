@@ -67,8 +67,13 @@ function buildHistory(root, manifest, texts) {
     }
     return { commits, paths: [...paths].sort(), snapshots, comparison: 'Exact paths; renames appear as deletion and addition. Parents outside the included set are unavailable.' };
 }
-function materializeTour(sourcePath, profile) {
-    const document = discoverAuthoredTourDocument(sourcePath);
+function materializeTour(sourcePath, profile, repoRoot) {
+    const document = repoRoot === undefined
+        ? discoverAuthoredTourDocument(sourcePath)
+        : {
+            documentPath: fs.realpathSync(sourcePath),
+            repoRoot: fs.realpathSync(git(repoRoot, ['rev-parse', '--show-toplevel']).trim())
+        };
     const originalBytes = fs.readFileSync(document.documentPath);
     const { source } = loadTourSource(document.repoRoot, document.documentPath);
     const manifest = buildManifestForTourSource(document.repoRoot, source);
@@ -101,7 +106,7 @@ function exportTour(sourcePath, outputPath, packageRoot, options = {}) {
     const runtime = options.runtime || 'embedded';
     if (!['minimal', 'full'].includes(profile)) throw new Error('Export profile must be minimal or full.');
     if (!['embedded', 'cdn'].includes(runtime)) throw new Error('Export runtime must be embedded or cdn.');
-    const data = materializeTour(sourcePath, profile);
+    const data = materializeTour(sourcePath, profile, options.repoRoot);
     const version = JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8')).version;
     const runtimeManifestPath = path.join(packageRoot, 'web', 'export-runtime.json');
     if (!fs.existsSync(runtimeManifestPath)) throw new Error('Export runtime assets are missing. Rebuild Bygone first.');
@@ -121,15 +126,15 @@ function exportTour(sourcePath, outputPath, packageRoot, options = {}) {
     let shell = fs.readFileSync(path.join(packageRoot, 'web', 'index.html'), 'utf8')
         .replace(/<link href="\/(?:media|web)\/[^"]+" rel="stylesheet">/g, '')
         .replace(/<script src="\/(?:web|media)\/[^"]+"><\/script>/g, '')
-        .replace('<title>Bygone Tour</title>', `<title>${html(data.manifest.title)} — Bygone export</title>`);
+        .replace('<title>Bygone Tour</title>', () => `<title>${html(data.manifest.title)} — Bygone export</title>`);
     const network = runtime === 'cdn' ? ' https://cdn.jsdelivr.net' : '';
     const policy = `default-src 'none'; script-src 'unsafe-inline' blob:${network}; style-src 'unsafe-inline' blob:${network}; font-src data:; img-src data: blob:; media-src blob:; worker-src blob:; connect-src${network || " 'none'"}; frame-src 'none'; base-uri 'none'; form-action 'none'`;
     shell = shell.replace('<meta charset="UTF-8">', `<meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="${policy}">`)
-        .replace('<body class="web-host">', `<body class="web-host"><div id="export-loading" role="status">Loading ${html(data.manifest.title)}… ${runtime === 'cdn' ? 'Internet required to load the Bygone viewer.' : 'Embedded viewer; no internet required.'} If loading fails, reopen the file or obtain a new export.</div><noscript>This interactive tour requires JavaScript.</noscript>`)
-        .replace('<summary>Tour details</summary>', `<summary>Tour details</summary><p class="export-notice">${html(summary)} ${runtime === 'cdn' ? 'Internet required to load the Bygone viewer.' : 'Embedded viewer; no internet required.'} ${html(data.history?.comparison || '')}</p>`);
+        .replace('<body class="web-host">', () => `<body class="web-host"><div id="export-loading" role="status">Loading ${html(data.manifest.title)}… ${runtime === 'cdn' ? 'Internet required to load the Bygone viewer.' : 'Embedded viewer; no internet required.'} If loading fails, reopen the file or obtain a new export.</div><noscript>This interactive tour requires JavaScript.</noscript>`)
+        .replace('<summary>Tour details</summary>', () => `<summary>Tour details</summary><p class="export-notice">${html(summary)} ${runtime === 'cdn' ? 'Internet required to load the Bygone viewer.' : 'Embedded viewer; no internet required.'} ${html(data.history?.comparison || '')}</p>`);
     const bootstrap = fs.readFileSync(path.join(packageRoot, 'web', 'export-bootstrap.js'), 'utf8');
     const licenses = fs.readFileSync(path.join(packageRoot, 'web', 'export-licenses.txt'), 'utf8');
-    shell = shell.replace('</body>', `<script id="bygone-export-data" type="application/json">${json(payload)}</script><script>${bootstrap}</script><details class="export-notice"><summary>Runtime licenses</summary><pre>${html(licenses)}</pre></details></body>`);
+    shell = shell.replace('</body>', () => `<script id="bygone-export-data" type="application/json">${json(payload)}</script><script>${bootstrap}</script><details class="export-notice"><summary>Runtime licenses</summary><pre>${html(licenses)}</pre></details></body>`);
     if (Buffer.byteLength(shell) > MAX_BYTES) throw new Error('HTML export exceeds the 128 MiB safety limit. Narrow the tour.');
     if (fs.existsSync(outputPath) && !options.overwrite) throw new Error('Output exists. Choose another path or pass --overwrite.');
     if (path.resolve(sourcePath) === path.resolve(outputPath)

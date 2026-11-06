@@ -421,16 +421,16 @@ async function runTourReadingSmoke({ browserContents, browserWindow }) {
         await scrollToKey('step:scene-one:step-one-b');
         const forwardKeys = readingKeys.slice(firstLastStepIndex + 1, readingKeys.indexOf(secondSceneSteps[0].key) + 1);
         for (const key of forwardKeys) {
-            await evaluate(`document.querySelector('#tour-narrative-content').dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowRight' }))`);
+            await evaluate(`document.querySelector('#tour-keyboard-navigation').dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowDown' }))`);
             await waitForActive(key);
         }
         assert.ok(secondSceneIndex > firstLastStepIndex, 'The reading order crosses the scene boundary');
         const backwardKeys = readingKeys.slice(firstLastStepIndex, readingKeys.indexOf(secondSceneSteps[0].key)).reverse();
         for (const key of backwardKeys) {
-            await evaluate(`document.querySelector('#tour-narrative-content').dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowLeft' }))`);
+            await evaluate(`document.querySelector('#tour-keyboard-navigation').dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowUp' }))`);
             await waitForActive(key);
         }
-        assert.equal(await activeKey(), 'step:scene-one:step-one-b', 'ArrowLeft returns across the scene boundary');
+        assert.equal(await activeKey(), 'step:scene-one:step-one-b', 'ArrowUp returns across the scene boundary');
 
         await scrollToKey('step:scene-two:step-two-b');
         const beforeTitle = await read();

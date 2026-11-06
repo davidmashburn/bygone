@@ -1,9 +1,9 @@
 import { validateTourFraming, validateOverviewPurpose, type ChangeTourFraming } from './tourFraming';
 import { validateTourImageSource, type TourImageSource } from './tourImage';
 import type { ChangeTourNarrative } from './changeTourManifest';
-import { validateChangeTourDetails, type ChangeTourDetails } from './tourDetails';
+import { validateChangeTourDetails, validateTourGenerator, type ChangeTourDetails, type ChangeTourGenerator } from './tourDetails';
 
-export const CHANGE_TOUR_SOURCE_VERSION = 6 as const;
+export const CHANGE_TOUR_SOURCE_VERSION = 7 as const;
 
 export interface ChangeTourSourceAnchor {
     file: string;
@@ -27,6 +27,12 @@ export interface ChangeTourStepRequirement {
     confidence?: 'high' | 'medium' | 'low';
 }
 
+export interface ChangeTourSourceStepBranch {
+    id: string;
+    title: string;
+    steps: ChangeTourSourceStep[];
+}
+
 export interface ChangeTourSourceStep {
     id: string;
     title: string;
@@ -37,6 +43,7 @@ export interface ChangeTourSourceStep {
     connection?: string;
     depth?: 'mentioned' | 'explained' | 'contextualized';
     requirement?: ChangeTourStepRequirement;
+    branches?: ChangeTourSourceStepBranch[];
 }
 
 export interface ChangeTourCoverageExclusion {
@@ -71,6 +78,12 @@ export interface ChangeTourSourceStackEntry {
     label?: string;
 }
 
+export interface ChangeTourSourceStackStepBranch {
+    id: string;
+    title: string;
+    steps: ChangeTourSourceStackStep[];
+}
+
 export interface ChangeTourSourceStackStep {
     id: string;
     title: string;
@@ -79,6 +92,7 @@ export interface ChangeTourSourceStackStep {
     pair: [string, string];
     side?: 'left' | 'right';
     lines?: [number, number];
+    branches?: ChangeTourSourceStackStepBranch[];
 }
 
 export interface ChangeTourSourceStackedScene extends ChangeTourNarrative {
@@ -88,7 +102,7 @@ export interface ChangeTourSourceStackedScene extends ChangeTourNarrative {
     overview?: ChangeTourSourceSceneOverview;
     stack: ChangeTourSourceStackEntry[];
     files?: string[];
-    steps: ChangeTourSourceStackStep[];
+    steps?: ChangeTourSourceStackStep[];
 }
 
 export interface ChangeTourSourceDeconstructedChange {
@@ -151,10 +165,11 @@ export interface ChangeTourSourceTours {
 }
 
 export interface ChangeTourSource extends ChangeTourFraming {
-    version: 1 | 2 | 4 | 5 | typeof CHANGE_TOUR_SOURCE_VERSION;
+    version: 1 | 2 | 4 | 5 | 6 | typeof CHANGE_TOUR_SOURCE_VERSION;
     title?: string;
     windowTitle?: string;
     sourceUrl?: string;
+    generatedBy?: ChangeTourGenerator;
     range?: {
         base: string;
         head: string;
@@ -177,13 +192,14 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
     if (isRecord(value) && value.version === 3) {
         throw new Error('Tour source format version 3 is retired. Remove the review block, set source version to 4, and recompile the tour.');
     }
-    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== 5 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
+    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
         throw new Error('Unsupported or missing change-tour source version.');
     }
     requireOnlyKeys(value, [
-        'version', 'title', 'windowTitle', 'sourceUrl', 'correspondence', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage', 'opening', 'conclusion', 'details'
+        'version', 'title', 'windowTitle', 'sourceUrl', 'generatedBy', 'correspondence', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage', 'opening', 'conclusion', 'details'
     ], 'source');
     validateTourFraming(value, value.version, 'source');
+    validateTourGenerator(value.generatedBy, value.version);
     optionalString(value.title, 'title');
     optionalString(value.windowTitle, 'windowTitle');
     optionalString(value.sourceUrl, 'sourceUrl');
@@ -266,7 +282,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
     );
     if (value.details !== undefined) {
         if (value.version < 5) throw new Error('source.details requires version 5.');
-        validateChangeTourDetails(value.details, 'details');
+        validateChangeTourDetails(value.details, 'details', value.version);
     }
     if (value.tours !== undefined) {
         if (value.version < 4) throw new Error('Independent tours require version 4.');
@@ -285,7 +301,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             validateSourceChapters(tour.chapters, `${path}.chapters`, value.version, value.anchors, connectionIds, mode);
             if (tour.details !== undefined) {
                 if (value.version < 5) throw new Error(`${path}.details requires source version 5.`);
-                validateChangeTourDetails(tour.details, `${path}.details`);
+                validateChangeTourDetails(tour.details, `${path}.details`, value.version);
             }
         }
     }
@@ -297,7 +313,7 @@ type SourceTourValidationMode = 'root' | 'historical' | 'deconstructed';
 function validateSourceChapters(
     chaptersValue: unknown,
     chaptersPath: string,
-    version: 1 | 2 | 4 | 5 | 6,
+    version: 1 | 2 | 4 | 5 | 6 | 7,
     anchors: Record<string, unknown>,
     connectionIds: ReadonlySet<string>,
     mode: SourceTourValidationMode
@@ -355,14 +371,11 @@ function validateSourceChapters(
                 }
                 continue;
             }
-            if (!Array.isArray(scene.steps) || scene.steps.length === 0) {
-                throw new Error(`${path} must contain a non-empty steps array.`);
-            }
             if (scene.kind === 'stacked-diff') {
                 // A mode-specific Historical tour may intentionally contain
                 // only its two real endpoint revisions.  Preserve the older
                 // v1 three-panel requirement for the legacy root chapters.
-                validateStackedScene(scene, path, mode === 'root' ? (version >= 2 ? 2 : 3) : 2);
+                validateStackedScene(scene, path, mode === 'root' ? (version >= 2 ? 2 : 3) : 2, version);
                 validateSceneOverview(scene.overview, `${path}.overview`, {
                     endpointIds: stackedOverviewEndpointIds(scene, path)
                 });
@@ -448,12 +461,12 @@ function validateWalkthroughSteps(
     path: string,
     anchors: Record<string, unknown>,
     connectionIds: ReadonlySet<string>,
-    version: number
+    version: number,
+    usedIds: Set<string> = new Set<string>()
 ): void {
     if (!Array.isArray(scene.steps) || scene.steps.length === 0) {
         throw new Error(`${path} must contain a non-empty steps array.`);
     }
-    const stepIds = new Set<string>();
     for (const [stepIndex, step] of scene.steps.entries()) {
         const stepPath = `${path}.steps[${stepIndex}]`;
         if (!isRecord(step)) throw new Error(`${stepPath} must be an object.`);
@@ -461,7 +474,7 @@ function validateWalkthroughSteps(
         requireString(step.title, `${stepPath}.title`);
         requireString(step.body, `${stepPath}.body`);
         requireString(step.focus, `${stepPath}.focus`);
-        requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth', 'requirement', 'image', 'symbol'], stepPath);
+        requireOnlyKeys(step, ['id', 'title', 'body', 'focus', 'connection', 'depth', 'requirement', 'image', 'symbol', 'branches'], stepPath);
         if (step.depth !== undefined && !['mentioned', 'explained', 'contextualized'].includes(String(step.depth))) {
             throw new Error(`${stepPath}.depth must be mentioned, explained, or contextualized.`);
         }
@@ -474,13 +487,50 @@ function validateWalkthroughSteps(
         }
         validateStepRequirement(step.requirement, `${stepPath}.requirement`);
         validateTourImageSource(step.image, `${stepPath}.image`);
-        if (stepIds.has(step.id)) throw new Error(`Duplicate step id in scene ${scene.id}: ${step.id}`);
-        stepIds.add(step.id);
+        if (usedIds.has(step.id)) throw new Error(`Duplicate step or branch id in scene ${scene.id}: ${step.id}`);
+        usedIds.add(step.id);
         if (!anchors[step.focus]) throw new Error(`${stepPath} references unknown anchor ${step.focus}.`);
         optionalString(step.connection, `${stepPath}.connection`);
         if (typeof step.connection === 'string' && !connectionIds.has(step.connection)) {
             throw new Error(`${stepPath} references unknown connection ${step.connection}.`);
         }
+        validateSourceStepBranches(step.branches, `${stepPath}.branches`, scene.id as string, anchors, connectionIds, version, usedIds);
+    }
+}
+
+function validateSourceStepBranches(
+    value: unknown,
+    path: string,
+    sceneId: string,
+    anchors: Record<string, unknown>,
+    connectionIds: ReadonlySet<string>,
+    version: number,
+    usedIds: Set<string>
+): void {
+    if (value === undefined) return;
+    if (version < 7) throw new Error(`${path} requires source version 7.`);
+    if (!Array.isArray(value) || value.length === 0) {
+        throw new Error(`${path} must contain at least one branch.`);
+    }
+    for (const [branchIndex, branch] of value.entries()) {
+        const branchPath = `${path}[${branchIndex}]`;
+        if (!isRecord(branch)) throw new Error(`${branchPath} must be an object.`);
+        requireOnlyKeys(branch, ['id', 'title', 'steps'], branchPath);
+        requireString(branch.id, `${branchPath}.id`);
+        requireString(branch.title, `${branchPath}.title`);
+        if (usedIds.has(branch.id)) throw new Error(`Duplicate step or branch id in scene ${sceneId}: ${branch.id}`);
+        usedIds.add(branch.id);
+        if (!Array.isArray(branch.steps) || branch.steps.length === 0) {
+            throw new Error(`${branchPath}.steps must contain at least one step.`);
+        }
+        validateWalkthroughSteps(
+            { steps: branch.steps },
+            `${branchPath}.steps`,
+            anchors,
+            connectionIds,
+            version,
+            usedIds
+        );
     }
 }
 
@@ -511,7 +561,7 @@ function validateRealStack(stack: unknown, path: string, minimum: number): void 
     }
 }
 
-function validateStackedScene(scene: Record<string, unknown>, path: string, minimum = 3): void {
+function validateStackedScene(scene: Record<string, unknown>, path: string, minimum = 3, version = 7): void {
     requireOnlyKeys(scene, ['id', 'kind', 'title', 'summary', 'bullets', 'tags', 'takeaway', 'overview', 'stack', 'files', 'steps'], path);
     if (!Array.isArray(scene.stack) || scene.stack.length < minimum || scene.stack.length > 6) {
         throw new Error(`${path}.stack must contain between ${minimum} and 6 revisions.`);
@@ -528,25 +578,36 @@ function validateStackedScene(scene: Record<string, unknown>, path: string, mini
         stackIds.add(entry.id);
     }
     if (scene.files !== undefined) requireStringArray(scene.files, `${path}.files`);
-    if (!Array.isArray(scene.steps) || scene.steps.length === 0) throw new Error(`${path}.steps must be a non-empty array.`);
-    const stepIds = new Set<string>();
-    for (const [index, step] of scene.steps.entries()) {
-        const stepPath = `${path}.steps[${index}]`;
+    if (scene.steps === undefined) return;
+    if (!Array.isArray(scene.steps)) throw new Error(`${path}.steps must be an array.`);
+    const usedIds = new Set<string>();
+    validateSourceStackSteps(scene.steps, `${path}.steps`, scene.id as string, scene.stack as unknown[], version, usedIds);
+}
+
+function validateSourceStackSteps(
+    steps: unknown[],
+    path: string,
+    sceneId: string,
+    stack: unknown[],
+    version: number,
+    usedIds: Set<string>
+): void {
+    for (const [index, step] of steps.entries()) {
+        const stepPath = `${path}[${index}]`;
         if (!isRecord(step)) throw new Error(`${stepPath} must be an object.`);
-        requireOnlyKeys(step, ['id', 'title', 'body', 'file', 'pair', 'side', 'lines'], stepPath);
+        requireOnlyKeys(step, ['id', 'title', 'body', 'file', 'pair', 'side', 'lines', 'branches'], stepPath);
         requireString(step.id, `${stepPath}.id`);
         requireString(step.title, `${stepPath}.title`);
         requireString(step.body, `${stepPath}.body`);
         requireString(step.file, `${stepPath}.file`);
-        const stepId = step.id;
-        if (stepIds.has(stepId)) throw new Error(`Duplicate step id in scene ${scene.id}: ${stepId}`);
-        stepIds.add(stepId);
+        if (usedIds.has(step.id)) throw new Error(`Duplicate step or branch id in scene ${sceneId}: ${step.id}`);
+        usedIds.add(step.id);
         if (!Array.isArray(step.pair) || step.pair.length !== 2 || step.pair.some((id) => typeof id !== 'string')) {
             throw new Error(`${stepPath}.pair must contain two stack entry ids.`);
         }
         const pair = step.pair as string[];
-        const leftIndex = scene.stack.findIndex((entry) => isRecord(entry) && entry.id === pair[0]);
-        const rightIndex = scene.stack.findIndex((entry) => isRecord(entry) && entry.id === pair[1]);
+        const leftIndex = stack.findIndex((entry) => isRecord(entry) && entry.id === pair[0]);
+        const rightIndex = stack.findIndex((entry) => isRecord(entry) && entry.id === pair[1]);
         if (leftIndex < 0 || rightIndex !== leftIndex + 1) throw new Error(`${stepPath}.pair must reference adjacent stack entries in order.`);
         if (step.side !== undefined && step.side !== 'left' && step.side !== 'right') throw new Error(`${stepPath}.side must be left or right.`);
         if (step.lines !== undefined && (!Array.isArray(step.lines) || step.lines.length !== 2
@@ -554,6 +615,35 @@ function validateStackedScene(scene: Record<string, unknown>, path: string, mini
             || Number(step.lines[1]) < Number(step.lines[0]))) {
             throw new Error(`${stepPath}.lines must contain an ordered positive line range.`);
         }
+        validateSourceStackBranches(step.branches, `${stepPath}.branches`, sceneId, stack, version, usedIds);
+    }
+}
+
+function validateSourceStackBranches(
+    value: unknown,
+    path: string,
+    sceneId: string,
+    stack: unknown[],
+    version: number,
+    usedIds: Set<string>
+): void {
+    if (value === undefined) return;
+    if (version < 7) throw new Error(`${path} requires source version 7.`);
+    if (!Array.isArray(value) || value.length === 0) {
+        throw new Error(`${path} must contain at least one branch.`);
+    }
+    for (const [branchIndex, branch] of value.entries()) {
+        const branchPath = `${path}[${branchIndex}]`;
+        if (!isRecord(branch)) throw new Error(`${branchPath} must be an object.`);
+        requireOnlyKeys(branch, ['id', 'title', 'steps'], branchPath);
+        requireString(branch.id, `${branchPath}.id`);
+        requireString(branch.title, `${branchPath}.title`);
+        if (usedIds.has(branch.id)) throw new Error(`Duplicate step or branch id in scene ${sceneId}: ${branch.id}`);
+        usedIds.add(branch.id);
+        if (!Array.isArray(branch.steps) || branch.steps.length === 0) {
+            throw new Error(`${branchPath}.steps must contain at least one step.`);
+        }
+        validateSourceStackSteps(branch.steps, `${branchPath}.steps`, sceneId, stack, version, usedIds);
     }
 }
 

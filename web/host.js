@@ -13,7 +13,8 @@ import {
     resolveTourPosition
 } from '../src/tourNavigation.ts';
 import { buildReadingNarrationUnit } from '../src/tourNarration.ts';
-import { buildTourReadingItems, getTourReadingTarget, isImageOnlyTour, resolveTourReadingItem } from '../src/tourReading.ts';
+import { buildTourReadingItems, buildAllTourReadingItems, getTourBranchOptions, getTourBranchParent, getTourBranchContinueTarget, getTourBranchTrail, getTourReadingCost, getTourReadingTarget, isImageOnlyTour, resolveTourReadingItem } from '../src/tourReading.ts';
+import { TourReaderAction, resolveTourReaderKey } from '../src/tourReaderKeyboard.ts';
 import { TourNarrationController } from '../src/tourNarrationPlayback.ts';
 import { createNarrationMediaSession } from './narrationMediaSession.js';
 import { searchTour } from '../src/tourSearch.ts';
@@ -114,8 +115,13 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     let workspaceControlsHost = null;
     let readingTour = null;
     let readingItems = [];
+    let readingBranch = null;
+    let readingDocumentBranch = null;
+    const branchReturns = new WeakMap();
     const readingElements = new Map();
     const collapsedOutline = new Set();
+    const expandedOutline = new Set();
+    const collapsedBranches = new Set();
     let programmaticReadingScroll = null;
     let readingScrollFrame = null;
     const embeddedWorkspaceMode = new URLSearchParams(window.location.search).get('workspaceEmbedded') === '1';
@@ -1278,7 +1284,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                     : lastReadingEvidence?.tour === state.tour ? lastReadingEvidence.context : null
             }));
         });
-        const selectionMenus = [...document.querySelectorAll('.tour-selection-more')];
+        const selectionMenus = [...document.querySelectorAll('.tour-selection-more, .tour-feedback-more')];
         const closeSelectionMenu = (menu, restoreFocus = false) => {
             menu.open = false;
             if (restoreFocus) menu.querySelector('summary').focus();
@@ -1292,10 +1298,25 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             for (const menu of selectionMenus) if (menu.open && !menu.contains(event.target)) closeSelectionMenu(menu);
         });
         document.addEventListener('keydown', (event) => {
-            if (event.key !== 'Escape') return;
-            for (const menu of selectionMenus) if (menu.open) {
+            if (event.key === 'Escape' && event.repeat && !event.isComposing
+                && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && state.mode === 'tour' && isNarrativeMode()) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        }, true);
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+            const menu = selectionMenus.findLast(candidate => candidate.open);
+            if (menu) {
                 event.preventDefault();
                 closeSelectionMenu(menu, true);
+            } else {
+                const disclosure = event.target.closest?.('.tour-evidence-context[open], .tour-shortcuts[open]');
+                if (disclosure) {
+                    event.preventDefault();
+                    disclosure.open = false;
+                    disclosure.querySelector('summary').focus({ preventScroll: true });
+                }
             }
         });
         action('tour-history-compare', () => openComparison({ commits: state.comparisonDraftCommits }));
@@ -1400,20 +1421,27 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
 
         document.getElementById('tour-title')?.addEventListener('click', () => setNarrativeView('tour'));
         document.getElementById('tour-narrative-content')?.addEventListener('scroll', followReadingScroll, { passive: true });
-        document.getElementById('tour-back')?.addEventListener('click', () => showTourLinear(-1));
-        document.getElementById('tour-next')?.addEventListener('click', () => showTourLinear(1));
+        document.getElementById('tour-back')?.addEventListener('click', () => { showTourLinear(-1); focusReaderNavigation(); });
+        document.getElementById('tour-next')?.addEventListener('click', () => { showTourLinear(1); focusReaderNavigation(); });
         tourNarration?.addEventListener('click', () => toggleNarrationSettings());
         tourReturnFocus?.addEventListener('click', returnToTourFocus);
         document.getElementById('tour-directory-root')?.addEventListener('click', () => {
             setNarrativeView('scene');
             document.getElementById('tour-directory-root').focus({ preventScroll: true });
         });
+        document.getElementById('tour-drill')?.addEventListener('click', enterCurrentDetail);
+        document.getElementById('tour-return')?.addEventListener('click', () => {
+            if (readingBranch) returnFromTourBranch(readingBranch);
+        });
+        document.getElementById('tour-keyboard-navigation')?.addEventListener('click', event => {
+            if (!event.target.closest('button')) focusReaderNavigation();
+        });
         tourSearchInput?.addEventListener('input', renderTourSearchResults);
         tourSearchScope?.addEventListener('change', renderTourSearchResults);
         tourListen?.addEventListener('click', toggleNarrationFromHost);
         tourStop?.addEventListener('click', () => narrationController.stop());
-        tourNarrationSkipBack?.addEventListener('click', () => narrationController.skipSegment(-1));
-        tourNarrationSkipAhead?.addEventListener('click', () => narrationController.skipSegment(1));
+        tourNarrationSkipBack?.addEventListener('click', () => skipNarrationSentence(-1));
+        tourNarrationSkipAhead?.addEventListener('click', () => skipNarrationSentence(1));
         tourVoice?.addEventListener('change', () => {
             state.narrationVoiceURI = tourVoice.value;
             preferences.setItem(TOUR_NARRATION_VOICE_STORAGE_KEY, state.narrationVoiceURI);
@@ -1435,7 +1463,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         });
         window.addEventListener('keydown', (event) => {
             if (event.defaultPrevented || event.isComposing) return;
-            if (handleNarrationShortcut(event)) return;
+            if (handleReaderShortcut(event) || handleNarrationShortcut(event)) return;
             if (state.mode === 'tour' && (event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLocaleLowerCase() === 'f') {
                 event.preventDefault();
                 event.stopImmediatePropagation();
@@ -1446,22 +1474,20 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 tourSearchInput?.select();
                 return;
             }
-            if (state.mode !== 'tour' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || isInteractiveKeyTarget(event.target)) {
+            if (state.mode !== 'tour' || state.zoom?.mode !== 'history' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || isInteractiveKeyTarget(event.target)) {
                 return;
             }
             if (event.key === 'PageUp' || event.key === 'ArrowLeft') {
                 event.preventDefault();
-                if (state.zoom?.mode === 'history') void navigateZoomHistory(1)?.catch(reportModeError);
-                else showTourLinear(-1);
+                void navigateZoomHistory(1)?.catch(reportModeError);
             } else if (event.key === 'PageDown' || event.key === 'ArrowRight') {
                 event.preventDefault();
-                if (state.zoom?.mode === 'history') void navigateZoomHistory(-1)?.catch(reportModeError);
-                else showTourLinear(1);
+                void navigateZoomHistory(-1)?.catch(reportModeError);
             } else if (state.zoom?.mode === 'history' && ['ArrowUp', 'ArrowDown'].includes(event.key)) {
                 event.preventDefault();
                 showTourFile(event.key === 'ArrowUp' ? -1 : 1);
             }
-        }, true);
+        });
         window.addEventListener('bygone:tour-command', (event) => {
             if (event.detail === 'toggleNarration') toggleNarrationFromHost();
             if (event.detail === 'pauseNarration') narrationController.pauseForExternalOwner();
@@ -1473,24 +1499,98 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         renderNarrationPlaybackState(narrationController.state);
     }
 
-    function handleNarrationShortcut(event) {
-        if (state.mode !== 'tour' || !deviceNarrationAvailable
-            || event.metaKey || event.ctrlKey || event.altKey
-            || isInteractiveKeyTarget(event.target)
-            || event.target?.closest?.('[role="separator"], [role="slider"], [role="menu"], [role="listbox"]')
+    function nativeReaderKeyOwner(event) {
+        const target = event.target instanceof Element ? event.target : null;
+        const selection = window.getSelection();
+        return Boolean(event.defaultPrevented || event.isComposing
+            || target?.closest('input, select, textarea, [contenteditable]:not([contenteditable="false"]), .monaco-editor, summary, [role="textbox"], [role="separator"], [role="slider"], [role="menu"], [role="listbox"], [role="tree"], [role="grid"], [role="tablist"], [role="combobox"], [role="spinbutton"], [role="radiogroup"], [role="scrollbar"], [aria-activedescendant]')
+            || target?.closest('#tour-scenes, #tour-search-results')
             || [...document.querySelectorAll('dialog[open], [aria-modal="true"]')].some(dialog => dialog.getClientRects().length > 0)
-            || window.getSelection()?.isCollapsed === false) return false;
-        const toggle = event.key === ' ' && !event.shiftKey;
-        const skip = event.shiftKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight');
-        if (!toggle && !skip) return false;
-        // Consume repeats without toggling again, and reserve Shift+arrows even
-        // when idle or at a boundary so they never fall through to tour navigation.
+            || selection?.isCollapsed === false);
+    }
+
+    function handleReaderShortcut(event) {
+        // A modal owns cancellation and focus restoration before reader recovery.
+        if (event.key === 'Escape' && [...document.querySelectorAll('dialog[open], [aria-modal="true"]')]
+            .some(dialog => dialog.getClientRects().length > 0)) return false;
+        const action = resolveTourReaderKey({
+            key: event.key, shiftKey: event.shiftKey, altKey: event.altKey,
+            ctrlKey: event.ctrlKey, metaKey: event.metaKey,
+            defaultPrevented: event.defaultPrevented, isComposing: event.isComposing,
+            readerActive: state.mode === 'tour' && isNarrativeMode(),
+            navigationFocused: event.target?.id === 'tour-keyboard-navigation',
+            nativeKeyOwner: nativeReaderKeyOwner(event)
+        });
+        if (!action) return false;
         event.preventDefault();
-        event.stopImmediatePropagation();
-        if (!event.repeat) {
-            if (toggle) toggleNarrationFromHost();
-            else narrationController.skipSegment(event.key === 'ArrowLeft' ? -1 : 1);
+        event.stopPropagation();
+        if (event.repeat) return true;
+        switch (action) {
+            case TourReaderAction.RecoverFocus:
+                if (!state.tourSidebarHidden && window.matchMedia('(max-width: 720px)').matches) {
+                    setTourSidebarHidden(true);
+                    document.getElementById('tour-sidebar-show').focus({ preventScroll: true });
+                    break;
+                }
+                window.getSelection()?.removeAllRanges();
+                focusReaderNavigation();
+                break;
+            case TourReaderAction.PreviousStep: showTourLinear(-1); focusReaderNavigation(); break;
+            case TourReaderAction.NextStep: showTourLinear(1); focusReaderNavigation(); break;
+            case TourReaderAction.PreviousSentence: skipNarrationSentence(-1); break;
+            case TourReaderAction.NextSentence: skipNarrationSentence(1); break;
+            case TourReaderAction.EnterDetail: enterCurrentDetail(); break;
+            case TourReaderAction.ReturnToParent:
+                if (readingBranch) returnFromTourBranch(readingBranch);
+                break;
         }
+        return true;
+    }
+
+    function handleNarrationShortcut(event) {
+        // Space still scrolls prose; expanding arrow navigation must not make
+        // an ordinary reading gesture start audio after clicking the text.
+        const target = event.target instanceof Element ? event.target : null;
+        const inProse = target?.closest('#tour-narrative-content')
+            || (target === document.body && window.getSelection()?.anchorNode?.parentElement?.closest('#tour-narrative-content'));
+        if (state.mode !== 'tour' || !isNarrativeMode() || !deviceNarrationAvailable
+            || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey
+            || isInteractiveKeyTarget(event.target) || nativeReaderKeyOwner(event) || inProse
+            || event.key !== ' ') return false;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) toggleNarrationFromHost();
+        return true;
+    }
+
+    function currentSentencePosition() {
+        const position = narrationController.position;
+        if (position?.unit.readingKey === state.readingKey) return position;
+        const unit = buildActiveNarrationUnit('continuous');
+        return unit?.segments.length ? { unit, segmentIndex: 0 } : null;
+    }
+
+    function canSkipNarrationSentence(direction) {
+        if (!isNarrativeMode()) return false;
+        const position = currentSentencePosition();
+        if (!position) return false;
+        const index = position.segmentIndex + direction;
+        return (index >= 0 && index < position.unit.segments.length)
+            || canNavigateNarrationUnit(position.unit, direction);
+    }
+
+    function skipNarrationSentence(direction) {
+        if (!canSkipNarrationSentence(direction)) return false;
+        const position = currentSentencePosition();
+        if (narrationController.position?.unit !== position.unit) {
+            state.renderedNarrationUnit = position.unit;
+            renderCurrentNarrativeForNarrationUnit(position.unit);
+            narrationController.select(position.unit, position.segmentIndex);
+        }
+        if (!narrationController.skipSegment(direction)) return false;
+        // Silent selection still reveals its text; ordinary exploration does not.
+        const segment = narrationController.position?.unit.segments[narrationController.position.segmentIndex];
+        renderNarrationHighlight(segment, narrationController.state.kind !== 'playing', true);
         return true;
     }
 
@@ -1587,15 +1687,17 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
 
     function startNarrationAtCurrentPosition() {
         if (!deviceNarrationAvailable || state.mode !== 'tour') return;
-        const unit = buildActiveNarrationUnit('playback-start');
+        const position = currentSentencePosition();
+        const unit = position?.unit;
         if (!unit) return;
         if (document.getElementById('tour-audio-settings')?.hidden) toggleNarrationSettings();
         state.renderedNarrationUnit = unit;
         renderCurrentNarrativeForNarrationUnit(unit);
-        narrationController.start(unit, true);
+        narrationController.start(unit, true, position.segmentIndex);
     }
 
     function toggleNarrationFromHost() {
+        if (!deviceNarrationAvailable || !isNarrativeMode()) return;
         if (narrationController.state.kind === 'playing' || narrationController.state.kind === 'paused') {
             narrationController.togglePause();
         } else {
@@ -1651,12 +1753,14 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 ? 'Pause' : playbackState.kind === 'paused' ? 'Resume' : 'Listen';
         }
         if (stop) stop.disabled = playbackState.kind !== 'playing' && playbackState.kind !== 'paused';
-        if (skipBack) skipBack.disabled = !narrationController.canSkipSegment(-1);
-        if (skipAhead) skipAhead.disabled = !narrationController.canSkipSegment(1);
+        if (skipBack) skipBack.disabled = !canSkipNarrationSentence(-1);
+        if (skipAhead) skipAhead.disabled = !canSkipNarrationSentence(1);
         if (playbackState.kind === 'playing' || playbackState.kind === 'paused') {
             const ordinal = playbackState.segmentIndex + 1;
             const total = playbackState.unit.segments.length;
             setNarrationStatus(`${playbackState.kind === 'paused' ? 'Paused' : 'Speaking'} · segment ${ordinal} of ${total}`);
+        } else if (playbackState.kind === 'selected') {
+            setNarrationStatus(`Sentence ${playbackState.segmentIndex + 1} of ${playbackState.unit.segments.length} selected`);
         } else if (playbackState.kind === 'completed') {
             setNarrationStatus('Narration complete');
         } else if (playbackState.kind === 'error') {
@@ -1671,7 +1775,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         if (status) status.textContent = message;
     }
 
-    function renderNarrationHighlight(segment, paused) {
+    function renderNarrationHighlight(segment, paused, reveal = false) {
         document.querySelectorAll('.tour-narration-segment.is-speaking').forEach((element) => {
             element.classList.remove('is-speaking', 'is-paused');
         });
@@ -1686,7 +1790,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         });
         // Exploring the document pauses narration; a paused segment must not
         // pull the reader back to the introduction or move the code pane.
-        if (paused) return;
+        if (paused && !reveal) return;
         const narrative = document.getElementById('tour-narrative-content');
         if (!narrative) return;
         const elementBounds = element.getBoundingClientRect();
@@ -1758,6 +1862,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         }
 
         applyTourSidebarWidth();
+        if (window.matchMedia('(max-width: 720px)').matches) setTourSidebarHidden(true);
         hideButton.addEventListener('click', () => setTourSidebarHidden(true));
         showButton.addEventListener('click', () => setTourSidebarHidden(false));
 
@@ -2127,16 +2232,16 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         scenes.replaceChildren();
         if (isNarrativeMode()) {
             buildReadingDocument();
-            const intro = readingButton('Intro', 'Read the introduction and tour route', () => activateReadingItem(readingItems.find(item => item.kind === 'title')));
+            const intro = readingButton('Intro', 'Read the introduction and tour route', () => activateReadingItem(buildTourReadingItems(tour).find(item => item.kind === 'title')));
             intro.className = 'tour-scene';
             intro.dataset.readingLink = 'title';
             scenes.append(intro);
         }
         const sceneById = new Map(tour.scenes.map((scene) => [scene.id, scene]));
         for (const chapter of tour.chapters) {
-            const chapterGroup = createOutlineGroup(`chapter:${chapter.id}`, `${tour.chapters.indexOf(chapter) + 1}. ${chapter.title}`, 'tour-chapter-link', () => {
-                const item = readingItems.find((entry) => entry.kind === 'chapter' && entry.chapterId === chapter.id)
-                    || readingItems.find((entry) => entry.kind === 'scene' && chapter.sceneIds.includes(tour.scenes[entry.sceneIndex]?.id));
+            const chapterGroup = createOutlineGroup(`chapter:${chapter.id}`, chapter.title, 'tour-chapter-link', () => {
+                const item = buildTourReadingItems(tour).find((entry) => entry.kind === 'chapter' && entry.chapterId === chapter.id)
+                    || buildTourReadingItems(tour).find((entry) => entry.kind === 'scene' && chapter.sceneIds.includes(tour.scenes[entry.sceneIndex]?.id));
                 if (item) activateReadingItem(item);
             });
             const chapterContent = chapterGroup.children;
@@ -2157,49 +2262,22 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 group.link.title = `Open scene: ${scene.kind === 'text-diff' ? scene.path : scene.title}`;
                 const copy = document.createElement('span');
                 copy.className = 'tour-scene-copy';
-                for (const [className, text] of [
-                    ['tour-scene-title', `${index + 1}. ${scene.title}`],
-                    ['tour-scene-path', scene.kind === 'text-diff'
-                        ? scene.path
-                        : scene.kind === 'deconstructed-diff'
-                            ? `${formatCount(scene.panels.length - 1, 'comparison stage')} · ${formatCount(scene.steps.length, 'tour slide')}`
-                            : isSteppedTourScene(scene)
-                                ? formatCount(scene.steps.length, scene.steps.every(step => step.image) ? 'image' : 'step')
-                                : 'Discussion'],
-                    ['tour-scene-note', scene.takeaway]
-                ]) {
-                    const line = document.createElement('span');
-                    line.className = className;
-                    line.textContent = text;
-                    copy.append(line);
-                }
+                const line = document.createElement('span');
+                line.className = 'tour-scene-title';
+                line.textContent = scene.title;
+                copy.append(line);
                 button.append(copy);
                 chapterContent.append(group.group);
                 if (isSteppedTourScene(scene)) {
                     const steps = group.children;
                     steps.classList.add('tour-outline-steps');
                     steps.dataset.sceneId = scene.id;
-                    scene.steps.forEach((step, stepIndex) => {
-                        const stepButton = document.createElement('button');
-                        stepButton.type = 'button';
-                        stepButton.className = 'tour-outline-step';
-                        stepButton.dataset.sceneId = scene.id;
-                        stepButton.dataset.stepIndex = String(stepIndex);
-                        const stage = scene.kind === 'deconstructed-diff'
-                            ? `Stage ${(step.stageIndex ?? step.pairIndex) + 1}: ` : '';
-                        stepButton.textContent = `${stepIndex + 1}. ${step.title}`;
-                        stepButton.title = `${stage}${step.title}`;
-                        stepButton.addEventListener('click', () => showTourScene(index, stepIndex, {
-                            userNavigation: true,
-                            showIntro: false
-                        }));
-                        steps.append(stepButton);
-                    });
+                    appendOutlineSteps(steps, tour, index);
                 } else group.toggle.hidden = true;
             }
         }
         if (isNarrativeMode() && tour.conclusion) {
-            const conclusion = readingButton('Conclusion', `Read ${tour.conclusion.title}`, () => activateReadingItem(readingItems.find(item => item.kind === 'conclusion')));
+            const conclusion = readingButton('Conclusion', `Read ${tour.conclusion.title}`, () => activateReadingItem(buildTourReadingItems(tour).find(item => item.kind === 'conclusion')));
             conclusion.className = 'tour-scene';
             conclusion.dataset.readingLink = 'conclusion';
             scenes.append(conclusion);
@@ -2207,6 +2285,44 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         renderTourFiles();
         renderCorrespondences();
         setTourNavigatorTab(state.tourNavigatorTab);
+    }
+
+    function appendOutlineSteps(container, tour, sceneIndex, branchId = null) {
+        const scene = tour.scenes[sceneIndex];
+        const members = scene.steps.filter(step => (step.branch?.id ?? null) === branchId);
+        members.forEach((step) => {
+            const stepIndex = scene.steps.indexOf(step);
+            const button = readingButton(step.title, `Read ${step.title}`, () => showTourScene(sceneIndex, stepIndex, {
+                userNavigation: true, showIntro: false
+            }));
+            button.className = 'tour-outline-step';
+            button.dataset.sceneId = scene.id;
+            button.dataset.stepIndex = String(stepIndex);
+            button.dataset.readingLink = `step:${scene.id}:${step.id}`;
+            container.append(button);
+            for (const branch of getTourBranchOptions(tour, sceneIndex, step.id)) {
+                const details = document.createElement('details');
+                details.className = 'tour-outline-branch';
+                details.dataset.outlineBranchId = branch.id;
+                details.dataset.sceneIndex = String(sceneIndex);
+                const summary = document.createElement('summary');
+                summary.append(`Optional: ${branch.title}`);
+                const status = document.createElement('span');
+                status.className = 'tour-outline-branch-status';
+                status.hidden = true;
+                const branchKey = `${scene.id}:${branch.id}`;
+                summary.addEventListener('click', () => {
+                    if (details.open) collapsedBranches.add(branchKey);
+                    else collapsedBranches.delete(branchKey);
+                });
+                summary.append(status);
+                const children = document.createElement('div');
+                children.className = 'tour-outline-branch-steps';
+                appendOutlineSteps(children, tour, sceneIndex, branch.id);
+                details.append(summary, children);
+                container.append(details);
+            }
+        });
     }
 
     function renderCorrespondences() {
@@ -2617,6 +2733,13 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         state.activeCorrespondenceId = null;
         setDirectoryOverviewStatus('');
         renderDirectoryOverviewBreadcrumb();
+        const requestedItem = options.readingKey
+            ? buildAllTourReadingItems(tour).find(item => item.key === options.readingKey) : null;
+        const requestedScene = tour.scenes[requestedItem?.sceneIndex ?? index];
+        const requestedStep = !options.showIntro && (!requestedItem || requestedItem.kind === 'step')
+            ? requestedScene?.steps?.[requestedItem?.stepIndex ?? stepIndex] : null;
+        readingBranch = requestedStep?.branch
+            ? { sceneIndex: requestedItem?.sceneIndex ?? index, branchId: requestedStep.branch.id } : null;
         buildReadingDocument();
         let readingItem = readingItems.find((item) => item.key === options.readingKey)
             || resolveTourReadingItem(readingItems, index, stepIndex, options.showIntro ? 'overview' : null);
@@ -2649,8 +2772,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 : null;
         const location = scene ? getSceneLocation(tour, index) : null;
         updateReadingSelection();
-        const narrationUnit = options.preserveNarration && narrationController.engaged
-            ? narrationController.state.unit : buildActiveNarrationUnit(options.narrationEntry || 'playback-start');
+        const narrationUnit = options.preserveNarration && narrationController.position
+            ? narrationController.position.unit : buildActiveNarrationUnit(options.narrationEntry || 'playback-start');
         state.renderedNarrationUnit = narrationUnit;
         renderTourNarrative(scene, location, narrationUnit);
         if (!options.fromReadingScroll || bookendChanged) scrollToReadingItem(state.readingKey);
@@ -3303,12 +3426,6 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         };
     }
 
-    function formatTourBreadcrumb(scene, stepIndex) {
-        return isSteppedTourScene(scene)
-            ? `${scene.title} · Step ${stepIndex + 1} of ${scene.steps.length}`
-            : scene.title;
-    }
-
     function findChangeIndexAtSourceLine(diffModel, side, sourceLine) {
         const lines = side === 'left' ? diffModel.leftLines : diffModel.rightLines;
         const renderedIndex = lines.findIndex((line) => line.lineNumber === sourceLine);
@@ -3372,14 +3489,18 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         children.id = `outline-${encodeURIComponent(key)}`;
         const collapseKey = `${state.zoom?.mode || 'tour'}:${key}`;
         const toggle = readingButton('▾', `Expand or collapse ${title}`, () => {
-            if (collapsedOutline.has(collapseKey)) collapsedOutline.delete(collapseKey);
-            else collapsedOutline.add(collapseKey);
+            if (children.hidden) {
+                collapsedOutline.delete(collapseKey); expandedOutline.add(collapseKey);
+            } else {
+                expandedOutline.delete(collapseKey); collapsedOutline.add(collapseKey);
+            }
             update();
         });
         toggle.className = 'tour-outline-toggle';
         toggle.setAttribute('aria-controls', children.id);
+        group.dataset.collapseKey = collapseKey;
         const update = () => {
-            children.hidden = collapsedOutline.has(collapseKey);
+            children.hidden = collapsedOutline.has(collapseKey) || (!expandedOutline.has(collapseKey) && !group.classList.contains('has-active'));
             toggle.setAttribute('aria-expanded', String(!children.hidden));
             toggle.textContent = children.hidden ? '▸' : '▾';
         };
@@ -3401,11 +3522,56 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
 
     function renderNarrativeViewControls() {
         renderDirectoryOverviewBreadcrumb();
+        const scope = readingBranch ? 'detail' : 'main';
         for (const [id, direction] of [['tour-back', -1], ['tour-next', 1]]) {
-            const button = document.getElementById(id);
-            if (button) button.disabled = !isNarrativeMode() || !getTourReadingTarget(
-                readingItems, state.readingKey, direction, isImageOnlyTour(state.tour)
-            );
+            const navigationButton = document.getElementById(id);
+            const target = getTourReadingTarget(readingItems, state.readingKey, direction, isImageOnlyTour(state.tour));
+            if (navigationButton) {
+                navigationButton.disabled = !isNarrativeMode() || !target;
+                navigationButton.textContent = direction < 0 ? '↑ Prev' : 'Next ↓';
+                navigationButton.title = target ? `${direction < 0 ? 'Previous' : 'Next'}: ${tourReadingTitle(state.tour, target)} (${direction < 0 ? 'Up' : 'Down'} Arrow)` : `${direction < 0 ? 'Start' : 'End'} of ${scope} path`;
+                navigationButton.setAttribute('aria-label', navigationButton.title);
+            }
+        }
+        const drill = document.getElementById('tour-drill');
+        const backToParent = document.getElementById('tour-return');
+        const detailOptions = currentDetailOptions();
+        if (drill) {
+            if (!detailOptions.length && document.activeElement === drill) focusReaderNavigation();
+            drill.hidden = detailOptions.length === 0;
+            drill.disabled = !isNarrativeMode() || detailOptions.length === 0;
+            drill.title = detailOptions.length === 1
+                ? `Explore detail: ${detailOptions[0].title} (Right Arrow; Enter when navigation is focused)`
+                : `Explore detail: choose an optional path (Right Arrow; Enter when navigation is focused)`;
+            drill.setAttribute('aria-label', drill.title);
+        }
+        if (backToParent) {
+            if (!readingBranch && document.activeElement === backToParent) focusReaderNavigation();
+            backToParent.hidden = !readingBranch;
+            backToParent.disabled = !isNarrativeMode() || !readingBranch;
+            const parent = readingBranch && getTourBranchParent(state.tour, readingBranch);
+            backToParent.title = parent
+                ? `Return to parent: ${tourReadingTitle(state.tour, parent)} (Left Arrow)`
+                : 'Already on the main path';
+            backToParent.setAttribute('aria-label', backToParent.title);
+        }
+        const keyboard = document.getElementById('tour-keyboard-navigation');
+        const currentItem = readingItems.find(item => item.key === state.readingKey);
+        if (keyboard && currentItem) keyboard.setAttribute('aria-label', `Tour navigation: ${tourReadingTitle(state.tour, currentItem)}. Up/Down: steps. Enter/Right: explore detail. Left: return to parent. Escape: back to reading.`);
+        const progress = document.getElementById('tour-progress');
+        if (progress && currentItem) {
+            const steps = readingItems.filter(item => item.kind === 'step');
+            const index = steps.findIndex(item => item.key === currentItem.key);
+            progress.textContent = index >= 0
+                ? `${readingBranch ? 'Detail' : 'Main'} · ${index + 1}/${steps.length}`
+                : currentItem.kind === 'title' ? 'Introduction'
+                : currentItem.kind === 'conclusion' ? 'Conclusion' : 'Section';
+        }
+        const plan = document.getElementById('tour-reading-plan');
+        if (plan) {
+            const next = getTourReadingTarget(readingItems, state.readingKey, 1, isImageOnlyTour(state.tour));
+            plan.hidden = Boolean(next);
+            plan.textContent = `End of ${scope}. Next and narration stop here.`;
         }
         const narration = document.getElementById('tour-narration');
         const settings = document.getElementById('tour-audio-settings');
@@ -3491,8 +3657,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             if (request !== documentNavigationId) return;
             const element = readingElements.get(target.key);
             if (!element) throw new Error('The requested document section could not be rendered.');
-            element.tabIndex = -1;
-            element.focus({ preventScroll: true });
+            focusReaderNavigation();
             scrollToReadingItem(target.key);
             element.classList.add('tour-link-target');
             window.setTimeout(() => element.classList.remove('tour-link-target'), 1800);
@@ -3608,7 +3773,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             : state.narrativeParent === 'conclusion' ? 'Conclusion'
             : state.narrativeParent === 'chapter' ? location.chapter?.title || ''
                 : state.sceneIntroVisible ? scene.title
-                    : formatTourBreadcrumb(scene, state.activeStepIndex);
+                    : scene.title;
         // Only refresh sentence spans, never replace the document or disclosures.
         const sceneElement = scene && readingElements.get(`scene:${scene.id}`);
         const step = isSteppedTourScene(scene) ? scene.steps[state.activeStepIndex] : null;
@@ -3616,6 +3781,12 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         for (const element of new Set([sceneElement, stepElement, readingElements.get(state.readingKey)].filter(Boolean))) {
             element.querySelectorAll('[data-reading-field]').forEach((field) => {
                 if (field.closest('[data-reading-key]') !== element) return;
+                if (field.dataset.readingField === 'step-orientation') {
+                    const detail = narrationUnit?.readingKey === element.dataset.readingKey ? narrationUnit.orientationDetail : undefined;
+                    const text = describeStepOrientation(state.tour, Number(element.dataset.sceneIndex), Number(element.dataset.stepIndex), detail);
+                    field.dataset.readingText = text;
+                    field.hidden = !text;
+                }
                 renderNarrationField(field, field.dataset.readingText, {
                     field: field.dataset.readingField,
                     ...(field.dataset.itemIndex !== undefined ? { itemIndex: Number(field.dataset.itemIndex) } : {})
@@ -3625,10 +3796,102 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         renderNarrativeViewControls();
     }
 
+    function currentDetailOptions() {
+        const parent = readingItems.find(item => item.key === state.readingKey);
+        const scene = parent && state.tour?.scenes[parent.sceneIndex];
+        return parent?.kind === 'step' && isSteppedTourScene(scene)
+            ? getTourBranchOptions(state.tour, parent.sceneIndex, scene.steps[parent.stepIndex].id) : [];
+    }
+
+    function enterCurrentDetail() {
+        const parent = readingItems.find(item => item.key === state.readingKey);
+        const choices = currentDetailOptions();
+        if (!parent || !choices.length) return;
+        if (choices.length === 1) { openTourBranch(parent, choices[0]); return; }
+        const dialog = document.createElement('dialog');
+        dialog.className = 'tour-detail-chooser';
+        dialog.setAttribute('aria-label', 'Choose optional detail');
+        const heading = document.createElement('h2'); heading.textContent = 'Choose optional detail';
+        dialog.append(heading);
+        for (const branch of choices) {
+            dialog.append(readingButton(branch.title, `Read optional detail: ${branch.title}`, () => {
+                dialog.close(); openTourBranch(parent, branch);
+            }));
+        }
+        dialog.append(readingButton('Cancel', 'Keep reading the current path', () => dialog.close()));
+        dialog.addEventListener('close', () => { dialog.remove(); focusReaderNavigation(); }, { once: true });
+        document.body.append(dialog);
+        dialog.showModal();
+    }
+
+    function openTourBranch(parent, branch) {
+        let positions = branchReturns.get(state.tour);
+        if (!positions) branchReturns.set(state.tour, positions = new Map());
+        positions.set(`${parent.sceneIndex}:${branch.id}`, {
+            item: parent, scrollTop: document.getElementById('tour-narrative-content').scrollTop,
+            sentence: currentSentencePosition(), engaged: narrationController.engaged
+        });
+        const first = buildTourReadingItems(state.tour, { sceneIndex: parent.sceneIndex, branchId: branch.id })[0];
+        if (first) activateReadingItem(first);
+        focusReaderNavigation();
+    }
+
+    function focusReaderNavigation() {
+        document.getElementById('tour-keyboard-navigation')?.focus({ preventScroll: true });
+    }
+
+    function returnFromTourBranch(location) {
+        const saved = branchReturns.get(state.tour)?.get(`${location.sceneIndex}:${location.branchId}`);
+        const parent = getTourBranchParent(state.tour, location);
+        if (!parent) return;
+        activateReadingItem(parent);
+        if (saved?.item.key === parent.key) {
+            if (saved.sentence) {
+                state.renderedNarrationUnit = saved.sentence.unit;
+                renderCurrentNarrativeForNarrationUnit(saved.sentence.unit);
+                narrationController.select(saved.sentence.unit, saved.sentence.segmentIndex, saved.engaged && deviceNarrationAvailable);
+            }
+            const content = document.getElementById('tour-narrative-content');
+            content.scrollTop = saved.scrollTop;
+            programmaticReadingScroll = content.scrollTop;
+        }
+        focusReaderNavigation();
+    }
+
+    function buildBranchNavigation(footer = false) {
+        const location = { ...readingBranch };
+        const trail = getTourBranchTrail(state.tour, location);
+        const parent = getTourBranchParent(state.tour, location);
+        const nav = document.createElement('nav');
+        nav.className = footer ? 'tour-branch-navigation tour-branch-footer' : 'tour-branch-navigation';
+        nav.setAttribute('aria-label', footer ? 'Finish optional branch' : 'Optional branch');
+        if (!footer) {
+            const label = document.createElement('p');
+            label.className = 'tour-branch-label';
+            label.textContent = `Optional detail · ${trail.map(branch => branch.title).join(' › ')}`;
+            nav.append(label);
+            return nav;
+        }
+        if (parent) {
+            const back = readingButton(`← Return to ${trail.length > 1 ? 'parent detail' : 'main'}: ${tourReadingTitle(state.tour, parent)}`, 'Return to the owning step without advancing', () => returnFromTourBranch(location));
+            back.className = 'tour-branch-return';
+            nav.append(back);
+        }
+        const next = getTourBranchContinueTarget(state.tour, location);
+        if (next) {
+            const resume = readingButton(`Continue ${trail.length > 1 ? 'parent detail' : 'main tour'} ↓ ${tourReadingTitle(state.tour, next)}`, 'Skip remaining detail and advance past its owner on the parent path', () => { activateReadingItem(next); focusReaderNavigation(); });
+            resume.className = 'tour-branch-continue';
+            nav.append(resume);
+        }
+        return nav;
+    }
+
     function buildReadingDocument() {
-        if (readingTour === state.tour) return;
+        const branchKey = readingBranch ? `${readingBranch.sceneIndex}:${readingBranch.branchId}` : null;
+        if (readingTour === state.tour && readingDocumentBranch === branchKey) return;
         readingTour = state.tour;
-        readingItems = buildTourReadingItems(state.tour);
+        readingDocumentBranch = branchKey;
+        readingItems = buildTourReadingItems(state.tour, readingBranch);
         readingElements.clear();
         const content = document.getElementById('tour-narrative-content');
         const roots = [];
@@ -3671,6 +3934,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 row.append(button);
             });
         };
+        if (readingBranch) roots.push(buildBranchNavigation());
         for (const item of readingItems) {
             const element = document.createElement('section');
             element.className = 'tour-reading-item';
@@ -3681,6 +3945,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             const scene = state.tour.scenes[item.sceneIndex];
             if (item.kind === 'title') {
                 field(element, 'h1', 'tour-document-title', state.tour.title, 'document-title');
+                const cost = getTourReadingCost(state.tour);
+                if (cost.optional.steps) field(element, 'p', 'tour-reading-cost', `${cost.main.steps} main steps · ${cost.optional.steps} optional steps`);
                 if (state.tour.opening) {
                     field(element, 'h2', 'tour-passage-title', state.tour.opening.title, 'passage-title');
                     overview(element, state.tour.opening, true);
@@ -3743,7 +4009,11 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                 overview(intro, { ...scene, takeaway: isSteppedTourScene(scene) ? '' : scene.takeaway }, true);
                 if (scene.overview?.purpose) field(intro, 'p', 'tour-overview-purpose', scene.overview.purpose, 'overview-purpose');
                 const evidenceContext = resolveTourEvidenceContext(state.tour, item, state.zoom?.mode);
-                if (evidenceContext) field(intro, 'p', 'tour-scene-orientation', describeTourComparison(evidenceContext));
+                if (evidenceContext) {
+                    const evidence = field(intro, 'details', 'tour-evidence-context', '');
+                    field(evidence, 'summary', '', 'Evidence context');
+                    field(evidence, 'p', 'tour-scene-orientation', describeTourComparison(evidenceContext));
+                }
                 const tags = field(intro, 'div', 'tour-narrative-tags', '');
                 scene.tags.forEach((tag) => field(tags, 'span', '', tag));
             } else {
@@ -3752,8 +4022,9 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                     ? (!step.body ? scene.panels[step.pairIndex + 1].label : `Stage ${(step.stageIndex ?? step.pairIndex) + 1}`) : '';
                 if (stage) field(element, 'div', 'tour-narrative-chapter', stage, 'stage-title');
                 field(element, 'h3', 'tour-step-title', tourReadingTitle(state.tour, item), 'step-title');
-                field(element, 'p', 'tour-step-orientation', describeStepOrientation(state.tour, item.sceneIndex, item.stepIndex), 'step-orientation');
                 if (step.body) field(element, 'p', 'tour-step-body', step.body, 'step-body');
+                const orientation = describeStepOrientation(state.tour, item.sceneIndex, item.stepIndex);
+                field(element, 'p', 'tour-step-orientation', orientation, 'step-orientation').hidden = !orientation;
                 if (scene.kind === 'deconstructed-diff' && !step.body) {
                     const firstStepIndex = scene.steps.findIndex(candidate => candidate.pairIndex === step.pairIndex);
                     if (firstStepIndex >= 0 && firstStepIndex < item.stepIndex) {
@@ -3770,10 +4041,25 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
                     field(element, 'p', 'tour-connection', `${step.connection.from.path} → ${step.connection.to.path}`);
                     field(element, 'p', 'tour-connection', step.connection.label, 'connection');
                 }
-                if (item.stepIndex === scene.steps.length - 1) field(element, 'p', 'tour-narrative-takeaway', scene.takeaway, 'takeaway');
+                if (!step.branch && step === scene.steps.filter(candidate => !candidate.branch).at(-1)) field(element, 'p', 'tour-narrative-takeaway', scene.takeaway, 'takeaway');
+                const branches = getTourBranchOptions(state.tour, item.sceneIndex, step.id);
+                if (branches.length) {
+                    const choices = field(element, 'div', 'tour-branch-choices', '');
+                    field(choices, 'span', 'tour-branch-label', 'Optional · skipped by Next and narration');
+                    for (const branch of branches) {
+                        const button = readingButton(`Explore: ${branch.title} →`, `Read optional detail: ${branch.title}`, () => openTourBranch(item, branch));
+                        button.className = 'tour-branch-link';
+                        button.dataset.branchId = branch.id;
+                        choices.append(button);
+                    }
+                }
                 const target = getActiveStepCodeTarget(scene, item.stepIndex);
                 if (target) {
-                    const code = field(element, 'div', 'tour-step-code', '');
+                    const evidence = field(element, 'details', 'tour-evidence-context', '');
+                    field(evidence, 'summary', '', scene.kind === 'deconstructed-diff' ? 'Evidence · explanation stages' : 'Evidence context');
+                    const context = resolveTourEvidenceContext(state.tour, item, state.zoom?.mode);
+                    if (context) field(evidence, 'p', 'tour-evidence-comparison', describeTourComparison(context));
+                    const code = field(evidence, 'div', 'tour-step-code', '');
                     field(code, 'span', 'tour-step-code-location', target.label);
                     const button = readingButton('Show in code', `Show ${target.label}`, () => {
                         activateReadingItem(item);
@@ -3785,12 +4071,13 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             }
             element.querySelector('h1, h2, h3').append(makeCopyLocationButton(focusForReadingItem(item)));
             readingElements.set(item.key, element);
-            if (item.kind === 'step') sceneGroup.append(element);
+            if (item.kind === 'step' && sceneGroup) sceneGroup.append(element);
             else {
                 roots.push(element);
                 sceneGroup = item.kind === 'scene' ? element : null;
             }
         }
+        if (readingBranch) roots.push(buildBranchNavigation(true));
         content.replaceChildren(...roots);
         programmaticReadingScroll = content.scrollTop;
     }
@@ -3807,8 +4094,27 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             if (active) button.setAttribute('aria-current', 'location');
             else button.removeAttribute('aria-current');
         });
+        const trail = readingBranch ? getTourBranchTrail(state.tour, readingBranch) : [];
+        document.querySelectorAll('.tour-outline-branch').forEach((group) => {
+            const onTrail = readingBranch?.sceneIndex === Number(group.dataset.sceneIndex)
+                && trail.some(branch => branch.id === group.dataset.outlineBranchId);
+            const current = onTrail && group.dataset.outlineBranchId === readingBranch.branchId;
+            const branchKey = `${state.tour.scenes[Number(group.dataset.sceneIndex)].id}:${group.dataset.outlineBranchId}`;
+            if (onTrail && !collapsedBranches.has(branchKey)) group.open = true;
+            group.classList.toggle('is-reading-path', Boolean(current));
+            const status = group.querySelector('.tour-outline-branch-status');
+            status.hidden = !onTrail;
+            status.textContent = current ? 'Current' : onTrail ? 'Parent' : '';
+        });
         document.querySelectorAll('.tour-outline-group').forEach((group) => {
             group.classList.toggle('has-active', Boolean(group.querySelector('[aria-current="location"]')));
+            const children = group.querySelector(':scope > .tour-outline-children');
+            const closed = collapsedOutline.has(group.dataset.collapseKey)
+                || (!expandedOutline.has(group.dataset.collapseKey) && !group.classList.contains('has-active'));
+            children.hidden = closed;
+            const toggle = group.querySelector(':scope > .tour-outline-heading .tour-outline-toggle');
+            toggle.setAttribute('aria-expanded', String(!closed));
+            toggle.textContent = closed ? '▸' : '▾';
         });
         const outline = document.getElementById('tour-scenes');
         let link = outline?.querySelector('[aria-current="location"]');
@@ -3844,7 +4150,8 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         // Reserve the final passage's scroll space before measuring, including initial deep links.
         updateReadingViewport();
         const header = element.dataset.readingKind === 'step'
-            ? element.closest('.tour-scene-group')?.querySelector('.tour-scene-header') : null;
+            ? content.querySelector('.tour-branch-navigation:not(.tour-branch-footer)')
+                || element.closest('.tour-scene-group')?.querySelector('.tour-scene-header') : null;
         content.scrollTop += element.getBoundingClientRect().top - content.getBoundingClientRect().top
             - (header?.getBoundingClientRect().height || 0);
         programmaticReadingScroll = content.scrollTop;
@@ -3854,7 +4161,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     function updateStickySceneHeaders() {
         const content = document.getElementById('tour-narrative-content');
         const top = content.getBoundingClientRect().top;
-        let height = 0;
+        let height = content.querySelector('.tour-branch-navigation:not(.tour-branch-footer)')?.getBoundingClientRect().height || 0;
         content.querySelectorAll('.tour-scene-header').forEach(header => {
             const bounds = header.parentElement.getBoundingClientRect();
             const stuck = bounds.top < top - 1 && bounds.bottom > top;
@@ -3873,7 +4180,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         }
         return showTourScene(item.sceneIndex, item.stepIndex, {
             readingKey: item.key, showIntro: item.kind !== 'step',
-            userNavigation: true, fromReadingScroll: fromScroll, narrationNavigation: linear ? 'linear' : undefined, narrationEntry: linear ? 'continuous' : 'playback-start'
+            userNavigation: true, fromReadingScroll: fromScroll, narrationNavigation: linear ? 'linear' : undefined, narrationEntry: linear || fromScroll ? 'continuous' : 'playback-start'
         });
     }
 

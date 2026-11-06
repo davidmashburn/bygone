@@ -100,18 +100,18 @@ app.whenReady().then(async () => {
             await evaluate("document.querySelector('#tour-back').click()");
             await wait(`${activeKey} === 'title'`);
             const press = async (key, expected) => {
-                await evaluate(`document.activeElement?.blur(); document.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(key)},bubbles:true}))`);
+                await evaluate(`document.querySelector('#tour-keyboard-navigation').focus(); document.querySelector('#tour-keyboard-navigation').dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(key)},bubbles:true}))`);
                 await wait(`${activeKey} === ${JSON.stringify(expected)}`);
                 assert.equal(await evaluate("document.body.classList.contains('tour-directory-overview')"), false);
             };
-            await press('ArrowRight', 'step:scene:step');
+            await press('ArrowDown', 'step:scene:step');
             await wait("document.querySelector('.tour-image-evidence img')?.naturalWidth === 2880");
-            await press('ArrowLeft', 'title');
-            await press('ArrowRight', 'step:scene:step');
-            await press('ArrowRight', 'step:scene:code');
-            await press('ArrowRight', 'step:second-scene:step');
+            await press('ArrowUp', 'title');
+            await press('ArrowDown', 'step:scene:step');
+            await press('ArrowDown', 'step:scene:code');
+            await press('ArrowDown', 'step:second-scene:step');
             assert.equal(await evaluate("document.querySelector('#tour-next').disabled"), true);
-            await press('ArrowLeft', 'step:scene:code');
+            await press('ArrowUp', 'step:scene:code');
             await evaluate("location.hash = '#location=1&mode=historical&part=chapter&chapter=second-chapter'");
             await wait(`${activeKey} === 'step:second-scene:step'`);
             assert.equal(await evaluate("document.body.classList.contains('tour-directory-overview')"), false);

@@ -1,5 +1,6 @@
 import { revisionFileTarget } from './revisionView';
 import type { ChangeTourFile, ChangeTourScene, ChangeTourStackFile } from './changeTourManifest';
+import { getTourStepBranch } from './tourReading';
 
 export interface TourPosition {
     sceneIndex: number;
@@ -104,11 +105,14 @@ export function resolveTourPosition(
     const requestedSceneIndex = scenes.findIndex((scene) => scene.id === requestedSceneId);
     const sceneIndex = requestedSceneIndex >= 0 ? requestedSceneIndex : 0;
     const scene = scenes[sceneIndex];
-    if (!scene || (scene.kind !== 'walkthrough' && scene.kind !== 'stacked-diff' && scene.kind !== 'deconstructed-diff') || !requestedStepId) {
+    if (!scene || !isSteppedScene(scene)) {
         return { sceneIndex, stepIndex: 0 };
     }
-    const requestedStepIndex = scene.steps.findIndex((step) => step.id === requestedStepId);
-    return { sceneIndex, stepIndex: requestedStepIndex >= 0 ? requestedStepIndex : 0 };
+    if (requestedStepId) {
+        const requestedStepIndex = scene.steps.findIndex((step) => step.id === requestedStepId);
+        if (requestedStepIndex >= 0) return { sceneIndex, stepIndex: requestedStepIndex };
+    }
+    return { sceneIndex, stepIndex: mainStepIndices(scene)[0] ?? 0 };
 }
 
 export function getLinearTourTarget(
@@ -120,27 +124,19 @@ export function getLinearTourTarget(
     if (!scene) {
         return null;
     }
-    if (direction > 0) {
-        if ((scene.kind === 'walkthrough' || scene.kind === 'stacked-diff' || scene.kind === 'deconstructed-diff') && position.stepIndex < scene.steps.length - 1) {
-            return { sceneIndex: position.sceneIndex, stepIndex: position.stepIndex + 1 };
-        }
-        return position.sceneIndex < scenes.length - 1
-            ? { sceneIndex: position.sceneIndex + 1, stepIndex: 0 }
-            : null;
+    if (isSteppedScene(scene)) {
+        const currentStep = scene.steps[position.stepIndex];
+        const currentBranch = getTourStepBranch(currentStep);
+        const routeIndices = currentBranch
+            ? scene.steps.flatMap((step, stepIndex) => getTourStepBranch(step)?.id === currentBranch.id ? [stepIndex] : [])
+            : mainStepIndices(scene);
+        const routePosition = routeIndices.indexOf(position.stepIndex);
+        if (routePosition < 0) return null;
+        const withinScene = routeIndices[routePosition + direction];
+        if (withinScene !== undefined) return { sceneIndex: position.sceneIndex, stepIndex: withinScene };
+        if (currentBranch) return null;
     }
-    if ((scene.kind === 'walkthrough' || scene.kind === 'stacked-diff' || scene.kind === 'deconstructed-diff') && position.stepIndex > 0) {
-        return { sceneIndex: position.sceneIndex, stepIndex: position.stepIndex - 1 };
-    }
-    if (position.sceneIndex === 0) {
-        return null;
-    }
-    const previousScene = scenes[position.sceneIndex - 1];
-    return {
-        sceneIndex: position.sceneIndex - 1,
-        stepIndex: previousScene.kind === 'walkthrough' || previousScene.kind === 'stacked-diff' || previousScene.kind === 'deconstructed-diff'
-            ? previousScene.steps.length - 1
-            : 0
-    };
+    return findAdjacentSceneTarget(scenes, position.sceneIndex, direction);
 }
 
 export function getTourFileTarget(
@@ -158,7 +154,7 @@ export function getMultiPanelTourFileTarget(
     filePath: string
 ): MultiPanelTourFileTarget | null {
     const activeScene = scenes[position.sceneIndex];
-    const activeTarget = getSceneFileTarget(activeScene, position.sceneIndex, position.stepIndex, filePath);
+    const activeTarget = getSceneFileTarget(activeScene, position.sceneIndex, position.stepIndex, filePath, true);
     if (activeTarget) {
         return activeTarget;
     }
@@ -167,7 +163,7 @@ export function getMultiPanelTourFileTarget(
         if (sceneIndex === position.sceneIndex) {
             continue;
         }
-        const target = getSceneFileTarget(scenes[sceneIndex], sceneIndex, 0, filePath);
+        const target = getSceneFileTarget(scenes[sceneIndex], sceneIndex, 0, filePath, false);
         if (target) {
             return target;
         }
@@ -179,7 +175,8 @@ function getSceneFileTarget(
     scene: ChangeTourScene | undefined,
     sceneIndex: number,
     preferredStepIndex: number,
-    filePath: string
+    filePath: string,
+    allowOptionalBranch: boolean
 ): MultiPanelTourFileTarget | null {
     if (!scene || (scene.kind !== 'stacked-diff' && scene.kind !== 'deconstructed-diff')) {
         return null;
@@ -189,11 +186,48 @@ function getSceneFileTarget(
     }
 
     const preferredStep = scene.steps[preferredStepIndex];
-    const matchingStepIndex = preferredStep?.file === filePath
+    const activeBranch = allowOptionalBranch ? getTourStepBranch(preferredStep) : undefined;
+    const eligibleStepIndices = scene.steps.flatMap((step, stepIndex) => {
+        const branch = getTourStepBranch(step);
+        return activeBranch ? branch?.id === activeBranch.id ? [stepIndex] : [] : branch ? [] : [stepIndex];
+    });
+    if (!eligibleStepIndices.length) return null;
+    const matchingStepIndex = preferredStep && eligibleStepIndices.includes(preferredStepIndex) && preferredStep.file === filePath
         ? preferredStepIndex
-        : scene.steps.findIndex((step) => step.file === filePath);
+        : eligibleStepIndices.find(stepIndex => scene.steps[stepIndex].file === filePath) ?? -1;
     return {
         sceneIndex,
-        stepIndex: matchingStepIndex >= 0 ? matchingStepIndex : Math.max(preferredStepIndex, 0)
+        stepIndex: matchingStepIndex >= 0 ? matchingStepIndex : eligibleStepIndices[0]
     };
+}
+
+function isSteppedScene(
+    scene: ChangeTourScene
+): scene is Extract<ChangeTourScene, { kind: 'walkthrough' | 'stacked-diff' | 'deconstructed-diff' }> {
+    return scene.kind === 'walkthrough' || scene.kind === 'stacked-diff' || scene.kind === 'deconstructed-diff';
+}
+
+function mainStepIndices(
+    scene: Extract<ChangeTourScene, { kind: 'walkthrough' | 'stacked-diff' | 'deconstructed-diff' }>
+): number[] {
+    return scene.steps.flatMap((step, stepIndex) => getTourStepBranch(step) ? [] : [stepIndex]);
+}
+
+function findAdjacentSceneTarget(
+    scenes: readonly ChangeTourScene[],
+    sceneIndex: number,
+    direction: -1 | 1
+): TourPosition | null {
+    for (let candidateIndex = sceneIndex + direction; candidateIndex >= 0 && candidateIndex < scenes.length; candidateIndex += direction) {
+        const candidate = scenes[candidateIndex];
+        if (isSteppedScene(candidate)) {
+            const indices = mainStepIndices(candidate);
+            if (indices.length) {
+                return { sceneIndex: candidateIndex, stepIndex: direction > 0 ? indices[0] : indices[indices.length - 1] };
+            }
+            continue;
+        }
+        return { sceneIndex: candidateIndex, stepIndex: 0 };
+    }
+    return null;
 }

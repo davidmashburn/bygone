@@ -1,4 +1,4 @@
-/** Browser-safe audience details shared by source and manifest validation. */
+/** Browser-safe secondary details shared by source and manifest validation. */
 
 export type ChangeTourAudienceCodebase = 'none' | 'some' | 'maintainer';
 export type ChangeTourAudienceLanguage = 'none' | 'basic' | 'fluent' | 'advanced';
@@ -15,18 +15,83 @@ export interface ChangeTourAudience {
     estimatedMinutes?: number;
 }
 
+export enum ChangeTourCheckCategory {
+    Provenance = 'provenance',
+    Claims = 'claims',
+    Behavior = 'behavior',
+    Coverage = 'coverage',
+    Uncertainty = 'uncertainty'
+}
+
+export enum ChangeTourCheckStatus {
+    Verified = 'verified',
+    Partial = 'partial',
+    NotChecked = 'not-checked',
+    NotApplicable = 'not-applicable'
+}
+
+/** Authored assertions about bounded checks, never inferred from successful compilation. */
+export interface ChangeTourCheck {
+    status: ChangeTourCheckStatus;
+    summary: string;
+    details?: string;
+}
+
+export type ChangeTourChecks = Partial<Record<ChangeTourCheckCategory, ChangeTourCheck>>;
+
 export interface ChangeTourDetails {
     audience?: ChangeTourAudience;
+    checks?: ChangeTourChecks;
+}
+
+/** Attribution supplied by the authoring runtime, not inferred by the compiler. */
+export interface ChangeTourGenerator {
+    model: string;
+    harness?: string;
+    effort?: string;
+}
+
+export function validateTourGenerator(value: unknown, version: number): asserts value is ChangeTourGenerator | undefined {
+    if (value === undefined) return;
+    if (version < 7) throw new Error('generatedBy requires tour version 7.');
+    if (!isRecord(value)) throw new Error('generatedBy must be an object.');
+    requireOnlyKeys(value, ['model', 'harness', 'effort'], 'generatedBy');
+    requireString(value.model, 'generatedBy.model');
+    for (const key of ['harness', 'effort']) {
+        if (value[key] !== undefined) requireString(value[key], `generatedBy.${key}`);
+    }
 }
 
 export function validateChangeTourDetails(
     value: unknown,
-    path: string
+    path: string,
+    version: number
 ): asserts value is ChangeTourDetails | undefined {
     if (value === undefined) return;
     if (!isRecord(value)) throw new Error(`${path} must be an object.`);
-    requireOnlyKeys(value, ['audience'], path);
+    requireOnlyKeys(value, ['audience', 'checks'], path);
     validateAudience(value.audience, `${path}.audience`);
+    if (value.checks !== undefined) {
+        if (version < 7) throw new Error(`${path}.checks requires tour version 7.`);
+        validateChecks(value.checks, `${path}.checks`);
+    }
+}
+
+function validateChecks(value: unknown, path: string): asserts value is ChangeTourChecks {
+    if (!isRecord(value)) throw new Error(`${path} must be an object.`);
+    requireOnlyKeys(value, Object.values(ChangeTourCheckCategory), path);
+    for (const category of Object.values(ChangeTourCheckCategory)) {
+        const check = value[category];
+        if (check === undefined) continue;
+        const itemPath = `${path}.${category}`;
+        if (!isRecord(check)) throw new Error(`${itemPath} must be an object.`);
+        requireOnlyKeys(check, ['status', 'summary', 'details'], itemPath);
+        if (!Object.values(ChangeTourCheckStatus).some(status => status === check.status)) {
+            throw new Error(`${itemPath}.status must be ${Object.values(ChangeTourCheckStatus).join(', ')}.`);
+        }
+        requireString(check.summary, `${itemPath}.summary`);
+        if (check.details !== undefined) requireString(check.details, `${itemPath}.details`);
+    }
 }
 
 function validateAudience(value: unknown, path: string): void {

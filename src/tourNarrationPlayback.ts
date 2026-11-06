@@ -14,6 +14,7 @@ export interface NarrationSpeechEngine {
 
 export type NarrationPlaybackState =
     | { kind: 'idle' }
+    | { kind: 'selected'; unit: NarrationUnit; segmentIndex: number }
     | { kind: 'playing'; unit: NarrationUnit; segmentIndex: number }
     | { kind: 'paused'; unit: NarrationUnit; segmentIndex: number; pendingStart: boolean }
     | { kind: 'completed' }
@@ -45,7 +46,27 @@ export class TourNarrationController {
         return this.currentState.kind === 'playing' || this.currentState.kind === 'paused';
     }
 
-    start(unit: NarrationUnit, continuous = true): void {
+    get position(): { unit: NarrationUnit; segmentIndex: number } | null {
+        const state = this.currentState;
+        return state.kind === 'selected' || state.kind === 'playing' || state.kind === 'paused' ? state : null;
+    }
+
+    /** Select text without claiming audio, including in browsers without speech. */
+    select(unit: NarrationUnit, segmentIndex = 0, paused = false): void {
+        this.resetEngine();
+        if (!unit.segments.length) {
+            this.setState({ kind: 'idle' });
+            this.callbacks.onSegmentChange(null, false);
+            return;
+        }
+        segmentIndex = Math.max(0, Math.min(segmentIndex, unit.segments.length - 1));
+        this.setState(paused
+            ? { kind: 'paused', unit, segmentIndex, pendingStart: true }
+            : { kind: 'selected', unit, segmentIndex });
+        this.callbacks.onSegmentChange(unit.segments[segmentIndex], true);
+    }
+
+    start(unit: NarrationUnit, continuous = true, segmentIndex = 0): void {
         this.resetEngine();
         this.continuous = continuous;
         if (unit.segments.length === 0) {
@@ -53,7 +74,7 @@ export class TourNarrationController {
             return;
         }
         this.callbacks.claimAudio();
-        this.setState({ kind: 'playing', unit, segmentIndex: 0 });
+        this.setState({ kind: 'playing', unit, segmentIndex: Math.max(0, Math.min(segmentIndex, unit.segments.length - 1)) });
         this.speakCurrent();
     }
 
@@ -97,17 +118,18 @@ export class TourNarrationController {
     }
 
     canSkipSegment(direction: -1 | 1): boolean {
-        if (this.currentState.kind !== 'playing' && this.currentState.kind !== 'paused') return false;
-        const targetIndex = this.currentState.segmentIndex + direction;
-        return targetIndex >= 0 && targetIndex < this.currentState.unit.segments.length
+        const position = this.position;
+        if (!position) return false;
+        const targetIndex = position.segmentIndex + direction;
+        return targetIndex >= 0 && targetIndex < position.unit.segments.length
             ? true
-            : this.callbacks.canNavigateUnit(this.currentState.unit, direction);
+            : this.callbacks.canNavigateUnit(position.unit, direction);
     }
 
     skipSegment(direction: -1 | 1): boolean {
         if (!this.canSkipSegment(direction)) return false;
-        const current = this.currentState as Extract<NarrationPlaybackState, { kind: 'playing' | 'paused' }>;
-        const wasPaused = current.kind === 'paused';
+        const current = this.currentState as Extract<NarrationPlaybackState, { kind: 'playing' | 'paused' | 'selected' }>;
+        const wasPaused = current.kind !== 'playing';
         let targetUnit = current.unit;
         let targetIndex = current.segmentIndex + direction;
         if (targetIndex < 0 || targetIndex >= targetUnit.segments.length) {
@@ -118,7 +140,9 @@ export class TourNarrationController {
         }
         this.resetEngine();
         if (wasPaused) {
-            this.setState({ kind: 'paused', unit: targetUnit, segmentIndex: targetIndex, pendingStart: true });
+            this.setState(current.kind === 'selected'
+                ? { kind: 'selected', unit: targetUnit, segmentIndex: targetIndex }
+                : { kind: 'paused', unit: targetUnit, segmentIndex: targetIndex, pendingStart: true });
             this.callbacks.onSegmentChange(targetUnit.segments[targetIndex] || null, true);
         } else {
             this.setState({ kind: 'playing', unit: targetUnit, segmentIndex: targetIndex });
@@ -132,12 +156,14 @@ export class TourNarrationController {
             this.start(unit, this.continuous);
         } else if (this.currentState.kind === 'paused') {
             this.preparePaused(unit);
+        } else {
+            this.select(unit);
         }
     }
 
     followDirectNavigation(unit: NarrationUnit): void {
-        if (!this.engaged) return;
-        this.preparePaused(unit);
+        if (this.engaged) this.preparePaused(unit);
+        else this.select(unit);
     }
 
     interruptForExploration(): void {

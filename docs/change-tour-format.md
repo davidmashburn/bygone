@@ -8,7 +8,7 @@ suffix, and explicitly supplied files are validated by content rather than
 rejected by extension.
 
 An authored source is Git-backed, not portable: resolving refs and anchors
-requires the corresponding local repository and Git objects. Version 2, 4, 5, and 6
+requires the corresponding local repository and Git objects. Version 2, 4, 5, 6, and 7
 compiled manifests remain bound to that repository so the presenter can load
 live file history. Version 1 manifests remain readable as legacy portable
 artifacts, without the mode switcher. Version 4 supports independent authored
@@ -17,7 +17,7 @@ those fields.
 
 ## Version stability and compatibility
 
-Format version **6** is the current authoring contract. Application and document
+Format version **7** is the current authoring contract. Application and document
 versions are separate; UI fixes do not require rewriting a tour.
 
 | Document version | Reader support | Contract |
@@ -27,8 +27,9 @@ versions are separate; UI fixes do not require rewriting a tour.
 | 3 | Retired | Remove the top-level `review` block, set source `version: 4`, and recompile |
 | 4 | Supported | Independent authored tours and scene directory overviews; no Review Notes |
 | 5 | Supported | Optional opening, conclusion, and chapter previews; explicit overview purpose |
-| 6 | Use for new sources | Optional pinned symbol comparisons in walkthrough stops |
-| Greater than 6 | Rejected with an upgrade message | Never interpreted as version 6 |
+| 6 | Supported | Optional pinned symbol comparisons in walkthrough stops |
+| 7 | Use for new sources | Optional nested explanation branches and generation attribution |
+| Greater than 7 | Rejected with an upgrade message | Never interpreted as version 7 |
 
 Version 4 removes the `review` field and the separate Review Notes panel.
 Concepts, boundaries, tradeoffs, and unresolved questions belong in scene or
@@ -49,8 +50,52 @@ stage coverage, and comparison endpoints. A schema-only pass
 does not prove that the source compiles. Validate against the intended local
 repository before sharing a tour.
 
+### Generation attribution
+
+Version 7 accepts optional top-level generation provenance:
+
+```yaml
+generatedBy:
+  model: example-model-1
+  harness: example-agent
+  effort: high
+```
+
+`model` is required when the object is present; `harness` and `effort` are optional
+non-empty strings. Record the exact model identifier from the runtime that authored
+the tour, including a delegated author rather than its orchestrator. Omit unknown
+values; Bygone does not infer a generator or treat attribution as review approval.
+Compilation and export preserve this object. The reader displays it in collapsed
+Tour details, outside the reading and narration paths. Substantial regeneration
+replaces the attribution; there is no per-step contributor history.
+
+### Whole-path reading cost
+
+`tour validate --json` reports authored prose under the existing
+`readingCosts[mode].main` and `.optional` fields. Its additive `.narration` object
+reports `{main: {stops, words}, optional: {stops, words}}` using the reader's actual
+continuous speech projection, including openings, chapter/scene framing,
+conclusions, and generated orientation. Optional paths are counted separately,
+including nested detail once each. These are word counts, not speaking-time estimates.
+
+`bygone tour narration <source>` prints that continuous main-path speech in reading
+order, with per-stop word counts and optional branches excluded. Use it to inspect
+repeated framing before delivery. `--json` returns `{title, modes}`, with each mode's
+`main` containing `stops`, `words`, and `items` (`key`, `title`, `words`, `text`).
+This is the default journey; fresh playback and optional-path entry can add context.
+
+Continuous narration announces file and comparison changes without repeating an
+unchanged file or revision pair at every step. The visible orientation and a fresh
+playback start retain the full context.
+
+Judge the default journey by whether readers understand why, what, and the key
+decisions, including supported alternatives and tradeoffs. Keep a concrete case
+and consequential constraints in the main path. Use word counts to diagnose
+repetition, not as a quality threshold. Routine evidence belongs in the optional
+[Checks & evidence checklist](tour-checks.md), outside narration.
+
 Keep authored YAML as the editable source. Compiled JSON is generated evidence,
-not a second authoring syntax; v2/v4/v5/v6 manifests retain repository identity and
+not a second authoring syntax; v2/v4/v5/v6/v7 manifests retain repository identity and
 resolved Git objects. Stable format support does not make missing repositories
 or pruned objects available, and does not promise byte-identical generated
 timestamps or presentation layout. Pin full commit IDs in `range` when the
@@ -61,6 +106,50 @@ independent authored modes, overview evidence and fallback semantics, retired
 v3 rejection, removed-field rejection, and rejection of future versions. Run
 `npm test` before releasing a parser, compiler, or schema change; update those
 checks with any new contract.
+
+## Optional explanation branches
+
+Version 7 steps can carry `branches`, each with a stable `id`, a question as its
+`title`, and a non-empty `steps` list. A branch's steps use the same evidence
+fields as their parent and may contain further branches. Step IDs and branch
+IDs share one namespace and must be unique throughout their scene, including
+nested detail.
+
+```yaml
+# Within a version 7 walkthrough scene:
+steps:
+  - id: retry-safety
+    title: Retries require a deduplication key
+    body: The key lets the service recognize an operation already completed.
+    focus: retry-guard
+    branches:
+      - id: ambiguous-timeout
+        title: Why can a timeout repeat an operation?
+        steps:
+          - id: completed-before-timeout
+            title: Completion can precede the lost response
+            body: A timeout does not establish whether the operation ran.
+            focus: timeout-handler
+```
+
+Use actual named anchors for every `focus`. Optional evidence is validated and
+exported with the same rules as main-path evidence. Walkthrough, stacked-diff,
+and explicit deconstructed walkthrough steps support branches. Existing tours
+without branches keep their reading order and need no migration.
+
+The default reading path skips every branch. Opening a question enters its
+direct steps; nested questions open another path. Return restores the parent,
+and Continue main path skips remaining optional detail. Search and stable step
+links can open any depth. Narration follows the active path and stops at its end.
+`bygone tour validate` reports main and optional step/word counts separately,
+including per-mode counts in JSON output. These are authoring diagnostics, not
+quotas or evidence-coverage scores; `depth` retains its coverage meaning.
+
+Compiled manifests keep a flat evidence-step list. Each optional step carries
+`branch: {id, title, parentStepId}` identifying its direct branch and owner.
+Sibling members share that metadata. Parent references must remain within the
+scene, and cycles, conflicting metadata, and scenes without a main step are
+invalid. Authors should edit nested source rather than generated manifests.
 
 ## Symbol-focused stops
 
@@ -367,3 +456,21 @@ hunk must be assigned once or explicitly excluded.
 See [Bygone's self-referencing history tour](../examples/bygone-history.bygone) for a complete walkthrough that pins and explains the commit where branch review was introduced.
 
 For agent workflows, see [Generating change tours with an LLM](./generating-change-tours.md) and the machine-readable [JSON Schema](../schemas/change-tour-source.schema.json).
+
+## Bounded reader experiments
+
+`bygone tour reader-packet review.bygone.yaml --json` compiles the source and
+returns a text packet per mode in `modes`. Each packet has `schema_version: 1`,
+a title, ordered `main` nodes, and optional `branches` and `checks`. Nodes contain
+stable `id`, `title`, `text`, and `child_ids`. Select one mode's packet before
+initializing a bounded reader session. The packet contains the full candidate;
+only the parent may read it. Give the skim reader only harness responses.
+
+This projection uses continuous narration and the reader's titles, branch labels,
+and check statuses. It removes exact repeated title segments and excludes
+repository data and generator attribution. Each optional path's steps are joined
+in reading order; nested branch labels become available on entering that path.
+It is a text comprehension surrogate, not a simulation of viewport layout,
+step-by-step branch controls, code inspection, images, or audio. Test those in the
+presenter separately. Keep projection and budget parameters frozen within a
+comparison, and do not claim human reading performance from model trials.

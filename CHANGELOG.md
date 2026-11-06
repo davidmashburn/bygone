@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0
+
+- Added optional tour paths with nested detail, saved reading context, and explicit return or continue navigation
+- Added inspectable narration and reader packets that separate the main explanation from optional detail and evidence
+- Added authored checks for provenance, claims, behavior, coverage, and uncertainty without treating them as release approval
+- Made arrow navigation work across ordinary reader controls and prose, with Escape restoring reading focus without leaving detail
+- Collapsed evidence, shortcut help, and discussion controls to keep tour claims and optional choices prominent
+- Preserved title-equal body and summary sentences in reader packets and removed an obsolete sidebar assertion from the test suite
+
 ## 0.11.4
 
 - Added multilingual static dependency graphs for Python, JS/TS, Go, Rust, and experimental Mojo, with file/symbol views and automatic graph layout

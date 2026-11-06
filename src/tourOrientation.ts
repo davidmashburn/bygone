@@ -1,5 +1,12 @@
-import type { ChangeTourManifest } from './changeTourManifest';
+import type {
+    ChangeTourDeconstructedStep,
+    ChangeTourManifest,
+    ChangeTourScene,
+    ChangeTourStackStep,
+    ChangeTourWalkthroughStep
+} from './changeTourManifest';
 import type { TourReadingItem } from './tourReading';
+import { getTourStepBranch } from './tourReading';
 import { buildTourDirectoryEvidence } from './tourDirectoryEvidence';
 
 export interface TourEvidenceContext {
@@ -87,6 +94,8 @@ function realLabel(label: string, oid: string): string {
 }
 
 export function tourReadingTitle(tour: ChangeTourManifest, item: TourReadingItem): string {
+    if (item.kind === 'title') return tour.opening?.title || tour.title;
+    if (item.kind === 'conclusion') return tour.conclusion?.title || 'Conclusion';
     if (item.kind === 'chapter') {
         const index = tour.chapters.findIndex(chapter => chapter.id === item.chapterId);
         return tour.chapters[index].title;
@@ -115,8 +124,10 @@ export interface TourChapterRoute {
 function sceneEvidenceContexts(tour: ChangeTourManifest, sceneIndex: number): TourEvidenceContext[] {
     const scene = tour.scenes[sceneIndex];
     if (scene.kind === 'discussion') return [];
+    const steps = 'steps' in scene ? mainSceneSteps(scene) : [];
+    const allSteps = 'steps' in scene ? steppedSceneSteps(scene) : [];
     const items: TourReadingItem[] = 'steps' in scene
-        ? scene.steps.flatMap((step, stepIndex) => 'image' in step && step.image ? [] : [{ kind: 'step' as const, key: `step:${scene.id}:${step.id}`, sceneIndex, stepIndex }])
+        ? steps.flatMap((step: TourStep) => 'image' in step && step.image ? [] : [{ kind: 'step' as const, key: `step:${scene.id}:${step.id}`, sceneIndex, stepIndex: allSteps.findIndex(candidate => candidate.id === step.id) }])
         : [{ kind: 'scene', key: `scene:${scene.id}`, sceneIndex, stepIndex: 0 }];
     return items.map(item => resolveTourEvidenceContext(tour, item)!).filter(Boolean);
 }
@@ -132,7 +143,7 @@ export function buildTourRoute(tour: ChangeTourManifest): { summary: string; cha
         const comparisons = [...contexts];
         for (const entry of entries) {
             const scene = tour.scenes[entry.sceneIndex];
-            if ('overview' in scene && scene.overview && !(scene.kind === 'walkthrough' && scene.steps.every(step => step.image))) {
+            if ('overview' in scene && scene.overview && !(scene.kind === 'walkthrough' && mainSceneSteps(scene).every(step => 'image' in step && step.image))) {
                 const context = resolveTourEvidenceContext(tour, { kind: 'scene', key: `scene:${scene.id}`, sceneIndex: entry.sceneIndex, stepIndex: 0 });
                 if (context) comparisons.push(context);
             }
@@ -141,7 +152,7 @@ export function buildTourRoute(tour: ChangeTourManifest): { summary: string; cha
         const files = [...new Set(contexts.map(context => context.scope))];
         const steps = entries.reduce((total, entry) => {
             const scene = tour.scenes[entry.sceneIndex];
-            return total + ('steps' in scene ? scene.steps.length : 0);
+            return total + ('steps' in scene ? mainSceneSteps(scene).length : 0);
         }, 0);
         const scope = files.length ? `Focus files: ${files.join(', ')}.` : 'No code steps; this chapter uses discussion or images.';
         const ranges = pairs.map(pair => `${pair.kind === 'synthetic' ? 'Constructed stages' : 'Revisions'}: ${pair.labels.join(' → ')}.`).join(' ');
@@ -149,7 +160,7 @@ export function buildTourRoute(tour: ChangeTourManifest): { summary: string; cha
             ...(chapter.summary ? { summary: chapter.summary } : {}),
             evidence: `${entries.length} ${entries.length === 1 ? 'scene' : 'scenes'} · ${steps} ${steps === 1 ? 'step' : 'steps'}. ${scope}${ranges ? ` ${ranges}` : ''}`, scenes: entries };
     });
-    const stepCount = tour.scenes.reduce((count, scene) => count + ('steps' in scene ? scene.steps.length : 0), 0);
+    const stepCount = tour.scenes.reduce((count, scene) => count + ('steps' in scene ? mainSceneSteps(scene).length : 0), 0);
     return {
         summary: `${chapters.length} ${chapters.length === 1 ? 'chapter' : 'chapters'} → ${scenes.length} ${scenes.length === 1 ? 'scene' : 'scenes'} → ${stepCount} ${stepCount === 1 ? 'step' : 'steps'}. Chapters group topics; scenes explain one idea; steps show the evidence.`,
         chapters, scenes
@@ -159,14 +170,15 @@ export function buildTourRoute(tour: ChangeTourManifest): { summary: string; cha
 export function describeSceneRoute(tour: ChangeTourManifest, sceneIndex: number): string {
     const scene = tour.scenes[sceneIndex];
     if (scene.kind === 'discussion') return 'Discussion: pause to connect the findings. No code comparison is displayed.';
-    if (scene.kind === 'walkthrough' && scene.steps.every(step => step.image)) {
-        return `${scene.steps.length} images in reading order. Each step explains what to notice in its image.`;
+    const steps = 'steps' in scene ? mainSceneSteps(scene) : [];
+    if (scene.kind === 'walkthrough' && steps.length > 0 && steps.every(step => 'image' in step && step.image)) {
+        return `${steps.length} images in reading order. Each step explains what to notice in its image.`;
     }
-    const imageCount = scene.kind === 'walkthrough' ? scene.steps.filter(step => step.image).length : 0;
+    const imageCount = scene.kind === 'walkthrough' ? steps.filter(step => 'image' in step && step.image).length : 0;
     const contexts = sceneEvidenceContexts(tour, sceneIndex);
     const files = contexts.map(context => context.scope).filter((path, index, paths) => index === 0 || path !== paths[index - 1]);
     const pairs = contexts.filter((context, index) => index === 0 || context.comparisonKey !== contexts[index - 1].comparisonKey);
-    const evidence = `${'steps' in scene ? `${scene.steps.length} ${scene.steps.length === 1 ? 'step' : 'steps'}. ` : ''}${files.length === 1 ? 'File' : 'Files in order'}: ${files.join(' → ')}.`;
+    const evidence = `${'steps' in scene ? `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}. ` : ''}${files.length === 1 ? 'File' : 'Files in order'}: ${files.join(' → ')}.`;
     const comparisons = `${scene.kind === 'deconstructed-diff' ? 'Explanation stages (constructed, not commits)' : 'Revisions'}: ${pairs.map(pair => pair.labels.join(' → ')).join('; then ')}.`;
     const overviewContext = 'overview' in scene && scene.overview
         ? resolveTourEvidenceContext(tour, { kind: 'scene', key: `scene:${scene.id}`, sceneIndex, stepIndex: 0 }) : null;
@@ -175,20 +187,57 @@ export function describeSceneRoute(tour: ChangeTourManifest, sceneIndex: number)
 }
 
 /** Fixed reading-order cues also work on direct links and in audio playback. */
-export function describeStepOrientation(tour: ChangeTourManifest, sceneIndex: number, stepIndex: number): string {
+export enum TourOrientationDetail {
+    Full = 'full',
+    Changes = 'changes'
+}
+
+/** Short names remain unambiguous when a tour contains duplicate basenames. */
+export function tourEvidenceName(tour: ChangeTourManifest, path: string): string {
+    const basename = path.split('/').at(-1) || path;
+    const paths = new Set(tour.scenes.flatMap(scene => scene.kind === 'text-diff' ? [scene.path]
+        : 'steps' in scene ? scene.steps.map(step => 'diff' in step ? step.diff.path : 'file' in step ? step.file : '') : []));
+    return [...paths].filter(candidate => candidate.split('/').at(-1) === basename).length > 1 ? path : basename;
+}
+
+export function describeStepOrientation(tour: ChangeTourManifest, sceneIndex: number, stepIndex: number, detail = TourOrientationDetail.Changes): string {
     const scene = tour.scenes[sceneIndex];
     if (!('steps' in scene)) return '';
-    const step = scene.steps[stepIndex];
-    const prefix = `Step ${stepIndex + 1} of ${scene.steps.length}.`;
-    if ('image' in step && step.image) return `${prefix} Image: ${step.title}.`;
+    const allSteps = steppedSceneSteps(scene);
+    const step = allSteps[stepIndex];
+    if ('image' in step && step.image) return '';
+    const branch = getTourStepBranch(step);
+    const routeSteps = branch
+        ? allSteps.filter(candidate => getTourStepBranch(candidate)?.id === branch.id)
+        : mainSceneSteps(scene);
+    const routeIndex = routeSteps.findIndex(candidate => candidate.id === step.id);
     const item = { kind: 'step' as const, key: `step:${scene.id}:${step.id}`, sceneIndex, stepIndex };
     const current = resolveTourEvidenceContext(tour, item)!;
-    const previous = stepIndex > 0 && !(scene.kind === 'walkthrough' && scene.steps[stepIndex - 1].image)
-        ? resolveTourEvidenceContext(tour, { ...item, stepIndex: stepIndex - 1 }) : null;
-    if (!previous) return `${prefix} Evidence in ${current.scope}.`;
-    const pairChanged = previous.comparisonKey !== current.comparisonKey;
-    const fileChanged = previous.scope !== current.scope;
-    const revisions = current.kind === 'synthetic' ? 'explanation stages' : 'revisions';
-    const movement = pairChanged ? `Switch ${revisions} to ${current.labels.join(' → ')}.` : `Keep the same ${revisions}.`;
-    return `${prefix} ${movement} ${fileChanged ? `Move from ${previous.scope} to ${current.scope}.` : `Continue in ${current.scope}.`}`;
+    const name = tourEvidenceName(tour, current.scope);
+    const revisions = current.kind === 'synthetic' ? 'Explanation stages' : 'Revisions';
+    if (detail === TourOrientationDetail.Full) return `Evidence: ${name}.`
+        + (scene.kind === 'walkthrough' ? '' : ` ${revisions}: ${current.labels.join(' → ')}.`);
+    const previousStep = routeSteps[routeIndex - 1];
+    const previousStepIndex = previousStep ? allSteps.findIndex(candidate => candidate.id === previousStep.id) : -1;
+    const previous = previousStepIndex >= 0 && !('image' in previousStep && previousStep.image)
+        ? resolveTourEvidenceContext(tour, { ...item, stepIndex: previousStepIndex }) : null;
+    if (!previous) return current.kind === 'synthetic'
+        ? `Explanation stages: ${current.labels.join(' → ')}. Evidence: ${name}.` : `Evidence: ${name}.`;
+    const movement = previous.comparisonKey !== current.comparisonKey
+        ? `${revisions} changed: ${current.labels.join(' → ')}.` : '';
+    const location = previous.scope !== current.scope ? `File changed: ${name}.` : '';
+    return [movement, location].filter(Boolean).join(' ');
+}
+
+type SteppedScene = Extract<ChangeTourScene, { kind: 'walkthrough' | 'stacked-diff' | 'deconstructed-diff' }>;
+type TourStep = ChangeTourWalkthroughStep | ChangeTourStackStep | ChangeTourDeconstructedStep;
+
+function steppedSceneSteps(scene: SteppedScene): TourStep[] {
+    const steps: TourStep[] = [];
+    for (const step of scene.steps) steps.push(step);
+    return steps;
+}
+
+function mainSceneSteps(scene: SteppedScene): TourStep[] {
+    return steppedSceneSteps(scene).filter(step => !getTourStepBranch(step));
 }

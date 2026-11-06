@@ -382,10 +382,10 @@ body.tour-derived-mode .tour-narrative-resizer {
     display: flex;
     flex-wrap: wrap;
     min-width: 0;
-    gap: 12px;
+    gap: 6px;
     align-items: center;
     flex-shrink: 0;
-    margin: 0 0 10px;
+    margin: 0 0 6px;
     padding: 0 0 8px;
     border-bottom: 1px solid var(--tour-border);
     background: rgba(255, 255, 255, 0.025);
@@ -394,12 +394,26 @@ body.tour-derived-mode .tour-narrative-resizer {
 .tour-navigation {
     display: flex;
     flex: 0 0 auto;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 4px;
     white-space: nowrap;
 }
 
 .tour-narrative-toolbar .tour-navigation button {
     color: var(--tour-body);
+}
+
+.tour-navigation kbd {
+    margin-left: 5px;
+    padding: 1px 4px;
+    border: 1px solid var(--tour-border);
+    border-radius: 3px;
+    font: inherit;
+    font-size: 0.85em;
+}
+
+body.tour-sidebar-hidden .tour-narrative-toolbar {
+    padding-left: 18px;
 }
 
 .tour-narrative-toolbar button {
@@ -546,7 +560,7 @@ body.tour-derived-mode .tour-narrative-resizer {
 }
 
 .tour-breadcrumb {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-width: 0;
     color: var(--tour-muted);
     font-family: var(--vscode-editor-font-family, monospace);
@@ -912,6 +926,7 @@ body.tour-derived-mode .tour-narrative-resizer {
 }
 
 .tour-scene-header.is-stuck { box-shadow: 0 1px var(--tour-border); }
+.tour-scene-header.is-stuck .tour-scene-heading { font-size: 13px; color: var(--tour-muted); }
 .tour-scene-header .tour-scene-heading { flex: 1; min-width: 0; margin: 0; }
 .tour-scene-title-toggle { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .tour-scene-title-toggle:disabled { opacity: 1; cursor: text; }
@@ -1067,6 +1082,48 @@ body.tour-derived-mode .tour-narrative-resizer {
     padding-right: 8px;
 }
 
+.tour-reading-cost, .tour-branch-label {
+    color: var(--tour-muted);
+    font-size: 12px;
+}
+.tour-branch-choices {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+    margin: 14px 0;
+}
+.tour-branch-navigation {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    padding: 10px 0 14px;
+    border-bottom: 1px solid var(--tour-border);
+}
+.tour-branch-navigation:not(.tour-branch-footer) {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bygone-surface-raised);
+}
+.tour-branch-navigation .tour-branch-label { flex-basis: 100%; margin: 0; }
+.tour-branch-footer { border-bottom: 0; border-top: 1px solid var(--tour-border); margin-top: 12px; }
+.tour-branch-link, .tour-branch-return, .tour-branch-continue {
+    border: 0;
+    background: transparent;
+    color: var(--tour-accent-bright);
+    padding: 3px 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.tour-branch-link:hover, .tour-branch-return:hover, .tour-branch-continue:hover { text-decoration: underline; }
+.tour-branch-link:focus-visible, .tour-branch-return:focus-visible, .tour-branch-continue:focus-visible {
+    outline: 2px solid var(--tour-accent-bright);
+    outline-offset: 3px;
+}
+
 .tour-audio-settings > summary, .tour-details > summary {
     cursor: pointer; color: var(--tour-muted); padding: 5px 0; line-height: 1.5;
 }
@@ -1120,6 +1177,25 @@ body.tour-derived-mode .tour-narrative-resizer {
 #tour-audience summary { cursor: pointer; padding: 5px 0; }
 #tour-audience dt { color: var(--tour-muted); margin-top: 6px; }
 #tour-audience dd { margin: 0; }
+#tour-audience .tour-checks { margin-top: 10px; }
+#tour-audience .tour-check-category { margin-left: 12px; }
+.tour-feedback-more { position: relative; flex: none; }
+.tour-feedback-more > summary { padding: 5px 7px; color: var(--tour-muted); cursor: pointer; }
+.tour-feedback-more > summary:focus-visible { outline: 2px solid var(--tour-accent-bright); outline-offset: 2px; }
+.tour-feedback-more > .tour-feedback-actions {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 5;
+    display: grid;
+    width: max-content;
+    padding: 8px;
+    border: 1px solid var(--tour-border);
+    border-radius: 5px;
+    background: var(--bygone-surface-raised);
+    box-shadow: 0 5px 15px rgb(0 0 0 / 20%);
+}
+.tour-symbol-availability { color: var(--tour-muted); line-height: 1.5; }
 .tour-feedback-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .tour-feedback-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; color: var(--tour-body); background: var(--tour-surface); border: 1px solid var(--tour-border); border-radius: 8px; padding: 24px; }
 .tour-feedback-dialog::backdrop { background: rgb(0 0 0 / 55%); }
@@ -1660,3 +1736,90 @@ button.correspondence-diagnostic-location:focus-visible { outline: 2px solid var
     font: inherit;
 }
 #correspondence-context:hover, #file-symbol-context:hover { background: var(--bygone-hover); }
+
+/* Optional routes stay inspectable without joining the active reading path. */
+.tour-reading-plan, .tour-outline-scope {
+    color: var(--tour-muted);
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0 0 8px;
+    overflow-wrap: anywhere;
+}
+.tour-reading-plan { flex-shrink: 0; }
+.tour-outline-scope { padding: 8px 10px; }
+.tour-outline-branch { margin: 0 0 8px 10px; min-width: 0; }
+.tour-outline-branch > summary {
+    cursor: pointer;
+    color: var(--tour-muted);
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 6px;
+    overflow-wrap: anywhere;
+}
+.tour-outline-branch > summary:focus-visible {
+    outline: 2px solid var(--tour-accent-bright);
+}
+.tour-outline-branch-status { display: block; }
+.tour-outline-branch.is-reading-path > summary { color: var(--tour-accent-bright); }
+.tour-outline-branch-steps { display: flex; flex-direction: column; border-left: 1px dashed var(--tour-border); }
+.tour-branch-link, .tour-branch-return, .tour-branch-continue { max-width: 100%; overflow-wrap: anywhere; }
+
+/* Keyboard navigation is an explicit focus target; prose keeps native selection. */
+#tour-keyboard-navigation:focus-visible {
+    outline: 2px solid var(--tour-accent-bright);
+    outline-offset: 3px;
+}
+.tour-keyboard-help {
+    margin: 0 0 4px;
+    font-size: 12px;
+    color: var(--tour-muted);
+}
+.tour-sentence-navigation {
+    display: flex;
+    gap: 4px;
+}
+.tour-sentence-navigation button {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+.tour-sentence-navigation svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+}
+.tour-detail-chooser {
+    max-width: min(420px, 90vw);
+    color: var(--tour-body);
+    background: var(--bygone-surface-raised);
+    border: 1px solid var(--tour-accent-bright);
+}
+.tour-detail-chooser button {
+    display: block;
+    margin: 8px 0;
+    width: 100%;
+}
+
+/* Reading chrome stays secondary to the current claim. */
+.tour-navigation { align-items: center; max-width: 100%; min-width: 0; }
+.tour-navigation [hidden], .tour-outline-branch-status[hidden], .tour-step-orientation[hidden] { display: none; }
+.tour-progress { color: var(--tour-muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; padding: 0 3px; }
+.tour-breadcrumb { display: none; }
+.tour-outline-step[aria-current="location"]::before { content: '• '; }
+.tour-outline-step.is-active { font-weight: 600; }
+.tour-outline-group.has-active > .tour-outline-heading { font-weight: 600; }
+.tour-shortcuts { position: relative; color: var(--tour-muted); font-size: 12px; }
+.tour-shortcuts > summary { cursor: pointer; padding: 5px; }
+.tour-shortcuts > p { position: absolute; top: 100%; right: 0; z-index: 150; width: min(260px, 70vw); padding: 10px; border: 1px solid var(--tour-border); border-radius: 6px; background: var(--tour-surface); line-height: 1.7; box-shadow: 0 4px 16px #0003; }
+.tour-evidence-context { margin: 8px 0; color: var(--tour-muted); font-size: 12px; overflow-wrap: anywhere; }
+.tour-evidence-context > summary { cursor: pointer; }
+.tour-evidence-context > p { margin: 8px 0; }
+.tour-sidebar-show { width: auto; padding: 0 10px; height: 30px; top: calc(var(--workspace-toolbar-height, 0px) + 10px); }
+body.tour-sidebar-hidden .tour-narrative-toolbar { padding-left: 65px; }
+
+.tour-outline-group.has-active > .tour-outline-heading::after { content: '•'; flex-shrink: 0; padding-right: 6px; }
+@media (max-width: 720px) {
+    .tour-breadcrumb { display: block; order: 2; flex: 1 1 12ch; white-space: normal; font-size: 12px; }
+}

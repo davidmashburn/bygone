@@ -19,6 +19,7 @@ import {
     ChangeTourResolvedAnchor,
     ChangeTourScene,
     ChangeTourSceneOverview,
+    ChangeTourStepBranch,
     ChangeTourStackedScene,
     ChangeTourStory,
     ChangeTourWalkthroughScene,
@@ -28,6 +29,7 @@ import {
     ChangeTourSource,
     ChangeTourSourceChapter,
     ChangeTourSourceSceneOverview,
+    ChangeTourSourceStackStep,
     ChangeTourSourceStep,
     parseChangeTourSource
 } from './changeTourSource';
@@ -40,8 +42,13 @@ export { parseChangeTourManifest, parseChangeTourStory } from './changeTourManif
 export { parseChangeTourSource } from './changeTourSource';
 export type {
     ChangeTourAudience,
-    ChangeTourDetails
+    ChangeTourCheck,
+    ChangeTourChecks,
+    ChangeTourDetails,
+    ChangeTourGenerator
 } from './tourDetails';
+export { ChangeTourCheckCategory, ChangeTourCheckStatus } from './tourDetails';
+export type { ChangeTourStepBranch } from './changeTourManifest';
 export { buildChangeTourContext } from './changeTourContext';
 export type { BuildChangeTourContextOptions, ChangeTourContext } from './changeTourContext';
 export { buildChangeAttention, classifyChangeFileRole, CHANGE_ATTENTION_VERSION } from './changeAttention';
@@ -241,6 +248,7 @@ export function buildChangeTourManifest(
         chapters,
         scenes,
         ...(source?.details !== undefined ? { details: source.details } : {}),
+        ...(source?.generatedBy !== undefined ? { generatedBy: source.generatedBy } : {}),
     };
     const authoredModeTours = source && source.version >= 4
         ? buildAuthoredModeTours(
@@ -538,6 +546,45 @@ function compileSceneOverview(
     };
 }
 
+interface FlattenedSourceStep<T> {
+    step: T;
+    branch?: ChangeTourStepBranch;
+}
+
+function flattenWalkthroughSourceSteps(
+    steps: readonly ChangeTourSourceStep[],
+    branch?: ChangeTourStepBranch
+): FlattenedSourceStep<ChangeTourSourceStep>[] {
+    return steps.flatMap((step) => {
+        const direct = {
+            step,
+            ...(branch ? { branch } : {})
+        };
+        const nested = (step.branches || []).flatMap((childBranch) => flattenWalkthroughSourceSteps(
+            childBranch.steps,
+            { id: childBranch.id, title: childBranch.title, parentStepId: step.id }
+        ));
+        return [direct, ...nested];
+    });
+}
+
+function flattenStackSourceSteps(
+    steps: readonly ChangeTourSourceStackStep[],
+    branch?: ChangeTourStepBranch
+): FlattenedSourceStep<ChangeTourSourceStackStep>[] {
+    return steps.flatMap((step) => {
+        const direct = {
+            step,
+            ...(branch ? { branch } : {})
+        };
+        const nested = (step.branches || []).flatMap((childBranch) => flattenStackSourceSteps(
+            childBranch.steps,
+            { id: childBranch.id, title: childBranch.title, parentStepId: step.id }
+        ));
+        return [direct, ...nested];
+    });
+}
+
 function buildWalkthroughManifestScene(
     authoredScene: ChangeTourNarrative & {
         id: string;
@@ -552,6 +599,7 @@ function buildWalkthroughManifestScene(
     compileSymbol: (step: ChangeTourSourceStep, focus: ChangeTourResolvedAnchor) => import('./tourSymbol').TourSymbolEvidence | undefined
 ): ChangeTourWalkthroughScene {
     const overview = compileSceneOverview(authoredScene.overview, false);
+    const authoredSteps = flattenWalkthroughSourceSteps(authoredScene.steps);
     return {
         id: authoredScene.id,
         kind: 'walkthrough',
@@ -561,7 +609,7 @@ function buildWalkthroughManifestScene(
         tags: authoredScene.tags,
         takeaway: authoredScene.takeaway,
         ...(overview ? { overview } : {}),
-        steps: authoredScene.steps.map((step) => {
+        steps: authoredSteps.map(({ step, branch }) => {
             const focus = requireResolvedAnchor(resolvedAnchors, step.focus);
             const diff = available.get(focus.path) || (focus.revision === 'base'
                 ? [...available.values()].find(scene => scene.previousPath === focus.path) : undefined);
@@ -576,7 +624,8 @@ function buildWalkthroughManifestScene(
                 focus,
                 ...(step.symbol ? { symbol: compileSymbol(step, focus) } : {}),
                 connection: step.connection ? connections.get(step.connection) : undefined,
-                diff: { ...diff, id: `${authoredScene.id}-${step.id}` }
+                diff: { ...diff, id: `${authoredScene.id}-${step.id}` },
+                ...(branch ? { branch } : {})
             };
         })
     };
@@ -766,16 +815,17 @@ function buildStackedScene(
         maxBuffer: 16 * 1024 * 1024,
         stdio: ['ignore', 'pipe', 'pipe']
     })));
+    const authoredSteps = flattenStackSourceSteps(source.steps || []);
     const filePaths = [...new Set([
         ...availableFilePaths,
         ...(source.files || []),
-        ...source.steps.map((step) => step.file)
+        ...authoredSteps.map(({ step }) => step.file)
     ])].sort();
     if (filePaths.length === 0) throw new Error(`Stacked scene ${source.id} has no changed files.`);
 
     const requiredFilePaths = new Set([
         ...(source.files || []),
-        ...source.steps.map((step) => step.file)
+        ...authoredSteps.map(({ step }) => step.file)
     ]);
     let totalContentBytes = 0;
     const files = filePaths.flatMap((filePath) => {
@@ -835,10 +885,10 @@ function buildStackedScene(
         ...(overview ? { overview } : {}),
         stack,
         files,
-        steps: source.steps.length === 0 ? stack.slice(0, -1).map((_, pairIndex) => ({
+        steps: authoredSteps.length === 0 ? stack.slice(0, -1).map((_, pairIndex) => ({
             id: `${source.id}-revision-${pairIndex}`,
             title: '', body: '', file: files[0].path, pairIndex, side: 'right' as const
-        })) : source.steps.map((step) => ({
+        })) : authoredSteps.map(({ step, branch }) => ({
             id: step.id,
             title: step.title,
             body: step.body,
@@ -846,7 +896,8 @@ function buildStackedScene(
             pairIndex: stackIds.indexOf(step.pair[0]),
             side: step.side || 'right',
             startLine: step.lines?.[0],
-            endLine: step.lines?.[1]
+            endLine: step.lines?.[1],
+            ...(branch ? { branch } : {})
         }))
     };
 }

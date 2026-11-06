@@ -59,7 +59,9 @@ if (args[0] === 'evidence') {
     }
 } else if (tokenMatches('tourCommand', args[0])) {
     try {
-        runTourCommand(args.slice(1), cliCwd, packageRoot);
+        runTourCommand(args.slice(1), cliCwd, packageRoot, process.stdout, {
+            repoRoot: process.argv[2] === '-C' ? cliCwd : undefined
+        });
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(args.includes('--json')

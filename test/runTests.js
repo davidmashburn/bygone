@@ -661,8 +661,8 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
         assert.match(markup, new RegExp(`id="${id}"`));
     }
     assert.doesNotMatch(markup, /id="tour-pause"/);
-    assert.match(markup, /id="tour-narration-skip-back"[^>]+title="Previous sentence \(Shift\+Left Arrow\)"[^>]+aria-label="Previous sentence"[^>]+aria-keyshortcuts="Shift\+ArrowLeft"[^>]+disabled/);
-    assert.match(markup, /id="tour-narration-skip-ahead"[^>]+title="Next sentence \(Shift\+Right Arrow\)"[^>]+aria-label="Next sentence"[^>]+aria-keyshortcuts="Shift\+ArrowRight"[^>]+disabled/);
+    assert.match(markup, /id="tour-narration-skip-back"[^>]+title="Previous sentence \(Shift\+Up Arrow\)"[^>]+aria-label="Previous sentence"[^>]+aria-keyshortcuts="Shift\+ArrowUp"[^>]+disabled/);
+    assert.match(markup, /id="tour-narration-skip-ahead"[^>]+title="Next sentence \(Shift\+Down Arrow\)"[^>]+aria-label="Next sentence"[^>]+aria-keyshortcuts="Shift\+ArrowDown"[^>]+disabled/);
     assert.match(markup, /tour-play-pause-icon/);
     assert.match(markup, /id="tour-narration-status"[^>]+role="status"[^>]+aria-live="polite"/);
     assert.match(host, /new TourNarrationController\(createDeviceSpeechEngine\(\)/);
@@ -728,8 +728,8 @@ function testTourNarrationUsesDeviceSpeechAndAccessiblePresenterControls() {
     assert.match(host, /narrationController\.interruptForExploration\(\)/);
     assert.match(host, /tourListen\?\.addEventListener\('click', toggleNarrationFromHost\)/);
     assert.match(host, /isPlaying \? 'M7 5h4v14H7zM13 5h4v14h-4z' : 'm8 5 11 7-11 7Z'/);
-    assert.match(host, /tourNarrationSkipBack\?\.addEventListener\('click', \(\) => narrationController\.skipSegment\(-1\)\)/);
-    assert.match(host, /tourNarrationSkipAhead\?\.addEventListener\('click', \(\) => narrationController\.skipSegment\(1\)\)/);
+    assert.match(host, /tourNarrationSkipBack\?\.addEventListener\('click', \(\) => skipNarrationSentence\(-1\)\)/);
+    assert.match(host, /tourNarrationSkipAhead\?\.addEventListener\('click', \(\) => skipNarrationSentence\(1\)\)/);
     assert.match(styles, /\.tour-narration-transport/);
     assert.match(styles, /\.tour-narration-segment\.is-speaking/);
     assert.match(styles, /\.tour-narration-segment\.is-speaking\.is-paused/);
@@ -771,7 +771,6 @@ function testTourAnnotationPersistsAcrossChangeNavigation() {
     assert.match(hostSource, /buildStackedTourAnnotations/);
     assert.match(hostSource, /getFirstChangeSourceRange\(pairs\?\.\[pairIndex\]\?\.diffModel, side\)/);
     assert.match(hostSource, /const tourAnnotations = state\.sceneIntroVisible \? \[\] : buildStackedTourAnnotationsForFile\(file\.path, pairs\);/);
-    assert.match(hostSource, /formatCount\(scene\.panels\.length - 1, 'comparison stage'\)[\s\S]{0,120}formatCount\(scene\.steps\.length, 'tour slide'\)/);
     assert.match(hostSource, /tourAnnotations/);
     assert.match(rendererSource, /function showMultiDiff\([\s\S]{0,500}tourAnnotations = \[\]/);
     assert.match(rendererSource, /function pushTourAnnotationDecoration/);
@@ -1471,8 +1470,8 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.equal(parseChangeTourManifest(JSON.parse(JSON.stringify(manifest))).version, 1);
     assert.throws(() => parseChangeTourManifest({ version: 1 }), /title must be a string/);
     assert.throws(
-        () => parseChangeTourManifest({ version: 7 }),
-        /manifest format version 7, but this version of Bygone supports up to version 6\. Upgrade Bygone to open it\./
+        () => parseChangeTourManifest({ version: 8 }),
+        /manifest format version 8, but this version of Bygone supports up to version 7\. Upgrade Bygone to open it\./
     );
 
     const story = parseChangeTourStory({
@@ -1606,8 +1605,8 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.throws(() => parseChangeTourSource({ ...source, inventedField: true }), /unknown field: inventedField/);
     assert.throws(() => parseChangeTourSource({ ...source, chapters: [] }), /non-empty array/);
     assert.throws(
-        () => parseChangeTourSource({ ...source, version: 7 }),
-        /source format version 7, but this version of Bygone supports up to version 6\. Upgrade Bygone to open it\./
+        () => parseChangeTourSource({ ...source, version: 8 }),
+        /source format version 8, but this version of Bygone supports up to version 7\. Upgrade Bygone to open it\./
     );
 
     fs.mkdirSync(path.join(repo, 'web'), { recursive: true });

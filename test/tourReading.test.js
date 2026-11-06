@@ -3,11 +3,17 @@ const { test } = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
+    buildAllTourReadingItems,
     buildTourReadingItems,
+    getTourBranchOptions,
+    getTourBranchParent,
+    getTourBranchTrail,
+    getTourReadingCost,
     getTourReadingTarget,
     isImageOnlyTour,
     resolveTourReadingItem
 } = require('../out/tourReading.js');
+const { getLinearTourTarget, resolveTourPosition } = require('../out/tourNavigation.js');
 
 function mediaSessionHarness({ available = true, rejectPlay = false } = {}) {
     const source = fs.readFileSync(path.join(__dirname, '../web/narrationMediaSession.js'), 'utf8');
@@ -117,6 +123,34 @@ function scene(id, kind, steps = undefined) {
     return steps === undefined ? { id, kind } : { id, kind, steps };
 }
 
+function optionalBranchTour() {
+    const branch = (id, title, parentStepId) => ({ id, title, parentStepId });
+    const step = (id, title, body, branchMetadata, file = `${id}.ts`) => ({
+        id, title, body, diff: { path: file },
+        ...(branchMetadata ? { branch: branchMetadata } : {})
+    });
+    const branchA = branch('branch-a', 'Alternative A', 'main-before');
+    const nested = branch('nested', 'Nested path', 'branch-a-1');
+    const branchB = branch('branch-b', 'Alternative B', 'main-after');
+    return {
+        title: 'Tour',
+        opening: { title: 'Opening', summary: 'Welcome', bullets: ['Start'] },
+        conclusion: { title: 'Conclusion', summary: 'Finish', bullets: ['Done'] },
+        chapters: [{ id: 'chapter', title: 'Chapter', summary: 'Context', sceneIds: ['scene'] }],
+        scenes: [{
+            id: 'scene', kind: 'walkthrough', title: 'Scene', summary: 'Scene summary',
+            bullets: ['Observe'], tags: [], takeaway: 'Takeaway', steps: [
+                step('main-before', 'Main before', 'Main body', null, 'main.ts'),
+                step('branch-a-1', 'A one', 'A body', branchA, 'a.ts'),
+                step('nested-1', 'Nested one', 'Nested body', nested, 'nested.ts'),
+                step('branch-a-2', 'A two', 'A two body', branchA, 'a.ts'),
+                step('main-after', 'Main after', 'After body', null, 'main.ts'),
+                step('branch-b-1', 'B one', 'B body', branchB, 'b.ts')
+            ]
+        }]
+    };
+}
+
 test('builds a continuous order without reordering scenes by chapter', () => {
     const items = buildTourReadingItems({
         chapters: [
@@ -214,4 +248,77 @@ test('only authored previews create stops, including single-chapter tours', () =
     const single = buildTourReadingItems({ chapters: [tour.chapters[0]], scenes: [tour.scenes[0]] });
     assert.equal(getTourReadingTarget(single, 'title', 1).key, 'chapter:preview');
     assert.equal(getTourReadingTarget(single, 'scene:a', -1).key, 'chapter:preview');
+});
+
+test('optional branches have isolated reading routes and stable all-item lookup', () => {
+    const tour = optionalBranchTour();
+    const main = buildTourReadingItems(tour);
+    const all = buildAllTourReadingItems(tour);
+    const branchA = buildTourReadingItems(tour, { sceneIndex: 0, branchId: 'branch-a' });
+
+    assert.deepEqual(main.map(item => item.key), [
+        'title', 'chapter:chapter', 'scene:scene', 'step:scene:main-before', 'step:scene:main-after', 'conclusion'
+    ]);
+    assert.deepEqual(all.filter(item => item.kind === 'step').map(item => [item.key, item.stepIndex]), [
+        ['step:scene:main-before', 0], ['step:scene:branch-a-1', 1], ['step:scene:nested-1', 2],
+        ['step:scene:branch-a-2', 3], ['step:scene:main-after', 4], ['step:scene:branch-b-1', 5]
+    ]);
+    assert.deepEqual(branchA, [
+        { kind: 'step', key: 'step:scene:branch-a-1', sceneIndex: 0, stepIndex: 1 },
+        { kind: 'step', key: 'step:scene:branch-a-2', sceneIndex: 0, stepIndex: 3 }
+    ]);
+    assert.equal(getTourReadingTarget(main, 'step:scene:main-before', 1).key, 'step:scene:main-after');
+    assert.equal(getTourReadingTarget(branchA, 'step:scene:branch-a-1', 1).key, 'step:scene:branch-a-2');
+    assert.equal(getTourReadingTarget(branchA, 'step:scene:branch-a-2', 1), null);
+    assert.equal(resolveTourReadingItem(branchA, 0, 3)?.key, 'step:scene:branch-a-2');
+    assert.equal(resolveTourReadingItem(branchA, 0, 2), null, 'A nested physical step is not in the outer branch route');
+    assert.equal(resolveTourReadingItem(all, 0, 2)?.key, 'step:scene:nested-1');
+});
+
+test('branch options, parents, and trails follow nested preorder metadata safely', () => {
+    const tour = optionalBranchTour();
+    assert.deepEqual(getTourBranchOptions(tour, 0, 'main-before'), [
+        { id: 'branch-a', title: 'Alternative A', parentStepId: 'main-before' }
+    ]);
+    assert.deepEqual(getTourBranchOptions(tour, 0, 'main-after'), [
+        { id: 'branch-b', title: 'Alternative B', parentStepId: 'main-after' }
+    ]);
+    assert.deepEqual(getTourBranchOptions(tour, 0, 'missing'), []);
+    assert.deepEqual(getTourBranchParent(tour, { sceneIndex: 0, branchId: 'branch-a' }), {
+        kind: 'step', key: 'step:scene:main-before', sceneIndex: 0, stepIndex: 0
+    });
+    assert.deepEqual(getTourBranchParent(tour, { sceneIndex: 0, branchId: 'nested' }), {
+        kind: 'step', key: 'step:scene:branch-a-1', sceneIndex: 0, stepIndex: 1
+    });
+    assert.deepEqual(getTourBranchTrail(tour, { sceneIndex: 0, branchId: 'nested' }), [
+        { id: 'branch-a', title: 'Alternative A', parentStepId: 'main-before' },
+        { id: 'nested', title: 'Nested path', parentStepId: 'branch-a-1' }
+    ]);
+    assert.deepEqual(getTourBranchTrail(tour, { sceneIndex: 0, branchId: 'missing' }), []);
+
+    const cyclic = optionalBranchTour();
+    cyclic.scenes[0].steps[2].branch.parentStepId = 'nested-1';
+    assert.deepEqual(getTourBranchTrail(cyclic, { sceneIndex: 0, branchId: 'nested' }), [
+        { id: 'nested', title: 'Nested path', parentStepId: 'nested-1' }
+    ]);
+});
+
+test('reading cost separates main prose from optional branch prose', () => {
+    const cost = getTourReadingCost(optionalBranchTour());
+    assert.deepEqual(cost, {
+        main: { steps: 2, words: 22 },
+        optional: { steps: 4, words: 23 }
+    });
+});
+
+test('legacy navigation skips optional steps on the main route and stays in a branch', () => {
+    const tour = optionalBranchTour();
+    const scenes = [tour.scenes[0], scene('after', 'discussion')];
+    assert.deepEqual(resolveTourPosition(scenes, 'scene', null), { sceneIndex: 0, stepIndex: 0 });
+    assert.deepEqual(resolveTourPosition(scenes, 'scene', 'branch-a-1'), { sceneIndex: 0, stepIndex: 1 });
+    assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 0, stepIndex: 0 }, 1), { sceneIndex: 0, stepIndex: 4 });
+    assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 0, stepIndex: 4 }, -1), { sceneIndex: 0, stepIndex: 0 });
+    assert.deepEqual(getLinearTourTarget(scenes, { sceneIndex: 0, stepIndex: 1 }, 1), { sceneIndex: 0, stepIndex: 3 });
+    assert.equal(getLinearTourTarget(scenes, { sceneIndex: 0, stepIndex: 3 }, 1), null);
+    assert.equal(getLinearTourTarget(scenes, { sceneIndex: 0, stepIndex: 1 }, -1), null);
 });

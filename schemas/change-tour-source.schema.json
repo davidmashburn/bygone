@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["version", "anchors", "connections", "chapters"],
   "properties": {
-    "version": { "enum": [1, 2, 4, 5, 6] },
+    "version": { "enum": [1, 2, 4, 5, 6, 7] },
     "opening": { "$ref": "#/$defs/passage" },
     "conclusion": { "$ref": "#/$defs/passage" },
     "title": { "$ref": "#/$defs/nonEmptyString" },
@@ -17,6 +17,17 @@
     },
     "correspondence": { "$ref": "#/$defs/nonEmptyString", "description": "Repository-relative validated correspondence artifact; requires version 6." },
     "sourceUrl": { "type": "string", "minLength": 1 },
+    "generatedBy": {
+      "description": "Optional generation attribution from the actual authoring runtime; not review approval and never narrated. Requires version 7.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model"],
+      "properties": {
+        "model": { "$ref": "#/$defs/nonEmptyString" },
+        "harness": { "$ref": "#/$defs/nonEmptyString" },
+        "effort": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
     "details": { "$ref": "#/$defs/details" },
     "range": {
       "type": "object",
@@ -73,7 +84,17 @@
   },
   "allOf": [
     {
-      "if": { "properties": { "version": { "enum": [5, 6] } } },
+      "if": { "properties": { "version": { "const": 7 } } },
+      "else": { "properties": {
+        "generatedBy": false,
+        "details": { "properties": { "checks": false } },
+        "tours": { "additionalProperties": { "properties": {
+          "details": { "properties": { "checks": false } }
+        } } }
+      } }
+    },
+    {
+      "if": { "properties": { "version": { "enum": [5, 6, 7] } } },
       "then": {
         "properties": {
           "chapters": { "$ref": "#/$defs/purposeChapters" },
@@ -128,7 +149,7 @@
       }
     },
     {
-      "if": { "properties": { "version": { "enum": [2, 4, 5, 6] } }, "required": ["version"] },
+      "if": { "properties": { "version": { "enum": [2, 4, 5, 6, 7] } }, "required": ["version"] },
       "then": {
         "properties": {
           "chapters": {
@@ -176,9 +197,64 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": { "version": { "enum": [1, 2, 4, 5, 6] } },
+        "required": ["version"]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "properties": { "chapters": { "$ref": "#/$defs/chaptersWithBranches" } },
+              "required": ["chapters"]
+            },
+            {
+              "properties": { "tours": { "$ref": "#/$defs/toursWithBranches" } },
+              "required": ["tours"]
+            }
+          ]
+        }
+      }
     }
   ],
   "$defs": {
+    "chaptersWithBranches": {
+      "type": "array",
+      "contains": {
+        "type": "object",
+        "required": ["scenes"],
+        "properties": {
+          "scenes": {
+            "type": "array",
+            "contains": {
+              "type": "object",
+              "required": ["steps"],
+              "properties": {
+                "steps": {
+                  "type": "array",
+                  "contains": { "type": "object", "required": ["branches"] }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "toursWithBranches": {
+      "type": "object",
+      "anyOf": [
+        {
+          "required": ["historical"],
+          "properties": { "historical": { "required": ["chapters"], "properties": { "chapters": { "$ref": "#/$defs/chaptersWithBranches" } } } }
+        },
+        {
+          "required": ["deconstructed"],
+          "properties": { "deconstructed": { "required": ["chapters"], "properties": { "chapters": { "$ref": "#/$defs/chaptersWithBranches" } } } }
+        }
+      ]
+    },
     "legacySymbolChapters": {
       "items": { "properties": { "scenes": {
         "items": { "properties": { "steps": {
@@ -216,7 +292,30 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "audience": { "$ref": "#/$defs/audience" }
+        "audience": { "$ref": "#/$defs/audience" },
+        "checks": { "$ref": "#/$defs/checks" }
+      }
+    },
+    "checks": {
+      "description": "Optional author-supplied checks, never narrated or inferred from compilation. Missing categories are not checked. Requires version 7.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provenance": { "$ref": "#/$defs/check" },
+        "claims": { "$ref": "#/$defs/check" },
+        "behavior": { "$ref": "#/$defs/check" },
+        "coverage": { "$ref": "#/$defs/check" },
+        "uncertainty": { "$ref": "#/$defs/check" }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "summary"],
+      "properties": {
+        "status": { "enum": ["verified", "partial", "not-checked", "not-applicable"] },
+        "summary": { "$ref": "#/$defs/prose" },
+        "details": { "$ref": "#/$defs/prose", "description": "Optional supporting prose with safe inline source links." }
       }
     },
     "audience": {
@@ -340,7 +439,26 @@
         },
         "connection": { "$ref": "#/$defs/nonEmptyString" },
         "depth": { "enum": ["mentioned", "explained", "contextualized"] },
-        "requirement": { "$ref": "#/$defs/requirement" }
+        "requirement": { "$ref": "#/$defs/requirement" },
+        "branches": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/stepBranch" }
+        }
+      }
+    },
+    "stepBranch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "steps"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/step" }
+        }
       }
     },
     "coverageExclusion": {
@@ -405,13 +523,32 @@
           "minItems": 2,
           "maxItems": 2,
           "items": { "type": "integer", "minimum": 1 }
+        },
+        "branches": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/stackStepBranch" }
+        }
+      }
+    },
+    "stackStepBranch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "steps"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/stackStep" }
         }
       }
     },
     "stackedScene": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "kind", "title", "summary", "bullets", "tags", "takeaway", "stack", "steps"],
+      "required": ["id", "kind", "title", "summary", "bullets", "tags", "takeaway", "stack"],
       "properties": {
         "id": { "$ref": "#/$defs/nonEmptyString" },
         "kind": { "const": "stacked-diff" },
@@ -423,7 +560,7 @@
         "overview": { "$ref": "#/$defs/sceneOverview" },
         "stack": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "$ref": "#/$defs/stackEntry" } },
         "files": { "$ref": "#/$defs/stringArray" },
-        "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/stackStep" } }
+        "steps": { "type": "array", "items": { "$ref": "#/$defs/stackStep" } }
       }
     },
     "deconstructedChange": {
