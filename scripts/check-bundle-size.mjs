@@ -8,9 +8,10 @@ const budgets = [
     { path: 'media/editor.worker.js', maxBytes: 320_000 },
     // Includes whitespace ranges, paragraph alignment, scroll anchors, and named-anchor highlighting.
     { path: 'media/diff.worker.js', maxBytes: 27_000 },
-    // Includes symbol trees, analysis diagnostics, and pinned symbol tour stops.
-    { path: 'web/web-host.js', maxBytes: 260_000 },
-    { path: 'web/presenter.css', maxBytes: 53_000 }
+    // Includes optional tour paths, authored checks, and reader keyboard recovery.
+    // The 0.12.0 build measures 282,832 bytes JS and 57,086 bytes CSS.
+    { path: 'web/web-host.js', maxBytes: 290_000 },
+    { path: 'web/presenter.css', maxBytes: 59_000 }
 ];
 
 let failed = false;
