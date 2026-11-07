@@ -26,6 +26,10 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [Tour discovery, revision impact, and handoff](tour-discovery-revision-impact-and-handoff.md)
+  — loaded-tour lookup from code, authored explanation maintenance using existing
+  evidence refresh, and a conditional portable-handoff follow-up.
+
 - [Predictable optional-tour navigation](optional-tour-navigation.md) — proposed
   step/sentence controls, explicit detail entry and return, reading-path cues,
   and a bounded usability and validation plan.
