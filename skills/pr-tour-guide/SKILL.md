@@ -205,7 +205,7 @@ do not imply they reproduce historical authorship merely because they have OIDs.
 ## Plan the explanation
 
 Lead with what changes for the user or system and why it matters. Use version 7
-`opening: { title, summary, bullets? }` for a short orientation and
+`opening: { title, summary, bullets? }` for a substantive introduction and
 `conclusion: { title, summary, bullets? }` for what the evidence established and
 what remains unresolved. Give each independently authored mode enough context
 to stand alone: place its `opening` and `conclusion` inside `tours.historical`
@@ -213,6 +213,19 @@ or `tours.deconstructed`; independently authored modes do not inherit root booke
 Restate an important expected behavior or boundary from its
 existing source when useful; the opening is an explanation, not a new specification.
 Never silently weaken an expectation to match the implementation.
+
+Author an opening for every delivered mode, including a one-scene tour. Its
+summary should explain the concrete problem or change, why it matters, and
+what the walkthrough will establish: the behavior, decision, or boundary the
+reader will follow through the evidence. Connect those ideas in prose; do not
+merely restate the PR title or enumerate chapter and scene titles. Select the
+questions that matter for this change rather than promising a generic sequence.
+Keep the explanation grounded in evidence actually inspected.
+
+The Intro renders `opening`; a first-scene summary does not populate it.
+The generated “What you'll see” links are navigation, not an introduction.
+Put the explanation in `opening.summary`, before those links, even when the
+route has only one entry. Bullets may support it but cannot replace it.
 
 Keep routine evidence in the optional `details.checks` checklist when the installed
 schema supports it: provenance, claims, behavior, coverage, uncertainty. Use
@@ -434,6 +447,10 @@ bygone tour narration review.bygone.yaml
 It reports per-stop word counts with optional branches closed; add `--json` for
 structured output. Check every delivered mode for repetition between opening,
 scene, and first step. Omit generic framing such as “The rules, in order.”
+Read the Intro with the PR title and generated route hidden: can the reader
+explain what changes, why it matters, and what the walkthrough will establish?
+If only labels, a topic list, or generic promises remain, rewrite the opening
+before handing off. Structural validation cannot establish this quality.
 Optional branches must answer an additional question; remove those that merely
 repeat the parent. Inspect validation's `readingCosts[mode].narration` for main
 and optional totals. With older tooling, inspect the rendered narration instead.

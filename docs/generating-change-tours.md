@@ -144,16 +144,28 @@ The generated prose remains a proposal. Validation proves that its evidence exis
 
 ## Frame the reading path
 
-Use version 5 opening and conclusion passages to state the tour’s question and
-recap what its evidence established. Give each authored mode its own framing.
+Use opening and conclusion passages (supported since version 5) to state the
+tour’s question and recap what its evidence established. Author an opening for
+every delivered mode, including a one-scene tour. Independently authored modes
+need their own `tours.historical.opening` or `tours.deconstructed.opening`;
+they do not inherit the root opening.
 The Intro is an explicit outline entry. Its “What you'll see” route links to
 chapters, or scenes when there are no chapters. Lists use simple reference
 numbers; headings and narration use plain titles.
 Start the opening with the concrete behavior added or fixed and why it matters.
 Keep that outcome to one or two sentences, then introduce the route.
-Write the opening to explain the problem and the sequence of questions the route
-will answer. Use scene titles that communicate those questions or findings.
-The generated itinerary supplies navigation facts, not the reason the work matters.
+Write `opening.summary` as connected prose explaining the problem and what the
+reader will follow through the evidence: the behavior, decision, or boundary
+the walkthrough will establish. Select what matters for this change rather than
+promising a generic sequence. A first-scene summary does not populate the Intro.
+Use scene titles that communicate the questions or findings, but keep the
+generated itinerary as supporting navigation. A PR title, “What you'll see,”
+and a list of titles do not constitute an introduction.
+
+Before handing off, read the Intro with its PR title and route hidden. The
+remaining prose should still explain what changes, why it matters, and what the
+walkthrough will establish. Rewrite it if only topic labels or generic promises
+remain; structural validation cannot judge this.
 
 Add optional v5 `chapter.summary` only when one or two brief sentences help
 explain what comes next and why. Chapters without previews stay in the contents

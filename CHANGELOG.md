@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.1
+
+- Require authored tour introductions to explain the change, why it matters, and what the walkthrough will establish, including for single-scene tours
+- Clarify that Intro prose belongs in each mode's opening passage and add a comprehension check beyond the generated navigation titles
+
 ## 0.12.0
 
 - Added optional tour paths with nested detail, saved reading context, and explicit return or continue navigation
