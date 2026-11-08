@@ -308,7 +308,7 @@ function isLosslessTextBlob(content: Buffer): boolean {
 function readGitBlob(repoRoot: string, oid: string, relativePath?: string): Buffer | null {
     if (!relativePath) return Buffer.alloc(0);
     try {
-        return execFileSync('git', ['show', `${oid}:${relativePath}`], {
+        return execFileSync('git', ['--no-replace-objects', 'show', `${oid}:${relativePath}`], {
             cwd: repoRoot,
             encoding: 'buffer',
             maxBuffer: 16 * 1024 * 1024,
@@ -320,7 +320,7 @@ function readGitBlob(repoRoot: string, oid: string, relativePath?: string): Buff
 }
 
 function runGit(repoRoot: string, args: string[]): string {
-    return execFileSync('git', args, {
+    return execFileSync('git', ['--no-replace-objects', ...args], {
         cwd: repoRoot,
         encoding: 'utf8',
         maxBuffer: 16 * 1024 * 1024,
