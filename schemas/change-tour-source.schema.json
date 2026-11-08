@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["version", "anchors", "connections", "chapters"],
   "properties": {
-    "version": { "enum": [1, 2, 4, 5, 6, 7] },
+    "version": { "enum": [1, 2, 4, 5, 6, 7, 8] },
     "opening": { "$ref": "#/$defs/passage" },
     "conclusion": { "$ref": "#/$defs/passage" },
     "title": { "$ref": "#/$defs/nonEmptyString" },
@@ -18,16 +18,19 @@
     "correspondence": { "$ref": "#/$defs/nonEmptyString", "description": "Repository-relative validated correspondence artifact; requires version 6." },
     "sourceUrl": { "type": "string", "minLength": 1 },
     "generatedBy": {
-      "description": "Optional generation attribution from the actual authoring runtime; not review approval and never narrated. Requires version 7.",
+      "description": "Optional generation attribution from the actual authoring runtime; not review approval and never narrated. Requires version 7; provider requires version 8.",
       "type": "object",
       "additionalProperties": false,
       "required": ["model"],
       "properties": {
         "model": { "$ref": "#/$defs/nonEmptyString" },
+        "provider": { "$ref": "#/$defs/nonEmptyString" },
         "harness": { "$ref": "#/$defs/nonEmptyString" },
         "effort": { "$ref": "#/$defs/nonEmptyString" }
       }
     },
+    "author": { "$ref": "#/$defs/author" },
+    "options": { "$ref": "#/$defs/options" },
     "details": { "$ref": "#/$defs/details" },
     "range": {
       "type": "object",
@@ -46,6 +49,11 @@
         "exclusions": {
           "type": "array",
           "items": { "$ref": "#/$defs/coverageExclusion" }
+        },
+        "accountedFiles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/accountedFile" }
         }
       }
     },
@@ -84,7 +92,19 @@
   },
   "allOf": [
     {
-      "if": { "properties": { "version": { "const": 7 } } },
+      "if": { "properties": { "version": { "const": 8 } }, "required": ["version"] },
+      "else": {
+        "properties": {
+          "author": false,
+          "options": false,
+          "generatedBy": { "properties": { "provider": false } },
+          "coverage": { "properties": { "accountedFiles": false } },
+          "tours": { "additionalProperties": { "properties": { "options": false } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "version": { "enum": [7, 8] } } },
       "else": { "properties": {
         "generatedBy": false,
         "details": { "properties": { "checks": false } },
@@ -94,7 +114,7 @@
       } }
     },
     {
-      "if": { "properties": { "version": { "enum": [5, 6, 7] } } },
+      "if": { "properties": { "version": { "enum": [5, 6, 7, 8] } } },
       "then": {
         "properties": {
           "chapters": { "$ref": "#/$defs/purposeChapters" },
@@ -149,7 +169,7 @@
       }
     },
     {
-      "if": { "properties": { "version": { "enum": [2, 4, 5, 6, 7] } }, "required": ["version"] },
+      "if": { "properties": { "version": { "enum": [2, 4, 5, 6, 7, 8] } }, "required": ["version"] },
       "then": {
         "properties": {
           "chapters": {
@@ -288,6 +308,45 @@
       }
     },
     "nonEmptyString": { "type": "string", "minLength": 1 },
+    "author": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/prose" },
+        "url": { "type": "string", "pattern": "^https?://\\S+$" }
+      }
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["style", "depth", "audience", "familiarity", "coverage"],
+      "allOf": [{ "if": { "required": ["inferred"], "properties": { "inferred": { "contains": { "const": "emphasis" } } } }, "then": { "required": ["emphasis"] } }],
+      "properties": {
+        "style": { "enum": ["final", "historical", "deconstructed"] },
+        "depth": { "enum": ["headlines", "overview", "guided", "deep", "line-by-line"] },
+        "audience": { "enum": ["peer", "new-contributor", "maintainer", "architect", "product", "qa", "operations", "security", "leadership", "consumer"] },
+        "familiarity": { "enum": ["new", "some", "familiar"] },
+        "coverage": { "enum": ["key-changes", "complete"] },
+        "emphasis": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["behavior", "design", "correctness", "tests", "performance", "security", "rollout"] }
+        },
+        "notes": { "$ref": "#/$defs/prose" },
+        "paths": { "type": "array", "items": { "$ref": "#/$defs/repositoryRelativePath" } },
+        "inferred": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["style", "depth", "audience", "familiarity", "coverage", "emphasis"] }
+        }
+      }
+    },
+    "repositoryRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*/$)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
     "details": {
       "type": "object",
       "additionalProperties": false,
@@ -397,7 +456,7 @@
         "path": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).*$"
+          "pattern": "^(?!/)(?!.*/$)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).*$"
         }
       }
     },
@@ -469,6 +528,15 @@
         "path": { "$ref": "#/$defs/nonEmptyString" },
         "hunks": { "$ref": "#/$defs/stringArray" },
         "reason": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "accountedFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "reason"],
+      "properties": {
+        "path": { "$ref": "#/$defs/prose" },
+        "reason": { "$ref": "#/$defs/prose" }
       }
     },
     "scene": {
@@ -663,6 +731,7 @@
         "opening": { "$ref": "#/$defs/passage" },
         "conclusion": { "$ref": "#/$defs/passage" },
         "details": { "$ref": "#/$defs/details" },
+        "options": { "$ref": "#/$defs/options" },
         "chapters": {
           "type": "array",
           "minItems": 1,
@@ -698,6 +767,7 @@
         "opening": { "$ref": "#/$defs/passage" },
         "conclusion": { "$ref": "#/$defs/passage" },
         "details": { "$ref": "#/$defs/details" },
+        "options": { "$ref": "#/$defs/options" },
         "chapters": {
           "type": "array",
           "minItems": 1,

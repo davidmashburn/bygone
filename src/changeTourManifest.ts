@@ -3,15 +3,26 @@ import { validateTourFraming, validateOverviewPurpose, type ChangeTourFraming } 
 import { validateTourImage, type TourImage } from './tourImage';
 import type { BranchCommit, GitChangeKind } from './gitComparison';
 import {
+    validateChangeTourCoverage,
     validateSceneOverview,
     validateStepRequirement,
+    type ChangeTourCoverage,
     type ChangeTourStepRequirement
 } from './changeTourSource';
-import { validateChangeTourDetails, validateTourGenerator, type ChangeTourDetails, type ChangeTourGenerator } from './tourDetails';
+import {
+    validateChangeTourDetails,
+    validateTourAuthor,
+    validateTourGenerator,
+    type ChangeTourAuthor,
+    type ChangeTourDetails,
+    type ChangeTourGenerator
+} from './tourDetails';
+import { TourCoverage, validateTourOptions, type TourOptions } from './tourOptions';
+import { StrictTourCoverageMode, validateStrictTourCoverageMap, type StrictTourCoverageMap } from './tourCompleteCoverage';
 
-export const CHANGE_TOUR_MANIFEST_VERSION = 7 as const;
+export const CHANGE_TOUR_MANIFEST_VERSION = 8 as const;
 
-export type ChangeTourManifestVersion = 1 | 2 | 4 | 5 | 6 | typeof CHANGE_TOUR_MANIFEST_VERSION;
+export type ChangeTourManifestVersion = 1 | 2 | 4 | 5 | 6 | 7 | typeof CHANGE_TOUR_MANIFEST_VERSION;
 
 export type ChangeTourMode = 'explanation' | 'revisions' | 'final' | 'history';
 
@@ -242,6 +253,7 @@ export interface ChangeTourModeTour extends ChangeTourFraming {
     chapters: ChangeTourChapter[];
     scenes: ChangeTourScene[];
     details?: ChangeTourDetails;
+    options?: TourOptions;
 }
 
 export interface ChangeTourTours {
@@ -250,6 +262,7 @@ export interface ChangeTourTours {
 }
 
 export interface ChangeTourAuthoringCoverage {
+    complete?: StrictTourCoverageMap;
     walkthrough: {
         scope: 'tour' | 'final';
         coveredUnits: number;
@@ -275,6 +288,8 @@ export interface ChangeTourManifest extends ChangeTourFraming {
     sourceUrl?: string;
     generatedAt: string;
     generatedBy?: ChangeTourGenerator;
+    author?: ChangeTourAuthor;
+    options?: TourOptions;
     range: {
         baseRef: string;
         headRef: string;
@@ -297,6 +312,7 @@ export interface ChangeTourManifest extends ChangeTourFraming {
     tours?: ChangeTourTours;
     /** Optional authoring diagnostics supplied by the local presentation host. */
     authoringCoverage?: ChangeTourAuthoringCoverage;
+    coverage?: ChangeTourCoverage;
     details?: ChangeTourDetails;
 }
 
@@ -309,12 +325,15 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     if (isRecord(value) && value.version === 3) {
         throw new Error('Tour manifest format version 3 is retired. Remove the review block, set source version to 4, and recompile the tour.');
     }
-    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
+    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== 7 && value.version !== CHANGE_TOUR_MANIFEST_VERSION)) {
         throw new Error(`Unsupported or missing change-tour manifest version.`);
     }
     if ('review' in value) throw new Error('Change-tour manifests do not support the review field. Put observations in scene and step narrative.');
     validateTourFraming(value, value.version, 'manifest');
     validateTourGenerator(value.generatedBy, value.version);
+    validateTourAuthor(value.author, value.version);
+    validateTourOptions(value.options, value.version);
+    validateChangeTourCoverage(value.coverage, 'coverage', value.version);
     requireString(value.title, 'title');
     requireString(value.generatedAt, 'generatedAt');
     if (value.windowTitle !== undefined) {
@@ -388,7 +407,7 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     }
 
     if (value.tours !== undefined) {
-        if (value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== CHANGE_TOUR_MANIFEST_VERSION) throw new Error('Independent tours require manifest version 4.');
+        if (value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== 7 && value.version !== CHANGE_TOUR_MANIFEST_VERSION) throw new Error('Independent tours require manifest version 4.');
         validateModeTours(value.tours, value.version);
     }
 
@@ -405,13 +424,28 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
             if (!endpoint || endpoint.path !== step.focus.path || step.focus.startLine < endpoint.startLine || step.focus.endLine > endpoint.endLine) throw new Error('Symbol stop focus must lie within its selected declaration.');
         }
     }
-    return { ...value, files } as unknown as ChangeTourManifest;
+    const manifest = { ...value, files } as unknown as ChangeTourManifest;
+    for (const [mode, report] of Object.entries(manifest.authoringCoverage?.complete || {})) {
+        const modeOptions = mode === StrictTourCoverageMode.Tour ? manifest.options
+            : manifest.tours?.[mode as StrictTourCoverageMode.Historical | StrictTourCoverageMode.Deconstructed]?.options ?? manifest.options;
+        if (!report || report.range.baseOid !== manifest.range.mergeBaseOid || report.range.headOid !== manifest.range.headOid
+            || modeOptions?.coverage !== TourCoverage.Complete
+            || JSON.stringify(report.scope.requestedPaths) !== JSON.stringify(modeOptions.paths || [])) {
+            throw new Error(`Strict coverage for ${mode} must match the tour range and requested scope.`);
+        }
+        if (mode !== StrictTourCoverageMode.Tour && !manifest.tours?.[mode as StrictTourCoverageMode.Historical | StrictTourCoverageMode.Deconstructed]) {
+            throw new Error(`Strict coverage for ${mode} requires the corresponding authored mode.`);
+        }
+    }
+    return manifest;
 }
 
 function validateAuthoringCoverage(value: unknown, version: ChangeTourManifestVersion): asserts value is ChangeTourAuthoringCoverage {
     if (!isRecord(value) || !isRecord(value.walkthrough) || !Array.isArray(value.explanationAssignments)) {
         throw new Error('authoringCoverage must contain walkthrough and explanationAssignments.');
     }
+    if (value.complete !== undefined && version < 8) throw new Error('Strict coverage requires manifest version 8.');
+    validateStrictTourCoverageMap(value.complete);
     const expectedScope = version >= 2 ? 'final' : 'tour';
     if (value.walkthrough.scope !== expectedScope) {
         throw new Error(`authoringCoverage.walkthrough.scope must be ${expectedScope}.`);
@@ -438,7 +472,7 @@ function validateAuthoringCoverage(value: unknown, version: ChangeTourManifestVe
     }
 }
 
-function validateModeTours(value: unknown, version: 4 | 5 | 6 | typeof CHANGE_TOUR_MANIFEST_VERSION): asserts value is ChangeTourTours {
+function validateModeTours(value: unknown, version: 4 | 5 | 6 | 7 | typeof CHANGE_TOUR_MANIFEST_VERSION): asserts value is ChangeTourTours {
     if (!isRecord(value)) throw new Error('Change-tour manifest tours must be an object.');
     if (value.historical === undefined && value.deconstructed === undefined) {
         throw new Error('Change-tour manifest tours must contain a historical or deconstructed tour.');
@@ -451,6 +485,7 @@ function validateModeTours(value: unknown, version: 4 | 5 | 6 | typeof CHANGE_TO
             throw new Error(`Change-tour manifest tours.${mode} must contain non-empty chapters and scenes arrays.`);
         }
         validateTourFraming(tour, version, `tours.${mode}`);
+        validateTourOptions(tour.options, version, `tours.${mode}.options`);
         const sceneIds = new Set<string>();
         let hasDeconstructed = false;
         for (const [index, scene] of tour.scenes.entries()) {
@@ -520,7 +555,7 @@ export function parseChangeTourStory(value: unknown): ChangeTourStory {
     return value as unknown as ChangeTourStory;
 }
 
-function validateZoom(value: Record<string, unknown>, version: 2 | 4 | 5 | 6 | typeof CHANGE_TOUR_MANIFEST_VERSION, exported: boolean): void {
+function validateZoom(value: Record<string, unknown>, version: 2 | 4 | 5 | 6 | 7 | typeof CHANGE_TOUR_MANIFEST_VERSION, exported: boolean): void {
     if (!exported && (!isRecord(value.repository) || typeof value.repository.root !== 'string' || !value.repository.root)) {
         throw new Error('A v2 tour requires its originating repository.root.');
     }
@@ -683,8 +718,8 @@ function validateManifestStepTree(
             mainStepCount += 1;
             continue;
         }
-        if (version < CHANGE_TOUR_MANIFEST_VERSION) {
-            throw new Error(`${stepPath}.branch requires manifest version ${CHANGE_TOUR_MANIFEST_VERSION}.`);
+        if (version < 7) {
+            throw new Error(`${stepPath}.branch requires manifest version 7.`);
         }
         const branch = validateManifestStepBranch(candidate.branch, `${stepPath}.branch`);
         if (branch.parentStepId === candidate.id) {

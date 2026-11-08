@@ -29,9 +29,11 @@ import { buildTourWindowTitle } from '../src/windowTitle.ts';
 import { buildTourDirectoryEvidence } from '../src/tourDirectoryEvidence.ts';
 import { TourZoomSession } from '../src/tourZoomSession.ts';
 import { normalizeTourComparisonSelection } from '../src/tourComparison.ts';
+import { TourStyle } from '../src/tourOptions.ts';
 import { createWorkspaceControls } from '../media/workspaceControls.js';
 import { buildFileTree } from '../media/fileTree.js';
 import { renderTourProse } from '../media/tourProse.js';
+import { completeCoverageForMode, renderCompleteCoverage } from './tourCompleteCoverage.js';
 import { renderTourDetails } from './tourDetails.js';
 import { openTourFeedback } from './tourFeedback.js';
 import { captureTourFeedback } from '../src/tourFeedback.ts';
@@ -276,11 +278,11 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     };
 
     function modeLabel(mode) {
-        return mode === 'historical' && legacyFinalTour() ? 'Final tour' : modeLabels[mode];
+        return mode === 'historical' && (legacyFinalTour() || (authoredTours()[mode]?.options || state.authoredTour.options)?.style === TourStyle.Final) ? 'Final tour' : modeLabels[mode];
     }
 
     function modeDescription(mode) {
-        return mode === 'historical' && legacyFinalTour()
+        return mode === 'historical' && (legacyFinalTour() || (authoredTours()[mode]?.options || state.authoredTour.options)?.style === TourStyle.Final)
             ? 'The authored walkthrough of the completed endpoint diff.'
             : modeDescriptions[mode];
     }
@@ -2314,6 +2316,12 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         stats.textContent = `${formatCount(tour.summary.changedFiles, 'file')} · +${tour.summary.additions} −${tour.summary.deletions} · ${formatCount(tour.summary.commitCount, 'commit')}`;
         renderAuthoringCoverage(authoringCoverage, tour.authoringCoverage);
         renderTourDetails(document.getElementById('tour-audience'), isNarrativeMode() ? tour : null);
+        if (isNarrativeMode()) {
+            const reports = tour.authoringCoverage?.complete;
+            const coverageMode = state.zoom?.mode || 'historical';
+            const coverageReport = completeCoverageForMode(reports, coverageMode);
+            renderCompleteCoverage(document.getElementById('tour-audience'), coverageReport, tour.options);
+        }
         sceneCount.textContent = isNarrativeMode() && tour.scenes.length ? String(tour.scenes.length) : '';
         fileCount.textContent = String(tour.files.length);
         scenes.replaceChildren();

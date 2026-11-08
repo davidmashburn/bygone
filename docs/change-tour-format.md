@@ -8,7 +8,7 @@ suffix, and explicitly supplied files are validated by content rather than
 rejected by extension.
 
 An authored source is Git-backed, not portable: resolving refs and anchors
-requires the corresponding local repository and Git objects. Version 2, 4, 5, 6, and 7
+requires the corresponding local repository and Git objects. Version 2, 4, 5, 6, 7, and 8
 compiled manifests remain bound to that repository so the presenter can load
 live file history. Version 1 manifests remain readable as legacy portable
 artifacts, without the mode switcher. Version 4 supports independent authored
@@ -17,7 +17,7 @@ those fields.
 
 ## Version stability and compatibility
 
-Format version **7** is the current authoring contract. Application and document
+Format version **8** is the current authoring contract. Application and document
 versions are separate; UI fixes do not require rewriting a tour.
 
 | Document version | Reader support | Contract |
@@ -28,8 +28,9 @@ versions are separate; UI fixes do not require rewriting a tour.
 | 4 | Supported | Independent authored tours and scene directory overviews; no Review Notes |
 | 5 | Supported | Optional opening, conclusion, and chapter previews; explicit overview purpose |
 | 6 | Supported | Optional pinned symbol comparisons in walkthrough stops |
-| 7 | Use for new sources | Optional nested explanation branches and generation attribution |
-| Greater than 7 | Rejected with an upgrade message | Never interpreted as version 7 |
+| 7 | Supported | Optional nested explanation branches and generation attribution |
+| 8 | Use for new sources | Explicit tour options, inferred choices, human attribution, and accounted non-text changes |
+| Greater than 8 | Rejected with an upgrade message | Never interpreted as version 8 |
 
 Version 4 removes the `review` field and the separate Review Notes panel.
 Concepts, boundaries, tradeoffs, and unresolved questions belong in scene or
@@ -50,6 +51,74 @@ stage coverage, and comparison endpoints. A schema-only pass
 does not prove that the source compiles. Validate against the intended local
 repository before sharing a tour.
 
+### Tour options and human authorship
+
+Version 8 accepts root `options` and optional complete mode-specific `options`
+objects under `tours.historical` and `tours.deconstructed`. A mode without its
+own options inherits the root object. Style expresses authoring intent; `final`
+uses the existing endpoint walkthrough, not an additional workspace mode.
+
+```yaml
+version: 8
+options:
+  style: final
+  depth: guided
+  audience: peer
+  familiarity: some
+  coverage: key-changes
+  emphasis: [correctness, tests]
+  inferred: [depth, audience, familiarity]
+author:
+  name: Example Author
+  url: https://example.com/about
+generatedBy:
+  model: example-model-1
+  provider: example-provider
+  harness: example-agent
+  effort: high
+```
+
+The five core options are required when `options` is present. Optional `emphasis`
+and `inferred` contain distinct supported values. `notes` is nonempty audience/task
+context; `paths` contains repository-relative files/directories without traversal
+(omitted or empty means the whole comparison). See the
+[authoring guide](generating-change-tours.md#tour-menu-and-inferred-options) for
+all choices. Unknown keys or values are rejected; older versions cannot carry
+these v8 fields. Options express requested intent, never verified correctness.
+
+`author.name` is required when `author` is supplied; its optional `url` must use
+HTTP(S). Attribution is explicit and never inferred from Git. The compiler and
+exports preserve these fields. The reader shows them in collapsed Tour details,
+including which choices were inferred, outside narration.
+
+For a complete tour, `coverage.accountedFiles` may identify non-text and zero-hunk
+changes using unique `path` / nonempty `reason` entries. The strict coverage report
+checks the full pinned inventory independently of the legacy selected coverage
+score; exclusions prevent a complete result. Full textual coverage needs narrated
+main-path endpoint evidence covering both changed sides. Optional evidence alone
+cannot make the main path complete.
+
+`bygone tour coverage <source> --json` adds a `complete` map when complete
+coverage was requested. Each authored mode has its own report (`historical` or
+`deconstructed`); a root-only tour uses `tour`. Reports retain pinned endpoint
+OIDs, requested and resolved paths, the inventory before exclusions, raw hunk
+counts, missing sides, explicit file accounting, and limitations. Status is
+`complete`, `incomplete`, or `no-textual-changes`. An empty textual inventory
+never earns a 100% claim, and an explicit base that differs from the merge-base
+blocks completion rather than silently changing the requested comparison.
+
+Local presentation and export retain these results under
+`authoringCoverage.complete`. This is a compiler-produced diagnostic, not an
+authenticated attestation. The viewer validates its structure, range, and scope;
+it does not reconstruct coverage from a repository or authenticate hand-edited
+reports. Recompile the source after changing narration or evidence. The existing
+Tour details disclosure identifies the compiler report and shows the
+exact scope and gaps. A file with only `options.coverage: complete` displays
+“requested · not verified.” These diagnostics are compiler accounting, not a
+judgment that the explanation is useful or the code is correct. The older
+coverage percentage and CLI minimum-coverage threshold retain their existing
+semantics; inspect the strict report for a complete-tour claim.
+
 ### Generation attribution
 
 Version 7 accepts optional top-level generation provenance:
@@ -61,6 +130,7 @@ generatedBy:
   effort: high
 ```
 
+`provider` is an optional nonempty string added in version 8.
 `model` is required when the object is present; `harness` and `effort` are optional
 non-empty strings. Record the exact model identifier from the runtime that authored
 the tour, including a delegated author rather than its orchestrator. Omit unknown
@@ -95,7 +165,7 @@ repetition, not as a quality threshold. Routine evidence belongs in the optional
 [Checks & evidence checklist](tour-checks.md), outside narration.
 
 Keep authored YAML as the editable source. Compiled JSON is generated evidence,
-not a second authoring syntax; v2/v4/v5/v6/v7 manifests retain repository identity and
+not a second authoring syntax; v2/v4/v5/v6/v7/v8 manifests retain repository identity and
 resolved Git objects. Stable format support does not make missing repositories
 or pruned objects available, and does not promise byte-identical generated
 timestamps or presentation layout. Pin full commit IDs in `range` when the

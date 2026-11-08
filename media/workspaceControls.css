@@ -309,3 +309,51 @@
 @media (pointer: coarse) {
     .workspace-mode-button, .workspace-empty-actions button { min-height: 44px; }
 }
+
+.workspace-tour-menu-button {
+    padding: 4px 9px;
+    border: 1px solid var(--vscode-panel-border, #555);
+    border-radius: 4px;
+    background: var(--vscode-button-secondaryBackground, #313131);
+    color: var(--vscode-foreground, #d4d4d4);
+    font: inherit;
+    cursor: pointer;
+}
+.workspace-tour-menu-button:disabled { opacity: .55; cursor: not-allowed; }
+.workspace-tour-menu-button:focus-visible,
+.workspace-tour-options select:focus-visible,
+.workspace-tour-options input:focus-visible {
+    outline: 2px solid var(--vscode-focusBorder, #007fd4);
+    outline-offset: 2px;
+}
+.workspace-tour-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 16px 0; }
+.workspace-tour-option { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.workspace-tour-options select,
+.workspace-tour-options input:not([type="checkbox"]) {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 6px;
+    border: 1px solid var(--vscode-input-border, #555);
+    border-radius: 3px;
+    background: var(--vscode-input-background, #313131);
+    color: var(--vscode-input-foreground, #ddd);
+    font: inherit;
+}
+.workspace-tour-option-description { color: var(--vscode-descriptionForeground, #aaa); font-size: 12px; }
+.workspace-tour-option-wide,
+.workspace-tour-options > fieldset,
+.workspace-tour-options > p { grid-column: 1 / -1; }
+.workspace-tour-options > p { margin: 0; }
+.workspace-tour-options fieldset { display: flex; flex-wrap: wrap; gap: 8px 14px; border: 1px solid var(--vscode-panel-border, #555); border-radius: 3px; }
+.workspace-tour-options fieldset label { display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 560px) { .workspace-tour-options { grid-template-columns: minmax(0, 1fr); } }
+.workspace-prompt-dialog { box-sizing: border-box; overflow-y: auto; }
+.workspace-prompt-dialog > .workspace-prompt-actions:last-child {
+    position: sticky;
+    bottom: -18px;
+    margin: 12px -18px -18px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+    background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #1e1e1e));
+}
+.workspace-prompt-actions[aria-label="Available tours"] { justify-content: flex-start; }

@@ -181,6 +181,13 @@ function renderCoverageReport(report) {
             );
         }
     }
+    for (const [mode, strict] of Object.entries(report.complete || {})) {
+        lines.push(`Strict main-path coverage (${mode}): ${strict.status}; ${strict.coveredHunks}/${strict.totalHunks} full hunks; ${strict.outstandingPaths.length} outstanding paths`);
+        lines.push(`Strict scope: ${strict.scope.requestedPaths.join(', ') || 'whole comparison'}; ${strict.range.baseOid} → ${strict.range.headOid}`);
+        for (const gap of strict.uncoveredHunks) lines.push(`${gap.path} · ${gap.id}: missing ${gap.missingSides.join(' and ')} evidence`);
+        for (const gap of strict.outstandingPaths) lines.push(`${gap}: needs accounting`);
+        for (const limitation of strict.limitations) lines.push(`Limitation: ${limitation}`);
+    }
     if (report.totals.excludedUnits > 0) lines.push(`Excluded: ${report.totals.excludedUnits}/${report.totals.originalUnits} hunks`);
     for (const file of report.files.filter((entry) => entry.uncoveredHunks.length > 0)) {
         lines.push(`${file.path}: ${file.uncoveredHunks.length} uncovered (${file.uncoveredHunks.join(', ')})`);

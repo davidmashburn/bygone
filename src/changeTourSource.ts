@@ -1,9 +1,18 @@
 import { validateTourFraming, validateOverviewPurpose, type ChangeTourFraming } from './tourFraming';
 import { validateTourImageSource, type TourImageSource } from './tourImage';
 import type { ChangeTourNarrative } from './changeTourManifest';
-import { validateChangeTourDetails, validateTourGenerator, type ChangeTourDetails, type ChangeTourGenerator } from './tourDetails';
+import {
+    validateChangeTourDetails,
+    validateTourAuthor,
+    validateTourGenerator,
+    type ChangeTourAuthor,
+    type ChangeTourDetails,
+    type ChangeTourGenerator
+} from './tourDetails';
+import { validateTourOptions, type TourOptions } from './tourOptions';
 
-export const CHANGE_TOUR_SOURCE_VERSION = 7 as const;
+export const CHANGE_TOUR_SOURCE_VERSION = 8 as const;
+export type ChangeTourSourceVersion = 1 | 2 | 4 | 5 | 6 | 7 | typeof CHANGE_TOUR_SOURCE_VERSION;
 
 export interface ChangeTourSourceAnchor {
     file: string;
@@ -50,6 +59,16 @@ export interface ChangeTourCoverageExclusion {
     path: string;
     hunks?: string[];
     reason: string;
+}
+
+export interface ChangeTourCoverageAccountedFile {
+    path: string;
+    reason: string;
+}
+
+export interface ChangeTourCoverage {
+    exclusions: ChangeTourCoverageExclusion[];
+    accountedFiles?: ChangeTourCoverageAccountedFile[];
 }
 
 export interface ChangeTourSourceSceneOverview {
@@ -157,6 +176,7 @@ export interface ChangeTourSourceChapter {
 export interface ChangeTourSourceTour extends ChangeTourFraming {
     chapters: ChangeTourSourceChapter[];
     details?: ChangeTourDetails;
+    options?: TourOptions;
 }
 
 export interface ChangeTourSourceTours {
@@ -165,11 +185,13 @@ export interface ChangeTourSourceTours {
 }
 
 export interface ChangeTourSource extends ChangeTourFraming {
-    version: 1 | 2 | 4 | 5 | 6 | typeof CHANGE_TOUR_SOURCE_VERSION;
+    version: ChangeTourSourceVersion;
     title?: string;
     windowTitle?: string;
     sourceUrl?: string;
     generatedBy?: ChangeTourGenerator;
+    author?: ChangeTourAuthor;
+    options?: TourOptions;
     range?: {
         base: string;
         head: string;
@@ -179,8 +201,45 @@ export interface ChangeTourSource extends ChangeTourFraming {
     connections: ChangeTourSourceConnection[];
     chapters: ChangeTourSourceChapter[];
     tours?: ChangeTourSourceTours;
-    coverage?: { exclusions: ChangeTourCoverageExclusion[] };
+    coverage?: ChangeTourCoverage;
     details?: ChangeTourDetails;
+}
+
+export function validateChangeTourCoverage(
+    value: unknown,
+    path: string,
+    version: number
+): asserts value is ChangeTourCoverage | undefined {
+    if (value === undefined) return;
+    if (!isRecord(value) || !Array.isArray(value.exclusions)) {
+        throw new Error(`${path} must contain an exclusions array.`);
+    }
+    requireOnlyKeys(value, ['exclusions', 'accountedFiles'], path);
+    for (const [index, exclusion] of value.exclusions.entries()) {
+        const exclusionPath = `${path}.exclusions[${index}]`;
+        if (!isRecord(exclusion)) throw new Error(`${exclusionPath} must be an object.`);
+        requireOnlyKeys(exclusion, ['path', 'hunks', 'reason'], exclusionPath);
+        requireString(exclusion.path, `${exclusionPath}.path`);
+        requireString(exclusion.reason, `${exclusionPath}.reason`);
+        if (exclusion.hunks !== undefined) requireStringArray(exclusion.hunks, `${exclusionPath}.hunks`);
+    }
+    if (value.accountedFiles === undefined) return;
+    if (version < 8) throw new Error(`${path}.accountedFiles requires tour version 8.`);
+    if (!Array.isArray(value.accountedFiles)) {
+        throw new Error(`${path}.accountedFiles must be an array.`);
+    }
+    const paths = new Set<string>();
+    for (const [index, accountedFile] of value.accountedFiles.entries()) {
+        const accountedPath = `${path}.accountedFiles[${index}]`;
+        if (!isRecord(accountedFile)) throw new Error(`${accountedPath} must be an object.`);
+        requireOnlyKeys(accountedFile, ['path', 'reason'], accountedPath);
+        requireProse(accountedFile.path, `${accountedPath}.path`);
+        requireProse(accountedFile.reason, `${accountedPath}.reason`);
+        if (paths.has(accountedFile.path)) {
+            throw new Error(`${path}.accountedFiles contains duplicate path: ${accountedFile.path}`);
+        }
+        paths.add(accountedFile.path);
+    }
 }
 
 export function parseChangeTourSource(value: unknown): ChangeTourSource {
@@ -192,14 +251,16 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
     if (isRecord(value) && value.version === 3) {
         throw new Error('Tour source format version 3 is retired. Remove the review block, set source version to 4, and recompile the tour.');
     }
-    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
+    if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== 7 && value.version !== CHANGE_TOUR_SOURCE_VERSION)) {
         throw new Error('Unsupported or missing change-tour source version.');
     }
     requireOnlyKeys(value, [
-        'version', 'title', 'windowTitle', 'sourceUrl', 'generatedBy', 'correspondence', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage', 'opening', 'conclusion', 'details'
+        'version', 'title', 'windowTitle', 'sourceUrl', 'generatedBy', 'author', 'options', 'correspondence', 'range', 'anchors', 'connections', 'chapters', 'tours', 'coverage', 'opening', 'conclusion', 'details'
     ], 'source');
     validateTourFraming(value, value.version, 'source');
     validateTourGenerator(value.generatedBy, value.version);
+    validateTourAuthor(value.author, value.version);
+    validateTourOptions(value.options, value.version);
     optionalString(value.title, 'title');
     optionalString(value.windowTitle, 'windowTitle');
     optionalString(value.sourceUrl, 'sourceUrl');
@@ -209,20 +270,7 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
         requireString(value.range.base, 'range.base');
         requireString(value.range.head, 'range.head');
     }
-    if (value.coverage !== undefined) {
-        if (!isRecord(value.coverage) || !Array.isArray(value.coverage.exclusions)) {
-            throw new Error('coverage must contain an exclusions array.');
-        }
-        requireOnlyKeys(value.coverage, ['exclusions'], 'coverage');
-        for (const [index, exclusion] of value.coverage.exclusions.entries()) {
-            const exclusionPath = `coverage.exclusions[${index}]`;
-            if (!isRecord(exclusion)) throw new Error(`${exclusionPath} must be an object.`);
-            requireOnlyKeys(exclusion, ['path', 'hunks', 'reason'], exclusionPath);
-            requireString(exclusion.path, `${exclusionPath}.path`);
-            requireString(exclusion.reason, `${exclusionPath}.reason`);
-            if (exclusion.hunks !== undefined) requireStringArray(exclusion.hunks, `${exclusionPath}.hunks`);
-        }
-    }
+    validateChangeTourCoverage(value.coverage, 'coverage', value.version);
     if (!isRecord(value.anchors)) {
         throw new Error('anchors must be an object.');
     }
@@ -296,8 +344,9 @@ export function parseChangeTourSource(value: unknown): ChangeTourSource {
             if (tour === undefined) continue;
             const path = `tours.${mode}`;
             if (!isRecord(tour)) throw new Error(`${path} must be an object.`);
-            requireOnlyKeys(tour, ['chapters', 'opening', 'conclusion', 'details'], path);
+            requireOnlyKeys(tour, ['chapters', 'opening', 'conclusion', 'details', 'options'], path);
             validateTourFraming(tour, value.version, path);
+            validateTourOptions(tour.options, value.version, `${path}.options`);
             validateSourceChapters(tour.chapters, `${path}.chapters`, value.version, value.anchors, connectionIds, mode);
             if (tour.details !== undefined) {
                 if (value.version < 5) throw new Error(`${path}.details requires source version 5.`);
@@ -313,7 +362,7 @@ type SourceTourValidationMode = 'root' | 'historical' | 'deconstructed';
 function validateSourceChapters(
     chaptersValue: unknown,
     chaptersPath: string,
-    version: 1 | 2 | 4 | 5 | 6 | 7,
+    version: ChangeTourSourceVersion,
     anchors: Record<string, unknown>,
     connectionIds: ReadonlySet<string>,
     mode: SourceTourValidationMode

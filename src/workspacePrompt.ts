@@ -1,3 +1,5 @@
+import { TOUR_OPTION_CHOICES, TourCoverage, TourOptionField, TourOptions, TourStyle, validateTourOptions } from './tourOptions';
+
 export type WorkspacePromptKind = 'historical' | 'deconstructed';
 
 export type WorkspacePromptRangeStatus =
@@ -32,9 +34,13 @@ const DEFAULT_SKILL_NAME = 'bygone-tour-skill.md';
 export function buildWorkspacePrompt(
     kind: WorkspacePromptKind,
     context: WorkspacePromptContext = {},
-    skill: WorkspacePromptSkill = {}
+    skill: WorkspacePromptSkill = {},
+    options?: TourOptions,
+    humanAuthor?: string
 ): string {
-    const normalizedKind = kind === 'deconstructed' ? 'deconstructed' : 'historical';
+    validateTourOptions(options, 8);
+    const style = options?.style || (kind === 'deconstructed' ? TourStyle.Deconstructed : TourStyle.Historical);
+    const normalizedKind = style === TourStyle.Deconstructed ? 'deconstructed' : 'historical';
     const repository = nonEmptyString(context.repository);
     const paths = stringList(context.paths);
     const rootScope = repository !== undefined
@@ -47,13 +53,29 @@ export function buildWorkspacePrompt(
 
     const lines = [
         buildSkillInstruction(skill),
-        `Create a v5 ${normalizedKind} tour.`,
+        `Create a v8 ${normalizedKind} tour.`,
         `Repository: ${JSON.stringify(repository ?? null)}`,
         `Selected paths: ${JSON.stringify(scope)}`,
         `Base: ${JSON.stringify(exactRange ? revisions[0] : null)}`,
         `Head: ${JSON.stringify(exactRange ? revisions[1] : null)}`,
+        options ? `Tour options (record resolved values explicitly in the tour file): ${JSON.stringify(options)}\nInfer the dimensions listed in options.inferred from this request and code context; their displayed values are starting defaults. Preserve other dimensions as explicit choices. Record the resolved inferred dimensions in options.inferred, including emphasis: [] when no extra emphasis is inferred.`
+            : `Requested style: ${style}. Infer omitted depth, audience, familiarity, coverage, and emphasis from this request and the code context. Record all resolved core options and list inferred dimensions in options.inferred. Explicit user choices take precedence.`,
+        `Human author: ${JSON.stringify(nonEmptyString(humanAuthor) ?? null)}. Record known human attribution as author.name; ask if it cannot be established from supplied context. Never infer authorship from Git or invent a name.`,
+        'Record generatedBy.model using the actual authoring model identifier, plus known provider, harness, and effort. Do not substitute the compiler or an integrating agent for the authoring runtime.',
+        'Record selected paths as repository-relative options.paths (omit for the whole comparison). Never silently broaden the selected scope; resolve unknown scope before claiming complete coverage.',
         'Additional context: (optional)'
     ];
+
+    if (options) {
+        for (const field of [TourOptionField.Style, TourOptionField.Depth, TourOptionField.Audience, TourOptionField.Familiarity, TourOptionField.Coverage]) {
+            lines.push(`${TOUR_OPTION_CHOICES[field].find(choice => choice.value === options[field])!.description}`);
+        }
+        for (const emphasis of options.emphasis || []) lines.push(TOUR_OPTION_CHOICES.emphasis.find(choice => choice.value === emphasis)!.description);
+        if (options.notes) lines.push(`Audience/task context: ${JSON.stringify(options.notes)}`);
+        if (options.coverage === TourCoverage.Complete) {
+            lines.push('100% refers to the final-result inventory, even for Historical or Deconstructed styles. Include fully narrated endpoint evidence for both changed sides of every hunk; do not exclude generated files. Account for non-text and zero-hunk entries in coverage.accountedFiles with a path and explanation. Run bygone tour coverage --json; report strict main-path coverage separately from reader progress, optional detail, and correctness. A requested 100% tour is not verified complete until the strict report says so. Headlines + 100% still needs a complete detail path and cannot promise a tiny total reading time.');
+        }
+    }
 
     if (!exactRange) {
         lines.push(

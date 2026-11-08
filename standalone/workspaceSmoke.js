@@ -111,9 +111,20 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
         await waitFor("document.querySelector('dialog[open] textarea')");
         const initialPrompt = await evaluate("document.querySelector('dialog[open] textarea').value");
         assert.match(initialPrompt, /SKILL\.md/);
-        assert.ok(initialPrompt.length < 1600, 'The handoff stays short');
+        assert.match(initialPrompt, /Requested options/);
+        assert.match(initialPrompt, /Human author/);
         const instructions = await evaluate("document.querySelector('[aria-label=\"Tour skill Markdown instructions\"]').value");
-        assert.match(instructions, /version 7/);
+        assert.match(instructions, /version 8/);
+        assert.match(instructions, /Infer omitted choices by default/);
+        await evaluate(`(() => {
+            const preset = document.querySelector('[data-tour-option=preset]');
+            preset.value = 'complete'; preset.dispatchEvent(new Event('change'));
+            const audience = document.querySelector('[data-tour-option=audience]');
+            audience.value = 'leadership'; audience.dispatchEvent(new Event('change'));
+        })()`);
+        assert.match(await evaluate("document.querySelector('dialog[open] textarea').value"), /"coverage":"complete"/);
+        assert.match(await evaluate("document.querySelector('dialog[open] textarea').value"), /"audience":"leadership"/);
+        assert.equal(await evaluate("document.querySelector('[data-tour-option=preset]').value"), '');
         const saveDialog = dialog.showSaveDialog;
         const chooseDialog = dialog.showOpenDialog;
         const skillCopy = path.join(root, 'my-tour-instructions.md');

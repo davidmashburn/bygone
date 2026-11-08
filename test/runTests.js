@@ -457,7 +457,7 @@ function testWebTourHostSeparatesFileAndNarrativeNavigation() {
     assert.match(hostSource, /authoredTours\(\)\[mode\]/);
     assert.match(hostSource, /function legacyFinalTour[\s\S]{0,350}tour\.zoom\?\.final/);
     assert.match(hostSource, /final: legacyFinalTour\(\) \? 'historical' : 'compare'/);
-    assert.match(hostSource, /mode === 'historical' && legacyFinalTour\(\) \? 'Final tour'/);
+    assert.match(hostSource, /mode === 'historical' && \(legacyFinalTour\(\) \|\|[^\n]+TourStyle.Final\) \? 'Final tour'/);
     assert.match(hostSource, /classList\.toggle\('tour-derived-mode', !isNarrativeMode\(\)\)/);
     assert.match(hostSource, /Boolean\(authoredTours\(\)\[state\.zoom\.mode\]\)/);
     assert.match(hostSource, /state\.zoom\.enter\(mode, mode === 'history' \? origin : null\)/);
@@ -1470,8 +1470,8 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.equal(parseChangeTourManifest(JSON.parse(JSON.stringify(manifest))).version, 1);
     assert.throws(() => parseChangeTourManifest({ version: 1 }), /title must be a string/);
     assert.throws(
-        () => parseChangeTourManifest({ version: 8 }),
-        /manifest format version 8, but this version of Bygone supports up to version 7\. Upgrade Bygone to open it\./
+        () => parseChangeTourManifest({ version: 9 }),
+        /manifest format version 9, but this version of Bygone supports up to version 8\. Upgrade Bygone to open it\./
     );
 
     const story = parseChangeTourStory({
@@ -1605,8 +1605,8 @@ function testChangeTourBuildsPortableNarrativeChapters() {
     assert.throws(() => parseChangeTourSource({ ...source, inventedField: true }), /unknown field: inventedField/);
     assert.throws(() => parseChangeTourSource({ ...source, chapters: [] }), /non-empty array/);
     assert.throws(
-        () => parseChangeTourSource({ ...source, version: 8 }),
-        /source format version 8, but this version of Bygone supports up to version 7\. Upgrade Bygone to open it\./
+        () => parseChangeTourSource({ ...source, version: 9 }),
+        /source format version 9, but this version of Bygone supports up to version 8\. Upgrade Bygone to open it\./
     );
 
     fs.mkdirSync(path.join(repo, 'web'), { recursive: true });
@@ -1983,7 +1983,7 @@ function testPresenterServerInjectsWindowTitleIntoHtml() {
     const presentSource = fs.readFileSync(path.join(__dirname, '..', 'cli', 'present.js'), 'utf8');
     assert.match(presentSource, /buildTourWindowTitle\(manifest, 'Bygone'\)/);
     assert.match(presentSource, /<title>\$\{escapeHtml\(tourWindowTitle\)\}<\/title>/);
-    assert.match(presentSource, /source[\s\S]{0,160}authoringCoverage: buildTourAuthoringCoverage\(buildTourCoverageReport\(cwd, source\)\)/);
+    assert.match(presentSource, /source[\s\S]{0,160}authoringCoverage: buildTourAuthoringCoverage\(buildTourCoverageReport\(cwd, \{/);
 }
 
 function testNpmPackageStagesCliRuntimeDependencies() {

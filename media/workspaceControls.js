@@ -1,3 +1,5 @@
+import { createTourOptionsControls, defaultTourOptions } from './tourOptionsControls.js';
+import { TourStyle } from '../src/tourOptions.ts';
 import { buildWorkspacePrompt } from '../src/workspacePrompt.ts';
 import tourSkillInstructions from '../skills/pr-tour-guide/SKILL.md';
 import tourSkillFeedback from '../skills/pr-tour-guide/references/expectations-and-feedback.md';
@@ -5,16 +7,13 @@ import tourSkillFeedback from '../skills/pr-tour-guide/references/expectations-a
 const bundledTourSkill = tourSkillInstructions.replace('(references/expectations-and-feedback.md)', '(#expectations-and-reader-feedback)')
     + '\n\n' + tourSkillFeedback;
 
+const MENU_DRAFT = 'menu';
 const WORKSPACE_MODES = ['history', 'compare', 'historical', 'deconstructed'];
 const MODE_LABELS = {
     history: 'History',
     compare: 'Compare',
     historical: 'Historical tour',
     deconstructed: 'Deconstructed tour'
-};
-const MISSING_TOUR_COPY = {
-    historical: 'No Historical tour is available. Copy a prompt for your coding agent and read or customize its Markdown instructions.',
-    deconstructed: 'No Deconstructed tour is available. Copy a prompt for your coding agent and read or customize its Markdown instructions.'
 };
 const RANGE_STATUSES = new Set([
     'exact',
@@ -101,6 +100,10 @@ function createWorkspaceControls({ container, content, send } = {}) {
     dependencyButton.setAttribute('aria-label', 'Open dependency graph');
     root.appendChild(dependencyButton);
 
+    const toursButton = makeButton(document, 'Tours…', 'workspace-tour-menu');
+    toursButton.className = 'workspace-tour-menu-button';
+    root.appendChild(toursButton);
+
     const panel = content || container;
     if (!panel.id) panel.id = `bygone-workspace-${instanceId}-view`;
     panel.setAttribute('role', 'tabpanel');
@@ -118,7 +121,7 @@ function createWorkspaceControls({ container, content, send } = {}) {
     emptyView.append(emptyTitle, emptyDescription, emptyActions);
     panel.appendChild(emptyView);
 
-    const dialogParts = createPromptDialog(document, instanceId);
+    const dialogParts = createPromptDialog(document, instanceId, changeOptions);
     root.appendChild(dialogParts.dialog);
     const dependencyParts = createDependencyDialog(document, instanceId);
     root.appendChild(dependencyParts.dialog);
@@ -170,6 +173,7 @@ function createWorkspaceControls({ container, content, send } = {}) {
         });
     }
 
+    toursButton.addEventListener('click', () => openPrompt(MENU_DRAFT, toursButton));
     createButton.addEventListener('click', () => openPrompt(currentState.mode, createButton));
     openButton.addEventListener('click', () => emit({ type: 'workspaceOpenTour', kind: currentState.mode }));
     dependencyButton.addEventListener('click', () => {
@@ -241,7 +245,7 @@ function createWorkspaceControls({ container, content, send } = {}) {
     dialogParts.openExistingButton.addEventListener('click', () => {
         if (!activeKind) return;
         syncDraftText(activeKind);
-        const kind = activeKind;
+        const kind = getDraft(activeKind).options.style === TourStyle.Deconstructed ? 'deconstructed' : 'historical';
         closePrompt();
         emit({ type: 'workspaceOpenTour', kind });
     });
@@ -304,6 +308,8 @@ function createWorkspaceControls({ container, content, send } = {}) {
         markContextChanges(next);
         if (activeKind && next.status !== currentState.status) interactionStatus = next.status;
         currentState = next;
+        toursButton.disabled = !next.canCreateTours && !next.canOpenTours && !next.availableTours?.length;
+        toursButton.title = toursButton.disabled ? 'Authoring and file opening are unavailable in this exported view. Use the tabs to read included tours.' : 'Choose tour depth, audience, coverage, and style';
         renderModes();
         renderEmptyView();
         renderStatus();
@@ -474,7 +480,7 @@ function createWorkspaceControls({ container, content, send } = {}) {
     }
 
     function openPrompt(kind, trigger) {
-        if (destroyed || (kind !== 'historical' && kind !== 'deconstructed')) return;
+        if (destroyed || (kind !== MENU_DRAFT && (!currentState.canCreateTours || (kind !== 'historical' && kind !== 'deconstructed')))) return;
         activeKind = kind;
         activeTrigger = trigger;
         interactionStatus = currentState.status || '';
@@ -489,7 +495,7 @@ function createWorkspaceControls({ container, content, send } = {}) {
         } else {
             dialogParts.dialog.setAttribute('open', '');
         }
-        dialogParts.textarea.focus();
+        (currentState.canCreateTours ? (kind === MENU_DRAFT ? dialogParts.options.preset : dialogParts.textarea) : dialogParts.available.children[0] || dialogParts.closeButton).focus();
     }
 
     function closePrompt() {
@@ -530,10 +536,28 @@ function createWorkspaceControls({ container, content, send } = {}) {
         if (!activeKind) return;
         const draft = getDraft(activeKind);
         const skill = getSkill();
-        dialogParts.title.textContent = `${MODE_LABELS[activeKind]} prompt`;
-        dialogParts.description.textContent = MISSING_TOUR_COPY[activeKind];
+        dialogParts.title.textContent = activeKind === MENU_DRAFT ? 'Choose a tour' : `${MODE_LABELS[activeKind]} prompt`;
+        dialogParts.description.textContent = currentState.canCreateTours
+            ? 'Open an available tour, or choose a preset and adjust its depth, audience, and coverage. Copy the prompt to your coding agent to create it.'
+            : 'Open a tour included in this document. Authoring is unavailable in this view.';
+        dialogParts.authoring.hidden = !currentState.canCreateTours;
+        dialogParts.copyButton.hidden = !currentState.canCreateTours;
+        dialogParts.resetButton.hidden = !currentState.canCreateTours;
+        dialogParts.chooseCompareButton.hidden = !currentState.compare.enabled;
+        while (dialogParts.available.children.length) dialogParts.available.children[0].remove();
+        dialogParts.available.hidden = !currentState.availableTours?.length;
+        for (const mode of currentState.availableTours || []) {
+            const button = makeButton(document, `Open ${currentState.modeLabels[mode] || MODE_LABELS[mode]}`, `workspace-tour-available-${mode}`);
+            button.addEventListener('click', () => { closePrompt(); emit({ type: 'workspaceMode', mode }); });
+            dialogParts.available.appendChild(button);
+        }
+        dialogParts.options.update(draft.options, draft.humanAuthor);
+        dialogParts.openExistingButton.hidden = !currentState.canOpenTours;
         dialogParts.context.textContent = `Current context: ${contextSummary(currentState.promptContext)}`;
-        if (draft.skillKey !== skillKey()) {
+        if (draft.optionsKey !== optionsKey(draft)) {
+            dialogParts.draftNotice.hidden = false;
+            dialogParts.draftNotice.textContent = 'Tour choices changed. Your edited prompt was preserved; use Reset prompt to apply the current choices, or update it yourself.';
+        } else if (draft.skillKey !== skillKey()) {
             dialogParts.draftNotice.hidden = false;
             dialogParts.draftNotice.textContent = 'The selected instructions changed. Your edited prompt was preserved; use Reset prompt to reference the selected file, or update its reference yourself.';
         } else if (draft.contextKey !== contextKey(currentState.promptContext)) {
@@ -586,14 +610,40 @@ function createWorkspaceControls({ container, content, send } = {}) {
         const existing = sessionDrafts.get(kind);
         if (reset || !existing || (!existing.edited && existing.skillKey !== skillKey())) {
             sessionDrafts.set(kind, {
-                text: buildWorkspacePrompt(kind, currentState.promptContext, getSkill()),
+                options: existing?.options || defaultTourOptions(kind),
+                humanAuthor: existing?.humanAuthor || '',
+                text: '',
                 skillKey: skillKey(),
                 contextKey: contextKey(currentState.promptContext),
                 contextSummary: contextSummary(currentState.promptContext),
                 edited: false
             });
+            rebuildDraft(sessionDrafts.get(kind));
         }
         return sessionDrafts.get(kind);
+    }
+
+    function optionsKey(draft) {
+        return JSON.stringify([draft.options, draft.humanAuthor]);
+    }
+
+    function rebuildDraft(draft) {
+        const kind = draft.options.style === TourStyle.Deconstructed ? 'deconstructed' : 'historical';
+        draft.text = buildWorkspacePrompt(kind, currentState.promptContext, getSkill(), draft.options, draft.humanAuthor);
+        draft.optionsKey = optionsKey(draft);
+        draft.skillKey = skillKey();
+        draft.contextKey = contextKey(currentState.promptContext);
+        draft.contextSummary = contextSummary(currentState.promptContext);
+        draft.edited = false;
+    }
+
+    function changeOptions(options, humanAuthor) {
+        if (!activeKind) return;
+        const draft = getDraft(activeKind);
+        draft.options = options;
+        draft.humanAuthor = humanAuthor;
+        if (!draft.edited) rebuildDraft(draft);
+        renderPromptDialog();
     }
 
     function getSkill() {
@@ -617,7 +667,7 @@ function createWorkspaceControls({ container, content, send } = {}) {
     }
 }
 
-function createPromptDialog(document, instanceId) {
+function createPromptDialog(document, instanceId, onOptionsChange) {
     const dialog = document.createElement('dialog');
     dialog.className = 'workspace-prompt-dialog';
     dialog.setAttribute('aria-modal', 'true');
@@ -633,15 +683,25 @@ function createPromptDialog(document, instanceId) {
     dialog.setAttribute('aria-describedby', description.id);
     dialog.appendChild(description);
 
+    const available = document.createElement('div');
+    available.className = 'workspace-prompt-actions';
+    available.setAttribute('aria-label', 'Available tours');
+    dialog.appendChild(available);
+    const authoring = document.createElement('div');
+    dialog.appendChild(authoring);
+
     const context = document.createElement('p');
     context.className = 'workspace-prompt-context';
-    dialog.appendChild(context);
+    authoring.appendChild(context);
+
+    const options = createTourOptionsControls(document, instanceId, onOptionsChange);
+    authoring.appendChild(options.root);
 
     const draftNotice = document.createElement('p');
     draftNotice.className = 'workspace-prompt-draft-notice';
     draftNotice.setAttribute('role', 'status');
     draftNotice.hidden = true;
-    dialog.appendChild(draftNotice);
+    authoring.appendChild(draftNotice);
 
     const label = document.createElement('label');
     label.className = 'workspace-prompt-label';
@@ -652,11 +712,11 @@ function createPromptDialog(document, instanceId) {
     textarea.setAttribute('aria-label', 'Tour authoring prompt draft');
     label.textContent = 'Prompt draft';
     label.appendChild(textarea);
-    dialog.appendChild(label);
+    authoring.appendChild(label);
 
     const skillReference = document.createElement('p');
     skillReference.className = 'workspace-prompt-context';
-    dialog.appendChild(skillReference);
+    authoring.appendChild(skillReference);
     const skillDetails = document.createElement('details');
     const skillSummary = document.createElement('summary');
     skillSummary.textContent = 'Read instructions (Markdown)';
@@ -665,7 +725,7 @@ function createPromptDialog(document, instanceId) {
     skillText.rows = 12;
     skillText.setAttribute('aria-label', 'Tour skill Markdown instructions');
     skillDetails.append(skillSummary, skillText);
-    dialog.appendChild(skillDetails);
+    authoring.appendChild(skillDetails);
     const skillActions = document.createElement('div');
     skillActions.className = 'workspace-prompt-actions';
     const saveSkillButton = makeButton(document, 'Save an editable copy', 'workspace-skill-save');
@@ -675,7 +735,7 @@ function createPromptDialog(document, instanceId) {
     skillFile.accept = '.md,text/markdown';
     skillFile.hidden = true;
     skillActions.append(saveSkillButton, chooseSkillButton, skillFile);
-    dialog.appendChild(skillActions);
+    authoring.appendChild(skillActions);
 
     const status = document.createElement('p');
     status.className = 'workspace-prompt-status';
@@ -683,7 +743,7 @@ function createPromptDialog(document, instanceId) {
     status.setAttribute('aria-live', 'polite');
     status.setAttribute('aria-atomic', 'true');
     status.hidden = true;
-    dialog.appendChild(status);
+    authoring.appendChild(status);
 
     const actions = document.createElement('div');
     actions.className = 'workspace-prompt-actions';
@@ -697,6 +757,9 @@ function createPromptDialog(document, instanceId) {
 
     return {
         dialog,
+        options,
+        available,
+        authoring,
         title,
         description,
         context,

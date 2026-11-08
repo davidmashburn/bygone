@@ -191,3 +191,75 @@ fake code stops. See [the format](change-tour-format.md) for the fields.
 
 For experimental revision-pinned symbol evidence in authoring context and the
 viewer, see [symbol correspondence](correspondence.md).
+
+## Tour menu and inferred options
+
+Open **Tours…** in the workspace to choose a starting preset and independently
+adjust style, explanation depth, audience, codebase familiarity, coverage, and
+optional emphasis. Presets include quick catch-up, stakeholder briefing, product
+walkthrough, review, 100% coverage, line-by-line review, onboarding, architecture,
+history, test planning, deployment readiness, and security review. Copy the prompt
+to your coding agent; Bygone does not run an authoring model. Existing Create tour
+entry points use the same controls. Edited prompt text survives setting changes;
+Reset prompt rebuilds it with the current choices. Exports keep their included
+tour tabs and disable authoring when their host cannot support it.
+
+Untouched menu defaults are marked for inference in the prompt. Changing a field
+makes that dimension explicit; selecting a preset makes its dimensions explicit.
+
+The authoring skill infers omitted settings and states its choices without asking
+a questionnaire. Explicit choices win, and `options.inferred` records which
+settings came from inference. Human and model attribution must come from known
+context, not preference inference. Tour details displays options and provenance
+without adding them to narration.
+
+Infer omitted choices by default from the user's goal, audience clues, and the
+change itself. Do not start with a questionnaire about every dimension. Honor
+explicit choices over presets and inference. State the resolved choices briefly
+before authoring (continue without waiting unless a consequential ambiguity
+needs an answer), and record them in v8 `options`:
+
+- `style`: `final`, `historical`, or `deconstructed`.
+- `depth`: `headlines`, `overview`, `guided`, `deep`, or `line-by-line`.
+- `audience`: `peer`, `new-contributor`, `maintainer`, `architect`, `product`,
+  `qa`, `operations`, `security`, `leadership`, or `consumer`.
+- `familiarity`: `new`, `some`, or `familiar` with this codebase, independently of role.
+- `coverage`: `key-changes` or `complete`, independently of depth.
+- Optional `emphasis`: any of `behavior`, `design`, `correctness`, `tests`,
+  `performance`, `security`, `rollout`; `notes` for audience/task context;
+  `paths` for repository-relative scoped files/directories (omit for all changes).
+- `inferred`: the dimension names resolved by inference rather than explicitly
+  requested: `style`, `depth`, `audience`, `familiarity`, `coverage`, `emphasis`.
+
+With no stronger clues, use final-result, guided, peer, some familiarity, key
+changes, and no extra emphasis; mark these defaults as inferred. Record inferred
+absence of extra emphasis as `emphasis: []`. Use root
+`options` for the compatibility tour and inherited defaults, and a complete
+`options` object on each independently authored mode when its intent differs.
+Do not label an inferred choice as user-requested. Reconcile selected workspace
+paths with `options.paths` and resolve unknown scope before claiming completeness.
+
+Adapt the explanation, not just its label: headlines give outcomes and the main
+caveat; overview explains behavior and affected components; guided follows the
+flow and contracts; deep examines invariants, alternatives, edges, and evidence;
+line-by-line explains individual edits, explicitly grouping mechanical repetition.
+Match vocabulary and questions to the audience. Familiarity controls background,
+not reading ability. Keep legacy `details.audience` reading expectations consistent.
+
+For `coverage: complete`, explain every textual hunk of the pinned final-result
+comparison, including generated files. Anchor all changed lines on both changed
+sides using narrated endpoint walkthrough steps in the selected mode's main path.
+Historical and Deconstructed tours still need that final-result evidence; stages
+alone do not establish complete coverage. Supply `coverage.accountedFiles` entries
+with `path` and a substantive `reason` for binary and zero-hunk changes. Do not use
+exclusions. Run `bygone tour coverage <source> --json` and report the strict result;
+requested 100% is not verified 100%. Optional branches, reader progress, test
+coverage, and correctness are separate. A headlines opening plus 100% needs a
+complete detail path and cannot promise a tiny total reading time.
+
+Record the human author as top-level `author: { name, url? }`. Use supplied or
+reliably established attribution; ask if unknown rather than guessing from Git
+commit authors. Record the actual authoring runtime in `generatedBy` with required
+`model` and known optional `provider`, `harness`, and `effort`. Omit unknown runtime
+fields; never invent a model, assume the integrator authored delegated prose, or
+use attribution to imply review/approval. Attribution is not an inferred option.

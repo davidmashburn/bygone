@@ -13,9 +13,9 @@ test('exact range produces a compact prompt with a local skill reference', () =>
         rangeStatus: 'exact'
     }, { path: '/tmp/bygone-tour-skill.md' });
 
-    assert.equal(prompt.split('\n').length, 7);
+    assert.match(prompt, /options.inferred/);
     assert.match(prompt, /Read and follow the Bygone tour skill at "\/tmp\/bygone-tour-skill\.md"\./);
-    assert.match(prompt, /Create a v5 historical tour\./);
+    assert.match(prompt, /Create a v8 historical tour\./);
     assert.match(prompt, /Repository: "\/tmp\/repo"/);
     assert.match(prompt, /Selected paths: \["src\/index\.ts","docs\/tour\.md"\]/);
     assert.match(prompt, new RegExp(`Base: "${BASE}"`));
@@ -30,7 +30,7 @@ test('missing skill path uses the attached default or supplied filename', () => 
 
     assert.match(defaultPrompt, /Read and follow the Bygone tour skill in attached "bygone-tour-skill\.md"\./);
     assert.match(namedPrompt, /Read and follow the Bygone tour skill in attached "tour-skill\.md"\./);
-    assert.match(defaultPrompt, /Create a v5 deconstructed tour\./);
+    assert.match(defaultPrompt, /Create a v8 deconstructed tour\./);
 });
 
 test('repository and scope paths are JSON-quoted without newline ambiguity', () => {
@@ -76,7 +76,7 @@ for (const rangeStatus of ['none', 'multiple', 'uncommitted', 'reversed', 'diver
             rangeStatus
         });
 
-        assert.equal(prompt.split('\n').length, 9);
+        assert.match(prompt, /generatedBy.model/);
         assert.match(prompt, new RegExp(`Warning: range status "${rangeStatus}"`));
         assert.match(prompt, /choose revisions in Compare/);
         assert.match(prompt, /merge-base/);

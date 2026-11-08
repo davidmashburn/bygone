@@ -6,6 +6,7 @@ const { execFileSync } = require('child_process');
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell, clipboard } = require('electron');
 const { resolveLocalDeepLink } = require('../src/deepLinkResolver.ts');
 const { serializeDeepLink } = require('../src/deepLink.ts');
+const { TourStyle } = require('../src/tourOptions.ts');
 const { exportTour } = require('../cli/tourExport.js');
 const { loadTourWithConversion } = require('./tourConversion.js');
 const { installLinkPreviewHost, openPreviewExternal } = require('./linkPreview.js');
@@ -646,7 +647,8 @@ async function openWorkspaceTour(uiState, context, kind) {
         url.searchParams.set('mode', kinds.includes(kind) ? kind : kinds[0]);
         activeTourServers.add(presentation.server);
         return { url: url.toString(), kinds, dispose: () => closeTourServer(presentation.server),
-            modeLabels: !manifest.tours && deconstructed && kinds.includes('historical') ? { historical: 'Final tour' } : undefined,
+            modeLabels: ((!manifest.tours && deconstructed && kinds.includes('historical'))
+                || (manifest.tours?.historical?.options || manifest.options)?.style === TourStyle.Final) ? { historical: 'Final tour' } : undefined,
             promptContext: { repository: document.repoRoot, paths: (manifest.files || []).map((file) => file.path).filter(Boolean), revisions, rangeStatus: 'exact' },
             notice: matching && !scoped ? '' : 'Tour context differs; History and Compare return to your retained comparison.' };
     } catch (error) {

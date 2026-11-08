@@ -44,20 +44,45 @@ export interface ChangeTourDetails {
     checks?: ChangeTourChecks;
 }
 
+/** Human attribution supplied by the authoring process, never inferred. */
+export interface ChangeTourAuthor {
+    name: string;
+    url?: string;
+}
+
 /** Attribution supplied by the authoring runtime, not inferred by the compiler. */
 export interface ChangeTourGenerator {
     model: string;
+    provider?: string;
     harness?: string;
     effort?: string;
+}
+
+export function validateTourAuthor(
+    value: unknown,
+    version: number,
+    path = 'author'
+): asserts value is ChangeTourAuthor | undefined {
+    if (value === undefined) return;
+    if (version < 8) throw new Error(`${path} requires tour version 8.`);
+    if (!isRecord(value)) throw new Error(`${path} must be an object.`);
+    requireOnlyKeys(value, ['name', 'url'], path);
+    requireProse(value.name, `${path}.name`);
+    if (value.url !== undefined && !isHttpUrl(value.url)) {
+        throw new Error(`${path}.url must be a non-empty http(s) URL.`);
+    }
 }
 
 export function validateTourGenerator(value: unknown, version: number): asserts value is ChangeTourGenerator | undefined {
     if (value === undefined) return;
     if (version < 7) throw new Error('generatedBy requires tour version 7.');
     if (!isRecord(value)) throw new Error('generatedBy must be an object.');
-    requireOnlyKeys(value, ['model', 'harness', 'effort'], 'generatedBy');
+    requireOnlyKeys(value, ['model', 'provider', 'harness', 'effort'], 'generatedBy');
     requireString(value.model, 'generatedBy.model');
-    for (const key of ['harness', 'effort']) {
+    if (value.provider !== undefined && version < 8) {
+        throw new Error('generatedBy.provider requires tour version 8.');
+    }
+    for (const key of ['provider', 'harness', 'effort']) {
         if (value[key] !== undefined) requireString(value[key], `generatedBy.${key}`);
     }
 }
@@ -134,6 +159,16 @@ function requireString(value: unknown, path: string): asserts value is string {
     if (typeof value !== 'string' || value.trim().length === 0) {
         throw new Error(`${path} must be a non-empty string.`);
     }
+}
+
+function requireProse(value: unknown, path: string): asserts value is string {
+    if (typeof value !== 'string' || !value.trim()) {
+        throw new Error(`${path} must be a non-empty string.`);
+    }
+}
+
+function isHttpUrl(value: unknown): value is string {
+    return typeof value === 'string' && /^https?:\/\/\S+$/i.test(value);
 }
 
 function requireStringArray(value: unknown, path: string): asserts value is string[] {

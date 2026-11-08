@@ -39,7 +39,9 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
         source
     });
     const manifest = source
-        ? { ...builtManifest, authoringCoverage: buildTourAuthoringCoverage(buildTourCoverageReport(cwd, source)) }
+        ? { ...builtManifest, authoringCoverage: buildTourAuthoringCoverage(buildTourCoverageReport(cwd, {
+            ...source, range: { base: builtManifest.range.baseRef, head: builtManifest.range.headRef }
+        })) }
         : builtManifest;
     if (options.location) resolveDocumentFocus(manifest, options.location.mode, options.location.focus);
     if (tourPath) {

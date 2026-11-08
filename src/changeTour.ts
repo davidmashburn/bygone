@@ -42,11 +42,13 @@ export { parseChangeTourManifest, parseChangeTourStory } from './changeTourManif
 export { parseChangeTourSource } from './changeTourSource';
 export type {
     ChangeTourAudience,
+    ChangeTourAuthor,
     ChangeTourCheck,
     ChangeTourChecks,
     ChangeTourDetails,
     ChangeTourGenerator
 } from './tourDetails';
+export type { TourOptionField, TourOptions } from './tourOptions';
 export { ChangeTourCheckCategory, ChangeTourCheckStatus } from './tourDetails';
 export type { ChangeTourStepBranch } from './changeTourManifest';
 export { buildChangeTourContext } from './changeTourContext';
@@ -249,6 +251,9 @@ export function buildChangeTourManifest(
         scenes,
         ...(source?.details !== undefined ? { details: source.details } : {}),
         ...(source?.generatedBy !== undefined ? { generatedBy: source.generatedBy } : {}),
+        ...(source?.author !== undefined ? { author: source.author } : {}),
+        ...(source?.options !== undefined ? { options: source.options } : {}),
+        ...(source?.coverage !== undefined && source.version >= 8 ? { coverage: source.coverage } : {}),
     };
     const authoredModeTours = source && source.version >= 4
         ? buildAuthoredModeTours(
@@ -447,6 +452,7 @@ function buildAuthoredModeTours(
             chapters: compiled.chapters,
             scenes: compiled.scenes,
             ...(source.tours.historical.details !== undefined ? { details: source.tours.historical.details } : {}),
+            ...(source.tours.historical.options !== undefined ? { options: source.tours.historical.options } : {}),
         };
     } else if (source.version >= 4) {
         const fallback = buildHistoricalFallback(source.chapters, root);
@@ -468,6 +474,7 @@ function buildAuthoredModeTours(
             chapters: compiled.chapters,
             scenes: compiled.scenes,
             ...(source.tours.deconstructed.details !== undefined ? { details: source.tours.deconstructed.details } : {}),
+            ...(source.tours.deconstructed.options !== undefined ? { options: source.tours.deconstructed.options } : {}),
         };
     } else if (source.version >= 4 && source.chapters.some((chapter) => (
         chapter.scenes.some((scene) => scene.kind === 'deconstructed-diff')

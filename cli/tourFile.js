@@ -180,7 +180,7 @@ function errorMessage(error) {
 }
 
 function buildManifestForTourSource(cwd, source, options = {}) {
-    return buildChangeTourManifest(cwd, {
+    const manifest = buildChangeTourManifest(cwd, {
         headRef: options.headRef || source.range?.head,
         baseRef: options.baseRef || source.range?.base,
         title: options.title,
@@ -188,6 +188,12 @@ function buildManifestForTourSource(cwd, source, options = {}) {
         generatedAt: options.generatedAt,
         source
     });
+    if (source.version >= 8) {
+        const { buildTourAuthoringCoverage, buildTourCoverageReport } = require('../out/tourCoverage');
+        const coverageSource = { ...source, range: { base: manifest.range.baseRef, head: manifest.range.headRef } };
+        return { ...manifest, authoringCoverage: buildTourAuthoringCoverage(buildTourCoverageReport(cwd, coverageSource)) };
+    }
+    return manifest;
 }
 
 module.exports = {
