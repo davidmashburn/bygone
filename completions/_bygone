@@ -64,7 +64,7 @@ _bygone() {
         '--help:Show command help'
     )
     shells=('zsh:Z shell' 'bash:Bash' 'fish:Fish shell')
-    tour_actions=('context:Build structured change evidence' 'coverage:Measure authored tour coverage' 'validate:Validate source and anchors' 'narration:Inspect main-path speech' 'reader-packet:Prepare bounded reader input' 'compile:Compile a repository-bound manifest' 'export:Export a portable HTML tour' 'schema:Print the source schema')
+    tour_actions=('context:Build structured change evidence' 'coverage:Measure authored tour coverage' 'validate:Validate source and anchors' 'narration:Inspect main-path speech' 'reader-packet:Prepare bounded reader input' 'compile:Compile a repository-bound manifest' 'impact:Report changes to pinned tour evidence' 'export:Export a portable HTML tour' 'schema:Print the source schema')
 
     if (( CURRENT == 2 )); then
         _describe 'bygone command' root_items
@@ -87,6 +87,13 @@ _bygone() {
                 else
                     compadd -- --base --output -o --max-patch-bytes --max-total-patch-bytes --correspondence --dependencies
                     _bygone_git_refs
+                fi
+            elif [[ "$words[3]" == "impact" ]]; then
+                if [[ "$previous" == "--head" ]]; then
+                    _bygone_git_refs
+                else
+                    compadd -- --head --correspondence --output -o --json
+                    _files -g '*.json'
                 fi
             elif [[ "$words[3]" == "coverage" || "$words[3]" == "validate" || "$words[3]" == "narration" || "$words[3]" == "reader-packet" || "$words[3]" == "compile" ]]; then
                 _files -g '*.bygone' -g '*.bygone.yaml'

@@ -173,6 +173,9 @@ const NAVIGATION_SIDEBAR_MIN_WIDTH = 220;
 const NAVIGATION_SIDEBAR_MAX_WIDTH = 520;
 
 let currentMode = MODE_TWO_WAY;
+let relatedExplanationRender = null;
+const RELATED_EXPLANATIONS_CONTEXT = 'bygoneHasRelatedTour';
+const relatedExplanationContexts = new Set();
 let diffBlocks = [];
 let monacoInstance;
 let leftEditor;
@@ -298,6 +301,17 @@ host.onMessage((message) => {
         return;
     }
     if (!followSync.receive(message)) return;
+    if (message.type.startsWith('show')) {
+        relatedExplanationRender = message.relatedExplanations ? message.renderRequestId : null;
+        for (const context of relatedExplanationContexts) context.set(relatedExplanationRender !== null);
+    }
+    if (message.type === 'restoreRelatedExplanationFocus') {
+        if (message.renderRequestId === relatedExplanationRender) {
+            const editor = currentMode === MODE_TWO_WAY ? getTwoWayEditor(message.side) : multiEditors[multiPanels.findIndex(panel => panel.id === message.panelId)];
+            editor?.focus();
+        }
+        return;
+    }
     if (message.workspace) updateWorkspaceControls(message.workspace);
     if (message.type === 'workspaceDependencyGraph') {
         workspaceControls?.updateDependencyGraph(message);
@@ -1608,6 +1622,32 @@ function createEditor(container, editorMode, side = null, initialModel = null) {
     });
 
     registerEditorKeybindings(editor, editorMode);
+    if (host.environment !== 'vscode') {
+        const relatedContext = editor.createContextKey(RELATED_EXPLANATIONS_CONTEXT, relatedExplanationRender !== null);
+        relatedExplanationContexts.add(relatedContext);
+        editor.onDidDispose(() => relatedExplanationContexts.delete(relatedContext));
+        editor.addAction({
+            id: 'bygone.relatedExplanations',
+            label: 'Related explanations',
+            precondition: RELATED_EXPLANATIONS_CONTEXT,
+            keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.KeyE],
+            contextMenuGroupId: 'navigation',
+            contextMenuOrder: 1.5,
+            run: () => {
+                if (relatedExplanationRender === null) return;
+                const selection = editor.getSelection();
+                if (!selection) return;
+                host.postMessage({
+                    type: 'relatedExplanations', renderRequestId: relatedExplanationRender,
+                    ...(editorMode === MODE_TWO_WAY ? { side } : { panelId: side, pairIndex: activeMultiPairIndex }),
+                    startLine: selection.startLineNumber,
+                    // Monaco selection ends are exclusive; column 1 excludes that line.
+                    endLine: selection.endLineNumber > selection.startLineNumber && selection.endColumn === 1
+                        ? selection.endLineNumber - 1 : selection.endLineNumber
+                });
+            }
+        });
+    }
 
     return editor;
 }

@@ -162,6 +162,15 @@ await build({
 
 await build({
     ...sharedOptions,
+    entryPoints: ['src/tourRevisionImpact.ts'],
+    outfile: 'out/tourRevisionImpact.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node16'
+});
+
+await build({
+    ...sharedOptions,
     entryPoints: ['src/tourCoverage.ts'],
     outfile: 'out/tourCoverage.js',
     platform: 'node',
@@ -218,6 +227,15 @@ await build({
     ...sharedOptions,
     entryPoints: ['src/tourSearch.ts'],
     outfile: 'out/tourSearch.js',
+    platform: 'node',
+    format: 'cjs',
+    target: 'node18'
+});
+
+await build({
+    ...sharedOptions,
+    entryPoints: ['src/tourRelated.ts'],
+    outfile: 'out/tourRelated.js',
     platform: 'node',
     format: 'cjs',
     target: 'node18'

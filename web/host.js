@@ -18,6 +18,8 @@ import { TourReaderAction, resolveTourReaderKey } from '../src/tourReaderKeyboar
 import { TourNarrationController } from '../src/tourNarrationPlayback.ts';
 import { createNarrationMediaSession } from './narrationMediaSession.js';
 import { searchTour } from '../src/tourSearch.ts';
+import { createRelatedExplanations } from './tourRelated.js';
+import { createTourRelatedIndex, queryTourRelated, resolveTourRelatedTarget, TOUR_RELATED_RESULT_KIND, TOUR_RELATED_TARGET_RESULT_KIND } from '../src/tourRelated.ts';
 import {
     buildStackedTourAnnotations,
     buildWalkthroughTourAnnotations,
@@ -50,6 +52,14 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     let documentNavigationId = 0;
     let documentNavigationQueue = Promise.resolve();
     let zoomSwitchQueue = Promise.resolve();
+    let relatedRender = null;
+    let relatedIndex = null;
+    let relatedIndexedTour = null;
+    let relatedLoading = false;
+    const relatedExplanations = createRelatedExplanations({
+        navigate: openRelatedExplanation,
+        restoreFocus: origin => emit({ ...origin, type: 'restoreRelatedExplanationFocus' })
+    });
     const TOUR_SIDEBAR_STORAGE_KEY = 'bygone.tourSidebarWidth';
     const TOUR_SIDEBAR_MIN_WIDTH = 240;
     const TOUR_SIDEBAR_MAX_WIDTH = 600;
@@ -183,6 +193,10 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         if (message.type === 'showDiff' || message.type === 'showMultiDiff' || message.type === 'showDirectoryDiff') {
             imageViewer.clear();
             message = { ...message, renderRequestId: ++renderRequestId };
+            relatedExplanations.clear();
+            message.relatedExplanations = state.mode === 'tour';
+            relatedRender = message.relatedExplanations
+                ? { tour: state.authoredTour, message } : null;
             if (state.mode === 'tour' && !message.correspondenceView) {
                 state.displayedPanels = message.type === 'showMultiDiff' ? message.panels
                     : state.zoom?.mode === 'history' ? state.historyPanels : twoWayCommitPanels();
@@ -742,22 +756,23 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         const commitIndex = entries.findIndex((item) => item.commit === commit);
         const previousEntry = commitIndex >= 0 ? entries[commitIndex + 1] : null;
         const previousCommit = previousEntry?.commit || diff.parentCommit;
-        const previousContent = previousCommit && previousCommit !== diff.parentCommit
-            ? (await historyRequest('diff', { path, commit: previousCommit, head: state.authoredTour.range.headOid })).rightContent : diff.leftContent;
+        const previousSnapshot = previousCommit && previousCommit !== diff.parentCommit
+            ? await historyRequest('diff', { path, commit: previousCommit, head: state.authoredTour.range.headOid })
+            : { rightContent: diff.leftContent, path: diff.previousPath || diff.path };
         if (request !== evidenceRequest || state.zoom.mode !== 'history') return;
         state.historyPath = path;
         state.historyCommit = commit;
         const width = Math.max(2, state.historyPanels.length);
         state.historyDiff = diff;
-        const panel = (oid, content, label) => ({ id: `history-${oid || 'empty'}`, commit: oid, content, label, path: diff.path, editable: false });
-        state.historyPanels = [panel(previousCommit, previousContent, previousCommit?.slice(0, 7) || 'Empty tree'), panel(commit, diff.rightContent, entry ? `${entry.shortCommit} ${entry.summary}` : commit.slice(0, 7))];
+        const panel = (oid, content, label, panePath = diff.path) => ({ id: `history-${oid || 'empty'}`, commit: oid, content, label, path: panePath, editable: false });
+        state.historyPanels = [panel(previousCommit, previousSnapshot.rightContent, previousCommit?.slice(0, 7) || 'Empty tree', previousSnapshot.path), panel(commit, diff.rightContent, entry ? `${entry.shortCommit} ${entry.summary}` : commit.slice(0, 7))];
         state.historyFocus = `history-${commit}`;
         while (state.historyPanels.length < width) {
             const older = historyNeighbor(state.historyPanels[0], 'left');
             if (!older) break;
             const snapshot = await historyRequest('diff', { path, commit: older.commit, head: state.authoredTour.range.headOid });
             if (request !== evidenceRequest || state.zoom.mode !== 'history') return;
-            state.historyPanels.unshift(panel(older.commit, snapshot.rightContent, `${older.shortCommit} ${older.summary}`));
+            state.historyPanels.unshift(panel(older.commit, snapshot.rightContent, `${older.shortCommit} ${older.summary}`, snapshot.path));
         }
         await renderZoomHistoryPanels();
         document.getElementById('tour-mode-status').textContent = '';
@@ -1107,6 +1122,10 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
 
     async function handleRendererMessage(message) {
         if (!message || typeof message !== 'object') {
+            return;
+        }
+        if (message.type === 'relatedExplanations') {
+            showRelatedExplanations(message);
             return;
         }
         if (message.type === 'navigationState') {
@@ -1801,6 +1820,67 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         }
     }
 
+    function showRelatedExplanations(request) {
+        const render = relatedRender;
+        if (relatedLoading || !render || render.tour !== state.authoredTour
+            || request.renderRequestId !== renderRequestId
+            || request.renderRequestId !== render.message.renderRequestId || state.zoomSwitching) return;
+        const message = render.message;
+        let source;
+        let side = request.side;
+        if (message.type === 'showMultiDiff') {
+            const index = message.panels.findIndex(panel => panel.id === request.panelId);
+            if (index === request.pairIndex) side = 'left';
+            else if (index === request.pairIndex + 1) side = 'right';
+            else side = null;
+            const panel = message.panels[index];
+            if (panel && side) source = Object.hasOwn(panel, 'relatedSource')
+                ? panel.relatedSource : (panel.commit && { panePath: panel.path, commit: panel.commit });
+        } else if (message.type === 'showDiff') {
+            source = message.relatedSources?.[side];
+        }
+        if (!source) {
+            relatedExplanations.show(request, [], source === null
+                ? 'Evidence unavailable: the selected source is absent from this comparison.'
+                : 'Unsupported source: this view does not expose an exact text revision. Open a text comparison to find related explanations.');
+            return;
+        }
+        if (!relatedIndex || relatedIndexedTour !== state.authoredTour) {
+            relatedIndex = createTourRelatedIndex(state.authoredTour);
+            relatedIndexedTour = state.authoredTour;
+        }
+        const offset = source.lineOffset || 0;
+        const result = queryTourRelated(relatedIndex, { ...source, side,
+            startLine: request.startLine + offset, endLine: request.endLine + offset });
+        const matches = result.matches || [];
+        const description = result.kind === TOUR_RELATED_RESULT_KIND.MATCHES
+            ? `${matches.length} related explanation${matches.length === 1 ? '' : 's'} in this tour.`
+            : result.kind === TOUR_RELATED_RESULT_KIND.NO_MATCH
+                ? 'No resolved reference in this tour overlaps the selected code. Other tours may explain it.'
+                : result.kind === TOUR_RELATED_RESULT_KIND.UNAVAILABLE
+                    ? 'Evidence unavailable: an exact source revision and selected line range are required. Open the source comparison and try again.'
+                    : 'Unsupported source: this selection cannot be matched to resolved text evidence in the loaded tour.';
+        relatedExplanations.show(request, matches.map(match => ({ ...match, tour: state.authoredTour })), description);
+    }
+
+    async function openRelatedExplanation(match) {
+        const tour = state.authoredTour;
+        if (relatedLoading || match.tour !== tour
+            || resolveTourRelatedTarget(tour, match.target).kind !== TOUR_RELATED_TARGET_RESULT_KIND.RESOLVED) {
+            throw new Error('This result belongs to an earlier tour. Look up the selected code again.');
+        }
+        if (state.zoom?.mode !== match.target.mode) await switchZoomMode(match.target.mode);
+        if (state.authoredTour !== tour || state.zoom?.mode !== match.target.mode) {
+            throw new Error('The tour changed before this explanation could open. Look up the code again.');
+        }
+        const sceneIndex = state.tour.scenes.findIndex(scene => scene.id === match.target.sceneId);
+        const stepIndex = state.tour.scenes[sceneIndex]?.steps?.findIndex(step => step.id === match.target.stepId);
+        if (sceneIndex < 0 || stepIndex === undefined || stepIndex < 0) throw new Error('This explanation is no longer available.');
+        cancelPendingModeRestore();
+        showTourScene(sceneIndex, stepIndex, { readingKey: `step:${match.target.sceneId}:${match.target.stepId}`, userNavigation: true });
+        focusReaderNavigation();
+    }
+
     let currentTourSearchMatches = [];
 
     function renderTourSearchResults() {
@@ -2019,6 +2099,9 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
     }
 
     async function loadTour(manifestUrl) {
+        relatedExplanations.clear();
+        relatedLoading = true;
+        relatedIndex = null;
         setStatus('Loading change tour…');
         const nextHistoryPrefix = historyPrefixForManifest(manifestUrl);
         const previousState = {
@@ -2078,6 +2161,7 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             document.getElementById('file-symbol-context').hidden = true;
             document.getElementById('correspondence-context').hidden = true;
             state.authoredTour = parsedTour;
+            relatedLoading = false;
             state.historyPrefix = nextHistoryPrefix;
             state.zoom = new TourZoomSession(initialMode);
             state.historyEntries = parsedHistoryEntries;
@@ -2167,6 +2251,9 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             return true;
         } catch (error) {
             const loading = document.getElementById('export-loading');
+            relatedLoading = false;
+            relatedIndex = null;
+            relatedRender = null;
             if (loading) loading.textContent = `Could not open export: ${error.message}`;
             Object.assign(state, previousState);
             renderRequestId = previousRenderRequestId;
@@ -2506,6 +2593,10 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
         emit({ type: 'showDiff', file1: `${location(a)} @ ${range.baseOid.slice(0, 7)}`,
             file2: `${location(b)} @ ${range.headOid.slice(0, 7)}`,
             sourceInfo: { leftPath: a?.path || selection.entry.path, rightPath: b?.path || selection.entry.path },
+            relatedSources: {
+                left: a ? { panePath: a.path, commit: range.baseOid, lineOffset: context ? 0 : a.startLine - 1 } : null,
+                right: b ? { panePath: b.path, commit: range.headOid, lineOffset: context ? 0 : b.startLine - 1 } : null
+            },
             comparisonId: `correspondence-${selection.id}-${context ? 'file' : 'symbol'}`,
             leftContent: left, rightContent: right, diffModel: model, history: null, correspondenceView: true,
             editableSides: { left: false, right: false }, tourAnnotations: annotations,
@@ -2911,8 +3002,15 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             : scene.changeKind === 'deleted'
                 ? { left: true, right: false }
                 : { left: true, right: true };
+        const definitions = twoWayCommitPanels();
+        const relatedSources = Object.fromEntries(['left', 'right'].map((side, index) => [side,
+            fileExists[side] && definitions[index]?.commit ? {
+                panePath: side === 'left' ? scene.previousPath || scene.path : scene.path,
+                commit: definitions[index].commit
+            } : null]));
         emit({
             type: 'showDiff',
+            relatedSources,
             file1: `1. ${leftLabel}`,
             file2: `2. ${rightLabel}`,
             comparisonId: `tour-${comparisonId}`,
@@ -3026,7 +3124,10 @@ import { buildCorrespondenceDiagnostics, diagnosticReason } from './corresponden
             savedContent: panel.content,
             dirty: false,
             editable: false,
-            stackId: getMultiPanelDefinitions(scene)[index].id
+            stackId: getMultiPanelDefinitions(scene)[index].id,
+            relatedSource: panel.exists ? (scene.kind === 'stacked-diff'
+                ? { panePath: panel.path || file.path, commit: scene.stack[index].oid }
+                : { panePath: panel.path || file.path, synthetic: { mode: state.zoom.mode, sceneId: scene.id, panelId: scene.panels[index].id } }) : null
         }));
         const pairs = revisionPanelPairs(panels, (left, right) => buildTwoWayDiffModel(left.content, right.content));
         const tourAnnotations = state.sceneIntroVisible ? [] : buildStackedTourAnnotationsForFile(file.path, pairs);

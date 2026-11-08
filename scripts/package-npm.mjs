@@ -86,6 +86,7 @@ await copyFile('out/changeCorrespondence.js');
 await copyFile('out/gitComparison.js');
 await copyFile('out/historyDirectory.js');
 await copyFile('out/tourCoverage.js');
+await copyFile('out/tourRevisionImpact.js');
 await copyFile('out/tourReading.js');
 await copyFile('out/tourNarration.js');
 await copyFile('out/tourOrientation.js');

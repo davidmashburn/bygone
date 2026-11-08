@@ -23,7 +23,14 @@ _bygone() {
             ;;
         tour)
             if (( COMP_CWORD == 2 )); then
-                COMPREPLY=( $(compgen -W 'context coverage validate narration reader-packet compile export schema' -- "$cur") )
+                COMPREPLY=( $(compgen -W 'context coverage validate narration reader-packet compile impact export schema' -- "$cur") )
+            elif [[ "${COMP_WORDS[2]}" == "impact" ]]; then
+                if [[ "$prev" == "--head" ]]; then
+                    COMPREPLY=( $(compgen -W "$(_bygone_git_refs)" -- "$cur") )
+                else
+                    COMPREPLY=( $(compgen -W '--head --correspondence --output -o --json' -- "$cur") $(compgen -f -- "$cur") )
+                    compopt -o filenames 2>/dev/null || true
+                fi
             elif [[ "${COMP_WORDS[2]}" == "context" ]]; then
                 refs="$(_bygone_git_refs)"
                 if [[ "$prev" =~ ^(--base|-m|--main)$ ]]; then

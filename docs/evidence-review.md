@@ -6,6 +6,45 @@ review stays pinned while you edit. This is an inspection aid: a valid source
 reference, a passing recorded command, and a human inspection are separate facts.
 None is an automatic approval or proof that a requirement is fulfilled.
 
+## Authored-tour revision impact
+
+An authored tour does not need imported requirements to inspect its evidence
+after a revision. First save a compiled snapshot while its original range is
+still current. Later, compare that snapshot to an explicit committed head:
+
+```sh
+bygone tour compile review.bygone --output original-tour.json
+bygone tour impact original-tour.json --head HEAD --output impact.json
+bygone tour impact original-tour.json --head HEAD --correspondence mappings.json
+```
+
+`impact` emits JSON and requires a new output file when `--output` is supplied.
+Use `-C /path/to/repo` to bind the snapshot to another checkout containing the
+same commits. The snapshot's SHA-256 digest identifies the exact input document.
+Do not recompile the old document after its branch refs have moved: that would
+capture a different baseline.
+
+Step fragments identify locations in the original tour or its HTML export.
+Evidence and changed-file links open pinned comparisons in the local Bygone app;
+they require the bound checkout and its Git objects. These links do not recompile
+the tour or change its saved baseline.
+
+The report preserves the original base and head, resolves the requested head to
+an immutable commit, and rejects rewritten or unrelated history. It follows
+actual step references and connection endpoints; prose is not source evidence.
+Head evidence is checked against the new head using the existing conservative
+Strand mapping rules. Base and intermediate evidence remains historical.
+Unsupported or unavailable evidence is explicitly incomplete. Unresolved
+locations are not repaired by guessing nearby lines or matching names.
+
+Observations distinguish unchanged, relocated, changed, missing, and incomplete
+evidence, and expose new changes outside the cited evidence in the old-head →
+new-head delta. This delta is separate from the original whole-tour comparison.
+An unchanged quotation does not establish that its explanation or a recorded
+check remains correct. Every new comparison requires renewed inspection.
+The command leaves the original snapshot, authored prose, checks, and decisions
+unchanged; it does not generate an updated tour automatically.
+
 ## Load and inspect
 
 Use **Bygone: Open Evidence Review** in a trusted local VS Code workspace and

@@ -58,6 +58,21 @@ code the author anchored; it does not measure your reading progress. The
 header shows your current step. Tour search is likewise disclosed on demand or
 opened by `Cmd/Ctrl+Shift+F`.
 
+To find explanations of code already on screen, place the cursor or select lines
+in a code pane and choose **Related explanations** from its context menu, or press
+`Cmd/Ctrl+Shift+E`. Results show the authored chapter, scene, step, mode, and optional
+path. Select a result to enter that step; optional explanations retain their normal
+return path. Opening or dismissing the lookup leaves your reading position and
+narration unchanged. Escape closes the dialog and returns focus to the code pane.
+
+The lookup uses intersecting resolved source ranges in the loaded tour, including
+connection endpoints, real revision stacks, and synthetic explanation panels.
+Paths, revisions, and diff sides must match. An equal line number on another
+revision is not a match. A no-match result says only that this tour has no resolved
+reference for the selection; it makes no claim about other tours or the quality
+of an explanation. Unsupported or unavailable evidence is reported separately.
+Offline HTML uses the same lookup with its packaged evidence.
+
 Authored v5 tours can show their purpose, scope, and estimated reading time in
 **Tour details**. Expand **Assumed familiarity** for codebase and language
 experience, reading demand, and prerequisites. Audience details are optional

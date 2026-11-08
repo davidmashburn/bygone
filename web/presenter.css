@@ -329,6 +329,11 @@ body.tour-mode #container {
 
 .tour-search-location { color: var(--tour-body); font-weight: 650; }
 .tour-search-preview { margin-top: 2px; color: var(--tour-muted); font-family: var(--vscode-editor-font-family, monospace); }
+.tour-related-dialog { width: min(620px, 85vw); max-height: 75vh; overflow: auto; padding: 20px; color: var(--tour-body); background: var(--tour-surface); border: 1px solid var(--tour-border); border-radius: 8px; }
+.tour-related-dialog::backdrop { background: #0008; }
+.tour-related-dialog h2 { margin-top: 0; }
+.tour-related-dialog .tour-search-result { width: 100%; margin-bottom: 6px; }
+.tour-related-dialog .tour-search-preview { font-family: inherit; }
 
 .tour-narrative {
     position: fixed;

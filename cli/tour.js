@@ -7,9 +7,10 @@ const { getTourNarrationCost, buildReadingNarrationUnit } = require('../out/tour
 const { tourReadingTitle } = require('../out/tourOrientation.js');
 const { buildManifestForTourSource, loadTourSource } = require('./tourFile.js');
 
-const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'narration', 'reader-packet', 'compile', 'export', 'schema']);
+const TOUR_ACTIONS = Object.freeze(['context', 'coverage', 'validate', 'narration', 'reader-packet', 'compile', 'impact', 'export', 'schema']);
 
 function runTourCommand(args, cwd, packageRoot, output = process.stdout, commandOptions = {}) {
+    if (args[0] === 'impact') return require('./tourImpact').runTourImpact(args.slice(1), cwd, output, commandOptions);
     if (args[0] === 'export') {
         const { exportTour } = require('./tourExport');
         let sourcePath, outputPath;

@@ -104,3 +104,11 @@ fragment (starting with `#location=1`) to their file or hosted URL. Title,
 chapter, scene, and step targets are mode-specific; unknown targets produce an
 error. Exported evidence has a content digest for corruption detection, not a
 digital signature or proof of authorship.
+
+For a review handoff, send the embedded HTML attachment, the tour title and
+intended comparison, and the semantic fragment for the intended section. The
+recipient can save it anywhere, open it without a checkout or Bygone install,
+and append the fragment to their own file URL. **Related explanations** works
+against the packaged tour evidence offline, including optional branches. A
+local `bygone://` document link remains appropriate for the same checkout; the
+HTML snapshot is the portable alternative when local paths differ.
