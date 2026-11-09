@@ -83,6 +83,7 @@ export const TOUR_REVISION_IMPACT_REASON = {
     NEW_HEAD_SOURCE_MISSING: 'new-head-source-missing',
     NO_ACCEPTED_CORRESPONDENCE: 'no-accepted-correspondence',
     CORRESPONDENCE_INCOMPLETE: 'correspondence-incomplete',
+    REFERENCE_RELOCATION_UNAVAILABLE: 'reference-relocation-unavailable',
     CHANGE_INVENTORY_UNAVAILABLE: 'change-inventory-unavailable',
     CORRESPONDENCE_SOURCE_UNAVAILABLE: 'correspondence-source-unavailable'
 } as const;
@@ -287,19 +288,28 @@ export function buildTourRevisionImpactReport(
 
     const oldHeadPending = stepWorks.flatMap(work => work.pending);
     const pairCandidates = usablePairs(cache, evidence?.pairs || []);
-    const transitions = relocatePendingReferences(
-        cache,
-        baseline.headOid,
-        newHeadOid,
-        oldHeadPending,
-        pairCandidates
-    );
+    let transitions: SourceTransition[] = [];
+    let relocationUnavailable = false;
+    try {
+        transitions = relocatePendingReferences(
+            cache,
+            baseline.headOid,
+            newHeadOid,
+            oldHeadPending,
+            pairCandidates
+        );
+    } catch {
+        // Strand bounds aggregate snapshot size and reference count. Preserve
+        // the pinned evidence and inventory when relocation cannot run.
+        relocationUnavailable = true;
+    }
     applyTransitions(
         oldHeadPending,
         transitions,
         inventory,
         evidence?.analysis.status,
-        incomplete
+        incomplete,
+        relocationUnavailable
     );
 
     for (const work of stepWorks) {
@@ -649,7 +659,8 @@ function applyTransitions(
     transitions: readonly SourceTransition[],
     inventory: ChangeInventory | undefined,
     correspondenceStatus: ChangeCorrespondence['status'] | undefined,
-    incomplete: TourRevisionImpactIncomplete[]
+    incomplete: TourRevisionImpactIncomplete[],
+    relocationUnavailable: boolean
 ): void {
     for (const [index, entry] of pending.entries()) {
         const transition = transitions[index];
@@ -660,9 +671,11 @@ function applyTransitions(
                 : TOUR_REVISION_IMPACT_STATUS.INCOMPLETE;
             entry.output.reason = missing
                 ? undefined
-                : correspondenceStatus && correspondenceStatus !== 'complete'
-                    ? TOUR_REVISION_IMPACT_REASON.CORRESPONDENCE_INCOMPLETE
-                    : TOUR_REVISION_IMPACT_REASON.NO_ACCEPTED_CORRESPONDENCE;
+                : relocationUnavailable
+                    ? TOUR_REVISION_IMPACT_REASON.REFERENCE_RELOCATION_UNAVAILABLE
+                    : correspondenceStatus && correspondenceStatus !== 'complete'
+                        ? TOUR_REVISION_IMPACT_REASON.CORRESPONDENCE_INCOMPLETE
+                        : TOUR_REVISION_IMPACT_REASON.NO_ACCEPTED_CORRESPONDENCE;
             if (entry.output.reason) incomplete.push({
                 mode: entry.mode,
                 sceneId: entry.sceneId,

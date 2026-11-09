@@ -3,6 +3,7 @@ const { test } = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
+const { execFileSync } = require('node:child_process');
 const { correspondenceFixture } = require('./correspondenceFixture');
 const { importChangeCorrespondence } = require('../out/changeCorrespondence');
 const { normalizeMappings } = require('../scripts/change-analysis/refactoring-mappings');
@@ -126,5 +127,43 @@ test('same-head checks preserve the snapshot and invalid or non-descendant revis
         assert.throws(() => build(later, f.root, { newHeadRef: f.range.baseOid }), /must descend/);
         assert.throws(() => build(doc, f.root, { newHeadRef: '0'.repeat(40) }));
         assert.throws(() => report(f, { ...doc, range: { ...doc.range, headOid: 'HEAD' } }), /full Git commit ID/);
+    } finally { f.dispose(); }
+});
+
+test('relocation budgets preserve pinned observations and report incomplete analysis', () => {
+    const before = Object.fromEntries(Array.from({ length: 51 }, (_, index) => [`file${index}.txt`, 'same text']));
+    const f = correspondenceFixture({ before, after: { ...before, 'new.txt': 'new evidence' } });
+    try {
+        const doc = manifest(f, Object.keys(before).map((path, index) => step(`step${index}`, anchor(path, before[path]))));
+        const original = JSON.stringify(doc);
+        const result = report(f, doc);
+        assert.equal(result.observations.length, 51);
+        for (const [index, observation] of result.observations.entries()) {
+            assert.equal(observation.stepId, `step${index}`);
+            assert.equal(observation.incomplete, true);
+            const reference = observation.references[0];
+            assert.equal(reference.status, Status.INCOMPLETE);
+            assert.equal(reference.reason, Reason.REFERENCE_RELOCATION_UNAVAILABLE);
+            assert.equal(reference.oldRef.revision, f.range.baseOid);
+            assert.equal(reference.newRef, undefined);
+        }
+        assert.equal(result.incomplete.length, 51);
+        assert.deepEqual(result.uncoveredChanges.map(change => change.path), ['new.txt']);
+        assert.equal(JSON.stringify(doc), original);
+    } finally { f.dispose(); }
+});
+
+test('replacement refs cannot hide uncovered changes in the pinned comparison', () => {
+    const f = correspondenceFixture({
+        before: { 'keep.txt': 'same', 'change.txt': 'old' },
+        after: { 'keep.txt': 'same', 'change.txt': 'new' }
+    });
+    try {
+        const doc = manifest(f, [step('keep', anchor('keep.txt', 'same'))]);
+        const expected = report(f, doc);
+        assert.deepEqual(expected.uncoveredChanges.map(change => change.path), ['change.txt']);
+        assert.equal(expected.uncoveredChanges[0].hunks.length, 1);
+        execFileSync('git', ['replace', f.range.baseOid, f.range.headOid], { cwd: f.root });
+        assert.deepEqual(report(f, doc), expected);
     } finally { f.dispose(); }
 });
