@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
 const { buildDependencyEvidence } = require('../out/dependencyEvidence');
 const { correspondenceFixture } = require('./correspondenceFixture');
 
@@ -99,4 +100,36 @@ test('bounded allocation is deterministic and reports record omissions honestly'
             assert.equal(snapshot.coverage.indexedFiles + snapshot.coverage.omittedFiles, snapshot.coverage.candidateFiles);
         }
     } finally { fixture.dispose(); }
+});
+
+test('a one millisecond budget reports adapter timeout without blaming parser assets', t => {
+    const before = { 'app.ts': 'export const value = 1;\n' };
+    const fixture = correspondenceFixture({ before, after: { ...before, 'app.ts': 'export const value = 2;\n' } });
+    // A 1ms budget cannot spawn git. Freeze the clock so every read still sees
+    // that budget, let git finish, and leave the adapter on the real 1ms timeout.
+    const now = Date.now();
+    const clock = t.mock.method(Date, 'now', () => now);
+    const childProcess = require('node:child_process');
+    const processes = t.mock.method(childProcess, 'execFileSync', (command, args, options) => {
+        if (command === 'git') return execFileSync(command, args, { ...options, timeout: 10_000 });
+        return execFileSync(command, args, options);
+    });
+    try {
+        const report = buildDependencyEvidence(fixture.root, { baseRef: fixture.range.baseOid, limits: { timeoutMs: 1 } });
+        for (const side of ['base', 'head']) {
+            const timeout = report[side].diagnostics.find(diagnostic => diagnostic.code === 'adapter-timeout');
+            assert.ok(timeout, JSON.stringify(report[side].diagnostics));
+            assert.equal(timeout.language, 'typescript');
+            assert.match(timeout.message, /typescript/);
+            assert.match(timeout.message, /time budget/);
+            assert.match(timeout.message, /--scope <path>/);
+            assert.equal(timeout.message.includes('parser assets'), false);
+            assert.equal(timeout.message.includes('python3'), false);
+            assert.equal(report[side].coverage.indexComplete, false);
+        }
+    } finally {
+        processes.mock.restore();
+        clock.mock.restore();
+        fixture.dispose();
+    }
 });

@@ -138,3 +138,44 @@ test('CLI Python roots replace defaults and retain committed cross-file target e
         assert.throws(() => buildDependencyEvidence(f.root, { baseRef: f.range.baseOid, pythonRoots: ['../outside'] }), /repository-relative/);
     } finally { f.dispose(); }
 });
+
+test('identical merge base and head run the TypeScript adapter once and retag the head revision', t => {
+    const source = 'export function target() { return 1; }\nexport function run() { target(); }\nrun();\n';
+    const f = correspondenceFixture({ before: { 'app.ts': 'export const before = 1;\n' }, after: { 'app.ts': source } });
+    const childProcess = require('node:child_process');
+    let typescriptLaunches = 0;
+    const mock = t.mock.method(childProcess, 'execFileSync', (command, args, options) => {
+        if (command === process.execPath && Array.isArray(args) && args.some(arg => String(arg).includes('dependencyEvidenceWorker.js')) && args.at(-1) === 'typescript') {
+            typescriptLaunches++;
+        }
+        return execFileSync(command, args, options);
+    });
+    try {
+        fs.writeFileSync(path.join(f.root, 'app.ts'), 'export function dirty() { return 9; }\n');
+        const report = buildDependencyEvidence(f.root, { baseRef: f.range.headOid, headRef: f.range.headOid });
+        assert.equal(report.range.baseOid, report.range.headOid);
+        assert.equal(report.range.dirtyWorkingTreeExcluded, true);
+        assert.equal(typescriptLaunches, 1);
+        assert.ok(report.head.nodes.some(node => node.name === 'target'));
+        assert.ok(report.head.nodes.every(node => node.name !== 'dirty'));
+        assert.ok(report.head.sites.length > 0);
+        for (const node of report.base.nodes) assert.equal(node.source.revision, 'base');
+        for (const site of report.base.sites) assert.equal(site.source.revision, 'base');
+        for (const node of report.head.nodes) assert.equal(node.source.revision, 'head');
+        for (const site of report.head.sites) assert.equal(site.source.revision, 'head');
+        const withoutRevision = value => JSON.parse(JSON.stringify(value, (key, nested) => key === 'revision' ? undefined : nested));
+        assert.deepEqual(withoutRevision(report.head), withoutRevision(report.base));
+        const baseDiagnosticCount = report.base.diagnostics.length;
+        report.head.nodes[0].name = 'mutated';
+        report.head.nodes[0].source.line = 999;
+        report.head.diagnostics.push({ code: 'alias-check', message: 'head only' });
+        report.head.coverage.indexedFiles = -1;
+        assert.notEqual(report.base.nodes[0].name, 'mutated');
+        assert.notEqual(report.base.nodes[0].source.line, 999);
+        assert.equal(report.base.diagnostics.length, baseDiagnosticCount);
+        assert.notEqual(report.base.coverage.indexedFiles, -1);
+    } finally {
+        mock.mock.restore();
+        f.dispose();
+    }
+});

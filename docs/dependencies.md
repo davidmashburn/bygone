@@ -230,9 +230,15 @@ produces partial coverage: `indexedFiles` counts complete declaration inventorie
 while `indexComplete: false` and `record-budget` diagnostics can indicate omitted
 sites even when every file has declarations.
 
-Whole-repository analysis can also exhaust the shared 30-second analysis budget
-before both revisions finish. Each revision reports its own coverage and adapter
-diagnostics; use a narrower scope when either side is incomplete.
+Each snapshot has its own 30-second analysis budget, so time spent on the base
+revision is not deducted from the head revision. When the merge-base commit and
+the head commit are the same object, that tree is analysed once and reused for
+head, with head records marked as the head revision. Adapter launch failures are
+reported separately: `adapter-timeout` when the adapter exceeds its time budget,
+`adapter-output-exceeded` when stdout overflows, `adapter-unavailable` when the
+adapter executable is missing, and `adapter-failed` for any other launch or
+output failure. Each revision reports its own coverage and diagnostics; narrow
+the analysis with `--scope <path>` when either side is incomplete.
 
 Use repeated `--scope` options to analyze selected repository-relative files or
 directories. This opts into the version 2 graph and applies to both revisions:

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.1
+
+- Give each revision its own 30-second dependency evidence budget instead of sharing one across base and head
+- Analyse the tree once when the merge base and head are the same commit
+- Report `adapter-timeout`, `adapter-output-exceeded`, and `adapter-failed` separately from `adapter-unavailable`, so a slow adapter is no longer described as a missing parser
+- Allow the desktop dependency worker 95 seconds before it is stopped
+
 ## 0.13.0
 
 - Added GitHub pull request inputs for review, presentation, and tour context, plus a desktop Review Pull Request dialog

@@ -62,6 +62,47 @@ interface RecordBuffer<T> {
     ordered(): T[];
 }
 const isRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
+export const EVIDENCE_ADAPTER_LAUNCH_CODES = {
+    timeout: 'adapter-timeout',
+    outputExceeded: 'adapter-output-exceeded',
+    unavailable: 'adapter-unavailable',
+    failed: 'adapter-failed'
+} as const;
+export type EvidenceAdapterLaunchCode = typeof EVIDENCE_ADAPTER_LAUNCH_CODES[keyof typeof EVIDENCE_ADAPTER_LAUNCH_CODES];
+
+function processErrorCode(error: unknown): string | undefined {
+    if (typeof error !== 'object' || error === null || !('code' in error)) return undefined;
+    const code = (error as { code?: unknown }).code;
+    return typeof code === 'string' ? code : undefined;
+}
+
+function classifyAdapterLaunch(language: DependencyLanguage, error: unknown): { code: EvidenceAdapterLaunchCode; message: string } {
+    const processCode = processErrorCode(error);
+    const budgetExhausted = error instanceof Error && error.message === 'Time budget exhausted';
+    if (processCode === 'ETIMEDOUT' || budgetExhausted) {
+        return { code: EVIDENCE_ADAPTER_LAUNCH_CODES.timeout, message: `The ${language} adapter exceeded its time budget. Narrow the analysis with --scope <path>.` };
+    }
+    if (processCode === 'ENOBUFS') {
+        return { code: EVIDENCE_ADAPTER_LAUNCH_CODES.outputExceeded, message: `The ${language} adapter exceeded its output budget.` };
+    }
+    if (processCode === 'ENOENT') {
+        return { code: EVIDENCE_ADAPTER_LAUNCH_CODES.unavailable, message: `The ${language} adapter is unavailable. Python requires python3; parser assets must be installed.` };
+    }
+    return { code: EVIDENCE_ADAPTER_LAUNCH_CODES.failed, message: `The ${language} adapter failed or returned invalid output.` };
+}
+
+function runGit(deadline: number, args: string[], cwd: string, input?: string): Buffer {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw new Error('Dependency analysis time budget exhausted.');
+    return execFileSync('git', ['--no-replace-objects', ...args], { cwd, input, maxBuffer: MAX_BUFFER, timeout: remaining, stdio: ['pipe', 'pipe', 'pipe'] });
+}
+
+/** Head reads the committed head object, not the worktree, so equal ids are the same bytes. */
+function headSnapshotFromBase(base: EvidenceSnapshot): EvidenceSnapshot {
+    const head = JSON.parse(JSON.stringify(base)) as EvidenceSnapshot;
+    for (const entry of [...head.nodes, ...head.sites]) entry.source.revision = 'head';
+    return head;
+}
 
 /**
  * Keep enough per-file candidates for a deterministic fair pass, with a
@@ -126,14 +167,12 @@ export function buildDependencyEvidence(startPath: string, options: DependencyEv
     }
     const scopes = [...new Set((options.scopes ?? []).map(scope => scope.split('/').filter(part => part && part !== '.').join('/')))];
     const inScope = (file: string) => !scopes.length || scopes.some(scope => !scope || file === scope || file.startsWith(scope + '/'));
-    const deadline = Date.now() + limits.timeoutMs;
-    const git = (args: string[], cwd: string, input?: string): Buffer => {
-        if (Date.now() >= deadline) throw new Error('Dependency analysis time budget exhausted.');
-        return execFileSync('git', ['--no-replace-objects', ...args], { cwd, input, maxBuffer: MAX_BUFFER, timeout: deadline - Date.now(), stdio: ['pipe', 'pipe', 'pipe'] });
-    };
+    const rangeDeadline = Date.now() + limits.timeoutMs;
     const range = options.range ?? resolveBranchReviewRange(startPath, options.headRef, options.baseRef,
-        (args, cwd) => git([...args], cwd).toString('utf8').trimEnd());
+        (args, cwd) => runGit(rangeDeadline, [...args], cwd).toString('utf8').trimEnd());
     const snapshot = (revision: 'base' | 'head'): EvidenceSnapshot => {
+        const deadline = Date.now() + limits.timeoutMs;
+        const git = (args: string[], cwd: string, input?: string): Buffer => runGit(deadline, args, cwd, input);
         const oid = revision === 'base' ? range.mergeBaseOid : range.headOid;
         const result: EvidenceSnapshot = { oid, nodes: [], sites: [], producers: [], diagnostics: [], coverage: {
             candidateFiles: 0, indexedFiles: 0, omittedFiles: 0, readBytes: 0, indexComplete: true, unresolvedSites: 0, omittedDiagnostics: 0
@@ -227,9 +266,10 @@ export function buildDependencyEvidence(startPath: string, options: DependencyEv
                     : execFileSync(process.execPath, [join(__dirname, 'dependencyEvidenceWorker.js'), language], { input, encoding: 'utf8', maxBuffer: MAX_BUFFER, timeout: remaining, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } });
                 output = JSON.parse(stdout);
                 if (typeof output.producer !== 'string' || !output.documents || typeof output.documents !== 'object') throw new Error('Invalid adapter output');
-            } catch {
+            } catch (error) {
                 result.coverage.indexComplete = false;
-                diagnostic('adapter-unavailable', `The ${language} adapter failed, is unavailable, or exceeded its budget. Python requires python3; parser assets must be installed.`, undefined, language);
+                const failure = classifyAdapterLaunch(language, error);
+                diagnostic(failure.code, failure.message, undefined, language);
                 continue;
             }
             result.producers.push({ language, name: output.producer });
@@ -316,6 +356,8 @@ export function buildDependencyEvidence(startPath: string, options: DependencyEv
         result.coverage.unresolvedSites = result.sites.filter(site => site.resolution !== 'resolved').length;
         return result;
     };
+    const base = snapshot('base');
+    const head = range.mergeBaseOid === range.headOid ? headSnapshotFromBase(base) : snapshot('head');
     return { version: 2, kind: 'dependency-evidence', range: { baseOid: range.mergeBaseOid, headOid: range.headOid, dirtyWorkingTreeExcluded: range.dirty }, configuration: { pythonRoots: [...pythonRoots], scopes }, limits,
         assumptions: [
             'Static evidence from committed UTF-8 blobs only. Target code is never imported, built, or executed. Dirty files are excluded.',
@@ -327,5 +369,5 @@ export function buildDependencyEvidence(startPath: string, options: DependencyEv
             'Go/Rust use pinned syntax parsers with conservative lexical resolution. Build tags, cfg, macros, trait/interface dispatch and generated code are not evaluated.',
             'Mojo support is experimental and grammar-version-specific; uncertain evaluation phases are unknown.',
             'No runtime observations are collected. Missing edges are not proof of independence; inspect coverage and diagnostics.'
-        ], base: snapshot('base'), head: snapshot('head') };
+        ], base, head };
 }

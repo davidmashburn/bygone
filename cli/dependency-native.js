@@ -35,7 +35,8 @@ async function buildNativeDependencyView(repoRoot, options) {
         };
         const abort = () => stop();
         let timedOut = false;
-        const timer = setTimeout(() => { timedOut = true; stop(); }, 45000);
+        // Two full 30s snapshot budgets plus range discovery and process overhead.
+        const timer = setTimeout(() => { timedOut = true; stop(); }, 95000);
         timer.unref();
         signal?.addEventListener('abort', abort, { once: true });
         if (signal?.aborted) abort();
