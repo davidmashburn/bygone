@@ -26,6 +26,11 @@ grew out of an earlier concept.
 
 ## Active follow-ups
 
+- [In-app tour options menu](in-app-tour-options-menu.md) — implemented and locally
+  verified on `feat/tour-options-menu`; twelve presets, composable depth/audience
+  choices, explicit provenance and inference, and strict 100% accounting.
+  Uncommitted and not installed or published.
+
 - [Focused tour reader](focused-tour-reader.md) — proposed quieter outline, contextual
   evidence, consolidated navigation, and Escape recovery to reading.
 
