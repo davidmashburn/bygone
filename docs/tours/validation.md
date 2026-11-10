@@ -65,7 +65,7 @@ No publication, hosted access, runtime observation, fresh VS Code graph capture,
 
 ## Reader and pull-request tour update — 2026-11-10
 
-The [0.13.1 package](product/0.13.1/README.md), built with the 0.13.1 exporter, has 51 steps across ten chapters. Chapter 9 adds six live reader captures. Chapter 10 opens the Review Pull Request dialog and stops before submit. The 0.11.1 and 0.11.4 packages remain in place. Fresh bundle compilation resolved every anchor.
+The [0.13.2 package](product/0.13.2/README.md) keeps this guide and updates its release label. It was built with the 0.13.1 exporter and has 51 steps across ten chapters. Chapter 9 adds six live reader captures. Chapter 10 opens the Review Pull Request dialog and stops before submit. The 0.11.1 and 0.11.4 packages remain in place. Fresh bundle compilation resolved every anchor when the package was first built.
 
 The new captures come from Bygone 0.13.0 at `232f25b3c429bf29bcf7d7f2278a0aa83637b31e`. Visible text was checked for private filesystem paths. The sample test was displayed and not executed. No pull request was fetched, and no version 2 review package was built. Narration output and revision-impact JSON are named and are not screenshots.
 

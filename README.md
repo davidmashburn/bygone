@@ -18,7 +18,7 @@ Bygone is a VS Code extension and standalone desktop app for visual diff and fil
 
 ![Bygone screenshot](./media/bygone-screenshot.png)
 
-Explore the [51-step product tour](docs/tours/product/0.13.1/README.md), including comparison, VS Code editing, dependency graphs, pull-request review, and the reader path for optional proof.
+Explore the [51-step product tour](docs/tours/product/0.13.2/README.md), including comparison, VS Code editing, dependency graphs, pull-request review, and the reader path for optional proof.
 
 ## Features
 

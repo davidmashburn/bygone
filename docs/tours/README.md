@@ -1,13 +1,14 @@
 # Product tours
 
-[View the product guide](product/0.13.1/tour.html) · [Version 0.13.1 artifacts](product/0.13.1/README.md)
+[View the product guide](product/0.13.2/tour.html) · [Version 0.13.2 artifacts](product/0.13.2/README.md)
 
-The 51-step guide is the 0.13.1 product tour. It adds the reader path and the pull-request dialog. [The 0.11.4 capture](product/0.11.4/tour.html) and [the 0.11.1 capture](product/0.11.1/tour.html) remain available.
+The 51-step guide is the 0.13.2 product tour. The release label changed from 0.13.1; the screenshots did not. It adds the reader path and the pull-request dialog. [The 0.11.4 capture](product/0.11.4/tour.html) and [the 0.11.1 capture](product/0.11.1/tour.html) remain available.
 
 The guide covers Bygone itself, using synthetic code and public-only screenshot
 evidence. The canonical YAML, ordinary compiled JSON, standalone HTML, and Git
 bundle live together in each version directory. Do not overwrite a published
 version: add a version directory and retain earlier entries in `releases.json`.
+A patch that only changes the release label can rename the current directory, replace the title strings, and refresh the manifest hashes. That does not require a new capture or a package rebuild.
 The pinned package digest prevents an accidental replacement during site builds.
 
 See [local validation and remaining hosting checks](validation.md).
