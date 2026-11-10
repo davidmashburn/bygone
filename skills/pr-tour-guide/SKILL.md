@@ -145,6 +145,14 @@ jq '{range,summary,commits,files:[.files[]|{path,previousPath,changeKind,role,ad
 
 Then read patches only for likely narrative-bearing files. Account explicitly for every `patchOmittedReason`; never claim to understand omitted binary or oversized evidence.
 
+Use symbol correspondence when changed declarations, moves, or renames matter,
+and dependency analysis when cross-file relationships matter, or either when
+requested by the surrounding task. Basic `symbolHints` are not correspondence
+analysis. Follow [Analysis evidence](references/analysis-evidence.md) for commands,
+revision checks, diagnostics, supplied Evidence Review inspection, and symbol
+presentation. Missing tooling or unsupported inputs remain explicit analysis
+gaps; do not silently replace requested analysis with the basic dossier.
+
 Compiled tours and context dossiers are large because they embed source snapshots. Inspect them progressively and do not load every patch unless the narrative really needs it.
 
 ## Use existing context
@@ -490,6 +498,29 @@ validation pass. If evidence no longer exists, revise the claim or report the
 broken premise. Validation checks structure and evidence locations, not code
 correctness or comprehension.
 
+Inspect explanation coverage for every selected tour, including `key-changes`:
+
+```sh
+bygone tour coverage review.bygone --json
+```
+
+Reconcile consequential uncovered changes, exclusions, unsupported material, and
+explanation assignments with the requested scope. The legacy coverage totals use
+Historical walkthrough scenes when available, otherwise the Final/root fallback;
+they are not a separate measurement of every authored mode. For `key-changes`,
+manually inspect each delivered mode's route against the scoped changes and
+report intentional omissions without padding the route to chase a percentage.
+Explanation assignments do not replace that per-mode inspection.
+
+When the installed schema supports `options.coverage: complete`, inspect each
+requested mode's own `report.complete[mode]` entry (`tour` for the compatibility
+tour, or `historical` / `deconstructed` for independent modes). Require all scoped
+changed lines on both sides to have narrated main-path endpoint evidence, with
+reasons accounting for binary and zero-hunk files and no exclusions. Missing
+strict entries or older tooling leave strict completeness unverified; report the
+limit rather than substituting legacy totals. A generated appendix, test coverage,
+and reader progress do not prove explanation coverage or correctness.
+
 Read the actual continuous main path, including generated framing:
 
 ```sh
@@ -518,6 +549,13 @@ acting.” Document names and rationale can be optional; the required action can
 If an overage remains necessary, name what would be lost by
 cutting it in the handoff. Report material omissions and checks actually
 performed; no separate scored audit is required.
+
+After code or prose repairs, reread affected claims against the final source and
+refresh affected evidence and anchors before validating again. Rerun coverage
+when the comparison, anchors, steps, or exclusions change; retain the final
+result. Committed-range evidence excludes dirty edits: inspect those separately
+and disclose stale artifacts. Do not create commits merely to refresh evidence
+without authorization. A valid anchor does not prove its explanation is current.
 
 ## Always print the open command
 
@@ -563,6 +601,13 @@ bygone -C /absolute/path/to/repository present --tour review.bygone
 
 Always print that same command with the real repository and tour paths, even if you do not run it. `-C` gives Bygone an explicit working directory without changing the user's shell directory.
 
+When symbol analysis is available, carry it into the presentation and use
+symbol-focused stops where they explain a claim. Follow the analysis reference
+for `--correspondence`, source-declared artifacts, and live versus offline limits.
+Verify symbol navigation and selected stops in the delivered reader when possible;
+report UI checks that were not performed. Include the correspondence flag in the
+open command when the source does not already declare the artifact.
+
 Compiled manifests contain source snapshots. Do not publish or upload them without explicit authorization.
 
 ## Hand off
@@ -570,7 +615,10 @@ Compiled manifests contain source snapshots. Do not publish or upload them witho
 Provide the tour document path, compiled path if produced, exact range, and open
 command. Briefly report validation, any visual verification, material omissions
 or unresolved claims, and whether artifacts are temporary, uncommitted, committed,
-or pushed. Do not turn the handoff into an inventory of every scene and step.
+or pushed. Include the final coverage result and consequential omissions, plus
+symbol/dependency artifact paths and analysis limits when applicable. Disclose
+any difference between live and offline access. Do not turn the handoff into an
+inventory of every scene and step.
 
 Bygone establishes that cited evidence exists at the pinned revision, not that
 the narrative interpretation or implementation is correct.
