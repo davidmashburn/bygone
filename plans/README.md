@@ -33,9 +33,10 @@ grew out of an earlier concept.
   — loaded-tour lookup from code, authored explanation maintenance using existing
   evidence refresh, and a conditional portable-handoff follow-up.
 
-- [Predictable optional-tour navigation](optional-tour-navigation.md) — proposed
-  step/sentence controls, explicit detail entry and return, reading-path cues,
-  and a bounded usability and validation plan.
+- [Predictable optional-tour navigation](optional-tour-navigation.md) — implemented
+  locally on `feat/optional-tour-branches`; step and sentence controls, explicit
+  detail entry and return, and reading-path cues. Usability, audio, and
+  assistive-technology trials remain open.
 
 - [Workflow integration reconciliation](workflow-integration-reconciliation.md)
   — 2026-10-26 assessment of merged SCM editing, Strand, requirements evidence,
