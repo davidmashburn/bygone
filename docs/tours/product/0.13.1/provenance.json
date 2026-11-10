@@ -6,6 +6,6 @@
   "captureDate": "2026-11-10",
   "implementationCommit": "232f25b3c429bf29bcf7d7f2278a0aa83637b31e",
   "readerEvidence": "Live 0.13.0 reader captures and the Review Pull Request dialog; the sample test was not executed and no pull request was fetched",
-  "tourRelease": "0.13.0",
+  "tourRelease": "0.13.1",
   "exportDate": "2026-11-10"
 }

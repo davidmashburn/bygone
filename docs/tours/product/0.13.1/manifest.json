@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "title": "Bygone 0.13.0: read at the depth you need",
+  "title": "Bygone 0.13.1: read at the depth you need",
   "provenance": {
     "captureVersion": "0.11.1 and 0.11.3 retained; 0.13.0 reader and pull-request captures",
     "sourceRepository": "https://github.com/davidmashburn/bygone",
@@ -9,7 +9,7 @@
     "captureDate": "2026-11-10",
     "implementationCommit": "232f25b3c429bf29bcf7d7f2278a0aa83637b31e",
     "readerEvidence": "Live 0.13.0 reader captures and the Review Pull Request dialog; the sample test was not executed and no pull request was fetched",
-    "tourRelease": "0.13.0",
+    "tourRelease": "0.13.1",
     "exportDate": "2026-11-10"
   },
   "evidence": {
@@ -17,22 +17,22 @@
     "head": "94e398ae86e15d46a997b895038868b4bf8e4510"
   },
   "exporter": {
-    "version": "0.13.0",
+    "version": "0.13.1",
     "implementationSha256": "dca41e1b287462b7750c502c25a3dc6504d08496e7a944c4f662d88d79f78a90",
-    "runtimeManifestSha256": "cc8f704d58751a53525c6876a7e85caabb97fe808b1749d2c2b699820869fab6"
+    "runtimeManifestSha256": "7621ff63cc0b55e3440e1d5b18c4f7ddc800668bfcf5c4d735e229eb6c288b68"
   },
   "artifacts": {
     "tour.bygone.yaml": {
       "bytes": 48500,
-      "sha256": "1568a4bcc55d838142c504f2b2b50bfebd5c4c7c8a9664cc878f22df0871c3e6"
+      "sha256": "c22751e972305ed6e1de1cbebaf727853e961cb78823f6db58bbcfab008e0c25"
     },
     "tour.json": {
       "bytes": 55009492,
-      "sha256": "40602cce81fc462c368a96fe95229ba168968a49593bec03183a3543bc0f2f5b"
+      "sha256": "f753278a9807d18fade6a1397d35bdc44e8893347a0dfe2870775717a560cdf9"
     },
     "tour.html": {
       "bytes": 24330803,
-      "sha256": "1f4267ffd030dd9f7c967c835e56b400c0326e0eb7b615eae6a64b5f9a827613"
+      "sha256": "3ca2363988889364057887e77ee282cdc1475660f87fe6dc0f0af3823da34d43"
     },
     "evidence.bundle": {
       "bytes": 14341688,
@@ -43,5 +43,5 @@
       "sha256": "238e2dc013d6c795a32260ba8a0b954cb2ed87619b58fdf903dfecd8a03e571f"
     }
   },
-  "digest": "7c78d4a7514edd03ac0ce08735a43e5bcdf2537d4bffdd67dc0e1acc0959c2ed"
+  "digest": "0adb32cd52ea96b03f04818c7e509dceb620362dce3c4bba5c346e045953ba57"
 }
