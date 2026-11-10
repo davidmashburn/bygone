@@ -485,6 +485,9 @@ app.whenReady().then(async () => {
         legacyUrl.searchParams.set('panelOrder', canonicalCommits.split(',').reverse().join(','));
         await live.window.loadURL(legacyUrl.href);
         await live.wait(`document.querySelectorAll('.multi-pane')[0]?.dataset.panelId === ${JSON.stringify(originalOrder[0])}`);
+        // Panel rendering can precede completion of asynchronous URL restoration.
+        // Keep cleanup a bounded assertion instead of racing the first paint.
+        await live.wait("!new URL(location.href).searchParams.has('panelOrder')");
         assert.deepEqual(await live.evaluate("[...document.querySelectorAll('.multi-pane')].map(pane => pane.dataset.panelId)"), originalOrder, 'Old reordered URLs restore canonical revision order');
         assert.equal(await live.evaluate("new URL(location.href).searchParams.get('panelOrder')"), null, 'Old display order is removed from the URL');
         assert.equal(await live.evaluate("document.querySelectorAll('.multi-panel-menu, .multi-pane-select[draggable=true]').length"), 0);
