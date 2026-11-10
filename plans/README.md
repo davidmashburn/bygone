@@ -43,6 +43,10 @@ grew out of an earlier concept.
   detail entry and return, and reading-path cues. Usability, audio, and
   assistive-technology trials remain open.
 
+- [Public Bygone tour documentation and hosting](tour-library-and-hosting.md)
+  — public product-tour YAML, JSON, offline HTML, evidence packaging, and GitHub
+  Pages delivery; implementation and publication remain pending.
+
 - [Workflow integration reconciliation](workflow-integration-reconciliation.md)
   — 2026-10-26 assessment of merged SCM editing, Strand, requirements evidence,
   dependencies, tours, and Daniel's PR Reviewer; proposes a bounded evidence-to-edit
