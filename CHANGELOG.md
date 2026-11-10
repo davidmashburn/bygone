@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Added GitHub pull request inputs for review, presentation, and tour context, plus a desktop Review Pull Request dialog
+- Resolve the canonical repository through gh, verify the PR head, and pin the fetched destination branch without changing user branches or checkouts
+- Support private and fork PRs through a reusable repository cache with authentication for later partial-clone reads
+
 ## 0.12.1
 
 - Require authored tour introductions to explain the change, why it matters, and what the walkthrough will establish, including for single-scene tours

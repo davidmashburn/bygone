@@ -132,7 +132,11 @@ bygone --diff path/to/file1 path/to/file2 path/to/file3 [...]
 bygone --history path/to/path
 bygone review
 bygone review feature/my-branch --base origin/main
+bygone review https://github.com/owner/repo/pull/1753
+bygone review 1753
 bygone present feature/my-branch --base origin/main
+bygone present https://github.com/owner/repo/pull/1753
+bygone tour context --pr 1753 --output context.json
 bygone completion zsh
 bygone --help
 ```
@@ -189,6 +193,18 @@ bygone completion fish > ~/.config/fish/completions/bygone.fish
 ```
 
 If the native desktop app is installed, the npm/source launcher prefers it and forwards the shell working directory. Set `BYGONE_FORCE_BUNDLED=1` to force the npm-bundled Electron runtime instead. The launcher removes `ELECTRON_RUN_AS_NODE` before starting Electron so editor-integrated terminals cannot accidentally force the app into Node mode.
+
+### Review a pull request
+
+Use `bygone review <pull-request-url>`, `bygone present <pull-request-url>`, or `bygone tour context --pr <pull-request-url>`. They also accept `owner/repo#1753`, `host/owner/repo#1753`, and a number (`1753` or `#1753`) inside a clone. URL suffixes such as `/files` and discussion fragments are accepted. A numeric path at the root command, such as `bygone 1753`, still opens a file or directory.
+
+Pull request inputs require the [GitHub CLI](https://cli.github.com), authenticated with `gh auth login` for the selected host. Bygone discovers `gh` on PATH and common installation paths; desktop launches can set `BYGONE_GH_PATH` to its absolute path. `gh auth setup-git` is not required. A number follows the repository selected by `gh`, including an upstream repository in a fork clone.
+
+No manual clone is needed. Bygone reuses a matching full clone, or creates an empty cache repository under `~/.cache/bygone/repos` (honoring `XDG_CACHE_HOME`; `BYGONE_CACHE_DIR` overrides the Bygone cache directory). Fork heads are fetched through the base repository's `refs/pull/<number>/head`. Host identity and the fetched head commit are checked against GitHub metadata. The destination branch is fetched by name and its observed tip is pinned; GitHub’s historical `baseRefOid` can lag that branch. If the PR head moves during the fetch, retry the command to refresh it.
+
+Fetched refs use `refs/bygone/`; the user's branches, checkout, index, and Git configuration are preserved. Bygone-owned caches use partial fetches when supported, with a host-scoped `gh` credential helper for later blob reads. User-owned partial and shallow clones use the cache instead. Bygone stores the helper command, not credentials. Dirty local changes are excluded from the review.
+
+The desktop **Git → Review Pull Request…** dialog accepts a link or qualified reference. PR title, description, author, state, and URL are included in context and presentation metadata; the title and URL supply presentation defaults. PR inputs cannot be combined with explicit head/base refs or `present --tour`, whose authored range is authoritative.
 
 Branch review compares the selected head directly with `merge-base(base, head)`, so merge commits are represented correctly in the aggregate diff. Commit metadata retains every parent of merge commits for future temporal review. Dirty index and working-tree changes are reported but never silently included. Detected renames keep distinct old and new paths for correct drill-down and navigation without adding persistent cross-tree connectors.
 

@@ -1,3 +1,4 @@
+import { validatePullRequestSummary, type PullRequestSummary } from './pullRequestMetadata';
 import { validateTourSymbol } from './tourSymbol';
 import { validateTourFraming, validateOverviewPurpose, type ChangeTourFraming } from './tourFraming';
 import { validateTourImage, type TourImage } from './tourImage';
@@ -280,6 +281,7 @@ export interface ChangeTourAuthoringCoverage {
 }
 
 export interface ChangeTourManifest extends ChangeTourFraming {
+    pullRequest?: PullRequestSummary;
     version: ChangeTourManifestVersion;
     repository?: { root: string };
     zoom?: ChangeTourZoom;
@@ -339,6 +341,7 @@ export function parseChangeTourManifest(value: unknown, options: { exported?: bo
     if (value.windowTitle !== undefined) {
         requireString(value.windowTitle, 'windowTitle');
     }
+    if (value.pullRequest !== undefined) validatePullRequestSummary(value.pullRequest);
     if (value.sourceUrl !== undefined) {
         requireString(value.sourceUrl, 'sourceUrl');
     }

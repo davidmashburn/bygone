@@ -14,7 +14,7 @@ _bygone() {
     local -a root_items review_options present_options legacy_options history_options shells tour_actions
     root_items=(
         'evidence:Inspect, import, refresh, or present pinned review evidence'
-        'review:Review a committed branch against its merge base'
+        'review:Review a committed branch or pull request against its merge base'
         'dependencies:Inspect static module and multilingual symbol dependencies'
         'correspondence:Import externally produced symbol correspondence evidence'
         'completion:Print shell completion source'
@@ -36,6 +36,8 @@ _bygone() {
         '--base:Set the branch-review base ref'
         '-m:Set the branch-review base ref'
         '--main:Set the branch-review base ref'
+        '--pr:Review a GitHub pull request by number, URL, or owner/repo#number'
+        '--pull-request:Review a GitHub pull request by number, URL, or owner/repo#number'
         '-h:Show command help'
         '--help:Show command help'
     )
@@ -44,6 +46,8 @@ _bygone() {
         '-m:Set the branch-review base ref'
         '--main:Set the branch-review base ref'
         '--tour:Use an authored .bygone presentation'
+        '--pr:Review a GitHub pull request by number, URL, or owner/repo#number'
+        '--pull-request:Review a GitHub pull request by number, URL, or owner/repo#number'
         '--correspondence:Use pinned symbol evidence in present or tour context'
         '-h:Show command help'
         '--help:Show command help'

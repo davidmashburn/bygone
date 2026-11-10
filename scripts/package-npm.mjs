@@ -67,6 +67,7 @@ await copyFile('completions');
 await copyFile('out/standalone-main.js');
 await copyFile('out/standalone-preload.js');
 await copyFile('out/changeTour.js');
+await copyFile('out/pullRequest.js');
 await copyFile('out/dependencyGraph.js');
 await copyFile('out/dependencyChanges.js');
 await copyFile('out/dependencyNativeWorker.js');

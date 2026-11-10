@@ -76,6 +76,7 @@ prompt behavior, and the normal-mode controls.
 | Follow one file or directory through Git | File → View File or Directory History; one path; `--history` | Git commits plus supported index/worktree states | Commits are read-only; worktree/index provenance is explicit | Core | Git history and directory-history tests |
 | Compare named revisions | Git → Compare Revisions; `bygone --git-diff <refs…>` | Git blobs/revisions | Read-only snapshots | Core | Git comparison tests and desktop menu contract |
 | Explore a branch change | Git → Review Branch Change; `bygone review` | Deterministic start-here overview plus the complete merge-base-to-tip inventory | Read-only review snapshots; attention is a reading-order hint, viewed state remains session-local, and dirty state is reported rather than included | Core | attention-model, branch comparison, review-path, and desktop menu tests |
+| Review a GitHub pull request | Git → Review Pull Request; `bygone review <url>` or `--pr <number>` | Verified metadata and immutable merge-base-to-head range, including fork PRs | Read-only snapshots; fetches namespaced refs into a matching full clone or Bygone cache; requires authenticated gh | Core | PR resolver and command tests |
 | Search comparison code | Edit → Find or Search Comparison | Active, visible, all loaded panels, unopened changed text snapshots, or one file's Git history | Search is read-only; history distinguishes content occurrence from introduction/removal; Replace requires the active writable model | Core | find, comparison-search, change-set-search, and history-search tests |
 | Search or safely replace in a filesystem tree | Edit → Search in Files; explicit directory root | System ripgrep 14+ with include/exclude, hidden, ignore, and result-limit controls | Search is read-only and cancellable; completed case-sensitive literal searches can build an exclusion-aware, revalidated, atomic replacement preview with guarded undo | Optional system capability | repository search/replace contracts, benchmark, and host-protocol tests |
 | Choose visible panel count | Visible panels: 2 / 3 / 4 / Fit | Equal-width textual revision panels; one active adjacent comparison | Saved locally; Fit has no count cap beyond available panels and readable width; narrower windows show fewer panels without overwriting the choice; visible Find searches the whole group | Core | focused-strip layout and native density smoke tests |
@@ -83,7 +84,7 @@ prompt behavior, and the normal-mode controls.
 | Search an authored tour | Presenter search or `Cmd/Ctrl+Shift+F` | Authored narrative plus compiled base/head code snapshots | Read-only; narrative hits navigate scenes/steps and code hits preserve Return to tour | Core | tour-search and presenter-host tests |
 
 File owns new/open/save lifecycle; Edit owns text operations and search; Git
-owns revision and branch questions; Present changes product area; Navigate owns
+owns revision, branch, and pull request questions; Present changes product area; Navigate owns
 movement within the current session, including history movement; View owns
 display preferences; Window owns native window lifecycle. Developer fixtures
 appear only when Electron is not packaged.
@@ -139,7 +140,7 @@ VS Code's native Search rather than another bundled ripgrep process.
 | --- | --- | --- |
 | `bygone`, paths, `--diff`, `--history`, `--git-diff`, `--read-only`, `review` | Launch Explore sessions | Core launcher; desktop owns writes; `--read-only` is a persisted capability ceiling for that launch |
 | `present` and `present --tour` | Launch Present sessions | Core, read-only presentation |
-| `tour context` | Produce a bounded provider-neutral change dossier; optional `--dependencies` adds static JS/TS evidence | Node CLI authoring support, read-only |
+| `tour context` | Produce a bounded provider-neutral change dossier, with PR intent for `--pr` or a PR positional input; optional `--dependencies` adds static JS/TS evidence | Node CLI authoring support, read-only |
 | `dependencies` | Compare committed module edges and identify unchanged consumers, with source navigation links | Experimental Node CLI analysis, read-only except explicit output files; no runtime execution |
 | `tour validate`, `compile`, `schema`, and coverage options | Validate exact evidence and build repository-bound manifests | Advanced authoring, read-only except explicit output files |
 | `completion` | Generate shell completions from the shared command specification | Supporting tooling |

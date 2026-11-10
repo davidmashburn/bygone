@@ -25,7 +25,10 @@ The skill documents how to install Bygone itself when the CLI is missing.
 
    ```sh
    bygone tour context HEAD --base origin/main --output change-context.json
+   bygone tour context https://github.com/owner/repo/pull/1753 --output change-context.json
    ```
+
+   For a PR, the context also includes `pullRequest` title, body, author, state, and URL. Read the stated intent before explaining the diff. PR resolution requires authenticated `gh` and works without a local clone.
 
    The context contains commits, file roles, rename metadata, bounded unified patches, changed line ranges, basic symbol hints, and explicit binary or oversized-patch omissions.
 

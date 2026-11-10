@@ -12,14 +12,17 @@ const CLI_SPEC = Object.freeze({
         'bygone --git-diff <ref1> <ref2> [<ref3>...]',
         'bygone --read-only <desktop-arguments...>',
         'bygone review [<head>] [--base <base>]',
+        'bygone review <pull-request-url>',
+        'bygone review --pr <number|url|owner/repo#number>',
         'bygone -C <directory> <command-or-path> [...]',
         'bygone present [<head>] [--base <base>] [--tour <file.bygone>] [--correspondence <artifact.json>]',
+        'bygone present <pull-request-url|number|owner/repo#number>',
         'bygone tour validate <file.bygone> [--json]',
         'bygone tour narration <file.bygone> [--json]',
         'bygone tour reader-packet <file.bygone> [--json]',
         'bygone tour compile <file.bygone> [--output <tour.json>]',
         'bygone tour impact <compiled-tour.json> --head <revision> [--correspondence <artifact.json>] [--output <new-report.json>]',
-        'bygone tour context [<head>] [--base <base>] [--output <context.json>] [--correspondence <artifact.json>] [--dependencies]',
+        'bygone tour context [<head>] [--pr <number|url|owner/repo#number>] [--base <base>] [--output <context.json>] [--correspondence <artifact.json>] [--dependencies]',
         'bygone evidence <inspect|import|refresh|tour> <review.json> [--head <revision>] [--output <new-file>]',
         'bygone dependencies [<head>] [--base <base>] [--graph] [--json | --mermaid | --html] [--output <file>] [--python-root <path>] [--scope <path>]',
         'bygone correspondence import <report.json> [<head>] [--base <base>] [--case <id>] --output <artifact.json>',
@@ -37,7 +40,7 @@ const CLI_SPEC = Object.freeze({
             id: 'review',
             kind: 'command',
             tokens: ['review'],
-            description: 'Review a committed branch against its merge base',
+            description: 'Review a committed branch or pull request against its merge base',
             argument: 'git-ref'
         },
         {
@@ -123,6 +126,13 @@ const CLI_SPEC = Object.freeze({
             argument: 'git-ref'
         },
         {
+            id: 'pullRequest',
+            kind: 'option',
+            tokens: ['--pr', '--pull-request'],
+            description: 'Review a GitHub pull request by number, URL, or owner/repo#number',
+            argument: 'pull-request'
+        },
+        {
             id: 'tour',
             kind: 'option',
             tokens: ['--tour'],
@@ -180,6 +190,9 @@ const CLI_SPEC = Object.freeze({
         'In `--git-diff`, committed refs and INDEX are read-only; WORKTREE (also WORKDIR or WORKINGTREE) is live and writable.',
         '`--read-only` prevents editing every live file or WORKTREE panel in the launched Explore session.',
         '`review` compares merge-base(BASE,HEAD) with HEAD and detects the default base when omitted.',
+        '`review`, `present`, and `tour context` accept a pull request as a URL, `owner/repo#number`, or `--pr <number>` inside a clone.',
+        'Pull request review needs the GitHub CLI (`gh`), fetches `refs/pull/<number>/head`, and works without a local clone.',
+        'The pull request title, author, and description travel into change tours and `tour context` as stated intent.',
         '`present` turns the same range into an app-hosted, ordered change tour.',
         '`-C <directory>` resolves relative paths and Git refs from that directory without changing the shell working directory.',
         '`tour reader-packet` emits per-mode narration-backed text packets for bounded reader experiments; packets are parent-only inputs, not reviewer responses.',
