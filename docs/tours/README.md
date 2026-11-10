@@ -1,8 +1,8 @@
 # Product tours
 
-[View the product guide](product/0.11.4/tour.html) · [Version 0.11.4 artifacts](product/0.11.4/README.md)
+[View the product guide](product/0.13.0/tour.html) · [Version 0.13.0 artifacts](product/0.13.0/README.md)
 
-The 44-step guide adds native dependency exploration in chapter 8. [The previous 0.11.1 capture](product/0.11.1/tour.html) remains available.
+The 51-step guide adds the 0.13.0 reader path and the pull-request dialog. [The 0.11.4 capture](product/0.11.4/tour.html) and [the 0.11.1 capture](product/0.11.1/tour.html) remain available.
 
 The guide covers Bygone itself, using synthetic code and public-only screenshot
 evidence. The canonical YAML, ordinary compiled JSON, standalone HTML, and Git

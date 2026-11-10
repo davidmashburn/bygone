@@ -1,0 +1,1183 @@
+version: 7
+title: 'Bygone 0.13.0: read at the depth you need'
+windowTitle: Bygone 0.13.0
+generatedBy:
+  model: grok-4.7
+  harness: T3 Code
+opening:
+  title: Start from the change you have
+  summary: >-
+    Compare files, a directory, or saved revisions, and edit or inspect the text in that view.
+    Follow one file through its commits when you want its history. A pull request starts from
+    its link and opens that comparison. On a tour, Next stays on one claim. A question, a check,
+    or a related explanation stays closed until you open it.
+conclusion:
+  title: Review, Present, and an authored tour open different paths
+  summary: >-
+    Review opens the merge base of the pinned destination tip and the fetched head, against that
+    head. Present opens a generated tour of that range, and Next walks its overview and file
+    scenes. On an authored tour, Next follows its claim, and a question, a check, or a
+    related explanation stays closed until you open it. A check records an inspection.
+    It does not approve the change, and a test shown on screen was not run.
+details:
+  audience:
+    codebase: none
+    language: basic
+    readingDemand: general
+    purpose: overview
+    scope: >-
+      How to open a comparison, including a 0.13.0 pull-request link, and how an authored tour
+      keeps extra proof off the main path. Earlier comparison, editing, and dependency views stay.
+  checks:
+    provenance:
+      status: partial
+      summary: >-
+        Reader and pull-request screenshots are from Bygone 0.13.0 at
+        232f25b3c429bf29bcf7d7f2278a0aa83637b31e. Earlier chapters keep their 0.11.1 and 0.11.3
+        capture provenance.
+    claims:
+      status: partial
+      summary: >-
+        The reader and pull-request sentences were checked against the 0.13.0 captures and the
+        0.13.0 source. The opened comparison was not captured. Older screenshots were not recaptured.
+    behavior:
+      status: partial
+      summary: >-
+        The capture drove the live reader for the new chapter. It did not execute the sample test
+        or rerun the product suite.
+    coverage:
+      status: partial
+      summary: >-
+        The new chapters show the reader path, checks, related explanations, and the pull-request
+        dialog before submit. A fetched pull request, the opened comparison, and a version 2
+        review package are not shown. Narration and revision-impact commands are named, not run.
+    uncertainty:
+      status: partial
+      summary: >-
+        Go, Rust, and Mojo graphs, a fresh VS Code session, and hosted publication were not rerun.
+range:
+  base: cc7dbd61b9552976f884457d43eba3a76c659306
+  head: 94e398ae86e15d46a997b895038868b4bf8e4510
+anchors:
+  evidence-01:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Two files, one visual language'
+  evidence-02:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## More than two versions'
+  evidence-03:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Start with directory differences'
+  evidence-04:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Search across the comparison'
+  evidence-05:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Start without a file'
+  evidence-06:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Browse a repository through time'
+  evidence-07:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Follow one file through commits'
+  evidence-08:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Orient before reading every file'
+  evidence-09:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Name the endpoints explicitly'
+  evidence-10:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## One file, three saved states'
+  evidence-11:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Inspect what would be committed'
+  evidence-12:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Inspect what remains unstaged'
+  evidence-13:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Choose active-editor following'
+  evidence-14:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## See unsaved text in Bygone'
+  evidence-15:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Pin, then actually navigate away'
+  evidence-16:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Return to the intended comparison'
+  evidence-17:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Choose a symbol from the cursor'
+  evidence-18:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Narrow the view, preserve the comparison'
+  evidence-19:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Edit in Bygone; see it in VS Code'
+  evidence-20:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Undo once, update both views'
+  evidence-21:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Save the document, keep the index'
+  evidence-22:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Open a saved review'
+  evidence-23:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Read the exact cited file diff'
+  evidence-24:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Open a live counterpart for editing'
+  evidence-25:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Make a real working edit'
+  evidence-26:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Return to the original evidence'
+  evidence-27:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## A separate question: file history'
+  evidence-28:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Read the argument before the code'
+  evidence-29:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Put a claim beside its evidence'
+  evidence-30:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Leave the path without losing it'
+  evidence-31:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Teach in conceptual stages'
+  evidence-32:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Inspect validated symbol correspondence'
+  evidence-33:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Turn review links into a tour'
+  evidence-34:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Author an explanation from Git evidence'
+  evidence-35:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Share a self-contained snapshot'
+  evidence-36:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Open dependencies for a committed comparison'
+  evidence-37:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Choose a host and entry point'
+  evidence-38:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Know what the view can prove'
+  dependency-files:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Widen inspection beyond the diff'
+  dependency-calls:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Follow calls at symbol level'
+  dependency-init:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Separate import-time work from function bodies'
+  dependency-source:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Open pinned source outside the diff'
+  dependency-changes:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Classify call changes without inventing identity'
+  dependency-coverage:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Carry coverage and limitations with the graph'
+  reader-intro:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## The introduction says what changed'
+  reader-main:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Next stays on the main path'
+  reader-detail:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Open one question'
+  reader-continue:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Return or continue the parent path'
+  reader-checks:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Checks stay out of the reading path'
+  reader-related:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Find the explanation for the code you selected'
+  reader-pr:
+    file: public-guide/narrative.md
+    revision: head
+    contains: '## Ask for the pull request link'
+connections: []
+chapters:
+  - id: compare-local-material
+    title: Compare local material
+    scenes:
+      - id: compare-local-material-scene
+        title: Start with the comparison question
+        summary: >-
+          Start from the comparison you actually have. The same visual language covers two files,
+          several versions, a directory, a search, or a blank snippet.
+        bullets: []
+        tags:
+          - public-guide
+        takeaway: Choose the inputs before choosing the view.
+        steps:
+          - id: evidence-01
+            title: Two files, one visual language
+            body: >-
+              Blue ribbons connect replacements. Green marks one-sided additions and deletions.
+              Local files can be edited.
+
+
+              Entry point: `bygone before.js after.js`
+            focus: evidence-01
+            image:
+              file: public-guide/images/01-two-files.png
+              revision: head
+              alt: Two files, one visual language
+            depth: explained
+          - id: evidence-02
+            title: More than two versions
+            body: >-
+              Add versions to see an evolution in one view. Fit changes how many panes are visible;
+              the selected adjacent pair determines the active comparison.
+
+
+              Entry point: `bygone --diff v1.js v2.js v3.js v4.js v5.js`
+            focus: evidence-02
+            image:
+              file: public-guide/images/02-many-panels.png
+              revision: head
+              alt: More than two versions
+            depth: explained
+          - id: evidence-03
+            title: Start with directory differences
+            body: >-
+              Compare trees, then drill into a changed path. This is a comparison inventory, not a
+              merge tool.
+
+
+              Entry point: `bygone before/ after/`
+            focus: evidence-03
+            image:
+              file: public-guide/images/03-directories.png
+              revision: head
+              alt: Start with directory differences
+            depth: explained
+          - id: evidence-04
+            title: Search across the comparison
+            body: >-
+              Find the same idea across panes with Find (`Cmd/Ctrl+F`) or Search Comparison
+              (`Cmd/Ctrl+Shift+F`), then inspect each result in its source context. Replacement
+              is limited to writable sources. Search in Files (`Cmd/Ctrl+Alt+F`) searches a
+              directory tree.
+            focus: evidence-04
+            image:
+              file: public-guide/images/04-search.png
+              revision: head
+              alt: Search across the comparison
+            depth: explained
+          - id: evidence-05
+            title: Start without a file
+            body: >-
+              Use an untitled editable comparison for snippets. Saving writes a file and still
+              carries no commit identity. Git provenance begins when you compare repository
+              sources.
+
+
+              Entry point: `bygone --diff`
+            focus: evidence-05
+            image:
+              file: public-guide/images/08-blank-editor.png
+              revision: head
+              alt: Start without a file
+            depth: explained
+  - id: explore-revisions
+    title: Explore revisions
+    scenes:
+      - id: explore-revisions-scene
+        title: Make time and endpoints explicit
+        summary: >-
+          A file, a commit, the index, and a live buffer answer different questions.
+        bullets: []
+        tags:
+          - public-guide
+        takeaway: A visible comparison is only as precise as its endpoint identities.
+        steps:
+          - id: evidence-06
+            title: Browse a repository through time
+            body: >-
+              Files and commits provide two routes into history. Committed snapshots remain
+              read-only.
+
+
+              Entry point: `bygone -C repo --history .`
+            focus: evidence-06
+            image:
+              file: public-guide/images/05-repository-history.png
+              revision: head
+              alt: Browse a repository through time
+            depth: explained
+          - id: evidence-07
+            title: Follow one file through commits
+            body: >-
+              Use a path when the question is how one file evolved. The history navigator selects
+              concrete revisions.
+
+
+              Entry point: `bygone -C repo release.js`
+            focus: evidence-07
+            image:
+              file: public-guide/images/06-file-history.png
+              revision: head
+              alt: Follow one file through commits
+            depth: explained
+          - id: evidence-08
+            title: Orient before reading every file
+            body: >-
+              Branch review starts from the committed change against its merge base. The overview
+              offers a reading order; dirty work is separate.
+
+
+              Entry point: `bygone -C repo review feature --base main`
+            focus: evidence-08
+            image:
+              file: public-guide/images/07-branch-review.png
+              revision: head
+              alt: Orient before reading every file
+            depth: explained
+          - id: evidence-09
+            title: Name the endpoints explicitly
+            body: >-
+              Compare commits and work states. HEAD and INDEX are read-only; WORKTREE can be
+              writable. These labels are different kinds of evidence.
+
+
+              Entry point: `bygone -C repo --git-diff HEAD~2 HEAD WORKTREE`
+            focus: evidence-09
+            image:
+              file: public-guide/images/09-git-snapshots.png
+              revision: head
+              alt: Name the endpoints explicitly
+            depth: explained
+  - id: work-inside-vs-code
+    title: Work inside VS Code
+    scenes:
+      - id: work-inside-vs-code-scene
+        title: Keep Source Control semantics intact
+        summary: >-
+          Start with three saved versions of one file. Inspect staged and working changes, follow an
+          unsaved edit, then pin and navigate away.
+        bullets: []
+        tags:
+          - public-guide
+        takeaway: Staged evidence and editable working text stay distinct.
+        steps:
+          - id: evidence-10
+            title: One file, three saved states
+            body: >-
+              The sample words are the contents of one file: HEAD has stable, the index has preview,
+              and the saved file has canary. The same file appears under Staged Changes and
+              Changes. These are two different comparisons.
+
+
+              Entry point: `Open Source Control with release.js selected.`
+            focus: evidence-10
+            image:
+              file: public-guide/images/09a-scm-setup.png
+              revision: head
+              alt: One file, three saved states
+            depth: explained
+          - id: evidence-11
+            title: Inspect what would be committed
+            body: >-
+              Before: Source Control shows staged and unstaged work. Bygone compares HEAD stable →
+              Index preview. Both sides are read-only; canary is excluded.
+
+
+              Entry point: `Staged Changes → release.js → Open Staged Changes in Bygone.`
+            focus: evidence-11
+            image:
+              file: public-guide/images/11-scm-staged.png
+              revision: head
+              alt: Inspect what would be committed
+            depth: explained
+          - id: evidence-12
+            title: Inspect what remains unstaged
+            body: >-
+              Before: the staged comparison was stable → preview. The baseline is now Index preview;
+              the writable side is the saved document canary.
+
+
+              Entry point: `Changes → release.js → Open Working Changes in Bygone.`
+            focus: evidence-12
+            image:
+              file: public-guide/images/13-scm-working.png
+              revision: head
+              alt: Inspect what remains unstaged
+            depth: explained
+          - id: evidence-13
+            title: Choose active-editor following
+            body: >-
+              Before: release.js is saved as canary; index remains preview. Press Enter to follow
+              the active local document.
+
+
+              Entry point: `Focus release.js. Open the Command Palette and choose Bygone: Follow
+              Active Editor.`
+            focus: evidence-13
+            image:
+              file: public-guide/images/10a-follow-command.png
+              revision: head
+              alt: Choose active-editor following
+            depth: explained
+          - id: evidence-14
+            title: See unsaved text in Bygone
+            body: >-
+              Before: the working document says canary. The editor and Bygone’s working pane now
+              show nightly. The index pane still shows preview. The dirty dot and Unsaved buffer
+              label mark the unsaved buffer.
+
+
+              Entry point: `In the regular editor, replace canary with nightly. Leave the file
+              unsaved.`
+            focus: evidence-14
+            image:
+              file: public-guide/images/10-follow-dirty.png
+              revision: head
+              alt: See unsaved text in Bygone
+            depth: explained
+          - id: evidence-15
+            title: Pin, then actually navigate away
+            body: >-
+              Before: Bygone was following release.js. The native pane shows policy.js; pinned
+              Bygone still shows release.js.
+
+
+              Entry point: `Click Pin in Bygone. Open policy.js in the regular VS Code pane.`
+            focus: evidence-15
+            image:
+              file: public-guide/images/14-pinned.png
+              revision: head
+              alt: Pin, then actually navigate away
+            depth: explained
+  - id: focus-and-edit-symbols
+    title: Focus and edit symbols
+    scenes:
+      - id: focus-and-edit-symbols-scene
+        title: One document, two editing surfaces
+        summary: >-
+          Undo and save update Bygone and the VS Code editor together. Symbol focus supports
+          JavaScript and TypeScript.
+        bullets: []
+        tags:
+          - public-guide
+        takeaway: A symbol slice edits the same unsaved document in both editors.
+        steps:
+          - id: evidence-16
+            title: Return to the intended comparison
+            body: >-
+              Before: release.js was pinned while policy.js was active. The active comparison is
+              Index preview → unsaved nightly. Keep these endpoints while focusing a symbol.
+
+
+              Entry point: `Source Control → Changes → release.js → Open Working Changes in Bygone.`
+            focus: evidence-16
+            image:
+              file: public-guide/images/14b-resume-working.png
+              revision: head
+              alt: Return to the intended comparison
+            depth: explained
+          - id: evidence-17
+            title: Choose a symbol from the cursor
+            body: >-
+              Before: the comparison contains the whole file. The selected command uses VS Code’s
+              current cursor or selection. Press Enter to focus this declaration.
+
+
+              Entry point: `Place the cursor inside planRelease. Choose Bygone: Compare Symbol in
+              Bygone.`
+            focus: evidence-17
+            image:
+              file: public-guide/images/15a-symbol-command.png
+              revision: head
+              alt: Choose a symbol from the cursor
+            depth: explained
+          - id: evidence-18
+            title: Narrow the view, preserve the comparison
+            body: >-
+              Before: whole-file Index preview → working nightly. Both panes now contain
+              planRelease. The same baseline and live document remain selected.
+
+
+              Entry point: `Run Compare Symbol in Bygone from inside planRelease.`
+            focus: evidence-18
+            image:
+              file: public-guide/images/15-symbol-slice.png
+              revision: head
+              alt: Narrow the view, preserve the comparison
+            depth: explained
+          - id: evidence-19
+            title: Edit in Bygone; see it in VS Code
+            body: >-
+              Before: native editor and Bygone both showed nightly. Both now show dev. The index
+              pane still shows preview; this is one shared, unsaved document.
+
+
+              Entry point: `In Bygone’s right-hand symbol pane, replace nightly with dev.`
+            focus: evidence-19
+            image:
+              file: public-guide/images/16-synced-edit.png
+              revision: head
+              alt: Edit in Bygone; see it in VS Code
+            depth: explained
+          - id: evidence-20
+            title: Undo once, update both views
+            body: >-
+              Before: the previous edit changed nightly → dev. The regular editor and Bygone both
+              return to nightly. The file is still unsaved.
+
+
+              Entry point: `Click Undo in Bygone.`
+            focus: evidence-20
+            image:
+              file: public-guide/images/17-shared-undo.png
+              revision: head
+              alt: Undo once, update both views
+            depth: explained
+          - id: evidence-21
+            title: Save the document, keep the index
+            body: >-
+              Before: working document nightly was dirty; index was preview. Saved buffer replaces
+              Unsaved buffer, and the dirty dot clears. The index remains preview.
+
+
+              Entry point: `Click Save in Bygone.`
+            focus: evidence-21
+            image:
+              file: public-guide/images/18-save-no-stage.png
+              revision: head
+              alt: Save the document, keep the index
+            depth: explained
+  - id: inspect-saved-evidence
+    title: Inspect saved evidence
+    scenes:
+      - id: inspect-saved-evidence-scene
+        title: Inspect frozen evidence; repair live text separately
+        summary: >-
+          Open a saved review, inspect its exact committed diff, make a real edit in a separate live
+          counterpart, then return to the unchanged review. An optional file-history detour closes
+          the sequence.
+        bullets: []
+        tags:
+          - public-guide
+        takeaway: Editing a file must not silently alter the evidence being reviewed.
+        steps:
+          - id: evidence-22
+            title: Open a saved review
+            body: >-
+              Before: you were editing a live working document. The review displays its pinned Git
+              identities and cited source references. It is a separate artifact.
+
+
+              Entry point: `Run Bygone: Open Evidence Review and select review.json for this
+              repository.`
+            focus: evidence-22
+            image:
+              file: public-guide/images/19-evidence-review.png
+              revision: head
+              alt: Open a saved review
+            depth: explained
+          - id: evidence-23
+            title: Read the exact cited file diff
+            body: >-
+              Before: the review listed a source citation. Bygone opens the review’s committed
+              comparison. Your working nightly text is not substituted into it.
+
+
+              Entry point: `In Evidence Review, choose Pinned file diff for planRelease.`
+            focus: evidence-23
+            image:
+              file: public-guide/images/21-pinned-diff.png
+              revision: head
+              alt: Read the exact cited file diff
+            depth: explained
+          - id: evidence-24
+            title: Open a live counterpart for editing
+            body: >-
+              Before: you were inspecting an immutable committed diff. A separate working view opens
+              with Return to Evidence Review available. The live value is nightly.
+
+
+              Entry point: `In Evidence Review, choose Edit working counterpart for the same
+              reference.`
+            focus: evidence-24
+            image:
+              file: public-guide/images/22-evidence-repair.png
+              revision: head
+              alt: Open a live counterpart for editing
+            depth: explained
+          - id: evidence-25
+            title: Make a real working edit
+            body: >-
+              Before: the live counterpart showed nightly. The regular document now contains
+              candidate. The captured review still refers to its original commit.
+
+
+              Entry point: `In the regular VS Code pane, replace nightly with candidate. Leave it
+              unsaved.`
+            focus: evidence-25
+            image:
+              file: public-guide/images/22b-working-edit.png
+              revision: head
+              alt: Make a real working edit
+            depth: explained
+          - id: evidence-26
+            title: Return to the original evidence
+            body: >-
+              Before: you made an unsaved candidate edit in the working counterpart. The original
+              pinned review is back. The working edit survives separately. Returning does not reload
+              the review from that edit.
+
+
+              Entry point: `Click Return to Evidence Review.`
+            focus: evidence-26
+            image:
+              file: public-guide/images/23-return-to-evidence.png
+              revision: head
+              alt: Return to the original evidence
+            depth: explained
+          - id: evidence-27
+            title: 'A separate question: file history'
+            body: >-
+              A dedicated history view opens. Select commits here to investigate how the file
+              evolved.
+
+
+              Entry point: `Optional detour: run Bygone: View Active File History for release.js.`
+            focus: evidence-27
+            image:
+              file: public-guide/images/24-vscode-history.png
+              revision: head
+              alt: 'A separate question: file history'
+            depth: explained
+  - id: explain-and-share
+    title: Explain and share
+    scenes:
+      - id: explain-and-share-scene
+        title: Turn a diff into a reading order
+        summary: >-
+          The reading view and Show in code keep a claim beside its source. Files and Commits
+          leave that path, and Return to tour focus comes back.
+        bullets: []
+        tags:
+          - public-guide
+        takeaway: Narrative selects a path; the full comparison remains available.
+        steps:
+          - id: evidence-28
+            title: Read the argument before the code
+            body: >-
+              An authored tour arranges a change into chapters and scenes. The reading view tells
+              the story; each step can open exact evidence.
+
+
+              Entry point: `bygone -C repo present --tour release.bygone`
+            focus: evidence-28
+            image:
+              file: public-guide/images/25-tour-reader.png
+              revision: head
+              alt: Read the argument before the code
+            depth: explained
+          - id: evidence-29
+            title: Put a claim beside its evidence
+            body: >-
+              A focused step highlights the relevant source in a pinned comparison. The narrative
+              explains why the change matters, rather than reciting the diff.
+
+
+              Entry point: `Select a step • Show in code`
+            focus: evidence-29
+            image:
+              file: public-guide/images/26-focused-step.png
+              revision: head
+              alt: Put a claim beside its evidence
+            depth: explained
+          - id: evidence-30
+            title: Leave the path without losing it
+            body: >-
+              Explore Files or Commits to test the explanation, then return to tour focus.
+              Exploration does not change the authored comparison.
+
+
+              Entry point: `Files • Commits • Return to tour focus`
+            focus: evidence-30
+            image:
+              file: public-guide/images/27-explore-return.png
+              revision: head
+              alt: Leave the path without losing it
+            depth: explained
+          - id: evidence-31
+            title: Teach in conceptual stages
+            body: >-
+              Deconstructed tours reorder changes into cumulative explanation stages. The screenshot
+              uses Bygone’s public marker example; these stages are explicitly synthetic, not
+              historical commits.
+
+
+              Entry point: `bygone present --tour examples/deconstructed-diff.bygone`
+            focus: evidence-31
+            image:
+              file: public-guide/images/28-deconstructed.png
+              revision: head
+              alt: Teach in conceptual stages
+            depth: explained
+  - id: evidence-and-delivery
+    title: Evidence and delivery
+    scenes:
+      - id: evidence-and-delivery-scene
+        title: Preserve provenance when explaining
+        summary: >-
+          Symbol correspondence, imported claims, authoring context and portable exports help
+          explain the change.
+        bullets: []
+        tags:
+          - public-guide
+        takeaway: A source mapping is evidence of identity, not behavior or approval.
+        steps:
+          - id: evidence-32
+            title: Inspect validated symbol correspondence
+            body: >-
+              Strand pairs the edited planRelease declaration across pinned revisions. The tree
+              shows unmatched symbols and analysis limits. Inferred correspondence does not
+              establish behavioral equivalence.
+
+
+              Entry point, from a Bygone source checkout: `npm run correspondence:analyze --
+              feature --base main --engine bygone-strand --output correspondence.json`
+            focus: evidence-32
+            image:
+              file: public-guide/images/31-symbol-tree.png
+              revision: head
+              alt: Inspect validated symbol correspondence
+            depth: explained
+          - id: evidence-33
+            title: Turn review links into a tour
+            body: >-
+              The evidence exporter copies each requirement into a step and prints that
+              requirement’s verification status. With no current run, the status is not-recorded.
+              A valid source reference does not establish fulfillment.
+
+
+              Entry point: `bygone -C repo evidence tour imported.json --output evidence.bygone`
+            focus: evidence-33
+            image:
+              file: public-guide/images/29-evidence-tour.png
+              revision: head
+              alt: Turn review links into a tour
+            depth: explained
+          - id: evidence-34
+            title: Author an explanation from Git evidence
+            body: >-
+              `bygone tour context` writes structured evidence for the selected range. It does not
+              open a prompt. Write a .bygone source, validate its anchors, and compile it before
+              sharing.
+
+
+              Entry point: `bygone tour context feature --base main --output context.json`
+            focus: evidence-34
+            image:
+              file: public-guide/images/12-authoring.png
+              revision: head
+              alt: Author an explanation from Git evidence
+            depth: explained
+          - id: evidence-35
+            title: Share a self-contained snapshot
+            body: >-
+              An embedded minimal export opens without a repository or internet runtime. It includes
+              whole referenced file contents, including surrounding and deleted text; review those
+              bytes before sharing.
+
+
+              Entry point: `bygone tour export release.bygone --output tour.html --profile minimal
+              --runtime embedded`
+            focus: evidence-35
+            image:
+              file: public-guide/images/30-portable.png
+              revision: head
+              alt: Share a self-contained snapshot
+            depth: explained
+  - id: boundaries-and-entry-points
+    title: Dependencies and entry points
+    scenes:
+      - id: boundaries-and-entry-points-scene
+        title: Inspect the graph, then the source
+        summary: >-
+          These graph captures are from Bygone 0.11.3.
+        bullets: []
+        tags:
+          - public-guide
+        takeaway: >-
+          Use the static graph to choose which source to open, and keep unresolved sites visible.
+        steps:
+          - id: evidence-36
+            title: Open dependencies for a committed comparison
+            body: >-
+              The Python demo changes run from normalize to normalize_safe. Start with its exact
+              base/head comparison, then choose Dependencies. The graph opens inside Bygone and uses
+              those committed snapshots. Working-tree, index and multi-revision comparisons must
+              first select a pair of commits.
+
+
+              This is a native desktop capture from Bygone 0.11.3. The demo code was parsed, not
+              executed.
+            focus: evidence-36
+            image:
+              file: public-guide/images/dependencies/01-committed-range.png
+              revision: head
+              alt: Open dependencies for a committed comparison
+            depth: explained
+          - id: dependency-files
+            title: Widen inspection beyond the diff
+            body: >-
+              The Files view shows cli.py → app.py → helpers.py. Only app.py changed, but both its
+              caller and helper belong in the review. Select a node for direct neighbors; use
+              folder, file and symbol views, search, orientation and zoom to keep the graph
+              readable. ELK lays out the graph.
+
+
+              These are static source relationships. A missing edge does not establish independence,
+              and this view is not transitive impact analysis.
+            focus: dependency-files
+            image:
+              file: public-guide/images/dependencies/02-file-neighbors.png
+              revision: head
+              alt: Widen inspection beyond the diff
+            depth: explained
+          - id: dependency-calls
+            title: Follow calls at symbol level
+            body: >-
+              Choose Symbols, relation Call, phase Invocation. The demo exposes main → run →
+              normalize_safe. Imports, reexports, calls, construction and references are separate
+              evidence kinds; passing a callback is a reference, not proof of a call.
+
+
+              A resolved target identifies a source binding in the indexed snapshot. It does not
+              establish execution, reachability or runtime dispatch.
+            focus: dependency-calls
+            image:
+              file: public-guide/images/dependencies/03-invocation-calls.png
+              revision: head
+              alt: Follow calls at symbol level
+            depth: explained
+          - id: dependency-init
+            title: Separate import-time work from function bodies
+            body: >-
+              Switch to Module initialization and select the app.py initialization scope. Its
+              top-level preview = run(" demo ") call appears separately from calls written inside
+              functions.
+
+
+              Phase describes where a site is evaluated syntactically. Calling run at module
+              initialization does not relabel run’s body as initialization: this is not a transitive
+              startup graph. No workload trace or runtime dependency collection is included.
+            focus: dependency-init
+            image:
+              file: public-guide/images/dependencies/04-module-init.png
+              revision: head
+              alt: Separate import-time work from function bodies
+            depth: explained
+          - id: dependency-source
+            title: Open pinned source outside the diff
+            body: >-
+              Select normalize_safe and open its source. Bygone displays helpers.py at the original
+              committed pair, read-only, even though this file did not change. The host validates
+              the Git blob and selected-text digest before navigation.
+
+
+              Use the source site to assess what the graph edge means. A working-copy repair belongs
+              in a separate live view.
+            focus: dependency-source
+            image:
+              file: public-guide/images/dependencies/05-pinned-source.png
+              revision: head
+              alt: Open pinned source outside the diff
+            depth: explained
+          - id: dependency-changes
+            title: Classify call changes without inventing identity
+            body: >-
+              Expand Dependency changes and affected consumers. This capture shows one added call to
+              normalize_safe, one removed call to normalize, and four unclassified sites. The
+              example explicitly loads a supplied synthetic symbol-correspondence artifact for this
+              exact pair; it is not an automatic identity run.
+
+
+              Without correspondence, only exact unchanged declarations are paired. Edited,
+              ambiguous and unresolved symbols stay unknown. Source validation makes the supplied
+              mapping auditable; it does not make it a runtime observation or human approval.
+            focus: dependency-changes
+            image:
+              file: public-guide/images/dependencies/06-call-changes.png
+              revision: head
+              alt: Classify call changes without inventing identity
+            depth: explained
+          - id: dependency-coverage
+            title: Carry coverage and limitations with the graph
+            body: >-
+              Expand coverage before drawing a conclusion. The Python example indexes 3/3 files and
+              still has unresolved sites. Adapters differ: Python uses AST analysis; JS/TS uses
+              compiler-checker bindings; Go and Rust use syntax-oriented analysis; Mojo support is
+              experimental. These captures exercise Python, not every adapter.
+
+
+              Export the same pair with `bygone dependencies HEAD --base BASE --graph --json
+              --output dependencies.json`, or choose `--html` or `--mermaid` for display. `bygone
+              tour context HEAD --base BASE --dependencies --correspondence correspondence.json
+              --output context.json` carries the graph and call changes into authoring context. Omit
+              correspondence unless it matches the exact pair. Exported views are static evidence,
+              not recorded execution.
+            focus: dependency-coverage
+            image:
+              file: public-guide/images/dependencies/07-coverage.png
+              revision: head
+              alt: Carry coverage and limitations with the graph
+            depth: explained
+          - id: evidence-37
+            title: Choose a host and entry point
+            body: >-
+              Menus, drag/drop, CLI, deep links, and VS Code commands lead into the same core
+              comparisons. Desktop handoff requires a configured local installation.
+
+
+              Entry point: `bygone --help • bygone completion zsh`
+
+
+              In VS Code, use Bygone: Explore Dependencies. From Evidence Review, Explore dependency
+              graph uses that review’s exact committed pair. The picture shows the desktop
+              comparison route.
+            focus: evidence-37
+            image:
+              file: public-guide/images/33-hosts.png
+              revision: head
+              alt: Choose a host and entry point
+            depth: explained
+          - id: evidence-38
+            title: Know what the view can prove
+            body: >-
+              Interpret provenance, mutability and fallback labels before editing or drawing
+              conclusions. Snapshot validity, test execution and human approval are separate facts.
+
+
+              Untracked and unsupported paths are outside what these pictures show.
+            focus: evidence-38
+            image:
+              file: public-guide/images/34-limits.png
+              revision: head
+              alt: Know what the view can prove
+            depth: explained
+  - id: read-at-your-depth
+    title: Read at the depth you need
+    scenes:
+      - id: read-at-your-depth-scene
+        title: Keep the claim on the main path
+        summary: >-
+          One synthetic request shows the main path, then the proof you open on purpose.
+        bullets: []
+        tags:
+          - public-guide
+        takeaway: >-
+          Finish the claim first. Open a question, a check, or a related explanation when you
+          need the proof.
+        steps:
+          - id: reader-intro
+            title: The introduction says what changed
+            body: >-
+              The introduction is its own stop. This capture says what handleRequest used to do,
+              what it does now, and which boundary the walkthrough will establish. The route under
+              What you'll see is navigation.
+
+
+              The count, 3 main steps and 2 optional steps, describes the route. This is a reader
+              capture from Bygone 0.13.0.
+            focus: reader-intro
+            image:
+              file: public-guide/images/reader/01-introduction.png
+              revision: head
+              alt: The introduction says what changed
+            depth: explained
+          - id: reader-main
+            title: Next stays on the main path
+            body: >-
+              The active step states the claim, and the optional question sits underneath it,
+              marked as skipped by Next and narration. Next ↓ moves to the next main step. Explore
+              detail → is how you open the question. Keys and Discuss stay collapsed.
+
+
+              The right pane contains the new method check. Up and Down follow this same path.
+              Tours… in the header prepares an authoring prompt.
+            focus: reader-main
+            image:
+              file: public-guide/images/reader/02-main-path.png
+              revision: head
+              alt: Next stays on the main path
+            depth: explained
+          - id: reader-detail
+            title: Open one question
+            body: >-
+              The path count changes to Detail · 1/2. ← Return parent names the owning main step.
+              The following detail step is visible because the reading pane is continuous. It is
+              not the active step yet.
+
+
+              Current marks the detail path you have entered. Expanding the group previews its
+              steps and leaves the path unchanged.
+            focus: reader-detail
+            image:
+              file: public-guide/images/reader/03-optional-detail.png
+              revision: head
+              alt: Open one question
+            depth: explained
+          - id: reader-continue
+            title: Return or continue the parent path
+            body: >-
+              At the end of the detail path, the status says “End of detail. Next and narration
+              stop here.” ← Return to main goes back to the owning claim and restores its place.
+              Continue main tour ↓ names the next main step and skips any remaining detail.
+
+
+              The code pane shows the added test. It expects the rejection result for a request
+              with no method. This capture displays that file. It does not run the test.
+            focus: reader-continue
+            image:
+              file: public-guide/images/reader/04-continue-main.png
+              revision: head
+              alt: Return or continue the parent path
+            depth: explained
+          - id: reader-checks
+            title: Checks stay out of the reading path
+            body: >-
+              Checks & evidence is under Tour details. Narration does not read it. Provenance is Verified for this fixture's pinned snapshots. Claims is
+              Partial, because retry behavior is outside the fixture. Behavior, Coverage, and
+              Uncertainty are Not checked.
+
+
+              A missing category stays Not checked. It does not inherit a passing status. These
+              are the author's record, not release approval.
+            focus: reader-checks
+            image:
+              file: public-guide/images/reader/05-checks.png
+              revision: head
+              alt: Checks stay out of the reading path
+            depth: explained
+          - id: reader-related
+            title: Find the explanation for the code you selected
+            body: >-
+              In the desktop reader, open Related explanations from the code pane’s context menu,
+              or press Cmd/Ctrl+Shift+E. It lists authored steps whose anchored source overlaps
+              the selection, including when symbol analysis has nothing to add. On the method
+              check, this capture finds the main claim and the optional early-return explanation.
+              Choosing one enters that step. Closing the dialog leaves the reading position
+              unchanged.
+
+
+              An equal line on the other revision is not a match. This capture shows the matching
+              dialog, not that no-match case. `bygone tour narration` prints the main path.
+              `bygone tour impact` reports what happened to cited evidence after a later commit.
+              Neither command is in this capture.
+            focus: reader-related
+            image:
+              file: public-guide/images/reader/06-related-explanations.png
+              revision: head
+              alt: Find the explanation for the code you selected
+            depth: explained
+  - id: start-from-a-pull-request
+    title: Start from a pull request
+    scenes:
+      - id: start-from-a-pull-request-scene
+        title: The link is the whole request
+        summary: >-
+          The dialog asks only for a pull request link or owner/repo#number.
+        bullets: []
+        tags:
+          - public-guide
+        takeaway: >-
+          Review compares the merge base of the pinned destination tip and the fetched head
+          with that head.
+        steps:
+          - id: reader-pr
+            title: Ask for the pull request link
+            body: >-
+              Git → Review Pull Request… asks for a link or owner/repo#number. It does not ask
+              for a repository path, a head, or a base. This capture opens the dialog over a
+              synthetic history and stops before Review.
+
+
+              Submitting uses gh to resolve the repository, checks the fetched head, and pins the
+              destination branch tip so the merge base is computed from that tip. The left label
+              is the destination branch name plus the merge-base short SHA, and it does not say
+              merge base. Commits that landed only on the
+              destination branch after that fork stay outside the diff. `bygone review` opens the
+              comparison. `bygone present` opens a generated tour of the same range, and Next
+              walks that tour’s overview and file scenes. `bygone tour
+              context --pr` writes authoring context. This capture does not fetch a pull request.
+            focus: reader-pr
+            image:
+              file: public-guide/images/reader/07-review-pull-request.png
+              revision: head
+              alt: Ask for the pull request link
+            depth: explained

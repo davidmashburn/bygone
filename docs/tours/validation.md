@@ -62,3 +62,11 @@ The new [0.11.4 package](product/0.11.4/README.md), rebuilt with the 0.11.4 expo
 The native capture harness checked source navigation to an unchanged helper at the pinned range, read-only source panes, phase filtering, and supplied synthetic correspondence. The public evidence history has three commits containing only public synthetic documentation and its demo fixture; a private-content/credential scan found no matches, supplemented by narrative and new screenshot inspection.
 
 No publication, hosted access, runtime observation, fresh VS Code graph capture, Go/Rust/Mojo demonstration, full product regression run or CI run is claimed by this documentation update.
+
+## Reader and pull-request tour update — 2026-11-10
+
+The [0.13.0 package](product/0.13.0/README.md), built with the 0.13.0 exporter, has 51 steps across ten chapters. Chapter 9 adds six live reader captures. Chapter 10 opens the Review Pull Request dialog and stops before submit. The 0.11.1 and 0.11.4 packages remain in place. Fresh bundle compilation resolved every anchor.
+
+The new captures come from Bygone 0.13.0 at `232f25b3c429bf29bcf7d7f2278a0aa83637b31e`. Visible text was checked for private filesystem paths. The sample test was displayed and not executed. No pull request was fetched, and no version 2 review package was built. Narration output and revision-impact JSON are named and are not screenshots.
+
+No publication, hosted access, full product regression, CI, or fresh VS Code session is claimed by this documentation update.
