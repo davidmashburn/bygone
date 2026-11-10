@@ -123,6 +123,24 @@ test('resolves a simple relative import through the supplied virtual source host
     assert.equal(app.diagnostics.some(diagnostic => diagnostic.code === 'compiler-module-resolution'), false);
 });
 
+test('resolves a let or const whose function initializer is never reassigned', () => {
+    const result = analyzeTypescriptDependencies({
+        'main.ts': [
+            'const constant = () => 1;',
+            'let stable = () => 2;',
+            'constant();',
+            'stable();'
+        ].join('\n')
+    });
+    const document = result.documents['main.ts'];
+    for (const name of ['constant', 'stable']) {
+        const call = site(document, 'call', name);
+        assert.equal(call.resolution, 'resolved', name);
+        assert.equal(call.target.file, 'main.ts');
+        assert.equal(call.target.node.startsWith(`${name}@`), true, name);
+    }
+});
+
 test('does not resolve a mutable variable from a stale function initializer', () => {
     const result = analyzeTypescriptDependencies({
         'main.ts': 'function other() { return 2; }\nlet f = () => 1;\nf = other;\nf();'
@@ -147,6 +165,35 @@ test('does not resolve variables written through object and array destructuring'
     const calls = result.documents['main.ts'].sites.filter(candidate => candidate.relation === 'call');
     assert.deepEqual(calls.map(call => call.name), ['objectFn', 'arrayFn']);
     assert.ok(calls.every(call => call.resolution === 'unresolved' && call.target === undefined));
+});
+
+test('resolves a field initializer until some file writes that property name', () => {
+    const stable = analyzeTypescriptDependencies({
+        'main.ts': 'class C { fn = () => 1; }\nnew C().fn();',
+        'other.ts': 'declare const target: { other: () => number };\ntarget.other = () => 2;'
+    });
+    const stableCall = site(stable.documents['main.ts'], 'call', 'fn');
+    assert.equal(stableCall.resolution, 'resolved');
+    assert.equal(stableCall.target.file, 'main.ts');
+
+    const invalidated = analyzeTypescriptDependencies({
+        'main.ts': 'class C { fn = () => 1; }\nnew C().fn();',
+        'other.ts': 'declare const target: { fn: () => number };\ntarget.fn = () => 2;'
+    });
+    const invalidatedCall = site(invalidated.documents['main.ts'], 'call', 'fn');
+    assert.equal(invalidatedCall.resolution, 'unresolved');
+    assert.equal(invalidatedCall.target, undefined);
+});
+
+test('a let stays stable when another file assigns a different binding of the same name', () => {
+    const result = analyzeTypescriptDependencies({
+        'main.ts': 'export let local = () => 1;\nlocal();',
+        'other.ts': 'let local = () => 2;\nlocal = () => 3;'
+    });
+    const call = site(result.documents['main.ts'], 'call', 'local');
+    assert.equal(call.resolution, 'resolved');
+    assert.equal(call.target.file, 'main.ts');
+    assert.equal(call.target.node.startsWith('local@'), true);
 });
 
 test('records property decorators and invalidates reassigned field initializers', () => {

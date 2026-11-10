@@ -231,7 +231,10 @@ while `indexComplete: false` and `record-budget` diagnostics can indicate omitte
 sites even when every file has declarations.
 
 Each snapshot has its own 30-second analysis budget, so time spent on the base
-revision is not deducted from the head revision. When the merge-base commit and
+revision is not deducted from the head revision. Finding the commits to compare
+has that same ceiling in a separate window. The lookup returns as soon as Git
+finishes; the ceiling only stops a stuck Git command, and that failure stops
+the report instead of returning a partial one. When the merge-base commit and
 the head commit are the same object, that tree is analysed once and reused for
 head, with head records marked as the head revision. Adapter launch failures are
 reported separately: `adapter-timeout` when the adapter exceeds its time budget,

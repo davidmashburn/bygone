@@ -167,6 +167,9 @@ export function buildDependencyEvidence(startPath: string, options: DependencyEv
     }
     const scopes = [...new Set((options.scopes ?? []).map(scope => scope.split('/').filter(part => part && part !== '.').join('/')))];
     const inScope = (file: string) => !scopes.length || scopes.some(scope => !scope || file === scope || file.startsWith(scope + '/'));
+    // Same ceiling as a snapshot, in its own window. Git returns as soon as it
+    // finishes; this only bounds a stuck lookup. A timeout here fails the command,
+    // and the shared resolver also runs status, a copy-detecting diff, and log.
     const rangeDeadline = Date.now() + limits.timeoutMs;
     const range = options.range ?? resolveBranchReviewRange(startPath, options.headRef, options.baseRef,
         (args, cwd) => runGit(rangeDeadline, [...args], cwd).toString('utf8').trimEnd());

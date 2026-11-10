@@ -216,10 +216,11 @@ export function analyzeTypescriptDependencies(files: Record<string, string>): Ty
         collectNodes(context, source.sourceFile);
     }
 
+    const stability = checker ? createStabilityIndex([...sourceFileByInternal.values()], checker) : undefined;
     for (const source of sources) {
         const context = contexts.get(source.internal)!;
-        if (!source.sourceFile || !checker) continue;
-        const visitor = new SourceVisitor(context, source.sourceFile, checker, sourceByInternal, sourceFileByInternal, compilerOptions, resolutionHost, contexts);
+        if (!source.sourceFile || !checker || !stability) continue;
+        const visitor = new SourceVisitor(context, source.sourceFile, checker, sourceByInternal, sourceFileByInternal, compilerOptions, resolutionHost, contexts, stability);
         visitor.visit(source.sourceFile, { owner: context.nodesById.get('<init>')!, phase: source.sourceFile.isDeclarationFile ? 'type' : 'module-init' });
         visitor.finish();
     }
@@ -325,7 +326,8 @@ class SourceVisitor {
         private readonly sourceFileByInternal: Map<string, ts.SourceFile>,
         private readonly compilerOptions: ts.CompilerOptions,
         private readonly resolutionHost: ts.ModuleResolutionHost,
-        private readonly contexts: Map<string, DocumentContext>
+        private readonly contexts: Map<string, DocumentContext>,
+        private readonly stability: StabilityIndex
     ) { }
 
     visit(node: ts.Node, context: VisitContext): void {
@@ -876,13 +878,13 @@ class SourceVisitor {
         }
         const direct = context.nodeByAst.get(declaration);
         if (direct && (use !== 'construct' || direct.kind === 'class')) return direct;
-        if (ts.isVariableDeclaration(declaration) && declaration.initializer && isStableVariableInitializer(declaration, this.checker)) {
+        if (ts.isVariableDeclaration(declaration) && declaration.initializer && isStableVariableInitializer(declaration, this.checker, this.stability)) {
             const initializer = unwrapExpression(declaration.initializer);
             const record = context.nodeByAst.get(initializer);
             if (record && (use !== 'construct' || record.kind === 'class')) return record;
         }
         if (ts.isPropertyDeclaration(declaration) && declaration.initializer &&
-            isStablePropertyInitializer(declaration, this.sourceFileByInternal.values())) {
+            isStablePropertyInitializer(declaration, this.stability)) {
             const initializer = unwrapExpression(declaration.initializer);
             const record = context.nodeByAst.get(initializer);
             if (record && (use !== 'construct' || record.kind === 'class')) return record;
@@ -1114,54 +1116,59 @@ function isRelativeSpecifier(specifier: string): boolean {
     return specifier === '.' || specifier === '..' || specifier.startsWith('./') || specifier.startsWith('../');
 }
 
-function isStableVariableInitializer(declaration: ts.VariableDeclaration, checker: ts.TypeChecker): boolean {
+interface StabilityIndex {
+    mutatedSymbols(fileName: string): ReadonlySet<ts.Symbol>;
+    writtenPropertyNames: ReadonlySet<string>;
+}
+
+/**
+ * One syntactic pass per file. Variable stability is per file and symbol;
+ * property stability is any write of that property name in the supplied sources.
+ * The checker runs only for identifiers that are syntactic writes.
+ */
+function createStabilityIndex(sourceFiles: readonly ts.SourceFile[], checker: ts.TypeChecker): StabilityIndex {
+    const mutatedByFile = new Map<string, Set<ts.Symbol>>();
+    const writtenPropertyNames = new Set<string>();
+    for (const sourceFile of sourceFiles) {
+        const mutated = new Set<ts.Symbol>();
+        const visit = (node: ts.Node): void => {
+            if (ts.isIdentifier(node) && node.parent && isWriteReference(node)) {
+                const symbol = ts.isShorthandPropertyAssignment(node.parent)
+                    ? checker.getShorthandAssignmentValueSymbol(node.parent)
+                    : checker.getSymbolAtLocation(node);
+                if (symbol) mutated.add(symbol);
+            }
+            if (isWrittenPropertyName(node)) writtenPropertyNames.add(node.text);
+            node.forEachChild(visit);
+        };
+        sourceFile.forEachChild(visit);
+        mutatedByFile.set(sourceFile.fileName, mutated);
+    }
+    return {
+        mutatedSymbols: fileName => mutatedByFile.get(fileName) ?? new Set<ts.Symbol>(),
+        writtenPropertyNames
+    };
+}
+
+function isStableVariableInitializer(
+    declaration: ts.VariableDeclaration,
+    checker: ts.TypeChecker,
+    stability: StabilityIndex
+): boolean {
     const declarationList = declaration.parent;
     if (ts.isVariableDeclarationList(declarationList) && (declarationList.flags & ts.NodeFlags.Const) !== 0) return true;
     const symbol = checker.getSymbolAtLocation(declaration.name);
     if (!symbol || !ts.isIdentifier(declaration.name)) return false;
-    let mutated = false;
-    const visit = (node: ts.Node): void => {
-        if (mutated) return;
-        const nodeSymbol = ts.isIdentifier(node) && ts.isShorthandPropertyAssignment(node.parent)
-            ? checker.getShorthandAssignmentValueSymbol(node.parent)
-            : ts.isIdentifier(node) ? checker.getSymbolAtLocation(node) : undefined;
-        if (ts.isIdentifier(node) && node !== declaration.name && nodeSymbol === symbol && isWriteReference(node)) {
-            mutated = true;
-            return;
-        }
-        node.forEachChild(visit);
-    };
-    declaration.getSourceFile().forEachChild(visit);
-    return !mutated;
+    return !stability.mutatedSymbols(declaration.getSourceFile().fileName).has(symbol);
 }
 
-function isStablePropertyInitializer(
-    declaration: ts.PropertyDeclaration,
-    sourceFiles: Iterable<ts.SourceFile>
-): boolean {
+function isStablePropertyInitializer(declaration: ts.PropertyDeclaration, stability: StabilityIndex): boolean {
     if (ts.isComputedPropertyName(declaration.name)) return false;
-    let mutated = false;
-    const visit = (node: ts.Node): void => {
-        if (mutated) return;
-        if (node !== declaration.name && isPropertyWriteReference(node, declaration)) {
-            mutated = true;
-            return;
-        }
-        node.forEachChild(visit);
-    };
-    for (const sourceFile of sourceFiles) {
-        sourceFile.forEachChild(visit);
-        if (mutated) break;
-    }
-    return !mutated;
+    return !stability.writtenPropertyNames.has(declaration.name.getText());
 }
 
-function isPropertyWriteReference(
-    node: ts.Node,
-    declaration: ts.PropertyDeclaration
-): boolean {
-    if (!ts.isIdentifier(node) || node === declaration.name) return false;
-    if (node.text !== declaration.name.getText()) return false;
+function isWrittenPropertyName(node: ts.Node): node is ts.Identifier {
+    if (!ts.isIdentifier(node)) return false;
     const parent = node.parent;
     const access = ts.isPropertyAccessExpression(parent) && parent.name === node ? parent : undefined;
     if (!access) return false;

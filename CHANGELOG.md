@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.2
+
+- Record JavaScript and TypeScript binding writes once per analysis, instead of walking the program again for every declaration
+
 ## 0.13.1
 
 - Give each revision its own 30-second dependency evidence budget instead of sharing one across base and head
