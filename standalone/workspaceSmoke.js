@@ -111,7 +111,7 @@ async function runWorkspaceSmoke({ open, openMulti, openDefault, window, session
         await waitFor("document.querySelector('dialog[open] textarea')");
         const initialPrompt = await evaluate("document.querySelector('dialog[open] textarea').value");
         assert.match(initialPrompt, /SKILL\.md/);
-        assert.match(initialPrompt, /Requested options/);
+        assert.match(initialPrompt, /Tour options \(record resolved values explicitly in the tour file\):/);
         assert.match(initialPrompt, /Human author/);
         const instructions = await evaluate("document.querySelector('[aria-label=\"Tour skill Markdown instructions\"]').value");
         assert.match(instructions, /version 8/);

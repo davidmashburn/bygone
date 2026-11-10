@@ -23,6 +23,13 @@ const { buildRepositoryReplacementPlan, applyRepositoryReplacementPlan, undoRepo
 const { searchFileHistory } = require('../src/gitHistorySearch.ts');
 const { classifyAuthoredTourPaths, discoverAuthoredTourDocument } = require('../src/tourDocument.ts');
 const { materializeBranchReviewTrees, materializeGitTree, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
+const {
+    ensurePullRequestWorkspace,
+    parsePullRequestRef,
+    parseReviewArguments,
+    resolvePullRequest,
+    toPullRequestSummary
+} = require('../src/pullRequest.ts');
 const { buildDirectoryNavigationState } = require('../media/navigationUtils.js');
 const { collectComparisonSelection, getMenuCapabilities } = require('./menuUtils.js');
 const {
@@ -253,19 +260,12 @@ function parseLaunchArgsCore(args) {
     }
 
     if (tokenMatches('branchDiff', filteredArgs[0]) || tokenMatches('review', filteredArgs[0])) {
-        let branch = 'HEAD';
-        let mainRef;
-        for (let i = 1; i < filteredArgs.length; i++) {
-            const arg = filteredArgs[i];
-            if (tokenMatches('branch', arg) && filteredArgs[i + 1]) {
-                branch = filteredArgs[++i];
-            } else if (tokenMatches('base', arg) && filteredArgs[i + 1]) {
-                mainRef = filteredArgs[++i];
-            } else if (tokenMatches('review', filteredArgs[0]) && !arg.startsWith('-')) {
-                branch = arg;
-            }
+        try {
+            const review = parseReviewArguments(filteredArgs.slice(1), tokenMatches('review', filteredArgs[0]));
+            return { kind: 'branch-diff', ...review, cwd, capturePath, windowWidth, windowHeight };
+        } catch (error) {
+            return { kind: 'branch-diff', pullRequestError: error instanceof Error ? error.message : String(error), cwd, capturePath, windowWidth, windowHeight };
         }
-        return { kind: 'branch-diff', branch, mainRef, cwd, capturePath, windowWidth, windowHeight };
     }
 
     if (tokenMatches('test', filteredArgs[0])) {
@@ -1234,6 +1234,10 @@ function installApplicationMenu() {
                     label: 'Review Branch Change…',
                     accelerator: 'CmdOrCtrl+Shift+R',
                     click: () => runMenuAction('review a branch change', openBranchReviewDialog)
+                },
+                {
+                    label: 'Review Pull Request…',
+                    click: () => runMenuAction('review a pull request', openPullRequestReviewDialog)
                 }
             ]
         },
@@ -1862,7 +1866,9 @@ async function routeLaunchTarget(launchTarget) {
     }
 
     if (launchTarget.kind === 'branch-diff') {
-        await openGitBranchReview(launchTarget.cwd || process.cwd(), launchTarget.branch, launchTarget.mainRef);
+        await openGitBranchReview(launchTarget.cwd || process.cwd(), launchTarget.branch, launchTarget.mainRef, {
+            pullRequest: launchTarget.pullRequest, pullRequestError: launchTarget.pullRequestError
+        });
         return;
     }
 
@@ -1914,6 +1920,7 @@ function sourceForLaunchTarget(launchTarget) {
         }
     }
     if (launchTarget.kind === 'branch-diff') {
+        if (launchTarget.pullRequest || launchTarget.pullRequestError) return null;
         try {
             const repoRoot = fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], launchTarget.cwd || process.cwd()));
             return createBranchReviewSource(repoRoot, launchTarget.branch, launchTarget.mainRef);
@@ -2293,7 +2300,12 @@ function openLaunchPrompt(config, submit) {
     });
 }
 
-async function resolveOrChooseGitRepository(title) {
+/**
+ * The repository the user is already working in, without asking. A desktop app
+ * launched from Finder has no useful working directory, so the open session is
+ * the better signal.
+ */
+function findGitRepositoryNearSession() {
     const sourcePath = session.source?.repoRoot
         || session.source?.path
         || session.source?.paths?.[0];
@@ -2306,8 +2318,16 @@ async function resolveOrChooseGitRepository(title) {
         try {
             return fs.realpathSync(runGit(['rev-parse', '--show-toplevel'], candidate));
         } catch {
-            // Try the next relevant location before asking the user.
+            // Try the next relevant location.
         }
+    }
+    return null;
+}
+
+async function resolveOrChooseGitRepository(title) {
+    const nearbyRepository = findGitRepositoryNearSession();
+    if (nearbyRepository) {
+        return nearbyRepository;
     }
 
     ensureExploreWindow();
@@ -2455,6 +2475,37 @@ async function openBranchReviewDialog() {
         ]
     }, async (values) => {
         await openNewComparison('openGitBranchReview', [repoRoot, values.head.trim() || 'HEAD', values.base.trim() || undefined]);
+    });
+}
+
+/**
+ * Reviewing a pull request deliberately asks for nothing but the link. The
+ * repository, refs, and any clone are resolved from it.
+ */
+async function openPullRequestReviewDialog() {
+    openLaunchPrompt({
+        kind: 'review-pull-request',
+        title: 'Review Pull Request',
+        description: 'Paste a GitHub pull request link, or type owner/repo#number.',
+        submitLabel: 'Review',
+        fields: [
+            { name: 'pullRequest', label: 'Pull request link or owner/repo#number', value: '', required: true }
+        ]
+    }, async (values) => {
+        const requested = values.pullRequest.trim();
+        const ref = parsePullRequestRef(requested);
+        if (!ref || !ref.owner || !ref.repo) {
+            await showError(
+                `Could not read "${requested}" as a pull request. `
+                + 'Use a full link such as https://github.com/owner/repo/pull/123, or owner/repo#123.'
+            );
+            return;
+        }
+        // Prefer a clone the user already has open. It usually holds most of the
+        // objects already, and it carries whatever authentication that remote
+        // uses. Without one, the pull request is fetched into a cache repository.
+        const startPath = findGitRepositoryNearSession() || launchArguments.cwd || process.cwd();
+        await openNewComparison('openGitBranchReview', [startPath, 'HEAD', undefined, { pullRequest: ref }]);
     });
 }
 
@@ -2765,16 +2816,42 @@ async function openGitRefs(cwd, refs, options = {}) {
 }
 
 async function openGitBranchReview(cwd, branch, mainRef, options = {}) {
+    let reviewRoot = cwd;
+    let headRef = branch;
+    let baseRef = mainRef;
+    let pullRequest;
+
+    if (options.pullRequestError) {
+        await showError(options.pullRequestError);
+        return;
+    }
+
+    if (options.pullRequest) {
+        try {
+            const metadata = resolvePullRequest(options.pullRequest, cwd);
+            const workspace = ensurePullRequestWorkspace(options.pullRequest, metadata, cwd);
+            reviewRoot = workspace.repoRoot;
+            headRef = workspace.headRef;
+            baseRef = workspace.baseRef;
+            pullRequest = toPullRequestSummary(metadata);
+        } catch (error) {
+            await showError(`Could not prepare pull request review: ${getErrorMessage(error)}`);
+            return;
+        }
+    }
+
     let review;
     try {
-        review = resolveBranchReviewRange(cwd, branch, mainRef);
+        review = resolveBranchReviewRange(reviewRoot, headRef, baseRef);
     } catch (error) {
         await showError(`Could not prepare branch review: ${getErrorMessage(error)}`);
         return;
     }
 
     if (review.changedPaths.length === 0) {
-        await showInfo(`${review.headRef} has no changes relative to ${review.baseRef}.`);
+        await showInfo(pullRequest
+            ? `Pull request #${pullRequest.number} has no changes relative to ${pullRequest.baseRefName}.`
+            : `${review.headRef} has no changes relative to ${review.baseRef}.`);
         return;
     }
 
@@ -2794,20 +2871,21 @@ async function openGitBranchReview(cwd, branch, mainRef, options = {}) {
     }
 
     const source = {
-        ...(options.source || createBranchReviewSource(review.repoRoot || cwd, branch, mainRef)),
+        ...(options.source || createBranchReviewSource(review.repoRoot || reviewRoot, headRef, baseRef)),
         resolvedRevisions: [review.mergeBaseOid, review.headOid]
     };
 
     await openDirectories([leftRoot, rightRoot], {
         labels: [
-            `${review.baseRef} @ ${review.mergeBaseOid.slice(0, 7)}`,
-            `${review.headRef} @ ${review.headOid.slice(0, 7)}`
+            `${pullRequest ? pullRequest.baseRefName : review.baseRef} @ ${review.mergeBaseOid.slice(0, 7)}`,
+            `${pullRequest ? `#${pullRequest.number} ${pullRequest.headRefName}` : review.headRef} @ ${review.headOid.slice(0, 7)}`
         ],
         tempRoots: [leftRoot, rightRoot],
         skipConfirm: Boolean(options.skipConfirm),
         source,
         review: {
             ...review,
+            pullRequest,
             attention,
             attentionSummary,
             viewedPaths: new Set()

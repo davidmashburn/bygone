@@ -1,3 +1,4 @@
+import type { PullRequestSummary } from './pullRequestMetadata';
 import { realpathSync } from 'fs';
 import { resolve, relative, isAbsolute, sep } from 'path';
 import { loadChangeCorrespondence } from './changeCorrespondence';
@@ -70,6 +71,7 @@ const DEFAULT_MAX_TOUR_LINE_BYTES = 64 * 1024;
 const DEFAULT_MAX_STACK_CONTENT_BYTES = 8 * 1024 * 1024;
 
 export interface BuildChangeTourOptions {
+    pullRequest?: PullRequestSummary;
     headRef?: string;
     baseRef?: string;
     title?: string;
@@ -225,11 +227,12 @@ export function buildChangeTourManifest(
         // Only authored v2+ files opt into repository-bound zoom modes. Generated
         // and legacy/story tours retain the portable v1 manifest contract.
         version: source?.version ?? 1,
-        title: source?.title || options.story?.title || options.title || `${range.headRef} against ${range.baseRef}`,
+        title: source?.title || options.story?.title || options.title || options.pullRequest?.title || `${range.headRef} against ${range.baseRef}`,
         windowTitle: source?.windowTitle,
         opening: source?.opening,
         conclusion: source?.conclusion,
-        sourceUrl: source?.sourceUrl || options.story?.sourceUrl || options.sourceUrl,
+        sourceUrl: source?.sourceUrl || options.story?.sourceUrl || options.sourceUrl || options.pullRequest?.url,
+        pullRequest: options.pullRequest,
         generatedAt: options.generatedAt || new Date().toISOString(),
         range: {
             baseRef: range.baseRef,

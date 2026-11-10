@@ -1,3 +1,4 @@
+import type { PullRequestSummary } from './pullRequestMetadata';
 import type { DependencyEvidenceReport } from './dependencyEvidence';
 import type { DependencyChanges } from './dependencyChanges';
 import { loadChangeCorrespondence, ChangeCorrespondence } from './changeCorrespondence';
@@ -44,6 +45,7 @@ export interface ChangeTourContextFile {
 }
 
 export interface ChangeTourContext {
+    pullRequest?: PullRequestSummary;
     /** Opt-in CLI analysis; absent in ordinary context generation. */
     dependencies?: DependencyEvidenceReport;
     dependencyChanges?: DependencyChanges;
@@ -76,6 +78,7 @@ export interface ChangeTourContext {
 }
 
 export interface BuildChangeTourContextOptions {
+    pullRequest?: PullRequestSummary;
     /** Reuse a pinned range when composing context with other analyses. */
     range?: BranchReviewRange;
     correspondencePath?: string;
@@ -134,6 +137,7 @@ export function buildChangeTourContext(
             filesByRole
         },
         commits: range.commits,
+        pullRequest: options.pullRequest,
         files
     };
 }

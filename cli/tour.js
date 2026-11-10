@@ -1,3 +1,4 @@
+const { parsePullRequestRef, requirePullRequestRef, preparePullRequestRange, toPullRequestSummary } = require('../out/pullRequest.js');
 const { mkdirSync, readFileSync, writeFileSync } = require('fs');
 const path = require('path');
 const { buildChangeTourContext } = require('../out/changeTour.js');
@@ -39,20 +40,25 @@ function runTourCommand(args, cwd, packageRoot, output = process.stdout, command
         return { action: 'schema' };
     }
     if (options.action === 'context') {
+        const pr = options.pullRequestRef ? preparePullRequestRange(options.pullRequestRef, cwd) : undefined;
+        const repoRoot = pr?.repoRoot || cwd;
+        const headRef = pr?.headRef || options.headRef;
+        const baseRef = pr?.baseRef || options.baseRef;
         const range = options.dependencies
-            ? require('../out/gitComparison.js').resolveBranchReviewRange(cwd, options.headRef, options.baseRef)
+            ? require('../out/gitComparison.js').resolveBranchReviewRange(repoRoot, headRef, baseRef)
             : undefined;
-        const context = buildChangeTourContext(cwd, {
+        const context = buildChangeTourContext(repoRoot, {
+            pullRequest: pr ? toPullRequestSummary(pr.pullRequest) : undefined,
             range,
-            headRef: options.headRef,
-            baseRef: options.baseRef,
+            headRef,
+            baseRef,
             correspondencePath: options.correspondencePath ? path.resolve(cwd, options.correspondencePath) : undefined,
             maxPatchBytes: options.maxPatchBytes,
             maxTotalPatchBytes: options.maxTotalPatchBytes
         });
         if (options.dependencies) {
             const { buildDependencyEvidence } = require('../out/dependencyEvidence.js');
-            context.dependencies = buildDependencyEvidence(cwd, { range });
+            context.dependencies = buildDependencyEvidence(repoRoot, { range });
             context.dependencyChanges = require('../out/dependencyChanges.js').compareDependencyEvidence(
                 context.dependencies,
                 context.correspondence
@@ -197,6 +203,7 @@ function renderCoverageReport(report) {
 }
 
 function parseContextArgs(args) {
+    let pullRequestRef;
     let headRef;
     let baseRef;
     let outputPath;
@@ -238,11 +245,24 @@ function parseContextArgs(args) {
             }
             continue;
         }
+        if (arg === '--pr' || arg === '--pull-request') {
+            if (pullRequestRef) throw new Error('tour context accepts at most one pull request.');
+            pullRequestRef = requirePullRequestRef(args[++index] || '');
+            continue;
+        }
         if (arg.startsWith('-')) throw new Error(`Unknown tour context option: ${arg}`);
+        if (parsePullRequestRef(arg)) {
+            if (pullRequestRef) throw new Error('tour context accepts at most one pull request.');
+            pullRequestRef = requirePullRequestRef(arg);
+            continue;
+        }
         if (headRef) throw new Error('tour context accepts at most one head ref.');
         headRef = arg;
     }
-    return { action: 'context', headRef, baseRef, outputPath, maxPatchBytes, maxTotalPatchBytes, ...(correspondencePath ? { correspondencePath } : {}), ...(dependencies ? { dependencies } : {}) };
+    if (pullRequestRef && (headRef || baseRef)) {
+        throw new Error('A pull request cannot be combined with a head ref or --base.');
+    }
+    return { action: 'context', headRef, baseRef, outputPath, maxPatchBytes, maxTotalPatchBytes, ...(pullRequestRef ? { pullRequestRef } : {}), ...(correspondencePath ? { correspondencePath } : {}), ...(dependencies ? { dependencies } : {}) };
 }
 
 function writeJsonResult(label, value, outputPath, cwd, output) {

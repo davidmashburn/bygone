@@ -115,23 +115,15 @@ Treat workspace paths named by the request as the explicit scope. The context
 does not provide a path filter, so do not silently narrow or broaden that scope
 based on which files seem easiest to explain; surface any scope ambiguity.
 
-For a hosted review, resolve both immutable endpoint OIDs from provider metadata. Never assume the current checkout is the requested review head. For GitHub:
+For a GitHub pull request, resolve the range and author intent together:
 
 ```sh
-PR_JSON="$(gh pr view <n> --json baseRefOid,headRefOid)"
-BASE_OID="$(jq -r .baseRefOid <<<"$PR_JSON")"
-HEAD_OID="$(jq -r .headRefOid <<<"$PR_JSON")"
-test -n "$BASE_OID" && test "$BASE_OID" != null
-test -n "$HEAD_OID" && test "$HEAD_OID" != null
-bygone tour context "$HEAD_OID" --base "$BASE_OID" --output /tmp/change-context.json
+bygone tour context https://github.com/owner/repo/pull/<n> --output /tmp/change-context.json
 ```
 
-Use the equivalent API or CLI fields for other providers. If the requested
-endpoints are unresolved, reversed, divergent, or have multiple candidates,
-stop and report the ambiguity. Never silently invent an endpoint, choose among
-candidates, or substitute a merge-base. If you are not reviewing a hosted
-change, compute the merge-base only when the intended integration branch is
-explicit, and pass that exact base OID or ref.
+Inside a clone, `bygone tour context --pr <n>` follows gh's selected repository, including an upstream repository. URLs work without a clone and support fork PRs. The GitHub CLI must be authenticated. Bygone verifies the fetched head against metadata and reports a retry error if it moved during the fetch. It pins the fetched destination branch tip rather than assuming GitHub’s historical `baseRefOid` is current.
+
+Read `.pullRequest.body` before writing the narrative. Treat it as the author's stated intent and verify its claims against the code. For other providers, resolve the immutable endpoints using their metadata and pass `bygone tour context "$HEAD_OID" --base "$BASE_OID"`. Never assume the current checkout is the requested head. For a local branch, choose the intended integration base explicitly when alternatives would change the explanation.
 
 Use immutable commit IDs in the eventual tour. Dirty working-tree changes and
 unsaved buffers are reported separately but excluded from committed-range

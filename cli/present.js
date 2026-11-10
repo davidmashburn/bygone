@@ -1,3 +1,4 @@
+const { parsePullRequestRef, requirePullRequestRef, preparePullRequestRange, toPullRequestSummary } = require('../out/pullRequest.js');
 const { existsSync, mkdirSync, readFile, readFileSync, realpathSync, statSync, writeFileSync } = require('fs');
 const { createServer } = require('http');
 const path = require('path');
@@ -23,16 +24,18 @@ const MIME_TYPES = new Map([
 ]);
 
 async function startPresentation(args, cwd, packageRoot, options = {}) {
-    const { headRef, baseRef, tourPath, explicitHeadRef, correspondencePath } = parsePresentArgs(args);
+    const { headRef, baseRef, tourPath, explicitHeadRef, correspondencePath, pullRequestRef } = parsePresentArgs(args);
     const story = !options.ignoreEnvironment && process.env.BYGONE_TOUR_STORY
         ? parseChangeTourStory(JSON.parse(readFileSync(path.resolve(cwd, process.env.BYGONE_TOUR_STORY), 'utf8')))
         : undefined;
     const loadedSource = tourPath ? await (options.loadTourSource || loadTourSource)(cwd, tourPath) : undefined;
     if (tourPath && !loadedSource) return null;
     const source = loadedSource?.source;
-    const builtManifest = buildChangeTourManifest(cwd, {
-        headRef: explicitHeadRef || source?.range?.head || headRef,
-        baseRef: baseRef || source?.range?.base,
+    const pr = pullRequestRef ? preparePullRequestRange(pullRequestRef, cwd) : undefined;
+    const builtManifest = buildChangeTourManifest(pr?.repoRoot || cwd, {
+        pullRequest: pr ? toPullRequestSummary(pr.pullRequest) : undefined,
+        headRef: pr?.headRef || explicitHeadRef || source?.range?.head || headRef,
+        baseRef: pr?.baseRef || baseRef || source?.range?.base,
         title: options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_TITLE,
         sourceUrl: options.ignoreEnvironment ? undefined : process.env.BYGONE_TOUR_SOURCE_URL,
         story,
@@ -244,6 +247,7 @@ async function startPresentation(args, cwd, packageRoot, options = {}) {
 }
 
 function parsePresentArgs(args) {
+    let pullRequestRef;
     let headRef = 'HEAD';
     let explicitHeadRef;
     let baseRef;
@@ -251,6 +255,11 @@ function parsePresentArgs(args) {
     let correspondencePath;
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index];
+        if (arg === '--pr' || arg === '--pull-request') {
+            if (pullRequestRef) throw new Error('present accepts at most one pull request.');
+            pullRequestRef = requirePullRequestRef(args[++index] || '');
+            continue;
+        }
         if (tokenMatches('base', arg)) {
             if (!args[index + 1]) {
                 throw new Error(`${arg} requires a Git ref.`);
@@ -271,13 +280,21 @@ function parsePresentArgs(args) {
         if (arg.startsWith('-')) {
             throw new Error(`Unknown present option: ${arg}`);
         }
+        if (parsePullRequestRef(arg)) {
+            if (pullRequestRef) throw new Error('present accepts at most one pull request.');
+            pullRequestRef = requirePullRequestRef(arg);
+            continue;
+        }
         if (explicitHeadRef) {
             throw new Error('present accepts at most one head ref.');
         }
         headRef = arg;
         explicitHeadRef = arg;
     }
-    return { headRef, baseRef, tourPath, explicitHeadRef, ...(correspondencePath ? { correspondencePath } : {}) };
+    if (pullRequestRef && (explicitHeadRef || baseRef || tourPath)) {
+        throw new Error('A pull request cannot be combined with a head ref, --base, or --tour.');
+    }
+    return { headRef, baseRef, tourPath, explicitHeadRef, ...(pullRequestRef ? { pullRequestRef } : {}), ...(correspondencePath ? { correspondencePath } : {}) };
 }
 
 function resolveAssetPath(packageRoot, requestPath) {
