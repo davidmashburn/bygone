@@ -4,7 +4,7 @@
   "displayName": "Bygone",
   "desktopName": "com.davidmashburn.bygone.desktop",
   "description": "See how change happened. Visual diff and file history for VS Code.",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "author": "David Mashburn",
   "license": "MIT",
   "private": false,
@@ -69,7 +69,7 @@
       },
       {
         "command": "bygone.compareFiles",
-        "title": "Compare Active File With\u2026",
+        "title": "Compare Active File With…",
         "category": "Bygone"
       },
       {
@@ -79,13 +79,13 @@
       },
       {
         "command": "bygone.compareDirectoriesInDesktop",
-        "title": "Compare Directories in Desktop\u2026",
+        "title": "Compare Directories in Desktop…",
         "category": "Bygone",
         "enablement": "isWorkspaceTrusted && !remoteName && !virtualWorkspace"
       },
       {
         "command": "bygone.compareMultipleFilesInDesktop",
-        "title": "Compare Three or More Files in Desktop\u2026",
+        "title": "Compare Three or More Files in Desktop…",
         "category": "Bygone",
         "enablement": "isWorkspaceTrusted && !remoteName && !virtualWorkspace"
       },
@@ -125,7 +125,7 @@
       },
       {
         "command": "bygone.openTourInDesktop",
-        "title": "Open Authored Tour in Desktop\u2026",
+        "title": "Open Authored Tour in Desktop…",
         "category": "Bygone",
         "enablement": "isWorkspaceTrusted && !remoteName && !virtualWorkspace"
       },
@@ -219,7 +219,11 @@
         }
       ],
       "editor/context": [
-        { "command": "bygone.openDependencies", "when": "resourceScheme == file", "group": "bygone@9" },
+        {
+          "command": "bygone.openDependencies",
+          "when": "resourceScheme == file",
+          "group": "bygone@9"
+        },
         {
           "command": "bygone.compareWithSelected",
           "group": "compare",

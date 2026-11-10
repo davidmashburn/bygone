@@ -1,10 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.13.0
 
 - Added GitHub pull request inputs for review, presentation, and tour context, plus a desktop Review Pull Request dialog
 - Resolve the canonical repository through gh, verify the PR head, and pin the fetched destination branch without changing user branches or checkouts
 - Support private and fork PRs through a reusable repository cache with authentication for later partial-clone reads
+- Add optional review-artifact v2 portable tour packages with `review.json`, `report.json`, and `report.md`
+- Verify revision binding and byte integrity for v2 inventories; copy review files through the product tour site builder
 
 ## 0.12.1
 
