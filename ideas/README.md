@@ -31,6 +31,10 @@ clear enough to discuss as an actionable plan.
 - [Symbol inventory and provenance](symbol-change-inventory.md) — per-file
   symbol changes, candidate engines, and recorded versus inferred operations.
 
+- [Whole-line highlight fallback](whole-line-highlight-fallback.md) investigates
+  uniform replacement emphasis when unchanged word fragments stop helping,
+  including decision heuristics and shared-panel overlap rules.
+
 - [Alternating comparison colors](alternating-comparison-colors.md) — shelved
   blue/violet ownership colors with horizontal splits; retained for reconsideration.
 
