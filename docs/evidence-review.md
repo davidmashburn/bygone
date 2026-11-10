@@ -74,6 +74,35 @@ The versioned review model is in `src/requirements.ts`. Old exports with only
 branch names or timestamps cannot be imported as pinned evidence. All output
 commands require new files; existing artifacts are never overwritten.
 
+## Portable review packages
+
+`scripts/package-tour.cjs` builds a self-contained tour package from a source
+tour and Git bundle. Its optional fifth CLI argument is a directory containing
+exactly the three review inputs `review.json`, `report.json`, and `report.md`:
+
+```sh
+node scripts/package-tour.cjs build tour.bygone evidence.bundle metadata.json package-dir review-dir
+node scripts/package-tour.cjs verify package-dir
+```
+
+The JavaScript API accepts these paths as
+`buildPackage(source, bundle, metadata, destination, { reviewArtifacts })`, where
+`reviewArtifacts` maps those three filenames to input paths. Omitting this option
+produces the existing version 1 package. Supplying it produces version 2 with a
+separate `reviewArtifacts` inventory; every file's size and SHA-256 hash contributes
+to the package identity. Input files are copied unchanged and must be regular
+files. Existing output directories are never overwritten.
+
+`review.json` is a version 2 Evidence Review produced by `bygone evidence import`.
+Its base and head must match the packaged evidence. `report.json` has
+`schemaVersion: 1`, `kind: "advisory-review"`, and a `capture` object: `mergeBase`
+and `head` match the evidence endpoints, while `base` records the separately
+captured base-branch tip as a full commit ID. `report.md` is the nonempty readable
+rendering supplied by the producer. The package verifier checks this generic
+envelope, revision binding, and byte integrity; the producer owns its full report
+schema, findings, and agreement between JSON and Markdown. A valid package does
+not establish that the review is complete or correct.
+
 ## Edit, return, refresh
 
 **Edit working counterpart** maps the exact cited snapshot/range to the current

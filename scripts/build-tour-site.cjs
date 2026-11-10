@@ -21,11 +21,12 @@ for (const { directory, version, manifest } of releases) {
     const target = path.join(destination, 'tours/product', version);
     fs.mkdirSync(target, { recursive: true });
     // An explicit allowlist: never copy a repository, docs tree, or arbitrary uploads.
-    for (const name of [...Object.keys(manifest.artifacts), 'manifest.json', 'README.md']) {
+    for (const name of [...Object.keys(manifest.artifacts), ...Object.keys(manifest.reviewArtifacts || {}), 'manifest.json', 'README.md']) {
         const file = path.join(directory, name);
         if (!fs.lstatSync(file).isFile()) throw new Error(`Not a regular file: ${name}`);
         fs.copyFileSync(file, path.join(target, name));
     }
+    verifyPackage(target);
 }
 fs.copyFileSync(path.join(root, 'docs/tours/site/index.html'), path.join(destination, 'index.html'));
 fs.writeFileSync(path.join(destination, '.nojekyll'), '');
