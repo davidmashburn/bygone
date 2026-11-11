@@ -89,6 +89,7 @@ test('v2 review packages bind exact evidence and retain immutable portable repor
         // Re-sign mutations to exercise validation beyond digest/integrity checks.
         const writeIdentity = identity => fs.writeFileSync(path.join(first, 'manifest.json'), JSON.stringify({ ...identity, digest: hash(JSON.stringify(identity)) }));
         const { digest, ...identity } = manifest;
+        void digest;
         writeIdentity({ ...identity, schemaVersion: 1 });
         assert.throws(() => verifyPackage(first), /schemaVersion 2/);
         writeIdentity({ ...identity, reviewArtifacts: { 'report.json': manifest.reviewArtifacts['report.json'] } });
