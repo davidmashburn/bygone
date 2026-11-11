@@ -47,6 +47,11 @@ grew out of an earlier concept.
   — public product-tour YAML, JSON, offline HTML, evidence packaging, and GitHub
   Pages delivery; implementation and publication remain pending.
 
+- [Smaller product-tour version patches](product-tour-patch-size.md)
+  — keep a release-label bump from rewriting the published guide. Leave the
+  directory in place when the guide text did not change; keep screenshots out
+  of `tour.json` when the text does change.
+
 - [Workflow integration reconciliation](workflow-integration-reconciliation.md)
   — 2026-10-26 assessment of merged SCM editing, Strand, requirements evidence,
   dependencies, tours, and Daniel's PR Reviewer; proposes a bounded evidence-to-edit

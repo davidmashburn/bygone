@@ -104,5 +104,6 @@ privacy, file sizes, and Pages behavior remain acceptance checks.
 ## Related plans
 
 - [Self-contained HTML tours](self-contained-html-tours.md)
+- [Smaller product-tour version patches](product-tour-patch-size.md)
 - [Deep links](deep-linking.md)
 - [Tour orientation and narrative framing](tour-orientation-and-narrative-framing.md)
