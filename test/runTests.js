@@ -18,9 +18,12 @@ const { GitHistoryService } = require('../out/gitHistory.js');
 const { searchFileHistory } = require('../out/gitHistorySearch.js');
 const { buildBinaryComparison, classifyFile } = require('../out/binaryComparison.js');
 const {
+    listSnapshotChangedPaths,
     materializeBranchReviewTrees,
+    materializeGitPaths,
     materializeGitTree,
     parseNameStatusZ,
+    planGitRefColumnPaths,
     resolveBranchReviewRange,
     resolveReviewPathPair
 } = require('../out/gitComparison.js');
@@ -3825,9 +3828,9 @@ function testDirectoryDiffCanFilterAWorktreeByGitInventory() {
 
 function testGitWorktreeComparisonKeepsOnlyWorktreeWritable() {
     const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
-    assert.match(standaloneSource, /\['ls-files', '-co', '-z', '--exclude-standard'\]/);
-    assert.match(standaloneSource, /resolvedSource\.kind === 'worktree'[\s\S]{0,260}root: source\.repoRoot,[\s\S]{0,100}editable: !source\.readOnly/);
-    assert.match(standaloneSource, /columns\.push\(\{ root, editable: false \}\)/);
+    assert.match(standaloneSource, /revision\.kind === 'worktree'[\s\S]{0,240}root: repoRoot,[\s\S]{0,140}editable: !readOnly/);
+    assert.match(standaloneSource, /return \{ root, editable: false, includedPaths \}/);
+    assert.match(standaloneSource, /planGitRefColumnPaths\(/);
     assert.match(standaloneSource, /left: session\.left\.editable !== false,[\s\S]{0,100}right: session\.right\.editable !== false/);
     assert.match(standaloneSource, /if \(session\.source\?\.readOnly \|\| target\.editable === false\) \{[\s\S]{0,80}return false/);
     assert.match(standaloneSource, /fs\.mkdirSync\(path\.dirname\(targetPath\), \{ recursive: true \}\)/);
@@ -4181,6 +4184,63 @@ function testBranchReviewMaterializesRenameEndpointsAsOneReviewPair() {
     assert.equal(fs.readFileSync(path.join(right, 'src', 'new-name.txt'), 'utf8'), 'alpha\nbeta\ngamma\ndelta\nepsilon\n');
     assert.equal(fs.existsSync(path.join(left, 'src', 'new-name.txt')), false);
     assert.equal(fs.existsSync(path.join(right, 'src', 'old-name.txt')), false);
+}
+
+function testGitRefComparisonPlansOnlyChangedPaths() {
+    const repo = createTempGitRepo();
+    fs.mkdirSync(path.join(repo, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'keep.txt'), 'keep\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'old name.txt'), 'old\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'src', 'app.txt'), 'one\n', 'utf8');
+    runGit(repo, ['add', '.']);
+    runGit(repo, ['commit', '-m', 'base']);
+    const head = runGit(repo, ['rev-parse', 'HEAD']);
+    const headSnapshot = { kind: 'commit', oid: head };
+
+    fs.writeFileSync(path.join(repo, 'src', 'app.txt'), 'two\n', 'utf8');
+    runGit(repo, ['add', 'src/app.txt']);
+    runGit(repo, ['mv', 'old name.txt', 'renamed.txt']);
+    fs.appendFileSync(path.join(repo, 'renamed.txt'), 'changed\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'new file.txt'), 'new\n', 'utf8');
+    fs.writeFileSync(path.join(repo, '.gitignore'), 'ignored-dir/\n', 'utf8');
+    fs.mkdirSync(path.join(repo, 'ignored-dir'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'ignored-dir', 'skip.log'), 'nope\n', 'utf8');
+
+    const worktree = { kind: 'worktree' };
+    const index = { kind: 'index' };
+    const columns = planGitRefColumnPaths(repo, [headSnapshot, index, worktree]);
+
+    assert.deepEqual(columns[0], ['old name.txt', 'src/app.txt']);
+    assert.deepEqual(columns[1], ['renamed.txt', 'src/app.txt']);
+    assert.deepEqual(columns[2], ['.gitignore', 'new file.txt', 'renamed.txt', 'src/app.txt']);
+    assert.ok(!columns.flat().includes('keep.txt'));
+    assert.ok(!columns.flat().includes('ignored-dir/skip.log'));
+
+    const toWorktree = listSnapshotChangedPaths(repo, headSnapshot, worktree);
+    assert.ok(toWorktree.some((change) => change.kind === 'added' && change.path === 'new file.txt'));
+    assert.ok(toWorktree.some((change) => change.path === 'src/app.txt' && change.kind === 'modified'));
+    const fromWorktree = listSnapshotChangedPaths(repo, worktree, headSnapshot);
+    assert.ok(fromWorktree.some((change) => change.kind === 'deleted' && change.path === 'new file.txt'));
+    const stagedOnly = listSnapshotChangedPaths(repo, index, worktree).map((change) => change.path);
+    assert.ok(stagedOnly.includes('renamed.txt'));
+    assert.ok(stagedOnly.includes('new file.txt'));
+    assert.ok(!stagedOnly.includes('src/app.txt'));
+
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-gitref-plan-'));
+    const commitRoot = path.join(root, 'commit');
+    const indexRoot = path.join(root, 'index');
+    fs.mkdirSync(commitRoot, { recursive: true });
+    fs.mkdirSync(indexRoot, { recursive: true });
+    materializeGitPaths(repo, head, columns[0], commitRoot);
+    materializeGitPaths(repo, 'INDEX', columns[1], indexRoot);
+
+    assert.equal(fs.readFileSync(path.join(commitRoot, 'old name.txt'), 'utf8'), 'old\n');
+    assert.equal(fs.readFileSync(path.join(commitRoot, 'src', 'app.txt'), 'utf8'), 'one\n');
+    assert.equal(fs.existsSync(path.join(commitRoot, 'keep.txt')), false);
+    assert.equal(fs.readFileSync(path.join(indexRoot, 'src', 'app.txt'), 'utf8'), 'two\n');
+    assert.equal(fs.readFileSync(path.join(indexRoot, 'renamed.txt'), 'utf8'), 'old\n');
+    assert.equal(fs.existsSync(path.join(indexRoot, 'keep.txt')), false);
+    assert.equal(fs.existsSync(path.join(indexRoot, 'new file.txt')), false);
 }
 
 function testGitTreeMaterializationSkipsGitlinks() {
@@ -5127,6 +5187,7 @@ async function run() {
     testBranchReviewUsesMergeBaseAndDetectsDefaultBase();
     testBranchReviewPreservesMergeCommitParents();
     testBranchReviewMaterializesRenameEndpointsAsOneReviewPair();
+    testGitRefComparisonPlansOnlyChangedPaths();
     testGitTreeMaterializationSkipsGitlinks();
     testBranchReviewSkipsGitlinkChanges();
     testChangeInventoryBuildsStableTextUnitsAndClassifiesBinaryFiles();

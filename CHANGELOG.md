@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.3
+
+- Load only changed paths when comparing git refs, and watch the git directory instead of the whole worktree
+
 ## 0.13.2
 
 - Record JavaScript and TypeScript binding writes once per analysis, instead of walking the program again for every declaration

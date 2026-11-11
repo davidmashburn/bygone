@@ -6,9 +6,9 @@ const DEFAULT_GIT_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 const DEFAULT_GIT_TIMEOUT_MS = 30_000;
 
 export type GitSnapshot =
-    | { kind: 'commit'; oid: string; label: string }
-    | { kind: 'index'; label: string }
-    | { kind: 'worktree'; label: string };
+    | { kind: 'commit'; oid: string; label?: string }
+    | { kind: 'index'; label?: string }
+    | { kind: 'worktree'; label?: string };
 
 export type GitChangeKind =
     | 'added'
@@ -149,6 +149,294 @@ export function listChangedPaths(
         '--'
     ], repoRoot);
     return parseNameStatusZ(output);
+}
+
+export function listSnapshotChangedPaths(
+    repoRoot: string,
+    left: GitSnapshot,
+    right: GitSnapshot,
+    runGit: RunGit = createGitRunner()
+): GitChangedPath[] {
+    const diffArgs = snapshotDiffArgs(left, right);
+    const changes = diffArgs ? parseNameStatusZ(runGit(diffArgs, repoRoot)) : [];
+    if ((left.kind === 'worktree') === (right.kind === 'worktree')) {
+        return changes;
+    }
+
+    const knownPaths = new Set(changes.flatMap((change) => (
+        change.previousPath ? [change.path, change.previousPath] : [change.path]
+    )));
+    const untrackedKind: GitChangeKind = right.kind === 'worktree' ? 'added' : 'deleted';
+    for (const relativePath of listUntrackedPaths(repoRoot, runGit)) {
+        if (!knownPaths.has(relativePath)) {
+            changes.push({ kind: untrackedKind, path: relativePath });
+        }
+    }
+    return changes;
+}
+
+export function planGitRefColumnPaths(
+    repoRoot: string,
+    snapshots: readonly GitSnapshot[],
+    runGit: RunGit = createGitRunner()
+): string[][] {
+    const candidates = new Set<string>();
+    for (let index = 0; index < snapshots.length - 1; index += 1) {
+        const left = snapshots[index];
+        const right = snapshots[index + 1];
+        if (!left || !right) {
+            continue;
+        }
+        for (const change of listSnapshotChangedPaths(repoRoot, left, right, runGit)) {
+            candidates.add(change.path);
+            if (change.previousPath) {
+                candidates.add(change.previousPath);
+            }
+        }
+    }
+
+    const paths = [...candidates];
+    return snapshots.map((snapshot) => (
+        [...pathsPresentInSnapshot(repoRoot, snapshot, paths, runGit)].sort((left, right) => left.localeCompare(right))
+    ));
+}
+
+export function materializeGitPaths(
+    repoRoot: string,
+    commit: string,
+    relativePaths: readonly string[],
+    targetRoot: string
+): void {
+    const paths = [...new Set(relativePaths.filter((relativePath) => isSafeRelativePath(relativePath)))];
+    if (paths.length === 0) {
+        return;
+    }
+
+    const specs = paths.map((relativePath) => gitObjectSpec(commit, relativePath));
+    const sizes = readGitBlobSizes(repoRoot, specs);
+    let batchPaths: string[] = [];
+    let batchSpecs: string[] = [];
+    let batchBytes = 0;
+
+    const flush = () => {
+        if (batchPaths.length === 0) {
+            return;
+        }
+        const contents = readGitBlobBatch(repoRoot, batchSpecs);
+        batchPaths.forEach((relativePath, index) => {
+            const content = contents[index];
+            if (content) {
+                writeMaterializedGitFile(targetRoot, relativePath, content);
+            }
+        });
+        batchPaths = [];
+        batchSpecs = [];
+        batchBytes = 0;
+    };
+
+    paths.forEach((relativePath, index) => {
+        const size = sizes[index];
+        const spec = specs[index];
+        if (size === undefined || spec === undefined) {
+            return;
+        }
+        if (size > readGitMaxBuffer()) {
+            throw new Error(`Git blob exceeds the read limit: ${relativePath}`);
+        }
+        if (batchPaths.length > 0 && batchBytes + size > Math.min(readGitMaxBuffer(), 32 * 1024 * 1024)) {
+            flush();
+        }
+        batchPaths.push(relativePath);
+        batchSpecs.push(spec);
+        batchBytes += size;
+    });
+    flush();
+}
+
+function snapshotDiffArgs(left: GitSnapshot, right: GitSnapshot): string[] | null {
+    if (left.kind === right.kind && left.kind !== 'commit') {
+        return null;
+    }
+
+    const diffArgs = ['--literal-pathspecs', 'diff', '--name-status', '-z', '--find-renames', '--find-copies'];
+    if (left.kind === 'commit' && right.kind === 'commit') {
+        return [...diffArgs, left.oid, right.oid, '--'];
+    }
+    if (left.kind === 'commit' && right.kind === 'index') {
+        return [...diffArgs, '--cached', left.oid, '--'];
+    }
+    if (left.kind === 'index' && right.kind === 'commit') {
+        return [...diffArgs, '-R', '--cached', right.oid, '--'];
+    }
+    if (left.kind === 'commit' && right.kind === 'worktree') {
+        return [...diffArgs, left.oid, '--'];
+    }
+    if (left.kind === 'worktree' && right.kind === 'commit') {
+        return [...diffArgs, '-R', right.oid, '--'];
+    }
+    if (left.kind === 'index' && right.kind === 'worktree') {
+        return [...diffArgs, '--'];
+    }
+    if (left.kind === 'worktree' && right.kind === 'index') {
+        return [...diffArgs, '-R', '--'];
+    }
+    return null;
+}
+
+function listUntrackedPaths(repoRoot: string, runGit: RunGit): string[] {
+    return runGit(['--literal-pathspecs', 'ls-files', '--others', '-z', '--exclude-standard'], repoRoot)
+        .split('\0')
+        .filter((relativePath) => relativePath.length > 0 && isSafeRelativePath(relativePath));
+}
+
+function pathsPresentInSnapshot(
+    repoRoot: string,
+    snapshot: GitSnapshot,
+    relativePaths: readonly string[],
+    runGit: RunGit
+): Set<string> {
+    const present = new Set<string>();
+    const paths = relativePaths.filter((relativePath) => isSafeRelativePath(relativePath));
+    if (snapshot.kind === 'worktree') {
+        const root = path.resolve(repoRoot);
+        for (const relativePath of paths) {
+            const resolved = path.resolve(root, relativePath);
+            if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+                continue;
+            }
+            try {
+                const stat = fs.lstatSync(resolved);
+                if (stat.isFile() || stat.isSymbolicLink()) {
+                    present.add(relativePath);
+                }
+            } catch {
+                // The path is absent from this snapshot.
+            }
+        }
+        return present;
+    }
+
+    for (let offset = 0; offset < paths.length; offset += 200) {
+        const slice = paths.slice(offset, offset + 200);
+        if (snapshot.kind === 'index') {
+            const output = runGit(
+                ['--literal-pathspecs', 'ls-files', '--stage', '-z', '--', ...slice],
+                repoRoot
+            );
+            for (const record of parseNulRecords(output)) {
+                const parsed = parseIndexStageRecord(record);
+                if (parsed && parsed.mode !== GITLINK_MODE && slice.includes(parsed.path)) {
+                    present.add(parsed.path);
+                }
+            }
+            continue;
+        }
+
+        const output = runGit(
+            ['--literal-pathspecs', 'ls-tree', '-z', snapshot.oid, '--', ...slice],
+            repoRoot
+        );
+        for (const record of parseNulRecords(output)) {
+            const parsed = parseLsTreeRecord(record);
+            if (parsed?.type === 'blob' && slice.includes(parsed.path)) {
+                present.add(parsed.path);
+            }
+        }
+    }
+    return present;
+}
+
+function gitObjectSpec(commit: string, relativePath: string): string {
+    return commit === 'INDEX' ? `:${relativePath}` : `${commit}:${relativePath}`;
+}
+
+function readGitBlobSizes(repoRoot: string, specs: readonly string[]): Array<number | undefined> {
+    return readGitBatchHeaders(repoRoot, specs, '--batch-check').map((header) => (
+        header?.type === 'blob' ? header.size : undefined
+    ));
+}
+
+function readGitBlobBatch(repoRoot: string, specs: readonly string[]): Array<Buffer | undefined> {
+    if (specs.length === 0) {
+        return [];
+    }
+
+    const buffer = execFileSync('git', ['--no-replace-objects', 'cat-file', '--batch'], {
+        cwd: repoRoot,
+        input: `${specs.join('\n')}\n`,
+        maxBuffer: readGitMaxBuffer() + (specs.length * 128),
+        timeout: DEFAULT_GIT_TIMEOUT_MS,
+        stdio: ['pipe', 'pipe', 'pipe']
+    });
+    const contents: Array<Buffer | undefined> = [];
+    let offset = 0;
+    for (let index = 0; index < specs.length; index += 1) {
+        const lineEnd = buffer.indexOf(0x0a, offset);
+        if (lineEnd < 0) {
+            throw new Error('Unexpected Git batch response.');
+        }
+        const header = parseGitBatchHeader(buffer.subarray(offset, lineEnd).toString('utf8'));
+        offset = lineEnd + 1;
+        if (!header) {
+            contents.push(undefined);
+            continue;
+        }
+        const end = offset + header.size;
+        if (end > buffer.length || buffer[end] !== 0x0a) {
+            throw new Error('Unexpected Git batch response.');
+        }
+        contents.push(header.type === 'blob' ? Buffer.from(buffer.subarray(offset, end)) : undefined);
+        offset = end + 1;
+    }
+    return contents;
+}
+
+function readGitBatchHeaders(
+    repoRoot: string,
+    specs: readonly string[],
+    mode: '--batch-check'
+): Array<{ type: string; size: number } | undefined> {
+    if (specs.length === 0) {
+        return [];
+    }
+
+    const output = execFileSync('git', ['--no-replace-objects', 'cat-file', mode], {
+        cwd: repoRoot,
+        input: `${specs.join('\n')}\n`,
+        encoding: 'utf8',
+        maxBuffer: readGitMaxBuffer(),
+        timeout: DEFAULT_GIT_TIMEOUT_MS,
+        stdio: ['pipe', 'pipe', 'pipe']
+    });
+    const lines = output.split('\n');
+    if (lines[lines.length - 1] === '') {
+        lines.pop();
+    }
+    if (lines.length !== specs.length) {
+        throw new Error('Unexpected Git batch response.');
+    }
+    return lines.map((line) => {
+        const header = parseGitBatchHeader(line);
+        return header ? { type: header.type, size: header.size } : undefined;
+    });
+}
+
+function parseGitBatchHeader(header: string): { type: string; size: number } | undefined {
+    const match = header.match(/^[0-9a-f]+ (\S+) (\d+)$/);
+    if (!match?.[1] || !match[2]) {
+        if (header.endsWith(' missing')) {
+            return undefined;
+        }
+        throw new Error('Unexpected Git batch response.');
+    }
+    return { type: match[1], size: Number.parseInt(match[2], 10) };
+}
+
+function isSafeRelativePath(relativePath: string): boolean {
+    if (!relativePath || path.isAbsolute(relativePath) || relativePath.includes('\0') || relativePath.includes('\n')) {
+        return false;
+    }
+    return !relativePath.split(/[/\\]/).includes('..');
 }
 
 export function parseNameStatusZ(output: string): GitChangedPath[] {

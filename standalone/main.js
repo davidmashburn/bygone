@@ -22,7 +22,7 @@ const { detectRipgrepCapability, startRepositorySearch } = require('../src/repos
 const { buildRepositoryReplacementPlan, applyRepositoryReplacementPlan, undoRepositoryReplacementPlan } = require('../src/repositoryReplace.ts');
 const { searchFileHistory } = require('../src/gitHistorySearch.ts');
 const { classifyAuthoredTourPaths, discoverAuthoredTourDocument } = require('../src/tourDocument.ts');
-const { materializeBranchReviewTrees, materializeGitTree, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
+const { materializeBranchReviewTrees, materializeGitPaths, materializeGitTree, planGitRefColumnPaths, resolveBranchReviewRange, resolveReviewPathPair } = require('../src/gitComparison.ts');
 const {
     ensurePullRequestWorkspace,
     parsePullRequestRef,
@@ -2706,38 +2706,57 @@ function resolveGitRefForDiff(repoRoot, ref) {
     return { ref, kind: 'commit', sha, shortSha, summary };
 }
 
-function materializeGitDiffSource(repoRoot, source, targetRoot) {
-    if (source.kind === 'index') {
-        materializeGitTree(repoRoot, '', targetRoot, 'INDEX');
-        return;
+function gitSnapshotForResolvedRef(resolved) {
+    if (resolved.kind === 'worktree') {
+        return { kind: 'worktree' };
     }
-    if (source.kind === 'worktree') {
-        materializeWorkingTree(repoRoot, '', targetRoot);
-        return;
+    if (resolved.kind === 'index') {
+        return { kind: 'index' };
     }
-
-    materializeGitTree(repoRoot, '', targetRoot, source.sha);
+    return { kind: 'commit', oid: resolved.sha };
 }
 
-function collectWorkingTreeInventory(repoRoot) {
-    const output = execFileSync('git', ['ls-files', '-co', '-z', '--exclude-standard'], {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        maxBuffer: GIT_MAX_BUFFER_BYTES
-    });
-    const inventory = new Set();
-    for (const relativePath of output.split('\0')) {
-        if (!relativePath || path.isAbsolute(relativePath)) {
-            continue;
-        }
-        const normalized = relativePath.split(path.sep).join('/');
-        const resolved = path.resolve(repoRoot, normalized);
-        if (resolved === repoRoot || !resolved.startsWith(`${repoRoot}${path.sep}`)) {
-            continue;
-        }
-        inventory.add(normalized);
+function buildGitRefColumns(repoRoot, resolved, readOnly) {
+    const pathsByColumn = planGitRefColumnPaths(
+        repoRoot,
+        resolved.map((revision) => gitSnapshotForResolvedRef(revision))
+    );
+    const tempRoots = [];
+    try {
+        const columns = resolved.map((revision, index) => {
+            const includedPaths = new Set(pathsByColumn[index] || []);
+            if (revision.kind === 'worktree') {
+                return {
+                    root: repoRoot,
+                    editable: !readOnly,
+                    ...(readOnly ? { mutabilityLabel: 'Read-only file' } : {}),
+                    includedPaths
+                };
+            }
+
+            const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-gitdiff-'));
+            tempRoots.push(root);
+            trackedGitDiffTempRoots.add(root);
+            materializeGitPaths(
+                repoRoot,
+                revision.kind === 'index' ? 'INDEX' : revision.sha,
+                pathsByColumn[index] || [],
+                root
+            );
+            return { root, editable: false, includedPaths };
+        });
+        return { columns, tempRoots };
+    } catch (error) {
+        cleanupGitDiffTempRoots(tempRoots);
+        throw error;
     }
-    return inventory;
+}
+
+function gitRefNoChangeMessage(resolved) {
+    if (resolved.length === 2) {
+        return `No changes between ${getGitDiffSourceLabel(resolved[0])} and ${getGitDiffSourceLabel(resolved[1])}.`;
+    }
+    return 'No changes between these git refs.';
 }
 
 function getGitDiffSourceLabel(source) {
@@ -2772,43 +2791,25 @@ async function openGitRefs(cwd, refs, options = {}) {
         }
     }
 
-    const tempRoots = [];
-    const dirs = [];
-    const labels = [];
-    const columns = [];
-
+    let built;
     try {
-        for (const r of resolved) {
-            const customLabel = options.labels?.[dirs.length];
-            if (r.kind === 'worktree') {
-                dirs.push(repoRoot);
-                labels.push(customLabel || getGitDiffSourceLabel(r));
-                columns.push({
-                    root: repoRoot,
-                    editable: !options.source?.readOnly,
-                    ...(options.source?.readOnly ? { mutabilityLabel: 'Read-only file' } : {}),
-                    includedPaths: collectWorkingTreeInventory(repoRoot)
-                });
-                continue;
-            }
-            const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-gitdiff-'));
-            tempRoots.push(root);
-            trackedGitDiffTempRoots.add(root);
-            materializeGitDiffSource(repoRoot, r, root);
-            dirs.push(root);
-            labels.push(customLabel || getGitDiffSourceLabel(r));
-            columns.push({ root, editable: false });
-        }
+        built = buildGitRefColumns(repoRoot, resolved, Boolean(options.source?.readOnly));
     } catch (error) {
-        cleanupGitDiffTempRoots(tempRoots);
         await showError(`Error materializing git refs: ${getErrorMessage(error)}`);
         return;
     }
 
-    await openDirectories(dirs, {
+    if (built.columns.every((column) => column.includedPaths.size === 0)) {
+        cleanupGitDiffTempRoots(built.tempRoots);
+        await showInfo(gitRefNoChangeMessage(resolved));
+        return;
+    }
+
+    const labels = resolved.map((revision, index) => options.labels?.[index] || getGitDiffSourceLabel(revision));
+    await openDirectories(built.columns.map((column) => column.root), {
         labels,
-        columns,
-        tempRoots,
+        columns: built.columns,
+        tempRoots: built.tempRoots,
         skipConfirm: Boolean(options.skipConfirm),
         source: { ...(options.source || createGitRefsSource(repoRoot, refs)),
             resolvedRevisions: resolved.map((revision) => revision.sha || (revision.kind === 'worktree' ? 'WORKTREE' : 'INDEX')) }
@@ -5849,7 +5850,10 @@ function getSourceWatchPaths(source) {
         return source.path ? [source.path] : [];
     }
     const gitDir = safeRunGit(['rev-parse', '--git-dir'], repoRoot);
-    const paths = [path.resolve(repoRoot, gitDir), repoRoot];
+    const paths = [path.resolve(repoRoot, gitDir)];
+    if (source.kind !== 'git-refs') {
+        paths.push(repoRoot);
+    }
     if (source.path) {
         paths.push(source.path);
     }
@@ -6091,34 +6095,13 @@ function buildSessionFromSource(source) {
                 revision.sha || (revision.kind === 'worktree' ? 'WORKTREE' : 'INDEX')
             ))
         };
-        const tempRoots = [];
-        try {
-            const columns = resolved.map((resolvedSource) => {
-                if (resolvedSource.kind === 'worktree') {
-                    return {
-                        root: source.repoRoot,
-                        editable: !source.readOnly,
-                        ...(source.readOnly ? { mutabilityLabel: 'Read-only file' } : {}),
-                        includedPaths: collectWorkingTreeInventory(source.repoRoot)
-                    };
-                }
-                const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bygone-gitdiff-'));
-                tempRoots.push(root);
-                trackedGitDiffTempRoots.add(root);
-                materializeGitDiffSource(source.repoRoot, resolvedSource, root);
-                return { root, editable: false };
-            });
-            const dirs = columns.map((column) => column.root);
-            return createDirectorySession(
-                dirs,
-                resolved.map((resolvedSource) => getGitDiffSourceLabel(resolvedSource)),
-                materializedSource,
-                { tempRoots, columns }
-            );
-        } catch (error) {
-            cleanupGitDiffTempRoots(tempRoots);
-            throw error;
-        }
+        const built = buildGitRefColumns(source.repoRoot, resolved, source.readOnly);
+        return createDirectorySession(
+            built.columns.map((column) => column.root),
+            resolved.map((resolvedSource) => getGitDiffSourceLabel(resolvedSource)),
+            materializedSource,
+            { tempRoots: built.tempRoots, columns: built.columns }
+        );
     }
 
     if (source.kind === 'branch-review') {
