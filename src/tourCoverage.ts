@@ -436,13 +436,15 @@ function buildIsolatedModeManifest(
     startPath: string,
     source: ChangeTourSource,
     mode: StrictTourCoverageMode.Historical | StrictTourCoverageMode.Deconstructed,
-    range: ChangeTourManifest['range']
+    manifestRange: ChangeTourManifest['range']
 ): ChangeTourManifest {
     const authoredMode = source.tours?.[mode];
     if (!authoredMode) throw new Error(`No authored ${mode} tour is available.`);
+    const baseRef = source.range?.base ?? manifestRange.mergeBaseOid;
+    const headRef = source.range?.head ?? manifestRange.headOid;
     const fallbackStack = [
-        { id: 'complete-base', ref: range.mergeBaseOid },
-        { id: 'complete-head', ref: range.headOid }
+        { id: 'complete-base', ref: baseRef },
+        { id: 'complete-head', ref: headRef }
     ];
     const chapters = authoredMode.chapters.map((chapter) => ({
         ...chapter,
@@ -454,13 +456,13 @@ function buildIsolatedModeManifest(
     }));
     const isolatedSource: ChangeTourSource = {
         ...source,
-        range: { base: range.mergeBaseOid, head: range.headOid },
         chapters,
-        tours: undefined
+        tours: undefined,
+        ...(source.range ? {} : { range: { base: manifestRange.mergeBaseOid, head: manifestRange.headOid } })
     };
     return buildChangeTourManifest(startPath, {
-        headRef: range.headOid,
-        baseRef: range.mergeBaseOid,
+        headRef,
+        baseRef,
         source: isolatedSource
     });
 }

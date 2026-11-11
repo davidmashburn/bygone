@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.4
+
+- Compile strict historical and deconstructed endpoint evidence against the source tour range instead of the derived manifest range
+
 ## 0.13.3
 
 - Load only changed paths when comparing git refs, and watch the git directory instead of the whole worktree

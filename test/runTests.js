@@ -1987,6 +1987,7 @@ function testPresenterServerInjectsWindowTitleIntoHtml() {
     assert.match(presentSource, /buildTourWindowTitle\(manifest, 'Bygone'\)/);
     assert.match(presentSource, /<title>\$\{escapeHtml\(tourWindowTitle\)\}<\/title>/);
     assert.match(presentSource, /source[\s\S]{0,160}authoringCoverage: buildTourAuthoringCoverage\(buildTourCoverageReport\(cwd, \{/);
+    assert.match(presentSource, /range: \{ base: builtManifest\.range\.baseRef, head: builtManifest\.range\.headRef \}/);
 }
 
 function testNpmPackageStagesCliRuntimeDependencies() {
