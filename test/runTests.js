@@ -1342,7 +1342,7 @@ function testDirectoryDrilldownNavigationTracksActiveFile() {
 
     const standaloneSource = fs.readFileSync(path.join(__dirname, '..', 'standalone', 'main.js'), 'utf8');
     const comparatorSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'fileComparator.ts'), 'utf8');
-    assert.match(standaloneSource, /revealFirstChangeInEachPanel: isDirectoryDrilldown/);
+    assert.match(standaloneSource, /revealFirstChangeInEachPanel: true/);
     assert.match(standaloneSource, /canReturnToDirectory: true,\n\s+revealFirstChangeInEachPanel: true/);
     assert.match(comparatorSource, /canReturnToDirectory: true,\n\s+revealFirstChangeInEachPanel: true/);
 }
@@ -3690,7 +3690,7 @@ function testMultiDiffShellUsesFocusedStripNavigation() {
     assert.match(rendererSource, /function revealFirstMultiPanelChanges\(\)/);
     assert.match(rendererSource, /revealFirstChangeInEachPanel[\s\S]{0,200}revealFirstMultiPanelChanges\(\)/);
     assert.match(rendererSource, /computeMissingPairDiffsAsync\(revealFirstChangeInEachPanel\)/);
-    assert.match(rendererSource, /function computeMissingPairDiffsAsync\(revealFirstChangeInEachPanel = false\)[\s\S]{0,1800}revealFirstMultiPanelChanges\(\)/);
+    assert.match(rendererSource, /function computeMissingPairDiffsAsync\(revealFirstChangeInEachPanel = true\)[\s\S]{0,1800}revealFirstMultiPanelChanges\(\)/);
     const layoutSource = rendererSource.split('function applyFocusedStripLayout')[1].split('function initializeFilePathContextMenu')[0];
     assert.match(layoutSource, /requestAnimationFrame\(\(\) => \{[\s\S]*layoutEditors\(\)/);
     assert.match(rendererSource, /function navigateDiff\(direction\) \{[\s\S]{0,300}diffBlocks\.length[\s\S]{0,300}setActiveDiffIndex\(nextIndex, true\)/);
