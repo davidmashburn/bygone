@@ -511,6 +511,15 @@ function createWorkspaceHost(host, git) {
         }
         const selectedPath = pinnedSnapshot ? file : history.files.includes(file) ? file : history.files[0];
         if (!selectedPath) throw new Error('No tracked files exist in this history scope.');
+        if (!pinnedSnapshot && typeof history.prefetch === 'function') {
+            const changedPaths = history.changedFiles(panelOrder);
+            const fileOrder = new Map(history.files.map((relativePath, index) => [relativePath, index]));
+            const selectedIndex = fileOrder.get(selectedPath) || 0;
+            const nearbyPaths = [...new Set(changedPaths)]
+                .sort((left, right) => Math.abs((fileOrder.get(left) ?? selectedIndex) - selectedIndex)
+                    - Math.abs((fileOrder.get(right) ?? selectedIndex) - selectedIndex));
+            history.prefetch([selectedPath, ...nearbyPaths.filter(relativePath => relativePath !== selectedPath)], panelOrder);
+        }
         const files = panelOrder.map((revision) => {
             const value = pinnedSnapshot
                 ? pinnedSnapshot.values.get(revision)

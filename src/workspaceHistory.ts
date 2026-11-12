@@ -1,4 +1,5 @@
 import { execFileSync } from 'child_process';
+import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { TextDecoder } from 'util';
@@ -8,6 +9,13 @@ import { buildHistoryDirectoryEntries } from './historyDirectory';
 const MAX_CONTENT_BYTES = 2 * 1024 * 1024;
 const MAX_GIT_LIST_BYTES = 64 * 1024 * 1024;
 const MAX_GIT_METADATA_BYTES = 4 * 1024 * 1024;
+const MAX_GIT_PATHSPEC_ARGUMENT_BYTES = 64 * 1024;
+const MAX_GIT_METADATA_INPUT_BYTES = MAX_GIT_METADATA_BYTES / 2;
+const MAX_GIT_BATCH_CONTENT_BYTES = 16 * 1024 * 1024;
+// Bound initial warming below the in-memory cache cap to allow for JS string expansion.
+const MAX_GIT_PREFETCH_CONTENT_BYTES = 12 * 1024 * 1024;
+const MAX_COMMITTED_READ_CACHE_BYTES = 32 * 1024 * 1024;
+const MAX_PREFETCH_BATCHES = 8;
 
 type WorkspacePathType = 'file' | 'directory';
 
@@ -50,6 +58,7 @@ export interface WorkspaceHistory {
     entries: WorkspaceHistoryEntry[];
     files: string[];
     read(relativePath: string, revision: string): WorkspaceHistoryReadResult;
+    prefetch(relativePaths: readonly string[], revisions: readonly string[]): void;
     changedCommits(relativePath: string): string[];
     changedFiles(revisions: readonly string[]): string[];
     directoryEntries(revisions: readonly string[]): DirectoryEntry[];
@@ -87,6 +96,11 @@ interface SafeWorkingTreePath {
 interface BoundedFileRead {
     kind: 'missing' | 'too-large' | 'content';
     bytes?: Buffer;
+}
+
+interface CachedWorkspaceHistoryRead {
+    result: WorkspaceHistoryReadResult;
+    bytes: number;
 }
 
 interface NormalizedRevisionSelection {
@@ -147,7 +161,152 @@ export function createWorkspaceHistory(
     ];
     const changedCommitsCache = new Map<string, string[]>();
     const changedFilesCache = new Map<string, string[]>();
+    const committedReadCache = new Map<string, CachedWorkspaceHistoryRead>();
+    const prefetchedBatches = new Map<string, true>();
+    let committedReadCacheBytes = 0;
     let emptyTree: string;
+
+    function committedReadKey(relativePath: string, revision: string): string {
+        return JSON.stringify([revision, relativePath]);
+    }
+
+    function getCachedCommittedRead(relativePath: string, revision: string): WorkspaceHistoryReadResult | undefined {
+        const key = committedReadKey(relativePath, revision);
+        const cached = committedReadCache.get(key);
+        if (!cached) return undefined;
+        committedReadCache.delete(key);
+        committedReadCache.set(key, cached);
+        return { ...cached.result };
+    }
+
+    function cacheCommittedRead(relativePath: string, revision: string, result: WorkspaceHistoryReadResult): void {
+        if (result.reason === 'Git blob content is unavailable.') return;
+        const key = committedReadKey(relativePath, revision);
+        const bytes = result.content.length * 2 + (result.reason?.length || 0) * 2 + 128;
+        if (bytes > MAX_COMMITTED_READ_CACHE_BYTES) return;
+        const previous = committedReadCache.get(key);
+        if (previous) {
+            committedReadCacheBytes -= previous.bytes;
+            committedReadCache.delete(key);
+        }
+        while (committedReadCacheBytes + bytes > MAX_COMMITTED_READ_CACHE_BYTES) {
+            const oldest = committedReadCache.entries().next().value as
+                [string, CachedWorkspaceHistoryRead] | undefined;
+            if (!oldest) break;
+            committedReadCache.delete(oldest[0]);
+            committedReadCacheBytes -= oldest[1].bytes;
+        }
+        committedReadCache.set(key, { result: { ...result }, bytes });
+        committedReadCacheBytes += bytes;
+    }
+
+    function prefetch(relativePaths: readonly string[], revisions: readonly string[]): void {
+        const paths = [...new Set(relativePaths
+            .map(relativePath => validateScopedPath(relativePath, scopes))
+            .filter(Boolean))];
+        const committedRevisions = [...new Set(revisions.filter(revision => {
+            if (revision === 'EMPTY') return false;
+            if (revision === 'WORKTREE') {
+                if (!localStates.has('WORKTREE')) {
+                    throw new Error('WORKTREE is not available for this workspace history axis.');
+                }
+                return false;
+            }
+            if (revision === 'INDEX') {
+                if (!localStates.has('INDEX')) {
+                    throw new Error('INDEX is not available for this workspace history axis.');
+                }
+                return false;
+            }
+            if (!allowedCommits.has(revision)) {
+                throw new Error('Unknown history revision: ' + revision);
+            }
+            return true;
+        }))];
+        if (paths.length === 0 || committedRevisions.length === 0) return;
+
+        const batchKey = createHash('sha256')
+            .update(JSON.stringify([committedRevisions.slice().sort(), paths.slice().sort()]))
+            .digest('hex');
+        if (prefetchedBatches.has(batchKey)) {
+            prefetchedBatches.delete(batchKey);
+            prefetchedBatches.set(batchKey, true);
+            return;
+        }
+
+        const missingByRevision = new Map<string, string[]>();
+        for (const revision of committedRevisions) {
+            const missing = paths.filter(relativePath => !committedReadCache.has(committedReadKey(relativePath, revision)));
+            if (missing.length > 0) missingByRevision.set(revision, missing);
+        }
+        if (missingByRevision.size === 0) {
+            rememberPrefetchedBatch(batchKey);
+            return;
+        }
+
+        const pendingResults: Array<{ relativePath: string; revision: string; result: WorkspaceHistoryReadResult }> = [];
+        const recordsByRevision = new Map<string, Map<string, TreeRecord>>();
+        try {
+            for (const [revision, missing] of missingByRevision) {
+                const wanted = new Set(missing);
+                const records = listTreeRecordsForPaths(repoRoot, revision, missing);
+                recordsByRevision.set(revision, new Map(records
+                    .filter(record => wanted.has(record.path))
+                    .map(record => [record.path, record])));
+            }
+        } catch {
+            // Prefetching is an optimization. Leave uncached paths to the normal
+            // single-file reader so its existing error behavior remains intact.
+            return;
+        }
+
+        const requestsByOid = new Map<string, Array<{ relativePath: string; revision: string }>>();
+        const missingSetsByRevision = new Map([...missingByRevision]
+            .map(([revision, missing]) => [revision, new Set(missing)]));
+        for (const relativePath of paths) {
+            for (const revision of committedRevisions) {
+                if (!missingSetsByRevision.get(revision)?.has(relativePath)) continue;
+                const record = recordsByRevision.get(revision)?.get(relativePath);
+                if (!record) {
+                    pendingResults.push({ relativePath, revision, result: emptyReadResult() });
+                } else if (record.type !== 'blob') {
+                    pendingResults.push({
+                        relativePath, revision,
+                        result: {
+                            content: '', exists: false,
+                            reason: 'Git submodule content is not owned by this repository.'
+                        }
+                    });
+                } else {
+                    const requests = requestsByOid.get(record.oid) || [];
+                    requests.push({ relativePath, revision });
+                    requestsByOid.set(record.oid, requests);
+                }
+            }
+        }
+
+        for (const item of pendingResults) {
+            cacheCommittedRead(item.relativePath, item.revision, item.result);
+        }
+        readBlobsBatch(repoRoot, [...requestsByOid.keys()], results => {
+            for (const [oid, result] of results) {
+                for (const request of requestsByOid.get(oid) || []) {
+                    cacheCommittedRead(request.relativePath, request.revision, result);
+                }
+            }
+        });
+        rememberPrefetchedBatch(batchKey);
+    }
+
+    function rememberPrefetchedBatch(key: string): void {
+        prefetchedBatches.delete(key);
+        prefetchedBatches.set(key, true);
+        while (prefetchedBatches.size > MAX_PREFETCH_BATCHES) {
+            const oldest = prefetchedBatches.keys().next().value as string | undefined;
+            if (oldest === undefined) break;
+            prefetchedBatches.delete(oldest);
+        }
+    }
 
     return {
         entries,
@@ -234,8 +393,13 @@ export function createWorkspaceHistory(
             if (!allowedCommits.has(revision)) {
                 throw new Error(`Unknown history revision: ${revision}`);
             }
-            return readCommittedFile(repoRoot, normalizedPath, revision);
+            const cached = getCachedCommittedRead(normalizedPath, revision);
+            if (cached) return cached;
+            const result = readCommittedFile(repoRoot, normalizedPath, revision);
+            cacheCommittedRead(normalizedPath, revision, result);
+            return result;
         },
+        prefetch,
         changedCommits: (relativePath: string): string[] => {
             const normalizedPath = validateScopedPath(relativePath, scopes);
             const cached = changedCommitsCache.get(normalizedPath);
@@ -774,6 +938,159 @@ function listTreeRecordsForPath(repoRoot: string, revision: string, relativePath
     ], repoRoot, MAX_GIT_LIST_BYTES));
 }
 
+function listTreeRecordsForPaths(
+    repoRoot: string,
+    revision: string,
+    relativePaths: readonly string[]
+): TreeRecord[] {
+    const records: TreeRecord[] = [];
+    const pathspecs = relativePaths.map(pathspecForPath);
+    const pathspecBytes = pathspecs.reduce((total, pathspec) => total + Buffer.byteLength(pathspec) + 1, 0);
+    if (pathspecBytes > MAX_GIT_PATHSPEC_ARGUMENT_BYTES) {
+        try {
+            const wanted = new Set(relativePaths);
+            return parseTreeRecords(runGitBuffer([
+                'ls-tree',
+                '-r',
+                '-z',
+                revision
+            ], repoRoot, MAX_GIT_LIST_BYTES)).filter(record => wanted.has(record.path));
+        } catch {
+            // A very large tree can exceed the listing limit; fall back to bounded
+            // pathspec commands in that case.
+        }
+    }
+    for (const chunk of chunkStringsByBytes(pathspecs, MAX_GIT_PATHSPEC_ARGUMENT_BYTES)) {
+        records.push(...parseTreeRecords(runGitBuffer([
+            'ls-tree',
+            '-r',
+            '-z',
+            revision,
+            '--',
+            ...chunk
+        ], repoRoot, MAX_GIT_LIST_BYTES)));
+    }
+    return records;
+}
+
+function chunkStringsByBytes(values: readonly string[], maxBytes: number): string[][] {
+    const chunks: string[][] = [];
+    let current: string[] = [];
+    let currentBytes = 0;
+    for (const value of values) {
+        const bytes = Buffer.byteLength(value) + 1;
+        if (current.length > 0 && currentBytes + bytes > maxBytes) {
+            chunks.push(current);
+            current = [];
+            currentBytes = 0;
+        }
+        current.push(value);
+        currentBytes += bytes;
+    }
+    if (current.length > 0) chunks.push(current);
+    return chunks;
+}
+
+function readBlobsBatch(
+    repoRoot: string,
+    objectIds: readonly string[],
+    onResults: (results: ReadonlyMap<string, WorkspaceHistoryReadResult>) => void
+): void {
+    const contentObjects: Array<{ oid: string; size: number }> = [];
+    for (const chunk of chunkStringsByBytes(objectIds, MAX_GIT_METADATA_INPUT_BYTES)) {
+        let output: Buffer;
+        try {
+            output = runGitBuffer(
+                ['cat-file', '--batch-check'],
+                repoRoot,
+                MAX_GIT_METADATA_BYTES,
+                Buffer.from(chunk.join('\n') + '\n')
+            );
+        } catch {
+            continue;
+        }
+
+        const lines = output.toString('utf8').split('\n');
+        const immediateResults = new Map<string, WorkspaceHistoryReadResult>();
+        chunk.forEach((oid, index) => {
+            const fields = (lines[index] || '').trim().split(/\s+/);
+            if (fields[0] !== oid) return;
+            if (fields[1] === 'missing') {
+                immediateResults.set(oid, {
+                    content: '', exists: false, reason: 'Git blob content is unavailable.'
+                });
+                return;
+            }
+            if (fields[1] !== 'blob' || !/^\d+$/.test(fields[2] || '')) return;
+            const size = Number(fields[2]);
+            if (!Number.isSafeInteger(size) || size < 0) {
+                immediateResults.set(oid, { content: '', exists: false, reason: 'Git blob size is invalid.' });
+            } else if (size > MAX_CONTENT_BYTES) {
+                immediateResults.set(oid, omittedReadResult('File is too large to display (over 2 MiB).'));
+            } else {
+                contentObjects.push({ oid, size });
+            }
+        });
+        if (immediateResults.size > 0) onResults(immediateResults);
+    }
+
+    let contentChunk: Array<{ oid: string; size: number }> = [];
+    let contentChunkBytes = 0;
+    let prefetchBytesRemaining = MAX_GIT_PREFETCH_CONTENT_BYTES;
+    const flushContentChunk = (): void => {
+        if (contentChunk.length === 0) return;
+        const results = readBlobContentsBatch(repoRoot, contentChunk);
+        if (results.size > 0) onResults(results);
+        contentChunk = [];
+        contentChunkBytes = 0;
+    };
+    for (const object of contentObjects) {
+        if (object.size > prefetchBytesRemaining) continue;
+        const estimatedBytes = object.size + 96;
+        if (contentChunk.length > 0 && contentChunkBytes + estimatedBytes > MAX_GIT_BATCH_CONTENT_BYTES) {
+            flushContentChunk();
+        }
+        contentChunk.push(object);
+        contentChunkBytes += estimatedBytes;
+        prefetchBytesRemaining -= object.size;
+    }
+    flushContentChunk();
+}
+
+function readBlobContentsBatch(
+    repoRoot: string,
+    objects: readonly { oid: string; size: number }[]
+): Map<string, WorkspaceHistoryReadResult> {
+    const results = new Map<string, WorkspaceHistoryReadResult>();
+    if (objects.length === 0) return results;
+    let output: Buffer;
+    try {
+        output = runGitBuffer(
+            ['cat-file', '--batch'],
+            repoRoot,
+            MAX_GIT_BATCH_CONTENT_BYTES + MAX_GIT_METADATA_BYTES,
+            Buffer.from(objects.map(object => object.oid).join('\n') + '\n')
+        );
+    } catch {
+        return results;
+    }
+
+    let offset = 0;
+    for (const object of objects) {
+        const headerEnd = output.indexOf(0x0a, offset);
+        if (headerEnd < 0) return new Map();
+        const header = output.toString('ascii', offset, headerEnd);
+        const match = header.match(/^([0-9a-f]+) blob (\d+)$/);
+        if (!match || match[1] !== object.oid || Number(match[2]) !== object.size) return new Map();
+        const contentStart = headerEnd + 1;
+        const contentEnd = contentStart + object.size;
+        if (contentEnd >= output.length || output[contentEnd] !== 0x0a) return new Map();
+        results.set(object.oid, decodeText(output.subarray(contentStart, contentEnd)));
+        offset = contentEnd + 1;
+    }
+    return results;
+}
+
 function readBlob(repoRoot: string, oid: string): WorkspaceHistoryReadResult {
     let size: number;
     try {
@@ -1007,11 +1324,12 @@ function sameReadResult(
         && left.reason === right.reason;
 }
 
-function runGitBuffer(args: readonly string[], cwd: string, maxBuffer: number): Buffer {
+function runGitBuffer(args: readonly string[], cwd: string, maxBuffer: number, input?: Buffer): Buffer {
     return execFileSync('git', [...args], {
         cwd,
+        input,
         maxBuffer,
-        stdio: ['ignore', 'pipe', 'pipe']
+        stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe']
     }) as Buffer;
 }
 

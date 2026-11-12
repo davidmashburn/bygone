@@ -180,7 +180,7 @@ test('keeps explicit file scopes, absent paths, and a read-only public surface',
     assert.throws(() => focused.read('old.txt', fixture.rename), /outside.*scope/i);
     assert.deepEqual(focused.read('new.txt', 'EMPTY'), { content: '', exists: false });
     assert.throws(() => focused.read('new.txt', 'not-a-revision'), /unknown history revision/i);
-    assert.deepEqual(Object.keys(focused).sort(), ['changedCommits', 'changedFiles', 'directoryEntries', 'entries', 'files', 'read']);
+    assert.deepEqual(Object.keys(focused).sort(), ['changedCommits', 'changedFiles', 'directoryEntries', 'entries', 'files', 'prefetch', 'read']);
     assert.equal(typeof focused.write, 'undefined');
 
     const missingFile = createWorkspaceHistory({
