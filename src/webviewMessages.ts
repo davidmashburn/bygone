@@ -175,6 +175,7 @@ export interface ShowMultiDiffMessage {
     mutationEnabled?: boolean;
     reorderEnabled?: boolean;
     initialChangeIndex?: number;
+    /** Defaults to true for file comparisons; false disables automatic change reveal. */
     revealFirstChangeInEachPanel?: boolean;
     tourAnnotations?: TourAnnotation[];
 }

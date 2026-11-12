@@ -4733,7 +4733,7 @@ async function sendCurrentMultiDiff() {
         fileNavigation: buildStandaloneFileNavigationState(),
         mutationEnabled: !isDirectoryDrilldown,
         reorderEnabled: sourceKind !== 'history',
-        revealFirstChangeInEachPanel: isDirectoryDrilldown
+        revealFirstChangeInEachPanel: true
     });
 
     refreshSessionWindowTitle();

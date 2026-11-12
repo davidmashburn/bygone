@@ -550,7 +550,7 @@ host.onMessage((message) => {
             message.directoryNavigation || null,
             message.mutationEnabled !== false,
             message.initialChangeIndex,
-            Boolean(message.revealFirstChangeInEachPanel),
+            message.revealFirstChangeInEachPanel !== false,
             message.tourAnnotations || [],
             message.renderRequestId,
             message.comparisonSummary,
@@ -621,7 +621,7 @@ async function initializeRenderer() {
             pendingMultiPayload.directoryNavigation || null,
             pendingMultiPayload.mutationEnabled !== false,
             pendingMultiPayload.initialChangeIndex,
-            Boolean(pendingMultiPayload.revealFirstChangeInEachPanel),
+            pendingMultiPayload.revealFirstChangeInEachPanel !== false,
             pendingMultiPayload.tourAnnotations || [],
             pendingMultiPayload.renderRequestId,
             pendingMultiPayload.comparisonSummary,
@@ -1219,7 +1219,7 @@ function setDirectoryViewMode(mode) {
     applyDirectoryStripLayout();
 }
 
-function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = false, tourAnnotations = [], renderRequestId = undefined, comparisonSummary = null, reorderEnabled = false) {
+function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = true, tourAnnotations = [], renderRequestId = undefined, comparisonSummary = null, reorderEnabled = false) {
     if (!Array.isArray(panels) || panels.length < 1) {
         return;
     }
@@ -1323,7 +1323,7 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     computeMissingPairDiffsAsync(revealFirstChangeInEachPanel);
 }
 
-function computeMissingPairDiffsAsync(revealFirstChangeInEachPanel = false) {
+function computeMissingPairDiffsAsync(revealFirstChangeInEachPanel = true) {
     const missing = multiDiffPairs
         .map((pair, index) => ({ pair, index }))
         .filter(({ pair }) => !pair?.diffModel);
