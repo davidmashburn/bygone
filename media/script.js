@@ -6429,17 +6429,13 @@ function endDiffJob() {
 }
 
 function updateDiffJobStatus() {
-    const banner = getElement('status-banner');
-    if (!banner) {
+    const status = getElement('diff-job-status');
+    if (!status) {
         return;
     }
-    if (pendingDiffJobs > 0) {
-        banner.textContent = 'Computing diff…';
-        banner.hidden = false;
-    } else if (banner.textContent === 'Computing diff…') {
-        banner.textContent = '';
-        banner.hidden = true;
-    }
+    const busy = pendingDiffJobs > 0;
+    status.textContent = busy ? 'Computing diff…' : '';
+    status.hidden = !busy;
 }
 
 function scheduleMultiRecompute(changedPanelId) {

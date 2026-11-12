@@ -621,6 +621,7 @@ export class DiffViewProvider implements vscode.Disposable {
 </head>
 <body>
     <div id="container">
+        <div id="diff-job-status" class="diff-job-status" role="status" aria-live="polite" aria-atomic="true" hidden></div>
         <div id="header">
             ${following ? `<section class="follow-toolbar" aria-label="Following controls">
                 <div><strong id="follow-mode">Paused</strong>
