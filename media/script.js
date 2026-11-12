@@ -554,7 +554,8 @@ host.onMessage((message) => {
             message.tourAnnotations || [],
             message.renderRequestId,
             message.comparisonSummary,
-            message.reorderEnabled === true
+            message.reorderEnabled === true,
+            message.preserveEditorInstances === true
         );
         return;
     }
@@ -625,7 +626,8 @@ async function initializeRenderer() {
             pendingMultiPayload.tourAnnotations || [],
             pendingMultiPayload.renderRequestId,
             pendingMultiPayload.comparisonSummary,
-            pendingMultiPayload.reorderEnabled === true
+            pendingMultiPayload.reorderEnabled === true,
+            pendingMultiPayload.preserveEditorInstances === true
         );
         pendingMultiPayload = undefined;
     }
@@ -1219,12 +1221,18 @@ function setDirectoryViewMode(mode) {
     applyDirectoryStripLayout();
 }
 
-function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = true, tourAnnotations = [], renderRequestId = undefined, comparisonSummary = null, reorderEnabled = false) {
+function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIndex = null, history = null, fileNavigation = null, canReturnToDirectory = false, directoryNavigation = null, mutationEnabled = true, initialChangeIndex = undefined, revealFirstChangeInEachPanel = true, tourAnnotations = [], renderRequestId = undefined, comparisonSummary = null, reorderEnabled = false, preserveEditorInstances = false) {
     if (!Array.isArray(panels) || panels.length < 1) {
         return;
     }
 
     if (!canReturnToDirectory || panelDensityComparisonKey === null) setComparisonPanelDefault('files', panels.map(panel => panel.id));
+    if (preserveEditorInstances && canUpdateMultiDiffInPlace(panels)) {
+        updateMultiDiffInPlace(panels, pairs, nextActivePanelId, nextActivePairIndex, history, fileNavigation,
+            canReturnToDirectory, directoryNavigation, mutationEnabled, initialChangeIndex,
+            revealFirstChangeInEachPanel, tourAnnotations, renderRequestId, comparisonSummary, reorderEnabled);
+        return;
+    }
     const directoryLayout = currentMode === 'directory' && canReturnToDirectory ? directoryStripLayout : null;
     if (directoryLayout) {
         nextActivePairIndex = directoryLayout.pairIndex;
@@ -1321,6 +1329,120 @@ function showMultiDiff(panels, pairs, nextActivePanelId = null, nextActivePairIn
     connectorController.scheduleDrawConnections();
     notifyRenderComplete(renderRequestId);
     computeMissingPairDiffsAsync(revealFirstChangeInEachPanel);
+}
+
+function canUpdateMultiDiffInPlace(panels) {
+    // Workspace history keeps panel IDs tied to revision slots across file changes.
+    return currentMode === MODE_MULTI_WAY
+        && panels.length === multiPanels.length
+        && panels.length === multiEditors.length
+        && panels.every((panel, index) => panel.id === multiPanels[index]?.id
+            && Boolean(multiEditors[index]?.getModel()));
+}
+
+function updateMultiDiffInPlace(panels, pairs, nextActivePanelId, nextActivePairIndex, history, fileNavigation,
+    canReturnToDirectory, directoryNavigation, mutationEnabled, initialChangeIndex,
+    revealFirstChangeInEachPanel, tourAnnotations, renderRequestId, comparisonSummary, reorderEnabled) {
+    multiDiffEpoch += 1;
+    clearTimeout(multiRecomputeTimer);
+    multiRecomputeTimer = null;
+    multiRecomputePendingPanelIds.clear();
+    multiDiffRecomputePending = false;
+    currentMode = MODE_MULTI_WAY;
+    currentTourAnnotations = tourAnnotations;
+    historyMode = false;
+    currentDiffModel = null;
+    activeDiffIndex = -1;
+    diffBlocks = [];
+    directoryEntries = [];
+    multiPanels = panels;
+    multiDiffPairs = pairs || [];
+    activeMultiPanelId = resolveActiveMultiPanelId(panels, nextActivePanelId);
+    activeMultiPairIndex = resolveActiveMultiPairIndex(multiDiffPairs, nextActivePairIndex, activeMultiPanelId, panels);
+    multiPanelChangeIndices = new Map();
+    multiPanelMutationEnabled = mutationEnabled;
+    multiPanelReorderEnabled = reorderEnabled;
+
+    suppressEditorEvents = true;
+    try {
+        multiEditors.forEach((editor, index) => {
+            const panel = panels[index];
+            const model = editor.getModel();
+            multiDecorationIds[index] = editor.deltaDecorations(multiDecorationIds[index] || [], []);
+            if (model.getValue() !== panel.content) model.setValue(panel.content);
+            const languageId = normalizeLanguageId(panel.languageId, panel.path || panel.label);
+            if (model.getLanguageId() !== languageId) monacoInstance.editor.setModelLanguage(model, languageId);
+            editor.updateOptions({ readOnly: panel.editable === false });
+        });
+    } finally {
+        suppressEditorEvents = false;
+    }
+
+    updateHistoryToolbar(history);
+    updateNavigationRail(history?.rail || directoryNavigation?.rail || null, history ? 'history' : (directoryNavigation ? 'directory' : null));
+    updateFileNavigationState(fileNavigation, canReturnToDirectory);
+    updateDirectoryReturnToolbar(canReturnToDirectory);
+    updateEditModeToolbar();
+    updateDirectoryTreeToolbar();
+    updateChangeToolbarState();
+    setStatus('', false);
+    const isBlankMultiPanel = panels.length === 1 && !panels[0]?.path && !panels[0]?.content;
+    setTextContent('file-info', comparisonSummary || (isBlankMultiPanel ? 'Blank editable diff' : `Comparing ${panels.length} file${panels.length === 1 ? '' : 's'}`));
+    setCopyableFilePaths(getElement('file-info'), panels.map(panel => panel.path || panel.label));
+    updateMultiDiffShell(panels);
+    applyFocusedStripLayout(false);
+    updateMultiActivePairModel(false);
+    updateActiveMultiShellState();
+    applyMultiDiffDecorations(multiDiffPairs);
+    resetMultiScrollPositions();
+    layoutEditors();
+    requestAnimationFrame(() => {
+        layoutEditors();
+        if (revealFirstChangeInEachPanel) revealFirstMultiPanelChanges();
+        if (Number.isInteger(initialChangeIndex)) {
+            const initialPanelChangeIndex = findMultiPanelChangeIndex(
+                getMultiPanelChanges(activeMultiPanelId), activeMultiPairIndex, initialChangeIndex
+            );
+            if (initialPanelChangeIndex >= 0) setActiveMultiPanelChangeIndex(initialPanelChangeIndex, true);
+        }
+        revealActiveMultiPanel();
+        const activeTourAnnotation = tourAnnotations.find(annotation => annotation.active);
+        if (activeTourAnnotation && Number.isInteger(activeTourAnnotation.panelIndex)) {
+            const editor = multiEditors[activeTourAnnotation.panelIndex];
+            if (editor) editor.revealLineInCenter(activeTourAnnotation.startLine, monacoInstance.editor.ScrollType.Immediate);
+        }
+        connectorController.resizeCanvas();
+        connectorController.scheduleDrawConnections();
+    });
+    connectorController.resizeCanvas();
+    connectorController.scheduleDrawConnections();
+    notifyRenderComplete(renderRequestId);
+    computeMissingPairDiffsAsync(revealFirstChangeInEachPanel);
+}
+
+function updateMultiDiffShell(panels) {
+    const container = getElement(VIEW_IDS.multiWay);
+    const panes = [...container.querySelectorAll('.multi-pane')];
+    panels.forEach((panel, index) => {
+        const pane = panes[index];
+        const select = pane?.querySelector('[data-multi-select-panel]');
+        if (!pane || !select) return;
+        pane.querySelector('.multi-pane-title').textContent = `${index + 1}. ${panel.label}`;
+        select.title = `Select panel: ${panel.label}`;
+        select.dataset.filePath = panel.path || panel.label;
+        pane.querySelector('.multi-pane-dirty')?.classList.toggle('is-visible', Boolean(panel.dirty));
+        const provenance = pane.querySelector('.multi-pane-provenance');
+        if (provenance) {
+            provenance.classList.toggle('is-writable', panel.editable !== false);
+            provenance.classList.toggle('is-readonly', panel.editable === false);
+            provenance.textContent = panel.editable !== false ? 'Writable file' : (panel.mutabilityLabel || 'Read-only snapshot');
+        }
+    });
+    container.querySelectorAll('.multi-gutter').forEach((gutter, index) => {
+        const label = `Compare ${panels[index]?.label || ''} with ${panels[index + 1]?.label || ''}`;
+        gutter.title = label;
+        gutter.setAttribute('aria-label', label);
+    });
 }
 
 function computeMissingPairDiffsAsync(revealFirstChangeInEachPanel = true) {
@@ -5910,6 +6032,14 @@ function updateDirectoryTreeToolbar() {
 }
 
 function updateNavigationRail(historyRail, kind) {
+    if (canUpdateNavigationRailInPlace(historyRail, kind)) {
+        historyRailState = historyRail;
+        historyRailKind = kind;
+        hasDirectoryNavigation = false;
+        updateNavigationRailItemsInPlace(historyRail);
+        return;
+    }
+
     historyRailState = historyRail;
     historyRailKind = historyRail ? kind : null;
     hasDirectoryNavigation = historyRailKind === 'directory';
@@ -5934,6 +6064,98 @@ function updateNavigationRail(historyRail, kind) {
     }
 
     renderHistoryRail();
+}
+
+function canUpdateNavigationRailInPlace(historyRail, kind) {
+    if (!historyRail || kind !== 'history' || historyRailKind !== kind
+        || !historyRail.tabs?.some(tab => tab.id === 'workspace-files')
+        || !historyRailState?.tabs?.some(tab => tab.id === 'workspace-files')) return false;
+    const previousTabs = historyRailState.tabs;
+    if (previousTabs.length !== historyRail.tabs.length
+        || previousTabs.some((tab, index) => tab.id !== historyRail.tabs[index]?.id
+            || tab.label !== historyRail.tabs[index]?.label
+            || tab.filterChangedFiles !== historyRail.tabs[index]?.filterChangedFiles)) return false;
+    const tabIds = Object.keys(historyRail.itemsByTab || {}).sort();
+    const previousTabIds = Object.keys(historyRailState.itemsByTab || {}).sort();
+    if (tabIds.length !== previousTabIds.length || tabIds.some((tabId, index) => tabId !== previousTabIds[index])) return false;
+    const stableKeys = ['kind', 'index', 'relativePath', 'commit', 'label', 'meta', 'status', 'changed', 'selected', 'panelNumber', 'selectionEnabled', 'inTour'];
+    return tabIds.every(tabId => {
+        const nextItems = historyRail.itemsByTab[tabId] || [];
+        const previousItems = historyRailState.itemsByTab[tabId] || [];
+        return nextItems.length === previousItems.length && nextItems.every((item, index) => {
+            const previous = previousItems[index];
+            return stableKeys.every(key => item[key] === previous[key]);
+        });
+    });
+}
+
+function updateNavigationRailItemsInPlace(historyRail) {
+    const rail = getElement('history-rail');
+    if (rail.hidden || rail.classList.contains('hidden')) return;
+    const rowsByPath = new Map([...rail.querySelectorAll('.history-rail-item [data-rail-path]')]
+        .map(button => [button.dataset.railPath, button.closest('.history-rail-item')]));
+    const rowsByTabIndex = new Map([...rail.querySelectorAll('.history-rail-item[data-rail-tab][data-rail-index]')]
+        .map(row => [`${row.dataset.railTab}\0${row.dataset.railIndex}`, row]));
+
+    for (const [tabId, items] of Object.entries(historyRail.itemsByTab || {})) {
+        const activePath = items.find(item => item.active && item.relativePath)?.relativePath;
+        const activeTabId = activeHistoryRailTabId || historyRail.activeTabId || historyRail.tabs[0]?.id;
+        if (tabId === 'workspace-files' && tabId === activeTabId) revealActiveRailFilePath(rail, tabId, activePath);
+        items.forEach((item, index) => {
+            const row = item.relativePath
+                ? rowsByPath.get(item.relativePath)
+                : rowsByTabIndex.get(`${tabId}\0${Number.isInteger(item.index) ? item.index : index}`);
+            if (!row) return;
+            row.classList.toggle('active', Boolean(item.active));
+            row.classList.toggle('panel-active', Boolean(item.panelNumber));
+            const selectable = item.selectionEnabled !== false
+                && (item.kind === 'history-entry' || (item.kind === 'panel-revision' && item.commit));
+            row.classList.toggle('selected', Boolean(selectable && item.selected));
+            const button = row.querySelector('.history-rail-entry');
+            if (button) {
+                if (item.kind === 'directory-entry' && item.active) button.setAttribute('aria-current', 'true');
+                else button.removeAttribute('aria-current');
+                if (button.getAttribute('role') === 'checkbox') button.setAttribute('aria-checked', String(Boolean(item.selected)));
+            }
+            updateHistoryFileChangeMarker(row, Boolean(item.changesFile));
+        });
+    }
+    if (currentMode === MODE_MULTI_WAY) updateFocusedStripControls();
+}
+
+function revealActiveRailFilePath(rail, tabId, activePath) {
+    if (activePath === activeRailFilePaths.get(tabId)) return;
+    activeRailFilePaths.set(tabId, activePath);
+    if (!activePath) return;
+    const parts = activePath.split('/').slice(0, -1);
+    let folderPath = '';
+    for (const part of parts) {
+        folderPath = folderPath ? `${folderPath}/${part}` : part;
+        collapsedRailFolders.delete(JSON.stringify([tabId, folderPath]));
+        const folder = [...rail.querySelectorAll('details[data-rail-folder]')]
+            .find(details => details.dataset.railFolder === folderPath && details.dataset.railFolderTab === tabId);
+        if (folder) folder.open = true;
+    }
+}
+
+function updateHistoryFileChangeMarker(row, changed) {
+    const text = row.querySelector('.history-rail-text');
+    if (!text) return;
+    let metadata = text.querySelector('.history-rail-metadata');
+    let marker = metadata?.querySelector('.history-file-change');
+    if (changed && !marker) {
+        metadata ||= Object.assign(document.createElement('span'), { className: 'history-rail-metadata' });
+        marker = document.createElement('span');
+        marker.className = 'history-file-change';
+        marker.title = 'Changed the current file';
+        marker.textContent = '●';
+        marker.setAttribute('aria-label', 'Changed the current file');
+        metadata.prepend(marker);
+        if (!metadata.parentElement) text.appendChild(metadata);
+    } else if (!changed && marker) {
+        marker.remove();
+        if (!metadata.querySelector('.history-rail-meta')) metadata.remove();
+    }
 }
 
 function renderHistoryRail() {

@@ -520,7 +520,7 @@ function createWorkspaceHost(host, git) {
                     - Math.abs((fileOrder.get(right) ?? selectedIndex) - selectedIndex));
             history.prefetch([selectedPath, ...nearbyPaths.filter(relativePath => relativePath !== selectedPath)], panelOrder);
         }
-        const files = panelOrder.map((revision) => {
+        const files = panelOrder.map((revision, index) => {
             const value = pinnedSnapshot
                 ? pinnedSnapshot.values.get(revision)
                 : history.read(selectedPath, revision);
@@ -529,7 +529,8 @@ function createWorkspaceHost(host, git) {
             }
             const editable = revision === 'WORKTREE' && !current.source.readOnly && value.exists && !value.reason;
             return {
-                id: `${current.id}-${mode}-${selectedPath}-${revision}`, revision,
+                // Keep a revision slot's identity stable while browsing files so the renderer can reuse its editor.
+                id: `${current.id}-${mode}-${index}-${revision}`, revision,
                 label: `${revisionFileLabel(selectedPath, revision === 'EMPTY' ? 'Empty tree' : revision.slice(0, 12))}${value.exists ? '' : ' (absent)'}${value.reason ? ` — ${value.reason}` : ''}`,
                 path: path.join(current.context.repoRoot, selectedPath), content: value.content,
                 savedContent: value.content, dirty: false, editable,
@@ -626,7 +627,8 @@ function createWorkspaceHost(host, git) {
             canReturnToDirectory: current.canReturnToDirectory,
             files: revisionFiles(current, changedFiles),
             mutationEnabled: state.mode === 'history',
-            reorderEnabled: false
+            reorderEnabled: false,
+            preserveEditorInstances: true
         }));
         return true;
     }

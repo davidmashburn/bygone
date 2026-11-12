@@ -61,6 +61,7 @@ export function revisionPanelsView<P, D>(options: {
     canReturnToDirectory: boolean;
     mutationEnabled: boolean;
     reorderEnabled?: boolean;
+    preserveEditorInstances?: boolean;
 }, diff?: (left: P, right: P) => D) {
     const { files, ...view } = options;
     return { type: 'showMultiDiff' as const, ...view, pairs: revisionPanelPairs(view.panels, diff), fileNavigation: revisionFileNavigation(files) };

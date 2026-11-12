@@ -174,6 +174,7 @@ export interface ShowMultiDiffMessage {
     fileNavigation?: FileNavigationState | null;
     mutationEnabled?: boolean;
     reorderEnabled?: boolean;
+    preserveEditorInstances?: boolean;
     initialChangeIndex?: number;
     /** Defaults to true for file comparisons; false disables automatic change reveal. */
     revealFirstChangeInEachPanel?: boolean;
