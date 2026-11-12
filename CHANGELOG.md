@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.6
+
+- Show diff computation status in a floating indicator so it no longer shifts the header or editors.
+
 ## 0.13.5
 
 - Batch committed-file reads during history navigation to reduce repeated Git calls.
