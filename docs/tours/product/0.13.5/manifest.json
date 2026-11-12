@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "title": "Bygone 0.13.2: read at the depth you need",
+  "title": "Bygone 0.13.5: read at the depth you need",
   "provenance": {
     "captureVersion": "0.11.1 and 0.11.3 retained; 0.13.0 reader and pull-request captures",
     "sourceRepository": "https://github.com/davidmashburn/bygone",
@@ -9,7 +9,7 @@
     "captureDate": "2026-11-10",
     "implementationCommit": "232f25b3c429bf29bcf7d7f2278a0aa83637b31e",
     "readerEvidence": "Live 0.13.0 reader captures and the Review Pull Request dialog; the sample test was not executed and no pull request was fetched",
-    "tourRelease": "0.13.2",
+    "tourRelease": "0.13.5",
     "exportDate": "2026-11-10"
   },
   "evidence": {
@@ -24,15 +24,15 @@
   "artifacts": {
     "tour.bygone.yaml": {
       "bytes": 48500,
-      "sha256": "2ee8a65fca35a4bbae98f1b3dd5e66bfe5c46219e431c213e5e51c21e1fb1d9f"
+      "sha256": "c64ff35781592840185abc007940da479588c8f85709e9ee91ae6ac8ec5e7b9e"
     },
     "tour.json": {
       "bytes": 55009492,
-      "sha256": "ebe9028df8762d5fd1550f9f82740e9bb3f1532e79ceb6e11f6f791ab12b17d0"
+      "sha256": "f884b60defe7ac61796b5050e9f8d547c833953eb99b59ad338a7b9a8d0bd607"
     },
     "tour.html": {
       "bytes": 24330803,
-      "sha256": "99c8c9ec9bd0f32d14a9decb194e5327dae4a069dcb08e2cbbe060484e0b2d21"
+      "sha256": "fb2793f7ec542d351b8ac5973ad4c3d9c2b17295ff11ce9a1f40e98b7127a074"
     },
     "evidence.bundle": {
       "bytes": 14341688,
@@ -43,5 +43,5 @@
       "sha256": "238e2dc013d6c795a32260ba8a0b954cb2ed87619b58fdf903dfecd8a03e571f"
     }
   },
-  "digest": "f61b76d1bfbc59101f703bf2cf6aa997a12337d959cf79e73866a537f9179fa7"
+  "digest": "7d8bd32a6fa166f927c12cf0b45f4c1379d89055843aac0619abd186b603f680"
 }

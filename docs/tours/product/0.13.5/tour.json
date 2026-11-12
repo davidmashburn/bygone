@@ -1,7 +1,7 @@
 {
   "version": 7,
-  "title": "Bygone 0.13.2: read at the depth you need",
-  "windowTitle": "Bygone 0.13.2",
+  "title": "Bygone 0.13.5: read at the depth you need",
+  "windowTitle": "Bygone 0.13.5",
   "opening": {
     "title": "Start from the change you have",
     "summary": "Compare files, a directory, or saved revisions, and edit or inspect the text in that view. Follow one file through its commits when you want its history. A pull request starts from its link and opens that comparison. On a tour, Next stays on one claim. A question, a check, or a related explanation stays closed until you open it."

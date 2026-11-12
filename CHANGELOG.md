@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.5
+
+- Batch committed-file reads during history navigation to reduce repeated Git calls.
+- Keep history editors mounted while switching files in history mode to prevent flicker.
+
 ## 0.13.4
 
 - Compile strict historical and deconstructed endpoint evidence against the source tour range instead of the derived manifest range

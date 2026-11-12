@@ -1,8 +1,8 @@
 # Product tours
 
-[View the product guide](product/0.13.2/tour.html) · [Version 0.13.2 artifacts](product/0.13.2/README.md)
+[View the product guide](product/0.13.5/tour.html) · [Version 0.13.5 artifacts](product/0.13.5/README.md)
 
-The 51-step guide is the 0.13.2 product tour. The release label changed from 0.13.1; the screenshots did not. It adds the reader path and the pull-request dialog. [The 0.11.4 capture](product/0.11.4/tour.html) and [the 0.11.1 capture](product/0.11.1/tour.html) remain available.
+The 51-step guide carries its reader and pull-request content under the 0.13.5 release label. Its screenshots and narrative are unchanged from the previous package; no new capture was made. [The 0.11.4 capture](product/0.11.4/tour.html) and [the 0.11.1 capture](product/0.11.1/tour.html) remain available.
 
 The guide covers Bygone itself, using synthetic code and public-only screenshot
 evidence. The canonical YAML, ordinary compiled JSON, standalone HTML, and Git
