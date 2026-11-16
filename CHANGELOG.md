@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.8
+
+- Preserve exact diffs for long documents when heading levels change, without exhausting the matching budget.
+
 ## 0.13.7
 
 - Match edited headings across inserted sections instead of anchoring them to unrelated headings at a shared blank line.

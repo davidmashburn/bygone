@@ -69,6 +69,30 @@ test('multiple edited headings keep their coordinates across blank anchors', () 
     }
 });
 
+test('heading-level edits in a long document stay within the matching budget', () => {
+    const paragraph = (section, revision) => `Document section ${section} ${revision}. `
+        + Array.from({ length: 40 }, (_, index) => `Measurement ${index} requires ${revision} observations `
+            + 'and records the outcome for the next scheduled evaluation.').join(' ');
+    const before = Array.from({ length: 10 }, (_, index) => [
+        `#### Section ${index}`, '', paragraph(index, 'previous'), '',
+        `#### Stable heading ${index}`, '', `The final note for section ${index} stays here.`, ''
+    ]).flat();
+    const after = Array.from({ length: 10 }, (_, index) => [
+        `### Section ${index}`, '', paragraph(index, 'updated'), '',
+        `#### Inserted subsection ${index}`, '', `### Stable heading ${index}`, '',
+        `The final note for section ${index} stays here.`, ''
+    ]).flat();
+    for (const [left, right] of [[before, after], [after, before]]) {
+        const model = buildTwoWayDiffModel(left.join('\n'), right.join('\n'));
+        assert.equal(model.quality, 'exact', 'Heading matching must not exhaust the default diff budget');
+        assertPreserved(model, left.slice(0, -1), right.slice(0, -1));
+        for (let index = 0; index < 10; index++) {
+            const row = model.rows.find(candidate => candidate.left.content.endsWith(`Stable heading ${index}`));
+            assert.ok(row.right.content.endsWith(`Stable heading ${index}`));
+        }
+    }
+});
+
 test('named blocks anchor before matching braces across indentation and nesting changes', () => {
     // Synthetic configuration: no application code is needed to reproduce the ambiguity.
     const before = [
