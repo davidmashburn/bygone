@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.7
+
+- Match edited headings across inserted sections instead of anchoring them to unrelated headings at a shared blank line.
+
 ## 0.13.6
 
 - Show diff computation status in a floating indicator so it no longer shifts the header or editors.

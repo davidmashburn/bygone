@@ -266,6 +266,44 @@ function diffAnchoredLines(leftLines: string[], rightLines: string[], timeoutMs:
         const interned = internDiffLines(leftLines.slice(leftStart, leftEnd), rightLines.slice(rightStart, rightEnd));
         const gap = Diff.diffArrays(interned.left, interned.right, { timeout: deadline - Date.now() });
         if (!gap) return false;
+        // A shared blank line is weak evidence: it must not separate a confident
+        // edited-line pair (for example, a heading whose Markdown level changed).
+        let leftOffset = 0;
+        let rightOffset = 0;
+        const blankAnchors = gap.flatMap(change => {
+            const anchor = !change.added && !change.removed
+                && change.value.every(id => !interned.lines[id].trim())
+                ? [{ left: leftOffset, right: rightOffset, length: change.value.length }] : [];
+            if (!change.added) leftOffset += change.value.length;
+            if (!change.removed) rightOffset += change.value.length;
+            return anchor;
+        });
+        if (blankAnchors.length) {
+            const leftGap = leftLines.slice(leftStart, leftEnd);
+            const rightGap = rightLines.slice(rightStart, rightEnd);
+            const anchors = collectLargeHunkAnchors(leftGap, rightGap, false);
+            const crossesBlank = anchors.some(pair => blankAnchors.some(blank => (
+                (pair.leftIndex < blank.left && pair.rightIndex >= blank.right + blank.length)
+                || (pair.rightIndex < blank.right && pair.leftIndex >= blank.left + blank.length)
+            )));
+            if (crossesBlank) {
+                const leftBase = leftStart;
+                const rightBase = rightStart;
+                // Preserve exact context in the remaining gaps, including blanks.
+                // Only the conflicting blank correspondence gives way.
+                for (const pair of anchors) {
+                    if (!appendGap(leftBase + pair.leftIndex, rightBase + pair.rightIndex)) return false;
+                    const left = leftGap[pair.leftIndex];
+                    const right = rightGap[pair.rightIndex];
+                    if (left === right) changes.push({ value: [left] });
+                    else changes.push({ removed: true, value: [left] }, { added: true, value: [right] });
+                    // Offsets are relative to the original gap, not its shrinking remainder.
+                    leftStart = leftBase + pair.leftIndex + 1;
+                    rightStart = rightBase + pair.rightIndex + 1;
+                }
+                return appendGap(leftEnd, rightEnd);
+            }
+        }
         changes.push(...gap.map(change => ({ ...change, value: change.value.map(id => interned.lines[id]) })));
         return true;
     };

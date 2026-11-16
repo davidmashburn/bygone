@@ -263,6 +263,17 @@ app.whenReady().then(async () => {
             assert.deepEqual(ranges, expected, 'Bare identifier edges remain unhighlighted');
         }
         const conditionBefore = '    if item.ready is None and self.now >= item.cutoff:';
+        for (const trailingNewlines of [1, 2, 3]) {
+            await show({type: 'showDiff', file1: 'heading-before.md', file2: 'heading-after.md',
+                leftContent: '#### Some title is here' + '\n'.repeat(trailingNewlines),
+                rightContent: '#### Lots writing now\n\n### Some title is here'});
+            const pairs = await evaluate(`${editors}.map(e => e.getModel().getAllDecorations()
+                .filter(d => d.options.className === 'bygone-paired-line')
+                .map(d => d.range.startLineNumber))`);
+            assert.ok(pairs[0].includes(1), 'Original heading is paired');
+            assert.ok(pairs[1].includes(3), 'Edited heading is paired across the blank line');
+            assert.ok(!pairs[1].includes(1), 'Inserted heading stays one-sided');
+        }
         const conditionAfter = '    if (\n        item.ready is None\n        and item.cutoff <= self.now\n        <= item.cutoff + GRACE\n    ):';
         for (const count of [2, 3]) {
             const contents = [conditionBefore, conditionBefore, conditionAfter];

@@ -32,6 +32,43 @@ function emphasizedRanges(line) {
     });
 }
 
+for (const blankCount of [0, 1, 2, 3]) {
+    for (const reverse of [false, true]) {
+        test(`edited heading wins over a shared blank (${blankCount} blanks, reverse=${reverse})`, () => {
+            const before = ['#### Some title is here', ...Array(blankCount).fill('')];
+            const after = ['#### Lots writing now', '', '### Some title is here'];
+            const [left, right] = reverse ? [after, before] : [before, after];
+            const model = buildTwoWayDiffModel(left.join('\n'), right.join('\n'));
+            const normalizedBefore = blankCount ? before.slice(0, -1) : before;
+            assertPreserved(model, reverse ? after : normalizedBefore, reverse ? normalizedBefore : after);
+            const heading = model.rows.find(row => row.left.lineNumber === (reverse ? 3 : 1));
+            assert.equal(heading.right.lineNumber, reverse ? 1 : 3);
+        });
+    }
+}
+
+test('blank context stays unchanged when edited lines do not cross it', () => {
+    const model = buildTwoWayDiffModel('first: old\n\nsecond: old', 'first: revised\n\nsecond: revised');
+    const blank = model.rows.find(row => row.left.lineNumber === 2);
+    assert.equal(blank.right.lineNumber, 2);
+    assert.equal(blank.left.kind, 'context');
+    assert.equal(blank.right.kind, 'context');
+});
+
+test('multiple edited headings keep their coordinates across blank anchors', () => {
+    const left = ['#### First original heading', '', '#### Second original heading', '', 'end'];
+    const right = ['#### Inserted heading', '', '### First original heading', '', '### Second original heading', '', 'end'];
+    for (const reverse of [false, true]) {
+        const [before, after] = reverse ? [right, left] : [left, right];
+        const model = buildTwoWayDiffModel(before.join('\n'), after.join('\n'));
+        assertPreserved(model, before, after);
+        for (const [from, to] of [[1, 3], [3, 5], [5, 7]]) {
+            const row = model.rows.find(row => row.left.lineNumber === (reverse ? to : from));
+            assert.equal(row.right.lineNumber, reverse ? from : to);
+        }
+    }
+});
+
 test('named blocks anchor before matching braces across indentation and nesting changes', () => {
     // Synthetic configuration: no application code is needed to reproduce the ambiguity.
     const before = [
